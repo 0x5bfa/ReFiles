@@ -1,0 +1,28 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.FolderBrowser"
+	x:Name="Root"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.Views"
+	xmlns:vm="using:Files.ViewModels">
+	<ContentPresenter x:Name="FolderViewPresenter">
+		<ContentPresenter.Resources>
+			<DataTemplate
+				x:Key="DetailsTemplate"
+				x:DataType="vm:FolderBrowserViewModel">
+				<local:DetailsFolderView ViewModel="{x:Bind}" />
+			</DataTemplate>
+			<DataTemplate
+				x:Key="GridTemplate"
+				x:DataType="vm:FolderBrowserViewModel">
+				<local:GridFolderView ViewModel="{x:Bind}" />
+			</DataTemplate>
+			<DataTemplate
+				x:Key="ListTemplate"
+				x:DataType="vm:FolderBrowserViewModel">
+				<local:ListFolderView ViewModel="{x:Bind}" />
+			</DataTemplate>
+		</ContentPresenter.Resources>
+	</ContentPresenter>
+</UserControl>

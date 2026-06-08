@@ -1,0 +1,28 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.PaneContentView"
+	x:Name="Root"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.Views"
+	xmlns:vm="using:Files.ViewModels">
+	<ContentPresenter x:Name="PaneContentPresenter">
+		<ContentPresenter.Resources>
+			<DataTemplate
+				x:Key="FolderBrowserTemplate"
+				x:DataType="vm:PaneViewModel">
+				<local:FolderBrowser ViewModel="{x:Bind FolderBrowser, Mode=OneWay}" />
+			</DataTemplate>
+			<DataTemplate
+				x:Key="SettingsTemplate"
+				x:DataType="vm:PaneViewModel">
+				<local:SettingsView />
+			</DataTemplate>
+			<DataTemplate
+				x:Key="WebTemplate"
+				x:DataType="vm:PaneViewModel">
+				<local:WebView />
+			</DataTemplate>
+		</ContentPresenter.Resources>
+	</ContentPresenter>
+</UserControl>

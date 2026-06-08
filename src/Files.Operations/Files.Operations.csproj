@@ -1,0 +1,37 @@
+﻿<!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<CsWinRTComponent>true</CsWinRTComponent>
+		<CsWinRTWindowsMetadata>$(TargetWindowsVersion)</CsWinRTWindowsMetadata>
+		<CsWinRTEnableLogging>true</CsWinRTEnableLogging>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Manifest Include="app.manifest" />
+		<None Include="..\Files.Operations\bin\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\Files.Operations.winmd">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Link>Files.Operations.winmd</Link>
+			<Visible>false</Visible>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Windows.CsWinRT" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="False" />
+	</ItemGroup>
+
+	<Import Project="..\Satori.targets" Condition=" '$(Platform)' != 'x86' " />
+</Project>

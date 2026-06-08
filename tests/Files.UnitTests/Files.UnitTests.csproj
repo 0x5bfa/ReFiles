@@ -1,0 +1,26 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+		<OutputType>Exe</OutputType>
+		<IsPackable>false</IsPackable>
+		<Nullable>enable</Nullable>
+		<IsTestProject>true</IsTestProject>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="MSTest.TestAdapter" />
+		<PackageReference Include="MSTest.TestFramework" />
+		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Files.Core\Files.Core.csproj" />
+	</ItemGroup>
+
+</Project>

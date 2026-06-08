@@ -1,0 +1,54 @@
+<Solution>
+  <Configurations>
+    <Platform Name="arm64" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Files.Controls/Files.Controls.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/FilesLauncher/FilesLauncher.vcxproj" Id="25fd5045-6d4c-4dd0-b3ac-613ab59cbb07" />
+    <Project Path="src/Files.Operations/Files.Operations.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+      <Deploy />
+    </Project>
+    <Project Path="src/Files/Files.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+      <Deploy Solution="Debug|x64" />
+    </Project>
+    <Project Path="src/Files.SourceGenerators/Files.SourceGenerators.csproj" />
+    <Project Path="src/Files.Core/Files.Core.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Files.UnitTests/Files.UnitTests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="tests/Files.Benchmarks/Files.Benchmarks.csproj">
+      <Platform Solution="Debug|x64" Project="x64" />
+    </Project>
+    <Project Path="tests/Files.ControlTests/Files.ControlTests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+      <Deploy />
+    </Project>
+    <Project Path="tests/Files.AxeTests/Files.AxeTests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+  </Folder>
+</Solution>

@@ -1,0 +1,23 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.ListFolderView"
+	x:Name="Root"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:vm="using:Files.ViewModels">
+	<ListView
+		x:Name="ItemList"
+		ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+		SelectionMode="Multiple">
+		<ListView.ItemTemplate>
+			<DataTemplate x:DataType="vm:BrowseItemViewModel">
+				<StackPanel Padding="10,8">
+					<TextBlock Text="{x:Bind Name}" />
+					<TextBlock
+						Opacity="0.7"
+						Text="{x:Bind Kind}" />
+				</StackPanel>
+			</DataTemplate>
+		</ListView.ItemTemplate>
+	</ListView>
+</UserControl>

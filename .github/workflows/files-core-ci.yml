@@ -1,0 +1,74 @@
+# Copyright (c) Files Community
+# Licensed under the MIT License.
+
+name: Files.Core CI
+
+on:
+  push:
+    branches:
+      - new
+    paths:
+      - '.github/workflows/files-core-ci.yml'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'src/Files.App.CsWin32/**'
+      - 'src/Files.Core/**'
+      - 'tests/Files.Benchmarks/**'
+      - 'tests/Files.UnitTests/**'
+  pull_request:
+    paths:
+      - '.github/workflows/files-core-ci.yml'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - 'src/Files.App.CsWin32/**'
+      - 'src/Files.Core/**'
+      - 'tests/Files.Benchmarks/**'
+      - 'tests/Files.UnitTests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore Files.Core tests
+        run: >
+          dotnet restore tests/Files.UnitTests/Files.UnitTests.csproj
+          -p:Platform=x64
+
+      - name: Build Files.Core tests
+        run: >
+          dotnet build tests/Files.UnitTests/Files.UnitTests.csproj
+          --configuration Release
+          --no-restore
+          -p:Platform=x64
+
+      - name: Run Files.Core tests
+        run: >
+          dotnet test tests/Files.UnitTests/Files.UnitTests.csproj
+          --configuration Release
+          --no-build
+          -p:Platform=x64
+
+      - name: Run benchmark smoke test
+        run: >
+          dotnet run
+          --project tests/Files.Benchmarks/Files.Benchmarks.csproj
+          --configuration Release
+          -p:Platform=x64
+          --
+          --smoke

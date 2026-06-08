@@ -1,0 +1,42 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.ToolbarView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	x:Name="Root">
+	<Grid
+		Padding="8,4"
+		Background="{ThemeResource CardBackgroundFillColorSecondary}"
+		BackgroundSizing="InnerBorderEdge"
+		BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+		BorderThickness="1"
+		ColumnSpacing="6"
+		CornerRadius="8">
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="*" />
+			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
+		</Grid.ColumnDefinitions>
+
+		<TextBlock
+			VerticalAlignment="Center"
+			FontWeight="SemiBold"
+			Text="{x:Bind ViewModel.ActiveTabTitle, Mode=OneWay}" />
+		<Button
+			ToolTipService.ToolTip="{x:Bind ViewModel.NewPaneCommand.ToolTip, Mode=OneWay}"
+			AutomationProperties.Name="{x:Bind ViewModel.NewPaneCommand.AutomationName, Mode=OneWay}"
+			Grid.Column="1"
+			Command="{x:Bind ViewModel.NewPaneCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}">
+			<SymbolIcon Symbol="Add" />
+		</Button>
+		<Button
+			ToolTipService.ToolTip="{x:Bind ViewModel.ClosePaneCommand.ToolTip, Mode=OneWay}"
+			AutomationProperties.Name="{x:Bind ViewModel.ClosePaneCommand.AutomationName, Mode=OneWay}"
+			Grid.Column="2"
+			Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}">
+			<SymbolIcon Symbol="Cancel" />
+		</Button>
+	</Grid>
+</UserControl>

@@ -1,0 +1,32 @@
+﻿<!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+		<UseWinUI>true</UseWinUI>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<DefineConstants>$(DefineConstants);OMNIBAR_DEBUG</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.WinUI.Extensions" />
+		<PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" />
+		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Update="Microsoft.WindowsAppSDK.AI" ExcludeAssets="all" />
+		<PackageReference Update="Microsoft.WindowsAppSDK.ML" ExcludeAssets="all" />
+		<PackageReference Update="Microsoft.WindowsAppSDK.Widgets" ExcludeAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+</Project>
