@@ -14,9 +14,7 @@ public sealed record PreviewContentType
 			|| separator == mediaType.Length - 1
 			|| mediaType.Any(char.IsWhiteSpace))
 		{
-			throw new ArgumentException(
-				"The media type must contain non-empty type and subtype parts.",
-				nameof(mediaType));
+			throw new ArgumentException("The media type must contain non-empty type and subtype parts.", nameof(mediaType));
 		}
 
 		MediaType = mediaType;

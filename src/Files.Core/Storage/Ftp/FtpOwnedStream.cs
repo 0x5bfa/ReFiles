@@ -14,9 +14,7 @@ internal sealed class FtpOwnedStream : Stream
 	private readonly IFtpSession session;
 	private int isDisposed;
 
-	public FtpOwnedStream(
-		Stream innerStream,
-		IFtpSession session)
+	public FtpOwnedStream(Stream innerStream, IFtpSession session)
 	{
 		ArgumentNullException.ThrowIfNull(innerStream);
 		ArgumentNullException.ThrowIfNull(session);
@@ -54,22 +52,16 @@ internal sealed class FtpOwnedStream : Stream
 
 	public override void Flush() => innerStream.Flush();
 
-	public override Task FlushAsync(
-		CancellationToken cancellationToken)
+	public override Task FlushAsync(CancellationToken cancellationToken)
 		=> innerStream.FlushAsync(cancellationToken);
 
-	public override int Read(
-		byte[] buffer,
-		int offset,
-		int count)
+	public override int Read(byte[] buffer, int offset, int count)
 		=> innerStream.Read(buffer, offset, count);
 
 	public override int Read(Span<byte> buffer)
 		=> innerStream.Read(buffer);
 
-	public override ValueTask<int> ReadAsync(
-		Memory<byte> buffer,
-		CancellationToken cancellationToken = default)
+	public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		=> innerStream.ReadAsync(buffer, cancellationToken);
 
 	public override long Seek(long offset, SeekOrigin origin)
@@ -78,18 +70,13 @@ internal sealed class FtpOwnedStream : Stream
 	public override void SetLength(long value)
 		=> innerStream.SetLength(value);
 
-	public override void Write(
-		byte[] buffer,
-		int offset,
-		int count)
+	public override void Write(byte[] buffer, int offset, int count)
 		=> innerStream.Write(buffer, offset, count);
 
 	public override void Write(ReadOnlySpan<byte> buffer)
 		=> innerStream.Write(buffer);
 
-	public override ValueTask WriteAsync(
-		ReadOnlyMemory<byte> buffer,
-		CancellationToken cancellationToken = default)
+	public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
 		=> innerStream.WriteAsync(buffer, cancellationToken);
 
 	public override async ValueTask DisposeAsync()
@@ -126,17 +113,14 @@ internal sealed class FtpOwnedStream : Stream
 			errors.Add(error);
 		}
 
-		TryWait(
-			session.CompleteTransferAsync(CancellationToken.None),
-			errors);
+		TryWait(session.CompleteTransferAsync(CancellationToken.None), errors);
 		TryWait(session.DisposeAsync(), errors);
 		base.Dispose(disposing);
 		GC.SuppressFinalize(this);
 		ThrowDisposalErrors(errors);
 	}
 
-	private async ValueTask TryDisposeStreamAsync(
-		ICollection<Exception> errors)
+	private async ValueTask TryDisposeStreamAsync(ICollection<Exception> errors)
 	{
 		try
 		{
@@ -148,8 +132,7 @@ internal sealed class FtpOwnedStream : Stream
 		}
 	}
 
-	private async ValueTask TryCompleteTransferAsync(
-		ICollection<Exception> errors)
+	private async ValueTask TryCompleteTransferAsync(ICollection<Exception> errors)
 	{
 		try
 		{
@@ -163,8 +146,7 @@ internal sealed class FtpOwnedStream : Stream
 		}
 	}
 
-	private async ValueTask TryDisposeSessionAsync(
-		ICollection<Exception> errors)
+	private async ValueTask TryDisposeSessionAsync(ICollection<Exception> errors)
 	{
 		try
 		{
@@ -176,9 +158,7 @@ internal sealed class FtpOwnedStream : Stream
 		}
 	}
 
-	private static void TryWait(
-		ValueTask operation,
-		ICollection<Exception> errors)
+	private static void TryWait(ValueTask operation, ICollection<Exception> errors)
 	{
 		try
 		{
@@ -190,8 +170,7 @@ internal sealed class FtpOwnedStream : Stream
 		}
 	}
 
-	private static void ThrowDisposalErrors(
-		IReadOnlyCollection<Exception> errors)
+	private static void ThrowDisposalErrors(IReadOnlyCollection<Exception> errors)
 	{
 		if (errors.Count is 1)
 		{
@@ -200,9 +179,7 @@ internal sealed class FtpOwnedStream : Stream
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"The FTP data transfer did not close cleanly.",
-				errors);
+			throw new AggregateException("The FTP data transfer did not close cleanly.", errors);
 		}
 	}
 }

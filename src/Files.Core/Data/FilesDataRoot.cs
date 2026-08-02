@@ -78,19 +78,14 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		}
 	}
 
-	public async ValueTask<IStorableModel> ResolveAsync(
-		StorageSourceId sourceId,
-		StorageAddress address,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(address);
 
 		var source = GetSource(sourceId);
 		if (!source.CanResolve(address))
 		{
-			throw new ArgumentException(
-				$"Storage source '{sourceId}' cannot resolve address scheme '{address.Scheme}'.",
-				nameof(address));
+			throw new ArgumentException($"Storage source '{sourceId}' cannot resolve address scheme '{address.Scheme}'.", nameof(address));
 		}
 
 		var coreModel = await source
@@ -99,9 +94,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		return ModelFactory.Create(source, coreModel);
 	}
 
-	public ValueTask<IStorableModel> ResolveAsync(
-		StorageAddress address,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(isDisposed, this);
 		ArgumentNullException.ThrowIfNull(address);
@@ -113,19 +106,14 @@ public sealed class FilesDataRoot : IFilesDataRoot
 
 		return candidates.Length switch
 		{
-			0 => ValueTask.FromException<IStorableModel>(
-				new KeyNotFoundException(
-					$"No storage source can resolve address scheme '{address.Scheme}'.")),
+			0 => ValueTask.FromException<IStorableModel>(new KeyNotFoundException($"No storage source can resolve address scheme '{address.Scheme}'.")),
 			1 => ResolveAsync(candidates[0].SourceId, address, cancellationToken),
 			_ => ValueTask.FromException<IStorableModel>(
-				new InvalidOperationException(
-					$"More than one storage source can resolve address scheme '{address.Scheme}'. Specify a source ID.")),
+				new InvalidOperationException($"More than one storage source can resolve address scheme '{address.Scheme}'. Specify a source ID.")),
 		};
 	}
 
-	public async ValueTask<IStorableModel> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 
@@ -173,9 +161,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 
 		if (errors is { Count: > 1 })
 		{
-			throw new AggregateException(
-				"One or more storage sources could not be disposed.",
-				errors);
+			throw new AggregateException("One or more storage sources could not be disposed.", errors);
 		}
 	}
 

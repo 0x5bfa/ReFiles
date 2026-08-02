@@ -17,9 +17,7 @@ public static class ItemFeatureExtensions
 		return host.Features.Get<TFeature>();
 	}
 
-	public static bool TryGet<TFeature>(
-		this IHasItemFeatures host,
-		[NotNullWhen(true)] out TFeature? feature)
+	public static bool TryGet<TFeature>(this IHasItemFeatures host, [NotNullWhen(true)] out TFeature? feature)
 		where TFeature : class
 	{
 		ArgumentNullException.ThrowIfNull(host);

@@ -10,41 +10,21 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public interface IFtpSession : IAsyncDisposable
 {
-	ValueTask<FtpEntryInfo?> GetEntryAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default);
+	ValueTask<FtpEntryInfo?> GetEntryAsync(FtpPath path, CancellationToken cancellationToken = default);
 
-	ValueTask<IReadOnlyList<FtpEntryInfo>> GetListingAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default);
+	ValueTask<IReadOnlyList<FtpEntryInfo>> GetListingAsync(FtpPath path, CancellationToken cancellationToken = default);
 
-	ValueTask<Stream> OpenReadAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default);
+	ValueTask<Stream> OpenReadAsync(FtpPath path, CancellationToken cancellationToken = default);
 
-	ValueTask<Stream> OpenWriteAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default);
+	ValueTask<Stream> OpenWriteAsync(FtpPath path, CancellationToken cancellationToken = default);
 
-	ValueTask CompleteTransferAsync(
-		CancellationToken cancellationToken = default);
+	ValueTask CompleteTransferAsync(CancellationToken cancellationToken = default);
 
-	ValueTask CreateFileAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default);
+	ValueTask CreateFileAsync(FtpPath path, CancellationToken cancellationToken = default);
 
-	ValueTask CreateFolderAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default);
+	ValueTask CreateFolderAsync(FtpPath path, CancellationToken cancellationToken = default);
 
-	ValueTask DeleteAsync(
-		FtpPath path,
-		FtpEntryKind kind,
-		CancellationToken cancellationToken = default);
+	ValueTask DeleteAsync(FtpPath path, FtpEntryKind kind, CancellationToken cancellationToken = default);
 
-	ValueTask MoveAsync(
-		FtpPath sourcePath,
-		FtpPath destinationPath,
-		FtpEntryKind kind,
-		CancellationToken cancellationToken = default);
+	ValueTask MoveAsync(FtpPath sourcePath, FtpPath destinationPath, FtpEntryKind kind, CancellationToken cancellationToken = default);
 }

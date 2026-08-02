@@ -11,20 +11,16 @@ namespace Files.Core.ItemFeatures.Previews;
 public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolver
 {
 	private readonly IWindowsPreviewHandlerAssociation association;
-	private readonly Dictionary<string, CacheEntry> cache = new(
-		StringComparer.OrdinalIgnoreCase);
+	private readonly Dictionary<string, CacheEntry> cache = new(StringComparer.OrdinalIgnoreCase);
 	private readonly object cacheLock = new();
 
-	public WindowsPreviewHandlerResolver(
-		IWindowsPreviewHandlerAssociation association)
+	public WindowsPreviewHandlerResolver(IWindowsPreviewHandlerAssociation association)
 	{
 		ArgumentNullException.ThrowIfNull(association);
 		this.association = association;
 	}
 
-	public ValueTask<Guid?> ResolveAsync(
-		ItemContext context,
-		CancellationToken cancellationToken = default)
+	public ValueTask<Guid?> ResolveAsync(ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -35,10 +31,7 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 			return ValueTask.FromResult<Guid?>(null);
 		}
 
-		var extension = NormalizeExtension(
-			Path.GetExtension(
-				((IWindowsStorable)context.CoreModel).FileSystemPath
-					?? file.Name))
+		var extension = NormalizeExtension(Path.GetExtension(((IWindowsStorable)context.CoreModel).FileSystemPath ?? file.Name))
 			?? NormalizeExtension(Path.GetExtension(file.Name));
 		if (extension is null)
 		{

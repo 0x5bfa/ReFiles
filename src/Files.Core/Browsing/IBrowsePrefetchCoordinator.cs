@@ -10,8 +10,5 @@ namespace Files.Core.Browsing;
 /// </summary>
 public interface IBrowsePrefetchCoordinator : IAsyncDisposable
 {
-	void UpdateViewport(
-		BrowseViewport viewport,
-		BrowseViewSettings settings,
-		long browseGeneration);
+	void UpdateViewport(BrowseViewport viewport, BrowseViewSettings settings, long browseGeneration);
 }

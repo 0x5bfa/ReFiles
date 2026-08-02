@@ -44,14 +44,10 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 	public event EventHandler? StateChanged;
 
-	public async ValueTask<WindowModel> CreateWindowAsync(
-		BrowseLocation? initialLocation = null,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<WindowModel> CreateWindowAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await mutationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -92,10 +88,7 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Window creation and cleanup failed.",
-					creationError,
-					cleanupError);
+				throw new AggregateException("Window creation and cleanup failed.", creationError, cleanupError);
 			}
 
 			throw;
@@ -106,21 +99,15 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask<bool> CloseWindowAsync(
-		Guid windowId,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<bool> CloseWindowAsync(Guid windowId, CancellationToken cancellationToken = default)
 	{
 		if (windowId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A window ID is required.",
-				nameof(windowId));
+			throw new ArgumentException("A window ID is required.", nameof(windowId));
 		}
 
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await mutationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -170,9 +157,7 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 	{
 		if (windowId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A window ID is required.",
-				nameof(windowId));
+			throw new ArgumentException("A window ID is required.", nameof(windowId));
 		}
 
 		var changed = false;
@@ -263,17 +248,13 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 		if (errors is { Count: > 1 })
 		{
-			throw new AggregateException(
-				"One or more application windows could not be disposed.",
-				errors);
+			throw new AggregateException("One or more application windows could not be disposed.", errors);
 		}
 	}
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(
-			ref windowSnapshot,
-			Array.AsReadOnly(windows.ToArray()));
+		Volatile.Write(ref windowSnapshot, Array.AsReadOnly(windows.ToArray()));
 	}
 
 	private void EnsureActive()

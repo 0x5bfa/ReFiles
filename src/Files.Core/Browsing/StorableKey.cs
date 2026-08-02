@@ -5,6 +5,4 @@ using Files.Core.Storage;
 
 namespace Files.Core.Browsing;
 
-public readonly record struct StorableKey(
-	StorageSourceId SourceId,
-	string ItemId);
+public readonly record struct StorableKey(StorageSourceId SourceId, string ItemId);

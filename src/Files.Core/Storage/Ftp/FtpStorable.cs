@@ -15,10 +15,7 @@ public abstract class FtpStorable :
 {
 	private readonly FtpStorageSource source;
 
-	internal FtpStorable(
-		FtpStorageSource source,
-		FtpStorableSnapshot snapshot,
-		FtpStorableFactory factory)
+	internal FtpStorable(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(snapshot);
@@ -46,14 +43,11 @@ public abstract class FtpStorable :
 
 	public FtpEntryKind Kind => Snapshot.Kind;
 
-	public async Task<IFolder?> GetParentAsync(
-		CancellationToken cancellationToken = default)
+	public async Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
 	{
 		var parentPath = Path.Parent;
 		if (parentPath is null
-			|| !parentPath.IsWithin(
-				source.Profile.RootPath,
-				source.Profile.PathComparer))
+			|| !parentPath.IsWithin(source.Profile.RootPath, source.Profile.PathComparer))
 		{
 			return null;
 		}
@@ -62,8 +56,7 @@ public abstract class FtpStorable :
 			.ResolveAsync(parentPath, cancellationToken)
 			.ConfigureAwait(false);
 		return parent as IFolder
-			?? throw new InvalidOperationException(
-				"The FTP parent path did not resolve to a folder.");
+			?? throw new InvalidOperationException("The FTP parent path did not resolve to a folder.");
 	}
 
 	public bool Equals(FtpStorable? other)
@@ -77,9 +70,7 @@ public abstract class FtpStorable :
 		=> Equals(obj as FtpStorable);
 
 	public override int GetHashCode()
-		=> HashCode.Combine(
-			source.SourceId,
-			StringComparer.Ordinal.GetHashCode(Id));
+		=> HashCode.Combine(source.SourceId, StringComparer.Ordinal.GetHashCode(Id));
 
 	public override string ToString() => Address.ToString();
 }

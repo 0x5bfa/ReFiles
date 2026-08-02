@@ -17,10 +17,7 @@ public sealed class WindowCommandManager : IDisposable
 	private readonly object syncRoot = new();
 	private int isDisposed;
 
-	public WindowCommandManager(
-		RootViewModel root,
-		CommandRegistry registry,
-		IUIDispatcher dispatcher)
+	public WindowCommandManager(RootViewModel root, CommandRegistry registry, IUIDispatcher dispatcher)
 	{
 		ArgumentNullException.ThrowIfNull(root);
 		ArgumentNullException.ThrowIfNull(registry);
@@ -31,9 +28,7 @@ public sealed class WindowCommandManager : IDisposable
 		handlers = new(registry.CreateHandlers(root));
 		foreach (var descriptor in registry.Descriptors)
 		{
-			bindings.Add(
-				descriptor.Id,
-				new CommandBindingViewModel(this, descriptor));
+			bindings.Add(descriptor.Id, new CommandBindingViewModel(this, descriptor));
 		}
 	}
 
@@ -42,8 +37,7 @@ public sealed class WindowCommandManager : IDisposable
 		EnsureActive();
 		if (!bindings.TryGetValue(id, out var binding))
 		{
-			throw new KeyNotFoundException(
-				$"The command ID '{id}' is not registered.");
+			throw new KeyNotFoundException($"The command ID '{id}' is not registered.");
 		}
 
 		return binding;
@@ -58,17 +52,9 @@ public sealed class WindowCommandManager : IDisposable
 
 		if (!dispatcher.HasThreadAccess)
 		{
-			if (!dispatcher.TryEnqueue(
-				() =>
-				{
-					if (Volatile.Read(ref isDisposed) is 0)
-					{
-						RefreshStates();
-					}
-				}))
+			if (!dispatcher.TryEnqueue(() => {if (Volatile.Read(ref isDisposed) is 0) {RefreshStates();}}))
 			{
-				throw new InvalidOperationException(
-					"The Files UI dispatcher rejected command state updates.");
+				throw new InvalidOperationException("The Files UI dispatcher rejected command state updates.");
 			}
 
 			return;
@@ -81,16 +67,12 @@ public sealed class WindowCommandManager : IDisposable
 		}
 	}
 
-	public async Task<CommandExecutionResult> ExecuteAsync(
-		CommandId id,
-		object? parameter = null,
-		CancellationToken cancellationToken = default)
+	public async Task<CommandExecutionResult> ExecuteAsync(CommandId id, object? parameter = null, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 		if (!handlers.TryGetValue(id, out var handler))
 		{
-			throw new KeyNotFoundException(
-				$"The command ID '{id}' is not registered.");
+			throw new KeyNotFoundException($"The command ID '{id}' is not registered.");
 		}
 
 		var context = new CommandContext(root, parameter);
@@ -117,9 +99,7 @@ public sealed class WindowCommandManager : IDisposable
 				previous.Cancel();
 			}
 
-			callCancellation = CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			callCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 			activeCalls[id] = callCancellation;
 		}
 
@@ -201,17 +181,12 @@ public sealed class WindowCommandManager : IDisposable
 			return;
 		}
 
-		if (!dispatcher.TryEnqueue(
-			() => root.ReportOperationError(exception)))
+		if (!dispatcher.TryEnqueue(() => root.ReportOperationError(exception)))
 		{
-			throw new InvalidOperationException(
-				"The Files UI dispatcher rejected a command error.",
-				exception);
+			throw new InvalidOperationException("The Files UI dispatcher rejected a command error.", exception);
 		}
 	}
 
 	private void EnsureActive() =>
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) is not 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
 }

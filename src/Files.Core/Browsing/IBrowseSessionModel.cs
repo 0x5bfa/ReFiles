@@ -41,16 +41,9 @@ public interface IBrowseSessionModel : IDisposable, IAsyncDisposable
 
 	ValueTask RefreshAsync(CancellationToken cancellationToken = default);
 
-	ValueTask UpdateViewSettingsAsync(
-		BrowseViewSettings settings,
-		CancellationToken cancellationToken = default);
+	ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default);
 
-	bool TryGetPresentation(
-		StorableKey key,
-		out BrowseItemPresentation presentation);
+	bool TryGetPresentation(StorableKey key, out BrowseItemPresentation presentation);
 
-	void SetSelection(
-		IEnumerable<StorableKey> selectedKeys,
-		StorableKey? focusedKey,
-		StorableKey? anchorKey);
+	void SetSelection(IEnumerable<StorableKey> selectedKeys, StorableKey? focusedKey, StorableKey? anchorKey);
 }

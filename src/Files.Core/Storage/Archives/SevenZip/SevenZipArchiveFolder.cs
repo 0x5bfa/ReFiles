@@ -9,16 +9,12 @@ namespace Files.Core.Storage.Archives.SevenZip;
 internal sealed class SevenZipArchiveFolder
 	: SevenZipArchiveStorable, IChildFolder
 {
-	public SevenZipArchiveFolder(
-		SevenZipArchiveMount mount,
-		SevenZipArchiveNode node)
+	public SevenZipArchiveFolder(SevenZipArchiveMount mount, SevenZipArchiveNode node)
 		: base(mount, node)
 	{
 		if (!node.IsDirectory)
 		{
-			throw new ArgumentException(
-				"An archive folder requires a directory entry.",
-				nameof(node));
+			throw new ArgumentException("An archive folder requires a directory entry.", nameof(node));
 		}
 	}
 

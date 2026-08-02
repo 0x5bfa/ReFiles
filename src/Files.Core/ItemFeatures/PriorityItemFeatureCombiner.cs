@@ -9,9 +9,7 @@ namespace Files.Core.ItemFeatures;
 public sealed class PriorityItemFeatureCombiner<TFeature> : IItemFeatureCombiner<TFeature>
 	where TFeature : class
 {
-	public TFeature? Combine(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<TFeature>> options)
+	public TFeature? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
@@ -28,8 +26,7 @@ public sealed class PriorityItemFeatureCombiner<TFeature> : IItemFeatureCombiner
 
 		if (matches.Length is not 1)
 		{
-			throw new InvalidOperationException(
-				$"Item feature '{typeof(TFeature).FullName}' has more than one option at priority {highestPriority}.");
+			throw new InvalidOperationException($"Item feature '{typeof(TFeature).FullName}' has more than one option at priority {highestPriority}.");
 		}
 
 		return matches[0].Feature;

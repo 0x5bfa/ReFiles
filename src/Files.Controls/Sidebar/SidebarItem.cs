@@ -505,14 +505,7 @@ namespace Files.Controls
 			if (canHoverExpand)
 			{
 				dragOverExpandTimer ??= DispatcherQueue.CreateTimer();
-				dragOverExpandTimer.Debounce(
-					() =>
-					{
-						dragOverExpandTimer!.Stop();
-						IsExpanded = true;
-					},
-					expandDelay,
-					false);
+				dragOverExpandTimer.Debounce(() => {dragOverExpandTimer!.Stop(); IsExpanded = true;}, expandDelay, false);
 			}
 			else
 			{
@@ -521,14 +514,7 @@ namespace Files.Controls
 			if (canHoverOpen)
 			{
 				dragOverTimer ??= DispatcherQueue.CreateTimer();
-				dragOverTimer.Debounce(
-					() =>
-					{
-						dragOverTimer!.Stop();
-						RaiseItemInvoked(PointerUpdateKind.Other);
-					},
-					openDelay,
-					false);
+				dragOverTimer.Debounce(() => {dragOverTimer!.Stop(); RaiseItemInvoked(PointerUpdateKind.Other);}, openDelay, false);
 			}
 			else
 			{

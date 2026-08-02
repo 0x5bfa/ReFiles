@@ -8,8 +8,5 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public interface IFtpSessionFactory
 {
-	ValueTask<IFtpSession> ConnectAsync(
-		FtpConnectionProfile profile,
-		FtpCredential credential,
-		CancellationToken cancellationToken = default);
+	ValueTask<IFtpSession> ConnectAsync(FtpConnectionProfile profile, FtpCredential credential, CancellationToken cancellationToken = default);
 }

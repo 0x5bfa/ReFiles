@@ -12,17 +12,13 @@ public static class ArchiveEntryPath
 	{
 		if (!TryNormalize(path, out var normalized))
 		{
-			throw new ArgumentException(
-				"The archive entry path must be relative and cannot traverse above the archive root.",
-				nameof(path));
+			throw new ArgumentException("The archive entry path must be relative and cannot traverse above the archive root.", nameof(path));
 		}
 
 		return normalized;
 	}
 
-	public static bool TryNormalize(
-		string? path,
-		out string normalized)
+	public static bool TryNormalize(string? path, out string normalized)
 	{
 		normalized = string.Empty;
 		if (string.IsNullOrWhiteSpace(path))
@@ -68,9 +64,7 @@ public static class ArchiveEntryPath
 		return true;
 	}
 
-	public static string Combine(
-		string parent,
-		string child)
+	public static string Combine(string parent, string child)
 	{
 		var normalizedParent = Normalize(parent);
 		var normalizedChild = Normalize(child);

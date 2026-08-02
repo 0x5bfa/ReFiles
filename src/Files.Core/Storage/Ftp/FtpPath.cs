@@ -49,9 +49,7 @@ public sealed record FtpPath
 		}
 
 		var segments = new List<string>();
-		foreach (var segment in normalized.Split(
-			'/',
-			StringSplitOptions.RemoveEmptyEntries))
+		foreach (var segment in normalized.Split('/', StringSplitOptions.RemoveEmptyEntries))
 		{
 			if (segment is ".")
 			{
@@ -62,9 +60,7 @@ public sealed record FtpPath
 			{
 				if (segments.Count is 0)
 				{
-					throw new ArgumentException(
-						"An FTP path cannot escape its root.",
-						nameof(value));
+					throw new ArgumentException("An FTP path cannot escape its root.", nameof(value));
 				}
 
 				segments.RemoveAt(segments.Count - 1);
@@ -101,13 +97,10 @@ public sealed record FtpPath
 	public FtpPath Combine(string childName)
 	{
 		ValidateName(childName);
-		return new FtpPath(
-			IsRoot ? $"/{childName}" : $"{Value}/{childName}");
+		return new FtpPath(IsRoot ? $"/{childName}" : $"{Value}/{childName}");
 	}
 
-	public bool IsWithin(
-		FtpPath root,
-		StringComparer comparer)
+	public bool IsWithin(FtpPath root, StringComparer comparer)
 	{
 		ArgumentNullException.ThrowIfNull(root);
 		ArgumentNullException.ThrowIfNull(comparer);
@@ -124,9 +117,7 @@ public sealed record FtpPath
 
 		return Value.Length > root.Value.Length
 			&& Value[root.Value.Length] is '/'
-			&& comparer.Equals(
-				Value[..root.Value.Length],
-				root.Value);
+			&& comparer.Equals(Value[..root.Value.Length], root.Value);
 	}
 
 	public string ToEscapedUriPath()
@@ -152,23 +143,17 @@ public sealed record FtpPath
 			|| name.Contains('\\')
 			|| name.Any(char.IsControl))
 		{
-			throw new ArgumentException(
-				"An FTP item name must be one path segment.",
-				nameof(name));
+			throw new ArgumentException("An FTP item name must be one path segment.", nameof(name));
 		}
 	}
 
 	public override string ToString() => Value;
 
-	private static void ValidateSegment(
-		string segment,
-		string parameterName)
+	private static void ValidateSegment(string segment, string parameterName)
 	{
 		if (segment.Any(char.IsControl))
 		{
-			throw new ArgumentException(
-				"An FTP path cannot contain control characters.",
-				parameterName);
+			throw new ArgumentException("An FTP path cannot contain control characters.", parameterName);
 		}
 	}
 }

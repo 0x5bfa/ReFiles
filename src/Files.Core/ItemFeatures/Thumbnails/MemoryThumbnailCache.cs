@@ -27,9 +27,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		this.capacity = capacity;
 	}
 
-	public ValueTask<ThumbnailCacheEntry?> GetAsync(
-		ThumbnailCacheKey key,
-		CancellationToken cancellationToken = default)
+	public ValueTask<ThumbnailCacheEntry?> GetAsync(ThumbnailCacheKey key, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -47,10 +45,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		}
 	}
 
-	public ValueTask SetAsync(
-		ThumbnailCacheKey key,
-		ThumbnailCacheEntry entry,
-		CancellationToken cancellationToken = default)
+	public ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
 		ArgumentNullException.ThrowIfNull(entry);
@@ -64,19 +59,14 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		return ValueTask.CompletedTask;
 	}
 
-	public ValueTask<long> GetInvalidationVersionAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		lock (syncRoot)
 		{
-			return ValueTask.FromResult(
-				invalidationVersions[GetInvalidationStripe(
-					reference.SourceId,
-					reference.ItemId)]);
+			return ValueTask.FromResult(invalidationVersions[GetInvalidationStripe(reference.SourceId, reference.ItemId)]);
 		}
 	}
 
@@ -105,18 +95,14 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		}
 	}
 
-	public ValueTask InvalidateAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		lock (syncRoot)
 		{
-			var stripe = GetInvalidationStripe(
-				reference.SourceId,
-				reference.ItemId);
+			var stripe = GetInvalidationStripe(reference.SourceId, reference.ItemId);
 			invalidationVersions[stripe] =
 				checked(invalidationVersions[stripe] + 1);
 			var keys = items.Keys
@@ -135,9 +121,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		return ValueTask.CompletedTask;
 	}
 
-	private void SetCore(
-		ThumbnailCacheKey key,
-		ThumbnailCacheEntry entry)
+	private void SetCore(ThumbnailCacheKey key, ThumbnailCacheEntry entry)
 	{
 		if (items.TryGetValue(key, out var existing))
 		{
@@ -159,9 +143,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 
 	private sealed class CacheItem
 	{
-		public CacheItem(
-			ThumbnailCacheEntry entry,
-			LinkedListNode<ThumbnailCacheKey> usageNode)
+		public CacheItem(ThumbnailCacheEntry entry, LinkedListNode<ThumbnailCacheKey> usageNode)
 		{
 			Entry = entry;
 			UsageNode = usageNode;
@@ -172,9 +154,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		public LinkedListNode<ThumbnailCacheKey> UsageNode { get; }
 	}
 
-	private static int GetInvalidationStripe(
-		StorageSourceId sourceId,
-		string itemId)
+	private static int GetInvalidationStripe(StorageSourceId sourceId, string itemId)
 	{
 		return (HashCode.Combine(sourceId, itemId) & int.MaxValue)
 			% InvalidationStripeCount;

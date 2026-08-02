@@ -21,23 +21,16 @@ internal sealed unsafe class WindowsShellItemResolver
 		this.scheduler = scheduler;
 	}
 
-	public Task<T> InvokeAsync<T>(
-		WindowsItemLocator locator,
-		Func<IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeAsync<T>(WindowsItemLocator locator, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(locator);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeAsync(
-			() => InvokeCore(locator, action),
-			cancellationToken);
+		return scheduler.InvokeAsync(() => InvokeCore(locator, action), cancellationToken);
 	}
 
 	// Must be called on the ordered Shell STA because it creates and compares COM objects.
-	internal static bool AreSamePidlOnCurrentSta(
-		ReadOnlyMemory<byte> firstPidl,
-		ReadOnlyMemory<byte> secondPidl)
+	internal static bool AreSamePidlOnCurrentSta(ReadOnlyMemory<byte> firstPidl, ReadOnlyMemory<byte> secondPidl)
 	{
 		if (firstPidl.IsEmpty || secondPidl.IsEmpty)
 		{
@@ -57,10 +50,7 @@ internal sealed unsafe class WindowsShellItemResolver
 	}
 
 	// Must be called on the ordered Shell STA because it creates and compares COM objects.
-	internal static bool IsInFolderOnCurrentSta(
-		ReadOnlyMemory<byte> itemPidl,
-		ReadOnlyMemory<byte> folderPidl,
-		bool recursive)
+	internal static bool IsInFolderOnCurrentSta(ReadOnlyMemory<byte> itemPidl, ReadOnlyMemory<byte> folderPidl, bool recursive)
 	{
 		if (IsParentPidl(folderPidl, itemPidl, recursive))
 		{
@@ -98,23 +88,15 @@ internal sealed unsafe class WindowsShellItemResolver
 		return false;
 	}
 
-	public Task<T> InvokeConcurrentAsync<T>(
-		WindowsItemLocator locator,
-		Func<IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeConcurrentAsync<T>(WindowsItemLocator locator, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(locator);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeConcurrentAsync(
-			() => InvokeCore(locator, action),
-			cancellationToken);
+		return scheduler.InvokeConcurrentAsync(() => InvokeCore(locator, action), cancellationToken);
 	}
 
-	public Task<T> InvokeOperationAsync<T>(
-		string parsingName,
-		Func<IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeOperationAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
@@ -122,10 +104,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		return scheduler.InvokeOperationAsync(
 			() =>
 			{
-				var result = PInvoke.SHCreateItemFromParsingName(
-					parsingName,
-					null,
-					out IShellItem shellItem);
+				var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
 
 				result.ThrowOnFailure();
 				return action(shellItem);
@@ -146,26 +125,17 @@ internal sealed unsafe class WindowsShellItemResolver
 		return scheduler.InvokeOperationAsync(
 			() =>
 			{
-				var firstResult = PInvoke.SHCreateItemFromParsingName(
-					firstParsingName,
-					null,
-					out IShellItem first);
+				var firstResult = PInvoke.SHCreateItemFromParsingName(firstParsingName, null, out IShellItem first);
 				firstResult.ThrowOnFailure();
 
-				var secondResult = PInvoke.SHCreateItemFromParsingName(
-					secondParsingName,
-					null,
-					out IShellItem second);
+				var secondResult = PInvoke.SHCreateItemFromParsingName(secondParsingName, null, out IShellItem second);
 				secondResult.ThrowOnFailure();
 				return action(first, second);
 			},
 			cancellationToken);
 	}
 
-	public Task<T> InvokeAsync<T>(
-		ReadOnlyMemory<byte> absolutePidl,
-		Func<IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeAsync<T>(ReadOnlyMemory<byte> absolutePidl, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(action);
 
@@ -184,10 +154,7 @@ internal sealed unsafe class WindowsShellItemResolver
 			cancellationToken);
 	}
 
-	public Task<T> InvokeAsync<T>(
-		string parsingName,
-		Func<IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
@@ -195,10 +162,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		return scheduler.InvokeAsync(
 			() =>
 			{
-				var result = PInvoke.SHCreateItemFromParsingName(
-					parsingName,
-					null,
-					out IShellItem shellItem);
+				var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
 
 				result.ThrowOnFailure();
 				return action(shellItem);
@@ -206,10 +170,7 @@ internal sealed unsafe class WindowsShellItemResolver
 			cancellationToken);
 	}
 
-	public Task<T> InvokeConcurrentAsync<T>(
-		string parsingName,
-		Func<IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeConcurrentAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
@@ -217,10 +178,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		return scheduler.InvokeConcurrentAsync(
 			() =>
 			{
-				var result = PInvoke.SHCreateItemFromParsingName(
-					parsingName,
-					null,
-					out IShellItem shellItem);
+				var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
 
 				if (result.Failed)
 				{
@@ -232,9 +190,7 @@ internal sealed unsafe class WindowsShellItemResolver
 			cancellationToken);
 	}
 
-	private static T InvokeCore<T>(
-		WindowsItemLocator locator,
-		Func<IShellItem, T> action)
+	private static T InvokeCore<T>(WindowsItemLocator locator, Func<IShellItem, T> action)
 	{
 		var shellItem = TryCreateFromPidl(locator.AbsolutePidl)
 			?? CreateFromParsingName(locator.ParsingName);
@@ -253,10 +209,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		{
 			var interfaceId = typeof(IShellItem).GUID;
 			void* itemPointer = null;
-			var result = PInvoke.SHCreateItemFromIDList(
-				(ITEMIDLIST*)pidlBytes,
-				&interfaceId,
-				out object itemObject);
+			var result = PInvoke.SHCreateItemFromIDList((ITEMIDLIST*)pidlBytes, &interfaceId, out object itemObject);
 
 			if (result.Failed || itemObject is not IShellItem shellItem)
 			{
@@ -269,10 +222,7 @@ internal sealed unsafe class WindowsShellItemResolver
 
 	private static IShellItem? CreateFromParsingName(string parsingName)
 	{
-		var result = PInvoke.SHCreateItemFromParsingName(
-			parsingName,
-			null,
-			out IShellItem shellItem);
+		var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
 
 		return result.Succeeded ? shellItem : null;
 	}
@@ -280,18 +230,12 @@ internal sealed unsafe class WindowsShellItemResolver
 	private static bool AreSame(IShellItem first, IShellItem second)
 	{
 		return first
-			.Compare(
-				second,
-				unchecked((uint)_SICHINTF.SICHINT_ALLFIELDS),
-				out var order)
+			.Compare(second, unchecked((uint)_SICHINTF.SICHINT_ALLFIELDS), out var order)
 			.Succeeded
 			&& order is 0;
 	}
 
-	private static unsafe bool IsParentPidl(
-		ReadOnlyMemory<byte> folderPidl,
-		ReadOnlyMemory<byte> itemPidl,
-		bool recursive)
+	private static unsafe bool IsParentPidl(ReadOnlyMemory<byte> folderPidl, ReadOnlyMemory<byte> itemPidl, bool recursive)
 	{
 		if (folderPidl.IsEmpty || itemPidl.IsEmpty)
 		{
@@ -301,10 +245,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		fixed (byte* folderBytes = folderPidl.Span)
 		fixed (byte* itemBytes = itemPidl.Span)
 		{
-			return PInvoke.ILIsParent(
-				(ITEMIDLIST*)folderBytes,
-				(ITEMIDLIST*)itemBytes,
-				!recursive);
+			return PInvoke.ILIsParent((ITEMIDLIST*)folderBytes, (ITEMIDLIST*)itemBytes, !recursive);
 		}
 	}
 }

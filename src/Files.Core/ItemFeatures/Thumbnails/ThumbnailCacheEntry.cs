@@ -10,18 +10,11 @@ public sealed class ThumbnailCacheEntry
 {
 	private readonly byte[] content;
 
-	public ThumbnailCacheEntry(
-		byte[] content,
-		string contentType,
-		bool isFallback = false)
+	public ThumbnailCacheEntry(byte[] content, string contentType, bool isFallback = false)
 	{
 		ArgumentNullException.ThrowIfNull(content);
 		if (content.Length is 0)
-		{
-			throw new ArgumentException(
-				"Thumbnail content cannot be empty.",
-				nameof(content));
-		}
+			throw new ArgumentException("Thumbnail content cannot be empty.", nameof(content));
 
 		ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
 

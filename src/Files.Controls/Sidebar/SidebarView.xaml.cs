@@ -167,13 +167,7 @@ namespace Files.Controls
 				return;
 
 			if
-			(
-				e.Key != VirtualKey.Space &&
-				e.Key != VirtualKey.Enter &&
-				e.Key != VirtualKey.Left &&
-				e.Key != VirtualKey.Right &&
-				e.Key != VirtualKey.Control
-			)
+			(e.Key != VirtualKey.Space && e.Key != VirtualKey.Enter && e.Key != VirtualKey.Left && e.Key != VirtualKey.Right && e.Key != VirtualKey.Control)
 				return;
 
 			var primaryInvocation = e.Key == VirtualKey.Space || e.Key == VirtualKey.Enter;

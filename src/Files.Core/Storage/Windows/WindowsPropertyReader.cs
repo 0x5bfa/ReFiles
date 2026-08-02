@@ -30,18 +30,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	private static readonly PROPERTYKEY dateCreatedKey = ResolvePropertyKey(DateCreated);
 	private static readonly PROPERTYKEY homeIsPinnedKey = new()
 	{
-		fmtid = new Guid(
-			0x30C8EEF4u,
-			0xA832,
-			0x41E2,
-			0xAB,
-			0x32,
-			0xE3,
-			0xC3,
-			0xCA,
-			0x28,
-			0xFD,
-			0x29),
+		fmtid = new Guid(0x30C8EEF4u, 0xA832, 0x41E2, 0xAB, 0x32, 0xE3, 0xC3, 0xCA, 0x28, 0xFD, 0x29),
 		pid = 4,
 	};
 
@@ -75,27 +64,19 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			.WhenAll(tasks)
 			.ConfigureAwait(false);
 
-		var results = entries.ToDictionary(
-			static entry => entry.Reference,
-			static entry => entry.Properties);
+		var results = entries.ToDictionary(static entry => entry.Reference, static entry => entry.Properties);
 
-		return new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(
-			results);
+		return new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(results);
 	}
 
-	private static Task<PropertyEntry> ReadOneAsync(
-		PropertyRequest request,
-		ItemContext context,
-		CancellationToken cancellationToken)
+	private static Task<PropertyEntry> ReadOneAsync(PropertyRequest request, ItemContext context, CancellationToken cancellationToken)
 	{
 		var source = (WindowsStorageSource)context.Source;
 		var item = (WindowsStorable)context.CoreModel;
 
 		return source.ShellItemResolver.InvokeConcurrentAsync(
 			((WindowsStorable)item).Locator,
-			shellItem => new PropertyEntry(
-				context.Reference,
-				ReadPropertiesCore(shellItem, request, cancellationToken)),
+			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)),
 			cancellationToken);
 	}
 
@@ -132,11 +113,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 					AddFileTime(shellItem2, dateCreatedKey, DateCreated, properties);
 					break;
 				case HomeIsPinned:
-					AddBool(
-						shellItem2,
-						homeIsPinnedKey,
-						HomeIsPinned,
-						properties);
+					AddBool(shellItem2, homeIsPinnedKey, HomeIsPinned, properties);
 					break;
 			}
 		}
@@ -144,11 +121,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		return new ReadOnlyDictionary<string, object?>(properties);
 	}
 
-	private static unsafe void AddString(
-		IShellItem2 item,
-		PROPERTYKEY key,
-		string propertyId,
-		Dictionary<string, object?> properties)
+	private static unsafe void AddString(IShellItem2 item, PROPERTYKEY key, string propertyId, Dictionary<string, object?> properties)
 	{
 		var result = item.GetString(key, out var nativeValue);
 
@@ -167,11 +140,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		}
 	}
 
-	private static void AddUInt64(
-		IShellItem2 item,
-		PROPERTYKEY key,
-		string propertyId,
-		Dictionary<string, object?> properties)
+	private static void AddUInt64(IShellItem2 item, PROPERTYKEY key, string propertyId, Dictionary<string, object?> properties)
 	{
 		var result = item.GetUInt64(key, out var value);
 
@@ -181,11 +150,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		}
 	}
 
-	private static void AddBool(
-		IShellItem2 item,
-		PROPERTYKEY key,
-		string propertyId,
-		Dictionary<string, object?> properties)
+	private static void AddBool(IShellItem2 item, PROPERTYKEY key, string propertyId, Dictionary<string, object?> properties)
 	{
 		var result = item.GetBool(key, out var value);
 
@@ -195,11 +160,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		}
 	}
 
-	private static void AddFileTime(
-		IShellItem2 item,
-		PROPERTYKEY key,
-		string propertyId,
-		Dictionary<string, object?> properties)
+	private static void AddFileTime(IShellItem2 item, PROPERTYKEY key, string propertyId, Dictionary<string, object?> properties)
 	{
 		var result = item.GetFileTime(key, out var value);
 
@@ -220,15 +181,12 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		return key;
 	}
 
-	private sealed record PropertyEntry(
-		StorableReference Reference,
-		IReadOnlyDictionary<string, object?> Properties);
+	private sealed record PropertyEntry(StorableReference Reference, IReadOnlyDictionary<string, object?> Properties);
 
 	private static class EmptyProperties
 	{
 		public static IReadOnlyDictionary<string, object?> Instance { get; }
-			= new ReadOnlyDictionary<string, object?>(
-				new Dictionary<string, object?>());
+			= new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
 	}
 
 	private static class EmptyResults

@@ -19,14 +19,9 @@ public interface IFilesDataRoot : IAsyncDisposable
 
 	IAsyncEnumerable<IFolderModel> GetRootsAsync(StorageSourceId sourceId, CancellationToken cancellationToken = default);
 
-	ValueTask<IStorableModel> ResolveAsync(
-		StorageSourceId sourceId,
-		StorageAddress address,
-		CancellationToken cancellationToken = default);
+	ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default);
 
-	ValueTask<IStorableModel> ResolveAsync(
-		StorageAddress address,
-		CancellationToken cancellationToken = default);
+	ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default);
 
 	ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default);
 }

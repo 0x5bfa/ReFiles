@@ -217,20 +217,8 @@ namespace Files.Controls
 								true);
 
 							var interpolatedGapWidth = valueLarger
-								? StorageControlsHelpers.CalculateInterpolatedValue(
-									minPercent,
-									Percent,
-									minPercent + 2.0,
-									0.0,
-									gapWidth,
-									true)
-								: StorageControlsHelpers.CalculateInterpolatedValue(
-									minPercent,
-									Percent,
-									minPercent + 2.0,
-									0.0,
-									_smallerHeight,
-									true);
+								? StorageControlsHelpers.CalculateInterpolatedValue(minPercent, Percent, minPercent + 2.0, 0.0, gapWidth, true)
+								: StorageControlsHelpers.CalculateInterpolatedValue(minPercent, Percent, minPercent + 2.0, 0.0, _smallerHeight, true);
 
 							_valueColumn.MinWidth = interpolatedValueBarHeight;
 							_trackColumn.MinWidth = interpolatedTrackBarHeight;
@@ -263,20 +251,8 @@ namespace Files.Controls
 								true);
 
 							var interpolatedGapWidth = valueLarger
-								? StorageControlsHelpers.CalculateInterpolatedValue(
-									maxPercent - 2.0,
-									Percent,
-									maxPercent,
-									0.0,
-									_smallerHeight,
-									true)
-								: StorageControlsHelpers.CalculateInterpolatedValue(
-									maxPercent - 2.0,
-									Percent,
-									maxPercent,
-									0.0,
-									gapWidth,
-									true);
+								? StorageControlsHelpers.CalculateInterpolatedValue(maxPercent - 2.0, Percent, maxPercent, 0.0, _smallerHeight, true)
+								: StorageControlsHelpers.CalculateInterpolatedValue(maxPercent - 2.0, Percent, maxPercent, 0.0, gapWidth, true);
 
 							_valueColumn.MinWidth = interpolatedValueBarHeight;
 							_trackColumn.MinWidth = interpolatedTrackBarHeight;
@@ -301,20 +277,8 @@ namespace Files.Controls
 							_trackColumn.Width = new(1, GridUnitType.Star);
 
 							var interpolatedGapWidth = valueLarger
-								? StorageControlsHelpers.CalculateInterpolatedValue(
-									minPercent + 2.0,
-									Percent,
-									maxPercent - 2.0,
-									gapWidth,
-									_smallerHeight,
-									true)
-								: StorageControlsHelpers.CalculateInterpolatedValue(
-									minPercent + 2.0,
-									Percent,
-									maxPercent - 2.0,
-									_smallerHeight,
-									gapWidth,
-									true);
+								? StorageControlsHelpers.CalculateInterpolatedValue(minPercent + 2.0, Percent, maxPercent - 2.0, gapWidth, _smallerHeight, true)
+								: StorageControlsHelpers.CalculateInterpolatedValue(minPercent + 2.0, Percent, maxPercent - 2.0, _smallerHeight, gapWidth, true);
 
 							_gapColumn.Width = new(interpolatedGapWidth);
 

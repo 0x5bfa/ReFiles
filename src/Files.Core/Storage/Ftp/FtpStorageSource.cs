@@ -33,8 +33,7 @@ public sealed class FtpStorageSource : IStorageSource
 
 		Profile = profile;
 		SourceId = sourceId
-			?? new StorageSourceId(
-				$"{DefaultSourceType}:{profile.ConnectionId}");
+			?? new StorageSourceId($"{DefaultSourceType}:{profile.ConnectionId}");
 		connection = new FtpConnection(
 			profile,
 			credentialResolver
@@ -42,10 +41,7 @@ public sealed class FtpStorageSource : IStorageSource
 			sessionFactory
 				?? FluentFtpSessionFactory.Instance);
 		resolver = new FtpItemResolver(profile, connection);
-		storableFactory = new FtpStorableFactory(
-			this,
-			resolver,
-			connection);
+		storableFactory = new FtpStorableFactory(this, resolver, connection);
 		canonicalHost = GetCanonicalHost(profile.Host);
 	}
 
@@ -62,8 +58,7 @@ public sealed class FtpStorageSource : IStorageSource
 		FtpSecurityMode.Plain => FtpAddressScheme,
 		FtpSecurityMode.ExplicitTls => ExplicitTlsAddressScheme,
 		FtpSecurityMode.ImplicitTls => ImplicitTlsAddressScheme,
-		_ => throw new InvalidOperationException(
-			"Unsupported FTP security mode."),
+		_ => throw new InvalidOperationException("Unsupported FTP security mode."),
 	};
 
 	internal FtpConnection Connection => connection;
@@ -75,8 +70,7 @@ public sealed class FtpStorageSource : IStorageSource
 		return storableFactory.Create(entry);
 	}
 
-	public async IAsyncEnumerable<IFolder> GetRootsAsync(
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		cancellationToken.ThrowIfCancellationRequested();
@@ -86,8 +80,7 @@ public sealed class FtpStorageSource : IStorageSource
 			.ConfigureAwait(false);
 		if (root is not FtpFolder folder)
 		{
-			throw new InvalidOperationException(
-				"The configured FTP root did not resolve to a folder.");
+			throw new InvalidOperationException("The configured FTP root did not resolve to a folder.");
 		}
 
 		yield return folder;
@@ -99,18 +92,14 @@ public sealed class FtpStorageSource : IStorageSource
 		return TryGetPath(address, out _);
 	}
 
-	public async ValueTask<IStorable> ResolveAsync(
-		StorageAddress address,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(address);
 
 		if (!TryGetPath(address, out var path))
 		{
-			throw new ArgumentException(
-				"The address does not belong to this FTP connection.",
-				nameof(address));
+			throw new ArgumentException("The address does not belong to this FTP connection.", nameof(address));
 		}
 
 		return await storableFactory
@@ -118,17 +107,13 @@ public sealed class FtpStorageSource : IStorageSource
 			.ConfigureAwait(false);
 	}
 
-	public async ValueTask<IStorable> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(reference);
 		if (reference.SourceId != SourceId)
 		{
-			throw new ArgumentException(
-				$"Reference belongs to storage source '{reference.SourceId}'.",
-				nameof(reference));
+			throw new ArgumentException($"Reference belongs to storage source '{reference.SourceId}'.", nameof(reference));
 		}
 
 		var path = FtpPath.Parse(reference.ItemId);
@@ -140,13 +125,9 @@ public sealed class FtpStorageSource : IStorageSource
 	public StorageAddress CreateAddress(FtpPath path)
 	{
 		ArgumentNullException.ThrowIfNull(path);
-		if (!path.IsWithin(
-			Profile.RootPath,
-			Profile.PathComparer))
+		if (!path.IsWithin(Profile.RootPath, Profile.PathComparer))
 		{
-			throw new ArgumentException(
-				"The FTP path is outside the configured root.",
-				nameof(path));
+			throw new ArgumentException("The FTP path is outside the configured root.", nameof(path));
 		}
 
 		var host = Profile.Host.Contains(':')
@@ -159,10 +140,7 @@ public sealed class FtpStorageSource : IStorageSource
 
 	public StorableReference CreateReference(FtpPath path)
 	{
-		return new StorableReference(
-			SourceId,
-			path.Value,
-			CreateAddress(path));
+		return new StorableReference(SourceId, path.Value, CreateAddress(path));
 	}
 
 	public async ValueTask DisposeAsync()
@@ -176,41 +154,25 @@ public sealed class FtpStorageSource : IStorageSource
 		GC.SuppressFinalize(this);
 	}
 
-	private bool TryGetPath(
-		StorageAddress address,
-		out FtpPath path)
+	private bool TryGetPath(StorageAddress address, out FtpPath path)
 	{
 		path = FtpPath.Root;
-		if (!address.Scheme.Equals(
-			AddressScheme,
-			StringComparison.OrdinalIgnoreCase)
-			|| !Uri.TryCreate(
-				$"{address.Scheme}:{address.Value}",
-				UriKind.Absolute,
-				out var uri)
+		if (!address.Scheme.Equals(AddressScheme, StringComparison.OrdinalIgnoreCase)
+			|| !Uri.TryCreate($"{address.Scheme}:{address.Value}", UriKind.Absolute, out var uri)
 			|| uri.Port != Profile.Port
 			|| !string.IsNullOrEmpty(uri.UserInfo)
 			|| !string.IsNullOrEmpty(uri.Query)
 			|| !string.IsNullOrEmpty(uri.Fragment)
-			|| !canonicalHost.Equals(
-				uri.IdnHost,
-				StringComparison.OrdinalIgnoreCase))
+			|| !canonicalHost.Equals(uri.IdnHost, StringComparison.OrdinalIgnoreCase))
 		{
 			return false;
 		}
 
 		try
 		{
-			var escapedPath = uri.GetComponents(
-				UriComponents.Path,
-				UriFormat.UriEscaped);
-			path = FtpPath.ParseEscapedUriPath(
-				escapedPath.StartsWith('/')
-					? escapedPath
-					: $"/{escapedPath}");
-			return path.IsWithin(
-				Profile.RootPath,
-				Profile.PathComparer);
+			var escapedPath = uri.GetComponents(UriComponents.Path, UriFormat.UriEscaped);
+			path = FtpPath.ParseEscapedUriPath(escapedPath.StartsWith('/') ? escapedPath : $"/{escapedPath}");
+			return path.IsWithin(Profile.RootPath, Profile.PathComparer);
 		}
 		catch (ArgumentException)
 		{
@@ -235,8 +197,6 @@ public sealed class FtpStorageSource : IStorageSource
 
 	private void ThrowIfDisposed()
 	{
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) is not 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
 	}
 }

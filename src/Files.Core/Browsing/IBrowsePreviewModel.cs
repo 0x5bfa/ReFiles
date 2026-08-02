@@ -11,7 +11,5 @@ public interface IBrowsePreviewModel : IAsyncDisposable
 
 	event EventHandler? Changed;
 
-	ValueTask RefreshAsync(
-		PreviewHydrationPolicy hydrationPolicy = PreviewHydrationPolicy.LocalOnly,
-		CancellationToken cancellationToken = default);
+	ValueTask RefreshAsync(PreviewHydrationPolicy hydrationPolicy = PreviewHydrationPolicy.LocalOnly, CancellationToken cancellationToken = default);
 }

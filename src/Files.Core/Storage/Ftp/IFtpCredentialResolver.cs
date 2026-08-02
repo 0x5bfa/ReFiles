@@ -8,7 +8,5 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public interface IFtpCredentialResolver
 {
-	ValueTask<FtpCredential?> ResolveAsync(
-		FtpCredentialRequest request,
-		CancellationToken cancellationToken = default);
+	ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default);
 }

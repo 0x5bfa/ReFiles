@@ -11,6 +11,5 @@ public interface IFolderModel : IStorableModel
 
 	IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type = StorableType.All, CancellationToken cancellationToken = default);
 
-	ValueTask<IFolderModel?> GetParentAsync(
-		CancellationToken cancellationToken = default);
+	ValueTask<IFolderModel?> GetParentAsync(CancellationToken cancellationToken = default);
 }

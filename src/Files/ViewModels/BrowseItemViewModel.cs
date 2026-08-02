@@ -12,10 +12,7 @@ public sealed class BrowseItemViewModel : ObservableObject
 {
 	private BitmapImage? thumbnail;
 
-	public BrowseItemViewModel(
-		string name,
-		bool isFolder,
-		StorableReference reference)
+	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		ArgumentNullException.ThrowIfNull(reference);

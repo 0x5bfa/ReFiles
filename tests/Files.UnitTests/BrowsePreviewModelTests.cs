@@ -20,20 +20,11 @@ public sealed class BrowsePreviewModelTests
 		var firstSource = new TestPreviewSource();
 		var secondResult = new TestPreviewResult();
 		var firstResult = new TestPreviewResult();
-		var firstRelease = new TaskCompletionSource<PreviewResult?>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		var firstRelease = new TaskCompletionSource<PreviewResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
 		firstSource.Handler = async _ => await firstRelease.Task;
 		var secondSource = new TestPreviewSource { Result = secondResult };
-		var first = factory.CreateModel(
-			"first",
-			"First",
-			out _,
-			previewSource: firstSource);
-		var second = factory.CreateModel(
-			"second",
-			"Second",
-			out _,
-			previewSource: secondSource);
+		var first = factory.CreateModel("first", "First", out _, previewSource: firstSource);
+		var second = factory.CreateModel("second", "Second", out _, previewSource: secondSource);
 		var resolver = new TestBrowseLocationResolver([first, second])
 		{
 			LocationModelFactory = _ => folder,
@@ -67,21 +58,12 @@ public sealed class BrowsePreviewModelTests
 		var secondFolder = factory.CreateModel("folder-2", "Folder", out _);
 		var oldSource = new TestPreviewSource();
 		var oldResult = new TestPreviewResult();
-		var oldRelease = new TaskCompletionSource<PreviewResult?>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		var oldRelease = new TaskCompletionSource<PreviewResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
 		oldSource.Handler = async _ => await oldRelease.Task;
 		var replacementResult = new TestPreviewResult();
 		var replacementSource = new TestPreviewSource { Result = replacementResult };
-		var previous = factory.CreateModel(
-			"item",
-			"Before",
-			out _,
-			previewSource: oldSource);
-		var replacement = factory.CreateModel(
-			"item",
-			"After",
-			out _,
-			previewSource: replacementSource);
+		var previous = factory.CreateModel("item", "Before", out _, previewSource: oldSource);
+		var replacement = factory.CreateModel("item", "After", out _, previewSource: replacementSource);
 		var resolverLocations = new Queue<IStorableModel>([firstFolder, secondFolder]);
 		var resolver = new TestBrowseLocationResolver([previous])
 		{
@@ -124,11 +106,7 @@ public sealed class BrowsePreviewModelTests
 				return null;
 			},
 		};
-		var item = factory.CreateModel(
-			"item",
-			"Item",
-			out _,
-			previewSource: source);
+		var item = factory.CreateModel("item", "Item", out _, previewSource: source);
 		var resolver = new TestBrowseLocationResolver([item])
 		{
 			LocationModelFactory = _ => folder,
@@ -156,11 +134,7 @@ public sealed class BrowsePreviewModelTests
 		var folder = factory.CreateModel("folder", "Folder", out _);
 		var result = new TestPreviewResult();
 		var source = new TestPreviewSource { Result = result };
-		var item = factory.CreateModel(
-			"item",
-			"Item",
-			out _,
-			previewSource: source);
+		var item = factory.CreateModel("item", "Item", out _, previewSource: source);
 		var resolver = new TestBrowseLocationResolver([item])
 		{
 			LocationModelFactory = _ => folder,
@@ -182,10 +156,7 @@ public sealed class BrowsePreviewModelTests
 	{
 		var storageSource = new TestStorageSource();
 		var coreModel = new TestStorable("item", "Item");
-		var context = new ItemContext(
-			storageSource,
-			coreModel,
-			new StorableReference(storageSource.SourceId, coreModel.Id));
+		var context = new ItemContext(storageSource, coreModel, new StorableReference(storageSource.SourceId, coreModel.Id));
 		var loader = new TestPreviewLoader();
 		var source = new PreviewSourceFactory(loader).Create(context);
 
@@ -222,9 +193,7 @@ public sealed class BrowsePreviewModelTests
 
 		public Func<CancellationToken, ValueTask<PreviewResult?>>? Handler { get; set; }
 
-		public async ValueTask<PreviewResult?> GetPreviewAsync(
-			PreviewRequest request,
-			CancellationToken cancellationToken = default)
+		public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			Started.TrySetResult(true);
 			try
@@ -259,10 +228,7 @@ public sealed class BrowsePreviewModelTests
 
 		public bool CanLoad(ItemContext context) => true;
 
-		public ValueTask<PreviewResult?> GetPreviewAsync(
-			PreviewRequest request,
-			ItemContext context,
-			CancellationToken cancellationToken = default)
+		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 		{
 			Context = context;
 			return ValueTask.FromResult<PreviewResult?>(Result);

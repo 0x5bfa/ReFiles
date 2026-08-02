@@ -26,8 +26,7 @@ public sealed class WindowsStorageTests
 			Directory.CreateDirectory(Path.Combine(directoryPath, "folder"));
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var folder = await source.ResolveAsync(
-				new Files.Core.Storage.StorageAddress("file", directoryPath));
+			var folder = await source.ResolveAsync(new Files.Core.Storage.StorageAddress("file", directoryPath));
 			var coreFolder = (IFolder)folder;
 
 			var all = new List<IStorableChild>();
@@ -57,9 +56,7 @@ public sealed class WindowsStorageTests
 	[TestMethod]
 	public async Task HardLinkedFileEnumerationUsesDistinctDirectoryEntryIdentities()
 	{
-		var directoryPath = Path.Combine(
-			Path.GetTempPath(),
-			$"Files.Core.HardLinkTests-{Guid.NewGuid():N}");
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.HardLinkTests-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(directoryPath);
 		var originalPath = Path.Combine(directoryPath, "original.txt");
 		var linkPath = Path.Combine(directoryPath, "link.txt");
@@ -71,8 +68,7 @@ public sealed class WindowsStorageTests
 
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var folder = (IFolder)await source.ResolveAsync(
-				new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+			var folder = (IFolder)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
 
 			var items = new List<IStorableChild>();
 			await foreach (var item in folder.GetItemsAsync(StorableType.File))
@@ -81,15 +77,8 @@ public sealed class WindowsStorageTests
 			}
 
 			Assert.AreEqual(2, items.Count);
-			Assert.AreEqual(
-				2,
-				items.Select(static item => item.Id)
-					.Distinct(StringComparer.Ordinal)
-					.Count());
-			Assert.IsTrue(
-				items.All(static item => item.Id.StartsWith(
-					"winshell-address:v1:",
-					StringComparison.Ordinal)));
+			Assert.AreEqual(2, items.Select(static item => item.Id) .Distinct(StringComparer.Ordinal) .Count());
+			Assert.IsTrue(items.All(static item => item.Id.StartsWith("winshell-address:v1:", StringComparison.Ordinal)));
 		}
 		finally
 		{
@@ -110,8 +99,7 @@ public sealed class WindowsStorageTests
 		{
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var storable = await source.ResolveAsync(
-				new Files.Core.Storage.StorageAddress("file", filePath));
+			var storable = await source.ResolveAsync(new Files.Core.Storage.StorageAddress("file", filePath));
 			var file = (IFile)storable;
 			using var stream = await file.OpenStreamAsync(FileAccess.Read);
 			Assert.AreEqual(expected.Length, stream.Length);
@@ -149,11 +137,9 @@ public sealed class WindowsStorageTests
 		{
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var folder = (IFolder)await source.ResolveAsync(
-				new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+			var folder = (IFolder)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
 			var enumerated = await FindItemAsync(folder, "item.txt");
-			var direct = (IWindowsStorable)await source.ResolveAsync(
-				new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
+			var direct = (IWindowsStorable)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
 			Assert.IsNotNull(enumerated);
 			Assert.AreEqual(direct.Id, enumerated!.Id);
@@ -217,8 +203,7 @@ public sealed class WindowsStorageTests
 		process.WaitForExit();
 		if (process.ExitCode is not 0)
 		{
-			throw new IOException(
-				$"Could not create the test hard link: {error}");
+			throw new IOException($"Could not create the test hard link: {error}");
 		}
 	}
 }

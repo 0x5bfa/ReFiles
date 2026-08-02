@@ -17,9 +17,7 @@ public sealed class HomeBrowseLocationContext
 	private readonly IFilesDataRoot dataRoot;
 	private int isDisposed;
 
-	public HomeBrowseLocationContext(
-		HomeLocation location,
-		IFilesDataRoot dataRoot)
+	public HomeBrowseLocationContext(HomeLocation location, IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		ArgumentNullException.ThrowIfNull(dataRoot);
@@ -32,12 +30,9 @@ public sealed class HomeBrowseLocationContext
 
 	public IStorableModel? LocationModel => null;
 
-	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) != 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
 
 		foreach (var source in dataRoot.Sources)
 		{
@@ -50,13 +45,9 @@ public sealed class HomeBrowseLocationContext
 		}
 	}
 
-	public ValueTask<IStorableModel> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) != 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
 		return dataRoot.ResolveAsync(reference, cancellationToken);

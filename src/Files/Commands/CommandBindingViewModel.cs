@@ -12,9 +12,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	private readonly WindowCommandManager manager;
 	private CommandState state = new(false, false);
 
-	internal CommandBindingViewModel(
-		WindowCommandManager manager,
-		CommandDescriptor descriptor)
+	internal CommandBindingViewModel(WindowCommandManager manager, CommandDescriptor descriptor)
 	{
 		this.manager = manager;
 		Descriptor = descriptor;
@@ -42,9 +40,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	public string? DisabledReasonResourceKey =>
 		state.DisabledReasonResourceKey;
 
-	public Task<CommandExecutionResult> ExecuteAsync(
-		object? parameter = null,
-		CancellationToken cancellationToken = default) =>
+	public Task<CommandExecutionResult> ExecuteAsync(object? parameter = null, CancellationToken cancellationToken = default) =>
 		manager.ExecuteAsync(Id, parameter, cancellationToken);
 
 	internal void UpdateState(CommandState newState)
@@ -87,8 +83,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 		await ExecuteAsync(parameter).ConfigureAwait(false);
 	}
 
-	private sealed partial class BindingCommand(
-		CommandBindingViewModel owner) : ICommand
+	private sealed partial class BindingCommand(CommandBindingViewModel owner) : ICommand
 	{
 		public bool CanExecute(object? parameter) => owner.IsEnabled;
 

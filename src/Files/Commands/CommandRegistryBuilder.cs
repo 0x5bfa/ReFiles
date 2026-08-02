@@ -11,20 +11,15 @@ public sealed class CommandRegistryBuilder
 		registrations = [];
 	private bool isBuilt;
 
-	public CommandRegistryBuilder Register(
-		CommandDescriptor descriptor,
-		Func<RootViewModel, ICommandHandler> factory)
+	public CommandRegistryBuilder Register(CommandDescriptor descriptor, Func<RootViewModel, ICommandHandler> factory)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 		ArgumentNullException.ThrowIfNull(factory);
 		EnsureNotBuilt();
 
-		if (!registrations.TryAdd(
-			descriptor.Id,
-			new CommandRegistry.CommandRegistration(descriptor, factory)))
+		if (!registrations.TryAdd(descriptor.Id, new CommandRegistry.CommandRegistration(descriptor, factory)))
 		{
-			throw new InvalidOperationException(
-				$"The command ID '{descriptor.Id}' is already registered.");
+			throw new InvalidOperationException($"The command ID '{descriptor.Id}' is already registered.");
 		}
 
 		return this;
@@ -34,17 +29,14 @@ public sealed class CommandRegistryBuilder
 	{
 		EnsureNotBuilt();
 		isBuilt = true;
-		return new CommandRegistry(
-			new Dictionary<CommandId, CommandRegistry.CommandRegistration>(
-				registrations));
+		return new CommandRegistry(new Dictionary<CommandId, CommandRegistry.CommandRegistration>(registrations));
 	}
 
 	private void EnsureNotBuilt()
 	{
 		if (isBuilt)
 		{
-			throw new InvalidOperationException(
-				"The command registry has already been built.");
+			throw new InvalidOperationException("The command registry has already been built.");
 		}
 	}
 }

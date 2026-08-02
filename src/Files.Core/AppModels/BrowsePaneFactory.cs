@@ -29,10 +29,7 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 		int thumbnailSize = 96,
 		int historyCapacity = 50)
 		: this(
-			() => new BrowseSessionModel(
-				locationResolver,
-				viewSettingsStore,
-				thumbnailCache),
+			() => new BrowseSessionModel(locationResolver, viewSettingsStore, thumbnailCache),
 			static session => new BrowsePreviewModel(session),
 			session => new BrowsePrefetchCoordinator(session, thumbnailSize),
 			historyCapacity)
@@ -60,25 +57,18 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 	public PaneModel Create()
 	{
 		var session = sessionFactory()
-			?? throw new InvalidOperationException(
-				"The browse session factory returned null.");
+			?? throw new InvalidOperationException("The browse session factory returned null.");
 		IBrowsePreviewModel? preview = null;
 		IBrowsePrefetchCoordinator? prefetch = null;
 
 		try
 		{
 			preview = previewFactory(session)
-				?? throw new InvalidOperationException(
-					"The browse preview factory returned null.");
+				?? throw new InvalidOperationException("The browse preview factory returned null.");
 			prefetch = prefetchFactory(session)
-				?? throw new InvalidOperationException(
-					"The browse prefetch factory returned null.");
+				?? throw new InvalidOperationException("The browse prefetch factory returned null.");
 
-			return new PaneModel(
-				session,
-				preview,
-				prefetch,
-				historyCapacity);
+			return new PaneModel(session, preview, prefetch, historyCapacity);
 		}
 		catch (Exception creationError)
 		{
@@ -100,15 +90,11 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 			}
 
 			cleanupErrors.Insert(0, creationError);
-			throw new AggregateException(
-				"Pane construction and cleanup failed.",
-				cleanupErrors);
+			throw new AggregateException("Pane construction and cleanup failed.", cleanupErrors);
 		}
 	}
 
-	private static void TryDisposeSynchronously(
-		IAsyncDisposable disposable,
-		ICollection<Exception> errors)
+	private static void TryDisposeSynchronously(IAsyncDisposable disposable, ICollection<Exception> errors)
 	{
 		try
 		{

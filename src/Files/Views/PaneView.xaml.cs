@@ -10,11 +10,7 @@ namespace Files.Views;
 public sealed partial class PaneView : UserControl
 {
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(PaneViewModel),
-			typeof(PaneView),
-			new PropertyMetadata(null));
+		DependencyProperty.Register(nameof(ViewModel), typeof(PaneViewModel), typeof(PaneView), new PropertyMetadata(null));
 
 	public PaneView()
 	{
@@ -31,10 +27,7 @@ public sealed partial class PaneView : UserControl
 
 	internal void SetShadow(bool isActive, bool isMultiPane)
 	{
-		PaneBorder.Translation = new System.Numerics.Vector3(
-			0,
-			0,
-			isActive ? (isMultiPane ? 32 : 8) : 0);
+		PaneBorder.Translation = new System.Numerics.Vector3(0, 0, isActive ? (isMultiPane ? 32 : 8) : 0);
 	}
 
 	private void Pane_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e) =>

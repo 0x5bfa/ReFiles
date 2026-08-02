@@ -39,9 +39,7 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 		return new(true, isAvailable && !browser.IsLoading);
 	}
 
-	public async ValueTask<CommandExecutionResult> ExecuteAsync(
-		CommandContext context,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 	{
 		if (context.ActiveFolderBrowser is not { } browser)
 		{
@@ -66,15 +64,10 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 			case var commandId when commandId == CommandIds.NavigatePath:
 				if (string.IsNullOrWhiteSpace(context.Path))
 				{
-					return CommandExecutionResult.Failed(
-						new ArgumentException(
-							Strings.FolderPathRequired.GetLocalized(),
-							nameof(context.Path)));
+					return CommandExecutionResult.Failed(new ArgumentException(Strings.FolderPathRequired.GetLocalized(), nameof(context.Path)));
 				}
 
-				await browser.NavigateToPathAsync(
-					context.Path,
-					cancellationToken).ConfigureAwait(false);
+				await browser.NavigateToPathAsync(context.Path, cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.Refresh:
 				await browser.RefreshAsync(cancellationToken).ConfigureAwait(false);
@@ -85,13 +78,10 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 					return CommandExecutionResult.Unsupported();
 				}
 
-				await browser.NavigateToItemAsync(
-					item,
-					cancellationToken).ConfigureAwait(false);
+				await browser.NavigateToItemAsync(item, cancellationToken).ConfigureAwait(false);
 				break;
 			default:
-				throw new InvalidOperationException(
-					$"Unsupported navigation command '{id}'.");
+				throw new InvalidOperationException($"Unsupported navigation command '{id}'.");
 		}
 
 		return CommandExecutionResult.Succeeded();

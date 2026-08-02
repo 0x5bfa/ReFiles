@@ -83,8 +83,7 @@ namespace Files.SourceGenerators.Generators
 			_ = sb.AppendLine($"	internal  static void BindValues(RegistryKey key, {type.Name} target, string prefix = \"\")");
 			_ = sb.AppendLine("	{");
 
-			_ = sb.AppendLine(
-				$$"""
+			_ = sb.AppendLine($$"""
 						if (target is null)
 						{
 							return;
@@ -201,8 +200,7 @@ namespace Files.SourceGenerators.Generators
 							""");
 						break;
 					case { TypeKind: TypeKind.Class or TypeKind.Struct, SpecialType: SpecialType.None }:
-						_ = sb.AppendLine(
-							$$"""
+						_ = sb.AppendLine($$"""
 									BindValues(key, target.{{propertyName}}, $"{prefix}{{propertyName}}.");
 							""");
 						queue.Enqueue(propertyType);
@@ -224,8 +222,7 @@ namespace Files.SourceGenerators.Generators
 			{
 				if (emitNullBranch)
 				{
-					_ = sb.AppendLine(
-						$$"""
+					_ = sb.AppendLine($$"""
 								else
 								{
 									target.{{propertyName}} = null;
@@ -280,8 +277,7 @@ namespace Files.SourceGenerators.Generators
 				switch (propertyType)
 				{
 					case { SpecialType: SpecialType.System_String }:
-						_ = sb.AppendLine(
-							$$"""
+						_ = sb.AppendLine($$"""
 									key.SetValue($"{prefix}{{propertyName}}", source.{{propertyName}}, RegistryValueKind.String);
 							""");
 						break;
@@ -363,8 +359,7 @@ namespace Files.SourceGenerators.Generators
 							""");
 						break;
 					case { TypeKind: TypeKind.Class or TypeKind.Struct, SpecialType: SpecialType.None }:
-						_ = sb.AppendLine(
-							$$"""
+						_ = sb.AppendLine($$"""
 									SaveValues(key, source.{{propertyName}}, $"{prefix}{{propertyName}}.");
 							""");
 						queue.Enqueue(propertyType);

@@ -105,8 +105,7 @@ public sealed class ItemFeatureCombiningTests
 			new ItemFeatureOption<IPropertySource>(high, 20, "high", ItemFeatureLifetime.Shared),
 		])!;
 
-		var values = await source.GetPropertiesAsync(
-			new PropertyRequest(["name", "Name", "lowOnly"]));
+		var values = await source.GetPropertiesAsync(new PropertyRequest(["name", "Name", "lowOnly"]));
 		Assert.AreEqual("high", values["name"]);
 		Assert.AreEqual("case-sensitive", values["Name"]);
 		Assert.AreEqual(true, values["lowOnly"]);
@@ -116,10 +115,7 @@ public sealed class ItemFeatureCombiningTests
 	{
 		var source = new TestStorageSource();
 		var coreModel = new TestStorable("item", "Item");
-		return new ItemContext(
-			source,
-			coreModel,
-			new Files.Core.Storage.StorableReference(source.SourceId, coreModel.Id));
+		return new ItemContext(source, coreModel, new Files.Core.Storage.StorableReference(source.SourceId, coreModel.Id));
 	}
 
 	private static async Task<string> ReadTextAsync(Stream stream)
@@ -136,17 +132,12 @@ public sealed class ItemFeatureCombiningTests
 
 		public int CallCount { get; private set; }
 
-		public ValueTask<ThumbnailResult?> GetThumbnailAsync(
-			ThumbnailRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 		{
 			CallCount++;
 			return ValueTask.FromResult<ThumbnailResult?>(value is null
 				? null
-				: new ThumbnailResult(
-					Encoding.UTF8.GetBytes(value),
-					"text/plain",
-					false));
+				: new ThumbnailResult(Encoding.UTF8.GetBytes(value), "text/plain", false));
 		}
 	}
 
@@ -158,26 +149,19 @@ public sealed class ItemFeatureCombiningTests
 
 		public int CallCount { get; private set; }
 
-		public ValueTask<PreviewResult?> GetPreviewAsync(
-			PreviewRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			CallCount++;
 			return ValueTask.FromResult<PreviewResult?>(value is null
 				? null
-				: new StreamPreviewResult(
-					new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false),
-					"text/plain"));
+				: new StreamPreviewResult(new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false), "text/plain"));
 		}
 	}
 
 	private sealed class BlockedPreviewSource : IPreviewSource
 	{
-		public ValueTask<PreviewResult?> GetPreviewAsync(
-			PreviewRequest request,
-			CancellationToken cancellationToken = default)
-			=> ValueTask.FromResult<PreviewResult?>(
-				new BlockedPreviewResult(PreviewBlockReason.RequiresHydration));
+		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
+			=> ValueTask.FromResult<PreviewResult?>(new BlockedPreviewResult(PreviewBlockReason.RequiresHydration));
 	}
 
 	private sealed class TestPropertySource : IPropertySource
@@ -186,9 +170,7 @@ public sealed class ItemFeatureCombiningTests
 
 		public TestPropertySource(IReadOnlyDictionary<string, object?> values) => this.values = values;
 
-		public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(
-			PropertyRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
 			=> ValueTask.FromResult(values);
 	}
 }

@@ -50,9 +50,7 @@ internal sealed class ItemFeatures : IItemFeatures
 				}
 			}
 
-			resolvedFeatures.Add(
-				typeof(TFeature),
-				resolution.Feature ?? MissingFeature);
+			resolvedFeatures.Add(typeof(TFeature), resolution.Feature ?? MissingFeature);
 
 			return resolution.Feature;
 		}

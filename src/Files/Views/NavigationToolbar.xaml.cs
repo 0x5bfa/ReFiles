@@ -12,11 +12,7 @@ namespace Files.Views;
 public sealed partial class NavigationToolbar : UserControl
 {
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(NavigationToolbarViewModel),
-			typeof(NavigationToolbar),
-			new PropertyMetadata(null));
+		DependencyProperty.Register(nameof(ViewModel), typeof(NavigationToolbarViewModel), typeof(NavigationToolbar), new PropertyMetadata(null));
 
 	public NavigationToolbar()
 	{
@@ -29,9 +25,7 @@ public sealed partial class NavigationToolbar : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
-	private async void PathTextBox_KeyDown(
-		object sender,
-		KeyRoutedEventArgs e)
+	private async void PathTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
 	{
 		if (e.Key is not VirtualKey.Enter)
 		{

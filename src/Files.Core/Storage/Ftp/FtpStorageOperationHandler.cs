@@ -51,8 +51,7 @@ public sealed class FtpStorageOperationHandler :
 		ArgumentNullException.ThrowIfNull(request);
 		if (!CanHandle(request))
 		{
-			return Failed(new NotSupportedException(
-				$"The FTP operation handler cannot handle '{request.GetType().Name}'."));
+			return Failed(new NotSupportedException($"The FTP operation handler cannot handle '{request.GetType().Name}'."));
 		}
 
 		try
@@ -61,32 +60,16 @@ public sealed class FtpStorageOperationHandler :
 			return request switch
 			{
 				RenameOperationRequest rename =>
-					await ExecuteRenameAsync(
-						rename,
-						progress,
-						cancellationToken).ConfigureAwait(false),
+					await ExecuteRenameAsync(rename, progress, cancellationToken).ConfigureAwait(false),
 				CreateItemOperationRequest create =>
-					await ExecuteCreateAsync(
-						create,
-						progress,
-						cancellationToken).ConfigureAwait(false),
+					await ExecuteCreateAsync(create, progress, cancellationToken).ConfigureAwait(false),
 				CopyOperationRequest copy =>
-					await ExecuteCopyAsync(
-						copy,
-						progress,
-						cancellationToken).ConfigureAwait(false),
+					await ExecuteCopyAsync(copy, progress, cancellationToken).ConfigureAwait(false),
 				MoveOperationRequest move =>
-					await ExecuteMoveAsync(
-						move,
-						progress,
-						cancellationToken).ConfigureAwait(false),
+					await ExecuteMoveAsync(move, progress, cancellationToken).ConfigureAwait(false),
 				DeleteOperationRequest delete =>
-					await ExecuteDeleteAsync(
-						delete,
-						progress,
-						cancellationToken).ConfigureAwait(false),
-				_ => Failed(new NotSupportedException(
-					$"The FTP operation handler cannot handle '{request.GetType().Name}'.")),
+					await ExecuteDeleteAsync(delete, progress, cancellationToken).ConfigureAwait(false),
+				_ => Failed(new NotSupportedException($"The FTP operation handler cannot handle '{request.GetType().Name}'.")),
 			};
 		}
 		catch (OperationCanceledException)
@@ -106,61 +89,40 @@ public sealed class FtpStorageOperationHandler :
 		CancellationToken cancellationToken)
 	{
 		FtpPath.ValidateName(request.NewName);
-		var item = await ResolveAsync(
-			request.Item,
-			cancellationToken).ConfigureAwait(false);
+		var item = await ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
 		var parentPath = item.Path.Parent
-			?? throw new NotSupportedException(
-				"The configured FTP root cannot be renamed.");
-		if (!parentPath.IsWithin(
-			source.Profile.RootPath,
-			source.Profile.PathComparer))
+			?? throw new NotSupportedException("The configured FTP root cannot be renamed.");
+		if (!parentPath.IsWithin(source.Profile.RootPath, source.Profile.PathComparer))
 		{
-			throw new NotSupportedException(
-				"The configured FTP root cannot be renamed.");
+			throw new NotSupportedException("The configured FTP root cannot be renamed.");
 		}
 
 		var destinationPath = parentPath.Combine(request.NewName);
-		progress?.Report(
-			new StorageOperationProgress(0, 1, request.Item));
+		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 
-		if (StringComparer.Ordinal.Equals(
-			item.Path.Value,
-			destinationPath.Value))
+		if (StringComparer.Ordinal.Equals(item.Path.Value, destinationPath.Value))
 		{
 			var unchanged = source.CreateReference(item.Path);
-			progress?.Report(
-				new StorageOperationProgress(1, 1, unchanged));
+			progress?.Report(new StorageOperationProgress(1, 1, unchanged));
 			return new StorageOperationResult(true, unchanged);
 		}
 
 		var isCaseOnlyRename =
 			source.Profile.PathComparison
 				is FtpPathComparison.CaseInsensitive
-			&& source.Profile.PathComparer.Equals(
-				item.Path.Value,
-				destinationPath.Value);
+			&& source.Profile.PathComparer.Equals(item.Path.Value, destinationPath.Value);
 		if (isCaseOnlyRename)
 		{
-			await ExecuteCaseOnlyRenameAsync(
-				item,
-				destinationPath,
-				cancellationToken).ConfigureAwait(false);
+			await ExecuteCaseOnlyRenameAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 		}
 		else
 		{
-			await EnsureDoesNotExistAsync(
-				destinationPath,
-				cancellationToken).ConfigureAwait(false);
-			await MoveAsync(
-				item,
-				destinationPath,
-				cancellationToken).ConfigureAwait(false);
+			await EnsureDoesNotExistAsync(destinationPath, cancellationToken).ConfigureAwait(false);
+			await MoveAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 		}
 
 		var result = source.CreateReference(destinationPath);
-		progress?.Report(
-			new StorageOperationProgress(1, 1, result));
+		progress?.Report(new StorageOperationProgress(1, 1, result));
 		return new StorageOperationResult(true, result);
 	}
 
@@ -170,30 +132,22 @@ public sealed class FtpStorageOperationHandler :
 		CancellationToken cancellationToken)
 	{
 		FtpPath.ValidateName(request.Name);
-		var parent = await ResolveFolderAsync(
-			request.Parent,
-			cancellationToken).ConfigureAwait(false);
+		var parent = await ResolveFolderAsync(request.Parent, cancellationToken).ConfigureAwait(false);
 		var destinationPath = await ResolveDestinationPathAsync(
 			parent.Path,
 			request.Name,
 			request.ConflictBehavior,
 			cancellationToken).ConfigureAwait(false);
 
-		progress?.Report(
-			new StorageOperationProgress(0, 1, request.Parent));
+		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
 		await source.Connection.ExecuteAsync(
 			session => request.Kind is StorageItemKind.Folder
-				? session.CreateFolderAsync(
-					destinationPath,
-					cancellationToken)
-				: session.CreateFileAsync(
-					destinationPath,
-					cancellationToken),
+				? session.CreateFolderAsync(destinationPath, cancellationToken)
+				: session.CreateFileAsync(destinationPath, cancellationToken),
 			cancellationToken).ConfigureAwait(false);
 
 		var result = source.CreateReference(destinationPath);
-		progress?.Report(
-			new StorageOperationProgress(1, 1, result));
+		progress?.Report(new StorageOperationProgress(1, 1, result));
 		return new StorageOperationResult(true, result);
 	}
 
@@ -202,22 +156,15 @@ public sealed class FtpStorageOperationHandler :
 		IProgress<StorageOperationProgress>? progress,
 		CancellationToken cancellationToken)
 	{
-		var item = await ResolveAsync(
-			request.Item,
-			cancellationToken).ConfigureAwait(false);
-		var destinationFolder = await ResolveFolderAsync(
-			request.DestinationFolder,
-			cancellationToken).ConfigureAwait(false);
+		var item = await ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
+		var destinationFolder = await ResolveFolderAsync(request.DestinationFolder, cancellationToken).ConfigureAwait(false);
 		var requestedName = request.NewName ?? item.Name;
 		FtpPath.ValidateName(requestedName);
 
 		if (item is FtpFolder
-			&& destinationFolder.Path.IsWithin(
-				item.Path,
-				source.Profile.PathComparer))
+			&& destinationFolder.Path.IsWithin(item.Path, source.Profile.PathComparer))
 		{
-			throw new IOException(
-				"An FTP folder cannot be copied into itself.");
+			throw new IOException("An FTP folder cannot be copied into itself.");
 		}
 
 		var destinationPath = await ResolveDestinationPathAsync(
@@ -225,17 +172,12 @@ public sealed class FtpStorageOperationHandler :
 			requestedName,
 			request.ConflictBehavior,
 			cancellationToken).ConfigureAwait(false);
-		progress?.Report(
-			new StorageOperationProgress(0, 1, request.Item));
+		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 
-		await CopyAsync(
-			item,
-			destinationPath,
-			cancellationToken).ConfigureAwait(false);
+		await CopyAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 
 		var result = source.CreateReference(destinationPath);
-		progress?.Report(
-			new StorageOperationProgress(1, 1, result));
+		progress?.Report(new StorageOperationProgress(1, 1, result));
 		return new StorageOperationResult(true, result);
 	}
 
@@ -244,51 +186,35 @@ public sealed class FtpStorageOperationHandler :
 		IProgress<StorageOperationProgress>? progress,
 		CancellationToken cancellationToken)
 	{
-		var item = await ResolveAsync(
-			request.Item,
-			cancellationToken).ConfigureAwait(false);
-		var destinationFolder = await ResolveFolderAsync(
-			request.DestinationFolder,
-			cancellationToken).ConfigureAwait(false);
+		var item = await ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
+		var destinationFolder = await ResolveFolderAsync(request.DestinationFolder, cancellationToken).ConfigureAwait(false);
 		var requestedName = request.NewName ?? item.Name;
 		FtpPath.ValidateName(requestedName);
 
 		if (item is FtpFolder
-			&& destinationFolder.Path.IsWithin(
-				item.Path,
-				source.Profile.PathComparer))
+			&& destinationFolder.Path.IsWithin(item.Path, source.Profile.PathComparer))
 		{
-			throw new IOException(
-				"An FTP folder cannot be moved into itself.");
+			throw new IOException("An FTP folder cannot be moved into itself.");
 		}
 
 		var desiredPath = destinationFolder.Path.Combine(requestedName);
-		progress?.Report(
-			new StorageOperationProgress(0, 1, request.Item));
-		if (StringComparer.Ordinal.Equals(
-			item.Path.Value,
-			desiredPath.Value))
+		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
+		if (StringComparer.Ordinal.Equals(item.Path.Value, desiredPath.Value))
 		{
 			var unchanged = source.CreateReference(item.Path);
-			progress?.Report(
-				new StorageOperationProgress(1, 1, unchanged));
+			progress?.Report(new StorageOperationProgress(1, 1, unchanged));
 			return new StorageOperationResult(true, unchanged);
 		}
 
 		var isCaseOnlyMove =
 			source.Profile.PathComparison
 				is FtpPathComparison.CaseInsensitive
-			&& source.Profile.PathComparer.Equals(
-				item.Path.Value,
-				desiredPath.Value);
+			&& source.Profile.PathComparer.Equals(item.Path.Value, desiredPath.Value);
 		FtpPath destinationPath;
 		if (isCaseOnlyMove)
 		{
 			destinationPath = desiredPath;
-			await ExecuteCaseOnlyRenameAsync(
-				item,
-				destinationPath,
-				cancellationToken).ConfigureAwait(false);
+			await ExecuteCaseOnlyRenameAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 		}
 		else
 		{
@@ -297,15 +223,11 @@ public sealed class FtpStorageOperationHandler :
 				requestedName,
 				request.ConflictBehavior,
 				cancellationToken).ConfigureAwait(false);
-			await MoveAsync(
-				item,
-				destinationPath,
-				cancellationToken).ConfigureAwait(false);
+			await MoveAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 		}
 
 		var result = source.CreateReference(destinationPath);
-		progress?.Report(
-			new StorageOperationProgress(1, 1, result));
+		progress?.Report(new StorageOperationProgress(1, 1, result));
 		return new StorageOperationResult(true, result);
 	}
 
@@ -316,37 +238,24 @@ public sealed class FtpStorageOperationHandler :
 	{
 		if (!request.Permanently)
 		{
-			throw new NotSupportedException(
-				"FTP has no Recycle Bin. Permanent deletion must be requested explicitly.");
+			throw new NotSupportedException("FTP has no Recycle Bin. Permanent deletion must be requested explicitly.");
 		}
 
-		var item = await ResolveAsync(
-			request.Item,
-			cancellationToken).ConfigureAwait(false);
-		if (source.Profile.PathComparer.Equals(
-			item.Path.Value,
-			source.Profile.RootPath.Value))
+		var item = await ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
+		if (source.Profile.PathComparer.Equals(item.Path.Value, source.Profile.RootPath.Value))
 		{
-			throw new NotSupportedException(
-				"The configured FTP root cannot be deleted.");
+			throw new NotSupportedException("The configured FTP root cannot be deleted.");
 		}
 
-		progress?.Report(
-			new StorageOperationProgress(0, 1, request.Item));
+		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 		await source.Connection.ExecuteAsync(
-			session => session.DeleteAsync(
-				item.Path,
-				item.Kind,
-				cancellationToken),
+			session => session.DeleteAsync(item.Path, item.Kind, cancellationToken),
 			cancellationToken).ConfigureAwait(false);
 		progress?.Report(new StorageOperationProgress(1, 1));
 		return new StorageOperationResult(true, null);
 	}
 
-	private async ValueTask ExecuteCaseOnlyRenameAsync(
-		FtpStorable item,
-		FtpPath destinationPath,
-		CancellationToken cancellationToken)
+	private async ValueTask ExecuteCaseOnlyRenameAsync(FtpStorable item, FtpPath destinationPath, CancellationToken cancellationToken)
 	{
 		var parentPath = item.Path.Parent!;
 		var temporaryPath = await ResolveDestinationPathAsync(
@@ -355,18 +264,11 @@ public sealed class FtpStorageOperationHandler :
 			StorageConflictBehavior.GenerateUniqueName,
 			cancellationToken).ConfigureAwait(false);
 
-		await MoveAsync(
-			item,
-			temporaryPath,
-			cancellationToken).ConfigureAwait(false);
+		await MoveAsync(item, temporaryPath, cancellationToken).ConfigureAwait(false);
 		try
 		{
 			await source.Connection.ExecuteAsync(
-				session => session.MoveAsync(
-					temporaryPath,
-					destinationPath,
-					item.Kind,
-					cancellationToken),
+				session => session.MoveAsync(temporaryPath, destinationPath, item.Kind, cancellationToken),
 				cancellationToken).ConfigureAwait(false);
 		}
 		catch (Exception renameError)
@@ -374,11 +276,7 @@ public sealed class FtpStorageOperationHandler :
 			try
 			{
 				await source.Connection.ExecuteAsync(
-					session => session.MoveAsync(
-						temporaryPath,
-						item.Path,
-						item.Kind,
-						CancellationToken.None),
+					session => session.MoveAsync(temporaryPath, item.Path, item.Kind, CancellationToken.None),
 					CancellationToken.None).ConfigureAwait(false);
 			}
 			catch (Exception rollbackError)
@@ -393,42 +291,26 @@ public sealed class FtpStorageOperationHandler :
 		}
 	}
 
-	private async ValueTask CopyAsync(
-		FtpStorable item,
-		FtpPath destinationPath,
-		CancellationToken cancellationToken)
+	private async ValueTask CopyAsync(FtpStorable item, FtpPath destinationPath, CancellationToken cancellationToken)
 	{
 		if (item is FtpFolder folder)
 		{
-			await CopyFolderAsync(
-				folder,
-				destinationPath,
-				cancellationToken).ConfigureAwait(false);
+			await CopyFolderAsync(folder, destinationPath, cancellationToken).ConfigureAwait(false);
 			return;
 		}
 
-		await CopyFileAsync(
-			item,
-			destinationPath,
-			cancellationToken).ConfigureAwait(false);
+		await CopyFileAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 	}
 
-	private async ValueTask CopyFolderAsync(
-		FtpFolder folder,
-		FtpPath destinationPath,
-		CancellationToken cancellationToken)
+	private async ValueTask CopyFolderAsync(FtpFolder folder, FtpPath destinationPath, CancellationToken cancellationToken)
 	{
-		var temporaryPath = await CreateTemporaryCopyPathAsync(
-			destinationPath,
-			cancellationToken).ConfigureAwait(false);
+		var temporaryPath = await CreateTemporaryCopyPathAsync(destinationPath, cancellationToken).ConfigureAwait(false);
 		var ownsTemporary = false;
 
 		try
 		{
 			await source.Connection.ExecuteAsync(
-				session => session.CreateFolderAsync(
-					temporaryPath,
-					cancellationToken),
+				session => session.CreateFolderAsync(temporaryPath, cancellationToken),
 				cancellationToken).ConfigureAwait(false);
 			ownsTemporary = true;
 			var children = await source.Resolver
@@ -438,18 +320,11 @@ public sealed class FtpStorageOperationHandler :
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				var child = source.CreateStorable(childEntry);
-				await CopyAsync(
-					child,
-					temporaryPath.Combine(childEntry.Name),
-					cancellationToken).ConfigureAwait(false);
+				await CopyAsync(child, temporaryPath.Combine(childEntry.Name), cancellationToken).ConfigureAwait(false);
 			}
 
 			await source.Connection.ExecuteAsync(
-				session => session.MoveAsync(
-					temporaryPath,
-					destinationPath,
-					FtpEntryKind.Folder,
-					cancellationToken),
+				session => session.MoveAsync(temporaryPath, destinationPath, FtpEntryKind.Folder, cancellationToken),
 				cancellationToken).ConfigureAwait(false);
 			ownsTemporary = false;
 		}
@@ -458,8 +333,7 @@ public sealed class FtpStorageOperationHandler :
 		{
 			if (ownsTemporary)
 			{
-				await TryDeletePartialCopyAsync(
-					temporaryPath).ConfigureAwait(false);
+				await TryDeletePartialCopyAsync(temporaryPath).ConfigureAwait(false);
 			}
 
 			throw;
@@ -467,30 +341,22 @@ public sealed class FtpStorageOperationHandler :
 		catch (Exception copyError)
 		{
 			var cleanupError = ownsTemporary
-				? await TryDeletePartialCopyAsync(
-					temporaryPath).ConfigureAwait(false)
+				? await TryDeletePartialCopyAsync(temporaryPath).ConfigureAwait(false)
 				: null;
 			ThrowIfCleanupFailed(copyError, cleanupError);
 			throw;
 		}
 	}
 
-	private async ValueTask CopyFileAsync(
-		FtpStorable file,
-		FtpPath destinationPath,
-		CancellationToken cancellationToken)
+	private async ValueTask CopyFileAsync(FtpStorable file, FtpPath destinationPath, CancellationToken cancellationToken)
 	{
-		var temporaryPath = await CreateTemporaryCopyPathAsync(
-			destinationPath,
-			cancellationToken).ConfigureAwait(false);
+		var temporaryPath = await CreateTemporaryCopyPathAsync(destinationPath, cancellationToken).ConfigureAwait(false);
 		var ownsTemporary = false;
 
 		try
 		{
 			await source.Connection.ExecuteAsync(
-				session => session.CreateFileAsync(
-					temporaryPath,
-					cancellationToken),
+				session => session.CreateFileAsync(temporaryPath, cancellationToken),
 				cancellationToken).ConfigureAwait(false);
 			ownsTemporary = true;
 			{
@@ -498,15 +364,10 @@ public sealed class FtpStorageOperationHandler :
 					.OpenReadAsync(file.Path, cancellationToken)
 					.ConfigureAwait(false);
 				await using var output = await source.Connection
-					.OpenWriteAsync(
-						temporaryPath,
-						cancellationToken)
+					.OpenWriteAsync(temporaryPath, cancellationToken)
 					.ConfigureAwait(false);
 				await input
-					.CopyToAsync(
-						output,
-						CopyBufferSize,
-						cancellationToken)
+					.CopyToAsync(output, CopyBufferSize, cancellationToken)
 					.ConfigureAwait(false);
 				await output
 					.FlushAsync(cancellationToken)
@@ -514,11 +375,7 @@ public sealed class FtpStorageOperationHandler :
 			}
 
 			await source.Connection.ExecuteAsync(
-				session => session.MoveAsync(
-					temporaryPath,
-					destinationPath,
-					FtpEntryKind.File,
-					cancellationToken),
+				session => session.MoveAsync(temporaryPath, destinationPath, FtpEntryKind.File, cancellationToken),
 				cancellationToken).ConfigureAwait(false);
 			ownsTemporary = false;
 		}
@@ -527,8 +384,7 @@ public sealed class FtpStorageOperationHandler :
 		{
 			if (ownsTemporary)
 			{
-				await TryDeletePartialCopyAsync(
-					temporaryPath).ConfigureAwait(false);
+				await TryDeletePartialCopyAsync(temporaryPath).ConfigureAwait(false);
 			}
 
 			throw;
@@ -536,40 +392,23 @@ public sealed class FtpStorageOperationHandler :
 		catch (Exception copyError)
 		{
 			var cleanupError = ownsTemporary
-				? await TryDeletePartialCopyAsync(
-					temporaryPath).ConfigureAwait(false)
+				? await TryDeletePartialCopyAsync(temporaryPath).ConfigureAwait(false)
 				: null;
 			ThrowIfCleanupFailed(copyError, cleanupError);
 			throw;
 		}
 	}
 
-	private ValueTask<FtpPath> CreateTemporaryCopyPathAsync(
-		FtpPath destinationPath,
-		CancellationToken cancellationToken)
+	private ValueTask<FtpPath> CreateTemporaryCopyPathAsync(FtpPath destinationPath, CancellationToken cancellationToken)
 	{
 		var parentPath = destinationPath.Parent
-			?? throw new NotSupportedException(
-				"An FTP item cannot be copied over the configured root.");
-		return ResolveDestinationPathAsync(
-			parentPath,
-			$".files-copy-{Guid.NewGuid():N}",
-			StorageConflictBehavior.GenerateUniqueName,
-			cancellationToken);
+			?? throw new NotSupportedException("An FTP item cannot be copied over the configured root.");
+		return ResolveDestinationPathAsync(parentPath, $".files-copy-{Guid.NewGuid():N}", StorageConflictBehavior.GenerateUniqueName, cancellationToken);
 	}
 
-	private ValueTask MoveAsync(
-		FtpStorable item,
-		FtpPath destinationPath,
-		CancellationToken cancellationToken)
+	private ValueTask MoveAsync(FtpStorable item, FtpPath destinationPath, CancellationToken cancellationToken)
 	{
-		return source.Connection.ExecuteAsync(
-			session => session.MoveAsync(
-				item.Path,
-				destinationPath,
-				item.Kind,
-				cancellationToken),
-			cancellationToken);
+		return source.Connection.ExecuteAsync(session => session.MoveAsync(item.Path, destinationPath, item.Kind, cancellationToken), cancellationToken);
 	}
 
 	private async ValueTask<FtpPath> ResolveDestinationPathAsync(
@@ -588,8 +427,7 @@ public sealed class FtpStorageOperationHandler :
 
 		if (conflictBehavior is StorageConflictBehavior.Fail)
 		{
-			throw new IOException(
-				$"An item named '{desiredName}' already exists.");
+			throw new IOException($"An item named '{desiredName}' already exists.");
 		}
 
 		var (baseName, extension) = SplitName(desiredName);
@@ -598,8 +436,7 @@ public sealed class FtpStorageOperationHandler :
 			index++)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			var candidate = parentPath.Combine(
-				$"{baseName} ({index}){extension}");
+			var candidate = parentPath.Combine($"{baseName} ({index}){extension}");
 			if (await source.Resolver
 				.TryResolveAsync(candidate, cancellationToken)
 				.ConfigureAwait(false) is null)
@@ -608,49 +445,36 @@ public sealed class FtpStorageOperationHandler :
 			}
 		}
 
-		throw new IOException(
-			$"A unique name could not be generated for '{desiredName}'.");
+		throw new IOException($"A unique name could not be generated for '{desiredName}'.");
 	}
 
-	private async ValueTask EnsureDoesNotExistAsync(
-		FtpPath path,
-		CancellationToken cancellationToken)
+	private async ValueTask EnsureDoesNotExistAsync(FtpPath path, CancellationToken cancellationToken)
 	{
 		if (await source.Resolver
 			.TryResolveAsync(path, cancellationToken)
 			.ConfigureAwait(false) is not null)
 		{
-			throw new IOException(
-				$"An item named '{path.Name}' already exists.");
+			throw new IOException($"An item named '{path.Name}' already exists.");
 		}
 	}
 
-	private async ValueTask<FtpStorable> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken)
+	private async ValueTask<FtpStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken)
 	{
 		var item = await source
 			.ResolveAsync(reference, cancellationToken)
 			.ConfigureAwait(false);
 		return item as FtpStorable
-			?? throw new NotSupportedException(
-				"The operation target is not an FTP item.");
+			?? throw new NotSupportedException("The operation target is not an FTP item.");
 	}
 
-	private async ValueTask<FtpFolder> ResolveFolderAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken)
+	private async ValueTask<FtpFolder> ResolveFolderAsync(StorableReference reference, CancellationToken cancellationToken)
 	{
-		var item = await ResolveAsync(
-			reference,
-			cancellationToken).ConfigureAwait(false);
+		var item = await ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 		return item as FtpFolder
-			?? throw new NotSupportedException(
-				"The FTP operation destination must be a folder.");
+			?? throw new NotSupportedException("The FTP operation destination must be a folder.");
 	}
 
-	private async ValueTask<Exception?> TryDeletePartialCopyAsync(
-		FtpPath path)
+	private async ValueTask<Exception?> TryDeletePartialCopyAsync(FtpPath path)
 	{
 		try
 		{
@@ -660,10 +484,7 @@ public sealed class FtpStorageOperationHandler :
 			if (entry is not null)
 			{
 				await source.Connection.ExecuteAsync(
-					session => session.DeleteAsync(
-						path,
-						entry.Kind,
-						CancellationToken.None),
+					session => session.DeleteAsync(path, entry.Kind, CancellationToken.None),
 					CancellationToken.None).ConfigureAwait(false);
 			}
 
@@ -680,8 +501,7 @@ public sealed class FtpStorageOperationHandler :
 		return reference.SourceId == source.SourceId;
 	}
 
-	private static (string BaseName, string Extension) SplitName(
-		string name)
+	private static (string BaseName, string Extension) SplitName(string name)
 	{
 		var extensionIndex = name.LastIndexOf('.');
 		return extensionIndex > 0
@@ -689,25 +509,16 @@ public sealed class FtpStorageOperationHandler :
 			: (name, string.Empty);
 	}
 
-	private static StorageOperationResult Failed(
-		Exception exception)
+	private static StorageOperationResult Failed(Exception exception)
 	{
-		return new StorageOperationResult(
-			Succeeded: false,
-			ResultItem: null,
-			Error: exception);
+		return new StorageOperationResult(Succeeded: false, ResultItem: null, Error: exception);
 	}
 
-	private static void ThrowIfCleanupFailed(
-		Exception copyError,
-		Exception? cleanupError)
+	private static void ThrowIfCleanupFailed(Exception copyError, Exception? cleanupError)
 	{
 		if (cleanupError is not null)
 		{
-			throw new AggregateException(
-				"FTP copy and cleanup both failed.",
-				copyError,
-				cleanupError);
+			throw new AggregateException("FTP copy and cleanup both failed.", copyError, cleanupError);
 		}
 	}
 }

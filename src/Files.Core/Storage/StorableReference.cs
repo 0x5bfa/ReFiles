@@ -37,8 +37,6 @@ public sealed record StorableReference
 
 	public override int GetHashCode()
 	{
-		return HashCode.Combine(
-			SourceId,
-			StringComparer.Ordinal.GetHashCode(ItemId));
+		return HashCode.Combine(SourceId, StringComparer.Ordinal.GetHashCode(ItemId));
 	}
 }

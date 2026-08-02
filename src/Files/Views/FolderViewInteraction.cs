@@ -18,9 +18,7 @@ internal sealed class FolderViewInteraction : IDisposable
 	private bool viewportUpdateQueued;
 	private bool isDisposed;
 
-	public FolderViewInteraction(
-		ListViewBase listView,
-		FolderBrowserViewModel viewModel)
+	public FolderViewInteraction(ListViewBase listView, FolderBrowserViewModel viewModel)
 	{
 		this.listView = listView;
 		this.viewModel = viewModel;
@@ -47,34 +45,25 @@ internal sealed class FolderViewInteraction : IDisposable
 		realizedIndices.Clear();
 	}
 
-	private async void ListView_DoubleTapped(
-		object sender,
-		DoubleTappedRoutedEventArgs e)
+	private async void ListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
 	{
 		if (listView.SelectedItem is not BrowseItemViewModel item)
 		{
 			return;
 		}
 
-		await viewModel.CommandManager.ExecuteAsync(
-			CommandIds.OpenItem,
-			item);
+		await viewModel.CommandManager.ExecuteAsync(CommandIds.OpenItem, item);
 	}
 
-	private void ListView_SelectionChanged(
-		object sender,
-		SelectionChangedEventArgs e)
+	private void ListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
 		if (!synchronizingSelection && !viewModel.IsApplyingUpdate)
 		{
-			viewModel.SetSelection(
-				listView.SelectedItems.OfType<BrowseItemViewModel>());
+			viewModel.SetSelection(listView.SelectedItems.OfType<BrowseItemViewModel>());
 		}
 	}
 
-	private void ListView_ContainerContentChanging(
-		ListViewBase sender,
-		ContainerContentChangingEventArgs args)
+	private void ListView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
 	{
 		if (args.InRecycleQueue)
 		{
@@ -118,10 +107,7 @@ internal sealed class FolderViewInteraction : IDisposable
 
 		var firstIndex = realizedIndices.Min();
 		var lastIndex = realizedIndices.Max();
-		viewModel.UpdateViewport(new BrowseViewport(
-			firstIndex,
-			lastIndex - firstIndex + 1,
-			dpi: GetDpi()));
+		viewModel.UpdateViewport(new BrowseViewport(firstIndex, lastIndex - firstIndex + 1, dpi: GetDpi()));
 	}
 
 	private int GetDpi()
@@ -130,9 +116,7 @@ internal sealed class FolderViewInteraction : IDisposable
 		return Math.Max(1, (int)Math.Round(scale * 96.0));
 	}
 
-	private void ViewModel_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is nameof(FolderBrowserViewModel.SelectedKeys))
 		{

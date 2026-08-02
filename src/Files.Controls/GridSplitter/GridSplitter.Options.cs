@@ -55,11 +55,7 @@ namespace Files.Controls
 		/// Identifies the <see cref="ParentLevel"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty ParentLevelProperty
-			= DependencyProperty.Register(
-				nameof(ParentLevel),
-				typeof(int),
-				typeof(GridSplitter),
-				new PropertyMetadata(default(int)));
+			= DependencyProperty.Register(nameof(ParentLevel), typeof(int), typeof(GridSplitter), new PropertyMetadata(default(int)));
 
 		/// <summary>
 		/// Identifies the <see cref="GripperCursor"/> dependency property.

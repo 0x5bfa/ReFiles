@@ -10,18 +10,14 @@ namespace Files.Core.AppModels;
 /// </summary>
 public sealed record BrowseNavigationHistorySnapshot
 {
-	public BrowseNavigationHistorySnapshot(
-		IEnumerable<BrowseLocation> entries,
-		int currentIndex)
+	public BrowseNavigationHistorySnapshot(IEnumerable<BrowseLocation> entries, int currentIndex)
 	{
 		ArgumentNullException.ThrowIfNull(entries);
 
 		var entryArray = entries.ToArray();
 		if (entryArray.Any(static entry => entry is null))
 		{
-			throw new ArgumentException(
-				"History entries cannot contain null values.",
-				nameof(entries));
+			throw new ArgumentException("History entries cannot contain null values.", nameof(entries));
 		}
 
 		if (entryArray.Length is 0)
@@ -147,9 +143,7 @@ public sealed class BrowseNavigationHistory
 			{
 				if (currentIndex < entries.Count - 1)
 				{
-					entries.RemoveRange(
-						currentIndex + 1,
-						entries.Count - currentIndex - 1);
+					entries.RemoveRange(currentIndex + 1, entries.Count - currentIndex - 1);
 				}
 
 				entries.Add(location);
@@ -204,9 +198,7 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
-	internal bool TryGetBack(
-		out BrowseLocation? location,
-		out int targetIndex)
+	internal bool TryGetBack(out BrowseLocation? location, out int targetIndex)
 	{
 		lock (syncRoot)
 		{
@@ -216,9 +208,7 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
-	internal bool TryGetForward(
-		out BrowseLocation? location,
-		out int targetIndex)
+	internal bool TryGetForward(out BrowseLocation? location, out int targetIndex)
 	{
 		lock (syncRoot)
 		{
@@ -228,9 +218,7 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
-	internal bool TryMoveTo(
-		int targetIndex,
-		BrowseLocation expectedLocation)
+	internal bool TryMoveTo(int targetIndex, BrowseLocation expectedLocation)
 	{
 		ArgumentNullException.ThrowIfNull(expectedLocation);
 		var changed = false;
@@ -270,13 +258,8 @@ public sealed class BrowseNavigationHistory
 			var sourceEntries = restored.Entries;
 			var firstIndex = sourceEntries.Count <= capacity
 				? 0
-				: Math.Clamp(
-					restored.CurrentIndex - (capacity / 2),
-					0,
-					sourceEntries.Count - capacity);
-			var lastIndex = Math.Min(
-				sourceEntries.Count,
-				firstIndex + capacity);
+				: Math.Clamp(restored.CurrentIndex - (capacity / 2), 0, sourceEntries.Count - capacity);
+			var lastIndex = Math.Min(sourceEntries.Count, firstIndex + capacity);
 			for (var index = firstIndex; index < lastIndex; index++)
 			{
 				entries.Add(sourceEntries[index]);
@@ -293,8 +276,6 @@ public sealed class BrowseNavigationHistory
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(
-			ref snapshot,
-			Array.AsReadOnly(entries.ToArray()));
+		Volatile.Write(ref snapshot, Array.AsReadOnly(entries.ToArray()));
 	}
 }

@@ -22,18 +22,14 @@ public sealed class WindowModel : IAsyncDisposable
 	private Task? disposeTask;
 	private volatile bool isDisposed;
 
-	public WindowModel(
-		IBrowsePaneFactory paneFactory,
-		Guid? id = null)
+	public WindowModel(IBrowsePaneFactory paneFactory, Guid? id = null)
 	{
 		ArgumentNullException.ThrowIfNull(paneFactory);
 
 		Id = id ?? Guid.NewGuid();
 		if (Id == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A window ID cannot be empty.",
-				nameof(id));
+			throw new ArgumentException("A window ID cannot be empty.", nameof(id));
 		}
 
 		this.paneFactory = paneFactory;
@@ -57,14 +53,10 @@ public sealed class WindowModel : IAsyncDisposable
 
 	public event EventHandler? StateChanged;
 
-	public async ValueTask<TabModel> OpenTabAsync(
-		BrowseLocation? initialLocation = null,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<TabModel> OpenTabAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await mutationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -113,10 +105,7 @@ public sealed class WindowModel : IAsyncDisposable
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Tab creation and cleanup failed.",
-					creationError,
-					cleanupError);
+				throw new AggregateException("Tab creation and cleanup failed.", creationError, cleanupError);
 			}
 
 			throw;
@@ -127,21 +116,15 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask<bool> CloseTabAsync(
-		Guid tabId,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<bool> CloseTabAsync(Guid tabId, CancellationToken cancellationToken = default)
 	{
 		if (tabId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A tab ID is required.",
-				nameof(tabId));
+			throw new ArgumentException("A tab ID is required.", nameof(tabId));
 		}
 
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await mutationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -191,9 +174,7 @@ public sealed class WindowModel : IAsyncDisposable
 	{
 		if (tabId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A tab ID is required.",
-				nameof(tabId));
+			throw new ArgumentException("A tab ID is required.", nameof(tabId));
 		}
 
 		var changed = false;
@@ -224,9 +205,7 @@ public sealed class WindowModel : IAsyncDisposable
 	{
 		if (tabId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A tab ID is required.",
-				nameof(tabId));
+			throw new ArgumentException("A tab ID is required.", nameof(tabId));
 		}
 
 		var changed = false;
@@ -326,17 +305,13 @@ public sealed class WindowModel : IAsyncDisposable
 
 		if (errors is { Count: > 1 })
 		{
-			throw new AggregateException(
-				"One or more window tabs could not be disposed.",
-				errors);
+			throw new AggregateException("One or more window tabs could not be disposed.", errors);
 		}
 	}
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(
-			ref tabSnapshot,
-			Array.AsReadOnly(tabs.ToArray()));
+		Volatile.Write(ref tabSnapshot, Array.AsReadOnly(tabs.ToArray()));
 	}
 
 	private void EnsureActive()

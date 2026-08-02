@@ -11,7 +11,5 @@ public interface ICommandHandler
 
 	CommandState GetState(CommandContext context);
 
-	ValueTask<CommandExecutionResult> ExecuteAsync(
-		CommandContext context,
-		CancellationToken cancellationToken = default);
+	ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default);
 }

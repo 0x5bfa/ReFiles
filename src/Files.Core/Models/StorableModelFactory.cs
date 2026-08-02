@@ -25,10 +25,7 @@ public sealed class StorableModelFactory : IStorableModelFactory
 
 		try
 		{
-			var reference = new StorableReference(
-				source.SourceId,
-				coreModel.Id,
-				(coreModel as IStorageAddressSource)?.Address);
+			var reference = new StorableReference(source.SourceId, coreModel.Id, (coreModel as IStorageAddressSource)?.Address);
 			var context = new ItemContext(source, coreModel, reference);
 			features = itemFeatureRegistry.CreateFeatures(context);
 
@@ -54,15 +51,11 @@ public sealed class StorableModelFactory : IStorableModelFactory
 			}
 
 			cleanupErrors.Insert(0, creationError);
-			throw new AggregateException(
-				"Storable model construction and cleanup failed.",
-				cleanupErrors);
+			throw new AggregateException("Storable model construction and cleanup failed.", cleanupErrors);
 		}
 	}
 
-	private static void TryDisposeSynchronously(
-		object instance,
-		ICollection<Exception> errors)
+	private static void TryDisposeSynchronously(object instance, ICollection<Exception> errors)
 	{
 		try
 		{

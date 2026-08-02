@@ -14,14 +14,11 @@ public sealed class AnonymousFtpCredentialResolver : IFtpCredentialResolver
 	{
 	}
 
-	public ValueTask<FtpCredential?> ResolveAsync(
-		FtpCredentialRequest request,
-		CancellationToken cancellationToken = default)
+	public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		return ValueTask.FromResult<FtpCredential?>(
-			new FtpCredential("anonymous", "anonymous@"));
+		return ValueTask.FromResult<FtpCredential?>(new FtpCredential("anonymous", "anonymous@"));
 	}
 }

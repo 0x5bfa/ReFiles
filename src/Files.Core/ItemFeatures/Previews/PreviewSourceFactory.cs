@@ -33,24 +33,17 @@ public sealed class PreviewSourceFactory
 		private readonly IPreviewLoader loader;
 		private readonly ItemContext context;
 
-		public BoundPreviewSource(
-			IPreviewLoader loader,
-			ItemContext context)
+		public BoundPreviewSource(IPreviewLoader loader, ItemContext context)
 		{
 			this.loader = loader;
 			this.context = context;
 		}
 
-		public ValueTask<PreviewResult?> GetPreviewAsync(
-			PreviewRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
-			return loader.GetPreviewAsync(
-				request,
-				context,
-				cancellationToken);
+			return loader.GetPreviewAsync(request, context, cancellationToken);
 		}
 	}
 }

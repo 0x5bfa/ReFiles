@@ -31,9 +31,7 @@ public sealed partial class ListFolderView : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
-	private static void ViewModelChanged(
-		DependencyObject sender,
-		DependencyPropertyChangedEventArgs args)
+	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
 	{
 		if (sender is not ListFolderView view)
 		{

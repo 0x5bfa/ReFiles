@@ -24,6 +24,5 @@ public interface IFolderChangeSource : IDisposable, IAsyncDisposable
 	/// <summary>
 	/// Starts the native folder subscription and its change pump.
 	/// </summary>
-	ValueTask StartAsync(
-		CancellationToken cancellationToken = default);
+	ValueTask StartAsync(CancellationToken cancellationToken = default);
 }

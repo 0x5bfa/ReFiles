@@ -17,10 +17,7 @@ internal sealed class FtpConnection : IAsyncDisposable
 	private FtpCredential? credential;
 	private int isDisposed;
 
-	public FtpConnection(
-		FtpConnectionProfile profile,
-		IFtpCredentialResolver credentialResolver,
-		IFtpSessionFactory sessionFactory)
+	public FtpConnection(FtpConnectionProfile profile, IFtpCredentialResolver credentialResolver, IFtpSessionFactory sessionFactory)
 	{
 		ArgumentNullException.ThrowIfNull(profile);
 		ArgumentNullException.ThrowIfNull(credentialResolver);
@@ -31,48 +28,34 @@ internal sealed class FtpConnection : IAsyncDisposable
 		this.sessionFactory = sessionFactory;
 	}
 
-	public async ValueTask<T> ExecuteAsync<T>(
-		Func<IFtpSession, ValueTask<T>> operation,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<T> ExecuteAsync<T>(Func<IFtpSession, ValueTask<T>> operation, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(operation);
 
-		await using var session = await OpenSessionAsync(
-			cancellationToken).ConfigureAwait(false);
+		await using var session = await OpenSessionAsync(cancellationToken).ConfigureAwait(false);
 		return await operation(session).ConfigureAwait(false);
 	}
 
-	public async ValueTask ExecuteAsync(
-		Func<IFtpSession, ValueTask> operation,
-		CancellationToken cancellationToken = default)
+	public async ValueTask ExecuteAsync(Func<IFtpSession, ValueTask> operation, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(operation);
 
-		await using var session = await OpenSessionAsync(
-			cancellationToken).ConfigureAwait(false);
+		await using var session = await OpenSessionAsync(cancellationToken).ConfigureAwait(false);
 		await operation(session).ConfigureAwait(false);
 	}
 
-	public ValueTask<Stream> OpenReadAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public ValueTask<Stream> OpenReadAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(path);
-		return OpenStreamAsync(
-			session => session.OpenReadAsync(path, cancellationToken),
-			cancellationToken);
+		return OpenStreamAsync(session => session.OpenReadAsync(path, cancellationToken), cancellationToken);
 	}
 
-	public ValueTask<Stream> OpenWriteAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public ValueTask<Stream> OpenWriteAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(path);
-		return OpenStreamAsync(
-			session => session.OpenWriteAsync(path, cancellationToken),
-			cancellationToken);
+		return OpenStreamAsync(session => session.OpenWriteAsync(path, cancellationToken), cancellationToken);
 	}
 
 	public ValueTask DisposeAsync()
@@ -86,14 +69,11 @@ internal sealed class FtpConnection : IAsyncDisposable
 		return ValueTask.CompletedTask;
 	}
 
-	private async ValueTask<Stream> OpenStreamAsync(
-		Func<IFtpSession, ValueTask<Stream>> openStream,
-		CancellationToken cancellationToken)
+	private async ValueTask<Stream> OpenStreamAsync(Func<IFtpSession, ValueTask<Stream>> openStream, CancellationToken cancellationToken)
 	{
 		ThrowIfDisposed();
 
-		var session = await OpenSessionAsync(
-			cancellationToken).ConfigureAwait(false);
+		var session = await OpenSessionAsync(cancellationToken).ConfigureAwait(false);
 		try
 		{
 			var stream = await openStream(session).ConfigureAwait(false);
@@ -121,18 +101,14 @@ internal sealed class FtpConnection : IAsyncDisposable
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"FTP stream opening and session cleanup both failed.",
-					openError,
-					cleanupError);
+				throw new AggregateException("FTP stream opening and session cleanup both failed.", openError, cleanupError);
 			}
 
 			throw;
 		}
 	}
 
-	private async ValueTask<IFtpSession> OpenSessionAsync(
-		CancellationToken cancellationToken)
+	private async ValueTask<IFtpSession> OpenSessionAsync(CancellationToken cancellationToken)
 	{
 		var currentCredential = await ResolveCredentialAsync(
 			isRetry: false,
@@ -141,10 +117,7 @@ internal sealed class FtpConnection : IAsyncDisposable
 		try
 		{
 			return await sessionFactory
-				.ConnectAsync(
-					profile,
-					currentCredential,
-					cancellationToken)
+				.ConnectAsync(profile, currentCredential, cancellationToken)
 				.ConfigureAwait(false);
 		}
 		catch (FtpAuthenticationRequiredException)
@@ -154,18 +127,12 @@ internal sealed class FtpConnection : IAsyncDisposable
 				rejectedCredential: currentCredential,
 				cancellationToken: cancellationToken).ConfigureAwait(false);
 			return await sessionFactory
-				.ConnectAsync(
-					profile,
-					refreshedCredential,
-					cancellationToken)
+				.ConnectAsync(profile, refreshedCredential, cancellationToken)
 				.ConfigureAwait(false);
 		}
 	}
 
-	private async ValueTask<FtpCredential> ResolveCredentialAsync(
-		bool isRetry,
-		FtpCredential? rejectedCredential,
-		CancellationToken cancellationToken)
+	private async ValueTask<FtpCredential> ResolveCredentialAsync(bool isRetry, FtpCredential? rejectedCredential, CancellationToken cancellationToken)
 	{
 		if (credential is not null
 			&& rejectedCredential is null)
@@ -179,25 +146,17 @@ internal sealed class FtpConnection : IAsyncDisposable
 		try
 		{
 			if (rejectedCredential is not null
-				&& ReferenceEquals(
-					credential,
-					rejectedCredential))
+				&& ReferenceEquals(credential, rejectedCredential))
 			{
 				credential = null;
 			}
 
 			credential ??= await credentialResolver
-				.ResolveAsync(
-					new FtpCredentialRequest(
-						profile,
-						isRetry),
-					cancellationToken)
+				.ResolveAsync(new FtpCredentialRequest(profile, isRetry), cancellationToken)
 				.ConfigureAwait(false);
 
 			return credential
-				?? throw new FtpAuthenticationRequiredException(
-					profile.ConnectionId,
-					$"Credentials are required for FTP connection '{profile.DisplayName}'.");
+				?? throw new FtpAuthenticationRequiredException(profile.ConnectionId, $"Credentials are required for FTP connection '{profile.DisplayName}'.");
 		}
 		finally
 		{
@@ -207,8 +166,6 @@ internal sealed class FtpConnection : IAsyncDisposable
 
 	private void ThrowIfDisposed()
 	{
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) is not 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
 	}
 }

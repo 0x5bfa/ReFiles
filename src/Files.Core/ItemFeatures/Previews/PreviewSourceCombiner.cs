@@ -10,9 +10,7 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public sealed class PreviewSourceCombiner : IItemFeatureCombiner<IPreviewSource>
 {
-	public IPreviewSource? Combine(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<IPreviewSource>> options)
+	public IPreviewSource? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<IPreviewSource>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
@@ -39,9 +37,7 @@ public sealed class PreviewSourceCombiner : IItemFeatureCombiner<IPreviewSource>
 			this.sources = sources;
 		}
 
-		public async ValueTask<PreviewResult?> GetPreviewAsync(
-			PreviewRequest request,
-			CancellationToken cancellationToken = default)
+		public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 

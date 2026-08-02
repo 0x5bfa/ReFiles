@@ -22,9 +22,7 @@ public sealed class SevenZipArchiveBackend
 
 	public bool SupportsEncryptedArchives => true;
 
-	public async ValueTask<ArchiveProbeResult> ProbeAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<ArchiveProbeResult> ProbeAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
@@ -49,18 +47,13 @@ public sealed class SevenZipArchiveBackend
 				return ArchiveProbeResult.Unknown;
 			}
 
-			extractor = CreateExtractor(
-				stream,
-				request.Credential);
+			extractor = CreateExtractor(stream, request.Credential);
 			var entries = extractor.ArchiveFileData;
 			var encrypted = entries.Any(IsEncrypted);
 
 			if (encrypted && request.Credential is null)
 			{
-				return ArchiveProbeResult.CredentialRequired(
-					CreateChallenge(
-						request,
-						previousCredentialRejected: false));
+				return ArchiveProbeResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: false));
 			}
 
 			return encrypted
@@ -75,11 +68,7 @@ public sealed class SevenZipArchiveBackend
 		catch (Exception error)
 			when (IsPasswordFailure(error))
 		{
-			return ArchiveProbeResult.CredentialRequired(
-				CreateChallenge(
-					request,
-					previousCredentialRejected:
-						request.Credential is not null));
+			return ArchiveProbeResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: request.Credential is not null));
 		}
 		catch
 		{
@@ -95,9 +84,7 @@ public sealed class SevenZipArchiveBackend
 		}
 	}
 
-	public async ValueTask<ArchiveMountResult> TryMountAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
@@ -113,27 +100,16 @@ public sealed class SevenZipArchiveBackend
 				return ArchiveMountResult.Unsupported.Instance;
 			}
 
-			extractor = CreateExtractor(
-				stream,
-				request.Credential);
+			extractor = CreateExtractor(stream, request.Credential);
 			var entries = extractor.ArchiveFileData.ToArray();
 			if (entries.Any(IsEncrypted)
 				&& request.Credential is null)
 			{
-				return new ArchiveMountResult.CredentialRequired(
-					CreateChallenge(
-						request,
-						previousCredentialRejected: false));
+				return new ArchiveMountResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: false));
 			}
 
-			var index = SevenZipArchiveIndex.Create(
-				entries,
-				request.ArchiveModel.Name);
-			var mount = new SevenZipArchiveMount(
-				request,
-				stream,
-				extractor,
-				index);
+			var index = SevenZipArchiveIndex.Create(entries, request.ArchiveModel.Name);
+			var mount = new SevenZipArchiveMount(request, stream, extractor, index);
 			stream = null;
 			extractor = null;
 			return new ArchiveMountResult.Success(mount);
@@ -146,11 +122,7 @@ public sealed class SevenZipArchiveBackend
 		catch (Exception error)
 			when (IsPasswordFailure(error))
 		{
-			return new ArchiveMountResult.CredentialRequired(
-				CreateChallenge(
-					request,
-					previousCredentialRejected:
-						request.Credential is not null));
+			return new ArchiveMountResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: request.Credential is not null));
 		}
 		catch (SevenZipOpenFailedException)
 		{
@@ -182,39 +154,22 @@ public sealed class SevenZipArchiveBackend
 			};
 	}
 
-	internal static SevenZipExtractor CreateExtractor(
-		Stream stream,
-		ArchiveCredential? credential)
+	internal static SevenZipExtractor CreateExtractor(Stream stream, ArchiveCredential? credential)
 	{
 		return credential is null
-			? new SevenZipExtractor(
-				stream,
-				leaveOpen: true)
-			: new SevenZipExtractor(
-				stream,
-				credential.Password,
-				leaveOpen: true);
+			? new SevenZipExtractor(stream, leaveOpen: true)
+			: new SevenZipExtractor(stream, credential.Password, leaveOpen: true);
 	}
 
 	private static bool IsEncrypted(ArchiveFileInfo entry)
 	{
 		return entry.Encrypted
-			|| entry.Method?.Contains(
-				"Crypto",
-				StringComparison.OrdinalIgnoreCase) is true
-			|| entry.Method?.Contains(
-				"AES",
-				StringComparison.OrdinalIgnoreCase) is true;
+			|| entry.Method?.Contains("Crypto", StringComparison.OrdinalIgnoreCase) is true
+			|| entry.Method?.Contains("AES", StringComparison.OrdinalIgnoreCase) is true;
 	}
 
-	private static ArchiveCredentialChallenge CreateChallenge(
-		ArchiveMountRequest request,
-		bool previousCredentialRejected)
+	private static ArchiveCredentialChallenge CreateChallenge(ArchiveMountRequest request, bool previousCredentialRejected)
 	{
-		return new ArchiveCredentialChallenge(
-			request.Archive,
-			request.ArchiveModel.Name,
-			request.CredentialAttempt + 1,
-			previousCredentialRejected);
+		return new ArchiveCredentialChallenge(request.Archive, request.ArchiveModel.Name, request.CredentialAttempt + 1, previousCredentialRejected);
 	}
 }

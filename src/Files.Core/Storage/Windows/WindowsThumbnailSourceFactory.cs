@@ -31,9 +31,6 @@ public sealed class WindowsThumbnailSourceFactory : IItemFeatureFactory<IThumbna
 			return null;
 		}
 
-		return new WindowsShellThumbnailSource(
-			source.ShellItemResolver,
-			backend,
-			storable.Locator);
+		return new WindowsShellThumbnailSource(source.ShellItemResolver, backend, storable.Locator);
 	}
 }

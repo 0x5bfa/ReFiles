@@ -29,9 +29,7 @@ public sealed record FtpConnectionProfile
 		var resolvedPort = port ?? GetDefaultPort(securityMode);
 		if (resolvedPort is < 1 or > ushort.MaxValue)
 		{
-			throw new ArgumentOutOfRangeException(
-				nameof(port),
-				"An FTP port must be between 1 and 65535.");
+			throw new ArgumentOutOfRangeException(nameof(port), "An FTP port must be between 1 and 65535.");
 		}
 
 		ConnectionId = connectionId;
@@ -83,9 +81,7 @@ public sealed record FtpConnectionProfile
 			|| value.Contains('\\')
 			|| value.Contains('@'))
 		{
-			throw new ArgumentException(
-				"The FTP host must be a hostname or IP address without a URI scheme.",
-				nameof(host));
+			throw new ArgumentException("The FTP host must be a hostname or IP address without a URI scheme.", nameof(host));
 		}
 
 		var uriHost = value.Contains(':')
@@ -99,9 +95,7 @@ public sealed record FtpConnectionProfile
 			|| string.IsNullOrWhiteSpace(endpoint.IdnHost)
 			|| !string.IsNullOrEmpty(endpoint.UserInfo))
 		{
-			throw new ArgumentException(
-				"The FTP host must be a valid hostname or IP address.",
-				nameof(host));
+			throw new ArgumentException("The FTP host must be a valid hostname or IP address.", nameof(host));
 		}
 
 		return value;
@@ -114,8 +108,7 @@ public sealed record FtpConnectionProfile
 			: 21;
 	}
 
-	private static void ValidateSecurityMode(
-		FtpSecurityMode securityMode)
+	private static void ValidateSecurityMode(FtpSecurityMode securityMode)
 	{
 		if (securityMode is not FtpSecurityMode.Plain
 			and not FtpSecurityMode.ExplicitTls
@@ -125,8 +118,7 @@ public sealed record FtpConnectionProfile
 		}
 	}
 
-	private static void ValidatePathComparison(
-		FtpPathComparison pathComparison)
+	private static void ValidatePathComparison(FtpPathComparison pathComparison)
 	{
 		if (pathComparison is not FtpPathComparison.CaseSensitive
 			and not FtpPathComparison.CaseInsensitive)

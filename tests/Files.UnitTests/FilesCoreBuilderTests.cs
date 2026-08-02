@@ -17,14 +17,11 @@ public sealed class FilesCoreBuilderTests
 			.AddStorageSource(source)
 			.Build();
 
-		var window = await runtime.Application.CreateWindowAsync(
-			HomeLocation.Instance);
+		var window = await runtime.Application.CreateWindowAsync(HomeLocation.Instance);
 
 		Assert.AreEqual(HomeLocation.Instance, window.ActiveTab!.ActivePane!.Location);
 		Assert.IsEmpty(window.ActiveTab.ActivePane.BrowseSession.Items);
-		Assert.AreSame(
-			source,
-			runtime.DataRoot.GetSource(source.SourceId));
+		Assert.AreSame(source, runtime.DataRoot.GetSource(source.SourceId));
 
 		await runtime.DisposeAsync();
 
@@ -44,8 +41,7 @@ public sealed class FilesCoreBuilderTests
 
 		Assert.IsTrue(source.IsDisposed);
 		Assert.AreEqual(1, source.DisposeCount);
-		Assert.Throws<ObjectDisposedException>(
-			() => builder.AddStorageSource(new TestStorageSource()));
+		Assert.Throws<ObjectDisposedException>(() => builder.AddStorageSource(new TestStorageSource()));
 	}
 
 	[TestMethod]
@@ -69,8 +65,7 @@ public sealed class FilesCoreBuilderTests
 		var builder = new FilesCoreBuilder()
 			.AddStorageSource(new TestStorageSource());
 
-		Assert.Throws<InvalidOperationException>(
-			() => builder.AddStorageSource(new TestStorageSource()));
+		Assert.Throws<InvalidOperationException>(() => builder.AddStorageSource(new TestStorageSource()));
 	}
 
 	[TestMethod]
@@ -93,8 +88,7 @@ public sealed class FilesCoreBuilderTests
 		var source = new TestStorageSource();
 		var builder = new FilesCoreBuilder()
 			.AddStorageSource(source)
-			.AddBrowseLocationHandler(
-				_ => throw new InvalidOperationException("factory failed"));
+			.AddBrowseLocationHandler(_ => throw new InvalidOperationException("factory failed"));
 
 		Assert.Throws<InvalidOperationException>(() => builder.Build());
 

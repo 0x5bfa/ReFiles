@@ -8,17 +8,12 @@ namespace Files.Core.Storage.Ftp;
 
 public sealed class FtpFile : FtpStorable, IChildFile
 {
-	internal FtpFile(
-		FtpStorageSource source,
-		FtpStorableSnapshot snapshot,
-		FtpStorableFactory factory)
+	internal FtpFile(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
 		: base(source, snapshot, factory)
 	{
 	}
 
-	public async Task<Stream> OpenStreamAsync(
-		FileAccess accessMode,
-		CancellationToken cancellationToken = default)
+	public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -33,8 +28,7 @@ public sealed class FtpFile : FtpStorable, IChildFile
 					.OpenWriteAsync(Path, cancellationToken)
 					.ConfigureAwait(false),
 			FileAccess.ReadWrite =>
-				throw new NotSupportedException(
-					"FTP does not expose one bidirectional file stream."),
+				throw new NotSupportedException("FTP does not expose one bidirectional file stream."),
 			_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),
 		};
 	}

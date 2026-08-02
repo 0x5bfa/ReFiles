@@ -20,19 +20,14 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 	private readonly TimeSpan refreshDelay;
 	private readonly object stateLock = new();
 	private readonly CancellationTokenSource lifetime = new();
-	private BrowsePreviewSnapshot current = new(
-		0,
-		null,
-		BrowsePreviewStatus.Empty);
+	private BrowsePreviewSnapshot current = new(0, null, BrowsePreviewStatus.Empty);
 	private CancellationTokenSource? activeRequestCts;
 	private Task? activeRequestTask;
 	private Task? disposeTask;
 	private long currentRequestVersion;
 	private bool isDisposed;
 
-	public BrowsePreviewModel(
-		IBrowseSessionModel browseSession,
-		TimeSpan? refreshDelay = null)
+	public BrowsePreviewModel(IBrowseSessionModel browseSession, TimeSpan? refreshDelay = null)
 	{
 		ArgumentNullException.ThrowIfNull(browseSession);
 
@@ -95,8 +90,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			requestTask = activeRequestTask;
 			activeRequestCts = null;
 			activeRequestTask = null;
-			completion = new TaskCompletionSource<object?>(
-				TaskCreationOptions.RunContinuationsAsynchronously);
+			completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 			disposeTask = completion.Task;
 		}
 
@@ -105,14 +99,10 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		return new ValueTask(completion.Task);
 	}
 
-	private Task BeginRefresh(
-		PreviewHydrationPolicy hydrationPolicy,
-		CancellationToken cancellationToken)
+	private Task BeginRefresh(PreviewHydrationPolicy hydrationPolicy, CancellationToken cancellationToken)
 	{
 		var requestCts = cancellationToken.CanBeCanceled
-			? CancellationTokenSource.CreateLinkedTokenSource(
-				lifetime.Token,
-				cancellationToken)
+			? CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token, cancellationToken)
 			: CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
 		CancellationTokenSource? previousCts;
 		long requestVersion;
@@ -131,10 +121,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		}
 
 		previousCts?.Cancel();
-		var requestTask = LoadAsync(
-			requestVersion,
-			hydrationPolicy,
-			requestCts);
+		var requestTask = LoadAsync(requestVersion, hydrationPolicy, requestCts);
 
 		lock (stateLock)
 		{
@@ -147,10 +134,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		return requestTask;
 	}
 
-	private async Task LoadAsync(
-		long requestVersion,
-		PreviewHydrationPolicy hydrationPolicy,
-		CancellationTokenSource requestCts)
+	private async Task LoadAsync(long requestVersion, PreviewHydrationPolicy hydrationPolicy, CancellationTokenSource requestCts)
 	{
 		try
 		{
@@ -160,36 +144,23 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			var target = ResolveSelectedItem();
 			if (target is null)
 			{
-				await PublishAsync(new BrowsePreviewSnapshot(
-					requestVersion,
-					null,
-					BrowsePreviewStatus.Empty)).ConfigureAwait(false);
+				await PublishAsync(new BrowsePreviewSnapshot(requestVersion, null, BrowsePreviewStatus.Empty)).ConfigureAwait(false);
 				return;
 			}
 
 			var key = target.Reference.GetKey();
 			var generation = browseSession.Generation;
-			await PublishAsync(new BrowsePreviewSnapshot(
-				requestVersion,
-				key,
-				BrowsePreviewStatus.Loading)).ConfigureAwait(false);
+			await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, BrowsePreviewStatus.Loading)).ConfigureAwait(false);
 
 			var source = target.Get<IPreviewSource>();
 			if (source is null)
 			{
-				await PublishAsync(new BrowsePreviewSnapshot(
-					requestVersion,
-					key,
-					BrowsePreviewStatus.Unavailable)).ConfigureAwait(false);
+				await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, BrowsePreviewStatus.Unavailable)).ConfigureAwait(false);
 				return;
 			}
 
 			var result = await source
-				.GetPreviewAsync(
-					new PreviewRequest(
-						maximumBytes: 32 * 1024 * 1024,
-						hydrationPolicy),
-					requestCts.Token)
+				.GetPreviewAsync(new PreviewRequest(maximumBytes: 32 * 1024 * 1024, hydrationPolicy), requestCts.Token)
 				.ConfigureAwait(false);
 
 			if (!IsStillCurrent(requestVersion, generation, key, target))
@@ -212,12 +183,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 				? blocked.Reason
 				: null;
 
-			await PublishAsync(new BrowsePreviewSnapshot(
-				requestVersion,
-				key,
-				status,
-				result,
-				blockReason)).ConfigureAwait(false);
+			await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, status, result, blockReason)).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException)
 			when (requestCts.IsCancellationRequested)
@@ -227,11 +193,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		{
 			if (requestVersion == Volatile.Read(ref currentRequestVersion))
 			{
-				await PublishAsync(new BrowsePreviewSnapshot(
-					requestVersion,
-					null,
-					BrowsePreviewStatus.Failed,
-					Error: exception)).ConfigureAwait(false);
+				await PublishAsync(new BrowsePreviewSnapshot(requestVersion, null, BrowsePreviewStatus.Failed, Error: exception)).ConfigureAwait(false);
 			}
 		}
 		finally
@@ -249,15 +211,10 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		}
 
 		var selectedKey = selection.SelectedKeys[0];
-		return browseSession.Items.FirstOrDefault(
-			item => item.Reference.GetKey() == selectedKey);
+		return browseSession.Items.FirstOrDefault(item => item.Reference.GetKey() == selectedKey);
 	}
 
-	private bool IsStillCurrent(
-		long requestVersion,
-		long generation,
-		StorableKey key,
-		IStorableModel originalModel)
+	private bool IsStillCurrent(long requestVersion, long generation, StorableKey key, IStorableModel originalModel)
 	{
 		if (requestVersion != Volatile.Read(ref currentRequestVersion)
 			|| browseSession.Generation != generation)
@@ -272,8 +229,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			return false;
 		}
 
-		var currentModel = browseSession.Items.FirstOrDefault(
-			item => item.Reference.GetKey() == key);
+		var currentModel = browseSession.Items.FirstOrDefault(item => item.Reference.GetKey() == key);
 		return ReferenceEquals(currentModel, originalModel);
 	}
 
@@ -327,10 +283,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		requestCts.Dispose();
 	}
 
-	private async Task DisposeCoreAsync(
-		CancellationTokenSource? requestCts,
-		Task? requestTask,
-		TaskCompletionSource<object?> completion)
+	private async Task DisposeCoreAsync(CancellationTokenSource? requestCts, Task? requestTask, TaskCompletionSource<object?> completion)
 	{
 		try
 		{
@@ -343,19 +296,14 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			}
 			catch (Exception exception)
 			{
-				Trace.TraceError(
-					"BrowsePreviewModel request failed during disposal: {0}",
-					exception);
+				Trace.TraceError("BrowsePreviewModel request failed during disposal: {0}", exception);
 			}
 
 			PreviewResult? result;
 			lock (stateLock)
 			{
 				result = current.Result;
-				current = new BrowsePreviewSnapshot(
-					Volatile.Read(ref currentRequestVersion),
-					null,
-					BrowsePreviewStatus.Empty);
+				current = new BrowsePreviewSnapshot(Volatile.Read(ref currentRequestVersion), null, BrowsePreviewStatus.Empty);
 			}
 
 			if (result is not null)
@@ -381,9 +329,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		RequestRefresh();
 	}
 
-	private void OnItemsChanged(
-		object? sender,
-		BrowseItemsChangedEventArgs args)
+	private void OnItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
 		RequestRefresh();
 	}
@@ -392,9 +338,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 	{
 		try
 		{
-			_ = BeginRefresh(
-				PreviewHydrationPolicy.LocalOnly,
-				CancellationToken.None);
+			_ = BeginRefresh(PreviewHydrationPolicy.LocalOnly, CancellationToken.None);
 		}
 		catch (ObjectDisposedException)
 		{
@@ -417,9 +361,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			}
 			catch (Exception exception)
 			{
-				Trace.TraceError(
-					"BrowsePreviewModel event handler failed: {0}",
-					exception);
+				Trace.TraceError("BrowsePreviewModel event handler failed: {0}", exception);
 			}
 		}
 	}

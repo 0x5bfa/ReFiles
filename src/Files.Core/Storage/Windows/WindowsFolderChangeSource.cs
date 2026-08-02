@@ -21,9 +21,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 	private int isStarted;
 	private int isDisposed;
 
-	public WindowsFolderChangeSource(
-		WindowsStorageSource source,
-		WindowsItemLocator folderLocator)
+	public WindowsFolderChangeSource(WindowsStorageSource source, WindowsItemLocator folderLocator)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(folderLocator);
@@ -36,8 +34,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 
 	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
-	public async ValueTask StartAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask StartAsync(CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
 
@@ -55,14 +52,9 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 			}
 
 			using var linkedCancellation =
-				CancellationTokenSource.CreateLinkedTokenSource(
-					cancellationToken,
-					lifetime.Token);
+				CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 			var newSubscription = await source.ChangeWatcher
-				.SubscribeAsync(
-					folderLocator,
-					recursive: false,
-					linkedCancellation.Token)
+				.SubscribeAsync(folderLocator, recursive: false, linkedCancellation.Token)
 				.ConfigureAwait(false);
 
 			try
@@ -80,10 +72,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 				}
 				catch (Exception cleanupError)
 				{
-					throw new AggregateException(
-						"Folder watcher startup and cleanup failed.",
-						startError,
-						cleanupError);
+					throw new AggregateException("Folder watcher startup and cleanup failed.", startError, cleanupError);
 				}
 
 				throw;
@@ -117,9 +106,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		return new ValueTask(GetDisposeTask());
 	}
 
-	private async Task PumpAsync(
-		WindowsShellChangeWatcher.WindowsShellChangeSubscription changeSubscription,
-		CancellationToken cancellationToken)
+	private async Task PumpAsync(WindowsShellChangeWatcher.WindowsShellChangeSubscription changeSubscription, CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -129,9 +116,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 			{
 				while (changeSubscription.TryRead(out var change))
 				{
-					var converted = await ConvertAsync(
-						change,
-						cancellationToken)
+					var converted = await ConvertAsync(change, cancellationToken)
 						.ConfigureAwait(false);
 					Publish(converted);
 				}
@@ -146,9 +131,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		}
 	}
 
-	private async Task<FolderChange> ConvertAsync(
-		WindowsShellChange change,
-		CancellationToken cancellationToken)
+	private async Task<FolderChange> ConvertAsync(WindowsShellChange change, CancellationToken cancellationToken)
 	{
 		var kind = GetKind(change.EventId);
 		WindowsStorable? first = null;
@@ -157,22 +140,16 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		if (kind is FolderChangeKind.Renamed)
 		{
 			first = await source
-				.TryCreateFromAbsolutePidlAsync(
-					change.FirstAbsolutePidl,
-					cancellationToken)
+				.TryCreateFromAbsolutePidlAsync(change.FirstAbsolutePidl, cancellationToken)
 				.ConfigureAwait(false);
 			second = await source
-				.TryCreateFromAbsolutePidlAsync(
-					change.SecondAbsolutePidl,
-					cancellationToken)
+				.TryCreateFromAbsolutePidlAsync(change.SecondAbsolutePidl, cancellationToken)
 				.ConfigureAwait(false);
 		}
 		else if (kind is not FolderChangeKind.DirectoryUpdated)
 		{
 			first = await source
-				.TryCreateFromAbsolutePidlAsync(
-					change.FirstAbsolutePidl,
-					cancellationToken)
+				.TryCreateFromAbsolutePidlAsync(change.FirstAbsolutePidl, cancellationToken)
 				.ConfigureAwait(false);
 		}
 
@@ -322,9 +299,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"Folder watcher cleanup failed.",
-				errors);
+			throw new AggregateException("Folder watcher cleanup failed.", errors);
 		}
 	}
 

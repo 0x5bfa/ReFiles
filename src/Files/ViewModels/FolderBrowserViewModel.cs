@@ -28,11 +28,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	private int isDisposed;
 	private FolderViewMode viewMode = FolderViewMode.Details;
 
-	public FolderBrowserViewModel(
-		PaneModel pane,
-		IFilesDataRoot dataRoot,
-		IUIDispatcher dispatcher,
-		WindowCommandManager commandManager)
+	public FolderBrowserViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(commandManager);
 		CommandManager = commandManager;
@@ -74,22 +70,16 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	public Task InitializeAsync(CancellationToken cancellationToken = default) =>
 		browseAdapter.InitializeAsync(cancellationToken);
 
-	public Task NavigateToPathAsync(
-		string path,
-		CancellationToken cancellationToken = default) =>
+	public Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default) =>
 		browseAdapter.NavigateToPathAsync(path, cancellationToken);
 
 	public Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
 		browseAdapter.NavigateHomeAsync(cancellationToken);
 
-	public Task NavigateToItemAsync(
-		BrowseItemViewModel item,
-		CancellationToken cancellationToken = default) =>
+	public Task NavigateToItemAsync(BrowseItemViewModel item, CancellationToken cancellationToken = default) =>
 		browseAdapter.NavigateToItemAsync(item, cancellationToken);
 
-	public Task NavigateToReferenceAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default) =>
+	public Task NavigateToReferenceAsync(StorableReference reference, CancellationToken cancellationToken = default) =>
 		browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
 
 	public Task GoBackAsync(CancellationToken cancellationToken = default) =>
@@ -144,9 +134,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		browseAdapter.Dispose();
 	}
 
-	private void BrowseAdapter_Updated(
-		object? sender,
-		CoreBrowseUpdatedEventArgs args)
+	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
 	{
 		isApplyingUpdate = true;
 		try
@@ -176,8 +164,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 						break;
 					default:
-						throw new InvalidOperationException(
-							$"Unsupported browse item change '{change.GetType().Name}'.");
+						throw new InvalidOperationException($"Unsupported browse item change '{change.GetType().Name}'.");
 				}
 			}
 

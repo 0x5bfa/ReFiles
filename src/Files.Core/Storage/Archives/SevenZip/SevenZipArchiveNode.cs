@@ -3,9 +3,4 @@
 
 namespace Files.Core.Storage.Archives.SevenZip;
 
-internal sealed record SevenZipArchiveNode(
-	string Path,
-	string Name,
-	bool IsDirectory,
-	int? EntryIndex,
-	ulong Size);
+internal sealed record SevenZipArchiveNode(string Path, string Name, bool IsDirectory, int? EntryIndex, ulong Size);

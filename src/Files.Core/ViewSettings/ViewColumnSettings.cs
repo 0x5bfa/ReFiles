@@ -5,11 +5,7 @@ namespace Files.Core.ViewSettings;
 
 public sealed record ViewColumnSettings
 {
-	public ViewColumnSettings(
-		string propertyId,
-		double width,
-		int order,
-		bool isVisible = true)
+	public ViewColumnSettings(string propertyId, double width, int order, bool isVisible = true)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
 		if (!double.IsFinite(width) || width <= 0)

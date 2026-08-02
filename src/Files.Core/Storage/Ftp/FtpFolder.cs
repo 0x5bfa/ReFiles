@@ -8,10 +8,7 @@ namespace Files.Core.Storage.Ftp;
 
 public sealed class FtpFolder : FtpStorable, IChildFolder
 {
-	internal FtpFolder(
-		FtpStorageSource source,
-		FtpStorableSnapshot snapshot,
-		FtpStorableFactory factory)
+	internal FtpFolder(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
 		: base(source, snapshot, factory)
 	{
 	}

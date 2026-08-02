@@ -13,10 +13,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 	private readonly WindowsShellThumbnailBackend backend;
 	private readonly WindowsItemLocator locator;
 
-	public WindowsShellThumbnailSource(
-		WindowsShellItemResolver resolver,
-		WindowsShellThumbnailBackend backend,
-		WindowsItemLocator locator)
+	public WindowsShellThumbnailSource(WindowsShellItemResolver resolver, WindowsShellThumbnailBackend backend, WindowsItemLocator locator)
 	{
 		ArgumentNullException.ThrowIfNull(resolver);
 		ArgumentNullException.ThrowIfNull(backend);
@@ -27,21 +24,12 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		this.locator = locator;
 	}
 
-	public async ValueTask<ThumbnailResult?> GetThumbnailAsync(
-		ThumbnailRequest request,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
 		var payload = await resolver
-			.InvokeConcurrentAsync(
-				locator,
-				shellItem => backend.GetThumbnail(
-					shellItem,
-					locator,
-					request,
-					cancellationToken),
-				cancellationToken)
+			.InvokeConcurrentAsync(locator, shellItem => backend.GetThumbnail(shellItem, locator, request, cancellationToken), cancellationToken)
 			.ConfigureAwait(false);
 
 		return payload is null

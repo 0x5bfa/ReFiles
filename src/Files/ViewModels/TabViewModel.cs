@@ -22,11 +22,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 	private string? operationError;
 	private bool isRefreshing;
 
-	public TabViewModel(
-		TabModel tab,
-		IFilesDataRoot dataRoot,
-		IUIDispatcher dispatcher,
-		WindowCommandManager commandManager)
+	public TabViewModel(TabModel tab, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(tab);
 		ArgumentNullException.ThrowIfNull(dataRoot);
@@ -61,19 +57,14 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	public bool CanClosePane => Panes.Count > 1;
 
-	public async Task OpenPaneAsync(
-		PaneSplitOrientation orientation,
-		CancellationToken cancellationToken = default)
+	public async Task OpenPaneAsync(PaneSplitOrientation orientation, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
-		await tab.OpenSplitAsync(
-				orientation,
-				cancellationToken: cancellationToken)
+		await tab.OpenSplitAsync(orientation, cancellationToken: cancellationToken)
 			.ConfigureAwait(false);
 	}
 
-	public async Task CloseActivePaneAsync(
-		CancellationToken cancellationToken = default)
+	public async Task CloseActivePaneAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 		if (ActivePane is not { } activePane)
@@ -123,18 +114,12 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		if (!dispatcher.TryEnqueue(
-			() =>
-			{
-				Interlocked.Exchange(ref refreshQueued, 0);
-				RefreshFromCore();
-			}))
+		if (!dispatcher.TryEnqueue(() => {Interlocked.Exchange(ref refreshQueued, 0); RefreshFromCore();}))
 		{
 			Interlocked.Exchange(ref refreshQueued, 0);
 			if (Volatile.Read(ref isDisposed) is 0)
 			{
-				throw new InvalidOperationException(
-					"The Files UI dispatcher rejected a tab update.");
+				throw new InvalidOperationException("The Files UI dispatcher rejected a tab update.");
 			}
 		}
 	}
@@ -168,11 +153,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			{
 				if (!paneViewModels.ContainsKey(corePane.Id))
 				{
-					var paneViewModel = new PaneViewModel(
-						corePane,
-						dataRoot,
-						dispatcher,
-						commandManager);
+					var paneViewModel = new PaneViewModel(corePane, dataRoot, dispatcher, commandManager);
 					paneViewModel.PropertyChanged += PaneViewModel_PropertyChanged;
 					paneViewModels[corePane.Id] = paneViewModel;
 				}
@@ -183,8 +164,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 				.ToArray();
 			foreach (var pane in orderedPanes)
 			{
-				pane.SetActive(
-					tab.ActivePane?.Id == pane.Id);
+				pane.SetActive(tab.ActivePane?.Id == pane.Id);
 			}
 
 			ObservableCollectionSynchronizer.Synchronize(Panes, orderedPanes);
@@ -202,9 +182,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 		}
 	}
 
-	private void PaneViewModel_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void PaneViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is nameof(PaneViewModel.StatusText)
 			or nameof(PaneViewModel.Title))
@@ -215,7 +193,5 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 	}
 
 	private void EnsureActive() =>
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) is not 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
 }

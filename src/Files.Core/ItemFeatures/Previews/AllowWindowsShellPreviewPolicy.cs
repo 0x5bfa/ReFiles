@@ -17,16 +17,12 @@ public sealed class AllowWindowsShellPreviewPolicy
 	{
 	}
 
-	public PreviewBlockReason? GetBlockReason(
-		ItemContext context,
-		Guid handlerClsid)
+	public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		if (handlerClsid == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A preview handler CLSID is required.",
-				nameof(handlerClsid));
+			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
 		}
 
 		return null;

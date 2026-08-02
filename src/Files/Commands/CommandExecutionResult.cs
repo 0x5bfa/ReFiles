@@ -11,9 +11,7 @@ public enum CommandExecutionStatus
 	Failed,
 }
 
-public sealed record CommandExecutionResult(
-	CommandExecutionStatus Status,
-	Exception? Error = null)
+public sealed record CommandExecutionResult(CommandExecutionStatus Status, Exception? Error = null)
 {
 	public static CommandExecutionResult Succeeded() =>
 		new(CommandExecutionStatus.Succeeded);

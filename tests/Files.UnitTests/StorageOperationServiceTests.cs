@@ -27,8 +27,7 @@ public sealed class StorageOperationServiceTests
 	[TestMethod]
 	public async Task ReportsUnsupportedRequestAsFailedResult()
 	{
-		var service = new StorageOperationService(
-			[new TestOperationHandler(canHandle: false)]);
+		var service = new StorageOperationService([new TestOperationHandler(canHandle: false)]);
 
 		Assert.IsFalse(service.CanHandle(new UnknownOperationRequest()));
 		var result = await service.ExecuteAsync(new UnknownOperationRequest());
@@ -42,9 +41,7 @@ public sealed class StorageOperationServiceTests
 	public async Task MapsHandlerExceptionToFailedResult()
 	{
 		var expected = new IOException("operation failed");
-		var handler = new TestOperationHandler(
-			canHandle: true,
-			exception: expected);
+		var handler = new TestOperationHandler(canHandle: true, exception: expected);
 		var service = new StorageOperationService([handler]);
 
 		var result = await service.ExecuteAsync(CreateRenameRequest());
@@ -62,9 +59,7 @@ public sealed class StorageOperationServiceTests
 		var service = new StorageOperationService([handler]);
 
 		await Assert.ThrowsAsync<OperationCanceledException>(
-			async () => await service.ExecuteAsync(
-				CreateRenameRequest(),
-				cancellationToken: cancellation.Token));
+			async () => await service.ExecuteAsync(CreateRenameRequest(), cancellationToken: cancellation.Token));
 
 		Assert.AreEqual(0, handler.ExecuteCount);
 	}
@@ -72,8 +67,7 @@ public sealed class StorageOperationServiceTests
 	[TestMethod]
 	public async Task MapsNullHandlerResultToFailedResult()
 	{
-		var service = new StorageOperationService(
-			[new NullOperationHandler()]);
+		var service = new StorageOperationService([new NullOperationHandler()]);
 
 		var result = await service.ExecuteAsync(CreateRenameRequest());
 
@@ -86,17 +80,9 @@ public sealed class StorageOperationServiceTests
 	{
 		var reference = CreateRenameRequest().Item;
 
+		Assert.Throws<ArgumentOutOfRangeException>(() => new CreateItemOperationRequest(reference, "item", (StorageItemKind)int.MaxValue));
 		Assert.Throws<ArgumentOutOfRangeException>(
-			() => new CreateItemOperationRequest(
-				reference,
-				"item",
-				(StorageItemKind)int.MaxValue));
-		Assert.Throws<ArgumentOutOfRangeException>(
-			() => new CopyOperationRequest(
-				reference,
-				reference,
-				conflictBehavior:
-					(StorageConflictBehavior)int.MaxValue));
+			() => new CopyOperationRequest(reference, reference, conflictBehavior: (StorageConflictBehavior)int.MaxValue));
 	}
 
 	[TestMethod]
@@ -104,28 +90,15 @@ public sealed class StorageOperationServiceTests
 	{
 		var reference = CreateRenameRequest().Item;
 
-		Assert.Throws<ArgumentException>(
-			() => new StorageOperationResult(
-				Succeeded: true,
-				ResultItem: reference,
-				Error: new IOException("unexpected")));
-		Assert.Throws<ArgumentNullException>(
-			() => new StorageOperationResult(
-				Succeeded: false,
-				ResultItem: null));
-		Assert.Throws<ArgumentOutOfRangeException>(
-			() => new StorageOperationProgress(
-				CompletedItems: 2,
-				TotalItems: 1));
+		Assert.Throws<ArgumentException>(() => new StorageOperationResult(Succeeded: true, ResultItem: reference, Error: new IOException("unexpected")));
+		Assert.Throws<ArgumentNullException>(() => new StorageOperationResult(Succeeded: false, ResultItem: null));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(CompletedItems: 2, TotalItems: 1));
 	}
 
 	private static RenameOperationRequest CreateRenameRequest()
 	{
 		return new RenameOperationRequest(
-			new StorableReference(
-				new StorageSourceId("test"),
-				"item-1",
-				new StorageAddress("test", "item-1")),
+			new StorableReference(new StorageSourceId("test"), "item-1", new StorageAddress("test", "item-1")),
 			"renamed.txt");
 	}
 

@@ -22,8 +22,7 @@ public abstract record ArchiveMountResult
 
 	public sealed record CredentialRequired : ArchiveMountResult
 	{
-		public CredentialRequired(
-			ArchiveCredentialChallenge challenge)
+		public CredentialRequired(ArchiveCredentialChallenge challenge)
 		{
 			ArgumentNullException.ThrowIfNull(challenge);
 			Challenge = challenge;

@@ -28,29 +28,20 @@ public readonly record struct WindowsPreviewBounds
 	public int Height { get; }
 }
 
-public readonly record struct WindowsPreviewColor(
-	byte Red,
-	byte Green,
-	byte Blue);
+public readonly record struct WindowsPreviewColor(byte Red, byte Green, byte Blue);
 
 public sealed record WindowsPreviewHost
 {
-	public WindowsPreviewHost(
-		nint windowHandle,
-		WindowsPreviewBounds bounds)
+	public WindowsPreviewHost(nint windowHandle, WindowsPreviewBounds bounds)
 	{
 		if (windowHandle == 0)
 		{
-			throw new ArgumentException(
-				"A preview host window handle is required.",
-				nameof(windowHandle));
+			throw new ArgumentException("A preview host window handle is required.", nameof(windowHandle));
 		}
 
 		if (!PInvoke.IsWindow((HWND)windowHandle))
 		{
-			throw new ArgumentException(
-				"The preview host window handle is not valid.",
-				nameof(windowHandle));
+			throw new ArgumentException("The preview host window handle is not valid.", nameof(windowHandle));
 		}
 
 		WindowHandle = windowHandle;

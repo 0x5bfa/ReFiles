@@ -38,34 +38,22 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			?? Math.Min(Math.Max(Environment.ProcessorCount, 2), 4);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workerCount);
 
-		orderedScheduler = new MessagePumpedStaScheduler(
-			"Files Windows Shell STA",
-			workerCount: 1);
-		concurrentScheduler = new MessagePumpedStaScheduler(
-			"Files Windows Shell concurrent STA",
-			workerCount);
-		operationScheduler = new MessagePumpedStaScheduler(
-			"Files Windows Shell operation STA",
-			workerCount: 1);
+		orderedScheduler = new MessagePumpedStaScheduler("Files Windows Shell STA", workerCount: 1);
+		concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount);
+		operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1);
 	}
 
-	public Task<T> InvokeAsync<T>(
-		Func<T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return orderedScheduler.InvokeAsync(action, cancellationToken);
 	}
 
-	public Task<T> InvokeConcurrentAsync<T>(
-		Func<T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return concurrentScheduler.InvokeAsync(action, cancellationToken);
 	}
 
-	public Task<T> InvokeOperationAsync<T>(
-		Func<T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeOperationAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return operationScheduler.InvokeAsync(action, cancellationToken);
 	}
@@ -101,8 +89,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		private readonly object stateLock = new();
 		private readonly ConcurrentQueue<WorkItem> workItems = [];
 		private readonly Semaphore workAvailable = new(0, int.MaxValue);
-		private readonly TaskCompletionSource<bool> stopped = new(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource<bool> stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		private readonly int workerCount;
 		private int remainingWorkers;
 		private bool isStopping;
@@ -129,9 +116,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			}
 		}
 
-		public Task<T> InvokeAsync<T>(
-			Func<T> action,
-			CancellationToken cancellationToken)
+		public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken)
 		{
 			ArgumentNullException.ThrowIfNull(action);
 			cancellationToken.ThrowIfCancellationRequested();
@@ -175,9 +160,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			return new ValueTask(disposeTask!);
 		}
 
-		private static Task<T> InvokeInline<T>(
-			Func<T> action,
-			CancellationToken cancellationToken)
+		private static Task<T> InvokeInline<T>(Func<T> action, CancellationToken cancellationToken)
 		{
 			try
 			{
@@ -195,9 +178,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			}
 		}
 
-		private Task<T> Enqueue<T>(
-			Func<T> action,
-			CancellationToken cancellationToken)
+		private Task<T> Enqueue<T>(Func<T> action, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			var workItem = new WorkItem<T>(action, cancellationToken);
@@ -241,12 +222,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				oleInitialized = true;
 				activeScheduler = this;
 
-				PInvoke.PeekMessage(
-					out _,
-					default,
-					0,
-					0,
-					PEEK_MESSAGE_REMOVE_TYPE.PM_NOREMOVE);
+				PInvoke.PeekMessage(out _, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_NOREMOVE);
 
 				while (!IsStopping())
 				{
@@ -365,12 +341,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		[SupportedOSPlatform("windows5.1.2600")]
 		private static void PumpMessages()
 		{
-			while (PInvoke.PeekMessage(
-				out var message,
-				default,
-				0,
-				0,
-				PEEK_MESSAGE_REMOVE_TYPE.PM_REMOVE))
+			while (PInvoke.PeekMessage(out var message, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_REMOVE))
 			{
 				PInvoke.TranslateMessage(message);
 				PInvoke.DispatchMessage(message);
@@ -426,9 +397,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			workAvailable.Dispose();
 		}
 
-		private static void SetPendingExceptions(
-			IEnumerable<WorkItem> pendingWork,
-			Exception exception)
+		private static void SetPendingExceptions(IEnumerable<WorkItem> pendingWork, Exception exception)
 		{
 			foreach (var workItem in pendingWork)
 			{
@@ -438,8 +407,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private static InvalidOperationException CreateOleInitializationException(HRESULT result)
 		{
-			return new InvalidOperationException(
-				$"Failed to initialize OLE on a Windows Shell STA. HRESULT: {result}");
+			return new InvalidOperationException($"Failed to initialize OLE on a Windows Shell STA. HRESULT: {result}");
 		}
 	}
 
@@ -451,8 +419,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private readonly Func<T> action;
 		private readonly CancellationToken cancellationToken;
-		private readonly TaskCompletionSource<T> completion = new(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource<T> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		private CancellationTokenRegistration cancellationRegistration;
 		private int state;
 
@@ -482,9 +449,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				return;
 			}
 
-			cancellationRegistration = cancellationToken.UnsafeRegister(
-				static state => ((WorkItem<T>)state!).CancelIfPending(),
-				this);
+			cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((WorkItem<T>)state!).CancelIfPending(), this);
 
 			if (cancellationToken.IsCancellationRequested)
 			{

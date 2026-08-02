@@ -25,8 +25,7 @@ public sealed class ArchiveSourceFactory
 
 	private readonly IReadOnlyList<string> extensions;
 
-	public ArchiveSourceFactory(
-		IEnumerable<string>? extensions = null)
+	public ArchiveSourceFactory(IEnumerable<string>? extensions = null)
 	{
 		var extensionArray = (extensions ?? DefaultExtensions)
 			.Select(NormalizeExtension)
@@ -34,9 +33,7 @@ public sealed class ArchiveSourceFactory
 			.ToArray();
 		if (extensionArray.Length is 0)
 		{
-			throw new ArgumentException(
-				"At least one archive extension is required.",
-				nameof(extensions));
+			throw new ArgumentException("At least one archive extension is required.", nameof(extensions));
 		}
 
 		this.extensions = Array.AsReadOnly(extensionArray);
@@ -74,10 +71,7 @@ public sealed class ArchiveSourceFactory
 				? windowsStorable.FileSystemPath
 					?? windowsStorable.ParsingName
 				: context.CoreModel.Name;
-		return extensions.Any(
-			extension => extensionSource.EndsWith(
-				extension,
-				StringComparison.OrdinalIgnoreCase))
+		return extensions.Any(extension => extensionSource.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
 			? new ArchiveSource(context.Reference)
 			: null;
 	}
@@ -91,7 +85,6 @@ public sealed class ArchiveSourceFactory
 			: $".{trimmedExtension}";
 	}
 
-	private sealed record ArchiveSource(
-		StorableReference Archive)
+	private sealed record ArchiveSource(StorableReference Archive)
 		: IArchiveSource;
 }

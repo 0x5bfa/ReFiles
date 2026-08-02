@@ -40,11 +40,7 @@ public sealed class ItemFeatureRegistry
 		{
 			if (context.CoreModel is TFeature directFeature)
 			{
-				options.Add(new ItemFeatureOption<TFeature>(
-					directFeature,
-					0,
-					"CoreModel",
-					ItemFeatureLifetime.Shared));
+				options.Add(new ItemFeatureOption<TFeature>(directFeature, 0, "CoreModel", ItemFeatureLifetime.Shared));
 			}
 
 			foreach (var registration in GetFactories<TFeature>())
@@ -56,11 +52,7 @@ public sealed class ItemFeatureRegistry
 					continue;
 				}
 
-				options.Add(new ItemFeatureOption<TFeature>(
-					feature,
-					registration.Priority,
-					registration.Origin,
-					registration.Lifetime));
+				options.Add(new ItemFeatureOption<TFeature>(feature, registration.Priority, registration.Origin, registration.Lifetime));
 
 				if (registration.Lifetime is ItemFeatureLifetime.Item)
 				{
@@ -85,8 +77,7 @@ public sealed class ItemFeatureRegistry
 			{
 				var innerFeature = featureResult;
 				featureResult = wrapper.Wrap(context, innerFeature)
-					?? throw new InvalidOperationException(
-						$"A wrapper returned null for item feature '{typeof(TFeature).FullName}'.");
+					?? throw new InvalidOperationException($"A wrapper returned null for item feature '{typeof(TFeature).FullName}'.");
 
 				if (!ReferenceEquals(innerFeature, featureResult))
 				{
@@ -104,28 +95,18 @@ public sealed class ItemFeatureRegistry
 			}
 			catch (AggregateException cleanupError)
 			{
-				throw new AggregateException(
-					"Item feature resolution and cleanup failed.",
-					[
-						resolutionError,
-						.. cleanupError.InnerExceptions,
-					]);
+				throw new AggregateException("Item feature resolution and cleanup failed.", [resolutionError, .. cleanupError.InnerExceptions,]);
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Item feature resolution and cleanup failed.",
-					resolutionError,
-					cleanupError);
+				throw new AggregateException("Item feature resolution and cleanup failed.", resolutionError, cleanupError);
 			}
 
 			throw;
 		}
 	}
 
-	private TFeature? Combine<TFeature>(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<TFeature>> options)
+	private TFeature? Combine<TFeature>(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options)
 		where TFeature : class
 	{
 		if (combiners.TryGetValue(typeof(TFeature), out var combiner))
@@ -137,8 +118,7 @@ public sealed class ItemFeatureRegistry
 		{
 			0 => null,
 			1 => options[0].Feature,
-			_ => throw new InvalidOperationException(
-				$"Item feature '{typeof(TFeature).FullName}' has multiple options but no combiner."),
+			_ => throw new InvalidOperationException($"Item feature '{typeof(TFeature).FullName}' has multiple options but no combiner."),
 		};
 	}
 
@@ -168,10 +148,7 @@ public sealed class ItemFeatureRegistry
 			.ToArray();
 	}
 
-	private static void TrackOwned(
-		ItemContext context,
-		object instance,
-		List<object> ownedInstances)
+	private static void TrackOwned(ItemContext context, object instance, List<object> ownedInstances)
 	{
 		if (ReferenceEquals(instance, context.CoreModel)
 			|| ReferenceEquals(instance, context.Source)
@@ -197,12 +174,8 @@ public sealed class ItemFeatureRegistry
 	}
 }
 
-internal sealed record ItemFeatureResolution<TFeature>(
-	TFeature? Feature,
-	IReadOnlyList<object> OwnedInstances)
+internal sealed record ItemFeatureResolution<TFeature>(TFeature? Feature, IReadOnlyList<object> OwnedInstances)
 	where TFeature : class
 {
-	public static ItemFeatureResolution<TFeature> Empty { get; } = new(
-		null,
-		Array.Empty<object>());
+	public static ItemFeatureResolution<TFeature> Empty { get; } = new(null, Array.Empty<object>());
 }

@@ -11,49 +11,35 @@ public sealed class ArchiveBackendSelector
 	private readonly IReadOnlyList<IArchiveBackend> backends;
 	private readonly IArchiveProbe? probe;
 
-	public ArchiveBackendSelector(
-		IEnumerable<IArchiveBackend> backends,
-		IArchiveProbe? probe = null)
+	public ArchiveBackendSelector(IEnumerable<IArchiveBackend> backends, IArchiveProbe? probe = null)
 	{
 		ArgumentNullException.ThrowIfNull(backends);
 
 		var suppliedBackends = backends.ToArray();
 		if (suppliedBackends.Length is 0)
 		{
-			throw new ArgumentException(
-				"At least one archive backend is required.",
-				nameof(backends));
+			throw new ArgumentException("At least one archive backend is required.", nameof(backends));
 		}
 
 		if (suppliedBackends.Any(static backend => backend is null))
 		{
-			throw new ArgumentException(
-				"Archive backends cannot contain null values.",
-				nameof(backends));
+			throw new ArgumentException("Archive backends cannot contain null values.", nameof(backends));
 		}
 
-		if (suppliedBackends.Any(
-			static backend => string.IsNullOrWhiteSpace(
-				backend.Id)))
+		if (suppliedBackends.Any(static backend => string.IsNullOrWhiteSpace(backend.Id)))
 		{
-			throw new ArgumentException(
-				"Archive backend IDs cannot be empty.",
-				nameof(backends));
+			throw new ArgumentException("Archive backend IDs cannot be empty.", nameof(backends));
 		}
 
 		var backendArray = suppliedBackends
 			.OrderByDescending(static backend => backend.Priority)
 			.ToArray();
 		var duplicateId = backendArray
-			.GroupBy(
-				static backend => backend.Id,
-				StringComparer.Ordinal)
+			.GroupBy(static backend => backend.Id, StringComparer.Ordinal)
 			.FirstOrDefault(static group => group.Count() > 1);
 		if (duplicateId is not null)
 		{
-			throw new ArgumentException(
-				$"Archive backend ID '{duplicateId.Key}' was supplied more than once.",
-				nameof(backends));
+			throw new ArgumentException($"Archive backend ID '{duplicateId.Key}' was supplied more than once.", nameof(backends));
 		}
 
 		this.backends = Array.AsReadOnly(backendArray);
@@ -62,9 +48,7 @@ public sealed class ArchiveBackendSelector
 
 	public IReadOnlyList<IArchiveBackend> Backends => backends;
 
-	public async ValueTask<ArchiveMountResult> TryMountAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -96,8 +80,7 @@ public sealed class ArchiveBackendSelector
 				Challenge: { } challenge,
 			})
 		{
-			return new ArchiveMountResult.CredentialRequired(
-				challenge);
+			return new ArchiveMountResult.CredentialRequired(challenge);
 		}
 
 		var requireEncryptedSupport =
@@ -144,8 +127,7 @@ public sealed class ArchiveBackendSelector
 				case ArchiveMountResult.Unsupported:
 					break;
 				default:
-					throw new InvalidOperationException(
-						$"Archive backend '{backend.Id}' returned an unknown result.");
+					throw new InvalidOperationException($"Archive backend '{backend.Id}' returned an unknown result.");
 			}
 		}
 
@@ -156,10 +138,7 @@ public sealed class ArchiveBackendSelector
 			{ Count: 1 } =>
 				new ArchiveMountResult.Failed(errors[0]),
 			_ =>
-				new ArchiveMountResult.Failed(
-					new AggregateException(
-						"No archive backend could mount the item.",
-						errors)),
+				new ArchiveMountResult.Failed(new AggregateException("No archive backend could mount the item.", errors)),
 		};
 	}
 }

@@ -13,17 +13,13 @@ public sealed class BrowseLocationResolver : IBrowseLocationResolver
 		var handlerArray = handlers.ToArray();
 		if (handlerArray.Any(static handler => handler is null))
 		{
-			throw new ArgumentException(
-				"Browse location handlers cannot contain null values.",
-				nameof(handlers));
+			throw new ArgumentException("Browse location handlers cannot contain null values.", nameof(handlers));
 		}
 
 		this.handlers = Array.AsReadOnly(handlerArray);
 	}
 
-	public ValueTask<IBrowseLocationContext> OpenAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 

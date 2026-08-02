@@ -5,7 +5,5 @@ namespace Files.Core.Browsing;
 
 public interface IBrowseLocationResolver
 {
-	ValueTask<IBrowseLocationContext> OpenAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default);
+	ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default);
 }

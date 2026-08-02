@@ -38,8 +38,7 @@ internal sealed class NavigationItemLoader
 		this.dataRoot = dataRoot;
 	}
 
-	public async IAsyncEnumerable<NavigationSectionData> LoadSectionsAsync(
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<NavigationSectionData> LoadSectionsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		var windowsSource = dataRoot.Sources
 			.OfType<WindowsStorageSource>()
@@ -51,13 +50,7 @@ internal sealed class NavigationItemLoader
 
 		var pendingSections = new[]
 		{
-			TryLoadAddressSectionAsync(
-				0,
-				windowsSource,
-				Strings.Pinned.GetLocalized(),
-				PinnedParsingName,
-				IsPinnedHomeItemAsync,
-				cancellationToken),
+			TryLoadAddressSectionAsync(0, windowsSource, Strings.Pinned.GetLocalized(), PinnedParsingName, IsPinnedHomeItemAsync, cancellationToken),
 			TryLoadAddressSectionAsync(
 				1,
 				windowsSource,
@@ -97,9 +90,7 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	public async ValueTask<byte[]?> LoadThumbnailAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<byte[]?> LoadThumbnailAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		var model = await dataRoot
 			.ResolveAsync(reference, cancellationToken)
@@ -127,9 +118,7 @@ internal sealed class NavigationItemLoader
 		{
 			var model = await dataRoot.ResolveAsync(
 				source.SourceId,
-				new StorageAddress(
-					WindowsStorageSource.ShellAddressScheme,
-					parsingName),
+				new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName),
 				cancellationToken).ConfigureAwait(false);
 
 			if (model is not IFolderModel folder)
@@ -138,12 +127,7 @@ internal sealed class NavigationItemLoader
 				return null;
 			}
 
-			return await LoadSectionAsync(
-				order,
-				name,
-				folder,
-				include,
-				cancellationToken).ConfigureAwait(false);
+			return await LoadSectionAsync(order, name, folder, include, cancellationToken).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException)
 		{
@@ -162,8 +146,7 @@ internal sealed class NavigationItemLoader
 		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
 		CancellationToken cancellationToken)
 	{
-		var pendingItems = new List<Task<NavigationItemData?>>(
-			MaxConcurrentItemLoads);
+		var pendingItems = new List<Task<NavigationItemData?>>(MaxConcurrentItemLoads);
 		try
 		{
 			var children = new List<NavigationItemData>();
@@ -171,11 +154,7 @@ internal sealed class NavigationItemLoader
 				.GetItemsAsync(StorableType.Folder, cancellationToken)
 				.ConfigureAwait(false))
 			{
-				pendingItems.Add(
-					LoadItemAsync(
-						item,
-						include,
-						cancellationToken));
+				pendingItems.Add(LoadItemAsync(item, include, cancellationToken));
 				if (pendingItems.Count < MaxConcurrentItemLoads)
 				{
 					continue;
@@ -211,11 +190,7 @@ internal sealed class NavigationItemLoader
 				pendingItems.Clear();
 			}
 
-			return new NavigationSectionData(
-				order,
-				name,
-				folder.Reference,
-				children);
+			return new NavigationSectionData(order, name, folder.Reference, children);
 		}
 		finally
 		{
@@ -252,9 +227,7 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	private static async ValueTask<bool> IsPinnedHomeItemAsync(
-		IStorableModel item,
-		CancellationToken cancellationToken)
+	private static async ValueTask<bool> IsPinnedHomeItemAsync(IStorableModel item, CancellationToken cancellationToken)
 	{
 		if (item.Get<IPropertySource>() is not { } propertySource)
 		{
@@ -264,13 +237,9 @@ internal sealed class NavigationItemLoader
 		try
 		{
 			var properties = await propertySource
-				.GetPropertiesAsync(
-					new PropertyRequest([HomeIsPinned]),
-					cancellationToken)
+				.GetPropertiesAsync(new PropertyRequest([HomeIsPinned]), cancellationToken)
 				.ConfigureAwait(false);
-			return properties.TryGetValue(
-				HomeIsPinned,
-				out var value)
+			return properties.TryGetValue(HomeIsPinned, out var value)
 				&& value is bool isPinned
 				&& isPinned;
 		}
@@ -284,9 +253,7 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	private static async ValueTask<byte[]?> GetThumbnailAsync(
-		IStorableModel item,
-		CancellationToken cancellationToken)
+	private static async ValueTask<byte[]?> GetThumbnailAsync(IStorableModel item, CancellationToken cancellationToken)
 	{
 		if (item.Get<IThumbnailSource>() is not { } source)
 		{
@@ -296,11 +263,7 @@ internal sealed class NavigationItemLoader
 		try
 		{
 			var result = await source
-				.GetThumbnailAsync(
-					new ThumbnailRequest(
-						ThumbnailSize,
-						ThumbnailMode.Icon),
-					cancellationToken)
+				.GetThumbnailAsync(new ThumbnailRequest(ThumbnailSize, ThumbnailMode.Icon), cancellationToken)
 				.ConfigureAwait(false);
 			return result?.Content.ToArray();
 		}
@@ -315,12 +278,6 @@ internal sealed class NavigationItemLoader
 	}
 }
 
-internal sealed record NavigationSectionData(
-	int Order,
-	string Name,
-	StorableReference Reference,
-	IReadOnlyList<NavigationItemData> Items);
+internal sealed record NavigationSectionData(int Order, string Name, StorableReference Reference, IReadOnlyList<NavigationItemData> Items);
 
-internal sealed record NavigationItemData(
-	string Name,
-	StorableReference Reference);
+internal sealed record NavigationItemData(string Name, StorableReference Reference);

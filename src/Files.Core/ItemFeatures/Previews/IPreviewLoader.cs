@@ -12,8 +12,5 @@ public interface IPreviewLoader
 {
 	bool CanLoad(ItemContext context);
 
-	ValueTask<PreviewResult?> GetPreviewAsync(
-		PreviewRequest request,
-		ItemContext context,
-		CancellationToken cancellationToken = default);
+	ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default);
 }

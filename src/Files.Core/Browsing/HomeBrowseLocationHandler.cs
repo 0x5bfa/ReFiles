@@ -20,19 +20,14 @@ public sealed class HomeBrowseLocationHandler : IBrowseLocationHandler
 
 	public bool CanHandle(BrowseLocation location) => location is HomeLocation;
 
-	public ValueTask<IBrowseLocationContext> OpenAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		if (location is not HomeLocation homeLocation)
 		{
-			throw new ArgumentException(
-				"The location must identify the Files home.",
-				nameof(location));
+			throw new ArgumentException("The location must identify the Files home.", nameof(location));
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
-		return ValueTask.FromResult<IBrowseLocationContext>(
-			new HomeBrowseLocationContext(homeLocation, dataRoot));
+		return ValueTask.FromResult<IBrowseLocationContext>(new HomeBrowseLocationContext(homeLocation, dataRoot));
 	}
 }

@@ -8,9 +8,7 @@ namespace Files.Core.Storage.Archives.SevenZip;
 internal abstract class SevenZipArchiveStorable
 	: IStorableChild, IArchiveEntry, IStorageAddressSource
 {
-	protected SevenZipArchiveStorable(
-		SevenZipArchiveMount mount,
-		SevenZipArchiveNode node)
+	protected SevenZipArchiveStorable(SevenZipArchiveMount mount, SevenZipArchiveNode node)
 	{
 		ArgumentNullException.ThrowIfNull(mount);
 		ArgumentNullException.ThrowIfNull(node);
@@ -21,9 +19,7 @@ internal abstract class SevenZipArchiveStorable
 			? "/"
 			: node.Path;
 		Name = node.Name;
-		Address = new StorageAddress(
-			SevenZipArchiveMount.EntryAddressScheme,
-			Id);
+		Address = new StorageAddress(SevenZipArchiveMount.EntryAddressScheme, Id);
 	}
 
 	protected SevenZipArchiveMount Mount { get; }
@@ -40,8 +36,7 @@ internal abstract class SevenZipArchiveStorable
 
 	public string EntryPath => Node.Path;
 
-	public Task<IFolder?> GetParentAsync(
-		CancellationToken cancellationToken = default)
+	public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		if (string.IsNullOrEmpty(Node.Path))
@@ -50,7 +45,6 @@ internal abstract class SevenZipArchiveStorable
 		}
 
 		var parentPath = ArchiveEntryPath.GetParent(Node.Path);
-		return Task.FromResult<IFolder?>(
-			Mount.CreateFolder(parentPath));
+		return Task.FromResult<IFolder?>(Mount.CreateFolder(parentPath));
 	}
 }

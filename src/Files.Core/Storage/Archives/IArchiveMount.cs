@@ -18,7 +18,5 @@ public interface IArchiveMount : IAsyncDisposable
 
 	IFolder Root { get; }
 
-	ValueTask<IStorable> ResolveAsync(
-		string entryPath,
-		CancellationToken cancellationToken = default);
+	ValueTask<IStorable> ResolveAsync(string entryPath, CancellationToken cancellationToken = default);
 }

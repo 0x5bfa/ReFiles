@@ -27,9 +27,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private long workIdCounter;
 	private bool isDisposed;
 
-	public BrowsePrefetchCoordinator(
-		IBrowseSessionModel session,
-		int thumbnailSize = DefaultThumbnailSize)
+	public BrowsePrefetchCoordinator(IBrowseSessionModel session, int thumbnailSize = DefaultThumbnailSize)
 	{
 		ArgumentNullException.ThrowIfNull(session);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(thumbnailSize);
@@ -40,10 +38,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		session.ItemsChanged += OnSessionItemsChanged;
 	}
 
-	public void UpdateViewport(
-		BrowseViewport viewport,
-		BrowseViewSettings settings,
-		long browseGeneration)
+	public void UpdateViewport(BrowseViewport viewport, BrowseViewSettings settings, long browseGeneration)
 	{
 		ArgumentNullException.ThrowIfNull(viewport);
 		ArgumentNullException.ThrowIfNull(settings);
@@ -59,29 +54,12 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			cancellation = new CancellationTokenSource();
 			var workId = checked(++workIdCounter);
 			var contentVersion = GetContentVersion();
-			var task = Task.Run(
-				() => PrefetchAsync(
-					viewport,
-					settings,
-					workId,
-					browseGeneration,
-					contentVersion,
-					cancellation.Token),
-				CancellationToken.None);
-			nextWork = new PrefetchWork(
-				workId,
-				browseGeneration,
-				contentVersion,
-				cancellation,
-				task);
+			var task = Task.Run(() => PrefetchAsync(viewport, settings, workId, browseGeneration, contentVersion, cancellation.Token), CancellationToken.None);
+			nextWork = new PrefetchWork(workId, browseGeneration, contentVersion, cancellation, task);
 			previousWork = currentWork;
 			currentWork = nextWork;
 			activeWork.Add(nextWork);
-			_ = task.ContinueWith(
-				_ => RemoveCompletedWork(nextWork),
-				CancellationToken.None,
-				TaskContinuationOptions.DenyChildAttach,
-				TaskScheduler.Default);
+			_ = task.ContinueWith(_ => RemoveCompletedWork(nextWork), CancellationToken.None, TaskContinuationOptions.DenyChildAttach, TaskScheduler.Default);
 		}
 
 		previousWork?.Cancel();
@@ -139,11 +117,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			foreach (var index in EnumerateIndices(items.Count, viewport))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				if (!IsCurrent(
-					workId,
-					generation,
-					contentVersion,
-					cancellationToken))
+				if (!IsCurrent(workId, generation, contentVersion, cancellationToken))
 				{
 					return;
 				}
@@ -184,26 +158,15 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			try
 			{
 				var properties = await propertySource
-					.GetPropertiesAsync(
-						new PropertyRequest(propertyIds),
-						cancellationToken)
+					.GetPropertiesAsync(new PropertyRequest(propertyIds), cancellationToken)
 					.ConfigureAwait(false);
-				if (!IsCurrent(
-					workId,
-					generation,
-					contentVersion,
-					cancellationToken))
+				if (!IsCurrent(workId, generation, contentVersion, cancellationToken))
 				{
 					return;
 				}
 
 				if (target is not null
-					&& !await target.PublishPropertiesAsync(
-						generation,
-						contentVersion,
-						item,
-						properties,
-						cancellationToken).ConfigureAwait(false))
+					&& !await target.PublishPropertiesAsync(generation, contentVersion, item, properties, cancellationToken).ConfigureAwait(false))
 				{
 					return;
 				}
@@ -218,11 +181,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			}
 		}
 
-		if (!IsCurrent(
-			workId,
-			generation,
-			contentVersion,
-			cancellationToken))
+		if (!IsCurrent(workId, generation, contentVersion, cancellationToken))
 		{
 			return;
 		}
@@ -232,31 +191,17 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			try
 			{
 				var thumbnail = await thumbnailSource
-					.GetThumbnailAsync(
-						new ThumbnailRequest(
-							requestedThumbnailSize,
-							ThumbnailMode.PreferContent,
-							dpi),
-						cancellationToken)
+					.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, ThumbnailMode.PreferContent, dpi), cancellationToken)
 					.ConfigureAwait(false);
 				if (thumbnail is null
-					|| !IsCurrent(
-						workId,
-						generation,
-						contentVersion,
-						cancellationToken))
+					|| !IsCurrent(workId, generation, contentVersion, cancellationToken))
 				{
 					return;
 				}
 
 				if (target is not null)
 				{
-					await target.PublishThumbnailAsync(
-						generation,
-						contentVersion,
-						item,
-						thumbnail,
-						cancellationToken).ConfigureAwait(false);
+					await target.PublishThumbnailAsync(generation, contentVersion, item, thumbnail, cancellationToken).ConfigureAwait(false);
 				}
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -270,11 +215,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private bool IsCurrent(
-		long workId,
-		long generation,
-		long contentVersion,
-		CancellationToken cancellationToken)
+	private bool IsCurrent(long workId, long generation, long contentVersion, CancellationToken cancellationToken)
 	{
 		if (cancellationToken.IsCancellationRequested
 			|| session.Generation != generation
@@ -298,9 +239,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private void OnSessionItemsChanged(
-		object? sender,
-		BrowseItemsChangedEventArgs args)
+	private void OnSessionItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
 		PrefetchWork? work = null;
 		lock (syncRoot)
@@ -353,9 +292,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			|| propertyId.Equals(ItemNamePropertyId, StringComparison.Ordinal);
 	}
 
-	private static IEnumerable<int> EnumerateIndices(
-		int itemCount,
-		BrowseViewport viewport)
+	private static IEnumerable<int> EnumerateIndices(int itemCount, BrowseViewport viewport)
 	{
 		if (itemCount is 0
 			|| viewport.VisibleCount is 0
@@ -365,15 +302,9 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 
 		var visibleStart = Math.Min(viewport.FirstVisibleIndex, itemCount);
-		var visibleEnd = (int)Math.Min(
-			itemCount,
-			(long)visibleStart + viewport.VisibleCount);
-		var lookBehindStart = (int)Math.Max(
-			0L,
-			(long)visibleStart - viewport.LookAheadCount);
-		var lookAheadEnd = (int)Math.Min(
-			itemCount,
-			(long)visibleEnd + viewport.LookAheadCount);
+		var visibleEnd = (int)Math.Min(itemCount, (long)visibleStart + viewport.VisibleCount);
+		var lookBehindStart = (int)Math.Max(0L, (long)visibleStart - viewport.LookAheadCount);
+		var lookAheadEnd = (int)Math.Min(itemCount, (long)visibleEnd + viewport.LookAheadCount);
 
 		for (var index = visibleStart; index < visibleEnd; index++)
 		{
@@ -410,12 +341,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		private readonly CancellationTokenSource cancellation;
 		private int isDisposed;
 
-		public PrefetchWork(
-			long id,
-			long generation,
-			long contentVersion,
-			CancellationTokenSource cancellation,
-			Task task)
+		public PrefetchWork(long id, long generation, long contentVersion, CancellationTokenSource cancellation, Task task)
 		{
 			Id = id;
 			Generation = generation;

@@ -8,7 +8,5 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public interface IPreviewSource
 {
-	ValueTask<PreviewResult?> GetPreviewAsync(
-		PreviewRequest request,
-		CancellationToken cancellationToken = default);
+	ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default);
 }

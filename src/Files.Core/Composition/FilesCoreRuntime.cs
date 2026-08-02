@@ -88,15 +88,11 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"One or more Files.Core runtime resources could not be disposed.",
-				errors);
+			throw new AggregateException("One or more Files.Core runtime resources could not be disposed.", errors);
 		}
 	}
 
-	private static async ValueTask TryDisposeAsync(
-		IAsyncDisposable disposable,
-		ICollection<Exception> errors)
+	private static async ValueTask TryDisposeAsync(IAsyncDisposable disposable, ICollection<Exception> errors)
 	{
 		try
 		{

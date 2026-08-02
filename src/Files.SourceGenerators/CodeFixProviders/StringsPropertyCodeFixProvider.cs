@@ -53,12 +53,7 @@ namespace Files.SourceGenerators.CodeFixProviders
 			var newRoot = root.ReplaceNode(node, newExpression);
 			var newDocument = context.Document.WithSyntaxRoot(newRoot);
 
-			context.RegisterCodeFix(
-				CodeAction.Create(
-					CodeFixProviderTitle,
-					c => Task.FromResult(newDocument),
-					FSG1002.Id),
-				diagnostic);
+			context.RegisterCodeFix(CodeAction.Create(CodeFixProviderTitle, c => Task.FromResult(newDocument), FSG1002.Id), diagnostic);
 		}
 	}
 }

@@ -8,16 +8,12 @@ namespace Files.Core.Storage.Windows;
 
 public sealed class WindowsFile : WindowsStorable, IChildFile
 {
-	internal WindowsFile(
-		WindowsStorableDescriptor descriptor,
-		WindowsStorableFactory factory)
+	internal WindowsFile(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 		: base(descriptor, factory)
 	{
 	}
 
-	public async Task<Stream> OpenStreamAsync(
-		FileAccess accessMode,
-		CancellationToken cancellationToken = default)
+	public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -34,8 +30,7 @@ public sealed class WindowsFile : WindowsStorable, IChildFile
 
 		if (accessMode is not FileAccess.Read)
 		{
-			throw new UnauthorizedAccessException(
-				"The virtual Shell item does not expose a writable file-system path.");
+			throw new UnauthorizedAccessException("The virtual Shell item does not expose a writable file-system path.");
 		}
 
 		return await Factory.OpenReadStreamAsync(Descriptor, cancellationToken).ConfigureAwait(false);

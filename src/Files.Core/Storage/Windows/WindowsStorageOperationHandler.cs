@@ -58,8 +58,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		if (!CanHandle(request))
 		{
-			return Failed(new NotSupportedException(
-				$"The Windows storage handler cannot handle '{request.GetType().Name}'."));
+			return Failed(new NotSupportedException($"The Windows storage handler cannot handle '{request.GetType().Name}'."));
 		}
 
 		try
@@ -68,15 +67,9 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			return request switch
 			{
 				RenameOperationRequest rename =>
-					await ExecuteRenameAsync(
-						rename,
-						progress,
-						cancellationToken).ConfigureAwait(false),
+					await ExecuteRenameAsync(rename, progress, cancellationToken).ConfigureAwait(false),
 				CreateItemOperationRequest create =>
-					await ExecuteCreateAsync(
-						create,
-						progress,
-						cancellationToken).ConfigureAwait(false),
+					await ExecuteCreateAsync(create, progress, cancellationToken).ConfigureAwait(false),
 				CopyOperationRequest copy =>
 					await ExecuteTransferAsync(
 						copy.Item,
@@ -96,12 +89,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 						progress: progress,
 						cancellationToken: cancellationToken).ConfigureAwait(false),
 				DeleteOperationRequest delete =>
-					await ExecuteDeleteAsync(
-						delete,
-						progress,
-						cancellationToken).ConfigureAwait(false),
-				_ => Failed(new NotSupportedException(
-					$"The Windows storage handler cannot handle '{request.GetType().Name}'.")),
+					await ExecuteDeleteAsync(delete, progress, cancellationToken).ConfigureAwait(false),
+				_ => Failed(new NotSupportedException($"The Windows storage handler cannot handle '{request.GetType().Name}'.")),
 			};
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -121,47 +110,31 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	{
 		ValidateName(request.NewName);
 
-		var item = await ResolveFileSystemItemAsync(
-			request.Item,
-			"rename",
-			cancellationToken).ConfigureAwait(false);
+		var item = await ResolveFileSystemItemAsync(request.Item, "rename", cancellationToken).ConfigureAwait(false);
 		var itemPath = item.FileSystemPath!;
 		var parentPath = Path.GetDirectoryName(itemPath);
 		if (string.IsNullOrWhiteSpace(parentPath))
 		{
-			return Failed(new IOException(
-				"The item does not have a resolvable parent directory."));
+			return Failed(new IOException("The item does not have a resolvable parent directory."));
 		}
 
 		var destinationPath = Path.Combine(parentPath, request.NewName);
-		var hasSamePathSpelling = PathSpellingEquals(
-			itemPath,
-			destinationPath);
+		var hasSamePathSpelling = PathSpellingEquals(itemPath, destinationPath);
 		var isSameItem = hasSamePathSpelling
 			|| PathEquals(itemPath, destinationPath)
-				&& await IsSameFileSystemItemAsync(
-					destinationPath,
-					item.Id,
-					cancellationToken).ConfigureAwait(false);
+				&& await IsSameFileSystemItemAsync(destinationPath, item.Id, cancellationToken).ConfigureAwait(false);
 		if (!hasSamePathSpelling
 			&& PathExists(destinationPath)
 			&& !isSameItem)
 		{
-			return Failed(new IOException(
-				$"An item named '{request.NewName}' already exists."));
+			return Failed(new IOException($"An item named '{request.NewName}' already exists."));
 		}
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 		if (!hasSamePathSpelling)
 		{
 			var outcome = await source.ShellItemResolver
-				.InvokeOperationAsync(
-					item.ParsingName,
-					shellItem => ExecuteRename(
-						shellItem,
-						item.Id,
-						request.NewName),
-					cancellationToken)
+				.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteRename(shellItem, item.Id, request.NewName), cancellationToken)
 				.ConfigureAwait(false);
 			if (!outcome.Succeeded)
 			{
@@ -169,9 +142,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			}
 		}
 
-		var resultItem = await ResolveResultAsync(
-			destinationPath,
-			expectedItemId: item.Id).ConfigureAwait(false);
+		var resultItem = await ResolveResultAsync(destinationPath, expectedItemId: item.Id).ConfigureAwait(false);
 		progress?.Report(new StorageOperationProgress(1, 1, resultItem));
 		return new StorageOperationResult(true, resultItem);
 	}
@@ -182,29 +153,14 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		CancellationToken cancellationToken)
 	{
 		ValidateName(request.Name);
-		var parent = await ResolveFileSystemFolderAsync(
-			request.Parent,
-			"create an item",
-			cancellationToken).ConfigureAwait(false);
+		var parent = await ResolveFileSystemFolderAsync(request.Parent, "create an item", cancellationToken).ConfigureAwait(false);
 		var parentPath = parent.FileSystemPath!;
-		var destinationName = ResolveDestinationName(
-			parentPath,
-			request.Name,
-			request.Kind is StorageItemKind.Folder,
-			request.ConflictBehavior);
-		var destinationPath = Path.Combine(
-			parentPath,
-			destinationName);
+		var destinationName = ResolveDestinationName(parentPath, request.Name, request.Kind is StorageItemKind.Folder, request.ConflictBehavior);
+		var destinationPath = Path.Combine(parentPath, destinationName);
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
 		var outcome = await source.ShellItemResolver
-			.InvokeOperationAsync(
-				parent.ParsingName,
-				destinationFolder => ExecuteCreate(
-					destinationFolder,
-					destinationName,
-					request.Kind),
-				cancellationToken)
+			.InvokeOperationAsync(parent.ParsingName, destinationFolder => ExecuteCreate(destinationFolder, destinationName, request.Kind), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
@@ -227,54 +183,32 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		CancellationToken cancellationToken)
 	{
 		var operationName = move ? "move" : "copy";
-		var item = await ResolveFileSystemItemAsync(
-			itemReference,
-			operationName,
-			cancellationToken).ConfigureAwait(false);
-		var destinationFolder = await ResolveFileSystemFolderAsync(
-			destinationFolderReference,
-			operationName,
-			cancellationToken).ConfigureAwait(false);
+		var item = await ResolveFileSystemItemAsync(itemReference, operationName, cancellationToken).ConfigureAwait(false);
+		var destinationFolder = await ResolveFileSystemFolderAsync(destinationFolderReference, operationName, cancellationToken).ConfigureAwait(false);
 		var itemPath = item.FileSystemPath!;
 		var destinationFolderPath = destinationFolder.FileSystemPath!;
 
 		var originalName = Path.GetFileName(itemPath);
 		if (string.IsNullOrWhiteSpace(originalName))
 		{
-			return Failed(new IOException(
-				"The source item does not have a valid file-system name."));
+			return Failed(new IOException("The source item does not have a valid file-system name."));
 		}
 
 		var desiredName = requestedName ?? originalName;
 		ValidateName(desiredName);
-		var desiredPath = Path.Combine(
-			destinationFolderPath,
-			desiredName);
+		var desiredPath = Path.Combine(destinationFolderPath, desiredName);
 		var ignoredExistingPath = move
 			&& PathEquals(itemPath, desiredPath)
-			&& await IsSameFileSystemItemAsync(
-				desiredPath,
-				item.Id,
-				cancellationToken).ConfigureAwait(false)
+			&& await IsSameFileSystemItemAsync(desiredPath, item.Id, cancellationToken).ConfigureAwait(false)
 				? itemPath
 				: null;
-		var destinationName = ResolveDestinationName(
-			destinationFolderPath,
-			desiredName,
-			item is WindowsFolder,
-			conflictBehavior,
-			ignoredExistingPath);
-		var destinationPath = Path.Combine(
-			destinationFolderPath,
-			destinationName);
+		var destinationName = ResolveDestinationName(destinationFolderPath, desiredName, item is WindowsFolder, conflictBehavior, ignoredExistingPath);
+		var destinationPath = Path.Combine(destinationFolderPath, destinationName);
 
 		progress?.Report(new StorageOperationProgress(0, 1, itemReference));
 		if (move && PathSpellingEquals(itemPath, destinationPath))
 		{
-			var unchanged = new StorableReference(
-				source.SourceId,
-				item.Id,
-				item.Address);
+			var unchanged = new StorableReference(source.SourceId, item.Id, item.Address);
 			progress?.Report(new StorageOperationProgress(1, 1, unchanged));
 			return new StorageOperationResult(true, unchanged);
 		}
@@ -283,11 +217,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			.InvokeOperationAsync(
 				item.ParsingName,
 				destinationFolder.ParsingName,
-				(sourceItem, destinationItem) => ExecuteTransfer(
-					sourceItem,
-					destinationItem,
-					destinationName,
-					move),
+				(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move),
 				cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
@@ -311,18 +241,12 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			.ConfigureAwait(false);
 		if (resolved is not WindowsStorable item)
 		{
-			return Failed(new NotSupportedException(
-				"The delete target is not a Windows Shell item."));
+			return Failed(new NotSupportedException("The delete target is not a Windows Shell item."));
 		}
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 		var outcome = await source.ShellItemResolver
-			.InvokeOperationAsync(
-				item.ParsingName,
-				shellItem => ExecuteDelete(
-					shellItem,
-					request.Permanently),
-				cancellationToken)
+			.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
@@ -344,8 +268,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		if (resolved is not WindowsStorable item
 			|| item.FileSystemPath is null)
 		{
-			throw new NotSupportedException(
-				$"The Windows storage handler can only {operationName} file-system items.");
+			throw new NotSupportedException($"The Windows storage handler can only {operationName} file-system items.");
 		}
 
 		return item;
@@ -362,49 +285,32 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		if (resolved is not WindowsFolder folder
 			|| folder.FileSystemPath is null)
 		{
-			throw new NotSupportedException(
-				$"The destination for {operationName} must be a file-system folder.");
+			throw new NotSupportedException($"The destination for {operationName} must be a file-system folder.");
 		}
 
 		return folder;
 	}
 
-	private async ValueTask<StorableReference> ResolveResultAsync(
-		string path,
-		string? expectedItemId = null)
+	private async ValueTask<StorableReference> ResolveResultAsync(string path, string? expectedItemId = null)
 	{
 		var resolved = await source
-			.ResolveAsync(
-				new StorageAddress(
-					WindowsStorageSource.FileAddressScheme,
-					path),
-				CancellationToken.None)
+			.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), CancellationToken.None)
 			.ConfigureAwait(false);
 		if (resolved is not IWindowsStorable windowsItem)
 		{
-			throw new InvalidOperationException(
-				"The Windows Shell operation result could not be materialized.");
+			throw new InvalidOperationException("The Windows Shell operation result could not be materialized.");
 		}
 
 		if (expectedItemId is not null
-			&& !StringComparer.Ordinal.Equals(
-				expectedItemId,
-				windowsItem.Id))
+			&& !StringComparer.Ordinal.Equals(expectedItemId, windowsItem.Id))
 		{
-			throw new IOException(
-				"The Windows Shell operation affected an unexpected item.");
+			throw new IOException("The Windows Shell operation affected an unexpected item.");
 		}
 
-		return new StorableReference(
-			source.SourceId,
-			windowsItem.Id,
-			windowsItem.Address);
+		return new StorableReference(source.SourceId, windowsItem.Id, windowsItem.Address);
 	}
 
-	private async ValueTask<bool> IsSameFileSystemItemAsync(
-		string path,
-		string expectedItemId,
-		CancellationToken cancellationToken)
+	private async ValueTask<bool> IsSameFileSystemItemAsync(string path, string expectedItemId, CancellationToken cancellationToken)
 	{
 		if (!PathExists(path))
 		{
@@ -414,16 +320,10 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		try
 		{
 			var candidate = await source
-				.ResolveAsync(
-					new StorageAddress(
-						WindowsStorageSource.FileAddressScheme,
-						path),
-					cancellationToken)
+				.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken)
 				.ConfigureAwait(false);
 			return candidate is IWindowsStorable windowsItem
-				&& StringComparer.Ordinal.Equals(
-					expectedItemId,
-					windowsItem.Id);
+				&& StringComparer.Ordinal.Equals(expectedItemId, windowsItem.Id);
 		}
 		catch (OperationCanceledException)
 			when (cancellationToken.IsCancellationRequested)
@@ -437,38 +337,21 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteRename(
-		IShellItem shellItem,
-		string expectedItemId,
-		string newName)
+	private static ShellOperationOutcome ExecuteRename(IShellItem shellItem, string expectedItemId, string newName)
 	{
-		var currentDescriptor = ShellItemHelpers.CreateDescriptor(
-			shellItem,
-			new WindowsItemIdReader());
-		if (!StringComparer.Ordinal.Equals(
-				currentDescriptor.ItemId,
-				expectedItemId))
+		var currentDescriptor = ShellItemHelpers.CreateDescriptor(shellItem, new WindowsItemIdReader());
+		if (!StringComparer.Ordinal.Equals(currentDescriptor.ItemId, expectedItemId))
 		{
-			return new ShellOperationOutcome(
-				false,
-				new IOException(
-					"The Windows Shell rename target no longer identifies the requested item."));
+			return new ShellOperationOutcome(false, new IOException("The Windows Shell rename target no longer identifies the requested item."));
 		}
 
-		var createResult = PInvoke.CoCreateInstance(
-			typeof(FileOperation).GUID,
-			null,
-			CLSCTX.CLSCTX_LOCAL_SERVER,
-			out IFileOperation? fileOperation);
+		var createResult = PInvoke.CoCreateInstance(typeof(FileOperation).GUID, null, CLSCTX.CLSCTX_LOCAL_SERVER, out IFileOperation? fileOperation);
 		if (createResult.Failed || fileOperation is null)
 		{
 			return Failure(createResult, "The Windows Shell file operation could not be created.");
 		}
 
-		var result = ConfigureOperation(
-			fileOperation,
-			allowUndo: true,
-			recycleOnDelete: false);
+		var result = ConfigureOperation(fileOperation, allowUndo: true, recycleOnDelete: false);
 		if (result.Failed)
 		{
 			return Failure(result, "The Windows Shell file operation could not be configured.");
@@ -493,17 +376,12 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		}
 
 		return aborted
-			? new ShellOperationOutcome(
-				false,
-				new OperationCanceledException("The Windows Shell rename was aborted."))
+			? new ShellOperationOutcome(false, new OperationCanceledException("The Windows Shell rename was aborted."))
 			: new ShellOperationOutcome(true, null);
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteCreate(
-		IShellItem destinationFolder,
-		string name,
-		StorageItemKind kind)
+	private static ShellOperationOutcome ExecuteCreate(IShellItem destinationFolder, string name, StorageItemKind kind)
 	{
 		var creation = CreateOperation(allowUndo: true);
 		if (!creation.Outcome.Succeeded)
@@ -518,28 +396,17 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			StorageItemKind.Folder => FileAttributes.Directory,
 			_ => throw new ArgumentOutOfRangeException(nameof(kind)),
 		};
-		var result = fileOperation.NewItem(
-			destinationFolder,
-			(uint)attributes,
-			name,
-			null,
-			null);
+		var result = fileOperation.NewItem(destinationFolder, (uint)attributes, name, null, null);
 		if (result.Failed)
 		{
-			return Failure(
-				result,
-				"The Windows Shell create operation could not be queued.");
+			return Failure(result, "The Windows Shell create operation could not be queued.");
 		}
 
 		return Perform(fileOperation, "create");
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteTransfer(
-		IShellItem item,
-		IShellItem destinationFolder,
-		string destinationName,
-		bool move)
+	private static ShellOperationOutcome ExecuteTransfer(IShellItem item, IShellItem destinationFolder, string destinationName, bool move)
 	{
 		var creation = CreateOperation(allowUndo: true);
 		if (!creation.Outcome.Succeeded)
@@ -549,34 +416,20 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		var fileOperation = creation.Operation!;
 		var result = move
-			? fileOperation.MoveItem(
-				item,
-				destinationFolder,
-				destinationName,
-				null)
-			: fileOperation.CopyItem(
-				item,
-				destinationFolder,
-				destinationName,
-				null);
+			? fileOperation.MoveItem(item, destinationFolder, destinationName, null)
+			: fileOperation.CopyItem(item, destinationFolder, destinationName, null);
 		if (result.Failed)
 		{
-			return Failure(
-				result,
-				$"The Windows Shell {(move ? "move" : "copy")} operation could not be queued.");
+			return Failure(result, $"The Windows Shell {(move ? "move" : "copy")} operation could not be queued.");
 		}
 
 		return Perform(fileOperation, move ? "move" : "copy");
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteDelete(
-		IShellItem item,
-		bool permanently)
+	private static ShellOperationOutcome ExecuteDelete(IShellItem item, bool permanently)
 	{
-		var creation = CreateOperation(
-			allowUndo: !permanently,
-			recycleOnDelete: !permanently);
+		var creation = CreateOperation(allowUndo: !permanently, recycleOnDelete: !permanently);
 		if (!creation.Outcome.Succeeded)
 		{
 			return creation.Outcome;
@@ -586,52 +439,28 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var result = fileOperation.DeleteItem(item, null);
 		if (result.Failed)
 		{
-			return Failure(
-				result,
-				"The Windows Shell delete operation could not be queued.");
+			return Failure(result, "The Windows Shell delete operation could not be queued.");
 		}
 
 		return Perform(fileOperation, "delete");
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static FileOperationCreation CreateOperation(
-		bool allowUndo,
-		bool recycleOnDelete = false)
+	private static FileOperationCreation CreateOperation(bool allowUndo, bool recycleOnDelete = false)
 	{
-		var result = PInvoke.CoCreateInstance(
-			typeof(FileOperation).GUID,
-			null,
-			CLSCTX.CLSCTX_LOCAL_SERVER,
-			out IFileOperation? fileOperation);
+		var result = PInvoke.CoCreateInstance(typeof(FileOperation).GUID, null, CLSCTX.CLSCTX_LOCAL_SERVER, out IFileOperation? fileOperation);
 		if (result.Failed || fileOperation is null)
 		{
-			return new FileOperationCreation(
-				null,
-				Failure(
-					result,
-					"The Windows Shell file operation could not be created."));
+			return new FileOperationCreation(null, Failure(result, "The Windows Shell file operation could not be created."));
 		}
 
-		result = ConfigureOperation(
-			fileOperation,
-			allowUndo,
-			recycleOnDelete);
+		result = ConfigureOperation(fileOperation, allowUndo, recycleOnDelete);
 		return result.Failed
-			? new FileOperationCreation(
-				null,
-				Failure(
-					result,
-					"The Windows Shell file operation could not be configured."))
-			: new FileOperationCreation(
-				fileOperation,
-				new ShellOperationOutcome(true, null));
+			? new FileOperationCreation(null, Failure(result, "The Windows Shell file operation could not be configured."))
+			: new FileOperationCreation(fileOperation, new ShellOperationOutcome(true, null));
 	}
 
-	private static global::Windows.Win32.Foundation.HRESULT ConfigureOperation(
-		IFileOperation fileOperation,
-		bool allowUndo,
-		bool recycleOnDelete)
+	private static global::Windows.Win32.Foundation.HRESULT ConfigureOperation(IFileOperation fileOperation, bool allowUndo, bool recycleOnDelete)
 	{
 		var flags = FILEOPERATION_FLAGS.FOF_SILENT
 			| FILEOPERATION_FLAGS.FOF_NOCONFIRMATION
@@ -650,31 +479,22 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return fileOperation.SetOperationFlags(flags);
 	}
 
-	private static ShellOperationOutcome Perform(
-		IFileOperation fileOperation,
-		string operationName)
+	private static ShellOperationOutcome Perform(IFileOperation fileOperation, string operationName)
 	{
 		var result = fileOperation.PerformOperations();
 		if (result.Failed)
 		{
-			return Failure(
-				result,
-				$"The Windows Shell {operationName} operation failed.");
+			return Failure(result, $"The Windows Shell {operationName} operation failed.");
 		}
 
 		result = fileOperation.GetAnyOperationsAborted(out var aborted);
 		if (result.Failed)
 		{
-			return Failure(
-				result,
-				$"The Windows Shell {operationName} completion could not be read.");
+			return Failure(result, $"The Windows Shell {operationName} completion could not be read.");
 		}
 
 		return aborted
-			? new ShellOperationOutcome(
-				false,
-				new OperationCanceledException(
-					$"The Windows Shell {operationName} operation was aborted."))
+			? new ShellOperationOutcome(false, new OperationCanceledException($"The Windows Shell {operationName} operation was aborted."))
 			: new ShellOperationOutcome(true, null);
 	}
 
@@ -687,9 +507,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	{
 		ValidateName(desiredName);
 
-		var desiredPath = Path.Combine(
-			destinationFolderPath,
-			desiredName);
+		var desiredPath = Path.Combine(destinationFolderPath, desiredName);
 		if (!PathExists(desiredPath)
 			|| ignoredExistingPath is not null
 				&& PathEquals(desiredPath, ignoredExistingPath))
@@ -699,8 +517,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		if (conflictBehavior is StorageConflictBehavior.Fail)
 		{
-			throw new IOException(
-				$"An item named '{desiredName}' already exists.");
+			throw new IOException($"An item named '{desiredName}' already exists.");
 		}
 
 		if (conflictBehavior is not StorageConflictBehavior.GenerateUniqueName)
@@ -721,8 +538,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			}
 		}
 
-		throw new IOException(
-			$"A unique destination name could not be generated for '{desiredName}'.");
+		throw new IOException($"A unique destination name could not be generated for '{desiredName}'.");
 	}
 
 	private static bool PathExists(string path)
@@ -732,16 +548,12 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 	private static bool PathEquals(string first, string second)
 	{
-		return StringComparer.OrdinalIgnoreCase.Equals(
-			Path.GetFullPath(first),
-			Path.GetFullPath(second));
+		return StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(first), Path.GetFullPath(second));
 	}
 
 	private static bool PathSpellingEquals(string first, string second)
 	{
-		return StringComparer.Ordinal.Equals(
-			Path.GetFullPath(first),
-			Path.GetFullPath(second));
+		return StringComparer.Ordinal.Equals(Path.GetFullPath(first), Path.GetFullPath(second));
 	}
 
 	private bool IsOwned(StorableReference reference)
@@ -753,9 +565,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	{
 		return IsOwned(reference)
 			&& reference.LastKnownAddress is { } address
-			&& address.Scheme.Equals(
-				WindowsStorageSource.FileAddressScheme,
-				StringComparison.OrdinalIgnoreCase);
+			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static void ValidateName(string newName)
@@ -771,9 +581,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			|| newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
 			|| IsReservedDosDeviceName(newName))
 		{
-			throw new ArgumentException(
-				"The new name must be a single valid Windows file-system name.",
-				nameof(newName));
+			throw new ArgumentException("The new name must be a single valid Windows file-system name.", nameof(newName));
 		}
 	}
 
@@ -791,22 +599,16 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			|| IsNumberedDosDeviceName(stem, "LPT");
 	}
 
-	private static bool IsNumberedDosDeviceName(
-		string candidate,
-		string prefix)
+	private static bool IsNumberedDosDeviceName(string candidate, string prefix)
 	{
 		return candidate.Length is 4
 			&& candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
 			&& candidate[3] is >= '1' and <= '9';
 	}
 
-	private static ShellOperationOutcome Failure(
-		global::Windows.Win32.Foundation.HRESULT result,
-		string message)
+	private static ShellOperationOutcome Failure(global::Windows.Win32.Foundation.HRESULT result, string message)
 	{
-		return new ShellOperationOutcome(
-			false,
-			new IOException($"{message} HRESULT={result}."));
+		return new ShellOperationOutcome(false, new IOException($"{message} HRESULT={result}."));
 	}
 
 	private static StorageOperationResult Failed(Exception exception)
@@ -814,11 +616,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return new StorageOperationResult(false, null, exception);
 	}
 
-	private sealed record ShellOperationOutcome(
-		bool Succeeded,
-		Exception? Error);
+	private sealed record ShellOperationOutcome(bool Succeeded, Exception? Error);
 
-	private sealed record FileOperationCreation(
-		IFileOperation? Operation,
-		ShellOperationOutcome Outcome);
+	private sealed record FileOperationCreation(IFileOperation? Operation, ShellOperationOutcome Outcome);
 }

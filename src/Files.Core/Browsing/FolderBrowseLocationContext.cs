@@ -18,10 +18,7 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	private readonly IFilesDataRoot dataRoot;
 	private int isDisposed;
 
-	public FolderBrowseLocationContext(
-		FolderLocation location,
-		IFolderModel folderModel,
-		IFilesDataRoot dataRoot)
+	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		ArgumentNullException.ThrowIfNull(folderModel);
@@ -36,8 +33,7 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 
 	public IStorableModel LocationModel => folderModel;
 
-	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
 
@@ -47,9 +43,7 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 	}
 
-	public ValueTask<IStorableModel> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
 		ArgumentNullException.ThrowIfNull(reference);

@@ -10,21 +10,14 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public interface IThumbnailCache
 {
-	ValueTask<ThumbnailCacheEntry?> GetAsync(
-		ThumbnailCacheKey key,
-		CancellationToken cancellationToken = default);
+	ValueTask<ThumbnailCacheEntry?> GetAsync(ThumbnailCacheKey key, CancellationToken cancellationToken = default);
 
-	ValueTask SetAsync(
-		ThumbnailCacheKey key,
-		ThumbnailCacheEntry entry,
-		CancellationToken cancellationToken = default);
+	ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Gets a token that changes whenever writes for the referenced item are invalidated.
 	/// </summary>
-	ValueTask<long> GetInvalidationVersionAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default);
+	ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// Stores an entry only when no invalidation occurred after the supplied token was read.
@@ -35,7 +28,5 @@ public interface IThumbnailCache
 		long expectedInvalidationVersion,
 		CancellationToken cancellationToken = default);
 
-	ValueTask InvalidateAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default);
+	ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default);
 }

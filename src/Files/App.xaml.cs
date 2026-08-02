@@ -48,15 +48,10 @@ public partial class App : Application
 			.ConfigureAwait(true);
 		if (coreWindow.ActiveTab?.ActivePane is null)
 		{
-			throw new InvalidOperationException(
-				"Files.Core did not create an active pane.");
+			throw new InvalidOperationException("Files.Core did not create an active pane.");
 		}
 
-		mainWindow = new MainWindow(
-			coreWindow,
-			runtime.DataRoot,
-			commandRegistry,
-			ShutdownAsync);
+		mainWindow = new MainWindow(coreWindow, runtime.DataRoot, commandRegistry, ShutdownAsync);
 		mainWindow.Activate();
 	}
 

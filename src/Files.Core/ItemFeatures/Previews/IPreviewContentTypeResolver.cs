@@ -7,7 +7,5 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public interface IPreviewContentTypeResolver
 {
-	bool TryResolve(
-		ItemContext context,
-		out PreviewContentType contentType);
+	bool TryResolve(ItemContext context, out PreviewContentType contentType);
 }

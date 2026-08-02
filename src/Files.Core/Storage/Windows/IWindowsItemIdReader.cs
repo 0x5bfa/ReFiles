@@ -10,14 +10,9 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal interface IWindowsItemIdReader
 {
-	string GetItemId(
-		IShellItem shellItem,
-		string parsingName,
-		string? fileSystemPath);
+	string GetItemId(IShellItem shellItem, string parsingName, string? fileSystemPath);
 
-	bool TryGetParsingName(
-		string itemId,
-		out string parsingName);
+	bool TryGetParsingName(string itemId, out string parsingName);
 
 	bool IsFileSystemIdentity(string itemId);
 }

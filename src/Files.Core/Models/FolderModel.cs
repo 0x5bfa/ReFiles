@@ -13,12 +13,7 @@ public sealed class FolderModel : StorableModel, IFolderModel
 	private readonly IStorageSource source;
 	private readonly IStorableModelFactory modelFactory;
 
-	public FolderModel(
-		IStorageSource source,
-		IFolder folder,
-		IStorableModelFactory modelFactory,
-		StorableReference reference,
-		IItemFeatures features)
+	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, IItemFeatures features)
 		: base(folder, reference, features)
 	{
 		ArgumentNullException.ThrowIfNull(source);
@@ -43,8 +38,7 @@ public sealed class FolderModel : StorableModel, IFolderModel
 		}
 	}
 
-	public async ValueTask<IFolderModel?> GetParentAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IFolderModel?> GetParentAsync(CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 
@@ -68,7 +62,6 @@ public sealed class FolderModel : StorableModel, IFolderModel
 		}
 
 		await model.DisposeAsync().ConfigureAwait(false);
-		throw new InvalidOperationException(
-			$"The parent of '{Reference.ItemId}' is not a folder.");
+		throw new InvalidOperationException($"The parent of '{Reference.ItemId}' is not a folder.");
 	}
 }

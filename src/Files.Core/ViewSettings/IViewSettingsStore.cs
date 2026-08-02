@@ -10,12 +10,7 @@ namespace Files.Core.ViewSettings;
 /// </summary>
 public interface IViewSettingsStore
 {
-	ValueTask<BrowseViewSettings?> GetAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default);
+	ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default);
 
-	ValueTask SetAsync(
-		BrowseLocation location,
-		BrowseViewSettings settings,
-		CancellationToken cancellationToken = default);
+	ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default);
 }

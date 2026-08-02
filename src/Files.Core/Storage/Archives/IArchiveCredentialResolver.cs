@@ -8,7 +8,5 @@ namespace Files.Core.Storage.Archives;
 /// </summary>
 public interface IArchiveCredentialResolver
 {
-	ValueTask<ArchiveCredential?> ResolveAsync(
-		ArchiveCredentialChallenge challenge,
-		CancellationToken cancellationToken = default);
+	ValueTask<ArchiveCredential?> ResolveAsync(ArchiveCredentialChallenge challenge, CancellationToken cancellationToken = default);
 }

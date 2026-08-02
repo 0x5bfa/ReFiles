@@ -12,9 +12,7 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 {
 	private readonly WindowsStorableDescriptor descriptor;
 
-	internal WindowsStorable(
-		WindowsStorableDescriptor descriptor,
-		WindowsStorableFactory factory)
+	internal WindowsStorable(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 		ArgumentNullException.ThrowIfNull(factory);

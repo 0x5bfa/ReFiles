@@ -5,9 +5,7 @@ namespace Files.Infrastructure;
 
 internal static class ObservableCollectionSynchronizer
 {
-	public static void Synchronize<T>(
-		ObservableCollection<T> target,
-		IReadOnlyList<T> desired)
+	public static void Synchronize<T>(ObservableCollection<T> target, IReadOnlyList<T> desired)
 		where T : class
 	{
 		ArgumentNullException.ThrowIfNull(target);

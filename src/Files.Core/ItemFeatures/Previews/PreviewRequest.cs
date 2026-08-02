@@ -11,9 +11,7 @@ public enum PreviewHydrationPolicy
 
 public sealed record PreviewRequest
 {
-	public PreviewRequest(
-		long? maximumBytes = null,
-		PreviewHydrationPolicy hydrationPolicy = PreviewHydrationPolicy.LocalOnly)
+	public PreviewRequest(long? maximumBytes = null, PreviewHydrationPolicy hydrationPolicy = PreviewHydrationPolicy.LocalOnly)
 	{
 		if (maximumBytes is not null)
 		{

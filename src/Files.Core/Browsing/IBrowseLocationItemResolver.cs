@@ -11,7 +11,5 @@ namespace Files.Core.Browsing;
 /// </summary>
 public interface IBrowseLocationItemResolver
 {
-	ValueTask<IStorableModel> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default);
+	ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default);
 }

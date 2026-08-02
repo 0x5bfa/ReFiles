@@ -24,9 +24,7 @@ internal sealed class WindowsStorableFactory
 	private readonly IWindowsItemIdReader itemIdReader;
 	private readonly WindowsShellItemResolver resolver;
 
-	public WindowsStorableFactory(
-		IWindowsShellScheduler scheduler,
-		IWindowsItemIdReader? itemIdReader = null)
+	public WindowsStorableFactory(IWindowsShellScheduler scheduler, IWindowsItemIdReader? itemIdReader = null)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 		this.scheduler = scheduler;
@@ -36,9 +34,7 @@ internal sealed class WindowsStorableFactory
 
 	internal WindowsShellItemResolver Resolver => resolver;
 
-	public Task<WindowsStorable> CreateAsync(
-		string parsingName,
-		CancellationToken cancellationToken = default)
+	public Task<WindowsStorable> CreateAsync(string parsingName, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
@@ -48,27 +44,19 @@ internal sealed class WindowsStorableFactory
 			cancellationToken);
 	}
 
-	public Task<WindowsStorable> CreateAsync(
-		Guid knownFolderId,
-		CancellationToken cancellationToken = default)
+	public Task<WindowsStorable> CreateAsync(Guid knownFolderId, CancellationToken cancellationToken = default)
 	{
 		return scheduler.InvokeAsync<WindowsStorable>(
 			() =>
 			{
-				var result = PInvoke.SHGetKnownFolderItem(
-					knownFolderId,
-					KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT,
-					null,
-					out IShellItem shellItem);
+				var result = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
 				result.ThrowOnFailure();
 				return Create(ShellItemHelpers.CreateDescriptor(shellItem, itemIdReader));
 			},
 			cancellationToken);
 	}
 
-	public Task<WindowsStorable?> TryCreateAsync(
-		string parsingName,
-		CancellationToken cancellationToken = default)
+	public Task<WindowsStorable?> TryCreateAsync(string parsingName, CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(parsingName))
 		{
@@ -81,9 +69,7 @@ internal sealed class WindowsStorableFactory
 			cancellationToken);
 	}
 
-	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(
-		ReadOnlyMemory<byte> absolutePidl,
-		CancellationToken cancellationToken = default)
+	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(ReadOnlyMemory<byte> absolutePidl, CancellationToken cancellationToken = default)
 	{
 		if (absolutePidl.IsEmpty)
 		{
@@ -124,9 +110,7 @@ internal sealed class WindowsStorableFactory
 		}
 
 		if (lastKnownAddress is null
-			|| !lastKnownAddress.Scheme.Equals(
-				WindowsStorageSource.FileAddressScheme,
-				StringComparison.OrdinalIgnoreCase))
+			|| !lastKnownAddress.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase))
 		{
 			return null;
 		}
@@ -172,9 +156,7 @@ internal sealed class WindowsStorableFactory
 		return null;
 	}
 
-	public Task<WindowsFolder?> GetParentAsync(
-		WindowsStorableDescriptor descriptor,
-		CancellationToken cancellationToken = default)
+	public Task<WindowsFolder?> GetParentAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
@@ -215,15 +197,9 @@ internal sealed class WindowsStorableFactory
 		{
 			var scheduledProducer = resolver.InvokeConcurrentAsync(
 				descriptor.Locator,
-				shellItem => EnumerateChildrenOnCurrentSta(
-					shellItem,
-					batches.Writer,
-					itemIdReader,
-					enumerationCancellation.Token),
+				shellItem => EnumerateChildrenOnCurrentSta(shellItem, batches.Writer, itemIdReader, enumerationCancellation.Token),
 				enumerationCancellation.Token);
-			producer = CompleteChannelWhenFinishedAsync(
-				scheduledProducer,
-				batches.Writer);
+			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
 			await foreach (var batch in batches.Reader
 				.ReadAllAsync(cancellationToken)
@@ -264,10 +240,7 @@ internal sealed class WindowsStorableFactory
 	{
 		try
 		{
-			var bindResult = shellItem.BindToHandler(
-				null,
-				PInvoke.BHID_EnumItems,
-				out IEnumShellItems? enumerator);
+			var bindResult = shellItem.BindToHandler(null, PInvoke.BHID_EnumItems, out IEnumShellItems? enumerator);
 			bindResult.ThrowOnFailure();
 
 			if (enumerator is null)
@@ -324,9 +297,7 @@ internal sealed class WindowsStorableFactory
 			.GetResult();
 	}
 
-	private static async Task CompleteChannelWhenFinishedAsync(
-		Task<bool> producer,
-		ChannelWriter<IReadOnlyList<WindowsStorableDescriptor>> writer)
+	private static async Task CompleteChannelWhenFinishedAsync(Task<bool> producer, ChannelWriter<IReadOnlyList<WindowsStorableDescriptor>> writer)
 	{
 		try
 		{
@@ -340,9 +311,7 @@ internal sealed class WindowsStorableFactory
 		}
 	}
 
-	public Task<Stream> OpenReadStreamAsync(
-		WindowsStorableDescriptor descriptor,
-		CancellationToken cancellationToken = default)
+	public Task<Stream> OpenReadStreamAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
@@ -350,10 +319,7 @@ internal sealed class WindowsStorableFactory
 			descriptor.Locator,
 			shellItem =>
 			{
-				var bindResult = shellItem.BindToHandler(
-					null,
-					PInvoke.BHID_Stream,
-					out IStream? shellStream);
+				var bindResult = shellItem.BindToHandler(null, PInvoke.BHID_Stream, out IStream? shellStream);
 				bindResult.ThrowOnFailure();
 
 				if (shellStream is null)
@@ -375,9 +341,7 @@ internal sealed class WindowsStorableFactory
 			: new WindowsFile(descriptor, this);
 	}
 
-	private static bool IsMatchingItem(
-		WindowsStorable? storable,
-		string itemId)
+	private static bool IsMatchingItem(WindowsStorable? storable, string itemId)
 	{
 		return storable is not null
 			&& StringComparer.Ordinal.Equals(storable.Id, itemId);

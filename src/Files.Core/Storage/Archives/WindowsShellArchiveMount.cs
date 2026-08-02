@@ -8,10 +8,7 @@ namespace Files.Core.Storage.Archives;
 
 internal sealed class WindowsShellArchiveMount : IArchiveMount
 {
-	public WindowsShellArchiveMount(
-		StorableReference archive,
-		IStorageSource itemSource,
-		IFolder root)
+	public WindowsShellArchiveMount(StorableReference archive, IStorageSource itemSource, IFolder root)
 	{
 		ArgumentNullException.ThrowIfNull(archive);
 		ArgumentNullException.ThrowIfNull(itemSource);
@@ -31,9 +28,7 @@ internal sealed class WindowsShellArchiveMount : IArchiveMount
 
 	public IFolder Root { get; }
 
-	public async ValueTask<IStorable> ResolveAsync(
-		string entryPath,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorable> ResolveAsync(string entryPath, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		var normalizedPath = ArchiveEntryPath.Normalize(entryPath);
@@ -47,20 +42,15 @@ internal sealed class WindowsShellArchiveMount : IArchiveMount
 		{
 			if (current is not IFolder folder)
 			{
-				throw new DirectoryNotFoundException(
-					$"Archive entry '{normalizedPath}' is not a folder.");
+				throw new DirectoryNotFoundException($"Archive entry '{normalizedPath}' is not a folder.");
 			}
 
 			IStorable? match = null;
 			await foreach (var child in folder
-				.GetItemsAsync(
-					StorableType.All,
-					cancellationToken)
+				.GetItemsAsync(StorableType.All, cancellationToken)
 				.ConfigureAwait(false))
 			{
-				if (child.Name.Equals(
-					segment,
-					StringComparison.OrdinalIgnoreCase))
+				if (child.Name.Equals(segment, StringComparison.OrdinalIgnoreCase))
 				{
 					match = child;
 					break;
@@ -68,9 +58,7 @@ internal sealed class WindowsShellArchiveMount : IArchiveMount
 			}
 
 			current = match
-				?? throw new FileNotFoundException(
-					$"Archive entry '{normalizedPath}' was not found.",
-					normalizedPath);
+				?? throw new FileNotFoundException($"Archive entry '{normalizedPath}' was not found.", normalizedPath);
 		}
 
 		return current;

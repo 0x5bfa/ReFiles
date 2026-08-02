@@ -26,13 +26,9 @@ public sealed class WindowsIdentityTests
 
 			await using (var originalSource = new WindowsStorageSource())
 			{
-				var original = (IWindowsStorable)await originalSource.ResolveAsync(
-					new StorageAddress(WindowsStorageSource.FileAddressScheme, oldPath));
+				var original = (IWindowsStorable)await originalSource.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, oldPath));
 				originalId = original.Id;
-				originalReference = new StorableReference(
-					originalSource.SourceId,
-					original.Id,
-					original.Address);
+				originalReference = new StorableReference(originalSource.SourceId, original.Id, original.Address);
 
 				StringAssert.StartsWith(original.Id, "winfs:v1:");
 				Assert.AreEqual(WindowsStorageSource.FileAddressScheme, original.Address.Scheme);
@@ -51,11 +47,9 @@ public sealed class WindowsIdentityTests
 			File.Delete(newPath);
 			File.WriteAllText(newPath, "recreated");
 
-			var recreated = (IWindowsStorable)await restoredSource.ResolveAsync(
-				new StorageAddress(WindowsStorageSource.FileAddressScheme, newPath));
+			var recreated = (IWindowsStorable)await restoredSource.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, newPath));
 			Assert.AreNotEqual(renamed.Id, recreated.Id);
-			await Assert.ThrowsAsync<FileNotFoundException>(
-				async () => await restoredSource.ResolveAsync(originalReference));
+			await Assert.ThrowsAsync<FileNotFoundException>(async () => await restoredSource.ResolveAsync(originalReference));
 		}
 		finally
 		{

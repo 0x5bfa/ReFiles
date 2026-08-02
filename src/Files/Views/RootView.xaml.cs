@@ -18,18 +18,10 @@ public sealed partial class RootView : Page, IDisposable
 	private bool isLoaded;
 	private int isDisposed;
 
-	public RootView(
-		WindowModel window,
-		IFilesDataRoot dataRoot,
-		DispatcherQueue dispatcherQueue,
-		CommandRegistry commandRegistry)
+	public RootView(WindowModel window, IFilesDataRoot dataRoot, DispatcherQueue dispatcherQueue, CommandRegistry commandRegistry)
 	{
 		InitializeComponent();
-		viewModel = new RootViewModel(
-			window,
-			dataRoot,
-			new DispatcherQueueUIDispatcher(dispatcherQueue),
-			commandRegistry);
+		viewModel = new RootViewModel(window, dataRoot, new DispatcherQueueUIDispatcher(dispatcherQueue), commandRegistry);
 		Loaded += RootView_Loaded;
 	}
 
@@ -74,9 +66,7 @@ public sealed partial class RootView : Page, IDisposable
 		}
 	}
 
-	private async void NavigationView_ItemInvoked(
-		NavigationView sender,
-		NavigationViewItemInvokedEventArgs args)
+	private async void NavigationView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
 	{
 		if (!isLoaded)
 		{

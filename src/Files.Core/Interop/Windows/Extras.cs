@@ -14,24 +14,12 @@ namespace Windows.Win32
 	public static partial class PInvoke
 	{
 		[LibraryImport("ole32.dll", EntryPoint = "CoCreateInstance")]
-		public static unsafe partial int CoCreateInstanceRaw(
-			Guid* classId,
-			nint outer,
-			uint context,
-			Guid* interfaceId,
-			nint* instance);
+		public static unsafe partial int CoCreateInstanceRaw(Guid* classId, nint outer, uint context, Guid* interfaceId, nint* instance);
 
 		[LibraryImport("shell32.dll", EntryPoint = "SHCreateItemFromParsingName")]
-		public static unsafe partial int SHCreateItemFromParsingNameRaw(
-			char* parsingName,
-			nint bindContext,
-			Guid* interfaceId,
-			nint* item);
+		public static unsafe partial int SHCreateItemFromParsingNameRaw(char* parsingName, nint bindContext, Guid* interfaceId, nint* item);
 
-		[LibraryImport(
-			"shlwapi.dll",
-			EntryPoint = "SHCreateStreamOnFileEx",
-			StringMarshalling = StringMarshalling.Utf16)]
+		[LibraryImport("shlwapi.dll", EntryPoint = "SHCreateStreamOnFileEx", StringMarshalling = StringMarshalling.Utf16)]
 		public static partial int SHCreateStreamOnFileExRaw(
 			string fileName,
 			uint mode,

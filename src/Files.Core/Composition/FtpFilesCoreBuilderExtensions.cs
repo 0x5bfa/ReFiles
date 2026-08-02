@@ -26,10 +26,7 @@ public static class FtpFilesCoreBuilderExtensions
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(profile);
 
-		var source = new FtpStorageSource(
-			profile,
-			credentialResolver,
-			sessionFactory);
+		var source = new FtpStorageSource(profile, credentialResolver, sessionFactory);
 		try
 		{
 			RegisterStorage(builder, source);
@@ -46,22 +43,13 @@ public static class FtpFilesCoreBuilderExtensions
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"FTP storage registration and cleanup failed.",
-					registrationError,
-					cleanupError);
+				throw new AggregateException("FTP storage registration and cleanup failed.", registrationError, cleanupError);
 			}
 
 			throw;
 		}
 
-		return AddFtpItemFeatures(
-			builder,
-			source,
-			streamPreviewPolicy,
-			enablePreviews,
-			enableArchives,
-			archiveCredentialResolver);
+		return AddFtpItemFeatures(builder, source, streamPreviewPolicy, enablePreviews, enableArchives, archiveCredentialResolver);
 	}
 
 	public static FilesCoreBuilder AddFtpStorage(
@@ -76,23 +64,14 @@ public static class FtpFilesCoreBuilderExtensions
 		ArgumentNullException.ThrowIfNull(source);
 
 		RegisterStorage(builder, source);
-		return AddFtpItemFeatures(
-			builder,
-			source,
-			streamPreviewPolicy,
-			enablePreviews,
-			enableArchives,
-			archiveCredentialResolver);
+		return AddFtpItemFeatures(builder, source, streamPreviewPolicy, enablePreviews, enableArchives, archiveCredentialResolver);
 	}
 
-	private static void RegisterStorage(
-		FilesCoreBuilder builder,
-		FtpStorageSource source)
+	private static void RegisterStorage(FilesCoreBuilder builder, FtpStorageSource source)
 	{
 		builder
 			.AddStorageSource(source)
-			.AddStorageOperationHandler(
-				new FtpStorageOperationHandler(source));
+			.AddStorageOperationHandler(new FtpStorageOperationHandler(source));
 	}
 
 	private static FilesCoreBuilder AddFtpItemFeatures(
@@ -104,16 +83,13 @@ public static class FtpFilesCoreBuilderExtensions
 		IArchiveCredentialResolver? archiveCredentialResolver)
 	{
 		builder.ItemFeatures.Add<IPropertySource>(
-			new PropertySourceFactory(
-				new FtpPropertyReader(source)),
+			new PropertySourceFactory(new FtpPropertyReader(source)),
 			priority: 100,
 			origin: $"FTP:{source.Profile.ConnectionId}");
 
 		if (enablePreviews)
 		{
-			builder.AddDefaultStreamPreviews(
-				streamPreviewPolicy
-					?? AllowPreviewStreamAccessPolicy.Instance);
+			builder.AddDefaultStreamPreviews(streamPreviewPolicy ?? AllowPreviewStreamAccessPolicy.Instance);
 		}
 
 		if (enableArchives)

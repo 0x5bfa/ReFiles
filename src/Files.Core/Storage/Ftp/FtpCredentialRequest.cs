@@ -8,9 +8,7 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed record FtpCredentialRequest
 {
-	public FtpCredentialRequest(
-		FtpConnectionProfile profile,
-		bool isRetry)
+	public FtpCredentialRequest(FtpConnectionProfile profile, bool isRetry)
 	{
 		ArgumentNullException.ThrowIfNull(profile);
 		Profile = profile;

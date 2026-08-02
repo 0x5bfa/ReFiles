@@ -18,9 +18,7 @@ public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 
 	public bool CanHandle(BrowseLocation location) => location is FolderLocation;
 
-	public async ValueTask<IBrowseLocationContext> OpenAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		if (location is not FolderLocation folderLocation)
 		{

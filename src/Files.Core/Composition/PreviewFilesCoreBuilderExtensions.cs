@@ -13,9 +13,7 @@ public static class PreviewFilesCoreBuilderExtensions
 	private const string DefaultStreamPreviewsModule =
 		"Files.Core.Previews.DefaultStreams";
 
-	public static FilesCoreBuilder AddDefaultStreamPreviews(
-		this FilesCoreBuilder builder,
-		IPreviewStreamAccessPolicy? policy = null)
+	public static FilesCoreBuilder AddDefaultStreamPreviews(this FilesCoreBuilder builder, IPreviewStreamAccessPolicy? policy = null)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		if (!builder.TryAddModule(DefaultStreamPreviewsModule))
@@ -24,8 +22,7 @@ public static class PreviewFilesCoreBuilderExtensions
 		}
 
 		var contentTypes = new ExtensionPreviewContentTypeResolver(
-			new Dictionary<string, string>(
-				StringComparer.OrdinalIgnoreCase)
+			new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 			{
 				[".bmp"] = "image/bmp",
 				[".csv"] = "text/csv",
@@ -48,13 +45,8 @@ public static class PreviewFilesCoreBuilderExtensions
 				[".webp"] = "image/webp",
 				[".xml"] = "application/xml",
 			});
-		var loader = new StreamPreviewLoader(
-			contentTypes,
-			policy ?? AllowPreviewStreamAccessPolicy.Instance);
-		builder.ItemFeatures.Add<IPreviewSource>(
-			new PreviewSourceFactory(loader),
-			priority: 200,
-			origin: "Core stream preview");
+		var loader = new StreamPreviewLoader(contentTypes, policy ?? AllowPreviewStreamAccessPolicy.Instance);
+		builder.ItemFeatures.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 200, origin: "Core stream preview");
 		return builder;
 	}
 }

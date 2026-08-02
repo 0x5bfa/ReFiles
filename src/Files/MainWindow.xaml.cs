@@ -19,11 +19,7 @@ public sealed partial class MainWindow : Window
 	private int closeStarted;
 	private int isDisposed;
 
-	public MainWindow(
-		WindowModel coreWindow,
-		IFilesDataRoot dataRoot,
-		CommandRegistry commandRegistry,
-		Func<Task> shutdownAsync)
+	public MainWindow(WindowModel coreWindow, IFilesDataRoot dataRoot, CommandRegistry commandRegistry, Func<Task> shutdownAsync)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
 		ArgumentNullException.ThrowIfNull(dataRoot);
@@ -32,11 +28,7 @@ public sealed partial class MainWindow : Window
 
 		InitializeComponent();
 		this.shutdownAsync = shutdownAsync;
-		rootView = new RootView(
-			coreWindow,
-			dataRoot,
-			DispatcherQueue,
-			commandRegistry);
+		rootView = new RootView(coreWindow, dataRoot, DispatcherQueue, commandRegistry);
 		RootFrame.Content = rootView;
 		rootView.AttachWindow(this);
 
@@ -55,9 +47,7 @@ public sealed partial class MainWindow : Window
 		rootView.Dispose();
 	}
 
-	private async void AppWindow_Closing(
-		AppWindow sender,
-		AppWindowClosingEventArgs args)
+	private async void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
 	{
 		args.Cancel = true;
 		if (Interlocked.Exchange(ref closeStarted, 1) is not 0)

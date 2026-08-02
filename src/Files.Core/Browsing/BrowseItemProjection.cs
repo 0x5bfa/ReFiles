@@ -18,9 +18,7 @@ internal sealed class BrowseItemProjection
 		Array.Empty<IStorableModel>();
 	private IComparer<IStorableModel> comparer;
 
-	public BrowseItemProjection(
-		BrowseViewSettings settings,
-		Func<IStorableModel, string, object?>? propertyValueGetter = null)
+	public BrowseItemProjection(BrowseViewSettings settings, Func<IStorableModel, string, object?>? propertyValueGetter = null)
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 		this.propertyValueGetter = propertyValueGetter;
@@ -30,10 +28,7 @@ internal sealed class BrowseItemProjection
 	public IReadOnlyList<IStorableModel> Items =>
 		Volatile.Read(ref orderedItemsSnapshot);
 
-	public bool TryGet(
-		StorableKey key,
-		out IStorableModel model,
-		out int index)
+	public bool TryGet(StorableKey key, out IStorableModel model, out int index)
 	{
 		if (!modelsByKey.TryGetValue(key, out var foundModel))
 		{
@@ -91,9 +86,7 @@ internal sealed class BrowseItemProjection
 			new BrowseItemRemoved(index, key)]);
 	}
 
-	public BrowseItemChangeSet Replace(
-		StorableKey previousKey,
-		IStorableModel replacement)
+	public BrowseItemChangeSet Replace(StorableKey previousKey, IStorableModel replacement)
 	{
 		ArgumentNullException.ThrowIfNull(replacement);
 
@@ -135,10 +128,7 @@ internal sealed class BrowseItemProjection
 		};
 		if (previousIndex != currentIndex)
 		{
-			changes.Add(new BrowseItemMoved(
-				previousIndex,
-				currentIndex,
-				replacementKey));
+			changes.Add(new BrowseItemMoved(previousIndex, currentIndex, replacementKey));
 		}
 
 		return new BrowseItemChangeSet(changes);
@@ -182,8 +172,7 @@ internal sealed class BrowseItemProjection
 			.ToArray();
 		comparer = CreateComparer(settings, propertyValueGetter);
 		orderedItems.Sort(comparer);
-		if (previousKeys.SequenceEqual(
-			orderedItems.Select(static item => item.Reference.GetKey())))
+		if (previousKeys.SequenceEqual(orderedItems.Select(static item => item.Reference.GetKey())))
 		{
 			return BrowseItemChangeSet.Empty;
 		}
@@ -228,19 +217,12 @@ internal sealed class BrowseItemProjection
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(
-			ref orderedItemsSnapshot,
-			Array.AsReadOnly(orderedItems.ToArray()));
+		Volatile.Write(ref orderedItemsSnapshot, Array.AsReadOnly(orderedItems.ToArray()));
 	}
 
-	private static IComparer<IStorableModel> CreateComparer(
-		BrowseViewSettings settings,
-		Func<IStorableModel, string, object?>? propertyValueGetter)
+	private static IComparer<IStorableModel> CreateComparer(BrowseViewSettings settings, Func<IStorableModel, string, object?>? propertyValueGetter)
 	{
-		return new BrowseItemComparer(
-			settings.SortPropertyId,
-			settings.SortDirection,
-			propertyValueGetter);
+		return new BrowseItemComparer(settings.SortPropertyId, settings.SortDirection, propertyValueGetter);
 	}
 
 	private sealed class BrowseItemComparer : IComparer<IStorableModel>
@@ -249,10 +231,7 @@ internal sealed class BrowseItemProjection
 		private readonly int direction;
 		private readonly Func<IStorableModel, string, object?>? propertyValueGetter;
 
-		public BrowseItemComparer(
-			string? propertyId,
-			ViewSortDirection sortDirection,
-			Func<IStorableModel, string, object?>? propertyValueGetter)
+		public BrowseItemComparer(string? propertyId, ViewSortDirection sortDirection, Func<IStorableModel, string, object?>? propertyValueGetter)
 		{
 			this.propertyId = propertyId;
 			direction = sortDirection is ViewSortDirection.Ascending ? 1 : -1;
@@ -290,19 +269,13 @@ internal sealed class BrowseItemProjection
 				return result;
 			}
 
-			result = StringComparer.Ordinal.Compare(
-				x.Reference.SourceId.Value,
-				y.Reference.SourceId.Value);
+			result = StringComparer.Ordinal.Compare(x.Reference.SourceId.Value, y.Reference.SourceId.Value);
 			return result is not 0
 				? result
-				: StringComparer.Ordinal.Compare(
-					x.Reference.ItemId,
-					y.Reference.ItemId);
+				: StringComparer.Ordinal.Compare(x.Reference.ItemId, y.Reference.ItemId);
 		}
 
-		private int ComparePropertyValues(
-			IStorableModel x,
-			IStorableModel y)
+		private int ComparePropertyValues(IStorableModel x, IStorableModel y)
 		{
 			var xValue = propertyValueGetter?.Invoke(x, propertyId!);
 			var yValue = propertyValueGetter?.Invoke(y, propertyId!);
@@ -326,9 +299,7 @@ internal sealed class BrowseItemProjection
 			{
 				try
 				{
-					return decimal.Compare(
-						Convert.ToDecimal(xValue, CultureInfo.InvariantCulture),
-						Convert.ToDecimal(yValue, CultureInfo.InvariantCulture));
+					return decimal.Compare(Convert.ToDecimal(xValue, CultureInfo.InvariantCulture), Convert.ToDecimal(yValue, CultureInfo.InvariantCulture));
 				}
 				catch (OverflowException)
 				{
@@ -354,9 +325,7 @@ internal sealed class BrowseItemProjection
 				Convert.ToString(yValue, CultureInfo.InvariantCulture));
 		}
 
-		private static int CompareNames(
-			IStorableModel x,
-			IStorableModel y)
+		private static int CompareNames(IStorableModel x, IStorableModel y)
 		{
 			return StringComparer.OrdinalIgnoreCase.Compare(x.Name, y.Name);
 		}

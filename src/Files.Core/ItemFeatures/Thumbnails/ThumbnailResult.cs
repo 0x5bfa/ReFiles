@@ -5,16 +5,11 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 
 public sealed record ThumbnailResult
 {
-	public ThumbnailResult(
-		ReadOnlyMemory<byte> Content,
-		string ContentType,
-		bool IsFallback)
+	public ThumbnailResult(ReadOnlyMemory<byte> Content, string ContentType, bool IsFallback)
 	{
 		if (Content.IsEmpty)
 		{
-			throw new ArgumentException(
-				"Thumbnail content cannot be empty.",
-				nameof(Content));
+			throw new ArgumentException("Thumbnail content cannot be empty.", nameof(Content));
 		}
 
 		ArgumentException.ThrowIfNullOrWhiteSpace(ContentType);

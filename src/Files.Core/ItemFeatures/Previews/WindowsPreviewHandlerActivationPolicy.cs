@@ -22,9 +22,7 @@ public sealed class LocalServerWindowsPreviewHandlerActivationPolicy
 	{
 		if (handlerClsid == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A preview handler CLSID is required.",
-				nameof(handlerClsid));
+			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
 		}
 
 		return WindowsPreviewHandlerActivationContext.LocalServer;

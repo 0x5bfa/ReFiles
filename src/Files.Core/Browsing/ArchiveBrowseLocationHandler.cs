@@ -35,41 +35,29 @@ public sealed class ArchiveBrowseLocationHandler
 	public bool CanHandle(BrowseLocation location)
 		=> location is ArchiveLocation;
 
-	public async ValueTask<IBrowseLocationContext> OpenAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		if (location is not ArchiveLocation archiveLocation)
 		{
-			throw new ArgumentException(
-				"The location must identify an archive.",
-				nameof(location));
+			throw new ArgumentException("The location must identify an archive.", nameof(location));
 		}
 
 		var archiveModel = await dataRoot
-			.ResolveAsync(
-				archiveLocation.Archive,
-				cancellationToken)
+			.ResolveAsync(archiveLocation.Archive, cancellationToken)
 			.ConfigureAwait(false);
 		IArchiveMount? mount = null;
 		IStorableModel? locationModel = null;
 
 		try
 		{
-			var source = dataRoot.GetSource(
-				archiveLocation.Archive.SourceId);
+			var source = dataRoot.GetSource(archiveLocation.Archive.SourceId);
 			ArchiveCredential? credential = null;
 			var credentialAttempt = 0;
 			var credentialPromptCount = 0;
 
 			while (true)
 			{
-				var request = new ArchiveMountRequest(
-					source,
-					archiveModel,
-					credential,
-					credentialAttempt,
-					credentialResolver);
+				var request = new ArchiveMountRequest(source, archiveModel, credential, credentialAttempt, credentialResolver);
 				var result = await backendSelector
 					.TryMountAsync(request, cancellationToken)
 					.ConfigureAwait(false);
@@ -82,8 +70,7 @@ public sealed class ArchiveBrowseLocationHandler
 					case ArchiveMountResult.CredentialRequired required:
 						if (credentialResolver is null)
 						{
-							throw new ArchiveCredentialRequiredException(
-								required.Challenge);
+							throw new ArchiveCredentialRequiredException(required.Challenge);
 						}
 
 						credentialPromptCount++;
@@ -92,110 +79,75 @@ public sealed class ArchiveBrowseLocationHandler
 							|| required.Challenge.Attempt
 								> MaximumCredentialAttempts)
 						{
-							throw new ArchiveOpenException(
-								$"Archive credential attempts exceeded {MaximumCredentialAttempts}.");
+							throw new ArchiveOpenException($"Archive credential attempts exceeded {MaximumCredentialAttempts}.");
 						}
 
 						credential = await credentialResolver
-							.ResolveAsync(
-								required.Challenge,
-								cancellationToken)
+							.ResolveAsync(required.Challenge, cancellationToken)
 							.ConfigureAwait(false);
 						if (credential is null)
 						{
-							throw new OperationCanceledException(
-								"The archive credential request was canceled.");
+							throw new OperationCanceledException("The archive credential request was canceled.");
 						}
 
-						credentialAttempt = Math.Max(
-							required.Challenge.Attempt,
-							credentialPromptCount);
+						credentialAttempt = Math.Max(required.Challenge.Attempt, credentialPromptCount);
 						continue;
 					case ArchiveMountResult.Unsupported:
-						throw new UnsupportedArchiveException(
-							archiveModel.Name);
+						throw new UnsupportedArchiveException(archiveModel.Name);
 					case ArchiveMountResult.Failed failed:
-						throw new ArchiveOpenException(
-							$"Archive '{archiveModel.Name}' could not be opened.",
-							failed.Error);
+						throw new ArchiveOpenException($"Archive '{archiveModel.Name}' could not be opened.", failed.Error);
 					default:
-						throw new InvalidOperationException(
-							"The archive backend selector returned an unknown result.");
+						throw new InvalidOperationException("The archive backend selector returned an unknown result.");
 				}
 
 				break;
 			}
 
 			var locationCoreModel = await mount
-				.ResolveAsync(
-					archiveLocation.EntryPath,
-					cancellationToken)
+				.ResolveAsync(archiveLocation.EntryPath, cancellationToken)
 				.ConfigureAwait(false);
 			if (locationCoreModel is not IFolder)
 			{
-				throw new InvalidOperationException(
-					$"Archive entry '{archiveLocation.EntryPath}' is not a folder.");
+				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' is not a folder.");
 			}
 
-			locationModel = ReferenceEquals(
-				locationCoreModel,
-				archiveModel.CoreModel)
+			locationModel = ReferenceEquals(locationCoreModel, archiveModel.CoreModel)
 				? archiveModel
-				: dataRoot.ModelFactory.Create(
-					mount.ItemSource,
-					locationCoreModel);
+				: dataRoot.ModelFactory.Create(mount.ItemSource, locationCoreModel);
 			if (locationModel is not IFolderModel folderModel)
 			{
-				throw new InvalidOperationException(
-					$"Archive entry '{archiveLocation.EntryPath}' did not produce a folder model.");
+				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' did not produce a folder model.");
 			}
 
-			var context = new ArchiveBrowseLocationContext(
-				archiveLocation,
-				archiveModel,
-				folderModel,
-				mount,
-				dataRoot);
+			var context = new ArchiveBrowseLocationContext(archiveLocation, archiveModel, folderModel, mount, dataRoot);
 			return context;
 		}
 		catch (Exception openError)
 		{
 			var cleanupErrors = new List<Exception>();
 			if (locationModel is not null
-				&& !ReferenceEquals(
-					locationModel,
-					archiveModel))
+				&& !ReferenceEquals(locationModel, archiveModel))
 			{
-				await TryDisposeAsync(
-					locationModel,
-					cleanupErrors).ConfigureAwait(false);
+				await TryDisposeAsync(locationModel, cleanupErrors).ConfigureAwait(false);
 			}
 
 			if (mount is not null)
 			{
-				await TryDisposeAsync(
-					mount,
-					cleanupErrors).ConfigureAwait(false);
+				await TryDisposeAsync(mount, cleanupErrors).ConfigureAwait(false);
 			}
 
-			await TryDisposeAsync(
-				archiveModel,
-				cleanupErrors).ConfigureAwait(false);
+			await TryDisposeAsync(archiveModel, cleanupErrors).ConfigureAwait(false);
 			if (cleanupErrors.Count is 0)
 			{
 				throw;
 			}
 
 			cleanupErrors.Insert(0, openError);
-			throw new AggregateException(
-				"Archive location opening and cleanup failed.",
-				cleanupErrors);
+			throw new AggregateException("Archive location opening and cleanup failed.", cleanupErrors);
 		}
 	}
 
-	private static async ValueTask TryDisposeAsync(
-		IAsyncDisposable disposable,
-		ICollection<Exception> errors)
+	private static async ValueTask TryDisposeAsync(IAsyncDisposable disposable, ICollection<Exception> errors)
 	{
 		try
 		{

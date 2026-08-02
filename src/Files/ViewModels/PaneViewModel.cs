@@ -23,19 +23,11 @@ public sealed class PaneViewModel : ObservableObject, IDisposable
 	private int isDisposed;
 	private PaneContentKind contentKind = PaneContentKind.FolderBrowser;
 
-	public PaneViewModel(
-		PaneModel pane,
-		IFilesDataRoot dataRoot,
-		IUIDispatcher dispatcher,
-		WindowCommandManager commandManager)
+	public PaneViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 		this.pane = pane;
-		FolderBrowser = new FolderBrowserViewModel(
-			pane,
-			dataRoot,
-			dispatcher,
-			commandManager);
+		FolderBrowser = new FolderBrowserViewModel(pane, dataRoot, dispatcher, commandManager);
 		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
 	}
 
@@ -89,9 +81,7 @@ public sealed class PaneViewModel : ObservableObject, IDisposable
 		FolderBrowser.Dispose();
 	}
 
-	private void FolderBrowser_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void FolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		OnPropertyChanged(nameof(Title));
 		OnPropertyChanged(nameof(StatusText));

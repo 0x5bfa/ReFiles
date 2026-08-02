@@ -13,9 +13,7 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 	private readonly object syncRoot = new();
 	private readonly Dictionary<BrowseLocation, BrowseViewSettings> values = [];
 
-	public ValueTask<BrowseViewSettings?> GetAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default)
+	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -26,10 +24,7 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		}
 	}
 
-	public ValueTask SetAsync(
-		BrowseLocation location,
-		BrowseViewSettings settings,
-		CancellationToken cancellationToken = default)
+	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		ArgumentNullException.ThrowIfNull(settings);

@@ -20,9 +20,7 @@ public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 		this.dataRoot = dataRoot;
 	}
 
-	public async ValueTask<WindowsPreviewTarget> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<WindowsPreviewTarget> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 
@@ -33,24 +31,18 @@ public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 		try
 		{
 			if (model.Reference.SourceId != reference.SourceId
-				|| !StringComparer.Ordinal.Equals(
-					model.Reference.ItemId,
-					reference.ItemId))
+				|| !StringComparer.Ordinal.Equals(model.Reference.ItemId, reference.ItemId))
 			{
-				throw new InvalidDataException(
-					"The resolved preview target does not match the requested identity.");
+				throw new InvalidDataException("The resolved preview target does not match the requested identity.");
 			}
 
 			if (model.CoreModel is not IWindowsStorable
 				|| model.CoreModel is not IFile)
 			{
-				throw new NotSupportedException(
-					"The resolved preview target is not a Windows Shell-backed file.");
+				throw new NotSupportedException("The resolved preview target is not a Windows Shell-backed file.");
 			}
 
-			return new WindowsPreviewTarget(
-				model,
-				(IWindowsStorable)model.CoreModel);
+			return new WindowsPreviewTarget(model, (IWindowsStorable)model.CoreModel);
 		}
 		catch (Exception resolutionError)
 		{
@@ -60,10 +52,7 @@ public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Preview target resolution and model cleanup failed.",
-					resolutionError,
-					cleanupError);
+				throw new AggregateException("Preview target resolution and model cleanup failed.", resolutionError, cleanupError);
 			}
 
 			throw;

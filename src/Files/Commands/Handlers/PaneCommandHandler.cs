@@ -21,9 +21,7 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 		return new(true, isEnabled);
 	}
 
-	public async ValueTask<CommandExecutionResult> ExecuteAsync(
-		CommandContext context,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 	{
 		if (context.ActiveTab is not { } tab)
 		{
@@ -37,17 +35,14 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 					PaneSplitOrientation.Horizontal
 					? PaneSplitOrientation.Vertical
 					: PaneSplitOrientation.Horizontal;
-				await tab.OpenPaneAsync(
-					orientation,
-					cancellationToken).ConfigureAwait(false);
+				await tab.OpenPaneAsync(orientation, cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.ClosePane:
 				await tab.CloseActivePaneAsync(cancellationToken)
 					.ConfigureAwait(false);
 				break;
 			default:
-				throw new InvalidOperationException(
-					$"Unsupported pane command '{id}'.");
+				throw new InvalidOperationException($"Unsupported pane command '{id}'.");
 		}
 
 		return CommandExecutionResult.Succeeded();

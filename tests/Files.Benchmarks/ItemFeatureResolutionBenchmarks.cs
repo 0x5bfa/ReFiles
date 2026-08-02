@@ -30,9 +30,7 @@ public class ItemFeatureResolutionBenchmarks
 		for (var index = 0; index < FactoryCount; index++)
 		{
 			var value = index.ToString();
-			builder.Add<BenchmarkFeature>(
-				new DelegateItemFeatureFactory<BenchmarkFeature>(_ => new BenchmarkFeature(value)),
-				priority: index);
+			builder.Add<BenchmarkFeature>(new DelegateItemFeatureFactory<BenchmarkFeature>(_ => new BenchmarkFeature(value)), priority: index);
 		}
 
 		registry = builder
@@ -94,14 +92,10 @@ internal sealed class BenchmarkStorageSource : IStorageSource
 
 	public bool CanResolve(StorageAddress address) => false;
 
-	public ValueTask<IStorable> ResolveAsync(
-		StorageAddress address,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 		=> throw new NotSupportedException();
 
-	public ValueTask<IStorable> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 		=> throw new NotSupportedException();
 
 	public ValueTask DisposeAsync() => ValueTask.CompletedTask;

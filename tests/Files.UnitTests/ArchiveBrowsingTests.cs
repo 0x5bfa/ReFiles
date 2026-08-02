@@ -20,32 +20,15 @@ public sealed class ArchiveBrowsingTests
 	public async Task SelectorFallsBackToTheNextBackend()
 	{
 		var source = new TestStorageSource();
-		await using var archiveModel = CreateModel(
-			source,
-			new TestStorable("archive", "example.7z"));
-		var mount = new TestArchiveMount(
-			archiveModel.Reference,
-			source);
-		var primary = new TestArchiveBackend(
-			"primary",
-			priority: 200,
-			supportsEncryption: false,
-			_ => ArchiveMountResult.Unsupported.Instance);
-		var fallback = new TestArchiveBackend(
-			"fallback",
-			priority: 100,
-			supportsEncryption: true,
-			_ => new ArchiveMountResult.Success(mount));
-		var selector = new ArchiveBackendSelector(
-			[ fallback, primary ]);
+		await using var archiveModel = CreateModel(source, new TestStorable("archive", "example.7z"));
+		var mount = new TestArchiveMount(archiveModel.Reference, source);
+		var primary = new TestArchiveBackend("primary", priority: 200, supportsEncryption: false, _ => ArchiveMountResult.Unsupported.Instance);
+		var fallback = new TestArchiveBackend("fallback", priority: 100, supportsEncryption: true, _ => new ArchiveMountResult.Success(mount));
+		var selector = new ArchiveBackendSelector([fallback, primary]);
 
-		var result = await selector.TryMountAsync(
-			new ArchiveMountRequest(
-				source,
-				archiveModel));
+		var result = await selector.TryMountAsync(new ArchiveMountRequest(source, archiveModel));
 
-		Assert.IsInstanceOfType<ArchiveMountResult.Success>(
-			result);
+		Assert.IsInstanceOfType<ArchiveMountResult.Success>(result);
 		Assert.AreEqual(1, primary.CallCount);
 		Assert.AreEqual(1, fallback.CallCount);
 		await mount.DisposeAsync();
@@ -55,36 +38,19 @@ public sealed class ArchiveBrowsingTests
 	public async Task EncryptedProbeSkipsBackendsWithoutEncryptionSupport()
 	{
 		var source = new TestStorageSource();
-		await using var archiveModel = CreateModel(
-			source,
-			new TestStorable("archive", "example.7z"));
-		var mount = new TestArchiveMount(
-			archiveModel.Reference,
-			source);
+		await using var archiveModel = CreateModel(source, new TestStorable("archive", "example.7z"));
+		var mount = new TestArchiveMount(archiveModel.Reference, source);
 		var shell = new TestArchiveBackend(
 			"shell",
 			priority: 200,
 			supportsEncryption: false,
-			_ => throw new InvalidOperationException(
-				"The Shell backend must be skipped."));
-		var sevenZip = new TestArchiveBackend(
-			"sevenzip",
-			priority: 100,
-			supportsEncryption: true,
-			_ => new ArchiveMountResult.Success(mount));
-		var selector = new ArchiveBackendSelector(
-			[ shell, sevenZip ],
-			new TestArchiveProbe(
-				ArchiveProbeResult.Encrypted));
+			_ => throw new InvalidOperationException("The Shell backend must be skipped."));
+		var sevenZip = new TestArchiveBackend("sevenzip", priority: 100, supportsEncryption: true, _ => new ArchiveMountResult.Success(mount));
+		var selector = new ArchiveBackendSelector([shell, sevenZip], new TestArchiveProbe(ArchiveProbeResult.Encrypted));
 
-		var result = await selector.TryMountAsync(
-			new ArchiveMountRequest(
-				source,
-				archiveModel,
-				new ArchiveCredential("password")));
+		var result = await selector.TryMountAsync(new ArchiveMountRequest(source, archiveModel, new ArchiveCredential("password")));
 
-		Assert.IsInstanceOfType<ArchiveMountResult.Success>(
-			result);
+		Assert.IsInstanceOfType<ArchiveMountResult.Success>(result);
 		Assert.AreEqual(0, shell.CallCount);
 		Assert.AreEqual(1, sevenZip.CallCount);
 		await mount.DisposeAsync();
@@ -93,40 +59,22 @@ public sealed class ArchiveBrowsingTests
 	[TestMethod]
 	public async Task HandlerObtainsCredentialBeforePublishingItems()
 	{
-		var archive = new TestStorable(
-			"archive",
-			"encrypted.7z");
+		var archive = new TestStorable("archive", "encrypted.7z");
 		var source = new ResolvingArchiveSource(archive);
 		var modelFactory = new StorableModelFactory();
-		await using var dataRoot = new FilesDataRoot(
-			[source],
-			modelFactory);
-		var mount = new TestArchiveMount(
-			new StorableReference(
-				source.SourceId,
-				archive.Id),
-			source);
+		await using var dataRoot = new FilesDataRoot([source], modelFactory);
+		var mount = new TestArchiveMount(new StorableReference(source.SourceId, archive.Id), source);
 		var backend = new TestArchiveBackend(
 			"sevenzip",
 			priority: 100,
 			supportsEncryption: true,
 			request => request.Credential is null
 				? new ArchiveMountResult.CredentialRequired(
-					new ArchiveCredentialChallenge(
-						request.Archive,
-						request.ArchiveModel.Name,
-						attempt: 1,
-						previousCredentialRejected: false))
+					new ArchiveCredentialChallenge(request.Archive, request.ArchiveModel.Name, attempt: 1, previousCredentialRejected: false))
 				: new ArchiveMountResult.Success(mount));
 		var credentials = new TestArchiveCredentialResolver();
-		var handler = new ArchiveBrowseLocationHandler(
-			dataRoot,
-			new ArchiveBackendSelector([backend]),
-			credentials);
-		var location = new ArchiveLocation(
-			new StorableReference(
-				source.SourceId,
-				archive.Id));
+		var handler = new ArchiveBrowseLocationHandler(dataRoot, new ArchiveBackendSelector([backend]), credentials);
+		var location = new ArchiveLocation(new StorableReference(source.SourceId, archive.Id));
 
 		await using var context = await handler.OpenAsync(location);
 		var items = new List<IStorableModel>();
@@ -149,54 +97,30 @@ public sealed class ArchiveBrowsingTests
 	[TestMethod]
 	public async Task ArchiveContextReturnsLogicalArchiveParent()
 	{
-		var archive = new TestStorable(
-			"archive",
-			"example.7z");
+		var archive = new TestStorable("archive", "example.7z");
 		var source = new ResolvingArchiveSource(archive);
 		var modelFactory = new StorableModelFactory();
-		await using var dataRoot = new FilesDataRoot(
-			[source],
-			modelFactory);
-		var reference = new StorableReference(
-			source.SourceId,
-			archive.Id);
-		var archiveModel = modelFactory.Create(
-			source,
-			archive);
-		var mount = new TestArchiveMount(
-			reference,
-			source);
-		var folderModel = (IFolderModel)modelFactory.Create(
-			source,
-			mount.Root);
-		var location = new ArchiveLocation(
-			reference,
-			"one/two");
+		await using var dataRoot = new FilesDataRoot([source], modelFactory);
+		var reference = new StorableReference(source.SourceId, archive.Id);
+		var archiveModel = modelFactory.Create(source, archive);
+		var mount = new TestArchiveMount(reference, source);
+		var folderModel = (IFolderModel)modelFactory.Create(source, mount.Root);
+		var location = new ArchiveLocation(reference, "one/two");
 		await using var context =
-			new ArchiveBrowseLocationContext(
-				location,
-				archiveModel,
-				folderModel,
-				mount,
-				dataRoot);
+			new ArchiveBrowseLocationContext(location, archiveModel, folderModel, mount, dataRoot);
 
 		var parent = await context.GetParentLocationAsync();
 
-		Assert.AreEqual(
-			new ArchiveLocation(reference, "one"),
-			parent);
+		Assert.AreEqual(new ArchiveLocation(reference, "one"), parent);
 	}
 
 	[TestMethod]
 	public void ArchiveSourceFeatureIncludesArchiveFiles()
 	{
 		var source = new TestStorageSource();
-		var coreModel = new TestArchiveFile(
-			"archive",
-			"example.zip");
+		var coreModel = new TestArchiveFile("archive", "example.zip");
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<IArchiveSource>(
-				new ArchiveSourceFactory())
+			.Add<IArchiveSource>(new ArchiveSourceFactory())
 			.Build();
 		using var model = new StorableModelFactory(featureRegistry)
 			.Create(source, coreModel);
@@ -204,22 +128,16 @@ public sealed class ArchiveBrowsingTests
 		var archiveSource = model.Get<IArchiveSource>();
 
 		Assert.IsNotNull(archiveSource);
-		Assert.AreEqual(
-			model.Reference,
-			archiveSource.Archive);
+		Assert.AreEqual(model.Reference, archiveSource.Archive);
 	}
 
 	[TestMethod]
 	public void ArchiveSourceUsesWindowsParsingIdentityInsteadOfDisplayName()
 	{
 		var source = new TestStorageSource();
-		var coreModel = new TestWindowsArchiveFile(
-			"archive",
-			"example",
-			@"C:\Data\example.zip");
+		var coreModel = new TestWindowsArchiveFile("archive", "example", @"C:\Data\example.zip");
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<IArchiveSource>(
-				new ArchiveSourceFactory())
+			.Add<IArchiveSource>(new ArchiveSourceFactory())
 			.Build();
 		using var model = new StorableModelFactory(featureRegistry)
 			.Create(source, coreModel);
@@ -230,19 +148,10 @@ public sealed class ArchiveBrowsingTests
 	[TestMethod]
 	public void ArchivePathsRejectTraversal()
 	{
-		Assert.AreEqual(
-			"folder/file.txt",
-			ArchiveEntryPath.Normalize(
-				@"folder\file.txt"));
-		Assert.Throws<ArgumentException>(
-			() => ArchiveEntryPath.Normalize(
-				"../outside.txt"));
-		Assert.Throws<ArgumentException>(
-			() => ArchiveEntryPath.Normalize(
-				"/absolute.txt"));
-		Assert.Throws<ArgumentException>(
-			() => ArchiveEntryPath.Normalize(
-				@"C:\absolute.txt"));
+		Assert.AreEqual("folder/file.txt", ArchiveEntryPath.Normalize(@"folder\file.txt"));
+		Assert.Throws<ArgumentException>(() => ArchiveEntryPath.Normalize("../outside.txt"));
+		Assert.Throws<ArgumentException>(() => ArchiveEntryPath.Normalize("/absolute.txt"));
+		Assert.Throws<ArgumentException>(() => ArchiveEntryPath.Normalize(@"C:\absolute.txt"));
 	}
 
 	[TestMethod]
@@ -251,22 +160,13 @@ public sealed class ArchiveBrowsingTests
 		const string password = "do-not-log-this";
 		var credential = new ArchiveCredential(password);
 
-		Assert.AreEqual(
-			nameof(ArchiveCredential),
-			credential.ToString());
-		Assert.IsFalse(
-			credential.ToString().Contains(
-				password,
-				StringComparison.Ordinal));
+		Assert.AreEqual(nameof(ArchiveCredential), credential.ToString());
+		Assert.IsFalse(credential.ToString().Contains(password, StringComparison.Ordinal));
 	}
 
-	private static IStorableModel CreateModel(
-		IStorageSource source,
-		IStorable storable)
+	private static IStorableModel CreateModel(IStorageSource source, IStorable storable)
 	{
-		return new StorableModelFactory().Create(
-			source,
-			storable);
+		return new StorableModelFactory().Create(source, storable);
 	}
 
 	private sealed class TestArchiveBackend : IArchiveBackend
@@ -275,13 +175,7 @@ public sealed class ArchiveBrowsingTests
 			ArchiveMountRequest,
 			ArchiveMountResult> mount;
 
-		public TestArchiveBackend(
-			string id,
-			int priority,
-			bool supportsEncryption,
-			Func<
-				ArchiveMountRequest,
-				ArchiveMountResult> mount)
+		public TestArchiveBackend(string id, int priority, bool supportsEncryption, Func< ArchiveMountRequest, ArchiveMountResult> mount)
 		{
 			Id = id;
 			Priority = priority;
@@ -297,9 +191,7 @@ public sealed class ArchiveBrowsingTests
 
 		public int CallCount { get; private set; }
 
-		public ValueTask<ArchiveMountResult> TryMountAsync(
-			ArchiveMountRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			CallCount++;
@@ -316,9 +208,7 @@ public sealed class ArchiveBrowsingTests
 			this.result = result;
 		}
 
-		public ValueTask<ArchiveProbeResult> ProbeAsync(
-			ArchiveMountRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<ArchiveProbeResult> ProbeAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			return ValueTask.FromResult(result);
@@ -330,14 +220,11 @@ public sealed class ArchiveBrowsingTests
 	{
 		public int CallCount { get; private set; }
 
-		public ValueTask<ArchiveCredential?> ResolveAsync(
-			ArchiveCredentialChallenge challenge,
-			CancellationToken cancellationToken = default)
+		public ValueTask<ArchiveCredential?> ResolveAsync(ArchiveCredentialChallenge challenge, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			CallCount++;
-			return ValueTask.FromResult<ArchiveCredential?>(
-				new ArchiveCredential("password"));
+			return ValueTask.FromResult<ArchiveCredential?>(new ArchiveCredential("password"));
 		}
 	}
 
@@ -346,9 +233,7 @@ public sealed class ArchiveBrowsingTests
 		private readonly TestArchiveFolder root =
 			new("root", "archive");
 
-		public TestArchiveMount(
-			StorableReference archive,
-			IStorageSource source)
+		public TestArchiveMount(StorableReference archive, IStorageSource source)
 		{
 			Archive = archive;
 			ItemSource = source;
@@ -362,15 +247,12 @@ public sealed class ArchiveBrowsingTests
 
 		public IFolder Root => root;
 
-		public ValueTask<IStorable> ResolveAsync(
-			string entryPath,
-			CancellationToken cancellationToken = default)
+		public ValueTask<IStorable> ResolveAsync(string entryPath, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			return string.IsNullOrEmpty(entryPath)
 				? ValueTask.FromResult<IStorable>(root)
-				: ValueTask.FromException<IStorable>(
-					new FileNotFoundException(entryPath));
+				: ValueTask.FromException<IStorable>(new FileNotFoundException(entryPath));
 		}
 
 		public ValueTask DisposeAsync()
@@ -379,9 +261,7 @@ public sealed class ArchiveBrowsingTests
 
 	private sealed class TestArchiveFolder : IFolder
 	{
-		public TestArchiveFolder(
-			string id,
-			string name)
+		public TestArchiveFolder(string id, string name)
 		{
 			Id = id;
 			Name = name;
@@ -403,9 +283,7 @@ public sealed class ArchiveBrowsingTests
 
 	private sealed class TestArchiveFile : IFile
 	{
-		public TestArchiveFile(
-			string id,
-			string name)
+		public TestArchiveFile(string id, string name)
 		{
 			Id = id;
 			Name = name;
@@ -415,31 +293,23 @@ public sealed class ArchiveBrowsingTests
 
 		public string Name { get; }
 
-		public Task<Stream> OpenStreamAsync(
-			FileAccess accessMode,
-			CancellationToken cancellationToken = default)
+		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			return Task.FromResult<Stream>(
-				new MemoryStream());
+			return Task.FromResult<Stream>(new MemoryStream());
 		}
 	}
 
 	private sealed class TestWindowsArchiveFile
 		: IWindowsStorable, IFile
 	{
-		public TestWindowsArchiveFile(
-			string id,
-			string name,
-			string fileSystemPath)
+		public TestWindowsArchiveFile(string id, string name, string fileSystemPath)
 		{
 			Id = id;
 			Name = name;
 			FileSystemPath = fileSystemPath;
 			ParsingName = fileSystemPath;
-			Address = new StorageAddress(
-				WindowsStorageSource.FileAddressScheme,
-				fileSystemPath);
+			Address = new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
 		}
 
 		public string Id { get; }
@@ -456,20 +326,16 @@ public sealed class ArchiveBrowsingTests
 
 		public StorageAddress Address { get; }
 
-		public Task<IFolder?> GetParentAsync(
-			CancellationToken cancellationToken = default)
+		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			return Task.FromResult<IFolder?>(null);
 		}
 
-		public Task<Stream> OpenStreamAsync(
-			FileAccess accessMode,
-			CancellationToken cancellationToken = default)
+		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			return Task.FromResult<Stream>(
-				new MemoryStream());
+			return Task.FromResult<Stream>(new MemoryStream());
 		}
 	}
 
@@ -489,8 +355,7 @@ public sealed class ArchiveBrowsingTests
 
 		public string DisplayName => "Archive test";
 
-		public async IAsyncEnumerable<IFolder> GetRootsAsync(
-			[EnumeratorCancellation] CancellationToken cancellationToken = default)
+		public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			await Task.CompletedTask.ConfigureAwait(false);
@@ -500,23 +365,16 @@ public sealed class ArchiveBrowsingTests
 		public bool CanResolve(StorageAddress address)
 			=> false;
 
-		public ValueTask<IStorable> ResolveAsync(
-			StorageAddress address,
-			CancellationToken cancellationToken = default)
-			=> ValueTask.FromException<IStorable>(
-				new NotSupportedException());
+		public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
+			=> ValueTask.FromException<IStorable>(new NotSupportedException());
 
-		public ValueTask<IStorable> ResolveAsync(
-			StorableReference reference,
-			CancellationToken cancellationToken = default)
+		public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			return reference.SourceId == SourceId
 				&& reference.ItemId == archive.Id
 					? ValueTask.FromResult(archive)
-					: ValueTask.FromException<IStorable>(
-						new FileNotFoundException(
-							reference.ItemId));
+					: ValueTask.FromException<IStorable>(new FileNotFoundException(reference.ItemId));
 		}
 
 		public ValueTask DisposeAsync()

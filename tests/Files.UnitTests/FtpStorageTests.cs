@@ -15,22 +15,9 @@ public sealed class FtpStorageTests
 	{
 		var sessions = new InMemoryFtpSessionFactory();
 		sessions.AddFolder("/home/Documents");
-		sessions.AddFile(
-			"/home/readme.txt",
-			Encoding.UTF8.GetBytes("hello"));
-		var profile = new FtpConnectionProfile(
-			"primary",
-			"Primary FTP",
-			"example.test",
-			rootPath: "/home",
-			userNameHint: "files-user");
-		await using var source = new FtpStorageSource(
-			profile,
-			new StaticFtpCredentialResolver(
-				new FtpCredential(
-					"files-user",
-					"secret")),
-			sessions);
+		sessions.AddFile("/home/readme.txt", Encoding.UTF8.GetBytes("hello"));
+		var profile = new FtpConnectionProfile("primary", "Primary FTP", "example.test", rootPath: "/home", userNameHint: "files-user");
+		await using var source = new FtpStorageSource(profile, new StaticFtpCredentialResolver(new FtpCredential("files-user", "secret")), sessions);
 
 		FtpFolder? root = null;
 		await foreach (var candidate in source.GetRootsAsync())
@@ -47,41 +34,26 @@ public sealed class FtpStorageTests
 		}
 
 		Assert.AreEqual(2, items.Count);
-		var file = (FtpFile)items.Single(
-			item => item.Name == "readme.txt");
+		var file = (FtpFile)items.Single(item => item.Name == "readme.txt");
 		Assert.IsTrue(source.CanResolve(file.Address));
-		Assert.IsFalse(
-			file.Address.ToString().Contains(
-				"secret",
-				StringComparison.Ordinal));
+		Assert.IsFalse(file.Address.ToString().Contains("secret", StringComparison.Ordinal));
 		Assert.AreEqual(
 			"ftp://example.test:21/home/readme.txt",
 			file.Address.ToString());
 
 		var resolved = await source.ResolveAsync(file.Address);
 		Assert.AreEqual(file.Id, resolved.Id);
-		Assert.AreEqual(
-			"files-user",
-			sessions.LastCredential!.UserName);
+		Assert.AreEqual("files-user", sessions.LastCredential!.UserName);
 	}
 
 	[TestMethod]
 	public async Task ReturnedStreamOwnsSessionUntilStreamDisposal()
 	{
 		var sessions = new InMemoryFtpSessionFactory();
-		sessions.AddFile(
-			"/payload.bin",
-			[1, 2, 3, 4]);
-		var profile = new FtpConnectionProfile(
-			"stream",
-			"Stream FTP",
-			"example.test");
-		await using var source = new FtpStorageSource(
-			profile,
-			sessionFactory: sessions);
-		var file = (FtpFile)await source.ResolveAsync(
-			source.CreateAddress(
-				FtpPath.Parse("/payload.bin")));
+		sessions.AddFile("/payload.bin", [1, 2, 3, 4]);
+		var profile = new FtpConnectionProfile("stream", "Stream FTP", "example.test");
+		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
+		var file = (FtpFile)await source.ResolveAsync(source.CreateAddress(FtpPath.Parse("/payload.bin")));
 
 		var stream = await file.OpenStreamAsync(FileAccess.Read);
 		var session = sessions.Sessions[^1];
@@ -90,15 +62,11 @@ public sealed class FtpStorageTests
 		var content = new byte[4];
 		var bytesRead = await stream.ReadAsync(content);
 		Assert.AreEqual(4, bytesRead);
-		CollectionAssert.AreEqual(
-			new byte[] { 1, 2, 3, 4 },
-			content);
+		CollectionAssert.AreEqual(new byte[] {1, 2, 3, 4}, content);
 
 		await stream.DisposeAsync();
 		Assert.IsTrue(session.IsDisposed);
-		Assert.AreEqual(
-			1,
-			session.CompletedTransferCount);
+		Assert.AreEqual(1, session.CompletedTransferCount);
 	}
 
 	[TestMethod]
@@ -110,22 +78,14 @@ public sealed class FtpStorageTests
 				new IOException("Rejected test transfer."),
 		};
 		sessions.AddFile("/payload.bin", [1]);
-		var profile = new FtpConnectionProfile(
-			"failed-transfer",
-			"Failed transfer FTP",
-			"example.test");
-		await using var source = new FtpStorageSource(
-			profile,
-			sessionFactory: sessions);
-		var file = (FtpFile)await source.ResolveAsync(
-			source.CreateAddress(
-				FtpPath.Parse("/payload.bin")));
+		var profile = new FtpConnectionProfile("failed-transfer", "Failed transfer FTP", "example.test");
+		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
+		var file = (FtpFile)await source.ResolveAsync(source.CreateAddress(FtpPath.Parse("/payload.bin")));
 
 		var stream = await file.OpenStreamAsync(FileAccess.Read);
 		var session = sessions.Sessions[^1];
 
-		await Assert.ThrowsAsync<IOException>(
-			() => stream.DisposeAsync().AsTask());
+		await Assert.ThrowsAsync<IOException>(() => stream.DisposeAsync().AsTask());
 		Assert.IsTrue(session.IsDisposed);
 		Assert.AreEqual(1, session.CompletedTransferCount);
 	}
@@ -135,30 +95,16 @@ public sealed class FtpStorageTests
 	{
 		var sessions = new InMemoryFtpSessionFactory();
 		sessions.AddFile("/old.txt", [1]);
-		var profile = new FtpConnectionProfile(
-			"identity",
-			"Identity FTP",
-			"example.test");
-		await using var source = new FtpStorageSource(
-			profile,
-			sessionFactory: sessions);
-		var original = source.CreateReference(
-			FtpPath.Parse("/old.txt"));
+		var profile = new FtpConnectionProfile("identity", "Identity FTP", "example.test");
+		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
+		var original = source.CreateReference(FtpPath.Parse("/old.txt"));
 		var handler = new FtpStorageOperationHandler(source);
 
-		var result = await handler.ExecuteAsync(
-			new RenameOperationRequest(
-				original,
-				"new.txt"));
+		var result = await handler.ExecuteAsync(new RenameOperationRequest(original, "new.txt"));
 
 		Assert.IsTrue(result.Succeeded, result.Error?.ToString());
-		Assert.AreEqual(
-			"/new.txt",
-			result.ResultItem!.ItemId);
-		await Assert.ThrowsAsync<FileNotFoundException>(
-			() => source
-				.ResolveAsync(original)
-				.AsTask());
+		Assert.AreEqual("/new.txt", result.ResultItem!.ItemId);
+		await Assert.ThrowsAsync<FileNotFoundException>(() => source .ResolveAsync(original) .AsTask());
 	}
 
 	[TestMethod]
@@ -166,23 +112,13 @@ public sealed class FtpStorageTests
 	{
 		var sessions = new InMemoryFtpSessionFactory();
 		sessions.AddFile("/secured.txt", [1]);
-		var credentials = new SequenceCredentialResolver(
-			new FtpCredential("user", "wrong"),
-			new FtpCredential("user", "correct"));
+		var credentials = new SequenceCredentialResolver(new FtpCredential("user", "wrong"), new FtpCredential("user", "correct"));
 		var checkingFactory =
 			new CredentialCheckingSessionFactory(sessions);
-		var profile = new FtpConnectionProfile(
-			"authentication",
-			"Authentication FTP",
-			"example.test");
-		await using var source = new FtpStorageSource(
-			profile,
-			credentials,
-			checkingFactory);
+		var profile = new FtpConnectionProfile("authentication", "Authentication FTP", "example.test");
+		await using var source = new FtpStorageSource(profile, credentials, checkingFactory);
 
-		var resolved = await source.ResolveAsync(
-			source.CreateAddress(
-				FtpPath.Parse("/secured.txt")));
+		var resolved = await source.ResolveAsync(source.CreateAddress(FtpPath.Parse("/secured.txt")));
 
 		Assert.AreEqual("secured.txt", resolved.Name);
 		Assert.AreEqual(2, credentials.Requests.Count);
@@ -195,23 +131,18 @@ public sealed class FtpStorageTests
 	{
 		private readonly Queue<FtpCredential> credentials;
 
-		public SequenceCredentialResolver(
-			params FtpCredential[] credentials)
+		public SequenceCredentialResolver(params FtpCredential[] credentials)
 		{
-			this.credentials = new Queue<FtpCredential>(
-				credentials);
+			this.credentials = new Queue<FtpCredential>(credentials);
 		}
 
 		public IList<FtpCredentialRequest> Requests { get; } = [];
 
-		public ValueTask<FtpCredential?> ResolveAsync(
-			FtpCredentialRequest request,
-			CancellationToken cancellationToken = default)
+		public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			Requests.Add(request);
-			return ValueTask.FromResult<FtpCredential?>(
-				credentials.Dequeue());
+			return ValueTask.FromResult<FtpCredential?>(credentials.Dequeue());
 		}
 	}
 
@@ -220,28 +151,19 @@ public sealed class FtpStorageTests
 	{
 		private readonly IFtpSessionFactory innerFactory;
 
-		public CredentialCheckingSessionFactory(
-			IFtpSessionFactory innerFactory)
+		public CredentialCheckingSessionFactory(IFtpSessionFactory innerFactory)
 		{
 			this.innerFactory = innerFactory;
 		}
 
-		public ValueTask<IFtpSession> ConnectAsync(
-			FtpConnectionProfile profile,
-			FtpCredential credential,
-			CancellationToken cancellationToken = default)
+		public ValueTask<IFtpSession> ConnectAsync(FtpConnectionProfile profile, FtpCredential credential, CancellationToken cancellationToken = default)
 		{
 			if (credential.Password != "correct")
 			{
-				throw new FtpAuthenticationRequiredException(
-					profile.ConnectionId,
-					"Rejected test credential.");
+				throw new FtpAuthenticationRequiredException(profile.ConnectionId, "Rejected test credential.");
 			}
 
-			return innerFactory.ConnectAsync(
-				profile,
-				credential,
-				cancellationToken);
+			return innerFactory.ConnectAsync(profile, credential, cancellationToken);
 		}
 	}
 }

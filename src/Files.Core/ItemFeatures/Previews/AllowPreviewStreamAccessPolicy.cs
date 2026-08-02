@@ -17,10 +17,7 @@ public sealed class AllowPreviewStreamAccessPolicy
 	{
 	}
 
-	public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(
-		PreviewRequest request,
-		ItemContext context,
-		CancellationToken cancellationToken = default)
+	public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(context);

@@ -11,9 +11,7 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public sealed class PropertySourceCombiner : IItemFeatureCombiner<IPropertySource>
 {
-	public IPropertySource? Combine(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<IPropertySource>> options)
+	public IPropertySource? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<IPropertySource>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);

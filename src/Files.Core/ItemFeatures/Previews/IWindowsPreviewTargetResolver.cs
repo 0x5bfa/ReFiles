@@ -7,7 +7,5 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public interface IWindowsPreviewTargetResolver
 {
-	ValueTask<WindowsPreviewTarget> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default);
+	ValueTask<WindowsPreviewTarget> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default);
 }

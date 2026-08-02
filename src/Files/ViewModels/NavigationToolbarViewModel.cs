@@ -86,9 +86,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		}
 	}
 
-	private void ActiveFolderBrowser_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void ActiveFolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is null
 			or nameof(FolderBrowserViewModel.LocationText))

@@ -19,9 +19,7 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 		return new(true, isEnabled);
 	}
 
-	public async ValueTask<CommandExecutionResult> ExecuteAsync(
-		CommandContext context,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 	{
 		switch (id)
 		{
@@ -35,13 +33,10 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 					return CommandExecutionResult.Unsupported();
 				}
 
-				await context.Root.CloseTabAsync(
-					tab.Id,
-					cancellationToken).ConfigureAwait(false);
+				await context.Root.CloseTabAsync(tab.Id, cancellationToken).ConfigureAwait(false);
 				break;
 			default:
-				throw new InvalidOperationException(
-					$"Unsupported window command '{id}'.");
+				throw new InvalidOperationException($"Unsupported window command '{id}'.");
 		}
 
 		return CommandExecutionResult.Succeeded();

@@ -12,7 +12,5 @@ public interface IBrowseLocationHandler
 {
 	bool CanHandle(BrowseLocation location);
 
-	ValueTask<IBrowseLocationContext> OpenAsync(
-		BrowseLocation location,
-		CancellationToken cancellationToken = default);
+	ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default);
 }

@@ -7,8 +7,5 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public interface IPreviewStreamAccessPolicy
 {
-	ValueTask<PreviewBlockReason?> GetBlockReasonAsync(
-		PreviewRequest request,
-		ItemContext context,
-		CancellationToken cancellationToken = default);
+	ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default);
 }

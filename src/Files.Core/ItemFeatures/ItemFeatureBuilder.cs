@@ -21,33 +21,26 @@ public sealed class ItemFeatureBuilder
 	{
 		ArgumentNullException.ThrowIfNull(factory);
 
-		var registration = new ItemFeatureRegistration<TFeature>(
-			factory,
-			priority,
-			lifetime,
-			origin ?? factory.GetType().Name);
+		var registration = new ItemFeatureRegistration<TFeature>(factory, priority, lifetime, origin ?? factory.GetType().Name);
 
 		GetOrCreateList(factories, typeof(TFeature)).Add(registration);
 		return this;
 	}
 
-	public ItemFeatureBuilder SetCombiner<TFeature>(
-		IItemFeatureCombiner<TFeature> combiner)
+	public ItemFeatureBuilder SetCombiner<TFeature>(IItemFeatureCombiner<TFeature> combiner)
 		where TFeature : class
 	{
 		ArgumentNullException.ThrowIfNull(combiner);
 
 		if (!combiners.TryAdd(typeof(TFeature), combiner))
 		{
-			throw new InvalidOperationException(
-				$"A combiner is already registered for item feature '{typeof(TFeature).FullName}'.");
+			throw new InvalidOperationException($"A combiner is already registered for item feature '{typeof(TFeature).FullName}'.");
 		}
 
 		return this;
 	}
 
-	public ItemFeatureBuilder AddWrapper<TFeature>(
-		IItemFeatureWrapper<TFeature> wrapper)
+	public ItemFeatureBuilder AddWrapper<TFeature>(IItemFeatureWrapper<TFeature> wrapper)
 		where TFeature : class
 	{
 		ArgumentNullException.ThrowIfNull(wrapper);
@@ -57,15 +50,10 @@ public sealed class ItemFeatureBuilder
 
 	public ItemFeatureRegistry Build()
 	{
-		return new ItemFeatureRegistry(
-			CloneLists(factories),
-			new Dictionary<Type, object>(combiners),
-			CloneLists(wrappers));
+		return new ItemFeatureRegistry(CloneLists(factories), new Dictionary<Type, object>(combiners), CloneLists(wrappers));
 	}
 
-	private static List<object> GetOrCreateList(
-		Dictionary<Type, List<object>> registrations,
-		Type featureType)
+	private static List<object> GetOrCreateList(Dictionary<Type, List<object>> registrations, Type featureType)
 	{
 		if (!registrations.TryGetValue(featureType, out var values))
 		{
@@ -76,12 +64,9 @@ public sealed class ItemFeatureBuilder
 		return values;
 	}
 
-	private static Dictionary<Type, IReadOnlyList<object>> CloneLists(
-		Dictionary<Type, List<object>> registrations)
+	private static Dictionary<Type, IReadOnlyList<object>> CloneLists(Dictionary<Type, List<object>> registrations)
 	{
-		return registrations.ToDictionary(
-			static pair => pair.Key,
-			static pair => (IReadOnlyList<object>)pair.Value.ToArray());
+		return registrations.ToDictionary(static pair => pair.Key, static pair => (IReadOnlyList<object>)pair.Value.ToArray());
 	}
 }
 

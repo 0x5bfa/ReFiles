@@ -28,13 +28,8 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 		this.controllerFactory = controllerFactory;
 	}
 
-	public WindowsShellPreviewSessionFactory(
-		IFilesDataRoot dataRoot,
-		IWindowsShellScheduler dedicatedScheduler)
-		: this(
-			new WindowsPreviewTargetResolver(dataRoot),
-			dedicatedScheduler,
-			new WindowsShellPreviewHandlerControllerFactory())
+	public WindowsShellPreviewSessionFactory(IFilesDataRoot dataRoot, IWindowsShellScheduler dedicatedScheduler)
+		: this(new WindowsPreviewTargetResolver(dataRoot), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory())
 	{
 	}
 
@@ -55,9 +50,7 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 				.ConfigureAwait(false);
 
 			var session = await scheduler
-				.InvokeOperationAsync(
-					() => CreateOnPreviewSta(result, host, target),
-					cancellationToken)
+				.InvokeOperationAsync(() => CreateOnPreviewSta(result, host, target), cancellationToken)
 				.ConfigureAwait(false);
 
 			target = null;
@@ -82,26 +75,17 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Preview session creation and target cleanup failed.",
-					creationError,
-					cleanupError);
+				throw new AggregateException("Preview session creation and target cleanup failed.", creationError, cleanupError);
 			}
 
 			throw;
 		}
 	}
 
-	private IWindowsShellPreviewSession CreateOnPreviewSta(
-		WindowsShellPreviewResult result,
-		WindowsPreviewHost host,
-		WindowsPreviewTarget target)
+	private IWindowsShellPreviewSession CreateOnPreviewSta(WindowsShellPreviewResult result, WindowsPreviewHost host, WindowsPreviewTarget target)
 	{
 		var controller = controllerFactory.Create(result.HandlerClsid);
-		var session = new WindowsShellPreviewSession(
-			target,
-			controller,
-			scheduler);
+		var session = new WindowsShellPreviewSession(target, controller, scheduler);
 		try
 		{
 			session.TransitionTo(WindowsShellPreviewSessionState.Activating);
@@ -124,8 +108,7 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 
 			if (!initialized)
 			{
-				throw new NotSupportedException(
-					"The preview handler does not support any initialization contract.");
+				throw new NotSupportedException("The preview handler does not support any initialization contract.");
 			}
 
 			session.TransitionTo(WindowsShellPreviewSessionState.Initialized);
@@ -145,10 +128,7 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Preview handler activation and cleanup failed.",
-					activationError,
-					cleanupError);
+				throw new AggregateException("Preview handler activation and cleanup failed.", activationError, cleanupError);
 			}
 
 			throw;

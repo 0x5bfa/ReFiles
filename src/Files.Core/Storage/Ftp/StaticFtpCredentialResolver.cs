@@ -16,9 +16,7 @@ public sealed class StaticFtpCredentialResolver : IFtpCredentialResolver
 		this.credential = credential;
 	}
 
-	public ValueTask<FtpCredential?> ResolveAsync(
-		FtpCredentialRequest request,
-		CancellationToken cancellationToken = default)
+	public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();

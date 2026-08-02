@@ -8,12 +8,9 @@ namespace Files.Adapters;
 
 internal static class ThumbnailImageFactory
 {
-	public static async Task<BitmapImage> CreateAsync(
-		ReadOnlyMemory<byte> encodedImage)
+	public static async Task<BitmapImage> CreateAsync(ReadOnlyMemory<byte> encodedImage)
 	{
-		using var managedStream = new MemoryStream(
-			encodedImage.ToArray(),
-			writable: false);
+		using var managedStream = new MemoryStream(encodedImage.ToArray(), writable: false);
 		using var randomAccessStream = managedStream.AsRandomAccessStream();
 		var image = new BitmapImage();
 		await image.SetSourceAsync(randomAccessStream);

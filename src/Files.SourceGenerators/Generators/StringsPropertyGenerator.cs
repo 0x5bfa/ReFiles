@@ -30,9 +30,7 @@ namespace Files.SourceGenerators.Generators
 				.Select(static (file, _) => file.Path)
 				.Collect();
 
-			context.RegisterSourceOutput(
-				additionalFilePaths,
-				ExecuteLocalizationExtensions);
+			context.RegisterSourceOutput(additionalFilePaths, ExecuteLocalizationExtensions);
 
 			var additionalFileNames = additionalFiles
 				.Select(static (file, _) => SystemIO.Path.GetFileNameWithoutExtension(file.Path))
@@ -60,12 +58,8 @@ namespace Files.SourceGenerators.Generators
 		private static bool IsEnglishResourceFile(string path)
 		{
 			var normalizedPath = path.Replace('\\', '/');
-			return normalizedPath.EndsWith(
-				"en-US/Resources.resw",
-				StringComparison.OrdinalIgnoreCase)
-				|| normalizedPath.EndsWith(
-					"en-US/Resources.json",
-					StringComparison.OrdinalIgnoreCase);
+			return normalizedPath.EndsWith("en-US/Resources.resw", StringComparison.OrdinalIgnoreCase)
+				|| normalizedPath.EndsWith("en-US/Resources.json", StringComparison.OrdinalIgnoreCase);
 		}
 
 		/// <summary>
@@ -87,8 +81,7 @@ namespace Files.SourceGenerators.Generators
 			}
 			catch (Exception exception)
 			{
-				ctx.ReportDiagnostic(
-					Diagnostic.Create(FSG1004, Location.None, file.Path, exception.Message));
+				ctx.ReportDiagnostic(Diagnostic.Create(FSG1004, Location.None, file.Path, exception.Message));
 				return;
 			}
 
@@ -109,25 +102,16 @@ namespace Files.SourceGenerators.Generators
 			foreach (var key in keys)
 			{
 				var constantName = GetUniqueConstantName(key.Key, usedNames);
-				AddKey(
-					buffer: sb,
-					constantName: constantName,
-					resourceKey: key.Key,
-					comment: key.Comment,
-					exampleValue: key.Value);
+				AddKey(buffer: sb, constantName: constantName, resourceKey: key.Key, comment: key.Comment, exampleValue: key.Value);
 			}
 
 			_ = sb.AppendLine($"{tabString}}}");
 			_ = sb.AppendLine("}");
 
-			ctx.AddSource(
-				$"{StringsClassName}.{fileName}.g.cs",
-				SourceText.From(sb.ToString(), Encoding.UTF8));
+			ctx.AddSource($"{StringsClassName}.{fileName}.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
 		}
 
-		private static void ExecuteLocalizationExtensions(
-			SourceProductionContext ctx,
-			ImmutableArray<string> filePaths)
+		private static void ExecuteLocalizationExtensions(SourceProductionContext ctx, ImmutableArray<string> filePaths)
 		{
 			if (filePaths.IsDefaultOrEmpty)
 			{
@@ -162,44 +146,30 @@ namespace Files.SourceGenerators.Generators
 				"global::System.Collections.Concurrent.ConcurrentDictionary<string, string> " +
 				"LocalizedResources = new(global::System.StringComparer.Ordinal);");
 			_ = sb.AppendLine();
-			_ = sb.AppendLine(
-				$"{tabString}{Spacing(1)}public static string GetLocalized(this string resourceKey)");
+			_ = sb.AppendLine($"{tabString}{Spacing(1)}public static string GetLocalized(this string resourceKey)");
 			_ = sb.AppendLine($"{tabString}{Spacing(1)}{{");
-			_ = sb.AppendLine(
-				$"{tabString}{Spacing(2)}global::System.ArgumentException.ThrowIfNullOrWhiteSpace(resourceKey);");
+			_ = sb.AppendLine($"{tabString}{Spacing(2)}global::System.ArgumentException.ThrowIfNullOrWhiteSpace(resourceKey);");
 			_ = sb.AppendLine();
-			_ = sb.AppendLine(
-				$"{tabString}{Spacing(2)}if (LocalizedResources.TryGetValue(resourceKey, out var value))");
+			_ = sb.AppendLine($"{tabString}{Spacing(2)}if (LocalizedResources.TryGetValue(resourceKey, out var value))");
 			_ = sb.AppendLine($"{tabString}{Spacing(2)}{{");
 			_ = sb.AppendLine($"{tabString}{Spacing(3)}return value;");
 			_ = sb.AppendLine($"{tabString}{Spacing(2)}}}");
 			_ = sb.AppendLine();
-			_ = sb.AppendLine(
-				$"{tabString}{Spacing(2)}value = Resources?.TryGetValue(resourceKey)?.ValueAsString ?? resourceKey;");
-			_ = sb.AppendLine(
-				$"{tabString}{Spacing(2)}return LocalizedResources.GetOrAdd(resourceKey, value);");
+			_ = sb.AppendLine($"{tabString}{Spacing(2)}value = Resources?.TryGetValue(resourceKey)?.ValueAsString ?? resourceKey;");
+			_ = sb.AppendLine($"{tabString}{Spacing(2)}return LocalizedResources.GetOrAdd(resourceKey, value);");
 			_ = sb.AppendLine($"{tabString}{Spacing(1)}}}");
 			_ = sb.AppendLine();
-			_ = sb.AppendLine(
-				$"{tabString}{Spacing(1)}public static void ClearLocalizedCache() => LocalizedResources.Clear();");
+			_ = sb.AppendLine($"{tabString}{Spacing(1)}public static void ClearLocalizedCache() => LocalizedResources.Clear();");
 			_ = sb.AppendLine($"{tabString}}}");
 			_ = sb.AppendLine("}");
 
-			ctx.AddSource(
-				"LocalizationExtensions.g.cs",
-				SourceText.From(sb.ToString(), Encoding.UTF8));
+			ctx.AddSource("LocalizationExtensions.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
 		}
 
 		/// <summary>
 		/// Adds a resource key constant to the generated source.
 		/// </summary>
-		private static void AddKey(
-			StringBuilder buffer,
-			string constantName,
-			string resourceKey,
-			string? comment,
-			string? exampleValue,
-			int tabPos = 2)
+		private static void AddKey(StringBuilder buffer, string constantName, string resourceKey, string? comment, string? exampleValue, int tabPos = 2)
 		{
 			var tabString = Spacing(tabPos);
 			if (comment is not null || exampleValue is not null)
@@ -224,14 +194,10 @@ namespace Files.SourceGenerators.Generators
 				}
 			}
 
-			_ = buffer.AppendLine(
-				$"{tabString}public const string {constantName} = " +
-				$"\"{EscapeStringLiteral(resourceKey)}\";");
+			_ = buffer.AppendLine($"{tabString}public const string {constantName} = " + $"\"{EscapeStringLiteral(resourceKey)}\";");
 		}
 
-		private static string GetUniqueConstantName(
-			string resourceKey,
-			HashSet<string> usedNames)
+		private static string GetUniqueConstantName(string resourceKey, HashSet<string> usedNames)
 		{
 			var baseName = KeyNameValidator(resourceKey);
 			if (usedNames.Add(baseName))
@@ -252,21 +218,13 @@ namespace Files.SourceGenerators.Generators
 		/// <summary>
 		/// Reads all keys from the provided file based on its extension.
 		/// </summary>
-		private static IEnumerable<ParserItem> ReadAllKeys(
-			AdditionalText file,
-			CancellationToken cancellationToken)
+		private static IEnumerable<ParserItem> ReadAllKeys(AdditionalText file, CancellationToken cancellationToken)
 		{
 			var text = file.GetText(cancellationToken)?.ToString() ?? string.Empty;
 			return SystemIO.Path.GetExtension(file.Path) switch
 			{
-				var extension when string.Equals(
-					extension,
-					".resw",
-					StringComparison.OrdinalIgnoreCase) => ReswParser.GetKeys(text),
-				var extension when string.Equals(
-					extension,
-					".json",
-					StringComparison.OrdinalIgnoreCase) => JsonParser.GetKeys(text),
+				var extension when string.Equals(extension, ".resw", StringComparison.OrdinalIgnoreCase) => ReswParser.GetKeys(text),
+				var extension when string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase) => JsonParser.GetKeys(text),
 				_ => []
 			};
 		}
@@ -294,10 +252,7 @@ namespace Files.SourceGenerators.Generators
 					continue;
 				}
 
-				_ = builder.Append(
-					SyntaxFacts.IsIdentifierPartCharacter(character)
-						? character
-						: '_');
+				_ = builder.Append(SyntaxFacts.IsIdentifierPartCharacter(character) ? character : '_');
 			}
 
 			if (builder.Length is 0)

@@ -26,14 +26,11 @@ public sealed class WindowsThumbnailTests
 		{
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var coreModel = await source.ResolveAsync(
-				new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
+			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
 			var cache = new MemoryThumbnailCache();
 			var featureRegistry = new ItemFeatureBuilder()
-				.Add<IThumbnailSource>(
-					new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()),
-					origin: "Windows Shell")
+				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()), origin: "Windows Shell")
 				.SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner())
 				.AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(cache))
 				.Build();
@@ -42,8 +39,7 @@ public sealed class WindowsThumbnailTests
 			var thumbnailSource = model.Get<IThumbnailSource>();
 			Assert.IsNotNull(thumbnailSource);
 
-			var first = await thumbnailSource.GetThumbnailAsync(
-				new ThumbnailRequest(96, ThumbnailMode.Icon));
+			var first = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(96, ThumbnailMode.Icon));
 			Assert.IsNotNull(first);
 			Assert.AreEqual("image/png", first.ContentType);
 			var firstContent = first.Content.ToArray();
@@ -51,8 +47,7 @@ public sealed class WindowsThumbnailTests
 
 			File.Delete(filePath);
 
-			var second = await thumbnailSource.GetThumbnailAsync(
-				new ThumbnailRequest(96, ThumbnailMode.Icon));
+			var second = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(96, ThumbnailMode.Icon));
 			Assert.IsNotNull(second);
 			CollectionAssert.AreEqual(firstContent, second.Content.ToArray());
 		}

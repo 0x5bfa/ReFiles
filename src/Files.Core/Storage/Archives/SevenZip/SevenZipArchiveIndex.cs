@@ -24,31 +24,21 @@ internal sealed class SevenZipArchiveIndex
 		this.children = children;
 	}
 
-	public static SevenZipArchiveIndex Create(
-		IEnumerable<ArchiveFileInfo> entries,
-		string rootName)
+	public static SevenZipArchiveIndex Create(IEnumerable<ArchiveFileInfo> entries, string rootName)
 	{
 		ArgumentNullException.ThrowIfNull(entries);
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootName);
 
 		var mutableNodes =
-			new Dictionary<string, SevenZipArchiveNode>(
-				StringComparer.Ordinal)
+			new Dictionary<string, SevenZipArchiveNode>(StringComparer.Ordinal)
 			{
-				[string.Empty] = new(
-					string.Empty,
-					rootName,
-					IsDirectory: true,
-					EntryIndex: null,
-					Size: 0),
+				[string.Empty] = new(string.Empty, rootName, IsDirectory: true, EntryIndex: null, Size: 0),
 			};
 
 		foreach (var entry in entries)
 		{
 			var rawPath = GetEntryName(entry, rootName);
-			if (!ArchiveEntryPath.TryNormalize(
-				rawPath,
-				out var entryPath)
+			if (!ArchiveEntryPath.TryNormalize(rawPath, out var entryPath)
 				|| string.IsNullOrEmpty(entryPath))
 			{
 				continue;
@@ -70,8 +60,7 @@ internal sealed class SevenZipArchiveIndex
 		PromoteParentsToFolders(mutableNodes);
 
 		var mutableChildren =
-			new Dictionary<string, List<SevenZipArchiveNode>>(
-				StringComparer.Ordinal);
+			new Dictionary<string, List<SevenZipArchiveNode>>(StringComparer.Ordinal);
 		foreach (var node in mutableNodes.Values)
 		{
 			if (string.IsNullOrEmpty(node.Path))
@@ -80,9 +69,7 @@ internal sealed class SevenZipArchiveIndex
 			}
 
 			var parent = ArchiveEntryPath.GetParent(node.Path);
-			if (!mutableChildren.TryGetValue(
-				parent,
-				out var childNodes))
+			if (!mutableChildren.TryGetValue(parent, out var childNodes))
 			{
 				childNodes = [];
 				mutableChildren.Add(parent, childNodes);
@@ -96,22 +83,13 @@ internal sealed class SevenZipArchiveIndex
 			static pair =>
 				(IReadOnlyList<SevenZipArchiveNode>)Array.AsReadOnly(
 					pair.Value
-						.OrderByDescending(
-							static node => node.IsDirectory)
-						.ThenBy(
-							static node => node.Name,
-							StringComparer.OrdinalIgnoreCase)
-						.ThenBy(
-							static node => node.Name,
-							StringComparer.Ordinal)
+						.OrderByDescending(static node => node.IsDirectory)
+						.ThenBy(static node => node.Name, StringComparer.OrdinalIgnoreCase)
+						.ThenBy(static node => node.Name, StringComparer.Ordinal)
 						.ToArray()),
 			StringComparer.Ordinal);
 
-		return new SevenZipArchiveIndex(
-			new Dictionary<string, SevenZipArchiveNode>(
-				mutableNodes,
-				StringComparer.Ordinal),
-			immutableChildren);
+		return new SevenZipArchiveIndex(new Dictionary<string, SevenZipArchiveNode>(mutableNodes, StringComparer.Ordinal), immutableChildren);
 	}
 
 	public SevenZipArchiveNode GetNode(string entryPath)
@@ -119,24 +97,18 @@ internal sealed class SevenZipArchiveIndex
 		var normalizedPath = ArchiveEntryPath.Normalize(entryPath);
 		return nodes.TryGetValue(normalizedPath, out var node)
 			? node
-			: throw new FileNotFoundException(
-				$"Archive entry '{normalizedPath}' was not found.",
-				normalizedPath);
+			: throw new FileNotFoundException($"Archive entry '{normalizedPath}' was not found.", normalizedPath);
 	}
 
-	public IReadOnlyList<SevenZipArchiveNode> GetChildren(
-		string entryPath)
+	public IReadOnlyList<SevenZipArchiveNode> GetChildren(string entryPath)
 	{
 		var normalizedPath = ArchiveEntryPath.Normalize(entryPath);
-		return children.TryGetValue(
-			normalizedPath,
-			out var childNodes)
+		return children.TryGetValue(normalizedPath, out var childNodes)
 			? childNodes
 			: [];
 	}
 
-	private static void PromoteParentsToFolders(
-		IDictionary<string, SevenZipArchiveNode> nodes)
+	private static void PromoteParentsToFolders(IDictionary<string, SevenZipArchiveNode> nodes)
 	{
 		var parentPaths = nodes.Keys
 			.Select(ArchiveEntryPath.GetParent)
@@ -145,46 +117,29 @@ internal sealed class SevenZipArchiveIndex
 			.ToArray();
 		foreach (var parentPath in parentPaths)
 		{
-			nodes[parentPath] = new SevenZipArchiveNode(
-				parentPath,
-				ArchiveEntryPath.GetName(parentPath),
-				IsDirectory: true,
-				EntryIndex: null,
-				Size: 0);
+			nodes[parentPath] = new SevenZipArchiveNode(parentPath, ArchiveEntryPath.GetName(parentPath), IsDirectory: true, EntryIndex: null, Size: 0);
 		}
 	}
 
-	private static void EnsureParentFolders(
-		IDictionary<string, SevenZipArchiveNode> nodes,
-		string entryPath)
+	private static void EnsureParentFolders(IDictionary<string, SevenZipArchiveNode> nodes, string entryPath)
 	{
 		var parentPath = ArchiveEntryPath.GetParent(entryPath);
 		while (!string.IsNullOrEmpty(parentPath))
 		{
-			nodes[parentPath] = new SevenZipArchiveNode(
-				parentPath,
-				ArchiveEntryPath.GetName(parentPath),
-				IsDirectory: true,
-				EntryIndex: null,
-				Size: 0);
+			nodes[parentPath] = new SevenZipArchiveNode(parentPath, ArchiveEntryPath.GetName(parentPath), IsDirectory: true, EntryIndex: null, Size: 0);
 			parentPath = ArchiveEntryPath.GetParent(parentPath);
 		}
 	}
 
-	private static string GetEntryName(
-		ArchiveFileInfo entry,
-		string rootName)
+	private static string GetEntryName(ArchiveFileInfo entry, string rootName)
 	{
 		if (!string.IsNullOrEmpty(entry.FileName)
-			&& !entry.FileName.Equals(
-				NamelessEntryPlaceholder,
-				StringComparison.Ordinal))
+			&& !entry.FileName.Equals(NamelessEntryPlaceholder, StringComparison.Ordinal))
 		{
 			return entry.FileName;
 		}
 
-		var fallback = Path.GetFileNameWithoutExtension(
-			rootName);
+		var fallback = Path.GetFileNameWithoutExtension(rootName);
 		return string.IsNullOrWhiteSpace(fallback)
 			? NamelessEntryPlaceholder
 			: fallback;

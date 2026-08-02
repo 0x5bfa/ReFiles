@@ -55,35 +55,13 @@ public sealed class NavigationItemViewModel : ObservableObject
 	}
 
 	internal static NavigationItemViewModel CreateHome(string name) =>
-		new(
-			name,
-			reference: null,
-			isHome: true,
-			selectsOnInvoked: true,
-			icon: new SymbolIcon { Symbol = Symbol.Home });
+		new(name, reference: null, isHome: true, selectsOnInvoked: true, icon: new SymbolIcon {Symbol = Symbol.Home});
 
-	internal static NavigationItemViewModel CreateSection(
-		string name,
-		StorableReference reference,
-		IEnumerable<NavigationItemViewModel> children) =>
-		new(
-			name,
-			reference,
-			isHome: false,
-			selectsOnInvoked: false,
-			icon: new SymbolIcon { Symbol = Symbol.Folder },
-			children: children);
+	internal static NavigationItemViewModel CreateSection(string name, StorableReference reference, IEnumerable<NavigationItemViewModel> children) =>
+		new(name, reference, isHome: false, selectsOnInvoked: false, icon: new SymbolIcon {Symbol = Symbol.Folder}, children: children);
 
-	internal static NavigationItemViewModel CreateFolder(
-		string name,
-		StorableReference reference) =>
-		new(
-			name,
-			reference,
-			isHome: false,
-			selectsOnInvoked: true,
-			icon: new SymbolIcon { Symbol = Symbol.Folder },
-			prefersThumbnail: true);
+	internal static NavigationItemViewModel CreateFolder(string name, StorableReference reference) =>
+		new(name, reference, isHome: false, selectsOnInvoked: true, icon: new SymbolIcon {Symbol = Symbol.Folder}, prefersThumbnail: true);
 
 	internal void SetThumbnail(BitmapImage? value)
 	{

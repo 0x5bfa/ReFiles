@@ -34,9 +34,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	private bool isBuilt;
 	private bool isDisposed;
 
-	public FilesCoreBuilder(
-		IViewSettingsStore? viewSettingsStore = null,
-		IThumbnailCache? thumbnailCache = null)
+	public FilesCoreBuilder(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
 	{
 		this.viewSettingsStore =
 			viewSettingsStore ?? new InMemoryViewSettingsStore();
@@ -47,8 +45,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			.SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner())
 			.SetCombiner<IPropertySource>(new PropertySourceCombiner())
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())
-			.AddWrapper<IThumbnailSource>(
-				new ThumbnailCacheWrapper(this.thumbnailCache));
+			.AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(this.thumbnailCache));
 	}
 
 	public ItemFeatureBuilder ItemFeatures { get; }
@@ -60,16 +57,14 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 		if (sources.Any(candidate => candidate.SourceId == source.SourceId))
 		{
-			throw new InvalidOperationException(
-				$"Storage source '{source.SourceId}' is already registered.");
+			throw new InvalidOperationException($"Storage source '{source.SourceId}' is already registered.");
 		}
 
 		sources.Add(source);
 		return this;
 	}
 
-	public FilesCoreBuilder AddStorageOperationHandler(
-		IStorageOperationHandler handler)
+	public FilesCoreBuilder AddStorageOperationHandler(IStorageOperationHandler handler)
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(handler);
@@ -77,8 +72,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		return this;
 	}
 
-	public FilesCoreBuilder AddBrowseLocationHandler(
-		Func<IFilesDataRoot, IBrowseLocationHandler> handlerFactory)
+	public FilesCoreBuilder AddBrowseLocationHandler(Func<IFilesDataRoot, IBrowseLocationHandler> handlerFactory)
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(handlerFactory);
@@ -107,16 +101,12 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			foreach (var factory in locationHandlerFactories)
 			{
 				var handler = factory(dataRoot)
-					?? throw new InvalidOperationException(
-						"A browse location handler factory returned null.");
+					?? throw new InvalidOperationException("A browse location handler factory returned null.");
 				handlers.Add(handler);
 			}
 
 			var locationResolver = new BrowseLocationResolver(handlers);
-			var paneFactory = new BrowsePaneFactory(
-				locationResolver,
-				viewSettingsStore,
-				thumbnailCache);
+			var paneFactory = new BrowsePaneFactory(locationResolver, viewSettingsStore, thumbnailCache);
 			application = new FilesApplicationModel(paneFactory);
 			var storageOperations =
 				new StorageOperationService(operationHandlers);
@@ -125,8 +115,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			{
 				previewSessions =
 					windowsShellPreviewSessionFactory(dataRoot)
-					?? throw new InvalidOperationException(
-						"The Windows Shell preview session factory returned null.");
+					?? throw new InvalidOperationException("The Windows Shell preview session factory returned null.");
 			}
 
 			var runtime = new FilesCoreRuntime(
@@ -167,9 +156,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			}
 
 			cleanupErrors.Insert(0, buildError);
-			throw new AggregateException(
-				"Files.Core runtime construction and cleanup failed.",
-				cleanupErrors);
+			throw new AggregateException("Files.Core runtime construction and cleanup failed.", cleanupErrors);
 		}
 	}
 
@@ -197,16 +184,14 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		return configuredModules.Add(moduleId);
 	}
 
-	internal void SetWindowsShellPreviewSessionFactory(
-		Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory> factory)
+	internal void SetWindowsShellPreviewSessionFactory(Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory> factory)
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(factory);
 
 		if (windowsShellPreviewSessionFactory is not null)
 		{
-			throw new InvalidOperationException(
-				"A Windows Shell preview session factory is already configured.");
+			throw new InvalidOperationException("A Windows Shell preview session factory is already configured.");
 		}
 
 		windowsShellPreviewSessionFactory = factory;
@@ -239,9 +224,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		}
 	}
 
-	private static void TryDisposeSynchronously(
-		IAsyncDisposable disposable,
-		ICollection<Exception> errors)
+	private static void TryDisposeSynchronously(IAsyncDisposable disposable, ICollection<Exception> errors)
 	{
 		try
 		{
@@ -262,8 +245,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		ObjectDisposedException.ThrowIf(isDisposed, this);
 		if (isBuilt)
 		{
-			throw new InvalidOperationException(
-				"A FilesCoreBuilder can only build one runtime.");
+			throw new InvalidOperationException("A FilesCoreBuilder can only build one runtime.");
 		}
 	}
 
@@ -303,9 +285,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"One or more unbuilt Files.Core resources could not be disposed.",
-				errors);
+			throw new AggregateException("One or more unbuilt Files.Core resources could not be disposed.", errors);
 		}
 	}
 }

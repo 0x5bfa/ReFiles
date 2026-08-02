@@ -12,13 +12,11 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 {
 	private readonly IReadOnlyDictionary<string, PreviewContentType> contentTypes;
 
-	public ExtensionPreviewContentTypeResolver(
-		IEnumerable<KeyValuePair<string, string>> mappings)
+	public ExtensionPreviewContentTypeResolver(IEnumerable<KeyValuePair<string, string>> mappings)
 	{
 		ArgumentNullException.ThrowIfNull(mappings);
 
-		var resolvedTypes = new Dictionary<string, PreviewContentType>(
-			StringComparer.OrdinalIgnoreCase);
+		var resolvedTypes = new Dictionary<string, PreviewContentType>(StringComparer.OrdinalIgnoreCase);
 
 		foreach (var mapping in mappings)
 		{
@@ -27,18 +25,14 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 
 			if (!resolvedTypes.TryAdd(mapping.Key, contentType))
 			{
-				throw new ArgumentException(
-					$"The extension '{mapping.Key}' is registered more than once.",
-					nameof(mappings));
+				throw new ArgumentException($"The extension '{mapping.Key}' is registered more than once.", nameof(mappings));
 			}
 		}
 
 		contentTypes = resolvedTypes;
 	}
 
-	public bool TryResolve(
-		ItemContext context,
-		out PreviewContentType contentType)
+	public bool TryResolve(ItemContext context, out PreviewContentType contentType)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
@@ -48,18 +42,14 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 			return false;
 		}
 
-		if (contentTypes.TryGetValue(
-			Path.GetExtension(file.Name),
-			out var resolvedType))
+		if (contentTypes.TryGetValue(Path.GetExtension(file.Name), out var resolvedType))
 		{
 			contentType = resolvedType;
 			return true;
 		}
 
 		if (file is IStorageAddressSource addressSource
-			&& contentTypes.TryGetValue(
-				Path.GetExtension(addressSource.Address.Value),
-				out resolvedType))
+			&& contentTypes.TryGetValue(Path.GetExtension(addressSource.Address.Value), out resolvedType))
 		{
 			contentType = resolvedType;
 			return true;
@@ -80,9 +70,7 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 			|| extension.Contains('/')
 			|| extension.Contains('\\'))
 		{
-			throw new ArgumentException(
-				$"The extension '{extension}' is invalid.",
-				nameof(extension));
+			throw new ArgumentException($"The extension '{extension}' is invalid.", nameof(extension));
 		}
 	}
 }

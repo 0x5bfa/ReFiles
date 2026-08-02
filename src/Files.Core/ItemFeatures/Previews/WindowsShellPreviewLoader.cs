@@ -14,9 +14,7 @@ public sealed class WindowsShellPreviewLoader : IPreviewLoader
 	private readonly IWindowsPreviewHandlerResolver handlerResolver;
 	private readonly IWindowsShellPreviewPolicy policy;
 
-	public WindowsShellPreviewLoader(
-		IWindowsPreviewHandlerResolver handlerResolver,
-		IWindowsShellPreviewPolicy policy)
+	public WindowsShellPreviewLoader(IWindowsPreviewHandlerResolver handlerResolver, IWindowsShellPreviewPolicy policy)
 	{
 		ArgumentNullException.ThrowIfNull(handlerResolver);
 		ArgumentNullException.ThrowIfNull(policy);
@@ -32,10 +30,7 @@ public sealed class WindowsShellPreviewLoader : IPreviewLoader
 			&& context.CoreModel is IFile;
 	}
 
-	public async ValueTask<PreviewResult?> GetPreviewAsync(
-		PreviewRequest request,
-		ItemContext context,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(context);

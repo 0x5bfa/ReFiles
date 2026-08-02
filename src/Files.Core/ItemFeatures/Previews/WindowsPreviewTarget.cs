@@ -14,17 +14,14 @@ public sealed class WindowsPreviewTarget : IDisposable, IAsyncDisposable
 	private readonly object disposalLock = new();
 	private Task? disposeTask;
 
-	public WindowsPreviewTarget(
-		IStorableModel model,
-		IWindowsStorable item)
+	public WindowsPreviewTarget(IStorableModel model, IWindowsStorable item)
 	{
 		ArgumentNullException.ThrowIfNull(model);
 		ArgumentNullException.ThrowIfNull(item);
 
 		if (!StringComparer.Ordinal.Equals(model.Reference.ItemId, item.Id))
 		{
-			throw new InvalidDataException(
-				"The target model and Windows item have different identities.");
+			throw new InvalidDataException("The target model and Windows item have different identities.");
 		}
 
 		this.model = model;

@@ -107,13 +107,7 @@ public sealed class WindowsShellSchedulerTests
 		var executed = false;
 
 		await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-			await scheduler.InvokeAsync(
-				() =>
-				{
-					executed = true;
-					return true;
-				},
-				cancellation.Token));
+			await scheduler.InvokeAsync(() => {executed = true; return true;}, cancellation.Token));
 
 		Assert.IsFalse(executed);
 }

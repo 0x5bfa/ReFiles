@@ -13,10 +13,7 @@ public class StorableModel : IStorableModel
 	private Task? disposeTask;
 	private volatile bool isDisposed;
 
-	public StorableModel(
-		IStorable coreModel,
-		StorableReference reference,
-		IItemFeatures features)
+	public StorableModel(IStorable coreModel, StorableReference reference, IItemFeatures features)
 	{
 		ArgumentNullException.ThrowIfNull(coreModel);
 		ArgumentNullException.ThrowIfNull(reference);
@@ -98,9 +95,7 @@ public class StorableModel : IStorableModel
 
 		if (errors is { Count: > 1 })
 		{
-			throw new AggregateException(
-				"One or more storable model resources could not be disposed.",
-				errors);
+			throw new AggregateException("One or more storable model resources could not be disposed.", errors);
 		}
 	}
 }

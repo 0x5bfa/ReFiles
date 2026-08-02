@@ -91,14 +91,7 @@ namespace Files.Controls
 			}
 			else
 			{
-				VisualStateManager.GoToState(
-					this,
-					LayerType switch
-					{
-						ThemedIconLayerType.Alt => AltStateName,
-						_ => BaseStateName,
-					},
-					true);
+				VisualStateManager.GoToState(this, LayerType switch {ThemedIconLayerType.Alt => AltStateName, _ => BaseStateName,}, true);
 			}
 		}
 		private void SetPathData(string pathData, FrameworkElement element)

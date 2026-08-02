@@ -16,11 +16,7 @@ public sealed partial class TabView : UserControl
 	private AppWindow? appWindow;
 
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(TabStripViewModel),
-			typeof(TabView),
-			new PropertyMetadata(null));
+		DependencyProperty.Register(nameof(ViewModel), typeof(TabStripViewModel), typeof(TabView), new PropertyMetadata(null));
 
 	public TabView()
 	{
@@ -50,9 +46,7 @@ public sealed partial class TabView : UserControl
 		window.SetTitleBar(TitleBarDragRegion);
 	}
 
-	private void NativeTabView_SelectionChanged(
-		object sender,
-		SelectionChangedEventArgs args)
+	private void NativeTabView_SelectionChanged(object sender, SelectionChangedEventArgs args)
 	{
 		if (ViewModel is { } viewModel
 			&& sender is NativeTabView tabView)
@@ -61,9 +55,7 @@ public sealed partial class TabView : UserControl
 		}
 	}
 
-	private async void NativeTabView_TabCloseRequested(
-		NativeTabView sender,
-		TabViewTabCloseRequestedEventArgs args)
+	private async void NativeTabView_TabCloseRequested(NativeTabView sender, TabViewTabCloseRequestedEventArgs args)
 	{
 		if (ViewModel is not { } viewModel
 			|| args.Item is not TabViewModel tab)

@@ -30,27 +30,17 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 				FtpSecurityMode.Plain => FtpEncryptionMode.None,
 				FtpSecurityMode.ExplicitTls => FtpEncryptionMode.Explicit,
 				FtpSecurityMode.ImplicitTls => FtpEncryptionMode.Implicit,
-				_ => throw new ArgumentOutOfRangeException(
-					nameof(profile),
-					"Unsupported FTP security mode."),
+				_ => throw new ArgumentOutOfRangeException(nameof(profile), "Unsupported FTP security mode."),
 			},
 		};
-		var client = new AsyncFtpClient(
-			profile.Host,
-			new NetworkCredential(
-				credential.UserName,
-				credential.Password),
-			profile.Port,
-			config);
+		var client = new AsyncFtpClient(profile.Host, new NetworkCredential(credential.UserName, credential.Password), profile.Port, config);
 
 		try
 		{
 			await client
 				.Connect(cancellationToken)
 				.ConfigureAwait(false);
-			return new FluentFtpSession(
-				client,
-				profile.PathComparer);
+			return new FluentFtpSession(client, profile.PathComparer);
 		}
 		catch (OperationCanceledException)
 			when (cancellationToken.IsCancellationRequested)
@@ -67,10 +57,7 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 				$"Authentication failed for FTP connection '{profile.DisplayName}'.",
 				cleanupError is null
 					? exception
-					: new AggregateException(
-						"FTP authentication and connection cleanup both failed.",
-						exception,
-						cleanupError));
+					: new AggregateException("FTP authentication and connection cleanup both failed.", exception, cleanupError));
 		}
 		catch (Exception connectionError)
 		{
@@ -78,18 +65,14 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 				.ConfigureAwait(false);
 			if (cleanupError is not null)
 			{
-				throw new AggregateException(
-					"FTP connection and cleanup both failed.",
-					connectionError,
-					cleanupError);
+				throw new AggregateException("FTP connection and cleanup both failed.", connectionError, cleanupError);
 			}
 
 			throw;
 		}
 	}
 
-	private static async ValueTask<Exception?> TryDisposeAsync(
-		AsyncFtpClient client)
+	private static async ValueTask<Exception?> TryDisposeAsync(AsyncFtpClient client)
 	{
 		try
 		{

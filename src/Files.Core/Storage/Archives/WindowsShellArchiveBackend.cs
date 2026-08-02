@@ -19,9 +19,7 @@ public sealed class WindowsShellArchiveBackend : IArchiveBackend
 
 	public bool SupportsEncryptedArchives => false;
 
-	public async ValueTask<ArchiveMountResult> TryMountAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -39,17 +37,11 @@ public sealed class WindowsShellArchiveBackend : IArchiveBackend
 		try
 		{
 			await using var enumerator = folder
-				.GetItemsAsync(
-					StorableType.All,
-					cancellationToken)
+				.GetItemsAsync(StorableType.All, cancellationToken)
 				.GetAsyncEnumerator(cancellationToken);
 			_ = await enumerator.MoveNextAsync().ConfigureAwait(false);
 
-			return new ArchiveMountResult.Success(
-				new WindowsShellArchiveMount(
-					request.Archive,
-					request.Source,
-					folder));
+			return new ArchiveMountResult.Success(new WindowsShellArchiveMount(request.Archive, request.Source, folder));
 		}
 		catch (OperationCanceledException)
 			when (cancellationToken.IsCancellationRequested)

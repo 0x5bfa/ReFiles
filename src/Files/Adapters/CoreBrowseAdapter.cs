@@ -30,10 +30,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	private bool drainQueued;
 	private int isDisposed;
 
-	public CoreBrowseAdapter(
-		PaneModel pane,
-		IFilesDataRoot dataRoot,
-		IUIDispatcher dispatcher)
+	public CoreBrowseAdapter(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 		ArgumentNullException.ThrowIfNull(dataRoot);
@@ -83,17 +80,13 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	{
 		EnsureActive();
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await pane.NavigateAsync(
-			HomeLocation.Instance,
-			cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+		await pane.NavigateAsync(HomeLocation.Instance, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
 		InitializeAsync(cancellationToken);
 
-	public async Task NavigateToPathAsync(
-		string path,
-		CancellationToken cancellationToken = default)
+	public async Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -106,23 +99,15 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		}
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		var model = await dataRoot.ResolveAsync(
-			new StorageAddress("file", path),
-			linkedCancellation.Token).ConfigureAwait(false);
+		var model = await dataRoot.ResolveAsync(new StorageAddress("file", path), linkedCancellation.Token).ConfigureAwait(false);
 		try
 		{
 			if (model is not IFolderModel)
 			{
-				throw new InvalidOperationException(
-					string.Format(
-						CultureInfo.CurrentCulture,
-						Strings.NotFolderFormat.GetLocalized(),
-						path));
+				throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Strings.NotFolderFormat.GetLocalized(), path));
 			}
 
-			await pane.NavigateAsync(
-				new FolderLocation(model.Reference),
-				cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+			await pane.NavigateAsync(new FolderLocation(model.Reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -130,9 +115,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		}
 	}
 
-	public async Task NavigateToItemAsync(
-		BrowseItemViewModel item,
-		CancellationToken cancellationToken = default)
+	public async Task NavigateToItemAsync(BrowseItemViewModel item, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(item);
@@ -145,17 +128,13 @@ internal sealed class CoreBrowseAdapter : IDisposable
 			.ConfigureAwait(false);
 	}
 
-	public async Task NavigateToReferenceAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public async Task NavigateToReferenceAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(reference);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await pane.NavigateAsync(
-			new FolderLocation(reference),
-			cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+		await pane.NavigateAsync(new FolderLocation(reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public async Task GoBackAsync(CancellationToken cancellationToken = default)
@@ -201,10 +180,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 			.Select(static item => item.Reference.GetKey())
 			.ToArray();
 		var focusedKey = selectedKeys.FirstOrDefault();
-		pane.BrowseSession.SetSelection(
-			selectedKeys,
-			selectedKeys.Length is 0 ? null : focusedKey,
-			selectedKeys.Length is 0 ? null : focusedKey);
+		pane.BrowseSession.SetSelection(selectedKeys, selectedKeys.Length is 0 ? null : focusedKey, selectedKeys.Length is 0 ? null : focusedKey);
 	}
 
 	public void Dispose()
@@ -237,26 +213,18 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		var session = pane.BrowseSession;
 		lock (pendingLock)
 		{
-			pendingState = new PendingState(
-				session.IsLoading,
-				session.Error?.Message,
-				GetLocationText(session.Location));
+			pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location));
 		}
 
 		ScheduleDrain();
 	}
 
-	private void BrowseSession_ItemsChanged(
-		object? sender,
-		BrowseItemsChangedEventArgs args)
+	private void BrowseSession_ItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
 		var changes = args.Changes.Select(ProjectChange).ToArray();
 		lock (pendingLock)
 		{
-			pendingItemBatches.Enqueue(new PendingItemBatch(
-				args.PreviousVersion,
-				args.Version,
-				changes));
+			pendingItemBatches.Enqueue(new PendingItemBatch(args.PreviousVersion, args.Version, changes));
 		}
 
 		ScheduleDrain();
@@ -273,9 +241,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		ScheduleDrain();
 	}
 
-	private void BrowseSession_ItemPresentationChanged(
-		object? sender,
-		BrowseItemPresentationChangedEventArgs args)
+	private void BrowseSession_ItemPresentationChanged(object? sender, BrowseItemPresentationChangedEventArgs args)
 	{
 		lock (pendingLock)
 		{
@@ -288,18 +254,11 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	private void QueueInitialSnapshot()
 	{
 		var session = pane.BrowseSession;
-		var reset = new BrowseItemViewModelsReset(
-			session.Items.Select(CreateItemViewModel).ToArray());
+		var reset = new BrowseItemViewModelsReset(session.Items.Select(CreateItemViewModel).ToArray());
 		lock (pendingLock)
 		{
-			pendingItemBatches.Enqueue(new PendingItemBatch(
-				-1,
-				session.ItemsVersion,
-				[reset]));
-			pendingState = new PendingState(
-				session.IsLoading,
-				session.Error?.Message,
-				GetLocationText(session.Location));
+			pendingItemBatches.Enqueue(new PendingItemBatch(-1, session.ItemsVersion, [reset]));
+			pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location));
 			pendingSelection = session.Selection.SelectedKeys.ToArray();
 			foreach (var item in session.Items)
 			{
@@ -335,8 +294,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 
 			if (Volatile.Read(ref isDisposed) is 0)
 			{
-				throw new InvalidOperationException(
-					"The Files UI dispatcher rejected a Core update.");
+				throw new InvalidOperationException("The Files UI dispatcher rejected a Core update.");
 			}
 		}
 	}
@@ -414,9 +372,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		}
 	}
 
-	private async Task ApplyThumbnailAsync(
-		StorableKey key,
-		ThumbnailResult? thumbnail)
+	private async Task ApplyThumbnailAsync(StorableKey key, ThumbnailResult? thumbnail)
 	{
 		try
 		{
@@ -430,8 +386,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 				return;
 			}
 
-			items.FirstOrDefault(
-				item => item.Reference.GetKey() == key)
+			items.FirstOrDefault(item => item.Reference.GetKey() == key)
 				?.SetThumbnail(image);
 		}
 		catch
@@ -440,9 +395,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		}
 	}
 
-	private bool TryApplyChanges(
-		IReadOnlyList<BrowseItemViewModelChange> changes,
-		ICollection<BrowseItemViewModelChange> appliedChanges)
+	private bool TryApplyChanges(IReadOnlyList<BrowseItemViewModelChange> changes, ICollection<BrowseItemViewModelChange> appliedChanges)
 	{
 		foreach (var change in changes)
 		{
@@ -483,12 +436,10 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		return true;
 	}
 
-	private void ResetFromCurrentSession(
-		ICollection<BrowseItemViewModelChange> appliedChanges)
+	private void ResetFromCurrentSession(ICollection<BrowseItemViewModelChange> appliedChanges)
 	{
 		var session = pane.BrowseSession;
-		var reset = new BrowseItemViewModelsReset(
-			session.Items.Select(CreateItemViewModel).ToArray());
+		var reset = new BrowseItemViewModelsReset(session.Items.Select(CreateItemViewModel).ToArray());
 		items.Clear();
 		items.AddRange(reset.Items);
 		appliedItemsVersion = session.ItemsVersion;
@@ -499,31 +450,19 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	private static BrowseItemViewModelChange ProjectChange(BrowseItemChange change) =>
 		change switch
 		{
-			BrowseItemAdded added => new BrowseItemViewModelAdded(
-				added.Index,
-				CreateItemViewModel(added.Item)),
-			BrowseItemRemoved removed => new BrowseItemViewModelRemoved(
-				removed.Index),
-			BrowseItemReplaced replaced => new BrowseItemViewModelReplaced(
-				replaced.Index,
-				CreateItemViewModel(replaced.NewItem)),
-			BrowseItemMoved moved => new BrowseItemViewModelMoved(
-				moved.PreviousIndex,
-				moved.CurrentIndex),
-			BrowseItemsReset reset => new BrowseItemViewModelsReset(
-				reset.Items.Select(CreateItemViewModel).ToArray()),
-			_ => throw new InvalidOperationException(
-				$"Unsupported Core browse item change '{change.GetType().Name}'."),
+			BrowseItemAdded added => new BrowseItemViewModelAdded(added.Index, CreateItemViewModel(added.Item)),
+			BrowseItemRemoved removed => new BrowseItemViewModelRemoved(removed.Index),
+			BrowseItemReplaced replaced => new BrowseItemViewModelReplaced(replaced.Index, CreateItemViewModel(replaced.NewItem)),
+			BrowseItemMoved moved => new BrowseItemViewModelMoved(moved.PreviousIndex, moved.CurrentIndex),
+			BrowseItemsReset reset => new BrowseItemViewModelsReset(reset.Items.Select(CreateItemViewModel).ToArray()),
+			_ => throw new InvalidOperationException($"Unsupported Core browse item change '{change.GetType().Name}'."),
 		};
 
 	private static BrowseItemViewModel CreateItemViewModel(IStorableModel item) =>
 		new(item.Name, item is IFolderModel, item.Reference);
 
-	private CancellationTokenSource CreateLinkedCancellation(
-		CancellationToken cancellationToken) =>
-		CancellationTokenSource.CreateLinkedTokenSource(
-			cancellationToken,
-			lifetime.Token);
+	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
+		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 
 	private static string GetLocationText(BrowseLocation? location)
 	{
@@ -543,13 +482,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	private void EnsureActive() =>
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
 
-	private sealed record PendingItemBatch(
-		long PreviousVersion,
-		long Version,
-		IReadOnlyList<BrowseItemViewModelChange> Changes);
+	private sealed record PendingItemBatch(long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes);
 
-	private sealed record PendingState(
-		bool IsLoading,
-		string? ErrorMessage,
-		string LocationText);
+	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText);
 }

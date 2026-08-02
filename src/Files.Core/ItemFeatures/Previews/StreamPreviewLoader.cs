@@ -14,9 +14,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 	private readonly IPreviewContentTypeResolver contentTypeResolver;
 	private readonly IPreviewStreamAccessPolicy accessPolicy;
 
-	public StreamPreviewLoader(
-		IPreviewContentTypeResolver contentTypeResolver,
-		IPreviewStreamAccessPolicy accessPolicy)
+	public StreamPreviewLoader(IPreviewContentTypeResolver contentTypeResolver, IPreviewStreamAccessPolicy accessPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(contentTypeResolver);
 		ArgumentNullException.ThrowIfNull(accessPolicy);
@@ -33,10 +31,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			&& contentTypeResolver.TryResolve(context, out _);
 	}
 
-	public async ValueTask<PreviewResult?> GetPreviewAsync(
-		PreviewRequest request,
-		ItemContext context,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(context);
@@ -48,10 +43,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			return null;
 		}
 
-		var blockReason = await accessPolicy.GetBlockReasonAsync(
-			request,
-			context,
-			cancellationToken).ConfigureAwait(false);
+		var blockReason = await accessPolicy.GetBlockReasonAsync(request, context, cancellationToken).ConfigureAwait(false);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		if (blockReason is not null)
@@ -59,16 +51,9 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			return new BlockedPreviewResult(blockReason.Value);
 		}
 
-		var stream = await file.OpenStreamAsync(
-			FileAccess.Read,
-			cancellationToken).ConfigureAwait(false);
+		var stream = await file.OpenStreamAsync(FileAccess.Read, cancellationToken).ConfigureAwait(false);
 
-		return await CreateResultAsync(
-			stream,
-			request.MaximumBytes,
-			contentType.MediaType,
-			file.Name,
-			cancellationToken).ConfigureAwait(false);
+		return await CreateResultAsync(stream, request.MaximumBytes, contentType.MediaType, file.Name, cancellationToken).ConfigureAwait(false);
 	}
 
 	private static async ValueTask<PreviewResult> CreateResultAsync(
@@ -90,11 +75,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 				var contentLength = TryGetLength(stream, out var unboundedLength)
 					? (long?)unboundedLength
 					: null;
-				var result = new StreamPreviewResult(
-					stream,
-					contentType,
-					contentLength,
-					suggestedFileName);
+				var result = new StreamPreviewResult(stream, contentType, contentLength, suggestedFileName);
 				sourceOwned = false;
 				return result;
 			}
@@ -106,11 +87,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 					return new BlockedPreviewResult(PreviewBlockReason.TooLarge);
 				}
 
-				var result = new StreamPreviewResult(
-					stream,
-					contentType,
-					length,
-					suggestedFileName);
+				var result = new StreamPreviewResult(stream, contentType, length, suggestedFileName);
 				sourceOwned = false;
 				return result;
 			}
@@ -154,18 +131,14 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				var requested = (int)Math.Min(readBuffer.Length, limit - bytesRead);
-				var count = await stream.ReadAsync(
-					readBuffer.AsMemory(0, requested),
-					cancellationToken).ConfigureAwait(false);
+				var count = await stream.ReadAsync(readBuffer.AsMemory(0, requested), cancellationToken).ConfigureAwait(false);
 
 				if (count == 0)
 				{
 					break;
 				}
 
-				await buffer.WriteAsync(
-					readBuffer.AsMemory(0, count),
-					cancellationToken).ConfigureAwait(false);
+				await buffer.WriteAsync(readBuffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
 				bytesRead += count;
 			}
 
@@ -186,11 +159,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			}
 
 			buffer.Position = 0;
-			var result = new StreamPreviewResult(
-				buffer,
-				contentType,
-				bytesRead,
-				suggestedFileName);
+			var result = new StreamPreviewResult(buffer, contentType, bytesRead, suggestedFileName);
 			bufferOwned = false;
 			return result;
 		}

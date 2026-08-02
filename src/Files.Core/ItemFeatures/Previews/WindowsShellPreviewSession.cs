@@ -25,10 +25,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	private WindowsShellPreviewSessionState state =
 		WindowsShellPreviewSessionState.Created;
 
-	internal WindowsShellPreviewSession(
-		WindowsPreviewTarget target,
-		IWindowsPreviewHandlerController controller,
-		IWindowsShellScheduler scheduler)
+	internal WindowsShellPreviewSession(WindowsPreviewTarget target, IWindowsPreviewHandlerController controller, IWindowsShellScheduler scheduler)
 	{
 		ArgumentNullException.ThrowIfNull(target);
 		ArgumentNullException.ThrowIfNull(controller);
@@ -50,66 +47,36 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		}
 	}
 
-	public ValueTask SetBoundsAsync(
-		WindowsPreviewBounds bounds,
-		CancellationToken cancellationToken = default)
+	public ValueTask SetBoundsAsync(WindowsPreviewBounds bounds, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
-		return new ValueTask(scheduler.InvokeOperationAsync(
-			() =>
-			{
-				controller.SetBounds(bounds);
-				return true;
-			},
-			cancellationToken));
+		return new ValueTask(scheduler.InvokeOperationAsync(() => {controller.SetBounds(bounds); return true;}, cancellationToken));
 	}
 
-	public ValueTask SetThemeAsync(
-		WindowsPreviewColor background,
-		WindowsPreviewColor foreground,
-		CancellationToken cancellationToken = default)
+	public ValueTask SetThemeAsync(WindowsPreviewColor background, WindowsPreviewColor foreground, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
-		return new ValueTask(scheduler.InvokeOperationAsync(
-			() =>
-			{
-				controller.SetTheme(background, foreground);
-				return true;
-			},
-			cancellationToken));
+		return new ValueTask(scheduler.InvokeOperationAsync(() => {controller.SetTheme(background, foreground); return true;}, cancellationToken));
 	}
 
 	public ValueTask SetFocusAsync(CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
-		return new ValueTask(scheduler.InvokeOperationAsync(
-			() =>
-			{
-				controller.SetFocus();
-				return true;
-			},
-			cancellationToken));
+		return new ValueTask(scheduler.InvokeOperationAsync(() => {controller.SetFocus(); return true;}, cancellationToken));
 	}
 
-	public async ValueTask<nint> QueryFocusAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask<nint> QueryFocusAsync(CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
 		return await scheduler
-			.InvokeOperationAsync(
-				() => controller.QueryFocus(),
-				cancellationToken)
+			.InvokeOperationAsync(() => controller.QueryFocus(), cancellationToken)
 			.ConfigureAwait(false);
 	}
 
-	public ValueTask<bool> TryTranslateAcceleratorAsync(
-		nint messagePointer,
-		CancellationToken cancellationToken = default)
+	public ValueTask<bool> TryTranslateAcceleratorAsync(nint messagePointer, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
-		return new ValueTask<bool>(scheduler.InvokeOperationAsync(
-			() => controller.TryTranslateAccelerator(messagePointer),
-			cancellationToken));
+		return new ValueTask<bool>(scheduler.InvokeOperationAsync(() => controller.TryTranslateAccelerator(messagePointer), cancellationToken));
 	}
 
 	internal void TransitionTo(WindowsShellPreviewSessionState nextState)
@@ -156,12 +123,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		try
 		{
 			await scheduler
-				.InvokeOperationAsync(
-					() =>
-					{
-						controller.Dispose();
-						return true;
-					})
+				.InvokeOperationAsync(() => {controller.Dispose(); return true;})
 				.ConfigureAwait(false);
 		}
 		catch (Exception error)
@@ -186,9 +148,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"Preview handler and target cleanup failed.",
-				errors);
+			throw new AggregateException("Preview handler and target cleanup failed.", errors);
 		}
 	}
 

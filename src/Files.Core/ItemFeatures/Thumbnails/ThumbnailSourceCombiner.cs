@@ -10,9 +10,7 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public sealed class ThumbnailSourceCombiner : IItemFeatureCombiner<IThumbnailSource>
 {
-	public IThumbnailSource? Combine(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<IThumbnailSource>> options)
+	public IThumbnailSource? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<IThumbnailSource>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
@@ -39,9 +37,7 @@ public sealed class ThumbnailSourceCombiner : IItemFeatureCombiner<IThumbnailSou
 			this.sources = sources;
 		}
 
-		public async ValueTask<ThumbnailResult?> GetThumbnailAsync(
-			ThumbnailRequest request,
-			CancellationToken cancellationToken = default)
+		public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 

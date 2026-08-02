@@ -19,12 +19,7 @@ public sealed class ItemFeatureRegistryTests
 		var createCount = 0;
 		var feature = new TestItemFeature("feature", []);
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<TestItemFeature>(
-				new DelegateItemFeatureFactory<TestItemFeature>(_ =>
-				{
-					createCount++;
-					return feature;
-				}))
+			.Add<TestItemFeature>(new DelegateItemFeatureFactory<TestItemFeature>(_ => {createCount++; return feature;}))
 			.Build();
 
 		using var features = featureRegistry.CreateFeatures(context);
@@ -46,10 +41,8 @@ public sealed class ItemFeatureRegistryTests
 		var innerFeature = new TestItemFeature("inner", disposalOrder);
 		var wrapper = new TestItemFeature("wrapper", disposalOrder);
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<TestItemFeature>(
-				new DelegateItemFeatureFactory<TestItemFeature>(_ => innerFeature))
-			.AddWrapper<TestItemFeature>(
-				new DelegateItemFeatureWrapper<TestItemFeature>((_, _) => wrapper))
+			.Add<TestItemFeature>(new DelegateItemFeatureFactory<TestItemFeature>(_ => innerFeature))
+			.AddWrapper<TestItemFeature>(new DelegateItemFeatureWrapper<TestItemFeature>((_, _) => wrapper))
 			.Build();
 
 		using (var features = featureRegistry.CreateFeatures(context))
@@ -69,9 +62,7 @@ public sealed class ItemFeatureRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var feature = new TestItemFeature("shared", []);
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<TestItemFeature>(
-				new DelegateItemFeatureFactory<TestItemFeature>(_ => feature),
-				lifetime: ItemFeatureLifetime.Shared)
+			.Add<TestItemFeature>(new DelegateItemFeatureFactory<TestItemFeature>(_ => feature), lifetime: ItemFeatureLifetime.Shared)
 			.Build();
 
 		using (var features = featureRegistry.CreateFeatures(context))
@@ -87,18 +78,11 @@ public sealed class ItemFeatureRegistryTests
 	{
 		var factory = new TestModelFactory();
 		var coreModel = new TestStorable("item", "Item");
-		var reference = new Files.Core.Storage.StorableReference(
-			factory.Source.SourceId,
-			coreModel.Id);
-		var context = new ItemContext(
-			factory.Source,
-			coreModel,
-			reference);
+		var reference = new Files.Core.Storage.StorableReference(factory.Source.SourceId, coreModel.Id);
+		var context = new ItemContext(factory.Source, coreModel, reference);
 		var feature = new AsyncTestFeature();
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<AsyncTestFeature>(
-				new DelegateItemFeatureFactory<AsyncTestFeature>(
-					_ => feature))
+			.Add<AsyncTestFeature>(new DelegateItemFeatureFactory<AsyncTestFeature>(_ => feature))
 			.Build();
 		var features = featureRegistry.CreateFeatures(context);
 
@@ -114,37 +98,21 @@ public sealed class ItemFeatureRegistryTests
 	{
 		var factory = new TestModelFactory();
 		var coreModel = new TestStorable("item", "Item");
-		var reference = new Files.Core.Storage.StorableReference(
-			factory.Source.SourceId,
-			coreModel.Id);
-		var context = new ItemContext(
-			factory.Source,
-			coreModel,
-			reference);
+		var reference = new Files.Core.Storage.StorableReference(factory.Source.SourceId, coreModel.Id);
+		var context = new ItemContext(factory.Source, coreModel, reference);
 		var feature = new ThrowingDisposableFeature();
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<ThrowingDisposableFeature>(
-				new DelegateItemFeatureFactory<ThrowingDisposableFeature>(
-					_ => feature))
+			.Add<ThrowingDisposableFeature>(new DelegateItemFeatureFactory<ThrowingDisposableFeature>(_ => feature))
 			.AddWrapper<ThrowingDisposableFeature>(
-				new DelegateItemFeatureWrapper<ThrowingDisposableFeature>(
-					(_, _) => throw new InvalidOperationException(
-						"resolution failed")))
+				new DelegateItemFeatureWrapper<ThrowingDisposableFeature>((_, _) => throw new InvalidOperationException("resolution failed")))
 			.Build();
 		using var features = featureRegistry.CreateFeatures(context);
 
-		var error = Assert.Throws<AggregateException>(
-			() => features.Get<ThrowingDisposableFeature>());
+		var error = Assert.Throws<AggregateException>(() => features.Get<ThrowingDisposableFeature>());
 
 		Assert.AreEqual(2, error.InnerExceptions.Count);
-		Assert.IsTrue(
-			error.InnerExceptions.Any(
-				static exception =>
-					exception.Message == "resolution failed"));
-		Assert.IsTrue(
-			error.InnerExceptions.Any(
-				static exception =>
-					exception.Message == "cleanup failed"));
+		Assert.IsTrue(error.InnerExceptions.Any(static exception => exception.Message == "resolution failed"));
+		Assert.IsTrue(error.InnerExceptions.Any(static exception => exception.Message == "cleanup failed"));
 		Assert.AreEqual(1, feature.DisposeCount);
 	}
 

@@ -29,13 +29,9 @@ namespace Files.SourceGenerators.Utilities
 		internal static ConstructorDeclarationSyntax GetDeclaration(IPropertySymbol property, ConstructorDeclarationSyntax ctor)
 		{
 			var newName = property.Name[..1].ToLower() + property.Name[1..];
-			return ctor.AddParameterListParameters(
-					Parameter(Identifier(newName)).WithType(property.Type.GetTypeSyntax(false)))
+			return ctor.AddParameterListParameters(Parameter(Identifier(newName)).WithType(property.Type.GetTypeSyntax(false)))
 				.AddBodyStatements(ExpressionStatement(
-					AssignmentExpression(
-						SyntaxKind.SimpleAssignmentExpression,
-						IdentifierName(property.Name),
-						IdentifierName(newName))));
+					AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, IdentifierName(property.Name), IdentifierName(newName))));
 		}
 
 		/// <summary>
@@ -84,8 +80,7 @@ namespace Files.SourceGenerators.Utilities
 		/// <returns>StaticFieldDeclaration</returns>
 		internal static FieldDeclarationSyntax GetStaticFieldDeclaration(string fieldName, ExpressionSyntax registration)
 		{
-			return FieldDeclaration(VariableDeclaration(
-				IdentifierName("global::Microsoft.UI.Xaml.DependencyProperty")))
+			return FieldDeclaration(VariableDeclaration(IdentifierName("global::Microsoft.UI.Xaml.DependencyProperty")))
 					.AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.ReadOnlyKeyword))
 					.AddDeclarationVariables(VariableDeclarator(fieldName).WithInitializer(EqualsValueClause(registration)));
 		}
@@ -177,8 +172,7 @@ namespace Files.SourceGenerators.Utilities
 					Attribute(IdentifierName("global::System.CodeDom.Compiler.GeneratedCode")).AddArgumentListArguments(
 						AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(AssemblyName + generatorName))),
 						AttributeArgument(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(AssemblyVersion))))),
-				AttributeList().AddAttributes(
-					Attribute(IdentifierName("global::System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage")))
+				AttributeList().AddAttributes(Attribute(IdentifierName("global::System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage")))
 			];
 		}
 
@@ -289,18 +283,12 @@ namespace Files.SourceGenerators.Utilities
 
 		private static MemberAccessExpressionSyntax GetThisMemberAccessExpression(string name)
 		{
-			return MemberAccessExpression(
-				SyntaxKind.SimpleMemberAccessExpression,
-				ThisExpression(),
-				IdentifierName(name));
+			return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, ThisExpression(), IdentifierName(name));
 		}
 
 		private static MemberAccessExpressionSyntax GetStaticMemberAccessExpression(this ITypeSymbol typeSymbol, string name)
 		{
-			return MemberAccessExpression(
-				SyntaxKind.SimpleMemberAccessExpression,
-				IdentifierName(typeSymbol.ToDisplayString()),
-				IdentifierName(name));
+			return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName(typeSymbol.ToDisplayString()), IdentifierName(name));
 		}
 
 		/// <summary>

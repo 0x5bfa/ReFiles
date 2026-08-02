@@ -8,11 +8,7 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed record BrowseViewport
 {
-	public BrowseViewport(
-		int firstVisibleIndex,
-		int visibleCount,
-		int lookAheadCount = 20,
-		int dpi = 96)
+	public BrowseViewport(int firstVisibleIndex, int visibleCount, int lookAheadCount = 20, int dpi = 96)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(firstVisibleIndex);
 		ArgumentOutOfRangeException.ThrowIfNegative(visibleCount);

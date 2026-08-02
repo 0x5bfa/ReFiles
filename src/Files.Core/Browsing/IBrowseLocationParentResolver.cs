@@ -11,6 +11,5 @@ public interface IBrowseLocationParentResolver
 {
 	bool CanGetParent { get; }
 
-	ValueTask<BrowseLocation?> GetParentLocationAsync(
-		CancellationToken cancellationToken = default);
+	ValueTask<BrowseLocation?> GetParentLocationAsync(CancellationToken cancellationToken = default);
 }

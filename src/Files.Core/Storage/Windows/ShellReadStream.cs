@@ -16,9 +16,7 @@ internal sealed unsafe class ShellReadStream : Stream
 	private readonly long length;
 	private int isDisposed;
 
-	public ShellReadStream(
-		IWindowsShellScheduler scheduler,
-		IStream shellStream)
+	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 		ArgumentNullException.ThrowIfNull(shellStream);
@@ -65,11 +63,7 @@ internal sealed unsafe class ShellReadStream : Stream
 			.GetResult();
 	}
 
-	public override Task<int> ReadAsync(
-		byte[] buffer,
-		int offset,
-		int count,
-		CancellationToken cancellationToken)
+	public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(buffer);
 		ArgumentOutOfRangeException.ThrowIfNegative(offset);
@@ -125,12 +119,7 @@ internal sealed unsafe class ShellReadStream : Stream
 		{
 			try
 			{
-				scheduler.InvokeAsync(
-					() =>
-					{
-						shellStream = null;
-						return true;
-					}).GetAwaiter().GetResult();
+				scheduler.InvokeAsync(() => {shellStream = null; return true;}).GetAwaiter().GetResult();
 			}
 			finally
 			{

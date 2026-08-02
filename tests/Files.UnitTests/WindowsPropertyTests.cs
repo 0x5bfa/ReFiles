@@ -27,13 +27,10 @@ public sealed class WindowsPropertyTests
 		{
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var coreModel = await source.ResolveAsync(
-				new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
+			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
 			var featureRegistry = new ItemFeatureBuilder()
-				.Add<IPropertySource>(
-					new PropertySourceFactory(new WindowsPropertyReader()),
-					origin: "Windows Property System")
+				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
 				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
 				.Build();
 
@@ -41,8 +38,7 @@ public sealed class WindowsPropertyTests
 			var propertySource = model.Get<IPropertySource>();
 			Assert.IsNotNull(propertySource);
 
-			var properties = await propertySource.GetPropertiesAsync(
-				new PropertyRequest(["System.Size"]));
+			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(["System.Size"]));
 
 			Assert.AreEqual((ulong)content.Length, (ulong)properties["System.Size"]!);
 			Assert.AreEqual(1, properties.Count);

@@ -50,8 +50,7 @@ public sealed class BrowseSessionModelTests
 		resolver.Items.Clear();
 		resolver.Items.Add(partial);
 		resolver.Exception = new InvalidOperationException("failure");
-		await Assert.ThrowsAsync<InvalidOperationException>(
-			async () => await session.NavigateAsync(new FolderLocation(partial.Reference)));
+		await Assert.ThrowsAsync<InvalidOperationException>(async () => await session.NavigateAsync(new FolderLocation(partial.Reference)));
 
 		Assert.IsFalse(currentCore.IsDisposed);
 		Assert.IsTrue(partialCore.IsDisposed);
@@ -76,14 +75,11 @@ public sealed class BrowseSessionModelTests
 		resolver.EnumerationStarted = enumerationStarted;
 		resolver.BlockEnumeration = true;
 		using var cancellation = new CancellationTokenSource();
-		var navigation = session.NavigateAsync(
-			new FolderLocation(next.Reference),
-			cancellation.Token);
+		var navigation = session.NavigateAsync(new FolderLocation(next.Reference), cancellation.Token);
 		await enumerationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 		cancellation.Cancel();
 
-		await Assert.ThrowsAsync<OperationCanceledException>(
-			async () => await navigation);
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await navigation);
 
 		Assert.IsFalse(currentCore.IsDisposed);
 		Assert.IsFalse(nextCore.IsDisposed);
@@ -180,20 +176,14 @@ public sealed class BrowseSessionModelTests
 		using var session = new BrowseSessionModel(resolver);
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 
-		resolver.EnumerationStarted = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
-		resolver.EnumerationRelease = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		resolver.EnumerationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		resolver.EnumerationRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		resolver.BlockEnumeration = true;
 		var navigation = session
 			.NavigateAsync(new FolderLocation(secondLocation.Reference))
 			.AsTask();
 		await resolver.EnumerationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-		secondSource.RaiseChange(new FolderChange(
-			FolderChangeKind.Created,
-			created.Reference,
-			null,
-			RequiresRefresh: false));
+		secondSource.RaiseChange(new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false));
 
 		resolver.EnumerationRelease.TrySetResult(true);
 		await navigation.WaitAsync(TimeSpan.FromSeconds(5));
@@ -316,18 +306,11 @@ public sealed class BrowseSessionModelTests
 		var source = new TestFolderChangeSource();
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var created = factory.CreateModel("created", "Created", out _);
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			created,
-			created.Reference);
+		var resolver = CreateIncrementalResolver(locationModel, created, created.Reference);
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Created,
-			created.Reference,
-			null,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false));
 
 		await WaitUntilAsync(() => session.Items.Count is 1);
 
@@ -354,11 +337,7 @@ public sealed class BrowseSessionModelTests
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		var change = new FolderChange(
-			FolderChangeKind.Created,
-			created.Reference,
-			null,
-			RequiresRefresh: false);
+		var change = new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false);
 		source.RaiseChange(change);
 		await WaitUntilAsync(() => session.Items.Count is 1);
 		source.RaiseChange(change);
@@ -376,19 +355,11 @@ public sealed class BrowseSessionModelTests
 		var source = new TestFolderChangeSource();
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var deleted = factory.CreateModel("deleted", "Deleted", out var deletedCore);
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			deleted,
-			deleted.Reference,
-			items: [deleted]);
+		var resolver = CreateIncrementalResolver(locationModel, deleted, deleted.Reference, items: [deleted]);
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Deleted,
-			null,
-			deleted.Reference,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, deleted.Reference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() =>
 			session.Items.Count is 0
@@ -405,23 +376,12 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var previous = factory.CreateModel("item", "Before", out var previousCore);
 		var replacement = factory.CreateModel("item", "After", out _);
-		var currentReference = new StorableReference(
-			previous.Reference.SourceId,
-			previous.Reference.ItemId,
-			new StorageAddress("test", "renamed"));
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			replacement,
-			currentReference,
-			items: [previous]);
+		var currentReference = new StorableReference(previous.Reference.SourceId, previous.Reference.ItemId, new StorageAddress("test", "renamed"));
+		var resolver = CreateIncrementalResolver(locationModel, replacement, currentReference, items: [previous]);
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Renamed,
-			currentReference,
-			previous.Reference,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, currentReference, previous.Reference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), replacement));
 
@@ -438,26 +398,16 @@ public sealed class BrowseSessionModelTests
 		var previous = factory.CreateModel("item", "Before", out var previousCore);
 		var replacement = factory.CreateModel("item", "After", out _);
 		var cache = new TestThumbnailCache();
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			replacement,
-			previous.Reference,
-			items: [previous]);
+		var resolver = CreateIncrementalResolver(locationModel, replacement, previous.Reference, items: [previous]);
 		using var session = new BrowseSessionModel(resolver, thumbnailCache: cache);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Updated,
-			replacement.Reference,
-			null,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Updated, replacement.Reference, null, RequiresRefresh: false));
 
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), replacement));
 
 		Assert.AreEqual(1, previousCore.DisposeCount);
-		CollectionAssert.Contains(
-			cache.InvalidatedReferences.ToList(),
-			replacement.Reference);
+		CollectionAssert.Contains(cache.InvalidatedReferences.ToList(), replacement.Reference);
 	}
 
 	[TestMethod]
@@ -477,8 +427,7 @@ public sealed class BrowseSessionModelTests
 			{
 				if (reference.ItemId == created.Reference.ItemId)
 				{
-					return ValueTask.FromResult<IStorableModel>(
-						ReferenceEquals(reference, created.Reference) ? created : renamed);
+					return ValueTask.FromResult<IStorableModel>(ReferenceEquals(reference, created.Reference) ? created : renamed);
 				}
 
 				return ValueTask.FromResult<IStorableModel>(renamed);
@@ -486,25 +435,10 @@ public sealed class BrowseSessionModelTests
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		var renamedReference = new StorableReference(
-			created.Reference.SourceId,
-			created.Reference.ItemId,
-			new StorageAddress("test", "renamed"));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Created,
-			created.Reference,
-			null,
-			RequiresRefresh: false));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Renamed,
-			renamedReference,
-			created.Reference,
-			RequiresRefresh: false));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Deleted,
-			null,
-			renamedReference,
-			RequiresRefresh: false));
+		var renamedReference = new StorableReference(created.Reference.SourceId, created.Reference.ItemId, new StorageAddress("test", "renamed"));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, renamedReference, created.Reference, RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, renamedReference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() =>
 			session.Items.Count is 0
@@ -536,11 +470,7 @@ public sealed class BrowseSessionModelTests
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 		resolver.Items.Clear();
 		resolver.Items.Add(newItem);
-		firstSource.RaiseChange(new FolderChange(
-			FolderChangeKind.DirectoryUpdated,
-			null,
-			null,
-			RequiresRefresh: false));
+		firstSource.RaiseChange(new FolderChange(FolderChangeKind.DirectoryUpdated, null, null, RequiresRefresh: false));
 
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), newItem));
 
@@ -577,11 +507,7 @@ public sealed class BrowseSessionModelTests
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
-		firstSource.RaiseChange(new FolderChange(
-			FolderChangeKind.Created,
-			created.Reference,
-			null,
-			RequiresRefresh: false));
+		firstSource.RaiseChange(new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false));
 		await resolveStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
 		await session.NavigateAsync(new FolderLocation(secondLocation.Reference));
@@ -619,11 +545,7 @@ public sealed class BrowseSessionModelTests
 		resolver.Items.Clear();
 		resolver.Items.Add(partial);
 		resolver.Exception = new InvalidOperationException("refresh failed");
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Updated,
-			current.Reference,
-			null,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Updated, current.Reference, null, RequiresRefresh: false));
 
 		await WaitUntilAsync(() => session.Error is not null);
 
@@ -640,15 +562,8 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var previous = factory.CreateModel("item", "Before", out _);
 		var replacement = factory.CreateModel("item", "After", out _);
-		var currentReference = new StorableReference(
-			previous.Reference.SourceId,
-			previous.Reference.ItemId,
-			new StorageAddress("test", "renamed"));
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			replacement,
-			currentReference,
-			items: [previous]);
+		var currentReference = new StorableReference(previous.Reference.SourceId, previous.Reference.ItemId, new StorageAddress("test", "renamed"));
+		var resolver = CreateIncrementalResolver(locationModel, replacement, currentReference, items: [previous]);
 		using var session = new BrowseSessionModel(resolver);
 		var itemChanges = new List<BrowseItemsChangedEventArgs>();
 		session.ItemsChanged += (_, args) => itemChanges.Add(args);
@@ -656,11 +571,7 @@ public sealed class BrowseSessionModelTests
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var key = previous.Reference.GetKey();
 		session.SetSelection([key, key], key, key);
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Renamed,
-			currentReference,
-			previous.Reference,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, currentReference, previous.Reference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), replacement));
 
@@ -680,22 +591,14 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var previous = factory.CreateModel("old", "Before", out _);
 		var replacement = factory.CreateModel("new", "After", out _);
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			replacement,
-			replacement.Reference,
-			items: [previous]);
+		var resolver = CreateIncrementalResolver(locationModel, replacement, replacement.Reference, items: [previous]);
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var previousKey = previous.Reference.GetKey();
 		var replacementKey = replacement.Reference.GetKey();
 		session.SetSelection([previousKey], previousKey, previousKey);
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Renamed,
-			replacement.Reference,
-			previous.Reference,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, replacement.Reference, previous.Reference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() =>
 			session.Items.Count is 1
@@ -712,11 +615,7 @@ public sealed class BrowseSessionModelTests
 		var source = new TestFolderChangeSource();
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var item = factory.CreateModel("item", "Item", out _);
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			item,
-			item.Reference,
-			items: [item]);
+		var resolver = CreateIncrementalResolver(locationModel, item, item.Reference, items: [item]);
 		using var session = new BrowseSessionModel(resolver);
 		var selectionChanged = 0;
 		session.SelectionChanged += (_, _) => selectionChanged++;
@@ -724,11 +623,7 @@ public sealed class BrowseSessionModelTests
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var key = item.Reference.GetKey();
 		session.SetSelection([key], key, key);
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Deleted,
-			null,
-			item.Reference,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, item.Reference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() =>
 			session.Items.Count is 0
@@ -749,21 +644,13 @@ public sealed class BrowseSessionModelTests
 		var previous = factory.CreateModel("first", "Beta", out _);
 		var other = factory.CreateModel("second", "Gamma", out _);
 		var replacement = factory.CreateModel("first", "Zulu", out _);
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			replacement,
-			replacement.Reference,
-			items: [previous, other]);
+		var resolver = CreateIncrementalResolver(locationModel, replacement, replacement.Reference, items: [previous, other]);
 		using var session = new BrowseSessionModel(resolver);
 		var itemChanges = new List<BrowseItemChange>();
 		session.ItemsChanged += (_, args) => itemChanges.AddRange(args.Changes);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		source.RaiseChange(new FolderChange(
-			FolderChangeKind.Renamed,
-			replacement.Reference,
-			previous.Reference,
-			RequiresRefresh: false));
+		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, replacement.Reference, previous.Reference, RequiresRefresh: false));
 
 		await WaitUntilAsync(() =>
 			session.Items.Count is 2
@@ -812,15 +699,11 @@ public sealed class BrowseSessionModelTests
 		var changes = new List<BrowseItemChange>();
 		session.ItemsChanged += (_, args) => changes.AddRange(args.Changes);
 
-		await session.UpdateViewSettingsAsync(new BrowseViewSettings(
-			sortPropertyId: "name",
-			sortDirection: ViewSortDirection.Descending));
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(sortPropertyId: "name", sortDirection: ViewSortDirection.Descending));
 
 		Assert.AreEqual(1, changes.Count);
 		Assert.IsInstanceOfType<BrowseItemsReset>(changes[0]);
-		CollectionAssert.AreEqual(
-			new[] { third, second, first },
-			session.Items.ToArray());
+		CollectionAssert.AreEqual(new[] {third, second, first}, session.Items.ToArray());
 	}
 
 	[TestMethod]
@@ -869,17 +752,10 @@ public sealed class BrowseSessionModelTests
 		var selectedKey = selected.Reference.GetKey();
 		var removedKey = removed.Reference.GetKey();
 		var retainedKey = retained.Reference.GetKey();
-		session.SetSelection(
-			[selectedKey, removedKey, retainedKey],
-			removedKey,
-			selectedKey);
+		session.SetSelection([selectedKey, removedKey, retainedKey], removedKey, selectedKey);
 		resolver.Items.Clear();
 		resolver.Items.Add(refreshedRetained);
-		firstSource.RaiseChange(new FolderChange(
-			FolderChangeKind.DirectoryUpdated,
-			null,
-			null,
-			RequiresRefresh: false));
+		firstSource.RaiseChange(new FolderChange(FolderChangeKind.DirectoryUpdated, null, null, RequiresRefresh: false));
 
 		await WaitUntilAsync(() =>
 			session.Items.Count is 1
@@ -897,9 +773,7 @@ public sealed class BrowseSessionModelTests
 		using var model = factory.CreateModel("folder", "Folder", out _);
 		var location = new FolderLocation(model.Reference);
 		var settingsStore = new TestViewSettingsStore();
-		using var session = new BrowseSessionModel(
-			new TestBrowseLocationResolver([]),
-			settingsStore);
+		using var session = new BrowseSessionModel(new TestBrowseLocationResolver([]), settingsStore);
 
 		await session.NavigateAsync(location);
 		var settings = new BrowseViewSettings(ViewLayoutMode.List, sortPropertyId: "name");
@@ -925,8 +799,7 @@ public sealed class BrowseSessionModelTests
 		return resolver;
 	}
 
-	private static async Task WaitUntilAsync(
-		Func<bool> condition)
+	private static async Task WaitUntilAsync(Func<bool> condition)
 	{
 		var timeout = DateTime.UtcNow + TimeSpan.FromSeconds(5);
 		while (!condition() && DateTime.UtcNow < timeout)

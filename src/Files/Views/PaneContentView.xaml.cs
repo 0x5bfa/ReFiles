@@ -12,11 +12,7 @@ public sealed partial class PaneContentView : UserControl
 	private PaneViewModel? subscribedViewModel;
 
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(PaneViewModel),
-			typeof(PaneContentView),
-			new PropertyMetadata(null, ViewModelChanged));
+		DependencyProperty.Register(nameof(ViewModel), typeof(PaneViewModel), typeof(PaneContentView), new PropertyMetadata(null, ViewModelChanged));
 
 	public PaneContentView()
 	{
@@ -31,17 +27,14 @@ public sealed partial class PaneContentView : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
-	private static void ViewModelChanged(
-		DependencyObject sender,
-		DependencyPropertyChangedEventArgs args)
+	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
 	{
 		if (sender is not PaneContentView view)
 		{
 			return;
 		}
 
-		view.SetSubscribedViewModel(
-			view.IsLoaded ? args.NewValue as PaneViewModel : null);
+		view.SetSubscribedViewModel(view.IsLoaded ? args.NewValue as PaneViewModel : null);
 		view.UpdateContent();
 	}
 
@@ -70,9 +63,7 @@ public sealed partial class PaneContentView : UserControl
 		}
 	}
 
-	private void ViewModel_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is nameof(PaneViewModel.ContentKind))
 		{
@@ -98,8 +89,7 @@ public sealed partial class PaneContentView : UserControl
 				(DataTemplate)PaneContentPresenter.Resources["SettingsTemplate"],
 			PaneContentKind.Web =>
 				(DataTemplate)PaneContentPresenter.Resources["WebTemplate"],
-			_ => throw new InvalidOperationException(
-				$"Unsupported pane content kind: {viewModel.ContentKind}."),
+			_ => throw new InvalidOperationException($"Unsupported pane content kind: {viewModel.ContentKind}."),
 		};
 	}
 }

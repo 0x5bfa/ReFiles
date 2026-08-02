@@ -30,19 +30,13 @@ public sealed class BrowsePrefetchCoordinatorTests
 				Handler = (_, _) =>
 				{
 					order.Add(id);
-					return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(
-						new Dictionary<string, object?>());
+					return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?>());
 				},
 			};
 			var thumbnailSource = new TestThumbnailSource();
 			propertySources.Add(id, propertySource);
 			thumbnailSources.Add(id, thumbnailSource);
-			models.Add(factory.CreateModel(
-				id,
-				id.ToUpperInvariant(),
-				out _,
-				propertySource: propertySource,
-				thumbnailSource: thumbnailSource));
+			models.Add(factory.CreateModel(id, id.ToUpperInvariant(), out _, propertySource: propertySource, thumbnailSource: thumbnailSource));
 		}
 
 		var resolver = new TestBrowseLocationResolver(models)
@@ -59,10 +53,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				new ViewColumnSettings("System.Hidden", 120, 1, isVisible: false)],
 			sortPropertyId: "System.DateModified");
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
-		coordinator.UpdateViewport(
-			new BrowseViewport(1, 1, 1, dpi: 144),
-			settings,
-			session.Generation);
+		coordinator.UpdateViewport(new BrowseViewport(1, 1, 1, dpi: 144), settings, session.Generation);
 
 		await WaitUntilAsync(() => order.Count is 3);
 
@@ -70,15 +61,11 @@ public sealed class BrowsePrefetchCoordinatorTests
 		foreach (var id in new[] { "a", "b", "c" })
 		{
 			Assert.AreEqual(1, propertySources[id].CallCount);
-			CollectionAssert.AreEqual(
-				new[] { "System.Size", "System.DateModified" },
-				propertySources[id].Requests.Single().ToArray());
+			CollectionAssert.AreEqual(new[] {"System.Size", "System.DateModified"}, propertySources[id].Requests.Single().ToArray());
 			Assert.AreEqual(1, thumbnailSources[id].CallCount);
 			Assert.AreEqual(16, thumbnailSources[id].Requests.Single().RequestedSize);
 			Assert.AreEqual(24, thumbnailSources[id].Requests.Single().RequestedPixelSize);
-			Assert.AreEqual(
-				ThumbnailMode.PreferContent,
-				thumbnailSources[id].Requests.Single().Mode);
+			Assert.AreEqual(ThumbnailMode.PreferContent, thumbnailSources[id].Requests.Single().Mode);
 		}
 
 		Assert.AreEqual(0, propertySources["d"].CallCount);
@@ -92,58 +79,33 @@ public sealed class BrowsePrefetchCoordinatorTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
 		var firstProperties = new TestPropertySource
 		{
-			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(
-				new Dictionary<string, object?>
-				{
-					["System.Size"] = 20L,
-				}),
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = 20L,}),
 		};
 		var secondProperties = new TestPropertySource
 		{
-			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(
-				new Dictionary<string, object?>
-				{
-					["System.Size"] = 10L,
-				}),
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = 10L,}),
 		};
 		var firstThumbnail = new TestThumbnailSource
 		{
-			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(
-				new ThumbnailResult(new byte[] { 1 }, "image/png", false)),
+			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] {1}, "image/png", false)),
 		};
 		var secondThumbnail = new TestThumbnailSource
 		{
-			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(
-				new ThumbnailResult(new byte[] { 2 }, "image/png", false)),
+			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] {2}, "image/png", false)),
 		};
-		var first = factory.CreateModel(
-			"first",
-			"Alpha",
-			out _,
-			propertySource: firstProperties,
-			thumbnailSource: firstThumbnail);
-		var second = factory.CreateModel(
-			"second",
-			"Beta",
-			out _,
-			propertySource: secondProperties,
-			thumbnailSource: secondThumbnail);
+		var first = factory.CreateModel("first", "Alpha", out _, propertySource: firstProperties, thumbnailSource: firstThumbnail);
+		var second = factory.CreateModel("second", "Beta", out _, propertySource: secondProperties, thumbnailSource: secondThumbnail);
 		var resolver = new TestBrowseLocationResolver([first, second])
 		{
 			LocationModelFactory = _ => locationModel,
 		};
 		using var session = new BrowseSessionModel(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
-		var settings = new BrowseViewSettings(
-			columns: [new ViewColumnSettings("System.Size", 120, 0)],
-			sortPropertyId: "System.Size");
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)], sortPropertyId: "System.Size");
 		await session.UpdateViewSettingsAsync(settings);
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
 
-		coordinator.UpdateViewport(
-			new BrowseViewport(0, 2, 0),
-			settings,
-			session.Generation);
+		coordinator.UpdateViewport(new BrowseViewport(0, 2, 0), settings, session.Generation);
 
 		await WaitUntilAsync(() =>
 			session.TryGetPresentation(first.Reference.GetKey(), out var firstPresentation)
@@ -153,13 +115,9 @@ public sealed class BrowsePrefetchCoordinatorTests
 
 		Assert.AreSame(second, session.Items[0]);
 		Assert.AreSame(first, session.Items[1]);
-		Assert.IsTrue(session.TryGetPresentation(
-			first.Reference.GetKey(),
-			out var presentation));
+		Assert.IsTrue(session.TryGetPresentation(first.Reference.GetKey(), out var presentation));
 		Assert.AreEqual(20L, presentation.Properties["System.Size"]);
-		CollectionAssert.AreEqual(
-			new byte[] { 1 },
-			presentation.Thumbnail!.Content.ToArray());
+		CollectionAssert.AreEqual(new byte[] {1}, presentation.Thumbnail!.Content.ToArray());
 	}
 
 	[TestMethod]
@@ -187,11 +145,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				return new Dictionary<string, object?>();
 			},
 		};
-		var item = factory.CreateModel(
-			"item",
-			"Item",
-			out _,
-			propertySource: propertySource);
+		var item = factory.CreateModel("item", "Item", out _, propertySource: propertySource);
 		var resolver = new TestBrowseLocationResolver([item])
 		{
 			LocationModelFactory = _ => locationModel,
@@ -199,8 +153,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		using var session = new BrowseSessionModel(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
-		var settings = new BrowseViewSettings(
-			columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
 
 		coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
 		await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -236,11 +189,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				return new Dictionary<string, object?>();
 			},
 		};
-		var firstItemWithSource = factory.CreateModel(
-			"first-item",
-			"First Item",
-			out _,
-			propertySource: firstPropertySource);
+		var firstItemWithSource = factory.CreateModel("first-item", "First Item", out _, propertySource: firstPropertySource);
 		var locationModels = new Queue<IStorableModel>([firstLocation, secondLocation]);
 		var resolver = new TestBrowseLocationResolver([firstItemWithSource])
 		{
@@ -291,12 +240,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 			},
 		};
 		var oldThumbnail = new TestThumbnailSource();
-		var previous = factory.CreateModel(
-			"item",
-			"Before",
-			out _,
-			propertySource: oldProperties,
-			thumbnailSource: oldThumbnail);
+		var previous = factory.CreateModel("item", "Before", out _, propertySource: oldProperties, thumbnailSource: oldThumbnail);
 		var replacement = factory.CreateModel("item", "After", out _);
 		var resolver = new TestBrowseLocationResolver([previous])
 		{
@@ -306,28 +250,18 @@ public sealed class BrowsePrefetchCoordinatorTests
 		using var session = new BrowseSessionModel(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
-		var settings = new BrowseViewSettings(
-			columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
 		var generation = session.Generation;
-		coordinator.UpdateViewport(
-			new BrowseViewport(0, 1),
-			settings,
-			generation);
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, generation);
 		await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-		changes.RaiseChange(new FolderChange(
-			FolderChangeKind.Updated,
-			replacement.Reference,
-			null,
-			RequiresRefresh: false));
+		changes.RaiseChange(new FolderChange(FolderChangeKind.Updated, replacement.Reference, null, RequiresRefresh: false));
 
 		await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), replacement));
 		Assert.AreEqual(generation, session.Generation);
 		Assert.AreEqual(0, oldThumbnail.CallCount);
-		Assert.IsFalse(session.TryGetPresentation(
-			replacement.Reference.GetKey(),
-			out _));
+		Assert.IsFalse(session.TryGetPresentation(replacement.Reference.GetKey(), out _));
 	}
 
 	[TestMethod]
@@ -336,12 +270,9 @@ public sealed class BrowsePrefetchCoordinatorTests
 		var factory = new TestModelFactory();
 		var changes = new TestFolderChangeSource();
 		var locationModel = factory.CreateModel("folder", "Folder", out _, changes);
-		var entered = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
-		var release = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
-		var returned = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var returned = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var oldProperties = new TestPropertySource
 		{
 			Handler = async (_, _) =>
@@ -355,11 +286,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				};
 			},
 		};
-		var previous = factory.CreateModel(
-			"item",
-			"Before",
-			out _,
-			propertySource: oldProperties);
+		var previous = factory.CreateModel("item", "Before", out _, propertySource: oldProperties);
 		var replacement = factory.CreateModel("item", "After", out _);
 		var resolver = new TestBrowseLocationResolver([previous])
 		{
@@ -369,27 +296,17 @@ public sealed class BrowsePrefetchCoordinatorTests
 		using var session = new BrowseSessionModel(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
-		var settings = new BrowseViewSettings(
-			columns: [new ViewColumnSettings("System.Size", 120, 0)]);
-		coordinator.UpdateViewport(
-			new BrowseViewport(0, 1),
-			settings,
-			session.Generation);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
 		await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-		changes.RaiseChange(new FolderChange(
-			FolderChangeKind.Updated,
-			replacement.Reference,
-			null,
-			RequiresRefresh: false));
+		changes.RaiseChange(new FolderChange(FolderChangeKind.Updated, replacement.Reference, null, RequiresRefresh: false));
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), replacement));
 		release.TrySetResult(true);
 		await returned.Task.WaitAsync(TimeSpan.FromSeconds(5));
 		await coordinator.DisposeAsync();
 
-		Assert.IsFalse(session.TryGetPresentation(
-			replacement.Reference.GetKey(),
-			out _));
+		Assert.IsFalse(session.TryGetPresentation(replacement.Reference.GetKey(), out _));
 	}
 
 	private static async Task WaitUntilAsync(Func<bool> condition)

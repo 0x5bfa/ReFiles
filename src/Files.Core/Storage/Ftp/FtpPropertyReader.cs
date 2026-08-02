@@ -81,9 +81,6 @@ public sealed class FtpPropertyReader : IPropertyReader
 		return ValueTask.FromResult<
 			IReadOnlyDictionary<
 				StorableReference,
-				IReadOnlyDictionary<string, object?>>>(
-			new ReadOnlyDictionary<
-				StorableReference,
-				IReadOnlyDictionary<string, object?>>(results));
+				IReadOnlyDictionary<string, object?>>>(new ReadOnlyDictionary< StorableReference, IReadOnlyDictionary<string, object?>>(results));
 	}
 }

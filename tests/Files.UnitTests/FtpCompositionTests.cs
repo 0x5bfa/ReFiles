@@ -18,26 +18,10 @@ public sealed class FtpCompositionTests
 	public async Task BuilderAddsFtpPropertiesPreviewsAndOperations()
 	{
 		var sessions = new InMemoryFtpSessionFactory();
-		sessions.AddFile(
-			"/notes.txt",
-			new byte[37],
-			new DateTimeOffset(
-				2026,
-				7,
-				26,
-				0,
-				0,
-				0,
-				TimeSpan.Zero));
-		var profile = new FtpConnectionProfile(
-			"composition",
-			"Composition FTP",
-			"example.test");
+		sessions.AddFile("/notes.txt", new byte[37], new DateTimeOffset(2026, 7, 26, 0, 0, 0, TimeSpan.Zero));
+		var profile = new FtpConnectionProfile("composition", "Composition FTP", "example.test");
 		var runtime = new FilesCoreBuilder()
-			.AddFtpStorage(
-				profile,
-				sessionFactory: sessions,
-				enableArchives: false)
+			.AddFtpStorage(profile, sessionFactory: sessions, enableArchives: false)
 			.Build();
 
 		try
@@ -46,30 +30,17 @@ public sealed class FtpCompositionTests
 				.DataRoot
 				.Sources
 				.Single();
-			await using var model = await runtime.DataRoot.ResolveAsync(
-				source.SourceId,
-				source.CreateAddress(
-					FtpPath.Parse("/notes.txt")));
+			await using var model = await runtime.DataRoot.ResolveAsync(source.SourceId, source.CreateAddress(FtpPath.Parse("/notes.txt")));
 			var properties = model.Get<IPropertySource>();
 			var preview = model.Get<IPreviewSource>();
 			Assert.IsNotNull(properties);
 			Assert.IsNotNull(preview);
 
-			var values = await properties.GetPropertiesAsync(
-				new PropertyRequest(
-					["System.Size", "System.DateModified"]));
-			Assert.AreEqual(
-				(ulong)37,
-				(ulong)values["System.Size"]!);
-			Assert.IsTrue(
-				values.ContainsKey("System.DateModified"));
+			var values = await properties.GetPropertiesAsync(new PropertyRequest(["System.Size", "System.DateModified"]));
+			Assert.AreEqual((ulong)37, (ulong)values["System.Size"]!);
+			Assert.IsTrue(values.ContainsKey("System.DateModified"));
 
-			Assert.IsTrue(
-				runtime.StorageOperations.CanHandle(
-					new RenameOperationRequest(
-						source.CreateReference(
-							FtpPath.Parse("/notes.txt")),
-						"renamed.txt")));
+			Assert.IsTrue(runtime.StorageOperations.CanHandle(new RenameOperationRequest(source.CreateReference(FtpPath.Parse("/notes.txt")), "renamed.txt")));
 		}
 		finally
 		{

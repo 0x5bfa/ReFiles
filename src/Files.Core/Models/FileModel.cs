@@ -9,10 +9,7 @@ namespace Files.Core.Models;
 
 public sealed class FileModel : StorableModel, IFileModel
 {
-	public FileModel(
-		IFile file,
-		StorableReference reference,
-		IItemFeatures features)
+	public FileModel(IFile file, StorableReference reference, IItemFeatures features)
 		: base(file, reference, features)
 	{
 		File = file;

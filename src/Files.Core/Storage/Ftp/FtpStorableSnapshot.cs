@@ -15,17 +15,9 @@ internal sealed record FtpStorableSnapshot(
 	DateTimeOffset? DateCreated,
 	string? LinkTarget)
 {
-	public static FtpStorableSnapshot FromEntry(
-		FtpEntryInfo entry)
+	public static FtpStorableSnapshot FromEntry(FtpEntryInfo entry)
 	{
 		ArgumentNullException.ThrowIfNull(entry);
-		return new FtpStorableSnapshot(
-			entry.Path,
-			entry.Name,
-			entry.Kind,
-			entry.Size,
-			entry.DateModified,
-			entry.DateCreated,
-			entry.LinkTarget);
+		return new FtpStorableSnapshot(entry.Path, entry.Name, entry.Kind, entry.Size, entry.DateModified, entry.DateCreated, entry.LinkTarget);
 	}
 }

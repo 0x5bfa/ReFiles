@@ -8,9 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal sealed record WindowsItemLocator
 {
-	public WindowsItemLocator(
-		ReadOnlyMemory<byte> absolutePidl,
-		string parsingName)
+	public WindowsItemLocator(ReadOnlyMemory<byte> absolutePidl, string parsingName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		AbsolutePidl = absolutePidl;

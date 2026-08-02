@@ -12,9 +12,7 @@ public sealed class ToolbarViewModel : ObservableObject, IDisposable
 	private TabViewModel? activeTab;
 	private int isDisposed;
 
-	internal ToolbarViewModel(
-		CommandBindingViewModel newPaneCommand,
-		CommandBindingViewModel closePaneCommand)
+	internal ToolbarViewModel(CommandBindingViewModel newPaneCommand, CommandBindingViewModel closePaneCommand)
 	{
 		ArgumentNullException.ThrowIfNull(newPaneCommand);
 		ArgumentNullException.ThrowIfNull(closePaneCommand);
@@ -64,9 +62,7 @@ public sealed class ToolbarViewModel : ObservableObject, IDisposable
 		}
 	}
 
-	private void ActiveTab_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void ActiveTab_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is null
 			or nameof(TabViewModel.Title))

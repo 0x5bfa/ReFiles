@@ -13,20 +13,12 @@ public sealed class StorageIdentityTests
 	public void LastKnownAddressDoesNotParticipateInReferenceIdentity()
 	{
 		var sourceId = new StorageSourceId("source");
-		var before = new StorableReference(
-			sourceId,
-			"item",
-			new StorageAddress("file", @"C:\before.txt"));
-		var after = new StorableReference(
-			sourceId,
-			"item",
-			new StorageAddress("file", @"C:\after.txt"));
+		var before = new StorableReference(sourceId, "item", new StorageAddress("file", @"C:\before.txt"));
+		var after = new StorableReference(sourceId, "item", new StorageAddress("file", @"C:\after.txt"));
 
 		Assert.AreEqual(before, after);
 		Assert.AreEqual(before.GetHashCode(), after.GetHashCode());
-		Assert.AreEqual(
-			new FolderLocation(before),
-			new FolderLocation(after));
+		Assert.AreEqual(new FolderLocation(before), new FolderLocation(after));
 	}
 
 	[TestMethod]

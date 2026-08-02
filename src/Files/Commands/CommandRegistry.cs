@@ -9,8 +9,7 @@ public sealed class CommandRegistry
 {
 	private readonly IReadOnlyDictionary<CommandId, CommandRegistration> registrations;
 
-	internal CommandRegistry(
-		IReadOnlyDictionary<CommandId, CommandRegistration> registrations)
+	internal CommandRegistry(IReadOnlyDictionary<CommandId, CommandRegistration> registrations)
 	{
 		this.registrations = registrations;
 		Descriptors = registrations.Values
@@ -23,16 +22,11 @@ public sealed class CommandRegistry
 
 	public IReadOnlyList<CommandDescriptor> Descriptors { get; }
 
-	internal IReadOnlyDictionary<CommandId, ICommandHandler> CreateHandlers(
-		RootViewModel root)
+	internal IReadOnlyDictionary<CommandId, ICommandHandler> CreateHandlers(RootViewModel root)
 	{
 		ArgumentNullException.ThrowIfNull(root);
-		return registrations.ToDictionary(
-			static entry => entry.Key,
-			entry => entry.Value.Factory(root));
+		return registrations.ToDictionary(static entry => entry.Key, entry => entry.Value.Factory(root));
 	}
 
-	internal sealed record CommandRegistration(
-		CommandDescriptor Descriptor,
-		Func<RootViewModel, ICommandHandler> Factory);
+	internal sealed record CommandRegistration(CommandDescriptor Descriptor, Func<RootViewModel, ICommandHandler> Factory);
 }

@@ -5,9 +5,7 @@ using Files.ViewModels;
 
 namespace Files.Commands;
 
-public sealed record CommandContext(
-	RootViewModel Root,
-	object? Parameter = null)
+public sealed record CommandContext(RootViewModel Root, object? Parameter = null)
 {
 	public TabViewModel? ActiveTab => Root.ActiveTab;
 

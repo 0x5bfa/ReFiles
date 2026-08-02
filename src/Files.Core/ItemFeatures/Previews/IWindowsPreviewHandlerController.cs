@@ -17,9 +17,7 @@ public interface IWindowsPreviewHandlerController : IDisposable
 
 	void SetBounds(WindowsPreviewBounds bounds);
 
-	void SetTheme(
-		WindowsPreviewColor background,
-		WindowsPreviewColor foreground);
+	void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground);
 
 	void DoPreview();
 

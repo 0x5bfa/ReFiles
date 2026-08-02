@@ -5,9 +5,7 @@ namespace Files.Core.Storage.Archives;
 
 public sealed class ArchiveOpenException : Exception
 {
-	public ArchiveOpenException(
-		string message,
-		Exception? innerException = null)
+	public ArchiveOpenException(string message, Exception? innerException = null)
 		: base(message, innerException)
 	{
 	}

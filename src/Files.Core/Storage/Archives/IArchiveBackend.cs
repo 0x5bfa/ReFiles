@@ -11,7 +11,5 @@ public interface IArchiveBackend
 
 	bool SupportsEncryptedArchives { get; }
 
-	ValueTask<ArchiveMountResult> TryMountAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken = default);
+	ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default);
 }

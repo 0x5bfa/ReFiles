@@ -19,10 +19,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	private const string AddressPrefix = "winshell-address:v1:";
 	private const FileOptions BackupSemantics = (FileOptions)0x02000000;
 
-	public string GetItemId(
-		IShellItem shellItem,
-		string parsingName,
-		string? fileSystemPath)
+	public string GetItemId(IShellItem shellItem, string parsingName, string? fileSystemPath)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
@@ -42,9 +39,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		return CreateAddressIdentity(parsingName);
 	}
 
-	public bool TryGetParsingName(
-		string itemId,
-		out string parsingName)
+	public bool TryGetParsingName(string itemId, out string parsingName)
 	{
 		parsingName = string.Empty;
 
@@ -62,20 +57,13 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		return itemId.StartsWith(FileIdentityPrefix, StringComparison.Ordinal);
 	}
 
-	private static bool TryGetFileId(
-		string fileSystemPath,
-		out WindowsFileId fileId)
+	private static bool TryGetFileId(string fileSystemPath, out WindowsFileId fileId)
 	{
 		fileId = default;
 
 		try
 		{
-			using var handle = File.OpenHandle(
-				fileSystemPath,
-				FileMode.Open,
-				FileAccess.Read,
-				FileShare.ReadWrite | FileShare.Delete,
-				BackupSemantics);
+			using var handle = File.OpenHandle(fileSystemPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, BackupSemantics);
 
 			if (handle.IsInvalid
 				|| !PInvoke.GetFileInformationByHandle(handle, out var information))
@@ -112,9 +100,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 			.Replace('/', '_');
 	}
 
-	private static bool TryDecodeAddress(
-		string encodedAddress,
-		out string parsingName)
+	private static bool TryDecodeAddress(string encodedAddress, out string parsingName)
 	{
 		parsingName = string.Empty;
 
@@ -128,9 +114,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 			var paddedAddress = encodedAddress
 				.Replace('-', '+')
 				.Replace('_', '/');
-			paddedAddress = paddedAddress.PadRight(
-				paddedAddress.Length + ((4 - paddedAddress.Length % 4) % 4),
-				'=');
+			paddedAddress = paddedAddress.PadRight(paddedAddress.Length + ((4 - paddedAddress.Length % 4) % 4), '=');
 			parsingName = Encoding.UTF8.GetString(Convert.FromBase64String(paddedAddress));
 			return !string.IsNullOrWhiteSpace(parsingName);
 		}
@@ -140,8 +124,5 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		}
 	}
 
-	private readonly record struct WindowsFileId(
-		uint VolumeSerialNumber,
-		ulong FileIndex,
-		uint NumberOfLinks);
+	private readonly record struct WindowsFileId(uint VolumeSerialNumber, ulong FileIndex, uint NumberOfLinks);
 }

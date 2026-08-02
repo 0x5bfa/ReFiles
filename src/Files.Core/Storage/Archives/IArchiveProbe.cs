@@ -5,7 +5,5 @@ namespace Files.Core.Storage.Archives;
 
 public interface IArchiveProbe
 {
-	ValueTask<ArchiveProbeResult> ProbeAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken = default);
+	ValueTask<ArchiveProbeResult> ProbeAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default);
 }

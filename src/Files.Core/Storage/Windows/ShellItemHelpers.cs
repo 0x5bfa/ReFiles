@@ -13,33 +13,22 @@ namespace Files.Core.Storage.Windows;
 
 internal static unsafe class ShellItemHelpers
 {
-	public static WindowsStorableDescriptor CreateDescriptor(
-		IShellItem shellItem,
-		IWindowsItemIdReader itemIdReader)
+	public static WindowsStorableDescriptor CreateDescriptor(IShellItem shellItem, IWindowsItemIdReader itemIdReader)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 		ArgumentNullException.ThrowIfNull(itemIdReader);
 
-		var result = shellItem.GetAttributes(
-			SFGAO_FLAGS.SFGAO_FOLDER
-				| SFGAO_FLAGS.SFGAO_FILESYSTEM
-				| SFGAO_FLAGS.SFGAO_STREAM,
-			out var attributes);
+		var result = shellItem.GetAttributes(SFGAO_FLAGS.SFGAO_FOLDER | SFGAO_FLAGS.SFGAO_FILESYSTEM | SFGAO_FLAGS.SFGAO_STREAM, out var attributes);
 		result.ThrowOnFailure();
 
-		var parsingName = GetRequiredDisplayName(
-			shellItem,
-			SIGDN.SIGDN_DESKTOPABSOLUTEPARSING);
+		var parsingName = GetRequiredDisplayName(shellItem, SIGDN.SIGDN_DESKTOPABSOLUTEPARSING);
 		var name = TryGetDisplayName(shellItem, SIGDN.SIGDN_PARENTRELATIVEFORUI)
 			?? TryGetDisplayName(shellItem, SIGDN.SIGDN_NORMALDISPLAY)
 			?? parsingName;
 		var fileSystemPath = (attributes & SFGAO_FLAGS.SFGAO_FILESYSTEM) != 0
 			? TryGetDisplayName(shellItem, SIGDN.SIGDN_FILESYSPATH)
 			: null;
-		var itemId = itemIdReader.GetItemId(
-			shellItem,
-			parsingName,
-			fileSystemPath);
+		var itemId = itemIdReader.GetItemId(shellItem, parsingName, fileSystemPath);
 
 		var snapshot = new WindowsStorableSnapshot(
 			itemId,
@@ -51,11 +40,7 @@ internal static unsafe class ShellItemHelpers
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
 
-		return new WindowsStorableDescriptor(
-			itemId,
-			address,
-			new WindowsItemLocator(CopyAbsolutePidl(shellItem), parsingName),
-			snapshot);
+		return new WindowsStorableDescriptor(itemId, address, new WindowsItemLocator(CopyAbsolutePidl(shellItem), parsingName), snapshot);
 	}
 
 	private static unsafe ReadOnlyMemory<byte> CopyAbsolutePidl(IShellItem shellItem)

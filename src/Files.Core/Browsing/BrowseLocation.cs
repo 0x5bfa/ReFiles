@@ -21,9 +21,7 @@ public sealed record FolderLocation : BrowseLocation
 
 public sealed record ArchiveLocation : BrowseLocation
 {
-	public ArchiveLocation(
-		StorableReference archive,
-		string? entryPath = null)
+	public ArchiveLocation(StorableReference archive, string? entryPath = null)
 	{
 		ArgumentNullException.ThrowIfNull(archive);
 
@@ -32,10 +30,7 @@ public sealed record ArchiveLocation : BrowseLocation
 	}
 
 	public ArchiveLocation(IArchiveEntry entry)
-		: this(
-			entry?.Archive
-				?? throw new ArgumentNullException(nameof(entry)),
-			entry?.EntryPath)
+		: this(entry?.Archive ?? throw new ArgumentNullException(nameof(entry)), entry?.EntryPath)
 	{
 	}
 

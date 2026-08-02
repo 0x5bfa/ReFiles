@@ -15,9 +15,7 @@ public sealed class StorableModelLifetimeTests
 	{
 		var order = new List<string>();
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<AsyncOrderFeature>(
-				new DelegateItemFeatureFactory<AsyncOrderFeature>(
-					_ => new AsyncOrderFeature(order)))
+			.Add<AsyncOrderFeature>(new DelegateItemFeatureFactory<AsyncOrderFeature>(_ => new AsyncOrderFeature(order)))
 			.Build();
 		var factory = new StorableModelFactory(featureRegistry);
 		var coreModel = new AsyncOrderStorable("item", "Item", order);
@@ -26,22 +24,14 @@ public sealed class StorableModelLifetimeTests
 		Assert.IsNotNull(model.Get<AsyncOrderFeature>());
 		await model.DisposeAsync();
 
-		CollectionAssert.AreEqual(
-			new[] { "feature", "core" },
-			order);
+		CollectionAssert.AreEqual(new[] {"feature", "core"}, order);
 	}
 
 	[TestMethod]
 	public async Task BrowseSessionAwaitsItemDisposalDuringReplacementAndShutdown()
 	{
-		var firstCore = new AsyncOrderStorable(
-			"first",
-			"First",
-			[]);
-		var secondCore = new AsyncOrderStorable(
-			"second",
-			"Second",
-			[]);
+		var firstCore = new AsyncOrderStorable("first", "First", []);
+		var secondCore = new AsyncOrderStorable("second", "Second", []);
 		var source = new TestStorageSource();
 		var factory = new StorableModelFactory();
 		var firstModel = factory.Create(source, firstCore);
@@ -72,14 +62,10 @@ public sealed class StorableModelLifetimeTests
 	[TestMethod]
 	public void FailedConstructionDisposesAsyncCoreModel()
 	{
-		var coreModel = new AsyncOrderStorable(
-			string.Empty,
-			"Invalid",
-			[]);
+		var coreModel = new AsyncOrderStorable(string.Empty, "Invalid", []);
 		var factory = new StorableModelFactory();
 
-		Assert.Throws<ArgumentException>(
-			() => factory.Create(new TestStorageSource(), coreModel));
+		Assert.Throws<ArgumentException>(() => factory.Create(new TestStorageSource(), coreModel));
 
 		Assert.IsTrue(coreModel.IsDisposed);
 	}
@@ -104,10 +90,7 @@ public sealed class StorableModelLifetimeTests
 	{
 		private readonly IList<string> order;
 
-		public AsyncOrderStorable(
-			string id,
-			string name,
-			IList<string> order)
+		public AsyncOrderStorable(string id, string name, IList<string> order)
 		{
 			Id = id;
 			Name = name;

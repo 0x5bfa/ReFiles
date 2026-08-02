@@ -29,10 +29,7 @@ public sealed class TabModel : IAsyncDisposable
 	private volatile bool isDisposed;
 	private PaneSplitOrientation splitOrientation;
 
-	public TabModel(
-		IBrowsePaneFactory paneFactory,
-		PaneModel primaryPane,
-		Guid? id = null)
+	public TabModel(IBrowsePaneFactory paneFactory, PaneModel primaryPane, Guid? id = null)
 	{
 		ArgumentNullException.ThrowIfNull(paneFactory);
 		ArgumentNullException.ThrowIfNull(primaryPane);
@@ -40,9 +37,7 @@ public sealed class TabModel : IAsyncDisposable
 		Id = id ?? Guid.NewGuid();
 		if (Id == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A tab ID cannot be empty.",
-				nameof(id));
+			throw new ArgumentException("A tab ID cannot be empty.", nameof(id));
 		}
 
 		this.paneFactory = paneFactory;
@@ -89,15 +84,11 @@ public sealed class TabModel : IAsyncDisposable
 		if (orientation is not PaneSplitOrientation.Vertical
 			and not PaneSplitOrientation.Horizontal)
 		{
-			throw new ArgumentOutOfRangeException(
-				nameof(orientation),
-				"A split pane requires a vertical or horizontal orientation.");
+			throw new ArgumentOutOfRangeException(nameof(orientation), "A split pane requires a vertical or horizontal orientation.");
 		}
 
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await mutationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -110,8 +101,7 @@ public sealed class TabModel : IAsyncDisposable
 			{
 				if (panes.Count >= 2)
 				{
-					throw new InvalidOperationException(
-						"A tab cannot contain more than two panes.");
+					throw new InvalidOperationException("A tab cannot contain more than two panes.");
 				}
 
 				initialLocation ??= panes
@@ -155,10 +145,7 @@ public sealed class TabModel : IAsyncDisposable
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Split-pane creation and cleanup failed.",
-					creationError,
-					cleanupError);
+				throw new AggregateException("Split-pane creation and cleanup failed.", creationError, cleanupError);
 			}
 
 			throw;
@@ -169,21 +156,15 @@ public sealed class TabModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask<bool> ClosePaneAsync(
-		Guid paneId,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<bool> ClosePaneAsync(Guid paneId, CancellationToken cancellationToken = default)
 	{
 		if (paneId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A pane ID is required.",
-				nameof(paneId));
+			throw new ArgumentException("A pane ID is required.", nameof(paneId));
 		}
 
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await mutationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -237,9 +218,7 @@ public sealed class TabModel : IAsyncDisposable
 	{
 		if (paneId == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A pane ID is required.",
-				nameof(paneId));
+			throw new ArgumentException("A pane ID is required.", nameof(paneId));
 		}
 
 		var changed = false;
@@ -271,9 +250,7 @@ public sealed class TabModel : IAsyncDisposable
 		if (orientation is not PaneSplitOrientation.Vertical
 			and not PaneSplitOrientation.Horizontal)
 		{
-			throw new ArgumentOutOfRangeException(
-				nameof(orientation),
-				"Close the secondary pane to remove a split.");
+			throw new ArgumentOutOfRangeException(nameof(orientation), "Close the secondary pane to remove a split.");
 		}
 
 		var changed = false;
@@ -365,17 +342,13 @@ public sealed class TabModel : IAsyncDisposable
 
 		if (errors is { Count: > 1 })
 		{
-			throw new AggregateException(
-				"One or more tab panes could not be disposed.",
-				errors);
+			throw new AggregateException("One or more tab panes could not be disposed.", errors);
 		}
 	}
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(
-			ref paneSnapshot,
-			Array.AsReadOnly(panes.ToArray()));
+		Volatile.Write(ref paneSnapshot, Array.AsReadOnly(panes.ToArray()));
 	}
 
 	private void EnsureActive()

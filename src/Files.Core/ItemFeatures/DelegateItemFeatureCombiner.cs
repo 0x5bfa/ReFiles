@@ -14,19 +14,13 @@ public sealed class DelegateItemFeatureCombiner<TFeature> : IItemFeatureCombiner
 		IReadOnlyList<ItemFeatureOption<TFeature>>,
 		TFeature?> combine;
 
-	public DelegateItemFeatureCombiner(
-		Func<
-			ItemContext,
-			IReadOnlyList<ItemFeatureOption<TFeature>>,
-			TFeature?> combine)
+	public DelegateItemFeatureCombiner(Func< ItemContext, IReadOnlyList<ItemFeatureOption<TFeature>>, TFeature?> combine)
 	{
 		ArgumentNullException.ThrowIfNull(combine);
 		this.combine = combine;
 	}
 
-	public TFeature? Combine(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<TFeature>> options)
+	public TFeature? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);

@@ -9,10 +9,7 @@ namespace Files.Core.Storage.Ftp;
 public sealed class FtpAuthenticationRequiredException :
 	UnauthorizedAccessException
 {
-	public FtpAuthenticationRequiredException(
-		string connectionId,
-		string message,
-		Exception? innerException = null)
+	public FtpAuthenticationRequiredException(string connectionId, string message, Exception? innerException = null)
 		: base(message, innerException)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(connectionId);

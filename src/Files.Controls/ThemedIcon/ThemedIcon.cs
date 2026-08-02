@@ -22,10 +22,7 @@ namespace Files.Controls
 		public ThemedIcon()
 		{
 			DefaultStyleKey = typeof(ThemedIcon);
-			_stylePropertyChangedToken = RegisterPropertyChangedCallback(
-				StyleProperty,
-				OnStylePropertyChanged
-			);
+			_stylePropertyChangedToken = RegisterPropertyChangedCallback(StyleProperty, OnStylePropertyChanged);
 
 			Unloaded += OnUnloaded;
 		}
@@ -139,10 +136,7 @@ namespace Files.Controls
 						}
 						else
 						{
-							VisualStateManager.GoToState(
-								this,
-								IconType is ThemedIconTypes.Layered ? LayeredTypeStateName : OutlineTypeStateName,
-								true);
+							VisualStateManager.GoToState(this, IconType is ThemedIconTypes.Layered ? LayeredTypeStateName : OutlineTypeStateName, true);
 						}
 					}
 					break;
@@ -161,10 +155,7 @@ namespace Files.Controls
 						}
 						else
 						{
-							VisualStateManager.GoToState(
-								this,
-								IconType is ThemedIconTypes.Layered ? LayeredTypeStateName : OutlineTypeStateName,
-								true);
+							VisualStateManager.GoToState(this, IconType is ThemedIconTypes.Layered ? LayeredTypeStateName : OutlineTypeStateName, true);
 						}
 					}
 					break;

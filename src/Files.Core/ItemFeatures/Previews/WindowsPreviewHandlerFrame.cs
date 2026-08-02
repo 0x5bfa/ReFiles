@@ -61,10 +61,7 @@ internal sealed unsafe class WindowsPreviewHandlerFrame
 	}
 
 	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]
-	private static int QueryInterface(
-		nint instance,
-		Guid* interfaceId,
-		nint* result)
+	private static int QueryInterface(nint instance, Guid* interfaceId, nint* result)
 	{
 		if (interfaceId is null || result is null)
 		{

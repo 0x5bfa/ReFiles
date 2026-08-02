@@ -11,20 +11,13 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed record BrowseItemPresentation
 {
-	public BrowseItemPresentation(
-		IReadOnlyDictionary<string, object?>? properties = null,
-		ThumbnailResult? thumbnail = null)
+	public BrowseItemPresentation(IReadOnlyDictionary<string, object?>? properties = null, ThumbnailResult? thumbnail = null)
 	{
 		Properties = new ReadOnlyDictionary<string, object?>(
-			new Dictionary<string, object?>(
-				properties ?? new Dictionary<string, object?>(),
-				StringComparer.Ordinal));
+			new Dictionary<string, object?>(properties ?? new Dictionary<string, object?>(), StringComparer.Ordinal));
 		Thumbnail = thumbnail is null
 			? null
-			: new ThumbnailResult(
-				thumbnail.Content.ToArray(),
-				thumbnail.ContentType,
-				thumbnail.IsFallback);
+			: new ThumbnailResult(thumbnail.Content.ToArray(), thumbnail.ContentType, thumbnail.IsFallback);
 	}
 
 	public IReadOnlyDictionary<string, object?> Properties { get; }
@@ -34,9 +27,7 @@ public sealed record BrowseItemPresentation
 
 public sealed class BrowseItemPresentationChangedEventArgs : EventArgs
 {
-	public BrowseItemPresentationChangedEventArgs(
-		StorableKey key,
-		BrowseItemPresentation presentation)
+	public BrowseItemPresentationChangedEventArgs(StorableKey key, BrowseItemPresentation presentation)
 	{
 		ArgumentNullException.ThrowIfNull(presentation);
 

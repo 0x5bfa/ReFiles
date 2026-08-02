@@ -25,9 +25,7 @@ public enum StorageItemKind
 /// </summary>
 public sealed record RenameOperationRequest : StorageOperationRequest
 {
-	public RenameOperationRequest(
-		StorableReference item,
-		string newName)
+	public RenameOperationRequest(StorableReference item, string newName)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		ArgumentException.ThrowIfNullOrWhiteSpace(newName);
@@ -76,8 +74,7 @@ public sealed record CreateItemOperationRequest : StorageOperationRequest
 
 	public StorageConflictBehavior ConflictBehavior { get; }
 
-	private static void ValidateConflictBehavior(
-		StorageConflictBehavior conflictBehavior)
+	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
 		if (conflictBehavior is not StorageConflictBehavior.Fail
 			and not StorageConflictBehavior.GenerateUniqueName)
@@ -121,8 +118,7 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 
 	public StorageConflictBehavior ConflictBehavior { get; }
 
-	private static void ValidateConflictBehavior(
-		StorageConflictBehavior conflictBehavior)
+	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
 		if (conflictBehavior is not StorageConflictBehavior.Fail
 			and not StorageConflictBehavior.GenerateUniqueName)
@@ -166,8 +162,7 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 
 	public StorageConflictBehavior ConflictBehavior { get; }
 
-	private static void ValidateConflictBehavior(
-		StorageConflictBehavior conflictBehavior)
+	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
 		if (conflictBehavior is not StorageConflictBehavior.Fail
 			and not StorageConflictBehavior.GenerateUniqueName)
@@ -182,9 +177,7 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record DeleteOperationRequest : StorageOperationRequest
 {
-	public DeleteOperationRequest(
-		StorableReference item,
-		bool permanently = false)
+	public DeleteOperationRequest(StorableReference item, bool permanently = false)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		Item = item;

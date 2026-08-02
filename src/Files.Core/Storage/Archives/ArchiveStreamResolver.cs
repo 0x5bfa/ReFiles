@@ -8,9 +8,7 @@ namespace Files.Core.Storage.Archives;
 
 internal static class ArchiveStreamResolver
 {
-	public static async ValueTask<Stream?> OpenSeekableReadAsync(
-		ArchiveMountRequest request,
-		CancellationToken cancellationToken)
+	public static async ValueTask<Stream?> OpenSeekableReadAsync(ArchiveMountRequest request, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -82,9 +80,7 @@ internal static class ArchiveStreamResolver
 
 	public static FileStream CreateTemporaryStream()
 	{
-		var path = Path.Combine(
-			Path.GetTempPath(),
-			$"Files-{Guid.NewGuid():N}.archive");
+		var path = Path.Combine(Path.GetTempPath(), $"Files-{Guid.NewGuid():N}.archive");
 
 		return new FileStream(
 			path,

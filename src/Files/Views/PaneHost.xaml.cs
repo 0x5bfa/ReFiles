@@ -13,11 +13,7 @@ public sealed partial class PaneHost : UserControl
 	private TabViewModel? subscribedViewModel;
 
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(TabViewModel),
-			typeof(PaneHost),
-			new PropertyMetadata(null, ViewModelChanged));
+		DependencyProperty.Register(nameof(ViewModel), typeof(TabViewModel), typeof(PaneHost), new PropertyMetadata(null, ViewModelChanged));
 
 	public PaneHost()
 	{
@@ -33,17 +29,14 @@ public sealed partial class PaneHost : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
-	private static void ViewModelChanged(
-		DependencyObject sender,
-		DependencyPropertyChangedEventArgs args)
+	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
 	{
 		if (sender is not PaneHost paneHost)
 		{
 			return;
 		}
 
-		paneHost.SetSubscribedViewModel(
-			paneHost.IsLoaded ? args.NewValue as TabViewModel : null);
+		paneHost.SetSubscribedViewModel(paneHost.IsLoaded ? args.NewValue as TabViewModel : null);
 		paneHost.UpdateLayoutOrientation();
 	}
 
@@ -75,9 +68,7 @@ public sealed partial class PaneHost : UserControl
 		}
 	}
 
-	private void ViewModel_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is nameof(TabViewModel.SplitOrientation))
 		{
@@ -102,13 +93,9 @@ public sealed partial class PaneHost : UserControl
 		}
 	}
 
-	private void PaneHost_SizeChanged(
-		object sender,
-		SizeChangedEventArgs e) => UpdatePaneSizes();
+	private void PaneHost_SizeChanged(object sender, SizeChangedEventArgs e) => UpdatePaneSizes();
 
-	private void PaneRepeater_ElementPrepared(
-		ItemsRepeater sender,
-		ItemsRepeaterElementPreparedEventArgs args)
+	private void PaneRepeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
 	{
 		UpdatePaneSizes();
 		UpdatePaneShadows();
@@ -154,9 +141,7 @@ public sealed partial class PaneHost : UserControl
 		{
 			if (PaneRepeater.TryGetElement(index) is PaneView pane)
 			{
-				pane.SetShadow(
-					ReferenceEquals(pane.ViewModel, activePane),
-					isMultiPane);
+				pane.SetShadow(ReferenceEquals(pane.ViewModel, activePane), isMultiPane);
 			}
 		}
 	}

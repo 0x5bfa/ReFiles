@@ -262,17 +262,13 @@ namespace Files.Controls.Primitives
 			if (SweepDirection == SweepDirection.Counterclockwise)
 			{
 				finalPoint =
-				new Point(
-					Center.X - Math.Sin(StartAngle * DegreesToRadians) * RadiusWidth,
-					Center.Y - Math.Cos(StartAngle * DegreesToRadians) * RadiusHeight);
+				new Point(Center.X - Math.Sin(StartAngle * DegreesToRadians) * RadiusWidth, Center.Y - Math.Cos(StartAngle * DegreesToRadians) * RadiusHeight);
 			}
 			// Clockwise
 			else
 			{
 				finalPoint =
-				new Point(
-					Center.X + Math.Sin(StartAngle * DegreesToRadians) * RadiusWidth,
-					Center.Y - Math.Cos(StartAngle * DegreesToRadians) * RadiusHeight);
+				new Point(Center.X + Math.Sin(StartAngle * DegreesToRadians) * RadiusWidth, Center.Y - Math.Cos(StartAngle * DegreesToRadians) * RadiusHeight);
 			}
 
 			return finalPoint;
@@ -286,9 +282,7 @@ namespace Files.Controls.Primitives
 			if (SweepDirection == SweepDirection.Counterclockwise)
 			{
 				finalArcSegment.Point =
-					new Point(
-						Center.X - Math.Sin(EndAngle * DegreesToRadians) * RadiusWidth,
-						Center.Y - Math.Cos(EndAngle * DegreesToRadians) * RadiusHeight);
+					new Point(Center.X - Math.Sin(EndAngle * DegreesToRadians) * RadiusWidth, Center.Y - Math.Cos(EndAngle * DegreesToRadians) * RadiusHeight);
 
 				if (EndAngle < StartAngle)
 				{
@@ -305,9 +299,7 @@ namespace Files.Controls.Primitives
 			else
 			{
 				finalArcSegment.Point =
-					new Point(
-						Center.X + Math.Sin(EndAngle * DegreesToRadians) * RadiusWidth,
-						Center.Y - Math.Cos(EndAngle * DegreesToRadians) * RadiusHeight);
+					new Point(Center.X + Math.Sin(EndAngle * DegreesToRadians) * RadiusWidth, Center.Y - Math.Cos(EndAngle * DegreesToRadians) * RadiusHeight);
 				//ArcSegment.IsLargeArc = ( EndAngle - StartAngle ) >= 180.0;
 				if (EndAngle < StartAngle)
 				{

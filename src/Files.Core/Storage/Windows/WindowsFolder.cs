@@ -8,9 +8,7 @@ namespace Files.Core.Storage.Windows;
 
 public sealed class WindowsFolder : WindowsStorable, IChildFolder
 {
-	internal WindowsFolder(
-		WindowsStorableDescriptor descriptor,
-		WindowsStorableFactory factory)
+	internal WindowsFolder(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 		: base(descriptor, factory)
 	{
 	}

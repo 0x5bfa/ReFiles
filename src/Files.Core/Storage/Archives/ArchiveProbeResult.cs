@@ -13,9 +13,7 @@ public enum ArchiveProbeKind
 
 public sealed record ArchiveProbeResult
 {
-	private ArchiveProbeResult(
-		ArchiveProbeKind kind,
-		ArchiveCredentialChallenge? challenge)
+	private ArchiveProbeResult(ArchiveProbeKind kind, ArchiveCredentialChallenge? challenge)
 	{
 		Kind = kind;
 		Challenge = challenge;
@@ -34,12 +32,9 @@ public sealed record ArchiveProbeResult
 	public static ArchiveProbeResult Encrypted { get; } =
 		new(ArchiveProbeKind.Encrypted, null);
 
-	public static ArchiveProbeResult CredentialRequired(
-		ArchiveCredentialChallenge challenge)
+	public static ArchiveProbeResult CredentialRequired(ArchiveCredentialChallenge challenge)
 	{
 		ArgumentNullException.ThrowIfNull(challenge);
-		return new ArchiveProbeResult(
-			ArchiveProbeKind.CredentialRequired,
-			challenge);
+		return new ArchiveProbeResult(ArchiveProbeKind.CredentialRequired, challenge);
 	}
 }

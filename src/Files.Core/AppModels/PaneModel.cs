@@ -37,9 +37,7 @@ public sealed class PaneModel : IAsyncDisposable
 		Id = id ?? Guid.NewGuid();
 		if (Id == Guid.Empty)
 		{
-			throw new ArgumentException(
-				"A pane ID cannot be empty.",
-				nameof(id));
+			throw new ArgumentException("A pane ID cannot be empty.", nameof(id));
 		}
 
 		BrowseSession = browseSession;
@@ -90,9 +88,7 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await navigationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -121,13 +117,10 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask<bool> GoBackAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask<bool> GoBackAsync(CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await navigationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -141,10 +134,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return false;
 			}
 
-			await NavigateAndCommitAsync(
-				target,
-				() => History.TryMoveTo(targetIndex, target),
-				linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), linkedCancellation.Token).ConfigureAwait(false);
 			return Equals(BrowseSession.Location, target);
 		}
 		finally
@@ -153,13 +143,10 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask<bool> GoForwardAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask<bool> GoForwardAsync(CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await navigationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -173,10 +160,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return false;
 			}
 
-			await NavigateAndCommitAsync(
-				target,
-				() => History.TryMoveTo(targetIndex, target),
-				linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), linkedCancellation.Token).ConfigureAwait(false);
 			return Equals(BrowseSession.Location, target);
 		}
 		finally
@@ -185,13 +169,10 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask<bool> GoUpAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask<bool> GoUpAsync(CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await navigationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -203,21 +184,15 @@ public sealed class PaneModel : IAsyncDisposable
 				is IBrowseLocationParentResolver parentResolver)
 			{
 				var parentLocation = await parentResolver
-					.GetParentLocationAsync(
-						linkedCancellation.Token)
+					.GetParentLocationAsync(linkedCancellation.Token)
 					.ConfigureAwait(false);
 				if (parentLocation is null)
 				{
 					return false;
 				}
 
-				await NavigateAndCommitAsync(
-					parentLocation,
-					() => History.Push(parentLocation),
-					linkedCancellation.Token).ConfigureAwait(false);
-				return Equals(
-					BrowseSession.Location,
-					parentLocation);
+				await NavigateAndCommitAsync(parentLocation, () => History.Push(parentLocation), linkedCancellation.Token).ConfigureAwait(false);
+				return Equals(BrowseSession.Location, parentLocation);
 			}
 
 			if (BrowseSession.Context?.LocationModel is not IFolderModel folder)
@@ -236,10 +211,7 @@ public sealed class PaneModel : IAsyncDisposable
 			await using (parent.ConfigureAwait(false))
 			{
 				var target = new FolderLocation(parent.Reference);
-				await NavigateAndCommitAsync(
-					target,
-					() => History.Push(target),
-					linkedCancellation.Token).ConfigureAwait(false);
+				await NavigateAndCommitAsync(target, () => History.Push(target), linkedCancellation.Token).ConfigureAwait(false);
 				return Equals(BrowseSession.Location, target);
 			}
 		}
@@ -249,16 +221,12 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask RestoreAsync(
-		BrowseNavigationHistorySnapshot restoredHistory,
-		CancellationToken cancellationToken = default)
+	public async ValueTask RestoreAsync(BrowseNavigationHistorySnapshot restoredHistory, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(restoredHistory);
 
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await navigationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -270,18 +238,14 @@ public sealed class PaneModel : IAsyncDisposable
 			{
 				if (BrowseSession.Location is not null)
 				{
-					throw new InvalidOperationException(
-						"An active pane cannot be restored to an empty history.");
+					throw new InvalidOperationException("An active pane cannot be restored to an empty history.");
 				}
 
 				History.Restore(restoredHistory);
 				return;
 			}
 
-			await NavigateAndCommitAsync(
-				target,
-				() => History.Restore(restoredHistory),
-				linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.Restore(restoredHistory), linkedCancellation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -289,13 +253,10 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	public async ValueTask RefreshAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask RefreshAsync(CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(
-				cancellationToken,
-				lifetime.Token);
+			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
 		await navigationLock
 			.WaitAsync(linkedCancellation.Token)
 			.ConfigureAwait(false);
@@ -318,10 +279,7 @@ public sealed class PaneModel : IAsyncDisposable
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(viewport);
 
-		Prefetch.UpdateViewport(
-			viewport,
-			BrowseSession.ViewSettings,
-			BrowseSession.Generation);
+		Prefetch.UpdateViewport(viewport, BrowseSession.ViewSettings, BrowseSession.Generation);
 	}
 
 	public ValueTask DisposeAsync()
@@ -340,10 +298,7 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	private async Task NavigateAndCommitAsync(
-		BrowseLocation target,
-		Action commitHistory,
-		CancellationToken cancellationToken)
+	private async Task NavigateAndCommitAsync(BrowseLocation target, Action commitHistory, CancellationToken cancellationToken)
 	{
 		var previousGeneration = BrowseSession.Generation;
 		var completed = false;
@@ -394,15 +349,11 @@ public sealed class PaneModel : IAsyncDisposable
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"One or more pane resources could not be disposed.",
-				errors);
+			throw new AggregateException("One or more pane resources could not be disposed.", errors);
 		}
 	}
 
-	private static async ValueTask TryDisposeAsync(
-		IAsyncDisposable disposable,
-		ICollection<Exception> errors)
+	private static async ValueTask TryDisposeAsync(IAsyncDisposable disposable, ICollection<Exception> errors)
 	{
 		try
 		{

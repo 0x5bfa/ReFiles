@@ -38,8 +38,7 @@ public static class WindowsFilesCoreBuilderExtensions
 		{
 			builder
 				.AddStorageSource(windowsSource)
-				.AddStorageOperationHandler(
-					new WindowsStorageOperationHandler(windowsSource));
+				.AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
 		}
 		catch (Exception registrationError)
 			when (source is null)
@@ -54,10 +53,7 @@ public static class WindowsFilesCoreBuilderExtensions
 			}
 			catch (Exception cleanupError)
 			{
-				throw new AggregateException(
-					"Windows storage registration and cleanup failed.",
-					registrationError,
-					cleanupError);
+				throw new AggregateException("Windows storage registration and cleanup failed.", registrationError, cleanupError);
 			}
 
 			throw;
@@ -66,65 +62,38 @@ public static class WindowsFilesCoreBuilderExtensions
 		if (builder.TryAddModule(WindowsItemFeaturesModule))
 		{
 			builder.ItemFeatures
-				.Add<IThumbnailSource>(
-					new WindowsThumbnailSourceFactory(
-						new WindowsShellThumbnailBackend()),
-					priority: 100,
-					origin: "Windows Shell")
-				.Add<IPropertySource>(
-					new PropertySourceFactory(
-						new WindowsPropertyReader()),
-					priority: 100,
-					origin: "Windows Shell")
-				.Add<IFolderChangeSource>(
-					new FolderChangeSourceFactory(),
-					priority: 100,
-					origin: "Windows Shell");
+				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()), priority: 100, origin: "Windows Shell")
+				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), priority: 100, origin: "Windows Shell")
+				.Add<IFolderChangeSource>(new FolderChangeSourceFactory(), priority: 100, origin: "Windows Shell");
 		}
 
 		if (enablePreviews)
 		{
-			builder.AddDefaultStreamPreviews(
-				streamPreviewPolicy ?? AllowPreviewStreamAccessPolicy.Instance);
-			AddWindowsShellPreviews(
-				builder,
-				shellPreviewPolicy ?? AllowWindowsShellPreviewPolicy.Instance);
+			builder.AddDefaultStreamPreviews(streamPreviewPolicy ?? AllowPreviewStreamAccessPolicy.Instance);
+			AddWindowsShellPreviews(builder, shellPreviewPolicy ?? AllowWindowsShellPreviewPolicy.Instance);
 		}
 
 		if (enableArchives)
 		{
-			builder.AddArchiveBrowsing(
-				archiveCredentialResolver);
+			builder.AddArchiveBrowsing(archiveCredentialResolver);
 		}
 
 		return builder;
 	}
 
-	private static void AddWindowsShellPreviews(
-		FilesCoreBuilder builder,
-		IWindowsShellPreviewPolicy policy)
+	private static void AddWindowsShellPreviews(FilesCoreBuilder builder, IWindowsShellPreviewPolicy policy)
 	{
 		if (!builder.TryAddModule(WindowsShellPreviewsModule))
 		{
 			return;
 		}
 
-		var handlerResolver = new WindowsPreviewHandlerResolver(
-			new WindowsShellPreviewHandlerAssociation());
-		var loader = new WindowsShellPreviewLoader(
-			handlerResolver,
-			policy);
-		builder.ItemFeatures.Add<IPreviewSource>(
-			new PreviewSourceFactory(loader),
-			priority: 100,
-			origin: "Windows Shell preview handler");
+		var handlerResolver = new WindowsPreviewHandlerResolver(new WindowsShellPreviewHandlerAssociation());
+		var loader = new WindowsShellPreviewLoader(handlerResolver, policy);
+		builder.ItemFeatures.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
 
-		var previewScheduler = new WindowsShellScheduler(
-			concurrentWorkerCount: 1);
+		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1);
 		builder.Own(previewScheduler);
-		builder.SetWindowsShellPreviewSessionFactory(
-			dataRoot => new WindowsShellPreviewSessionFactory(
-				dataRoot,
-				previewScheduler));
+		builder.SetWindowsShellPreviewSessionFactory(dataRoot => new WindowsShellPreviewSessionFactory(dataRoot, previewScheduler));
 	}
 }

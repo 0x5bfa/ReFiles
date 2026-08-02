@@ -10,11 +10,7 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public sealed record ThumbnailCacheKey
 {
-	public ThumbnailCacheKey(
-		StorageSourceId sourceId,
-		string itemId,
-		int requestedSize,
-		ThumbnailMode mode)
+	public ThumbnailCacheKey(StorageSourceId sourceId, string itemId, int requestedSize, ThumbnailMode mode)
 	{
 		ArgumentNullException.ThrowIfNull(sourceId);
 		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
@@ -22,9 +18,7 @@ public sealed record ThumbnailCacheKey
 		if (mode is not ThumbnailMode.Icon
 			and not ThumbnailMode.Content
 			and not ThumbnailMode.PreferContent)
-		{
 			throw new ArgumentOutOfRangeException(nameof(mode));
-		}
 
 		SourceId = sourceId;
 		ItemId = itemId;
@@ -32,15 +26,8 @@ public sealed record ThumbnailCacheKey
 		Mode = mode;
 	}
 
-	public ThumbnailCacheKey(
-		StorableReference reference,
-		int requestedSize,
-		ThumbnailMode mode)
-		: this(
-			GetReference(reference).SourceId,
-			reference.ItemId,
-			requestedSize,
-			mode)
+	public ThumbnailCacheKey(StorableReference reference, int requestedSize, ThumbnailMode mode)
+		: this(GetReference(reference).SourceId, reference.ItemId, requestedSize, mode)
 	{
 	}
 

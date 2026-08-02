@@ -50,21 +50,13 @@ public sealed class MemoryThumbnailCacheTests
 	[TestMethod]
 	public async Task InvalidationRejectsAnOlderInFlightWrite()
 	{
-		var reference = new StorableReference(
-			new StorageSourceId("test"),
-			"item");
-		var key = new ThumbnailCacheKey(
-			reference,
-			64,
-			ThumbnailMode.Content);
+		var reference = new StorableReference(new StorageSourceId("test"), "item");
+		var key = new ThumbnailCacheKey(reference, 64, ThumbnailMode.Content);
 		var cache = new MemoryThumbnailCache();
 		var version = await cache.GetInvalidationVersionAsync(reference);
 
 		await cache.InvalidateAsync(reference);
-		var stored = await cache.TrySetAsync(
-			key,
-			CreateEntry("stale"),
-			version);
+		var stored = await cache.TrySetAsync(key, CreateEntry("stale"), version);
 
 		Assert.IsFalse(stored);
 		Assert.IsNull(await cache.GetAsync(key));
@@ -75,29 +67,20 @@ public sealed class MemoryThumbnailCacheTests
 	{
 		var factory = new TestModelFactory();
 		var coreModel = new TestStorable("item", "Item");
-		var reference = new StorableReference(
-			factory.Source.SourceId,
-			coreModel.Id);
-		var entered = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
-		var release = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		var reference = new StorableReference(factory.Source.SourceId, coreModel.Id);
+		var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var source = new TestThumbnailSource
 		{
 			Handler = async (_, _) =>
 			{
 				entered.TrySetResult(true);
 				await release.Task;
-				return new ThumbnailResult(
-					new byte[] { 1 },
-					"image/png",
-					IsFallback: false);
+				return new ThumbnailResult(new byte[] {1}, "image/png", IsFallback: false);
 			},
 		};
 		var cache = new MemoryThumbnailCache();
-		var decorated = new ThumbnailCacheWrapper(cache).Wrap(
-			new ItemContext(factory.Source, coreModel, reference),
-			source);
+		var decorated = new ThumbnailCacheWrapper(cache).Wrap(new ItemContext(factory.Source, coreModel, reference), source);
 		var request = new ThumbnailRequest(64, ThumbnailMode.Content);
 
 		var extraction = decorated.GetThumbnailAsync(request).AsTask();
@@ -106,8 +89,7 @@ public sealed class MemoryThumbnailCacheTests
 		release.TrySetResult(true);
 
 		Assert.IsNotNull(await extraction);
-		Assert.IsNull(await cache.GetAsync(
-			new ThumbnailCacheKey(reference, 64, ThumbnailMode.Content)));
+		Assert.IsNull(await cache.GetAsync(new ThumbnailCacheKey(reference, 64, ThumbnailMode.Content)));
 	}
 
 	[TestMethod]
@@ -115,28 +97,19 @@ public sealed class MemoryThumbnailCacheTests
 	{
 		var factory = new TestModelFactory();
 		var coreModel = new TestStorable("item", "Item");
-		var reference = new StorableReference(
-			factory.Source.SourceId,
-			coreModel.Id);
-		var entered = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
-		var release = new TaskCompletionSource<bool>(
-			TaskCreationOptions.RunContinuationsAsynchronously);
+		var reference = new StorableReference(factory.Source.SourceId, coreModel.Id);
+		var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var source = new TestThumbnailSource
 		{
 			Handler = async (_, _) =>
 			{
 				entered.TrySetResult(true);
 				await release.Task;
-				return new ThumbnailResult(
-					new byte[] { 1 },
-					"image/png",
-					IsFallback: false);
+				return new ThumbnailResult(new byte[] {1}, "image/png", IsFallback: false);
 			},
 		};
-		var decorated = new ThumbnailCacheWrapper(new MemoryThumbnailCache()).Wrap(
-			new ItemContext(factory.Source, coreModel, reference),
-			source);
+		var decorated = new ThumbnailCacheWrapper(new MemoryThumbnailCache()).Wrap(new ItemContext(factory.Source, coreModel, reference), source);
 		var request = new ThumbnailRequest(64, ThumbnailMode.Content);
 
 		var first = decorated.GetThumbnailAsync(request).AsTask();

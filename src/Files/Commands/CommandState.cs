@@ -3,8 +3,4 @@
 
 namespace Files.Commands;
 
-public sealed record CommandState(
-	bool IsVisible,
-	bool IsEnabled,
-	bool IsChecked = false,
-	string? DisabledReasonResourceKey = null);
+public sealed record CommandState(bool IsVisible, bool IsEnabled, bool IsChecked = false, string? DisabledReasonResourceKey = null);

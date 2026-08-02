@@ -34,8 +34,7 @@ public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandl
 
 		if (characterCount > int.MaxValue)
 		{
-			throw new InvalidOperationException(
-				"The Shell association returned an invalid buffer size.");
+			throw new InvalidOperationException("The Shell association returned an invalid buffer size.");
 		}
 
 		Span<char> buffer = stackalloc char[(int)characterCount];

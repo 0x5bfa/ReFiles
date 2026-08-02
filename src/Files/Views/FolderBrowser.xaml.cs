@@ -11,11 +11,7 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 	private FolderBrowserViewModel? subscribedViewModel;
 
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(FolderBrowserViewModel),
-			typeof(FolderBrowser),
-			new PropertyMetadata(null, ViewModelChanged));
+		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(FolderBrowser), new PropertyMetadata(null, ViewModelChanged));
 
 	public FolderBrowser()
 	{
@@ -30,19 +26,14 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		set => SetValue(ViewModelProperty, value);
 	}
 
-	private static void ViewModelChanged(
-		DependencyObject sender,
-		DependencyPropertyChangedEventArgs args)
+	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
 	{
 		if (sender is not FolderBrowser folderBrowser)
 		{
 			return;
 		}
 
-		folderBrowser.SetSubscribedViewModel(
-			folderBrowser.IsLoaded
-				? args.NewValue as FolderBrowserViewModel
-				: null);
+		folderBrowser.SetSubscribedViewModel(folderBrowser.IsLoaded ? args.NewValue as FolderBrowserViewModel : null);
 		folderBrowser.UpdateFolderView();
 	}
 
@@ -71,9 +62,7 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		}
 	}
 
-	private void ViewModel_PropertyChanged(
-		object? sender,
-		PropertyChangedEventArgs e)
+	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName is nameof(FolderBrowserViewModel.ViewMode))
 		{
@@ -99,8 +88,7 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 				(DataTemplate)FolderViewPresenter.Resources["GridTemplate"],
 			FolderViewMode.List =>
 				(DataTemplate)FolderViewPresenter.Resources["ListTemplate"],
-			_ => throw new InvalidOperationException(
-				$"Unsupported folder view mode: {viewModel.ViewMode}."),
+			_ => throw new InvalidOperationException($"Unsupported folder view mode: {viewModel.ViewMode}."),
 		};
 	}
 }

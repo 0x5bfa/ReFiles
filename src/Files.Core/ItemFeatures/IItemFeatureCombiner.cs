@@ -9,7 +9,5 @@ namespace Files.Core.ItemFeatures;
 public interface IItemFeatureCombiner<TFeature>
 	where TFeature : class
 {
-	TFeature? Combine(
-		ItemContext context,
-		IReadOnlyList<ItemFeatureOption<TFeature>> options);
+	TFeature? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options);
 }

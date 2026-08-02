@@ -36,8 +36,7 @@ public sealed class WindowsStorageSource : IStorageSource
 
 		SourceId = sourceId ?? new StorageSourceId(DefaultSourceType);
 		DisplayName = displayName;
-		this.rootFolderIds = Array.AsReadOnly(
-			(rootFolderIds ?? [FOLDERID.FOLDERID_ComputerFolder]).ToArray());
+		this.rootFolderIds = Array.AsReadOnly((rootFolderIds ?? [FOLDERID.FOLDERID_ComputerFolder]).ToArray());
 		Scheduler = scheduler ?? new WindowsShellScheduler();
 		ownsScheduler = scheduler is null;
 		storableFactory = new WindowsStorableFactory(Scheduler);
@@ -59,15 +58,12 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	internal WindowsShellChangeWatcher ChangeWatcher => changeWatcher;
 
-	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(
-		ReadOnlyMemory<byte> absolutePidl,
-		CancellationToken cancellationToken = default)
+	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(ReadOnlyMemory<byte> absolutePidl, CancellationToken cancellationToken = default)
 	{
 		return storableFactory.TryCreateFromAbsolutePidlAsync(absolutePidl, cancellationToken);
 	}
 
-	public async IAsyncEnumerable<IFolder> GetRootsAsync(
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(isDisposed, this);
 
@@ -84,8 +80,7 @@ public sealed class WindowsStorageSource : IStorageSource
 				continue;
 			}
 
-			throw new InvalidOperationException(
-				$"Known folder '{rootFolderId}' did not resolve to a folder.");
+			throw new InvalidOperationException($"Known folder '{rootFolderId}' did not resolve to a folder.");
 		}
 	}
 
@@ -97,18 +92,14 @@ public sealed class WindowsStorageSource : IStorageSource
 			|| address.Scheme.Equals(FileAddressScheme, StringComparison.OrdinalIgnoreCase);
 	}
 
-	public async ValueTask<IStorable> ResolveAsync(
-		StorageAddress address,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(isDisposed, this);
 		ArgumentNullException.ThrowIfNull(address);
 
 		if (!CanResolve(address))
 		{
-			throw new ArgumentException(
-				$"Address scheme '{address.Scheme}' is not supported.",
-				nameof(address));
+			throw new ArgumentException($"Address scheme '{address.Scheme}' is not supported.", nameof(address));
 		}
 
 		return await storableFactory
@@ -116,25 +107,18 @@ public sealed class WindowsStorageSource : IStorageSource
 			.ConfigureAwait(false);
 	}
 
-	public async ValueTask<IStorable> ResolveAsync(
-		StorableReference reference,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(isDisposed, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
 		if (reference.SourceId != SourceId)
 		{
-			throw new ArgumentException(
-				$"Reference belongs to storage source '{reference.SourceId}'.",
-				nameof(reference));
+			throw new ArgumentException($"Reference belongs to storage source '{reference.SourceId}'.", nameof(reference));
 		}
 
 		var storable = await storableFactory
-			.TryCreateFromItemIdAsync(
-				reference.ItemId,
-				reference.LastKnownAddress,
-				cancellationToken)
+			.TryCreateFromItemIdAsync(reference.ItemId, reference.LastKnownAddress, cancellationToken)
 			.ConfigureAwait(false);
 
 		if (storable is not null)
@@ -156,9 +140,7 @@ public sealed class WindowsStorageSource : IStorageSource
 			}
 		}
 
-		throw new FileNotFoundException(
-			"The Windows Shell item could not be resolved.",
-			reference.ItemId);
+		throw new FileNotFoundException("The Windows Shell item could not be resolved.", reference.ItemId);
 	}
 
 	public ValueTask DisposeAsync()
@@ -210,9 +192,7 @@ public sealed class WindowsStorageSource : IStorageSource
 
 		if (errors.Count > 1)
 		{
-			throw new AggregateException(
-				"One or more Windows storage source resources could not be disposed.",
-				errors);
+			throw new AggregateException("One or more Windows storage source resources could not be disposed.", errors);
 		}
 	}
 }

@@ -30,15 +30,8 @@ public sealed class StreamPreviewLoaderTests
 		var unsupported = new TestStorable("other", "readme.bin");
 		Assert.IsFalse(resolver.TryResolve(CreateContext(source, unsupported), out _));
 
-		var addressedFile = new TestFile(
-			"addressed",
-			"Readme",
-			_ => Task.FromResult<Stream>(new MemoryStream()),
-			@"C:\Content\readme.txt");
-		Assert.IsTrue(
-			resolver.TryResolve(
-				CreateContext(source, addressedFile),
-				out contentType));
+		var addressedFile = new TestFile("addressed", "Readme", _ => Task.FromResult<Stream>(new MemoryStream()), @"C:\Content\readme.txt");
+		Assert.IsTrue(resolver.TryResolve(CreateContext(source, addressedFile), out contentType));
 		Assert.AreEqual("text/plain", contentType.MediaType);
 	}
 
@@ -75,9 +68,7 @@ public sealed class StreamPreviewLoaderTests
 		Assert.IsTrue(loader.CanLoad(CreateContext(source, known)));
 		Assert.IsFalse(loader.CanLoad(CreateContext(source, unknown)));
 
-		var result = await loader.GetPreviewAsync(
-			new PreviewRequest(),
-			CreateContext(source, unknown));
+		var result = await loader.GetPreviewAsync(new PreviewRequest(), CreateContext(source, unknown));
 
 		Assert.IsNull(result);
 		Assert.AreEqual(0, unknown.OpenCount);
@@ -93,9 +84,7 @@ public sealed class StreamPreviewLoaderTests
 		var policy = new TestPolicy { BlockReason = PreviewBlockReason.RequiresHydration };
 		var loader = CreateLoader(policy);
 
-		var result = await loader.GetPreviewAsync(
-			new PreviewRequest(hydrationPolicy: PreviewHydrationPolicy.AllowHydration),
-			CreateContext(source, file));
+		var result = await loader.GetPreviewAsync(new PreviewRequest(hydrationPolicy: PreviewHydrationPolicy.AllowHydration), CreateContext(source, file));
 
 		Assert.IsInstanceOfType<BlockedPreviewResult>(result);
 		Assert.AreEqual(PreviewBlockReason.RequiresHydration, ((BlockedPreviewResult)result!).Reason);
@@ -113,9 +102,7 @@ public sealed class StreamPreviewLoaderTests
 			Task.FromResult<Stream>(withinLimit));
 		var loader = CreateLoader();
 
-		var withinResult = await loader.GetPreviewAsync(
-			new PreviewRequest(maximumBytes: 3),
-			CreateContext(source, withinFile));
+		var withinResult = await loader.GetPreviewAsync(new PreviewRequest(maximumBytes: 3), CreateContext(source, withinFile));
 
 		var streamResult = (StreamPreviewResult)withinResult!;
 		Assert.AreSame(withinLimit, streamResult.Content);
@@ -128,9 +115,7 @@ public sealed class StreamPreviewLoaderTests
 		var overLimit = new TrackingMemoryStream(Encoding.UTF8.GetBytes("abcd"));
 		var overFile = new TestFile("over", "file.txt", _ =>
 			Task.FromResult<Stream>(overLimit));
-		var blocked = await loader.GetPreviewAsync(
-			new PreviewRequest(maximumBytes: 3),
-			CreateContext(source, overFile));
+		var blocked = await loader.GetPreviewAsync(new PreviewRequest(maximumBytes: 3), CreateContext(source, overFile));
 
 		Assert.IsInstanceOfType<BlockedPreviewResult>(blocked);
 		Assert.AreEqual(1, overLimit.DisposeCount);
@@ -160,9 +145,7 @@ public sealed class StreamPreviewLoaderTests
 		var unboundedSource = new NonSeekableStream(content);
 		var unboundedFile = new TestFile("unbounded", "file.txt", _ =>
 			Task.FromResult<Stream>(unboundedSource));
-		var unbounded = (StreamPreviewResult)(await loader.GetPreviewAsync(
-			new PreviewRequest(),
-			CreateContext(source, unboundedFile)))!;
+		var unbounded = (StreamPreviewResult)(await loader.GetPreviewAsync(new PreviewRequest(), CreateContext(source, unboundedFile)))!;
 
 		Assert.AreSame(unboundedSource, unbounded.Content);
 		Assert.IsNull(unbounded.ContentLength);
@@ -173,9 +156,7 @@ public sealed class StreamPreviewLoaderTests
 		var oversizedSource = new NonSeekableStream(Encoding.UTF8.GetBytes("hello!"));
 		var oversizedFile = new TestFile("oversized", "file.txt", _ =>
 			Task.FromResult<Stream>(oversizedSource));
-		var oversized = await loader.GetPreviewAsync(
-			new PreviewRequest(maximumBytes: content.Length),
-			CreateContext(source, oversizedFile));
+		var oversized = await loader.GetPreviewAsync(new PreviewRequest(maximumBytes: content.Length), CreateContext(source, oversizedFile));
 
 		Assert.IsInstanceOfType<BlockedPreviewResult>(oversized);
 		Assert.AreEqual(1, oversizedSource.DisposeCount);
@@ -207,10 +188,7 @@ public sealed class StreamPreviewLoaderTests
 			Task.FromResult<Stream>(cancelledStream));
 
 		await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-			await loader.GetPreviewAsync(
-				new PreviewRequest(maximumBytes: 10),
-				CreateContext(source, cancelledFile),
-				cancellation.Token));
+			await loader.GetPreviewAsync(new PreviewRequest(maximumBytes: 10), CreateContext(source, cancelledFile), cancellation.Token));
 		Assert.AreEqual(1, cancelledStream.DisposeCount);
 
 		using var cancelledAfterOpen = new CancellationTokenSource();
@@ -222,10 +200,7 @@ public sealed class StreamPreviewLoaderTests
 		});
 
 		await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-			await loader.GetPreviewAsync(
-				new PreviewRequest(),
-				CreateContext(source, openedThenCancelledFile),
-				cancelledAfterOpen.Token));
+			await loader.GetPreviewAsync(new PreviewRequest(), CreateContext(source, openedThenCancelledFile), cancelledAfterOpen.Token));
 		Assert.AreEqual(1, openedThenCancelledStream.DisposeCount);
 }
 
@@ -237,26 +212,15 @@ public sealed class StreamPreviewLoaderTests
 		var openedStream = new TrackingMemoryStream(content);
 		var file = new TestFile("file", "note.txt", _ =>
 			Task.FromResult<Stream>(openedStream));
-		var fileReference = new StorableReference(
-			source.SourceId,
-			file.Id,
-			new StorageAddress("test", file.Name));
+		var fileReference = new StorableReference(source.SourceId, file.Id, new StorageAddress("test", file.Name));
 		var policy = new TestPolicy();
 		var loader = CreateLoader(policy);
 		var featureRegistry = new ItemFeatureBuilder()
-			.Add<IPreviewSource>(
-				new PreviewSourceFactory(loader),
-				priority: 100)
+			.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100)
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())
 			.Build();
-		var fileModel = new StorableModel(
-			file,
-			fileReference,
-			featureRegistry.CreateFeatures(new ItemContext(source, file, fileReference)));
-		var folder = new TestModelFactory().CreateModel(
-			"folder",
-			"Folder",
-			out _);
+		var fileModel = new StorableModel(file, fileReference, featureRegistry.CreateFeatures(new ItemContext(source, file, fileReference)));
+		var folder = new TestModelFactory().CreateModel("folder", "Folder", out _);
 		var resolver = new TestBrowseLocationResolver([fileModel])
 		{
 			LocationModelFactory = _ => folder,
@@ -266,10 +230,7 @@ public sealed class StreamPreviewLoaderTests
 		await session.NavigateAsync(new FolderLocation(folder.Reference));
 		await using var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
 
-		session.SetSelection(
-			[fileReference.GetKey()],
-			fileReference.GetKey(),
-			null);
+		session.SetSelection([fileReference.GetKey()], fileReference.GetKey(), null);
 		await WaitUntilAsync(() =>
 			preview.Current.Status is BrowsePreviewStatus.Ready);
 
@@ -294,14 +255,9 @@ public sealed class StreamPreviewLoaderTests
 			policy ?? new TestPolicy());
 	}
 
-	private static ItemContext CreateContext(
-		TestStorageSource source,
-		IStorable model)
+	private static ItemContext CreateContext(TestStorageSource source, IStorable model)
 	{
-		return new ItemContext(
-			source,
-			model,
-			new StorableReference(source.SourceId, model.Id));
+		return new ItemContext(source, model, new StorableReference(source.SourceId, model.Id));
 	}
 
 	private static async Task<string> ReadTextAsync(Stream stream)
@@ -346,18 +302,12 @@ public sealed class StreamPreviewLoaderTests
 	{
 		private readonly Func<CancellationToken, Task<Stream>> openStream;
 
-		public TestFile(
-			string id,
-			string name,
-			Func<CancellationToken, Task<Stream>> openStream,
-			string? addressValue = null)
+		public TestFile(string id, string name, Func<CancellationToken, Task<Stream>> openStream, string? addressValue = null)
 		{
 			Id = id;
 			Name = name;
 			this.openStream = openStream;
-			Address = new StorageAddress(
-				"test",
-				addressValue ?? name);
+			Address = new StorageAddress("test", addressValue ?? name);
 		}
 
 		public string Id { get; }
@@ -370,9 +320,7 @@ public sealed class StreamPreviewLoaderTests
 
 		public FileAccess? LastAccess { get; private set; }
 
-		public async Task<Stream> OpenStreamAsync(
-			FileAccess accessMode,
-			CancellationToken cancellationToken)
+		public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken)
 		{
 			OpenCount++;
 			LastAccess = accessMode;
@@ -447,9 +395,7 @@ public sealed class StreamPreviewLoaderTests
 			return available;
 		}
 
-		public override ValueTask<int> ReadAsync(
-			Memory<byte> buffer,
-			CancellationToken cancellationToken = default)
+		public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			BeforeRead?.Invoke();
@@ -457,11 +403,7 @@ public sealed class StreamPreviewLoaderTests
 			return ValueTask.FromResult(Read(buffer.Span));
 		}
 
-		public override Task<int> ReadAsync(
-			byte[] buffer,
-			int offset,
-			int count,
-			CancellationToken cancellationToken)
+		public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
 			=> ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
 		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();

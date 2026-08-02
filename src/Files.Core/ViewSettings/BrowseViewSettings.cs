@@ -43,9 +43,7 @@ public sealed record BrowseViewSettings
 		var columnArray = (columns ?? []).ToArray();
 		if (columnArray.Any(static column => column is null))
 		{
-			throw new ArgumentException(
-				"View columns cannot contain null values.",
-				nameof(columns));
+			throw new ArgumentException("View columns cannot contain null values.", nameof(columns));
 		}
 
 		if (columnArray
@@ -53,9 +51,7 @@ public sealed record BrowseViewSettings
 			.Distinct(StringComparer.Ordinal)
 			.Count() != columnArray.Length)
 		{
-			throw new ArgumentException(
-				"View column property IDs must be unique.",
-				nameof(columns));
+			throw new ArgumentException("View column property IDs must be unique.", nameof(columns));
 		}
 
 		if (columnArray
@@ -63,9 +59,7 @@ public sealed record BrowseViewSettings
 			.Distinct()
 			.Count() != columnArray.Length)
 		{
-			throw new ArgumentException(
-				"View column orders must be unique.",
-				nameof(columns));
+			throw new ArgumentException("View column orders must be unique.", nameof(columns));
 		}
 
 		LayoutMode = layoutMode;

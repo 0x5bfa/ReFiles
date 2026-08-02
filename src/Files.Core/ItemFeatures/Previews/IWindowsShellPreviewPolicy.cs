@@ -7,7 +7,5 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public interface IWindowsShellPreviewPolicy
 {
-	PreviewBlockReason? GetBlockReason(
-		ItemContext context,
-		Guid handlerClsid);
+	PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid);
 }

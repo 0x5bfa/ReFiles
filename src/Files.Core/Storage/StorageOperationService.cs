@@ -17,9 +17,7 @@ public sealed class StorageOperationService : IStorageOperationService
 		this.handlers = handlers.ToArray();
 		if (this.handlers.Any(static handler => handler is null))
 		{
-			throw new ArgumentException(
-				"The handler collection cannot contain null entries.",
-				nameof(handlers));
+			throw new ArgumentException("The handler collection cannot contain null entries.", nameof(handlers));
 		}
 	}
 
@@ -40,8 +38,7 @@ public sealed class StorageOperationService : IStorageOperationService
 		IStorageOperationHandler? handler = null;
 		try
 		{
-			handler = handlers.FirstOrDefault(
-				candidate => candidate.CanHandle(request));
+			handler = handlers.FirstOrDefault(candidate => candidate.CanHandle(request));
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
@@ -54,8 +51,7 @@ public sealed class StorageOperationService : IStorageOperationService
 
 		if (handler is null)
 		{
-			return Failed(new NotSupportedException(
-				$"No storage operation handler can handle '{request.GetType().Name}'."));
+			return Failed(new NotSupportedException($"No storage operation handler can handle '{request.GetType().Name}'."));
 		}
 
 		try
@@ -63,8 +59,7 @@ public sealed class StorageOperationService : IStorageOperationService
 			StorageOperationResult? result = await handler
 				.ExecuteAsync(request, progress, cancellationToken)
 				.ConfigureAwait(false);
-			return result ?? Failed(new InvalidOperationException(
-				$"Storage operation handler '{handler.GetType().FullName}' returned null."));
+			return result ?? Failed(new InvalidOperationException($"Storage operation handler '{handler.GetType().FullName}' returned null."));
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
@@ -78,9 +73,6 @@ public sealed class StorageOperationService : IStorageOperationService
 
 	private static StorageOperationResult Failed(Exception exception)
 	{
-		return new StorageOperationResult(
-			Succeeded: false,
-			ResultItem: null,
-			Error: exception);
+		return new StorageOperationResult(Succeeded: false, ResultItem: null, Error: exception);
 	}
 }

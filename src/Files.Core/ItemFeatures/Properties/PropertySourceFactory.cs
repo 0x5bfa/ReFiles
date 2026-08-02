@@ -33,9 +33,7 @@ public sealed class PropertySourceFactory : IItemFeatureFactory<IPropertySource>
 		private readonly IPropertyReader reader;
 		private readonly ItemContext context;
 
-		public BoundPropertySource(
-			IPropertyReader reader,
-			ItemContext context)
+		public BoundPropertySource(IPropertyReader reader, ItemContext context)
 		{
 			this.reader = reader;
 			this.context = context;

@@ -8,10 +8,7 @@ public sealed record ThumbnailRequest
 	private const int DefaultDpi = 96;
 	private const int MaximumPixelSize = 4096;
 
-	public ThumbnailRequest(
-		int requestedSize,
-		ThumbnailMode mode = ThumbnailMode.PreferContent,
-		int dpi = DefaultDpi)
+	public ThumbnailRequest(int requestedSize, ThumbnailMode mode = ThumbnailMode.PreferContent, int dpi = DefaultDpi)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(requestedSize);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(dpi);
@@ -25,9 +22,7 @@ public sealed record ThumbnailRequest
 		var pixelSize = CalculatePixelSize(requestedSize, dpi);
 		if (pixelSize > MaximumPixelSize)
 		{
-			throw new ArgumentOutOfRangeException(
-				nameof(requestedSize),
-				$"The DPI-scaled thumbnail size cannot exceed {MaximumPixelSize} pixels.");
+			throw new ArgumentOutOfRangeException(nameof(requestedSize), $"The DPI-scaled thumbnail size cannot exceed {MaximumPixelSize} pixels.");
 		}
 
 		RequestedSize = requestedSize;

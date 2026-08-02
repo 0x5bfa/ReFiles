@@ -16,9 +16,7 @@ public sealed class FluentFtpSession : IFtpSession
 	private readonly StringComparer pathComparer;
 	private int isDisposed;
 
-	internal FluentFtpSession(
-		AsyncFtpClient client,
-		StringComparer pathComparer)
+	internal FluentFtpSession(AsyncFtpClient client, StringComparer pathComparer)
 	{
 		ArgumentNullException.ThrowIfNull(client);
 		ArgumentNullException.ThrowIfNull(pathComparer);
@@ -26,9 +24,7 @@ public sealed class FluentFtpSession : IFtpSession
 		this.pathComparer = pathComparer;
 	}
 
-	public async ValueTask<FtpEntryInfo?> GetEntryAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<FtpEntryInfo?> GetEntryAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
@@ -36,10 +32,7 @@ public sealed class FluentFtpSession : IFtpSession
 		try
 		{
 			var item = await client
-				.GetObjectInfo(
-					path.Value,
-					dateModified: false,
-					token: cancellationToken)
+				.GetObjectInfo(path.Value, dateModified: false, token: cancellationToken)
 				.ConfigureAwait(false);
 			if (item is not null)
 			{
@@ -57,18 +50,11 @@ public sealed class FluentFtpSession : IFtpSession
 			return null;
 		}
 
-		var listing = await GetListingAsync(
-			parent,
-			cancellationToken).ConfigureAwait(false);
-		return listing.FirstOrDefault(
-			candidate => pathComparer.Equals(
-				candidate.Path.Value,
-				path.Value));
+		var listing = await GetListingAsync(parent, cancellationToken).ConfigureAwait(false);
+		return listing.FirstOrDefault(candidate => pathComparer.Equals(candidate.Path.Value, path.Value));
 	}
 
-	public async ValueTask<IReadOnlyList<FtpEntryInfo>> GetListingAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IReadOnlyList<FtpEntryInfo>> GetListingAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
@@ -84,41 +70,27 @@ public sealed class FluentFtpSession : IFtpSession
 		return new ReadOnlyCollection<FtpEntryInfo>(entries);
 	}
 
-	public async ValueTask<Stream> OpenReadAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<Stream> OpenReadAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
 
 		return await client
-			.OpenRead(
-				path.Value,
-				FtpDataType.Binary,
-				restart: 0,
-				checkIfFileExists: true,
-				token: cancellationToken)
+			.OpenRead(path.Value, FtpDataType.Binary, restart: 0, checkIfFileExists: true, token: cancellationToken)
 			.ConfigureAwait(false);
 	}
 
-	public async ValueTask<Stream> OpenWriteAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<Stream> OpenWriteAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
 
 		return await client
-			.OpenWrite(
-				path.Value,
-				FtpDataType.Binary,
-				checkIfFileExists: true,
-				token: cancellationToken)
+			.OpenWrite(path.Value, FtpDataType.Binary, checkIfFileExists: true, token: cancellationToken)
 			.ConfigureAwait(false);
 	}
 
-	public async ValueTask CompleteTransferAsync(
-		CancellationToken cancellationToken = default)
+	public async ValueTask CompleteTransferAsync(CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		var reply = await client
@@ -126,58 +98,39 @@ public sealed class FluentFtpSession : IFtpSession
 			.ConfigureAwait(false);
 		if (!reply.Success)
 		{
-			throw new IOException(
-				$"The FTP data transfer failed with reply code '{reply.Code}'.");
+			throw new IOException($"The FTP data transfer failed with reply code '{reply.Code}'.");
 		}
 	}
 
-	public async ValueTask CreateFileAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask CreateFileAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
 
 		var status = await client
-			.UploadBytes(
-				[],
-				path.Value,
-				FtpRemoteExists.Skip,
-				createRemoteDir: false,
-				progress: null,
-				token: cancellationToken)
+			.UploadBytes([], path.Value, FtpRemoteExists.Skip, createRemoteDir: false, progress: null, token: cancellationToken)
 			.ConfigureAwait(false);
 		if (status is not FtpStatus.Success)
 		{
-			throw new IOException(
-				$"The FTP server did not create '{path.Value}'.");
+			throw new IOException($"The FTP server did not create '{path.Value}'.");
 		}
 	}
 
-	public async ValueTask CreateFolderAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask CreateFolderAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
 
 		var created = await client
-			.CreateDirectory(
-				path.Value,
-				force: false,
-				token: cancellationToken)
+			.CreateDirectory(path.Value, force: false, token: cancellationToken)
 			.ConfigureAwait(false);
 		if (!created)
 		{
-			throw new IOException(
-				$"The FTP server did not create '{path.Value}'.");
+			throw new IOException($"The FTP server did not create '{path.Value}'.");
 		}
 	}
 
-	public async ValueTask DeleteAsync(
-		FtpPath path,
-		FtpEntryKind kind,
-		CancellationToken cancellationToken = default)
+	public async ValueTask DeleteAsync(FtpPath path, FtpEntryKind kind, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(path);
@@ -195,11 +148,7 @@ public sealed class FluentFtpSession : IFtpSession
 			.ConfigureAwait(false);
 	}
 
-	public async ValueTask MoveAsync(
-		FtpPath sourcePath,
-		FtpPath destinationPath,
-		FtpEntryKind kind,
-		CancellationToken cancellationToken = default)
+	public async ValueTask MoveAsync(FtpPath sourcePath, FtpPath destinationPath, FtpEntryKind kind, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 		ArgumentNullException.ThrowIfNull(sourcePath);
@@ -207,23 +156,14 @@ public sealed class FluentFtpSession : IFtpSession
 
 		var moved = kind is FtpEntryKind.Folder
 			? await client
-				.MoveDirectory(
-					sourcePath.Value,
-					destinationPath.Value,
-					FtpRemoteExists.Skip,
-					cancellationToken)
+				.MoveDirectory(sourcePath.Value, destinationPath.Value, FtpRemoteExists.Skip, cancellationToken)
 				.ConfigureAwait(false)
 			: await client
-				.MoveFile(
-					sourcePath.Value,
-					destinationPath.Value,
-					FtpRemoteExists.Skip,
-					cancellationToken)
+				.MoveFile(sourcePath.Value, destinationPath.Value, FtpRemoteExists.Skip, cancellationToken)
 				.ConfigureAwait(false);
 		if (!moved)
 		{
-			throw new IOException(
-				$"The FTP server did not move '{sourcePath.Value}'.");
+			throw new IOException($"The FTP server did not move '{sourcePath.Value}'.");
 		}
 	}
 
@@ -238,9 +178,7 @@ public sealed class FluentFtpSession : IFtpSession
 		GC.SuppressFinalize(this);
 	}
 
-	private static FtpEntryInfo? TryCreateEntry(
-		FtpListItem item,
-		FtpPath parentPath)
+	private static FtpEntryInfo? TryCreateEntry(FtpListItem item, FtpPath parentPath)
 	{
 		if (string.IsNullOrWhiteSpace(item.Name)
 			|| item.Name is "." or "..")
@@ -258,9 +196,7 @@ public sealed class FluentFtpSession : IFtpSession
 		}
 	}
 
-	private static FtpEntryInfo CreateEntry(
-		FtpListItem item,
-		FtpPath? parentPath)
+	private static FtpEntryInfo CreateEntry(FtpListItem item, FtpPath? parentPath)
 	{
 		var fullName = item.FullName?.Replace('\\', '/');
 		var path = string.IsNullOrWhiteSpace(fullName)
@@ -268,8 +204,7 @@ public sealed class FluentFtpSession : IFtpSession
 				?? FtpPath.Parse(item.Name)
 			: fullName.StartsWith('/')
 				? FtpPath.Parse(fullName)
-				: FtpPath.Parse(
-					$"{parentPath?.Value ?? string.Empty}/{fullName}");
+				: FtpPath.Parse($"{parentPath?.Value ?? string.Empty}/{fullName}");
 		var kind = item.Type switch
 		{
 			FtpObjectType.Directory => FtpEntryKind.Folder,
@@ -280,14 +215,7 @@ public sealed class FluentFtpSession : IFtpSession
 			? null
 			: item.Size;
 
-		return new FtpEntryInfo(
-			path,
-			item.Name,
-			kind,
-			size,
-			ToDateTimeOffset(item.Modified),
-			ToDateTimeOffset(item.Created),
-			item.LinkTarget);
+		return new FtpEntryInfo(path, item.Name, kind, size, ToDateTimeOffset(item.Modified), ToDateTimeOffset(item.Created), item.LinkTarget);
 	}
 
 	private static DateTimeOffset? ToDateTimeOffset(DateTime value)
@@ -307,8 +235,6 @@ public sealed class FluentFtpSession : IFtpSession
 
 	private void ThrowIfDisposed()
 	{
-		ObjectDisposedException.ThrowIf(
-			Volatile.Read(ref isDisposed) is not 0,
-			this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
 	}
 }

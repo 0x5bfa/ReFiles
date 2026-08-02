@@ -14,10 +14,7 @@ internal sealed class FtpStorableFactory
 	private readonly FtpItemResolver resolver;
 	private readonly FtpConnection connection;
 
-	public FtpStorableFactory(
-		FtpStorageSource source,
-		FtpItemResolver resolver,
-		FtpConnection connection)
+	public FtpStorableFactory(FtpStorageSource source, FtpItemResolver resolver, FtpConnection connection)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(resolver);
@@ -27,9 +24,7 @@ internal sealed class FtpStorableFactory
 		this.connection = connection;
 	}
 
-	public async ValueTask<FtpStorable> ResolveAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<FtpStorable> ResolveAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		var entry = await resolver
 			.ResolveAsync(path, cancellationToken)
@@ -37,25 +32,19 @@ internal sealed class FtpStorableFactory
 		return Create(entry);
 	}
 
-	public async ValueTask<IReadOnlyList<FtpEntryInfo>> GetItemsAsync(
-		FtpPath folderPath,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IReadOnlyList<FtpEntryInfo>> GetItemsAsync(FtpPath folderPath, CancellationToken cancellationToken = default)
 	{
 		return await resolver
 			.GetItemsAsync(folderPath, cancellationToken)
 			.ConfigureAwait(false);
 	}
 
-	public ValueTask<Stream> OpenReadAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public ValueTask<Stream> OpenReadAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		return connection.OpenReadAsync(path, cancellationToken);
 	}
 
-	public ValueTask<Stream> OpenWriteAsync(
-		FtpPath path,
-		CancellationToken cancellationToken = default)
+	public ValueTask<Stream> OpenWriteAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		return connection.OpenWriteAsync(path, cancellationToken);
 	}

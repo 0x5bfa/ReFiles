@@ -8,8 +8,4 @@ namespace Files.Core.ItemFeatures.Changes;
 /// <summary>
 /// Describes one folder change without exposing Windows Shell pointers.
 /// </summary>
-public sealed record FolderChange(
-	FolderChangeKind Kind,
-	StorableReference? CurrentItem,
-	StorableReference? PreviousItem,
-	bool RequiresRefresh);
+public sealed record FolderChange(FolderChangeKind Kind, StorableReference? CurrentItem, StorableReference? PreviousItem, bool RequiresRefresh);
