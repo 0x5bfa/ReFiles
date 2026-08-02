@@ -3,6 +3,7 @@
 	x:Class="Files.Views.RootView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:viewModels="using:Files.ViewModels"
 	xmlns:views="using:Files.Views"
 	x:Name="Root">
 	<Grid RowSpacing="1">
@@ -21,8 +22,11 @@
 			Grid.Row="2"
 			IsBackButtonVisible="Collapsed"
 			IsSettingsVisible="False"
-			PaneDisplayMode="LeftCompact"
-			SelectionChanged="NavigationView_SelectionChanged">
+			ItemInvoked="NavigationView_ItemInvoked"
+			MenuItemsSource="{x:Bind ViewModel.NavigationItems, Mode=OneWay}"
+			OpenPaneLength="240"
+			PaneDisplayMode="Left">
+
 			<NavigationView.Resources>
 				<ResourceDictionary>
 					<StaticResource x:Key="NavigationViewContentBackground" ResourceKey="ControlFillColorTransparentBrush" />
@@ -33,17 +37,18 @@
 				</ResourceDictionary>
 			</NavigationView.Resources>
 
-			<NavigationView.MenuItems>
-				<NavigationViewItem
-					x:Name="HomeItem"
-					AutomationProperties.Name="{x:Bind ViewModel.HomeCommand.AutomationName, Mode=OneWay}"
-					Content="{x:Bind ViewModel.HomeCommand.Label, Mode=OneWay}"
-					Tag="Home">
-					<NavigationViewItem.Icon>
-						<SymbolIcon Symbol="Home" />
-					</NavigationViewItem.Icon>
-				</NavigationViewItem>
-			</NavigationView.MenuItems>
+			<NavigationView.MenuItemTemplate>
+				<DataTemplate x:DataType="viewModels:NavigationItemViewModel">
+					<NavigationViewItem
+						AutomationProperties.Name="{x:Bind Name}"
+						Content="{x:Bind Name}"
+						Icon="{x:Bind Icon, Mode=OneWay}"
+						MenuItemsSource="{x:Bind Children, Mode=OneWay}"
+						SelectsOnInvoked="{x:Bind SelectsOnInvoked}"
+						Tag="{x:Bind}" />
+				</DataTemplate>
+			</NavigationView.MenuItemTemplate>
+
 			<NavigationView.Content>
 				<Grid RowSpacing="1">
 					<Grid.RowDefinitions>

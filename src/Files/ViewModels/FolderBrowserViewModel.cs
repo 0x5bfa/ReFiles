@@ -9,6 +9,7 @@ using Files.Localization;
 using Files.Core.AppModels;
 using Files.Core.Browsing;
 using Files.Core.Data;
+using Files.Core.Storage;
 
 namespace Files.ViewModels;
 
@@ -85,6 +86,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		BrowseItemViewModel item,
 		CancellationToken cancellationToken = default) =>
 		browseAdapter.NavigateToItemAsync(item, cancellationToken);
+
+	public Task NavigateToReferenceAsync(
+		StorableReference reference,
+		CancellationToken cancellationToken = default) =>
+		browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
 
 	public Task GoBackAsync(CancellationToken cancellationToken = default) =>
 		browseAdapter.GoBackAsync(cancellationToken);

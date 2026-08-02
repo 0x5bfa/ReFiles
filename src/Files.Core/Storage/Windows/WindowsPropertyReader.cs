@@ -22,11 +22,28 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	private const string Size = "System.Size";
 	private const string DateModified = "System.DateModified";
 	private const string DateCreated = "System.DateCreated";
+	private const string HomeIsPinned = "System.Home.IsPinned";
 
 	private static readonly PROPERTYKEY itemTypeTextKey = ResolvePropertyKey(ItemTypeText);
 	private static readonly PROPERTYKEY sizeKey = ResolvePropertyKey(Size);
 	private static readonly PROPERTYKEY dateModifiedKey = ResolvePropertyKey(DateModified);
 	private static readonly PROPERTYKEY dateCreatedKey = ResolvePropertyKey(DateCreated);
+	private static readonly PROPERTYKEY homeIsPinnedKey = new()
+	{
+		fmtid = new Guid(
+			0x30C8EEF4u,
+			0xA832,
+			0x41E2,
+			0xAB,
+			0x32,
+			0xE3,
+			0xC3,
+			0xCA,
+			0x28,
+			0xFD,
+			0x29),
+		pid = 4,
+	};
 
 	public bool CanRead(ItemContext context)
 	{
@@ -114,6 +131,13 @@ public sealed class WindowsPropertyReader : IPropertyReader
 				case DateCreated:
 					AddFileTime(shellItem2, dateCreatedKey, DateCreated, properties);
 					break;
+				case HomeIsPinned:
+					AddBool(
+						shellItem2,
+						homeIsPinnedKey,
+						HomeIsPinned,
+						properties);
+					break;
 			}
 		}
 
@@ -154,6 +178,20 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		if (result.Succeeded)
 		{
 			properties[propertyId] = value;
+		}
+	}
+
+	private static void AddBool(
+		IShellItem2 item,
+		PROPERTYKEY key,
+		string propertyId,
+		Dictionary<string, object?> properties)
+	{
+		var result = item.GetBool(key, out var value);
+
+		if (result.Succeeded)
+		{
+			properties[propertyId] = (bool)value;
 		}
 	}
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
@@ -17,6 +18,8 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	private readonly IFilesDataRoot dataRoot;
 	private readonly IUIDispatcher dispatcher;
 	private readonly WindowCommandManager commandManager;
+	private readonly NavigationItemLoader navigationItemLoader;
+	private readonly CancellationTokenSource lifetime = new();
 	private readonly Dictionary<Guid, TabViewModel> tabViewModels = [];
 	private string? operationError;
 	private int isDisposed;
@@ -37,7 +40,12 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		this.window = window;
 		this.dataRoot = dataRoot;
 		this.dispatcher = dispatcher;
+		navigationItemLoader = new NavigationItemLoader(dataRoot);
 		Tabs = [];
+		NavigationItems = [];
+		HomeNavigationItem = NavigationItemViewModel.CreateHome(
+			Strings.Home.GetLocalized());
+		NavigationItems.Add(HomeNavigationItem);
 		commandManager = new WindowCommandManager(
 			this,
 			commandRegistry,
@@ -61,6 +69,10 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	}
 
 	public ObservableCollection<TabViewModel> Tabs { get; }
+
+	public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
+
+	public NavigationItemViewModel HomeNavigationItem { get; }
 
 	public TabStripViewModel TabStrip { get; }
 
@@ -113,13 +125,42 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		?? ActiveTab?.StatusText
 		?? Strings.NoTabs.GetLocalized();
 
-	public async Task InitializeAsync()
+	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+			cancellationToken,
+			lifetime.Token);
+		var navigationItemsTask = navigationItemLoader.LoadAsync(
+			linkedCancellation.Token);
+
 		if (ActiveTab?.ActivePane is { } pane)
 		{
-			await pane.FolderBrowser.InitializeAsync().ConfigureAwait(false);
+			await pane.FolderBrowser
+				.InitializeAsync(linkedCancellation.Token)
+				.ConfigureAwait(false);
 		}
+
+		var sections = await navigationItemsTask.ConfigureAwait(false);
+		linkedCancellation.Token.ThrowIfCancellationRequested();
+		await ApplyNavigationItemsOnUiAsync(sections).ConfigureAwait(false);
+	}
+
+	public Task NavigateToNavigationItemAsync(
+		NavigationItemViewModel item,
+		CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+		ArgumentNullException.ThrowIfNull(item);
+
+		if (!item.SelectsOnInvoked
+			|| item.Reference is not { } reference
+			|| ActiveFolderBrowser is not { } browser)
+		{
+			return Task.CompletedTask;
+		}
+
+		return browser.NavigateToReferenceAsync(reference, cancellationToken);
 	}
 
 	public async Task OpenTabAsync(
@@ -174,6 +215,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 			return;
 		}
 
+		lifetime.Cancel();
 		window.StateChanged -= Window_StateChanged;
 		NavigationToolbar.Dispose();
 		Toolbar.Dispose();
@@ -186,6 +228,92 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 		tabViewModels.Clear();
 		Tabs.Clear();
+		NavigationItems.Clear();
+		lifetime.Dispose();
+	}
+
+	private async Task ApplyNavigationItemsAsync(
+		IReadOnlyList<NavigationSectionData> sections)
+	{
+		var desired = new List<NavigationItemViewModel>
+		{
+			HomeNavigationItem,
+		};
+
+		foreach (var section in sections)
+		{
+			var children = new List<NavigationItemViewModel>(section.Items.Count);
+			foreach (var item in section.Items)
+			{
+				children.Add(await CreateNavigationItemAsync(item));
+			}
+
+			desired.Add(
+				NavigationItemViewModel.CreateSection(
+					section.Name,
+					section.Reference,
+					children));
+		}
+
+		ObservableCollectionSynchronizer.Synchronize(NavigationItems, desired);
+	}
+
+	private Task ApplyNavigationItemsOnUiAsync(
+		IReadOnlyList<NavigationSectionData> sections)
+	{
+		if (dispatcher.HasThreadAccess)
+		{
+			return ApplyNavigationItemsAsync(sections);
+		}
+
+		var completion = new TaskCompletionSource<bool>(
+			TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!dispatcher.TryEnqueue(
+			async () =>
+			{
+				try
+				{
+					await ApplyNavigationItemsAsync(sections);
+					completion.SetResult(true);
+				}
+				catch (Exception exception)
+				{
+					completion.SetException(exception);
+				}
+			}))
+		{
+			completion.SetException(
+				new InvalidOperationException(
+					"The Files UI dispatcher rejected navigation items."));
+		}
+
+		return completion.Task;
+	}
+
+	private static async Task<NavigationItemViewModel> CreateNavigationItemAsync(
+		NavigationItemData item)
+	{
+		var viewModel = NavigationItemViewModel.CreateFolder(
+			item.Name,
+			item.Reference);
+		if (item.Thumbnail is null)
+		{
+			return viewModel;
+		}
+
+		try
+		{
+			viewModel.SetThumbnail(
+				await ThumbnailImageFactory
+					.CreateAsync(item.Thumbnail)
+					.ConfigureAwait(true));
+		}
+		catch (Exception)
+		{
+			// Shell thumbnail decoding is best effort.
+		}
+
+		return viewModel;
 	}
 
 	private void Window_StateChanged(object? sender, EventArgs args)

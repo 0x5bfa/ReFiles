@@ -141,9 +141,20 @@ internal sealed class CoreBrowseAdapter : IDisposable
 			return;
 		}
 
+		await NavigateToReferenceAsync(item.Reference, cancellationToken)
+			.ConfigureAwait(false);
+	}
+
+	public async Task NavigateToReferenceAsync(
+		StorableReference reference,
+		CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+		ArgumentNullException.ThrowIfNull(reference);
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await pane.NavigateAsync(
-			new FolderLocation(item.Reference),
+			new FolderLocation(reference),
 			cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 	}
 

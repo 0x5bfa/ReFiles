@@ -30,7 +30,6 @@ public sealed partial class RootView : Page, IDisposable
 			dataRoot,
 			new DispatcherQueueUIDispatcher(dispatcherQueue),
 			commandRegistry);
-		Sidebar.SelectedItem = HomeItem;
 		Loaded += RootView_Loaded;
 	}
 
@@ -57,6 +56,11 @@ public sealed partial class RootView : Page, IDisposable
 		}
 
 		isLoaded = true;
+		if (Sidebar.MenuItems.Count > 0)
+		{
+			Sidebar.SelectedItem = Sidebar.MenuItems[0];
+		}
+
 		try
 		{
 			await viewModel.InitializeAsync();
@@ -70,14 +74,40 @@ public sealed partial class RootView : Page, IDisposable
 		}
 	}
 
-	private async void NavigationView_SelectionChanged(
+	private async void NavigationView_ItemInvoked(
 		NavigationView sender,
-		NavigationViewSelectionChangedEventArgs args)
+		NavigationViewItemInvokedEventArgs args)
 	{
-		if (args.SelectedItem is NavigationViewItem { Tag: "Home" }
-			&& isLoaded)
+		if (!isLoaded)
 		{
-			await viewModel.HomeCommand.ExecuteAsync();
+			return;
+		}
+
+		var item = args.InvokedItemContainer?.Tag as NavigationItemViewModel
+			?? (args.InvokedItemContainer?.Content as NavigationViewItem)?.Tag as NavigationItemViewModel
+			?? args.InvokedItem as NavigationItemViewModel;
+		if (item is null)
+		{
+			return;
+		}
+
+		try
+		{
+			if (item.IsHome)
+			{
+				await viewModel.HomeCommand.ExecuteAsync();
+			}
+			else
+			{
+				await viewModel.NavigateToNavigationItemAsync(item);
+			}
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception exception)
+		{
+			viewModel.ReportOperationError(exception);
 		}
 	}
 }

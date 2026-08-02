@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
 	<data name="Home" xml:space="preserve"><value>Home</value></data>
+	<data name="Pinned" xml:space="preserve"><value>Pinned</value></data>
+	<data name="Drives" xml:space="preserve"><value>Drives</value></data>
+	<data name="Network" xml:space="preserve"><value>Network</value></data>
+	<data name="WSL" xml:space="preserve"><value>WSL</value></data>
 	<data name="Loading" xml:space="preserve"><value>Loading...</value></data>
 	<data name="NoTabs" xml:space="preserve"><value>No tabs</value></data>
 	<data name="NewTab" xml:space="preserve"><value>New tab</value></data>
