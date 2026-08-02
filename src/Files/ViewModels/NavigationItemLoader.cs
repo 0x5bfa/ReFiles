@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Runtime.CompilerServices;
 using Files.Core.Data;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Properties;
@@ -26,6 +27,7 @@ internal sealed class NavigationItemLoader
 	private static readonly string MyComputerParsingName =
 		$"shell:::{CLSID.CLSID_MyComputer:B}";
 
+	private const int MaxConcurrentItemLoads = 4;
 	private const int ThumbnailSize = 20;
 
 	private readonly IFilesDataRoot dataRoot;
@@ -36,66 +38,85 @@ internal sealed class NavigationItemLoader
 		this.dataRoot = dataRoot;
 	}
 
-	public async Task<IReadOnlyList<NavigationSectionData>> LoadAsync(
-		CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<NavigationSectionData> LoadSectionsAsync(
+		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		var windowsSource = dataRoot.Sources
 			.OfType<WindowsStorageSource>()
 			.FirstOrDefault();
 		if (windowsSource is null)
 		{
-			return [];
+			yield break;
 		}
 
-		var sections = new List<NavigationSectionData>();
-		var pinned = await TryLoadAddressSectionAsync(
-			windowsSource,
-			Strings.Pinned.GetLocalized(),
-			PinnedParsingName,
-			IsPinnedHomeItemAsync,
-			cancellationToken).ConfigureAwait(false);
-		if (pinned is not null)
+		var pendingSections = new[]
 		{
-			sections.Add(pinned);
-		}
+			TryLoadAddressSectionAsync(
+				0,
+				windowsSource,
+				Strings.Pinned.GetLocalized(),
+				PinnedParsingName,
+				IsPinnedHomeItemAsync,
+				cancellationToken),
+			TryLoadAddressSectionAsync(
+				1,
+				windowsSource,
+				Strings.Drives.GetLocalized(),
+				MyComputerParsingName,
+				static (_, _) => ValueTask.FromResult(true),
+				cancellationToken),
+			TryLoadAddressSectionAsync(
+				2,
+				windowsSource,
+				Strings.Network.GetLocalized(),
+				NetworkParsingName,
+				static (_, _) => ValueTask.FromResult(true),
+				cancellationToken),
+			TryLoadAddressSectionAsync(
+				3,
+				windowsSource,
+				Strings.WSL.GetLocalized(),
+				WslParsingName,
+				static (_, _) => ValueTask.FromResult(true),
+				cancellationToken),
+		};
 
-		var drives = await TryLoadAddressSectionAsync(
-			windowsSource,
-			Strings.Drives.GetLocalized(),
-			MyComputerParsingName,
-			static (_, _) => ValueTask.FromResult(true),
-			cancellationToken).ConfigureAwait(false);
-		if (drives is not null)
+		while (pendingSections.Length > 0)
 		{
-			sections.Add(drives);
-		}
+			var completed = await Task
+				.WhenAny(pendingSections)
+				.ConfigureAwait(false);
+			pendingSections = pendingSections
+				.Where(task => !ReferenceEquals(task, completed))
+				.ToArray();
 
-		var network = await TryLoadAddressSectionAsync(
-			windowsSource,
-			Strings.Network.GetLocalized(),
-			NetworkParsingName,
-			static (_, _) => ValueTask.FromResult(true),
-			cancellationToken).ConfigureAwait(false);
-		if (network is not null)
+			if (await completed.ConfigureAwait(false) is { } section)
+			{
+				yield return section;
+			}
+		}
+	}
+
+	public async ValueTask<byte[]?> LoadThumbnailAsync(
+		StorableReference reference,
+		CancellationToken cancellationToken = default)
+	{
+		var model = await dataRoot
+			.ResolveAsync(reference, cancellationToken)
+			.ConfigureAwait(false);
+		try
 		{
-			sections.Add(network);
+			return await GetThumbnailAsync(model, cancellationToken)
+				.ConfigureAwait(false);
 		}
-
-		var wsl = await TryLoadAddressSectionAsync(
-			windowsSource,
-			Strings.WSL.GetLocalized(),
-			WslParsingName,
-			static (_, _) => ValueTask.FromResult(true),
-			cancellationToken).ConfigureAwait(false);
-		if (wsl is not null)
+		finally
 		{
-			sections.Add(wsl);
+			await model.DisposeAsync().ConfigureAwait(false);
 		}
-
-		return sections;
 	}
 
 	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(
+		int order,
 		WindowsStorageSource source,
 		string name,
 		string parsingName,
@@ -118,6 +139,7 @@ internal sealed class NavigationItemLoader
 			}
 
 			return await LoadSectionAsync(
+				order,
 				name,
 				folder,
 				include,
@@ -134,11 +156,14 @@ internal sealed class NavigationItemLoader
 	}
 
 	private static async Task<NavigationSectionData> LoadSectionAsync(
+		int order,
 		string name,
 		IFolderModel folder,
 		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
 		CancellationToken cancellationToken)
 	{
+		var pendingItems = new List<Task<NavigationItemData?>>(
+			MaxConcurrentItemLoads);
 		try
 		{
 			var children = new List<NavigationItemData>();
@@ -146,32 +171,84 @@ internal sealed class NavigationItemLoader
 				.GetItemsAsync(StorableType.Folder, cancellationToken)
 				.ConfigureAwait(false))
 			{
-				try
+				pendingItems.Add(
+					LoadItemAsync(
+						item,
+						include,
+						cancellationToken));
+				if (pendingItems.Count < MaxConcurrentItemLoads)
 				{
-					if (await include(item, cancellationToken).ConfigureAwait(false))
+					continue;
+				}
+
+				var loadedItems = await Task
+					.WhenAll(pendingItems)
+					.ConfigureAwait(false);
+				foreach (var loadedItem in loadedItems)
+				{
+					if (loadedItem is not null)
 					{
-						children.Add(
-							new NavigationItemData(
-								item.Name,
-								item.Reference,
-								await GetThumbnailAsync(item, cancellationToken)
-									.ConfigureAwait(false)));
+						children.Add(loadedItem);
 					}
 				}
-				finally
+
+				pendingItems.Clear();
+			}
+
+			if (pendingItems.Count > 0)
+			{
+				var loadedItems = await Task
+					.WhenAll(pendingItems)
+					.ConfigureAwait(false);
+				foreach (var loadedItem in loadedItems)
 				{
-					await item.DisposeAsync().ConfigureAwait(false);
+					if (loadedItem is not null)
+					{
+						children.Add(loadedItem);
+					}
 				}
+
+				pendingItems.Clear();
 			}
 
 			return new NavigationSectionData(
+				order,
 				name,
 				folder.Reference,
 				children);
 		}
 		finally
 		{
+			try
+			{
+				if (pendingItems.Count > 0)
+				{
+					await Task.WhenAll(pendingItems).ConfigureAwait(false);
+				}
+			}
+			catch (Exception)
+			{
+				// Preserve the original enumeration error.
+			}
+
 			await folder.DisposeAsync().ConfigureAwait(false);
+		}
+	}
+
+	private static async Task<NavigationItemData?> LoadItemAsync(
+		IStorableModel item,
+		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
+		CancellationToken cancellationToken)
+	{
+		try
+		{
+			return await include(item, cancellationToken).ConfigureAwait(false)
+				? new NavigationItemData(item.Name, item.Reference)
+				: null;
+		}
+		finally
+		{
+			await item.DisposeAsync().ConfigureAwait(false);
 		}
 	}
 
@@ -239,11 +316,11 @@ internal sealed class NavigationItemLoader
 }
 
 internal sealed record NavigationSectionData(
+	int Order,
 	string Name,
 	StorableReference Reference,
 	IReadOnlyList<NavigationItemData> Items);
 
 internal sealed record NavigationItemData(
 	string Name,
-	StorableReference Reference,
-	byte[]? Thumbnail);
+	StorableReference Reference);

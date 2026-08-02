@@ -17,7 +17,8 @@ public interface IWindowsShellScheduler : IAsyncDisposable
 	Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken = default);
 
 	/// <summary>
-	/// Runs independent, stateless work on a small pool of Shell STA lanes.
+	/// Runs independent Shell work on a small pool of Shell STA lanes. COM
+	/// objects created by the delegate must not escape the delegate.
 	/// </summary>
 	Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default);
 

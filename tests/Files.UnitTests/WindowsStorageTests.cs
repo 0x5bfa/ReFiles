@@ -1,6 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Diagnostics;
+using Files.Core.Storage;
+
 namespace Files.UnitTests;
 
 [TestClass]
@@ -44,6 +47,49 @@ public sealed class WindowsStorageTests
 		Assert.AreEqual(40, all.Count(item => item is IFile));
 		Assert.AreEqual(1, all.Count(item => item is IFolder));
 			Assert.AreEqual(41, all.Select(item => item.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public async Task HardLinkedFileEnumerationUsesDistinctDirectoryEntryIdentities()
+	{
+		var directoryPath = Path.Combine(
+			Path.GetTempPath(),
+			$"Files.Core.HardLinkTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		var originalPath = Path.Combine(directoryPath, "original.txt");
+		var linkPath = Path.Combine(directoryPath, "link.txt");
+
+		try
+		{
+			File.WriteAllText(originalPath, "content");
+			CreateHardLink(linkPath, originalPath);
+
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var folder = (IFolder)await source.ResolveAsync(
+				new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+
+			var items = new List<IStorableChild>();
+			await foreach (var item in folder.GetItemsAsync(StorableType.File))
+			{
+				items.Add(item);
+			}
+
+			Assert.AreEqual(2, items.Count);
+			Assert.AreEqual(
+				2,
+				items.Select(static item => item.Id)
+					.Distinct(StringComparer.Ordinal)
+					.Count());
+			Assert.IsTrue(
+				items.All(static item => item.Id.StartsWith(
+					"winshell-address:v1:",
+					StringComparison.Ordinal)));
 		}
 		finally
 		{
@@ -149,5 +195,30 @@ public sealed class WindowsStorageTests
 		}
 
 		return null;
+	}
+
+	private static void CreateHardLink(string linkPath, string existingPath)
+	{
+		var startInfo = new ProcessStartInfo
+		{
+			FileName = Path.Combine(Environment.SystemDirectory, "fsutil.exe"),
+			UseShellExecute = false,
+			RedirectStandardError = true,
+			CreateNoWindow = true,
+		};
+		startInfo.ArgumentList.Add("hardlink");
+		startInfo.ArgumentList.Add("create");
+		startInfo.ArgumentList.Add(linkPath);
+		startInfo.ArgumentList.Add(existingPath);
+
+		using var process = Process.Start(startInfo)
+			?? throw new InvalidOperationException("Could not start fsutil.exe.");
+		var error = process.StandardError.ReadToEnd();
+		process.WaitForExit();
+		if (process.ExitCode is not 0)
+		{
+			throw new IOException(
+				$"Could not create the test hard link: {error}");
+		}
 	}
 }

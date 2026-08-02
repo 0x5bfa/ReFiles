@@ -21,8 +21,11 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	private readonly NavigationItemLoader navigationItemLoader;
 	private readonly CancellationTokenSource lifetime = new();
 	private readonly Dictionary<Guid, TabViewModel> tabViewModels = [];
+	private readonly Dictionary<int, NavigationItemViewModel> navigationSectionViewModels = [];
+	private readonly SemaphoreSlim navigationThumbnailGate = new(4);
 	private string? operationError;
 	private int isDisposed;
+	private int navigationItemsStarted;
 	private int refreshQueued;
 	private bool isRefreshing;
 
@@ -128,11 +131,16 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
+		if (Interlocked.Exchange(ref navigationItemsStarted, 1) is 0)
+		{
+			var navigationCancellationToken = lifetime.Token;
+			_ = Task.Run(
+				() => LoadNavigationItemsAsync(navigationCancellationToken));
+		}
+
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
 			cancellationToken,
 			lifetime.Token);
-		var navigationItemsTask = navigationItemLoader.LoadAsync(
-			linkedCancellation.Token);
 
 		if (ActiveTab?.ActivePane is { } pane)
 		{
@@ -140,10 +148,6 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 				.InitializeAsync(linkedCancellation.Token)
 				.ConfigureAwait(false);
 		}
-
-		var sections = await navigationItemsTask.ConfigureAwait(false);
-		linkedCancellation.Token.ThrowIfCancellationRequested();
-		await ApplyNavigationItemsOnUiAsync(sections).ConfigureAwait(false);
 	}
 
 	public Task NavigateToNavigationItemAsync(
@@ -228,52 +232,52 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 		tabViewModels.Clear();
 		Tabs.Clear();
+		navigationSectionViewModels.Clear();
 		NavigationItems.Clear();
+		navigationThumbnailGate.Dispose();
 		lifetime.Dispose();
 	}
 
-	private async Task ApplyNavigationItemsAsync(
-		IReadOnlyList<NavigationSectionData> sections)
+	private async Task LoadNavigationItemsAsync(
+		CancellationToken cancellationToken)
 	{
-		var desired = new List<NavigationItemViewModel>
+		try
 		{
-			HomeNavigationItem,
-		};
-
-		foreach (var section in sections)
-		{
-			var children = new List<NavigationItemViewModel>(section.Items.Count);
-			foreach (var item in section.Items)
+			await foreach (var section in navigationItemLoader
+				.LoadSectionsAsync(cancellationToken)
+				.ConfigureAwait(false))
 			{
-				children.Add(await CreateNavigationItemAsync(item));
+				await ApplyNavigationSectionOnUiAsync(section)
+					.ConfigureAwait(false);
 			}
-
-			desired.Add(
-				NavigationItemViewModel.CreateSection(
-					section.Name,
-					section.Reference,
-					children));
 		}
-
-		ObservableCollectionSynchronizer.Synchronize(NavigationItems, desired);
+		catch (OperationCanceledException)
+			when (cancellationToken.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			ReportNavigationLoadError(exception);
+		}
 	}
 
-	private Task ApplyNavigationItemsOnUiAsync(
-		IReadOnlyList<NavigationSectionData> sections)
+	private Task ApplyNavigationSectionOnUiAsync(
+		NavigationSectionData section)
 	{
 		if (dispatcher.HasThreadAccess)
 		{
-			return ApplyNavigationItemsAsync(sections);
+			ApplyNavigationSection(section);
+			return Task.CompletedTask;
 		}
 
 		var completion = new TaskCompletionSource<bool>(
 			TaskCreationOptions.RunContinuationsAsynchronously);
 		if (!dispatcher.TryEnqueue(
-			async () =>
+			() =>
 			{
 				try
 				{
-					await ApplyNavigationItemsAsync(sections);
+					ApplyNavigationSection(section);
 					completion.SetResult(true);
 				}
 				catch (Exception exception)
@@ -290,30 +294,155 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		return completion.Task;
 	}
 
-	private static async Task<NavigationItemViewModel> CreateNavigationItemAsync(
-		NavigationItemData item)
+	private void ApplyNavigationSection(NavigationSectionData section)
 	{
-		var viewModel = NavigationItemViewModel.CreateFolder(
-			item.Name,
-			item.Reference);
-		if (item.Thumbnail is null)
+		if (Volatile.Read(ref isDisposed) is not 0)
 		{
-			return viewModel;
+			return;
 		}
 
+		if (navigationSectionViewModels.Remove(
+			section.Order,
+			out var previousSection))
+		{
+			NavigationItems.Remove(previousSection);
+		}
+
+		var children = new List<NavigationItemViewModel>(section.Items.Count);
+		var navigationCancellationToken = lifetime.Token;
+		foreach (var item in section.Items)
+		{
+			var child = NavigationItemViewModel.CreateFolder(
+				item.Name,
+				item.Reference);
+			children.Add(child);
+			_ = Task.Run(
+				() => LoadNavigationThumbnailAsync(
+					item,
+					child,
+					navigationCancellationToken));
+		}
+
+		var sectionViewModel = NavigationItemViewModel.CreateSection(
+			section.Name,
+			section.Reference,
+			children);
+		var insertIndex = 1;
+		foreach (var order in navigationSectionViewModels.Keys)
+		{
+			if (order < section.Order)
+			{
+				insertIndex++;
+			}
+		}
+
+		NavigationItems.Insert(insertIndex, sectionViewModel);
+		navigationSectionViewModels.Add(section.Order, sectionViewModel);
+	}
+
+	private async Task LoadNavigationThumbnailAsync(
+		NavigationItemData item,
+		NavigationItemViewModel viewModel,
+		CancellationToken cancellationToken)
+	{
 		try
 		{
-			viewModel.SetThumbnail(
-				await ThumbnailImageFactory
-					.CreateAsync(item.Thumbnail)
-					.ConfigureAwait(true));
+			await navigationThumbnailGate
+				.WaitAsync(cancellationToken)
+				.ConfigureAwait(false);
+			try
+			{
+				var thumbnail = await navigationItemLoader
+					.LoadThumbnailAsync(item.Reference, cancellationToken)
+					.ConfigureAwait(false);
+				if (thumbnail is null
+					|| Volatile.Read(ref isDisposed) is not 0)
+				{
+					return;
+				}
+
+				await SetNavigationThumbnailOnUiAsync(viewModel, thumbnail)
+					.ConfigureAwait(false);
+			}
+			finally
+			{
+				navigationThumbnailGate.Release();
+			}
+		}
+		catch (OperationCanceledException)
+			when (cancellationToken.IsCancellationRequested)
+		{
 		}
 		catch (Exception)
 		{
-			// Shell thumbnail decoding is best effort.
+			// Shell thumbnail loading is best effort.
+		}
+	}
+
+	private Task SetNavigationThumbnailOnUiAsync(
+		NavigationItemViewModel viewModel,
+		byte[] thumbnail)
+	{
+		if (dispatcher.HasThreadAccess)
+		{
+			return SetNavigationThumbnailAsync(viewModel, thumbnail);
 		}
 
-		return viewModel;
+		var completion = new TaskCompletionSource<bool>(
+			TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!dispatcher.TryEnqueue(
+			async () =>
+			{
+				try
+				{
+					await SetNavigationThumbnailAsync(viewModel, thumbnail);
+					completion.SetResult(true);
+				}
+				catch (Exception exception)
+				{
+					completion.SetException(exception);
+				}
+			}))
+		{
+			completion.SetException(
+				new InvalidOperationException(
+					"The Files UI dispatcher rejected a navigation thumbnail."));
+		}
+
+		return completion.Task;
+	}
+
+	private static async Task SetNavigationThumbnailAsync(
+		NavigationItemViewModel viewModel,
+		byte[] thumbnail)
+	{
+		viewModel.SetThumbnail(
+			await ThumbnailImageFactory
+				.CreateAsync(thumbnail)
+				.ConfigureAwait(true));
+	}
+
+	private void ReportNavigationLoadError(Exception exception)
+	{
+		if (Volatile.Read(ref isDisposed) is not 0)
+		{
+			return;
+		}
+
+		if (dispatcher.HasThreadAccess)
+		{
+			ReportOperationError(exception);
+			return;
+		}
+
+		dispatcher.TryEnqueue(
+			() =>
+			{
+				if (Volatile.Read(ref isDisposed) is 0)
+				{
+					ReportOperationError(exception);
+				}
+			});
 	}
 
 	private void Window_StateChanged(object? sender, EventArgs args)

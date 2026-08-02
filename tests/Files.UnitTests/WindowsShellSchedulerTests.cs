@@ -61,6 +61,30 @@ public sealed class WindowsShellSchedulerTests
 	}
 
 	[TestMethod]
+	public async Task ConcurrentDelegateRunsEntirelyOnOneSta()
+	{
+		await using var scheduler = new WindowsShellScheduler(concurrentWorkerCount: 2);
+		var threadIds = new ConcurrentBag<int>();
+		var apartmentStates = new ConcurrentBag<ApartmentState>();
+
+		await scheduler.InvokeConcurrentAsync(() =>
+		{
+			for (var index = 0; index < 16; index++)
+			{
+				threadIds.Add(Thread.CurrentThread.ManagedThreadId);
+				apartmentStates.Add(Thread.CurrentThread.GetApartmentState());
+				Thread.Yield();
+			}
+
+			return true;
+		});
+
+		Assert.AreEqual(1, threadIds.Distinct().Count());
+		Assert.AreEqual(1, apartmentStates.Distinct().Count());
+		Assert.AreEqual(ApartmentState.STA, apartmentStates.Distinct().Single());
+	}
+
+	[TestMethod]
 	public async Task NestedOrderedInvocationRunsWithoutDeadlock()
 	{
 		await using var scheduler = new WindowsShellScheduler();

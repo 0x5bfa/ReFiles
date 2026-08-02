@@ -29,10 +29,17 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 		if (fileSystemPath is not null && TryGetFileId(fileSystemPath, out var fileId))
 		{
-			return $"{FileIdentityPrefix}{fileId.VolumeSerialNumber:X8}:{fileId.FileIndex:X16}";
+			if (fileId.NumberOfLinks <= 1)
+			{
+				return $"{FileIdentityPrefix}{fileId.VolumeSerialNumber:X8}:{fileId.FileIndex:X16}";
+			}
+
+			// A file ID identifies the shared file object, while the parsing name
+			// identifies the directory entry that Shell enumerated.
+			return CreateAddressIdentity(parsingName);
 		}
 
-		return $"{AddressPrefix}{EncodeAddress(parsingName)}";
+		return CreateAddressIdentity(parsingName);
 	}
 
 	public bool TryGetParsingName(
@@ -78,7 +85,8 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 			fileId = new WindowsFileId(
 				information.dwVolumeSerialNumber,
-				((ulong)information.nFileIndexHigh << 32) | information.nFileIndexLow);
+				((ulong)information.nFileIndexHigh << 32) | information.nFileIndexLow,
+				information.nNumberOfLinks);
 			return true;
 		}
 		catch (IOException)
@@ -89,6 +97,11 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		{
 			return false;
 		}
+	}
+
+	private static string CreateAddressIdentity(string parsingName)
+	{
+		return $"{AddressPrefix}{EncodeAddress(parsingName)}";
 	}
 
 	private static string EncodeAddress(string parsingName)
@@ -129,5 +142,6 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 	private readonly record struct WindowsFileId(
 		uint VolumeSerialNumber,
-		ulong FileIndex);
+		ulong FileIndex,
+		uint NumberOfLinks);
 }
