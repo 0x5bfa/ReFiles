@@ -10,7 +10,7 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeResolver
 {
-	private readonly IReadOnlyDictionary<string, PreviewContentType> contentTypes;
+	private readonly IReadOnlyDictionary<string, PreviewContentType> _contentTypes;
 
 	public ExtensionPreviewContentTypeResolver(IEnumerable<KeyValuePair<string, string>> mappings)
 	{
@@ -29,7 +29,7 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 			}
 		}
 
-		contentTypes = resolvedTypes;
+		_contentTypes = resolvedTypes;
 	}
 
 	public bool TryResolve(ItemContext context, out PreviewContentType contentType)
@@ -39,23 +39,26 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 		if (context.CoreModel is not IFile file)
 		{
 			contentType = null!;
+
 			return false;
 		}
 
-		if (contentTypes.TryGetValue(Path.GetExtension(file.Name), out var resolvedType))
+		if (_contentTypes.TryGetValue(Path.GetExtension(file.Name), out var resolvedType))
 		{
 			contentType = resolvedType;
+
 			return true;
 		}
 
-		if (file is IStorageAddressSource addressSource
-			&& contentTypes.TryGetValue(Path.GetExtension(addressSource.Address.Value), out resolvedType))
+		if (file is IStorageAddressSource addressSource && _contentTypes.TryGetValue(Path.GetExtension(addressSource.Address.Value), out resolvedType))
 		{
 			contentType = resolvedType;
+
 			return true;
 		}
 
 		contentType = null!;
+
 		return false;
 	}
 
@@ -63,12 +66,7 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(extension);
 
-		if (extension.Length < 2
-			|| extension[0] != '.'
-			|| extension.Any(char.IsWhiteSpace)
-			|| extension.IndexOf('.', 1) >= 0
-			|| extension.Contains('/')
-			|| extension.Contains('\\'))
+		if (extension.Length < 2 || extension[0] != '.' || extension.Any(char.IsWhiteSpace) || extension.IndexOf('.', 1) >= 0 || extension.Contains('/') || extension.Contains('\\'))
 		{
 			throw new ArgumentException($"The extension '{extension}' is invalid.", nameof(extension));
 		}

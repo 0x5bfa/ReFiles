@@ -13,19 +13,26 @@ namespace Files.Controls
 	public partial class GridSplitter : Control
 	{
 		internal const int GripperCustomCursorDefaultResource = -1;
+
 		internal static readonly InputCursor ColumnsSplitterCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+
 		internal static readonly InputCursor RowSplitterCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeNorthSouth);
 
-		internal InputCursor? PreviousCursor { get; set; }
-
 		private GridResizeDirection _resizeDirection;
+
 		private GridResizeBehavior _resizeBehavior;
+
 		private GripperHoverWrapper? _hoverWrapper;
+
 		private TextBlock? _gripperDisplay;
 
 		private bool _pressed = false;
+
 		private bool _dragging = false;
+
 		private bool _pointerEntered = false;
+
+		internal InputCursor? PreviousCursor { get; set; }
 
 		/// <summary>
 		/// Gets the target parent grid from level
@@ -72,8 +79,7 @@ namespace Files.Controls
 
 				var gridSplitterTargetedColumnIndex = GetTargetedColumn();
 
-				if ((gridSplitterTargetedColumnIndex >= 0)
-					&& (gridSplitterTargetedColumnIndex < Resizable.ColumnDefinitions.Count))
+				if ((gridSplitterTargetedColumnIndex >= 0) && (gridSplitterTargetedColumnIndex < Resizable.ColumnDefinitions.Count))
 				{
 					return Resizable.ColumnDefinitions[gridSplitterTargetedColumnIndex];
 				}
@@ -96,8 +102,7 @@ namespace Files.Controls
 
 				var gridSplitterSiblingColumnIndex = GetSiblingColumn();
 
-				if ((gridSplitterSiblingColumnIndex >= 0)
-					&& (gridSplitterSiblingColumnIndex < Resizable.ColumnDefinitions.Count))
+				if ((gridSplitterSiblingColumnIndex >= 0) && (gridSplitterSiblingColumnIndex < Resizable.ColumnDefinitions.Count))
 				{
 					return Resizable.ColumnDefinitions[gridSplitterSiblingColumnIndex];
 				}
@@ -120,8 +125,7 @@ namespace Files.Controls
 
 				var gridSplitterTargetedRowIndex = GetTargetedRow();
 
-				if ((gridSplitterTargetedRowIndex >= 0)
-					&& (gridSplitterTargetedRowIndex < Resizable.RowDefinitions.Count))
+				if ((gridSplitterTargetedRowIndex >= 0) && (gridSplitterTargetedRowIndex < Resizable.RowDefinitions.Count))
 				{
 					return Resizable.RowDefinitions[gridSplitterTargetedRowIndex];
 				}
@@ -144,8 +148,7 @@ namespace Files.Controls
 
 				var gridSplitterSiblingRowIndex = GetSiblingRow();
 
-				if ((gridSplitterSiblingRowIndex >= 0)
-					&& (gridSplitterSiblingRowIndex < Resizable.RowDefinitions.Count))
+				if ((gridSplitterSiblingRowIndex >= 0) && (gridSplitterSiblingRowIndex < Resizable.RowDefinitions.Count))
 				{
 					return Resizable.RowDefinitions[gridSplitterSiblingRowIndex];
 				}

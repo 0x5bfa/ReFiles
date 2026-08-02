@@ -14,6 +14,7 @@ internal static class ThumbnailImageFactory
 		using var randomAccessStream = managedStream.AsRandomAccessStream();
 		var image = new BitmapImage();
 		await image.SetSourceAsync(randomAccessStream);
+
 		return image;
 	}
 }

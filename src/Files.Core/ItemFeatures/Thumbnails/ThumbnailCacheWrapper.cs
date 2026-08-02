@@ -12,13 +12,14 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource>
 {
-	private readonly IThumbnailCache cache;
-	private readonly ConcurrentDictionary<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>> inFlight = [];
+	private readonly IThumbnailCache _cache;
+	private readonly ConcurrentDictionary<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>> _inFlight = [];
 
 	public ThumbnailCacheWrapper(IThumbnailCache cache)
 	{
 		ArgumentNullException.ThrowIfNull(cache);
-		this.cache = cache;
+
+		_cache = cache;
 	}
 
 	public IThumbnailSource Wrap(ItemContext context, IThumbnailSource source)
@@ -26,36 +27,35 @@ public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(source);
 
-		return new CachedThumbnailSource(context.Reference, source, cache, inFlight);
+		return new CachedThumbnailSource(context.Reference, source, _cache, _inFlight);
 	}
 
 	private sealed class CachedThumbnailSource : IThumbnailSource
 	{
-		private readonly StorableReference reference;
-		private readonly IThumbnailSource innerSource;
-		private readonly IThumbnailCache cache;
-		private readonly ConcurrentDictionary<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>> inFlight;
+		private readonly StorableReference _reference;
+		private readonly IThumbnailSource _innerSource;
+		private readonly IThumbnailCache _cache;
+		private readonly ConcurrentDictionary<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>> _inFlight;
 
-		public CachedThumbnailSource(
-			StorableReference reference,
-			IThumbnailSource innerSource,
-			IThumbnailCache cache,
-			ConcurrentDictionary<
-				ThumbnailCacheKey,
-				Lazy<Task<ThumbnailResult?>>> inFlight)
+		public CachedThumbnailSource(StorableReference reference, IThumbnailSource innerSource, IThumbnailCache cache, ConcurrentDictionary<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>> inFlight)
 		{
-			this.reference = reference;
-			this.innerSource = innerSource;
-			this.cache = cache;
-			this.inFlight = inFlight;
+			ArgumentNullException.ThrowIfNull(reference);
+			ArgumentNullException.ThrowIfNull(innerSource);
+			ArgumentNullException.ThrowIfNull(cache);
+			ArgumentNullException.ThrowIfNull(inFlight);
+
+			_reference = reference;
+			_innerSource = innerSource;
+			_cache = cache;
+			_inFlight = inFlight;
 		}
 
 		public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
-			var key = new ThumbnailCacheKey(reference, request.RequestedPixelSize, request.Mode);
-			var cached = await cache.GetAsync(key, cancellationToken).ConfigureAwait(false);
+			var key = new ThumbnailCacheKey(_reference, request.RequestedPixelSize, request.Mode);
+			var cached = await _cache.GetAsync(key, cancellationToken).ConfigureAwait(false);
 
 			if (cached is not null)
 			{
@@ -63,7 +63,7 @@ public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource
 			}
 
 			var lazy = new Lazy<Task<ThumbnailResult?>>(() => LoadAndCacheAsync(key, request), LazyThreadSafetyMode.ExecutionAndPublication);
-			var selected = inFlight.GetOrAdd(key, lazy);
+			var selected = _inFlight.GetOrAdd(key, lazy);
 			if (ReferenceEquals(selected, lazy))
 			{
 				_ = selected.Value.ContinueWith(
@@ -73,16 +73,13 @@ public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource
 						RemoveInFlight(key, selected);
 					},
 					CancellationToken.None,
-					TaskContinuationOptions.ExecuteSynchronously
-					| TaskContinuationOptions.DenyChildAttach,
+					TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.DenyChildAttach,
 					TaskScheduler.Default);
 			}
 
 			try
 			{
-				return await selected.Value
-					.WaitAsync(cancellationToken)
-					.ConfigureAwait(false);
+				return await selected.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
 			}
 			finally
 			{
@@ -96,41 +93,28 @@ public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource
 		private async Task<ThumbnailResult?> LoadAndCacheAsync(ThumbnailCacheKey key, ThumbnailRequest request)
 		{
 			var sharedOperation = CancellationToken.None;
-			var invalidationVersion = await cache
-				.GetInvalidationVersionAsync(reference, sharedOperation)
-				.ConfigureAwait(false);
-			var cached = await cache
-				.GetAsync(key, sharedOperation)
-				.ConfigureAwait(false);
+			var invalidationVersion = await _cache.GetInvalidationVersionAsync(_reference, sharedOperation).ConfigureAwait(false);
+			var cached = await _cache.GetAsync(key, sharedOperation).ConfigureAwait(false);
 			if (cached is not null)
 			{
 				return cached.CreateResult();
 			}
 
-			var result = await innerSource
-				.GetThumbnailAsync(request, sharedOperation)
-				.ConfigureAwait(false);
+			var result = await _innerSource.GetThumbnailAsync(request, sharedOperation).ConfigureAwait(false);
 			if (result is null)
 			{
 				return null;
 			}
 
 			var entry = new ThumbnailCacheEntry(result.Content.ToArray(), result.ContentType, result.IsFallback);
-			await cache
-				.TrySetAsync(key, entry, invalidationVersion, sharedOperation)
-				.ConfigureAwait(false);
+			await _cache.TrySetAsync(key, entry, invalidationVersion, sharedOperation).ConfigureAwait(false);
+
 			return entry.CreateResult();
 		}
 
 		private void RemoveInFlight(ThumbnailCacheKey key, Lazy<Task<ThumbnailResult?>> selected)
 		{
-			((ICollection<
-				KeyValuePair<
-					ThumbnailCacheKey,
-					Lazy<Task<ThumbnailResult?>>>>)inFlight)
-				.Remove(new KeyValuePair<
-					ThumbnailCacheKey,
-					Lazy<Task<ThumbnailResult?>>>(key, selected));
+			((ICollection<KeyValuePair<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>>>)_inFlight).Remove(new KeyValuePair<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>>(key, selected));
 		}
 	}
 }

@@ -10,7 +10,24 @@ namespace Files.ViewModels;
 public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 {
 	private FolderBrowserViewModel? activeFolderBrowser;
+
 	private int isDisposed;
+
+	public CommandBindingViewModel BackCommand { get; }
+
+	public CommandBindingViewModel ForwardCommand { get; }
+
+	public CommandBindingViewModel UpCommand { get; }
+
+	public CommandBindingViewModel HomeCommand { get; }
+
+	public CommandBindingViewModel NavigatePathCommand { get; }
+
+	public CommandBindingViewModel RefreshCommand { get; }
+
+	public string PathPlaceholderText => Strings.EnterFolderPath.GetLocalized();
+
+	public string LocationText => activeFolderBrowser?.LocationText ?? string.Empty;
 
 	internal NavigationToolbarViewModel(
 		CommandBindingViewModel backCommand,
@@ -34,22 +51,6 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		NavigatePathCommand = navigatePathCommand;
 		RefreshCommand = refreshCommand;
 	}
-
-	public CommandBindingViewModel BackCommand { get; }
-
-	public CommandBindingViewModel ForwardCommand { get; }
-
-	public CommandBindingViewModel UpCommand { get; }
-
-	public CommandBindingViewModel HomeCommand { get; }
-
-	public CommandBindingViewModel NavigatePathCommand { get; }
-
-	public CommandBindingViewModel RefreshCommand { get; }
-
-	public string PathPlaceholderText => Strings.EnterFolderPath.GetLocalized();
-
-	public string LocationText => activeFolderBrowser?.LocationText ?? string.Empty;
 
 	internal void SetActiveFolderBrowser(FolderBrowserViewModel? value)
 	{
@@ -88,8 +89,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	private void ActiveFolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is null
-			or nameof(FolderBrowserViewModel.LocationText))
+		if (e.PropertyName is null or nameof(FolderBrowserViewModel.LocationText))
 		{
 			OnPropertyChanged(nameof(LocationText));
 		}

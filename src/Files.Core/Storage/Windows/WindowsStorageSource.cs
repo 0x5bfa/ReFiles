@@ -15,33 +15,24 @@ namespace Files.Core.Storage.Windows;
 public sealed class WindowsStorageSource : IStorageSource
 {
 	public const string DefaultSourceType = "windows-shell";
+
 	public const string FileAddressScheme = "file";
+
 	public const string ShellAddressScheme = "shell";
 
-	private readonly IReadOnlyList<Guid> rootFolderIds;
-	private readonly WindowsStorableFactory storableFactory;
-	private readonly WindowsShellChangeWatcher changeWatcher;
-	private readonly bool ownsScheduler;
-	private readonly object disposalLock = new();
-	private Task? disposeTask;
-	private volatile bool isDisposed;
+	private readonly IReadOnlyList<Guid> _rootFolderIds;
 
-	public WindowsStorageSource(
-		StorageSourceId? sourceId = null,
-		string displayName = "Windows",
-		IEnumerable<Guid>? rootFolderIds = null,
-		IWindowsShellScheduler? scheduler = null)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+	private readonly WindowsStorableFactory _storableFactory;
 
-		SourceId = sourceId ?? new StorageSourceId(DefaultSourceType);
-		DisplayName = displayName;
-		this.rootFolderIds = Array.AsReadOnly((rootFolderIds ?? [FOLDERID.FOLDERID_ComputerFolder]).ToArray());
-		Scheduler = scheduler ?? new WindowsShellScheduler();
-		ownsScheduler = scheduler is null;
-		storableFactory = new WindowsStorableFactory(Scheduler);
-		changeWatcher = new WindowsShellChangeWatcher(Scheduler);
-	}
+	private readonly WindowsShellChangeWatcher _changeWatcher;
+
+	private readonly bool _ownsScheduler;
+
+	private readonly Lock _disposalLock = new();
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
 
 	public StorageSourceId SourceId { get; }
 
@@ -54,25 +45,37 @@ public sealed class WindowsStorageSource : IStorageSource
 	/// </summary>
 	public IWindowsShellScheduler Scheduler { get; }
 
-	internal WindowsShellItemResolver ShellItemResolver => storableFactory.Resolver;
+	internal WindowsShellItemResolver ShellItemResolver => _storableFactory.Resolver;
 
-	internal WindowsShellChangeWatcher ChangeWatcher => changeWatcher;
+	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
+
+	public WindowsStorageSource(StorageSourceId? sourceId = null, string displayName = "Windows", IEnumerable<Guid>? rootFolderIds = null, IWindowsShellScheduler? scheduler = null)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+
+		SourceId = sourceId ?? new StorageSourceId(DefaultSourceType);
+		DisplayName = displayName;
+		_rootFolderIds = Array.AsReadOnly((rootFolderIds ?? [FOLDERID.FOLDERID_ComputerFolder]).ToArray());
+		Scheduler = scheduler ?? new WindowsShellScheduler();
+		_ownsScheduler = scheduler is null;
+		_storableFactory = new WindowsStorableFactory(Scheduler);
+		_changeWatcher = new WindowsShellChangeWatcher(Scheduler);
+	}
 
 	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(ReadOnlyMemory<byte> absolutePidl, CancellationToken cancellationToken = default)
 	{
-		return storableFactory.TryCreateFromAbsolutePidlAsync(absolutePidl, cancellationToken);
+		return _storableFactory.TryCreateFromAbsolutePidlAsync(absolutePidl, cancellationToken);
 	}
 
 	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-		foreach (var rootFolderId in rootFolderIds)
+		foreach (var rootFolderId in _rootFolderIds)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			var root = await storableFactory
-				.CreateAsync(rootFolderId, cancellationToken)
-				.ConfigureAwait(false);
+
+			var root = await _storableFactory.CreateAsync(rootFolderId, cancellationToken).ConfigureAwait(false);
 
 			if (root is WindowsFolder folder)
 			{
@@ -94,7 +97,7 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	public async ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(address);
 
 		if (!CanResolve(address))
@@ -102,14 +105,12 @@ public sealed class WindowsStorageSource : IStorageSource
 			throw new ArgumentException($"Address scheme '{address.Scheme}' is not supported.", nameof(address));
 		}
 
-		return await storableFactory
-			.CreateAsync(address.Value, cancellationToken)
-			.ConfigureAwait(false);
+		return await _storableFactory.CreateAsync(address.Value, cancellationToken).ConfigureAwait(false);
 	}
 
 	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
 		if (reference.SourceId != SourceId)
@@ -117,9 +118,7 @@ public sealed class WindowsStorageSource : IStorageSource
 			throw new ArgumentException($"Reference belongs to storage source '{reference.SourceId}'.", nameof(reference));
 		}
 
-		var storable = await storableFactory
-			.TryCreateFromItemIdAsync(reference.ItemId, reference.LastKnownAddress, cancellationToken)
-			.ConfigureAwait(false);
+		var storable = await _storableFactory.TryCreateFromItemIdAsync(reference.ItemId, reference.LastKnownAddress, cancellationToken).ConfigureAwait(false);
 
 		if (storable is not null)
 		{
@@ -129,12 +128,9 @@ public sealed class WindowsStorageSource : IStorageSource
 		var lastKnownAddress = reference.LastKnownAddress;
 		if (lastKnownAddress is not null && CanResolve(lastKnownAddress))
 		{
-			var candidate = await storableFactory
-				.TryCreateAsync(lastKnownAddress.Value, cancellationToken)
-				.ConfigureAwait(false);
+			var candidate = await _storableFactory.TryCreateAsync(lastKnownAddress.Value, cancellationToken).ConfigureAwait(false);
 
-			if (candidate is not null
-				&& StringComparer.Ordinal.Equals(candidate.Id, reference.ItemId))
+			if (candidate is not null && StringComparer.Ordinal.Equals(candidate.Id, reference.ItemId))
 			{
 				return candidate;
 			}
@@ -145,16 +141,17 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			disposeTask = DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
@@ -164,14 +161,14 @@ public sealed class WindowsStorageSource : IStorageSource
 
 		try
 		{
-			await changeWatcher.DisposeAsync().ConfigureAwait(false);
+			await _changeWatcher.DisposeAsync().ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{
 			errors.Add(error);
 		}
 
-		if (ownsScheduler)
+		if (_ownsScheduler)
 		{
 			try
 			{

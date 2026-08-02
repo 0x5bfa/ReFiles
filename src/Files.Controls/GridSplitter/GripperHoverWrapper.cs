@@ -11,10 +11,15 @@ namespace Files.Controls
 		private readonly GridResizeDirection _gridSplitterDirection;
 
 		private InputCursor? _splitterPreviousPointer;
+
 		private InputCursor? _previousCursor;
+
 		private GripperCursorType _gripperCursor;
+
 		private int _gripperCustomCursorResource;
+
 		private bool _isDragging;
+
 		private UIElement _element;
 
 		internal GripperCursorType GripperCursor
@@ -67,6 +72,45 @@ namespace Files.Controls
 			_element = element;
 			_element.PointerEntered += Element_PointerEntered;
 			_element.PointerExited += Element_PointerExited;
+		}
+
+		internal void SplitterManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
+		{
+			var splitter = sender as GridSplitter;
+			if (splitter == null)
+			{
+				return;
+			}
+
+			_splitterPreviousPointer = splitter.PreviousCursor;
+			_isDragging = true;
+		}
+
+		internal void SplitterManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+		{
+			var splitter = sender as GridSplitter;
+			if (splitter == null)
+			{
+				return;
+			}
+
+			if (Window.Current != null)
+			{
+				// Window.Current.CoreWindow.PointerCursor = splitter.PreviousCursor = _splitterPreviousPointer;
+			}
+
+			_isDragging = false;
+		}
+
+		internal void UnhookEvents()
+		{
+			if (_element == null)
+			{
+				return;
+			}
+
+			_element.PointerEntered -= Element_PointerEntered;
+			_element.PointerExited -= Element_PointerExited;
 		}
 
 		private void Element_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -139,45 +183,6 @@ namespace Files.Controls
 					// Window.Current.CoreWindow.PointerCursor = InputSystemCursor.Create(inputSystemCursorShape);
 				}
 			}
-		}
-
-		internal void SplitterManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
-		{
-			var splitter = sender as GridSplitter;
-			if (splitter == null)
-			{
-				return;
-			}
-
-			_splitterPreviousPointer = splitter.PreviousCursor;
-			_isDragging = true;
-		}
-
-		internal void SplitterManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
-		{
-			var splitter = sender as GridSplitter;
-			if (splitter == null)
-			{
-				return;
-			}
-
-			if (Window.Current != null)
-			{
-				// Window.Current.CoreWindow.PointerCursor = splitter.PreviousCursor = _splitterPreviousPointer;
-			}
-
-			_isDragging = false;
-		}
-
-		internal void UnhookEvents()
-		{
-			if (_element == null)
-			{
-				return;
-			}
-
-			_element.PointerEntered -= Element_PointerEntered;
-			_element.PointerExited -= Element_PointerExited;
 		}
 	}
 }

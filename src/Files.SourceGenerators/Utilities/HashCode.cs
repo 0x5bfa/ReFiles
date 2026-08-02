@@ -16,26 +16,23 @@ namespace System
 	// Polyfill System.HashCode
 	public struct HashCode
 	{
-		private static readonly uint s_seed = GenerateGlobalSeed();
-
 		private const uint Prime1 = 2654435761U;
+
 		private const uint Prime2 = 2246822519U;
+
 		private const uint Prime3 = 3266489917U;
+
 		private const uint Prime4 = 668265263U;
+
 		private const uint Prime5 = 374761393U;
 
+		private static readonly uint s_seed = GenerateGlobalSeed();
+
 		private uint _v1, _v2, _v3, _v4;
+
 		private uint _queue1, _queue2, _queue3;
+
 		private uint _length;
-
-		private static unsafe uint GenerateGlobalSeed()
-		{
-			byte[] bytes = new byte[4];
-
-			RandomNumberGenerator.Create().GetBytes(bytes);
-
-			return BitConverter.ToUInt32(bytes, 0);
-		}
 
 		public static int Combine<T1>(T1 value1)
 		{
@@ -54,6 +51,7 @@ namespace System
 			hash = QueueRound(hash, hc1);
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -69,6 +67,7 @@ namespace System
 			hash = QueueRound(hash, hc2);
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -86,6 +85,7 @@ namespace System
 			hash = QueueRound(hash, hc3);
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -107,6 +107,7 @@ namespace System
 			hash += 16;
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -131,6 +132,7 @@ namespace System
 			hash = QueueRound(hash, hc5);
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -157,6 +159,7 @@ namespace System
 			hash = QueueRound(hash, hc6);
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -185,6 +188,7 @@ namespace System
 			hash = QueueRound(hash, hc7);
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
 		}
 
@@ -215,7 +219,80 @@ namespace System
 			hash += 32;
 
 			hash = MixFinal(hash);
+
 			return (int)hash;
+		}
+
+		public void Add<T>(T value)
+		{
+			Add(value?.GetHashCode() ?? 0);
+		}
+
+		public void Add<T>(T value, IEqualityComparer<T>? comparer)
+		{
+			Add(value is null ? 0 : (comparer?.GetHashCode(value) ?? value.GetHashCode()));
+		}
+
+		public void AddBytes(ReadOnlySpan<byte> value)
+		{
+			ref byte pos = ref MemoryMarshal.GetReference(value);
+			ref byte end = ref Unsafe.Add(ref pos, value.Length);
+
+			while ((nint)Unsafe.ByteOffset(ref pos, ref end) >= sizeof(int))
+			{
+				Add(Unsafe.ReadUnaligned<int>(ref pos));
+				pos = ref Unsafe.Add(ref pos, sizeof(int));
+			}
+
+			while (Unsafe.IsAddressLessThan(ref pos, ref end))
+			{
+				Add((int)pos);
+				pos = ref Unsafe.Add(ref pos, 1);
+			}
+		}
+
+		public int ToHashCode()
+		{
+			uint length = _length;
+			uint position = length % 4;
+			uint hash = length < 4 ? MixEmptyState() : MixState(_v1, _v2, _v3, _v4);
+
+			hash += length * 4;
+
+			if (position > 0)
+			{
+				hash = QueueRound(hash, _queue1);
+
+				if (position > 1)
+				{
+					hash = QueueRound(hash, _queue2);
+					if (position > 2)
+					{
+						hash = QueueRound(hash, _queue3);
+					}
+				}
+			}
+
+			hash = MixFinal(hash);
+
+			return (int)hash;
+		}
+
+		[Obsolete("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", error: true)]
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public override int GetHashCode() => throw new NotSupportedException();
+
+		[Obsolete("HashCode is a mutable struct and should not be compared with other HashCodes.", error: true)]
+		[EditorBrowsable(EditorBrowsableState.Never)]
+		public override bool Equals(object? obj) => throw new NotSupportedException();
+
+		private static unsafe uint GenerateGlobalSeed()
+		{
+			byte[] bytes = new byte[4];
+
+			RandomNumberGenerator.Create().GetBytes(bytes);
+
+			return BitConverter.ToUInt32(bytes, 0);
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -258,35 +335,8 @@ namespace System
 			hash ^= hash >> 13;
 			hash *= Prime3;
 			hash ^= hash >> 16;
+
 			return hash;
-		}
-
-		public void Add<T>(T value)
-		{
-			Add(value?.GetHashCode() ?? 0);
-		}
-
-		public void Add<T>(T value, IEqualityComparer<T>? comparer)
-		{
-			Add(value is null ? 0 : (comparer?.GetHashCode(value) ?? value.GetHashCode()));
-		}
-
-		public void AddBytes(ReadOnlySpan<byte> value)
-		{
-			ref byte pos = ref MemoryMarshal.GetReference(value);
-			ref byte end = ref Unsafe.Add(ref pos, value.Length);
-
-			while ((nint)Unsafe.ByteOffset(ref pos, ref end) >= sizeof(int))
-			{
-				Add(Unsafe.ReadUnaligned<int>(ref pos));
-				pos = ref Unsafe.Add(ref pos, sizeof(int));
-			}
-
-			while (Unsafe.IsAddressLessThan(ref pos, ref end))
-			{
-				Add((int)pos);
-				pos = ref Unsafe.Add(ref pos, 1);
-			}
 		}
 
 		private void Add(int value)
@@ -296,15 +346,23 @@ namespace System
 			uint position = previousLength % 4;
 
 			if (position == 0)
+			{
 				_queue1 = val;
+			}
 			else if (position == 1)
+			{
 				_queue2 = val;
+			}
 			else if (position == 2)
+			{
 				_queue3 = val;
+			}
 			else
 			{
 				if (previousLength == 3)
+				{
 					Initialize(out _v1, out _v2, out _v3, out _v4);
+				}
 
 				_v1 = Round(_v1, _queue1);
 				_v2 = Round(_v2, _queue2);
@@ -313,42 +371,10 @@ namespace System
 			}
 		}
 
-		public int ToHashCode()
-		{
-			uint length = _length;
-			uint position = length % 4;
-			uint hash = length < 4 ? MixEmptyState() : MixState(_v1, _v2, _v3, _v4);
-
-			hash += length * 4;
-
-			if (position > 0)
-			{
-				hash = QueueRound(hash, _queue1);
-
-				if (position > 1)
-				{
-					hash = QueueRound(hash, _queue2);
-					if (position > 2)
-						hash = QueueRound(hash, _queue3);
-				}
-			}
-
-			hash = MixFinal(hash);
-			return (int)hash;
-		}
-
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		private static uint RotateLeft(uint value, int offset)
 		{
 			return (value << offset) | (value >> (32 - offset));
 		}
-
-		[Obsolete("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", error: true)]
-		[EditorBrowsable(EditorBrowsableState.Never)]
-		public override int GetHashCode() => throw new NotSupportedException();
-
-		[Obsolete("HashCode is a mutable struct and should not be compared with other HashCodes.", error: true)]
-		[EditorBrowsable(EditorBrowsableState.Never)]
-		public override bool Equals(object? obj) => throw new NotSupportedException();
 	}
 }

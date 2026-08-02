@@ -13,6 +13,8 @@ namespace Windows.Win32
 {
 	public static partial class PInvoke
 	{
+		public const int PixelFormat32bppARGB = 2498570;
+
 		[LibraryImport("ole32.dll", EntryPoint = "CoCreateInstance")]
 		public static unsafe partial int CoCreateInstanceRaw(Guid* classId, nint outer, uint context, Guid* interfaceId, nint* instance);
 
@@ -20,19 +22,7 @@ namespace Windows.Win32
 		public static unsafe partial int SHCreateItemFromParsingNameRaw(char* parsingName, nint bindContext, Guid* interfaceId, nint* item);
 
 		[LibraryImport("shlwapi.dll", EntryPoint = "SHCreateStreamOnFileEx", StringMarshalling = StringMarshalling.Utf16)]
-		public static partial int SHCreateStreamOnFileExRaw(
-			string fileName,
-			uint mode,
-			uint attributes,
-			[MarshalAs(UnmanagedType.Bool)] bool create,
-			nint templateStream,
-			out nint stream);
-
-		[LibraryImport("User32", EntryPoint = "SetWindowLongW")]
-		private static partial int _SetWindowLong(nint hWnd, int nIndex, int dwNewLong);
-
-		[LibraryImport("User32", EntryPoint = "SetWindowLongPtrW")]
-		private static partial nint _SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
+		public static partial int SHCreateStreamOnFileExRaw(string fileName, uint mode, uint attributes, [MarshalAs(UnmanagedType.Bool)] bool create, nint templateStream, out nint stream);
 
 		// NOTE:
 		//  CsWin32 doesn't generate SetWindowLong on other than x86 and vice versa.
@@ -47,7 +37,11 @@ namespace Windows.Win32
 		[LibraryImport("shell32.dll", EntryPoint = "SHUpdateRecycleBinIcon", SetLastError = true)]
 		public static partial void SHUpdateRecycleBinIcon();
 
-		public const int PixelFormat32bppARGB = 2498570;
+		[LibraryImport("User32", EntryPoint = "SetWindowLongW")]
+		private static partial int _SetWindowLong(nint hWnd, int nIndex, int dwNewLong);
+
+		[LibraryImport("User32", EntryPoint = "SetWindowLongPtrW")]
+		private static partial nint _SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
 	}
 
 	namespace Extras

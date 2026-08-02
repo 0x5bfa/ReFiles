@@ -14,6 +14,7 @@ namespace Files.AxeTests
 	public sealed class SessionManager
 	{
 		private const string WindowsApplicationDriverUrl = "http://127.0.0.1:4723";
+
 		private static string[] FilesAppIDs = [
 			"FilesDev_ykqwq8d6ps0ag!App", // Needed to run on the local end and/or the CI
 			"FilesDev_9bhem8es8z4gp!App", // Needed to run on the local end and/or the CI
@@ -23,6 +24,7 @@ namespace Files.AxeTests
 		private static uint appIdIndex = 0;
 
 		private static WindowsDriver<WindowsElement> _session;
+
 		public static WindowsDriver<WindowsElement> Session
 		{
 			get
@@ -31,30 +33,8 @@ namespace Files.AxeTests
 				{
 					CreateSession(null);
 				}
-				return _session;
-			}
-		}
 
-		private static void tryInitializeSession()
-		{
-			AppiumOptions appiumOptions = new AppiumOptions();
-			appiumOptions.AddAdditionalCapability("app", FilesAppIDs[appIdIndex]);
-			appiumOptions.AddAdditionalCapability("deviceName", "WindowsPC");
-			try
-			{
-				_session = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appiumOptions);
-			}
-			catch (OpenQA.Selenium.WebDriverException exc)
-			{
-				// Use next app ID since the current one was failing
-				if (exc.Message.Contains("Package was not found"))
-				{
-					appIdIndex++;
-				}
-				else
-				{
-					Console.WriteLine("Failed to update start driver, got exception:" + exc.Message);
-				}
+				return _session;
 			}
 		}
 
@@ -127,6 +107,29 @@ namespace Files.AxeTests
 				_session.CloseApp();
 				_session.Quit();
 				_session = null;
+			}
+		}
+
+		private static void tryInitializeSession()
+		{
+			AppiumOptions appiumOptions = new AppiumOptions();
+			appiumOptions.AddAdditionalCapability("app", FilesAppIDs[appIdIndex]);
+			appiumOptions.AddAdditionalCapability("deviceName", "WindowsPC");
+			try
+			{
+				_session = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appiumOptions);
+			}
+			catch (OpenQA.Selenium.WebDriverException exc)
+			{
+				// Use next app ID since the current one was failing
+				if (exc.Message.Contains("Package was not found"))
+				{
+					appIdIndex++;
+				}
+				else
+				{
+					Console.WriteLine("Failed to update start driver, got exception:" + exc.Message);
+				}
 			}
 		}
 	}

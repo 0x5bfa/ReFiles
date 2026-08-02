@@ -8,12 +8,13 @@ namespace Files.Core.Browsing;
 
 public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 {
-	private readonly IFilesDataRoot dataRoot;
+	private readonly IFilesDataRoot _dataRoot;
 
 	public FolderBrowseLocationHandler(IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(dataRoot);
-		this.dataRoot = dataRoot;
+
+		_dataRoot = dataRoot;
 	}
 
 	public bool CanHandle(BrowseLocation location) => location is FolderLocation;
@@ -25,7 +26,7 @@ public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 			throw new ArgumentException("The location must identify a folder.", nameof(location));
 		}
 
-		var model = await dataRoot.ResolveAsync(folderLocation.Folder, cancellationToken).ConfigureAwait(false);
+		var model = await _dataRoot.ResolveAsync(folderLocation.Folder, cancellationToken).ConfigureAwait(false);
 
 		if (model is not IFolderModel folderModel)
 		{
@@ -33,6 +34,6 @@ public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 			throw new InvalidOperationException($"Item '{folderLocation.Folder.ItemId}' is not a folder.");
 		}
 
-		return new FolderBrowseLocationContext(folderLocation, folderModel, dataRoot);
+		return new FolderBrowseLocationContext(folderLocation, folderModel, _dataRoot);
 	}
 }

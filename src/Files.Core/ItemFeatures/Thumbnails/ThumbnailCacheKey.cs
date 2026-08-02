@@ -10,15 +10,27 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public sealed record ThumbnailCacheKey
 {
+
+	public StorageSourceId SourceId { get; }
+
+	public string ItemId { get; }
+
+	/// <summary>
+	/// Gets the requested bitmap edge in physical pixels.
+	/// </summary>
+	public int RequestedSize { get; }
+
+	public ThumbnailMode Mode { get; }
 	public ThumbnailCacheKey(StorageSourceId sourceId, string itemId, int requestedSize, ThumbnailMode mode)
 	{
 		ArgumentNullException.ThrowIfNull(sourceId);
 		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(requestedSize);
-		if (mode is not ThumbnailMode.Icon
-			and not ThumbnailMode.Content
-			and not ThumbnailMode.PreferContent)
+
+		if (mode is not ThumbnailMode.Icon and not ThumbnailMode.Content and not ThumbnailMode.PreferContent)
+		{
 			throw new ArgumentOutOfRangeException(nameof(mode));
+		}
 
 		SourceId = sourceId;
 		ItemId = itemId;
@@ -31,20 +43,10 @@ public sealed record ThumbnailCacheKey
 	{
 	}
 
-	public StorageSourceId SourceId { get; }
-
-	public string ItemId { get; }
-
-	/// <summary>
-	/// Gets the requested bitmap edge in physical pixels.
-	/// </summary>
-	public int RequestedSize { get; }
-
-	public ThumbnailMode Mode { get; }
-
 	private static StorableReference GetReference(StorableReference reference)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+
 		return reference;
 	}
 }

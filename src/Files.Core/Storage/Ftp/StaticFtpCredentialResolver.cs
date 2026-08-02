@@ -8,18 +8,20 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed class StaticFtpCredentialResolver : IFtpCredentialResolver
 {
-	private readonly FtpCredential credential;
+	private readonly FtpCredential _credential;
 
 	public StaticFtpCredentialResolver(FtpCredential credential)
 	{
 		ArgumentNullException.ThrowIfNull(credential);
-		this.credential = credential;
+
+		_credential = credential;
 	}
 
 	public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
-		return ValueTask.FromResult<FtpCredential?>(credential);
+
+		return ValueTask.FromResult<FtpCredential?>(_credential);
 	}
 }

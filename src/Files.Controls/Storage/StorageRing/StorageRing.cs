@@ -94,7 +94,9 @@ namespace Files.Controls
 		private void UpdateRings()
 		{
 			if (_valueRingShape is null || _trackRingShape is null)
+			{
 				return;
+			}
 
 			// Update every detail of the control
 			UpdateContainerCenterAndSizes();
@@ -151,17 +153,23 @@ namespace Files.Controls
 			var result = StorageControlsHelpers.CalculateModulus(minAngle, 360);
 
 			if (result >= 180)
+			{
 				result -= 360;
+			}
 
 			_normalizedMinAngle = result;
 
 			result = StorageControlsHelpers.CalculateModulus(maxAngle, 360);
 
 			if (result < 180)
+			{
 				result += 360;
+			}
 
 			if (result > _normalizedMinAngle + 360)
+			{
 				result -= 360;
+			}
 
 			_normalizedMaxAngle = result;
 		}
@@ -169,7 +177,9 @@ namespace Files.Controls
 		private void UpdateRingSizes(RingShape valueRingShape, RingShape trackRingShape)
 		{
 			if (valueRingShape is null || trackRingShape is null)
+			{
 				return;
+			}
 
 			// Set sizes for the rings as needed
 			if (_thicknessCheck is ThicknessCheck.Value)
@@ -208,9 +218,13 @@ namespace Files.Controls
 
 			// Limit the Thickness values to no more than 1/5 of the container size
 			if (isTrack)
+			{
 				trackRingThickness = newRadius > (AdjustedSize / 5) ? (AdjustedSize / 5) : newRadius;
+			}
 			else
+			{
 				valueRingThickness = newRadius > (AdjustedSize / 5) ? (AdjustedSize / 5) : newRadius;
+			}
 
 			// If both Rings have Equal thickness, use 0; otherwise, use the larger thickness to adjust the size
 			double check = (AdjustedSize / 2) - (_thicknessCheck is ThicknessCheck.Equal ? 0 : _largerThickness / 2);
@@ -251,7 +265,9 @@ namespace Files.Controls
 		private void UpdateRingLayouts(RingShape valueRingShape, RingShape trackRingShape)
 		{
 			if (valueRingShape is null || trackRingShape is null)
+			{
 				return;
+			}
 
 			valueRingShape.RadiusWidth = _sharedRadius;
 			valueRingShape.RadiusHeight = _sharedRadius;
@@ -270,7 +286,9 @@ namespace Files.Controls
 		private void UpdateRingAngles(RingShape valueRingShape, RingShape trackRingShape)
 		{
 			if (valueRingShape is null || trackRingShape is null)
+			{
 				return;
+			}
 
 			double valueStartAngle = _normalizedMinAngle;
 			double valueEndAngle;
@@ -303,25 +321,11 @@ namespace Files.Controls
 
 				//
 				// We need to interpolate the track start and end angles between pRing.Minimum and pRing.Minimum + 0.75
-				interpolatedStartTo = StorageControlsHelpers.GetAdjustedAngle(
-					minPercent,
-					percent,
-					minPercent + 2.0,
-					_normalizedMinAngle,
-					_normalizedMinAngle + _gapAngle,
-					ValueAngle,
-					true);
+				interpolatedStartTo = StorageControlsHelpers.GetAdjustedAngle(minPercent, percent, minPercent + 2.0, _normalizedMinAngle, _normalizedMinAngle + _gapAngle, ValueAngle, true);
 
 				if (StorageControlsHelpers.IsFullCircle(_normalizedMinAngle, _normalizedMaxAngle) == true)
 				{
-					interpolatedEndTo = StorageControlsHelpers.GetAdjustedAngle(
-						minPercent,
-						percent,
-						minPercent + 2.0,
-						_normalizedMaxAngle,
-						_normalizedMaxAngle - (_gapAngle + ValueAngle),
-						ValueAngle,
-						true);
+					interpolatedEndTo = StorageControlsHelpers.GetAdjustedAngle(minPercent, percent, minPercent + 2.0, _normalizedMaxAngle, _normalizedMaxAngle - (_gapAngle + ValueAngle), ValueAngle, true);
 				}
 				else
 				{
@@ -390,7 +394,9 @@ namespace Files.Controls
 		private void UpdateRingStrokes(RingShape valueRingShape, RingShape trackRingShape)
 		{
 			if (valueRingShape is null || trackRingShape is null)
+			{
 				return;
+			}
 
 			var normalizedMinAngle = _normalizedMinAngle;
 			var normalizedMaxAngle = _normalizedMaxAngle;
@@ -409,13 +415,7 @@ namespace Files.Controls
 			// Percent is between it's Minimum and its Minimum + 2.0 (between 0% and 2%)
 			else if (percent > minPercent && percent < minPercent + 2.0)
 			{
-				valueRingShape.StrokeThickness = StorageControlsHelpers.GetThicknessTransition(
-					minPercent,
-					percent,
-					minPercent + 2.0,
-					0.0,
-					_valueRingThickness,
-					true);
+				valueRingShape.StrokeThickness = StorageControlsHelpers.GetThicknessTransition(minPercent, percent, minPercent + 2.0, 0.0, _valueRingThickness, true);
 
 				trackRingShape.StrokeThickness = _trackRingThickness;
 			}
@@ -438,12 +438,7 @@ namespace Files.Controls
 					{
 						valueRingShape.StrokeThickness = _valueRingThickness;
 
-						trackRingShape.StrokeThickness = StorageControlsHelpers.GetThicknessTransition(
-							(normalizedMaxAngle + 0.1) - (_gapAngle * 2),
-							ValueAngle, (normalizedMaxAngle) - (_gapAngle),
-							_trackRingThickness,
-							0.0,
-							true);
+						trackRingShape.StrokeThickness = StorageControlsHelpers.GetThicknessTransition((normalizedMaxAngle + 0.1) - (_gapAngle * 2), ValueAngle, (normalizedMaxAngle) - (_gapAngle), _trackRingThickness, 0.0, true);
 					}
 					else
 					{
@@ -456,12 +451,7 @@ namespace Files.Controls
 					if (ValueAngle > (normalizedMaxAngle - _gapAngle))
 					{
 						valueRingShape.StrokeThickness = _valueRingThickness;
-						trackRingShape.StrokeThickness = StorageControlsHelpers.GetThicknessTransition(
-							(normalizedMaxAngle + 0.1) - (_gapAngle / 2),
-							ValueAngle, (normalizedMaxAngle) - (_gapAngle / 2),
-							_trackRingThickness,
-							0.0,
-							true);
+						trackRingShape.StrokeThickness = StorageControlsHelpers.GetThicknessTransition((normalizedMaxAngle + 0.1) - (_gapAngle / 2), ValueAngle, (normalizedMaxAngle) - (_gapAngle / 2), _trackRingThickness, 0.0, true);
 					}
 					else
 					{
@@ -476,16 +466,26 @@ namespace Files.Controls
 		private void UpdateRingThickness(double newThickness, bool isTrack)
 		{
 			if (isTrack)
+			{
 				_trackRingThickness = newThickness;
+			}
 			else
+			{
 				_valueRingThickness = newThickness;
+			}
 
 			if (_valueRingThickness > _trackRingThickness)
+			{
 				_thicknessCheck = ThicknessCheck.Value;
+			}
 			else if (_valueRingThickness < _trackRingThickness)
+			{
 				_thicknessCheck = ThicknessCheck.Track;
+			}
 			else
+			{
 				_thicknessCheck = ThicknessCheck.Equal;
+			}
 
 			if (_thicknessCheck is ThicknessCheck.Value)
 			{
@@ -535,11 +535,15 @@ namespace Files.Controls
 
 			// If value is below the Minimum set
 			if (value < minValue)
+			{
 				return minAngle;
+			}
 
 			// If value is above the Maximum set
 			if (value > maxValue)
+			{
 				return maxAngle;
+			}
 
 			// Calculate the normalized value
 			double normalizedValue = (value - minValue) / (maxValue - minValue);
@@ -559,8 +563,7 @@ namespace Files.Controls
 		{
 			Size minSize;
 
-			if (DesiredSize.Width < MinWidth || DesiredSize.Height < MinHeight ||
-				e.NewSize.Width < MinWidth || e.NewSize.Height < MinHeight)
+			if (DesiredSize.Width < MinWidth || DesiredSize.Height < MinHeight || e.NewSize.Width < MinWidth || e.NewSize.Height < MinHeight)
 			{
 				Width = MinWidth;
 				Height = MinHeight;

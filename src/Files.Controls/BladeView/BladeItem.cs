@@ -17,11 +17,15 @@ namespace Files.Controls
 	public partial class BladeItem : ContentControl
 	{
 		private const double MINIMUM_WIDTH = 150;
+
 		private const double DEFAULT_WIDTH = 200; // Default width for the blade item
 
 		private Button? _closeButton;
+
 		private Border? _bladeResizer;
+
 		private bool _draggingSidebarResizer;
+
 		private double _preManipulationSidebarWidth = 0;
 
 		/// <summary>
@@ -82,6 +86,20 @@ namespace Files.Controls
 			return new BladeItemAutomationPeer(this);
 		}
 
+		public void SetWidth()
+		{
+			var optimalWidth = CalculateOptimalWidth();
+			if (optimalWidth > 0)
+			{
+				Width = Math.Max(optimalWidth, MINIMUM_WIDTH);
+			}
+			else
+			{
+				// Fallback to default width if calculation fails
+				Width = DEFAULT_WIDTH;
+			}
+		}
+
 		private void CloseButton_Click(object sender, RoutedEventArgs e)
 		{
 			IsOpen = false;
@@ -99,7 +117,9 @@ namespace Files.Controls
 		{
 			var newWidth = _preManipulationSidebarWidth + e.Cumulative.Translation.X;
 			if (newWidth < MINIMUM_WIDTH)
+			{
 				newWidth = MINIMUM_WIDTH;
+			}
 
 			Width = newWidth;
 			e.Handled = true;
@@ -118,20 +138,6 @@ namespace Files.Controls
 			e.Handled = true;
 		}
 
-		public void SetWidth()
-		{
-			var optimalWidth = CalculateOptimalWidth();
-			if (optimalWidth > 0)
-			{
-				Width = Math.Max(optimalWidth, MINIMUM_WIDTH);
-			}
-			else
-			{
-				// Fallback to default width if calculation fails
-				Width = DEFAULT_WIDTH;
-			}
-		}
-
 		private double CalculateOptimalWidth()
 		{
 			try
@@ -139,7 +145,9 @@ namespace Files.Controls
 				// Look for any ListView within this BladeItem that contains text content
 				var listView = this.FindDescendant<ListView>();
 				if (listView?.Items == null || !listView.Items.Any())
+				{
 					return 0;
+				}
 
 				// Calculate the maximum width needed by measuring text content
 				var maxTextWidth = MeasureContentWidth(listView);
@@ -171,7 +179,9 @@ namespace Files.Controls
 					foreach (var textBlock in textBlocks)
 					{
 						if (string.IsNullOrEmpty(textBlock.Text))
+						{
 							continue;
+						}
 
 						// Create a measuring TextBlock with the same properties
 						var measuringBlock = new TextBlock
@@ -214,7 +224,9 @@ namespace Files.Controls
 			var textBlocks = new List<TextBlock>();
 
 			if (parent == null)
+			{
 				return textBlocks;
+			}
 
 			var childrenCount = VisualTreeHelper.GetChildrenCount(parent);
 			for (int i = 0; i < childrenCount; i++)
@@ -244,7 +256,9 @@ namespace Files.Controls
 		private void BladeResizer_PointerExited(object sender, PointerRoutedEventArgs e)
 		{
 			if (_draggingSidebarResizer)
+			{
 				return;
+			}
 
 			var sidebarResizer = (FrameworkElement)sender;
 			sidebarResizer.ChangeCursor(InputSystemCursor.Create(InputSystemCursorShape.Arrow));

@@ -47,7 +47,9 @@ namespace Files.Controls
 				?? throw new MissingFieldException($"Could not find {TemplatePartName_ItemChevronDropDownMenuFlyout} in the given {nameof(BreadcrumbBarItem)}'s style.");
 
 			if (IsEllipsis || !IsChevronVisible)
+			{
 				VisualStateManager.GoToState(this, "ChevronCollapsed", true);
+			}
 
 			// Handle click event with PointerReleasedEvent to get PointerPoint
 			_itemContentButton.AddHandler( // Bypass "IsHandled = true" done in the base class
@@ -56,7 +58,9 @@ namespace Files.Controls
 				{
 					// Skip right-button releases so RightTapped can drive the context menu without also navigating
 					if (e.GetCurrentPoint(null).Properties.PointerUpdateKind is PointerUpdateKind.RightButtonReleased)
+					{
 						return;
+					}
 
 					OnItemClicked(e);
 					e.Handled = true;
@@ -74,9 +78,10 @@ namespace Files.Controls
 
 		public void OnItemClicked(PointerRoutedEventArgs? pointerRoutedEventArgs = null)
 		{
-			if (_ownerRef is null ||
-				!_ownerRef.TryGetTarget(out var breadcrumbBar))
+			if (_ownerRef is null || !_ownerRef.TryGetTarget(out var breadcrumbBar))
+			{
 				return;
+			}
 
 			if (IsEllipsis)
 			{

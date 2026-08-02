@@ -10,17 +10,17 @@ namespace Files.Core.ViewSettings;
 /// </summary>
 public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 {
-	private readonly object syncRoot = new();
-	private readonly Dictionary<BrowseLocation, BrowseViewSettings> values = [];
+	private readonly Lock _syncRoot = new();
+	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _values = [];
 
 	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			return ValueTask.FromResult(values.GetValueOrDefault(location));
+			return ValueTask.FromResult(_values.GetValueOrDefault(location));
 		}
 	}
 
@@ -30,9 +30,9 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		ArgumentNullException.ThrowIfNull(settings);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			values[location] = settings;
+			_values[location] = settings;
 		}
 
 		return ValueTask.CompletedTask;
@@ -42,17 +42,17 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 	{
 		ArgumentNullException.ThrowIfNull(location);
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			return values.Remove(location);
+			return _values.Remove(location);
 		}
 	}
 
 	public void Clear()
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			values.Clear();
+			_values.Clear();
 		}
 	}
 }

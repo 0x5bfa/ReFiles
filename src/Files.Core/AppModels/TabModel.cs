@@ -17,17 +17,55 @@ public enum PaneSplitOrientation
 /// </summary>
 public sealed class TabModel : IAsyncDisposable
 {
-	private readonly IBrowsePaneFactory paneFactory;
-	private readonly object syncRoot = new();
-	private readonly object disposalLock = new();
-	private readonly SemaphoreSlim mutationLock = new(1, 1);
-	private readonly CancellationTokenSource lifetime = new();
-	private readonly List<PaneModel> panes;
-	private IReadOnlyList<PaneModel> paneSnapshot;
-	private Guid activePaneId;
-	private Task? disposeTask;
-	private volatile bool isDisposed;
-	private PaneSplitOrientation splitOrientation;
+	private readonly IBrowsePaneFactory _paneFactory;
+
+	private readonly Lock _syncRoot = new();
+
+	private readonly Lock _disposalLock = new();
+
+	private readonly SemaphoreSlim _mutationLock = new(1, 1);
+
+	private readonly CancellationTokenSource _lifetime = new();
+
+	private readonly List<PaneModel> _panes;
+
+	private IReadOnlyList<PaneModel> _paneSnapshot;
+
+	private Guid _activePaneId;
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
+
+	private PaneSplitOrientation _splitOrientation;
+
+	public Guid Id { get; }
+
+	public IReadOnlyList<PaneModel> Panes => Volatile.Read(ref _paneSnapshot);
+
+	public PaneModel? ActivePane
+	{
+		get
+		{
+			lock (_syncRoot)
+			{
+				return _panes.FirstOrDefault(pane => pane.Id == _activePaneId);
+			}
+		}
+	}
+
+	public PaneSplitOrientation SplitOrientation
+	{
+		get
+		{
+			lock (_syncRoot)
+			{
+				return _splitOrientation;
+			}
+		}
+	}
+
+	public event EventHandler? StateChanged;
 
 	public TabModel(IBrowsePaneFactory paneFactory, PaneModel primaryPane, Guid? id = null)
 	{
@@ -40,96 +78,59 @@ public sealed class TabModel : IAsyncDisposable
 			throw new ArgumentException("A tab ID cannot be empty.", nameof(id));
 		}
 
-		this.paneFactory = paneFactory;
-		panes = [primaryPane];
-		paneSnapshot = Array.AsReadOnly(panes.ToArray());
-		activePaneId = primaryPane.Id;
+		_paneFactory = paneFactory;
+		_panes = [primaryPane];
+		_paneSnapshot = Array.AsReadOnly(_panes.ToArray());
+		_activePaneId = primaryPane.Id;
 		primaryPane.StateChanged += OnPaneStateChanged;
 	}
 
-	public Guid Id { get; }
-
-	public IReadOnlyList<PaneModel> Panes =>
-		Volatile.Read(ref paneSnapshot);
-
-	public PaneModel? ActivePane
+	public async ValueTask<PaneModel> OpenSplitAsync(PaneSplitOrientation orientation, BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
-		get
-		{
-			lock (syncRoot)
-			{
-				return panes.FirstOrDefault(pane => pane.Id == activePaneId);
-			}
-		}
-	}
-
-	public PaneSplitOrientation SplitOrientation
-	{
-		get
-		{
-			lock (syncRoot)
-			{
-				return splitOrientation;
-			}
-		}
-	}
-
-	public event EventHandler? StateChanged;
-
-	public async ValueTask<PaneModel> OpenSplitAsync(
-		PaneSplitOrientation orientation,
-		BrowseLocation? initialLocation = null,
-		CancellationToken cancellationToken = default)
-	{
-		if (orientation is not PaneSplitOrientation.Vertical
-			and not PaneSplitOrientation.Horizontal)
+		if (orientation is not PaneSplitOrientation.Vertical and not PaneSplitOrientation.Horizontal)
 		{
 			throw new ArgumentOutOfRangeException(nameof(orientation), "A split pane requires a vertical or horizontal orientation.");
 		}
 
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await mutationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		PaneModel? pane = null;
+
 		try
 		{
 			EnsureActive();
-			lock (syncRoot)
+
+			lock (_syncRoot)
 			{
-				if (panes.Count >= 2)
+				if (_panes.Count >= 2)
 				{
 					throw new InvalidOperationException("A tab cannot contain more than two panes.");
 				}
 
-				initialLocation ??= panes
-					.FirstOrDefault(candidate => candidate.Id == activePaneId)
-					?.Location;
+				initialLocation ??= _panes.FirstOrDefault(candidate => candidate.Id == _activePaneId)?.Location;
 			}
 
-			pane = paneFactory.Create();
+			pane = _paneFactory.Create();
 			if (initialLocation is not null)
 			{
-				await pane
-					.NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token)
-					.ConfigureAwait(false);
+				await pane.NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 			}
 
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
 				EnsureActive();
-				panes.Add(pane);
+				_panes.Add(pane);
 				pane.StateChanged += OnPaneStateChanged;
-				activePaneId = pane.Id;
-				splitOrientation = orientation;
+				_activePaneId = pane.Id;
+				_splitOrientation = orientation;
 				UpdateSnapshot();
 			}
 
 			var result = pane;
 			pane = null;
 			ModelEvent.Raise(this, StateChanged);
+
 			return result;
 		}
 		catch (Exception creationError)
@@ -152,7 +153,7 @@ public sealed class TabModel : IAsyncDisposable
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 		}
 	}
 
@@ -163,38 +164,37 @@ public sealed class TabModel : IAsyncDisposable
 			throw new ArgumentException("A pane ID is required.", nameof(paneId));
 		}
 
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await mutationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		PaneModel? removed = null;
+
 		try
 		{
 			EnsureActive();
-			lock (syncRoot)
+
+			lock (_syncRoot)
 			{
-				if (panes.Count <= 1)
+				if (_panes.Count <= 1)
 				{
 					return false;
 				}
 
-				var index = panes.FindIndex(pane => pane.Id == paneId);
+				var index = _panes.FindIndex(pane => pane.Id == paneId);
 				if (index < 0)
 				{
 					return false;
 				}
 
-				removed = panes[index];
-				panes.RemoveAt(index);
+				removed = _panes[index];
+				_panes.RemoveAt(index);
 				removed.StateChanged -= OnPaneStateChanged;
-				if (activePaneId == paneId)
+				if (_activePaneId == paneId)
 				{
-					activePaneId = panes[Math.Min(index, panes.Count - 1)].Id;
+					_activePaneId = _panes[Math.Min(index, _panes.Count - 1)].Id;
 				}
 
-				splitOrientation = PaneSplitOrientation.None;
+				_splitOrientation = PaneSplitOrientation.None;
 				UpdateSnapshot();
 			}
 
@@ -202,11 +202,12 @@ public sealed class TabModel : IAsyncDisposable
 			var ownedPane = removed!;
 			removed = null;
 			await ownedPane.DisposeAsync().ConfigureAwait(false);
+
 			return true;
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 			if (removed is not null)
 			{
 				await removed.DisposeAsync().ConfigureAwait(false);
@@ -222,17 +223,18 @@ public sealed class TabModel : IAsyncDisposable
 		}
 
 		var changed = false;
-		lock (syncRoot)
+
+		lock (_syncRoot)
 		{
 			EnsureActive();
-			if (!panes.Any(pane => pane.Id == paneId))
+			if (!_panes.Any(pane => pane.Id == paneId))
 			{
 				return false;
 			}
 
-			if (activePaneId != paneId)
+			if (_activePaneId != paneId)
 			{
-				activePaneId = paneId;
+				_activePaneId = paneId;
 				changed = true;
 			}
 		}
@@ -247,24 +249,24 @@ public sealed class TabModel : IAsyncDisposable
 
 	public bool SetSplitOrientation(PaneSplitOrientation orientation)
 	{
-		if (orientation is not PaneSplitOrientation.Vertical
-			and not PaneSplitOrientation.Horizontal)
+		if (orientation is not PaneSplitOrientation.Vertical and not PaneSplitOrientation.Horizontal)
 		{
 			throw new ArgumentOutOfRangeException(nameof(orientation), "Close the secondary pane to remove a split.");
 		}
 
 		var changed = false;
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
 			EnsureActive();
-			if (panes.Count is not 2)
+
+			if (_panes.Count is not 2)
 			{
 				return false;
 			}
 
-			if (splitOrientation != orientation)
+			if (_splitOrientation != orientation)
 			{
-				splitOrientation = orientation;
+				_splitOrientation = orientation;
 				changed = true;
 			}
 		}
@@ -279,43 +281,45 @@ public sealed class TabModel : IAsyncDisposable
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			lifetime.Cancel();
-			disposeTask = DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_lifetime.Cancel();
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
 	private async Task DisposeCoreAsync()
 	{
-		await mutationLock.WaitAsync().ConfigureAwait(false);
+		await _mutationLock.WaitAsync().ConfigureAwait(false);
 		PaneModel[] ownedPanes;
+
 		try
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				ownedPanes = panes.ToArray();
+				ownedPanes = [.. _panes];
 				foreach (var pane in ownedPanes)
 				{
 					pane.StateChanged -= OnPaneStateChanged;
 				}
 
-				panes.Clear();
-				activePaneId = Guid.Empty;
-				splitOrientation = PaneSplitOrientation.None;
+				_panes.Clear();
+				_activePaneId = Guid.Empty;
+				_splitOrientation = PaneSplitOrientation.None;
 				UpdateSnapshot();
 			}
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 		}
 
 		List<Exception>? errors = null;
@@ -331,8 +335,8 @@ public sealed class TabModel : IAsyncDisposable
 			}
 		}
 
-		mutationLock.Dispose();
-		lifetime.Dispose();
+		_mutationLock.Dispose();
+		_lifetime.Dispose();
 		GC.SuppressFinalize(this);
 
 		if (errors is { Count: 1 })
@@ -348,12 +352,13 @@ public sealed class TabModel : IAsyncDisposable
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(ref paneSnapshot, Array.AsReadOnly(panes.ToArray()));
+		Volatile.Write(ref _paneSnapshot, Array.AsReadOnly(_panes.ToArray()));
 	}
 
 	private void EnsureActive()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 	}
 
 	private void OnPaneStateChanged(object? sender, EventArgs args)

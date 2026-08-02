@@ -15,8 +15,12 @@ namespace Files.Views;
 public sealed partial class RootView : Page, IDisposable
 {
 	private readonly RootViewModel viewModel;
+
 	private bool isLoaded;
+
 	private int isDisposed;
+
+	public RootViewModel ViewModel => viewModel;
 
 	public RootView(WindowModel window, IFilesDataRoot dataRoot, DispatcherQueue dispatcherQueue, CommandRegistry commandRegistry)
 	{
@@ -24,8 +28,6 @@ public sealed partial class RootView : Page, IDisposable
 		viewModel = new RootViewModel(window, dataRoot, new DispatcherQueueUIDispatcher(dispatcherQueue), commandRegistry);
 		Loaded += RootView_Loaded;
 	}
-
-	public RootViewModel ViewModel => viewModel;
 
 	public void AttachWindow(Window window) => TabStrip.AttachWindow(window);
 

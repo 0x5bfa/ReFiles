@@ -39,12 +39,7 @@ namespace Files.ControlTests.Views
 
 			return iconStyles
 				.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
-				.Select(x => new IconGalleryEntry
-				{
-					Key = x.Key,
-					ShortName = x.Key[IconKeyPrefix.Length..],
-					IconStyle = x.Value,
-				})
+				.Select(x => new IconGalleryEntry { Key = x.Key, ShortName = x.Key[IconKeyPrefix.Length..], IconStyle = x.Value, })
 				.ToList();
 		}
 
@@ -52,10 +47,7 @@ namespace Files.ControlTests.Views
 		{
 			foreach (var key in dictionary.Keys)
 			{
-				if (key is not string resourceKey ||
-					!resourceKey.StartsWith(IconKeyPrefix, StringComparison.Ordinal) ||
-					!dictionary.TryGetValue(key, out var resourceValue) ||
-					resourceValue is not Style style)
+				if (key is not string resourceKey || !resourceKey.StartsWith(IconKeyPrefix, StringComparison.Ordinal) || !dictionary.TryGetValue(key, out var resourceValue) || resourceValue is not Style style)
 				{
 					continue;
 				}
@@ -84,8 +76,7 @@ namespace Files.ControlTests.Views
 
 			foreach (var entry in allIcons)
 			{
-				if (string.IsNullOrEmpty(trimmed) ||
-					entry.Key.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
+				if (string.IsNullOrEmpty(trimmed) || entry.Key.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
 				{
 					FilteredIcons.Add(entry);
 				}
@@ -100,7 +91,9 @@ namespace Files.ControlTests.Views
 		private async void IconButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (sender is not Button { Tag: string key })
+			{
 				return;
+			}
 
 			var package = new DataPackage();
 			package.SetText(key);

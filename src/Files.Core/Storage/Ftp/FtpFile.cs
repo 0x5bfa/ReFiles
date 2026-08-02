@@ -20,13 +20,9 @@ public sealed class FtpFile : FtpStorable, IChildFile
 		return accessMode switch
 		{
 			FileAccess.Read =>
-				await Factory
-					.OpenReadAsync(Path, cancellationToken)
-					.ConfigureAwait(false),
+				await Factory.OpenReadAsync(Path, cancellationToken).ConfigureAwait(false),
 			FileAccess.Write =>
-				await Factory
-					.OpenWriteAsync(Path, cancellationToken)
-					.ConfigureAwait(false),
+				await Factory.OpenWriteAsync(Path, cancellationToken).ConfigureAwait(false),
 			FileAccess.ReadWrite =>
 				throw new NotSupportedException("FTP does not expose one bidirectional file stream."),
 			_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),

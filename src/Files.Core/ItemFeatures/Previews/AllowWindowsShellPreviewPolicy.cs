@@ -8,8 +8,7 @@ namespace Files.Core.ItemFeatures.Previews;
 /// <summary>
 /// Allows registered Shell preview handlers. The default activator still uses a local server.
 /// </summary>
-public sealed class AllowWindowsShellPreviewPolicy
-	: IWindowsShellPreviewPolicy
+public sealed class AllowWindowsShellPreviewPolicy : IWindowsShellPreviewPolicy
 {
 	public static AllowWindowsShellPreviewPolicy Instance { get; } = new();
 
@@ -20,6 +19,7 @@ public sealed class AllowWindowsShellPreviewPolicy
 	public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid)
 	{
 		ArgumentNullException.ThrowIfNull(context);
+
 		if (handlerClsid == Guid.Empty)
 		{
 			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));

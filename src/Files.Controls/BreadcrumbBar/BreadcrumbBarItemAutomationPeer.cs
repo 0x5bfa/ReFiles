@@ -25,7 +25,9 @@ namespace Files.Controls
 		protected override object GetPatternCore(PatternInterface patternInterface)
 		{
 			if (patternInterface is PatternInterface.ExpandCollapse or PatternInterface.Invoke)
+			{
 				return this;
+			}
 
 			return base.GetPatternCore(patternInterface);
 		}
@@ -49,7 +51,9 @@ namespace Files.Controls
 		public void Invoke()
 		{
 			if (Owner is not BreadcrumbBarItem item)
+			{
 				return;
+			}
 
 			item.OnItemClicked();
 		}

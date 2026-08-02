@@ -11,6 +11,14 @@ namespace Files.Controls
 	/// </summary>
 	public partial class BladeViewAutomationPeer : ItemsControlAutomationPeer
 	{
+		private BladeView OwningBladeView
+		{
+			get
+			{
+				return (BladeView)Owner;
+			}
+		}
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="BladeViewAutomationPeer"/> class.
 		/// </summary>
@@ -20,14 +28,6 @@ namespace Files.Controls
 		public BladeViewAutomationPeer(BladeView owner)
 			: base(owner)
 		{
-		}
-
-		private BladeView OwningBladeView
-		{
-			get
-			{
-				return (BladeView)Owner;
-			}
 		}
 
 		/// <summary>

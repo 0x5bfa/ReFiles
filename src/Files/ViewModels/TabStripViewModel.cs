@@ -9,24 +9,8 @@ namespace Files.ViewModels;
 public sealed class TabStripViewModel : ObservableObject
 {
 	private readonly Action<int> setActiveTabAt;
+
 	private int activeTabIndex = -1;
-
-	internal TabStripViewModel(
-		ObservableCollection<TabViewModel> tabs,
-		CommandBindingViewModel newTabCommand,
-		CommandBindingViewModel closeTabCommand,
-		Action<int> setActiveTabAt)
-	{
-		ArgumentNullException.ThrowIfNull(tabs);
-		ArgumentNullException.ThrowIfNull(newTabCommand);
-		ArgumentNullException.ThrowIfNull(closeTabCommand);
-		ArgumentNullException.ThrowIfNull(setActiveTabAt);
-
-		Tabs = tabs;
-		NewTabCommand = newTabCommand;
-		CloseTabCommand = closeTabCommand;
-		this.setActiveTabAt = setActiveTabAt;
-	}
 
 	public ObservableCollection<TabViewModel> Tabs { get; }
 
@@ -38,6 +22,19 @@ public sealed class TabStripViewModel : ObservableObject
 	{
 		get => activeTabIndex;
 		private set => SetProperty(ref activeTabIndex, value);
+	}
+
+	internal TabStripViewModel(ObservableCollection<TabViewModel> tabs, CommandBindingViewModel newTabCommand, CommandBindingViewModel closeTabCommand, Action<int> setActiveTabAt)
+	{
+		ArgumentNullException.ThrowIfNull(tabs);
+		ArgumentNullException.ThrowIfNull(newTabCommand);
+		ArgumentNullException.ThrowIfNull(closeTabCommand);
+		ArgumentNullException.ThrowIfNull(setActiveTabAt);
+
+		Tabs = tabs;
+		NewTabCommand = newTabCommand;
+		CloseTabCommand = closeTabCommand;
+		this.setActiveTabAt = setActiveTabAt;
 	}
 
 	public void SetActiveTabAt(int index) => setActiveTabAt(index);

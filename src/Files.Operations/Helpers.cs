@@ -22,11 +22,13 @@ unsafe partial class Helpers
 		try
 		{
 			*factory = (IActivationFactory_unmanaged*)Module.GetActivationFactory(MarshalString.FromAbi((IntPtr)activatableClassId));
+
 			return *factory is null ? HRESULT.CLASS_E_CLASSNOTAVAILABLE : HRESULT.S_OK;
 		}
 		catch (Exception e)
 		{
 			ExceptionHelpers.SetErrorInfo(e);
+
 			return (HRESULT)ExceptionHelpers.GetHRForException(e);
 		}
 	}

@@ -10,7 +10,14 @@ namespace Files.ViewModels;
 public sealed class ToolbarViewModel : ObservableObject, IDisposable
 {
 	private TabViewModel? activeTab;
+
 	private int isDisposed;
+
+	public CommandBindingViewModel NewPaneCommand { get; }
+
+	public CommandBindingViewModel ClosePaneCommand { get; }
+
+	public string ActiveTabTitle => activeTab?.Title ?? Strings.NoTabs.GetLocalized();
 
 	internal ToolbarViewModel(CommandBindingViewModel newPaneCommand, CommandBindingViewModel closePaneCommand)
 	{
@@ -20,12 +27,6 @@ public sealed class ToolbarViewModel : ObservableObject, IDisposable
 		NewPaneCommand = newPaneCommand;
 		ClosePaneCommand = closePaneCommand;
 	}
-
-	public CommandBindingViewModel NewPaneCommand { get; }
-
-	public CommandBindingViewModel ClosePaneCommand { get; }
-
-	public string ActiveTabTitle => activeTab?.Title ?? Strings.NoTabs.GetLocalized();
 
 	internal void SetActiveTab(TabViewModel? value)
 	{
@@ -64,8 +65,7 @@ public sealed class ToolbarViewModel : ObservableObject, IDisposable
 
 	private void ActiveTab_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is null
-			or nameof(TabViewModel.Title))
+		if (e.PropertyName is null or nameof(TabViewModel.Title))
 		{
 			OnPropertyChanged(nameof(ActiveTabTitle));
 		}

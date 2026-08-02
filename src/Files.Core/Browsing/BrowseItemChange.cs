@@ -19,6 +19,12 @@ public sealed record BrowseItemsReset(IReadOnlyList<IStorableModel> Items) : Bro
 
 public sealed class BrowseItemsChangedEventArgs : EventArgs
 {
+	public long PreviousVersion { get; }
+
+	public long Version { get; }
+
+	public IReadOnlyList<BrowseItemChange> Changes { get; }
+
 	public BrowseItemsChangedEventArgs(long previousVersion, long version, IReadOnlyList<BrowseItemChange> changes)
 	{
 		ArgumentNullException.ThrowIfNull(changes);
@@ -27,10 +33,4 @@ public sealed class BrowseItemsChangedEventArgs : EventArgs
 		Version = version;
 		Changes = Array.AsReadOnly(changes.ToArray());
 	}
-
-	public long PreviousVersion { get; }
-
-	public long Version { get; }
-
-	public IReadOnlyList<BrowseItemChange> Changes { get; }
 }

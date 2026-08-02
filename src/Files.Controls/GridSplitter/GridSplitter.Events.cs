@@ -16,62 +16,10 @@ namespace Files.Controls
 	{
 		// Symbols for GripperBar in Segoe MDL2 Assets
 		private const string GripperBarVertical = "\xE784";
+
 		private const string GripperBarHorizontal = "\xE76F";
+
 		private const string GripperDisplayFont = "Segoe MDL2 Assets";
-
-		private void GridSplitter_Loaded(object sender, RoutedEventArgs e)
-		{
-			_resizeDirection = GetResizeDirection();
-			_resizeBehavior = GetResizeBehavior();
-
-			// Adding Grip to Grid Splitter
-			if (Element == default(UIElement))
-			{
-				CreateGripperDisplay();
-				Element = _gripperDisplay!;
-			}
-
-			if (_hoverWrapper == null)
-			{
-				var hoverElement = CursorBehavior == SplitterCursorBehavior.ChangeOnSplitterHover
-					? (UIElement)this
-					: Element!;
-				var hoverWrapper = new GripperHoverWrapper(hoverElement, _resizeDirection, GripperCursor, GripperCustomCursorResource);
-				ManipulationStarted += hoverWrapper.SplitterManipulationStarted;
-				ManipulationCompleted += hoverWrapper.SplitterManipulationCompleted;
-
-				_hoverWrapper = hoverWrapper;
-			}
-		}
-
-		private void CreateGripperDisplay()
-		{
-			if (_gripperDisplay == null)
-			{
-				_gripperDisplay = new TextBlock
-				{
-					FontFamily = new FontFamily(GripperDisplayFont),
-					HorizontalAlignment = HorizontalAlignment.Center,
-					VerticalAlignment = VerticalAlignment.Center,
-					Foreground = GripperForeground,
-					Text = _resizeDirection == GridResizeDirection.Columns ? GripperBarVertical : GripperBarHorizontal
-				};
-				_gripperDisplay.SetValue(
-					Microsoft.UI.Xaml.Automation.AutomationProperties.AccessibilityViewProperty,
-					Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
-			}
-		}
-
-		private bool IsCtrlDown()
-		{
-			if (Window.Current == null)
-			{
-				return false;
-			}
-
-			var ctrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
-			return ctrl.HasFlag(CoreVirtualKeyStates.Down);
-		}
 
 		/// <inheritdoc />
 		protected override void OnKeyDown(KeyRoutedEventArgs e)
@@ -98,6 +46,7 @@ namespace Files.Controls
 				}
 
 				e.Handled = true;
+
 				return;
 			}
 
@@ -184,6 +133,59 @@ namespace Files.Controls
 			base.OnManipulationDelta(e);
 		}
 
+		private void GridSplitter_Loaded(object sender, RoutedEventArgs e)
+		{
+			_resizeDirection = GetResizeDirection();
+			_resizeBehavior = GetResizeBehavior();
+
+			// Adding Grip to Grid Splitter
+			if (Element == default(UIElement))
+			{
+				CreateGripperDisplay();
+				Element = _gripperDisplay!;
+			}
+
+			if (_hoverWrapper == null)
+			{
+				var hoverElement = CursorBehavior == SplitterCursorBehavior.ChangeOnSplitterHover
+					? (UIElement)this
+					: Element!;
+				var hoverWrapper = new GripperHoverWrapper(hoverElement, _resizeDirection, GripperCursor, GripperCustomCursorResource);
+				ManipulationStarted += hoverWrapper.SplitterManipulationStarted;
+				ManipulationCompleted += hoverWrapper.SplitterManipulationCompleted;
+
+				_hoverWrapper = hoverWrapper;
+			}
+		}
+
+		private void CreateGripperDisplay()
+		{
+			if (_gripperDisplay == null)
+			{
+				_gripperDisplay = new TextBlock
+				{
+					FontFamily = new FontFamily(GripperDisplayFont),
+					HorizontalAlignment = HorizontalAlignment.Center,
+					VerticalAlignment = VerticalAlignment.Center,
+					Foreground = GripperForeground,
+					Text = _resizeDirection == GridResizeDirection.Columns ? GripperBarVertical : GripperBarHorizontal
+				};
+				_gripperDisplay.SetValue(Microsoft.UI.Xaml.Automation.AutomationProperties.AccessibilityViewProperty, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+			}
+		}
+
+		private bool IsCtrlDown()
+		{
+			if (Window.Current == null)
+			{
+				return false;
+			}
+
+			var ctrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
+
+			return ctrl.HasFlag(CoreVirtualKeyStates.Down);
+		}
+
 		private bool VerticalMove(double verticalChange)
 		{
 			var resizable = Resizable;
@@ -225,8 +227,7 @@ namespace Files.Controls
 				// respect the other star row height by setting it's height to it's actual height with stars
 
 				// We need to validate current and sibling height to not cause any unexpected behavior
-				if (!IsValidRowHeight(CurrentRow, verticalChange) ||
-					!IsValidRowHeight(SiblingRow, verticalChange * -1))
+				if (!IsValidRowHeight(CurrentRow, verticalChange) || !IsValidRowHeight(SiblingRow, verticalChange * -1))
 				{
 					return true;
 				}
@@ -292,8 +293,7 @@ namespace Files.Controls
 				// respect the other star column width by setting it's width to it's actual width with stars
 
 				// We need to validate current and sibling width to not cause any unexpected behavior
-				if (!IsValidColumnWidth(CurrentColumn, horizontalChange) ||
-					!IsValidColumnWidth(SiblingColumn, horizontalChange * -1))
+				if (!IsValidColumnWidth(CurrentColumn, horizontalChange) || !IsValidColumnWidth(SiblingColumn, horizontalChange * -1))
 				{
 					return true;
 				}

@@ -42,6 +42,11 @@ namespace Files.ControlTests.Views
 			];
 		}
 
+		partial void OnIsRTLEnabledChanged(bool newValue)
+		{
+			BreadcrumbBar1FlowDirection = IsRTLEnabled ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+		}
+
 		private void BreadcrumbBar1_ItemClicked(Controls.BreadcrumbBar sender, Controls.BreadcrumbBarItemClickedEventArgs args)
 		{
 			if (args.IsRootItem)
@@ -66,11 +71,6 @@ namespace Files.ControlTests.Views
 		private void BreadcrumbBar1_ItemDropDownFlyoutClosed(object sender, BreadcrumbBarItemDropDownFlyoutEventArgs e)
 		{
 			e.Flyout.Items.Clear();
-		}
-
-		partial void OnIsRTLEnabledChanged(bool newValue)
-		{
-			BreadcrumbBar1FlowDirection = IsRTLEnabled ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
 		}
 	}
 }

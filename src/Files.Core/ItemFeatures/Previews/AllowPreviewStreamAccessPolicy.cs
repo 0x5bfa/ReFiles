@@ -21,7 +21,9 @@ public sealed class AllowPreviewStreamAccessPolicy
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(context);
+
 		cancellationToken.ThrowIfCancellationRequested();
+
 		return ValueTask.FromResult<PreviewBlockReason?>(null);
 	}
 }

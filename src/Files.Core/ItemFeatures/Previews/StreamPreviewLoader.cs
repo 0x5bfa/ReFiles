@@ -11,16 +11,16 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 {
 	private const int CopyBufferSize = 81920;
 
-	private readonly IPreviewContentTypeResolver contentTypeResolver;
-	private readonly IPreviewStreamAccessPolicy accessPolicy;
+	private readonly IPreviewContentTypeResolver _contentTypeResolver;
+	private readonly IPreviewStreamAccessPolicy _accessPolicy;
 
 	public StreamPreviewLoader(IPreviewContentTypeResolver contentTypeResolver, IPreviewStreamAccessPolicy accessPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(contentTypeResolver);
 		ArgumentNullException.ThrowIfNull(accessPolicy);
 
-		this.contentTypeResolver = contentTypeResolver;
-		this.accessPolicy = accessPolicy;
+		_contentTypeResolver = contentTypeResolver;
+		_accessPolicy = accessPolicy;
 	}
 
 	public bool CanLoad(ItemContext context)
@@ -28,7 +28,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 		ArgumentNullException.ThrowIfNull(context);
 
 		return context.CoreModel is IFile
-			&& contentTypeResolver.TryResolve(context, out _);
+			&& _contentTypeResolver.TryResolve(context, out _);
 	}
 
 	public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
@@ -37,13 +37,12 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 		ArgumentNullException.ThrowIfNull(context);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (context.CoreModel is not IFile file
-			|| !contentTypeResolver.TryResolve(context, out var contentType))
+		if (context.CoreModel is not IFile file || !_contentTypeResolver.TryResolve(context, out var contentType))
 		{
 			return null;
 		}
 
-		var blockReason = await accessPolicy.GetBlockReasonAsync(request, context, cancellationToken).ConfigureAwait(false);
+		var blockReason = await _accessPolicy.GetBlockReasonAsync(request, context, cancellationToken).ConfigureAwait(false);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		if (blockReason is not null)
@@ -56,12 +55,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 		return await CreateResultAsync(stream, request.MaximumBytes, contentType.MediaType, file.Name, cancellationToken).ConfigureAwait(false);
 	}
 
-	private static async ValueTask<PreviewResult> CreateResultAsync(
-		Stream stream,
-		long? maximumBytes,
-		string contentType,
-		string suggestedFileName,
-		CancellationToken cancellationToken)
+	private static async ValueTask<PreviewResult> CreateResultAsync(Stream stream, long? maximumBytes, string contentType, string suggestedFileName, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(stream);
 
@@ -77,6 +71,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 					: null;
 				var result = new StreamPreviewResult(stream, contentType, contentLength, suggestedFileName);
 				sourceOwned = false;
+
 				return result;
 			}
 
@@ -89,16 +84,11 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 
 				var result = new StreamPreviewResult(stream, contentType, length, suggestedFileName);
 				sourceOwned = false;
+
 				return result;
 			}
 
-			return await BufferNonSeekableAsync(
-				stream,
-				maximumBytes.Value,
-				contentType,
-				suggestedFileName,
-				cancellationToken,
-				() => sourceOwned = false).ConfigureAwait(false);
+			return await BufferNonSeekableAsync(stream, maximumBytes.Value, contentType, suggestedFileName, cancellationToken, () => sourceOwned = false).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -109,13 +99,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 		}
 	}
 
-	private static async ValueTask<PreviewResult> BufferNonSeekableAsync(
-		Stream stream,
-		long maximumBytes,
-		string contentType,
-		string suggestedFileName,
-		CancellationToken cancellationToken,
-		Action markSourceDisposed)
+	private static async ValueTask<PreviewResult> BufferNonSeekableAsync(Stream stream, long maximumBytes, string contentType, string suggestedFileName, CancellationToken cancellationToken, Action markSourceDisposed)
 	{
 		var buffer = new MemoryStream();
 		var bufferOwned = true;
@@ -130,6 +114,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			while (bytesRead < limit)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
+
 				var requested = (int)Math.Min(readBuffer.Length, limit - bytesRead);
 				var count = await stream.ReadAsync(readBuffer.AsMemory(0, requested), cancellationToken).ConfigureAwait(false);
 
@@ -161,6 +146,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			buffer.Position = 0;
 			var result = new StreamPreviewResult(buffer, contentType, bytesRead, suggestedFileName);
 			bufferOwned = false;
+
 			return result;
 		}
 		finally
@@ -177,22 +163,26 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 		if (!stream.CanSeek)
 		{
 			length = 0;
+
 			return false;
 		}
 
 		try
 		{
 			length = stream.Length;
+
 			return true;
 		}
 		catch (NotSupportedException)
 		{
 			length = 0;
+
 			return false;
 		}
 		catch (InvalidOperationException)
 		{
 			length = 0;
+
 			return false;
 		}
 	}

@@ -10,78 +10,81 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 internal sealed class FtpOwnedStream : Stream
 {
-	private readonly Stream innerStream;
-	private readonly IFtpSession session;
-	private int isDisposed;
+	private readonly Stream _innerStream;
+
+	private readonly IFtpSession _session;
+
+	private int _isDisposed;
+
+	public override bool CanRead => _innerStream.CanRead;
+
+	public override bool CanSeek => _innerStream.CanSeek;
+
+	public override bool CanWrite => _innerStream.CanWrite;
+
+	public override bool CanTimeout => _innerStream.CanTimeout;
+
+	public override long Length => _innerStream.Length;
+
+	public override long Position
+	{
+		get => _innerStream.Position;
+		set => _innerStream.Position = value;
+	}
+
+	public override int ReadTimeout
+	{
+		get => _innerStream.ReadTimeout;
+		set => _innerStream.ReadTimeout = value;
+	}
+
+	public override int WriteTimeout
+	{
+		get => _innerStream.WriteTimeout;
+		set => _innerStream.WriteTimeout = value;
+	}
 
 	public FtpOwnedStream(Stream innerStream, IFtpSession session)
 	{
 		ArgumentNullException.ThrowIfNull(innerStream);
 		ArgumentNullException.ThrowIfNull(session);
-		this.innerStream = innerStream;
-		this.session = session;
+
+		_innerStream = innerStream;
+		_session = session;
 	}
 
-	public override bool CanRead => innerStream.CanRead;
-
-	public override bool CanSeek => innerStream.CanSeek;
-
-	public override bool CanWrite => innerStream.CanWrite;
-
-	public override bool CanTimeout => innerStream.CanTimeout;
-
-	public override long Length => innerStream.Length;
-
-	public override long Position
-	{
-		get => innerStream.Position;
-		set => innerStream.Position = value;
-	}
-
-	public override int ReadTimeout
-	{
-		get => innerStream.ReadTimeout;
-		set => innerStream.ReadTimeout = value;
-	}
-
-	public override int WriteTimeout
-	{
-		get => innerStream.WriteTimeout;
-		set => innerStream.WriteTimeout = value;
-	}
-
-	public override void Flush() => innerStream.Flush();
+	public override void Flush() => _innerStream.Flush();
 
 	public override Task FlushAsync(CancellationToken cancellationToken)
-		=> innerStream.FlushAsync(cancellationToken);
+		=> _innerStream.FlushAsync(cancellationToken);
 
 	public override int Read(byte[] buffer, int offset, int count)
-		=> innerStream.Read(buffer, offset, count);
+		=> _innerStream.Read(buffer, offset, count);
 
 	public override int Read(Span<byte> buffer)
-		=> innerStream.Read(buffer);
+		=> _innerStream.Read(buffer);
 
 	public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-		=> innerStream.ReadAsync(buffer, cancellationToken);
+		=> _innerStream.ReadAsync(buffer, cancellationToken);
 
 	public override long Seek(long offset, SeekOrigin origin)
-		=> innerStream.Seek(offset, origin);
+		=> _innerStream.Seek(offset, origin);
 
 	public override void SetLength(long value)
-		=> innerStream.SetLength(value);
+		=> _innerStream.SetLength(value);
 
 	public override void Write(byte[] buffer, int offset, int count)
-		=> innerStream.Write(buffer, offset, count);
+		=> _innerStream.Write(buffer, offset, count);
 
 	public override void Write(ReadOnlySpan<byte> buffer)
-		=> innerStream.Write(buffer);
+		=> _innerStream.Write(buffer);
 
 	public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-		=> innerStream.WriteAsync(buffer, cancellationToken);
+		=> _innerStream.WriteAsync(buffer, cancellationToken);
 
 	public override async ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
@@ -96,25 +99,25 @@ internal sealed class FtpOwnedStream : Stream
 
 	protected override void Dispose(bool disposing)
 	{
-		if (!disposing
-			|| Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (!disposing || Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			base.Dispose(disposing);
+
 			return;
 		}
 
 		var errors = new List<Exception>();
 		try
 		{
-			innerStream.Dispose();
+			_innerStream.Dispose();
 		}
 		catch (Exception error)
 		{
 			errors.Add(error);
 		}
 
-		TryWait(session.CompleteTransferAsync(CancellationToken.None), errors);
-		TryWait(session.DisposeAsync(), errors);
+		TryWait(_session.CompleteTransferAsync(CancellationToken.None), errors);
+		TryWait(_session.DisposeAsync(), errors);
 		base.Dispose(disposing);
 		GC.SuppressFinalize(this);
 		ThrowDisposalErrors(errors);
@@ -124,7 +127,7 @@ internal sealed class FtpOwnedStream : Stream
 	{
 		try
 		{
-			await innerStream.DisposeAsync().ConfigureAwait(false);
+			await _innerStream.DisposeAsync().ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{
@@ -136,9 +139,7 @@ internal sealed class FtpOwnedStream : Stream
 	{
 		try
 		{
-			await session
-				.CompleteTransferAsync(CancellationToken.None)
-				.ConfigureAwait(false);
+			await _session.CompleteTransferAsync(CancellationToken.None).ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{
@@ -150,7 +151,7 @@ internal sealed class FtpOwnedStream : Stream
 	{
 		try
 		{
-			await session.DisposeAsync().ConfigureAwait(false);
+			await _session.DisposeAsync().ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{

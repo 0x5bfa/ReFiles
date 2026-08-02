@@ -11,28 +11,17 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal sealed unsafe class ShellReadStream : Stream
 {
-	private readonly IWindowsShellScheduler scheduler;
-	private IStream? shellStream;
-	private readonly long length;
-	private int isDisposed;
+	private readonly IWindowsShellScheduler _scheduler;
 
-	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream)
-	{
-		ArgumentNullException.ThrowIfNull(scheduler);
-		ArgumentNullException.ThrowIfNull(shellStream);
+	private IStream? _shellStream;
 
-		this.scheduler = scheduler;
-		this.shellStream = shellStream;
+	private readonly long _length;
 
-		STATSTG statistics = default;
-		var result = shellStream.Stat(&statistics, STATFLAG.STATFLAG_NONAME);
-		result.ThrowOnFailure();
-		length = checked((long)statistics.cbSize);
-	}
+	private int _isDisposed;
 
-	public override bool CanRead => Volatile.Read(ref isDisposed) == 0;
+	public override bool CanRead => Volatile.Read(ref _isDisposed) == 0;
 
-	public override bool CanSeek => Volatile.Read(ref isDisposed) == 0;
+	public override bool CanSeek => Volatile.Read(ref _isDisposed) == 0;
 
 	public override bool CanWrite => false;
 
@@ -41,7 +30,8 @@ internal sealed unsafe class ShellReadStream : Stream
 		get
 		{
 			ThrowIfDisposed();
-			return length;
+
+			return _length;
 		}
 	}
 
@@ -51,16 +41,34 @@ internal sealed unsafe class ShellReadStream : Stream
 		set => Seek(value, SeekOrigin.Begin);
 	}
 
+	private IStream NativeStream
+	{
+		get => _shellStream ?? throw new ObjectDisposedException(nameof(ShellReadStream));
+	}
+
+	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream)
+	{
+		ArgumentNullException.ThrowIfNull(scheduler);
+		ArgumentNullException.ThrowIfNull(shellStream);
+
+		_scheduler = scheduler;
+		_shellStream = shellStream;
+
+		STATSTG statistics = default;
+		var result = shellStream.Stat(&statistics, STATFLAG.STATFLAG_NONAME);
+		result.ThrowOnFailure();
+		_length = checked((long)statistics.cbSize);
+	}
+
 	public override void Flush()
 	{
 		ThrowIfDisposed();
+
 	}
 
 	public override int Read(byte[] buffer, int offset, int count)
 	{
-		return ReadAsync(buffer, offset, count, CancellationToken.None)
-			.GetAwaiter()
-			.GetResult();
+		return ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
 	}
 
 	public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
@@ -81,7 +89,7 @@ internal sealed unsafe class ShellReadStream : Stream
 
 		ThrowIfDisposed();
 
-		return scheduler.InvokeAsync(
+		return _scheduler.InvokeAsync(
 			() =>
 			{
 				fixed (byte* destination = &buffer[offset])
@@ -89,6 +97,7 @@ internal sealed unsafe class ShellReadStream : Stream
 					uint bytesRead = 0;
 					var result = NativeStream.Read(destination, checked((uint)count), &bytesRead);
 					result.ThrowOnFailure();
+
 					return checked((int)bytesRead);
 				}
 			},
@@ -99,14 +108,7 @@ internal sealed unsafe class ShellReadStream : Stream
 	{
 		ThrowIfDisposed();
 
-		return scheduler.InvokeAsync(
-			() =>
-			{
-				ulong position = 0;
-				var result = NativeStream.Seek(offset, origin, &position);
-				result.ThrowOnFailure();
-				return checked((long)position);
-			}).GetAwaiter().GetResult();
+		return _scheduler.InvokeAsync(() => { ulong position = 0; var result = NativeStream.Seek(offset, origin, &position); result.ThrowOnFailure(); return checked((long)position); }).GetAwaiter().GetResult();
 	}
 
 	public override void SetLength(long value) => throw new NotSupportedException();
@@ -115,11 +117,11 @@ internal sealed unsafe class ShellReadStream : Stream
 
 	protected override void Dispose(bool disposing)
 	{
-		if (disposing && Interlocked.Exchange(ref isDisposed, 1) == 0)
+		if (disposing && Interlocked.Exchange(ref _isDisposed, 1) == 0)
 		{
 			try
 			{
-				scheduler.InvokeAsync(() => {shellStream = null; return true;}).GetAwaiter().GetResult();
+				_scheduler.InvokeAsync(() => {_shellStream = null; return true;}).GetAwaiter().GetResult();
 			}
 			finally
 			{
@@ -132,13 +134,8 @@ internal sealed unsafe class ShellReadStream : Stream
 		base.Dispose(disposing);
 	}
 
-	private IStream NativeStream
-	{
-		get => shellStream ?? throw new ObjectDisposedException(nameof(ShellReadStream));
-	}
-
 	private void ThrowIfDisposed()
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 	}
 }

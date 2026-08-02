@@ -11,25 +11,21 @@ namespace Files.Core.Browsing;
 /// <summary>
 /// Mounts an archive before publishing any of its entries to a browse session.
 /// </summary>
-public sealed class ArchiveBrowseLocationHandler
-	: IBrowseLocationHandler
+public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 {
-	private const int MaximumCredentialAttempts = 5;
-	private readonly IFilesDataRoot dataRoot;
-	private readonly ArchiveBackendSelector backendSelector;
-	private readonly IArchiveCredentialResolver? credentialResolver;
+	private const int _maximumCredentialAttempts = 5;
+	private readonly IFilesDataRoot _dataRoot;
+	private readonly ArchiveBackendSelector _backendSelector;
+	private readonly IArchiveCredentialResolver? _credentialResolver;
 
-	public ArchiveBrowseLocationHandler(
-		IFilesDataRoot dataRoot,
-		ArchiveBackendSelector backendSelector,
-		IArchiveCredentialResolver? credentialResolver = null)
+	public ArchiveBrowseLocationHandler(IFilesDataRoot dataRoot, ArchiveBackendSelector backendSelector, IArchiveCredentialResolver? credentialResolver = null)
 	{
 		ArgumentNullException.ThrowIfNull(dataRoot);
 		ArgumentNullException.ThrowIfNull(backendSelector);
 
-		this.dataRoot = dataRoot;
-		this.backendSelector = backendSelector;
-		this.credentialResolver = credentialResolver;
+		_dataRoot = dataRoot;
+		_backendSelector = backendSelector;
+		_credentialResolver = credentialResolver;
 	}
 
 	public bool CanHandle(BrowseLocation location)
@@ -42,25 +38,21 @@ public sealed class ArchiveBrowseLocationHandler
 			throw new ArgumentException("The location must identify an archive.", nameof(location));
 		}
 
-		var archiveModel = await dataRoot
-			.ResolveAsync(archiveLocation.Archive, cancellationToken)
-			.ConfigureAwait(false);
+		var archiveModel = await _dataRoot.ResolveAsync(archiveLocation.Archive, cancellationToken).ConfigureAwait(false);
 		IArchiveMount? mount = null;
 		IStorableModel? locationModel = null;
 
 		try
 		{
-			var source = dataRoot.GetSource(archiveLocation.Archive.SourceId);
+			var source = _dataRoot.GetSource(archiveLocation.Archive.SourceId);
 			ArchiveCredential? credential = null;
 			var credentialAttempt = 0;
 			var credentialPromptCount = 0;
 
 			while (true)
 			{
-				var request = new ArchiveMountRequest(source, archiveModel, credential, credentialAttempt, credentialResolver);
-				var result = await backendSelector
-					.TryMountAsync(request, cancellationToken)
-					.ConfigureAwait(false);
+				var request = new ArchiveMountRequest(source, archiveModel, credential, credentialAttempt, _credentialResolver);
+				var result = await _backendSelector.TryMountAsync(request, cancellationToken).ConfigureAwait(false);
 
 				switch (result)
 				{
@@ -68,28 +60,19 @@ public sealed class ArchiveBrowseLocationHandler
 						mount = success.Mount;
 						break;
 					case ArchiveMountResult.CredentialRequired required:
-						if (credentialResolver is null)
+						if (_credentialResolver is null)
 						{
 							throw new ArchiveCredentialRequiredException(required.Challenge);
 						}
 
 						credentialPromptCount++;
-						if (credentialPromptCount
-								> MaximumCredentialAttempts
-							|| required.Challenge.Attempt
-								> MaximumCredentialAttempts)
+						if (credentialPromptCount > _maximumCredentialAttempts || required.Challenge.Attempt > _maximumCredentialAttempts)
 						{
-							throw new ArchiveOpenException($"Archive credential attempts exceeded {MaximumCredentialAttempts}.");
+							throw new ArchiveOpenException($"Archive credential attempts exceeded {_maximumCredentialAttempts}.");
 						}
 
-						credential = await credentialResolver
-							.ResolveAsync(required.Challenge, cancellationToken)
-							.ConfigureAwait(false);
-						if (credential is null)
-						{
-							throw new OperationCanceledException("The archive credential request was canceled.");
-						}
-
+						credential = await _credentialResolver.ResolveAsync(required.Challenge, cancellationToken).ConfigureAwait(false)
+							?? throw new OperationCanceledException("The archive credential request was canceled.");
 						credentialAttempt = Math.Max(required.Challenge.Attempt, credentialPromptCount);
 						continue;
 					case ArchiveMountResult.Unsupported:
@@ -103,9 +86,7 @@ public sealed class ArchiveBrowseLocationHandler
 				break;
 			}
 
-			var locationCoreModel = await mount
-				.ResolveAsync(archiveLocation.EntryPath, cancellationToken)
-				.ConfigureAwait(false);
+			var locationCoreModel = await mount.ResolveAsync(archiveLocation.EntryPath, cancellationToken).ConfigureAwait(false);
 			if (locationCoreModel is not IFolder)
 			{
 				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' is not a folder.");
@@ -113,20 +94,20 @@ public sealed class ArchiveBrowseLocationHandler
 
 			locationModel = ReferenceEquals(locationCoreModel, archiveModel.CoreModel)
 				? archiveModel
-				: dataRoot.ModelFactory.Create(mount.ItemSource, locationCoreModel);
+				: _dataRoot.ModelFactory.Create(mount.ItemSource, locationCoreModel);
 			if (locationModel is not IFolderModel folderModel)
 			{
 				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' did not produce a folder model.");
 			}
 
-			var context = new ArchiveBrowseLocationContext(archiveLocation, archiveModel, folderModel, mount, dataRoot);
+			var context = new ArchiveBrowseLocationContext(archiveLocation, archiveModel, folderModel, mount, _dataRoot);
+
 			return context;
 		}
 		catch (Exception openError)
 		{
 			var cleanupErrors = new List<Exception>();
-			if (locationModel is not null
-				&& !ReferenceEquals(locationModel, archiveModel))
+			if (locationModel is not null && !ReferenceEquals(locationModel, archiveModel))
 			{
 				await TryDisposeAsync(locationModel, cleanupErrors).ConfigureAwait(false);
 			}

@@ -26,19 +26,13 @@ public static class ArchiveEntryPath
 			return true;
 		}
 
-		if (path[0] is '/' or '\\'
-			|| path.IndexOf('\0') >= 0)
+		if (path[0] is '/' or '\\' || path.IndexOf('\0') >= 0)
 		{
 			return false;
 		}
 
-		var segments = path
-			.Replace('\\', '/')
-			.Split('/', StringSplitOptions.RemoveEmptyEntries);
-		if (segments.Length > 0
-			&& segments[0].Length >= 2
-			&& char.IsAsciiLetter(segments[0][0])
-			&& segments[0][1] is ':')
+		var segments = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+		if (segments.Length > 0 && segments[0].Length >= 2 && char.IsAsciiLetter(segments[0][0]) && segments[0][1] is ':')
 		{
 			return false;
 		}
@@ -61,6 +55,7 @@ public static class ArchiveEntryPath
 		}
 
 		normalized = string.Join('/', acceptedSegments);
+
 		return true;
 	}
 
@@ -80,6 +75,7 @@ public static class ArchiveEntryPath
 	{
 		var normalized = Normalize(path);
 		var separatorIndex = normalized.LastIndexOf('/');
+
 		return separatorIndex < 0
 			? normalized
 			: normalized[(separatorIndex + 1)..];
@@ -89,6 +85,7 @@ public static class ArchiveEntryPath
 	{
 		var normalized = Normalize(path);
 		var separatorIndex = normalized.LastIndexOf('/');
+
 		return separatorIndex < 0
 			? string.Empty
 			: normalized[..separatorIndex];

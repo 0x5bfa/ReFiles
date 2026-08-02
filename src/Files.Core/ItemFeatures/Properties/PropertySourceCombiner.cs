@@ -16,10 +16,7 @@ public sealed class PropertySourceCombiner : IItemFeatureCombiner<IPropertySourc
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
 
-		var sources = options
-			.OrderByDescending(static option => option.Priority)
-			.Select(static option => option.Feature)
-			.ToArray();
+		var sources = options.OrderByDescending(static option => option.Priority).Select(static option => option.Feature).ToArray();
 
 		return sources.Length switch
 		{
@@ -31,27 +28,24 @@ public sealed class PropertySourceCombiner : IItemFeatureCombiner<IPropertySourc
 
 	private sealed class CompositePropertySource : IPropertySource
 	{
-		private readonly IReadOnlyList<IPropertySource> sources;
+		private readonly IReadOnlyList<IPropertySource> _sources;
 
 		public CompositePropertySource(IReadOnlyList<IPropertySource> sources)
 		{
-			this.sources = sources;
+			_sources = sources;
 		}
 
-		public async ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(
-			PropertyRequest request,
-			CancellationToken cancellationToken = default)
+		public async ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
 			var merged = new Dictionary<string, object?>(StringComparer.Ordinal);
 
-			foreach (var source in sources)
+			foreach (var source in _sources)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				var properties = await source
-					.GetPropertiesAsync(request, cancellationToken)
-					.ConfigureAwait(false);
+
+				var properties = await source.GetPropertiesAsync(request, cancellationToken).ConfigureAwait(false);
 
 				foreach (var property in properties)
 				{

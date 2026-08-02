@@ -13,9 +13,7 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 	{
 	}
 
-	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(
-		StorableType type = StorableType.All,
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -24,9 +22,7 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 			yield break;
 		}
 
-		await foreach (var descriptor in Factory
-			.EnumerateChildrenAsync(Descriptor, cancellationToken)
-			.ConfigureAwait(false))
+		await foreach (var descriptor in Factory .EnumerateChildrenAsync(Descriptor, cancellationToken) .ConfigureAwait(false))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 

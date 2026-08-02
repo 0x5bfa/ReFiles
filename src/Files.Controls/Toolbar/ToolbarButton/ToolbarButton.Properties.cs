@@ -11,11 +11,7 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="Label"/> property.
 		/// </summary>
 		public static readonly DependencyProperty LabelProperty =
-			DependencyProperty.Register(
-				nameof(Label),
-				typeof(string),
-				typeof(ToolbarButton),
-				new PropertyMetadata(string.Empty, (d, e) => ((ToolbarButton)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
+			DependencyProperty.Register(nameof(Label), typeof(string), typeof(ToolbarButton), new PropertyMetadata(string.Empty, (d, e) => ((ToolbarButton)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
 
 
 
@@ -46,11 +42,7 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="ThemedIcon"/> property.
 		/// </summary>
 		public static readonly DependencyProperty ThemedIconProperty =
-			DependencyProperty.Register(
-				nameof(ThemedIcon),
-				typeof(Style),
-				typeof(ToolbarButton),
-				new PropertyMetadata(null, (d, e) => ((ToolbarButton)d).OnThemedIconPropertyChanged((Style)e.OldValue, (Style)e.NewValue)));
+			DependencyProperty.Register(nameof(ThemedIcon), typeof(Style), typeof(ToolbarButton), new PropertyMetadata(null, (d, e) => ((ToolbarButton)d).OnThemedIconPropertyChanged((Style)e.OldValue, (Style)e.NewValue)));
 
 
 
@@ -78,11 +70,7 @@ namespace Files.Controls
 		#region IconSize (double)
 
 		public static readonly DependencyProperty IconSizeProperty =
-			DependencyProperty.Register(
-				nameof(IconSize),
-				typeof(double),
-				typeof(ToolbarButton),
-				new PropertyMetadata((double)16, (d, e) => ((ToolbarButton)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
+			DependencyProperty.Register(nameof(IconSize), typeof(double), typeof(ToolbarButton), new PropertyMetadata((double)16, (d, e) => ((ToolbarButton)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
 
 
 

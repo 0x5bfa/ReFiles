@@ -58,8 +58,7 @@ public sealed class StorageOperationServiceTests
 		var handler = new TestOperationHandler(canHandle: true);
 		var service = new StorageOperationService([handler]);
 
-		await Assert.ThrowsAsync<OperationCanceledException>(
-			async () => await service.ExecuteAsync(CreateRenameRequest(), cancellationToken: cancellation.Token));
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await service.ExecuteAsync(CreateRenameRequest(), cancellationToken: cancellation.Token));
 
 		Assert.AreEqual(0, handler.ExecuteCount);
 	}
@@ -81,8 +80,7 @@ public sealed class StorageOperationServiceTests
 		var reference = CreateRenameRequest().Item;
 
 		Assert.Throws<ArgumentOutOfRangeException>(() => new CreateItemOperationRequest(reference, "item", (StorageItemKind)int.MaxValue));
-		Assert.Throws<ArgumentOutOfRangeException>(
-			() => new CopyOperationRequest(reference, reference, conflictBehavior: (StorageConflictBehavior)int.MaxValue));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new CopyOperationRequest(reference, reference, conflictBehavior: (StorageConflictBehavior)int.MaxValue));
 	}
 
 	[TestMethod]
@@ -92,14 +90,12 @@ public sealed class StorageOperationServiceTests
 
 		Assert.Throws<ArgumentException>(() => new StorageOperationResult(Succeeded: true, ResultItem: reference, Error: new IOException("unexpected")));
 		Assert.Throws<ArgumentNullException>(() => new StorageOperationResult(Succeeded: false, ResultItem: null));
-		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(CompletedItems: 2, TotalItems: 1));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(completedItems: 2, totalItems: 1));
 	}
 
 	private static RenameOperationRequest CreateRenameRequest()
 	{
-		return new RenameOperationRequest(
-			new StorableReference(new StorageSourceId("test"), "item-1", new StorageAddress("test", "item-1")),
-			"renamed.txt");
+		return new RenameOperationRequest(new StorableReference(new StorageSourceId("test"), "item-1", new StorageAddress("test", "item-1")), "renamed.txt");
 	}
 
 	private sealed record UnknownOperationRequest : StorageOperationRequest;
@@ -108,10 +104,7 @@ public sealed class StorageOperationServiceTests
 	{
 		public bool CanHandle(StorageOperationRequest request) => true;
 
-		public ValueTask<StorageOperationResult> ExecuteAsync(
-			StorageOperationRequest request,
-			IProgress<StorageOperationProgress>? progress = null,
-			CancellationToken cancellationToken = default)
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 		{
 			return ValueTask.FromResult<StorageOperationResult>(null!);
 		}
@@ -120,7 +113,10 @@ public sealed class StorageOperationServiceTests
 	private sealed class TestOperationHandler : IStorageOperationHandler
 	{
 		private readonly bool canHandle;
+
 		private readonly Exception? exception;
+
+		public int ExecuteCount { get; private set; }
 
 		public TestOperationHandler(bool canHandle, Exception? exception = null)
 		{
@@ -128,14 +124,9 @@ public sealed class StorageOperationServiceTests
 			this.exception = exception;
 		}
 
-		public int ExecuteCount { get; private set; }
-
 		public bool CanHandle(StorageOperationRequest request) => canHandle;
 
-		public ValueTask<StorageOperationResult> ExecuteAsync(
-			StorageOperationRequest request,
-			IProgress<StorageOperationProgress>? progress = null,
-			CancellationToken cancellationToken = default)
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 		{
 			ExecuteCount++;
 			if (exception is not null)

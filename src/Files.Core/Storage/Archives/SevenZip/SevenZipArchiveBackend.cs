@@ -29,8 +29,7 @@ public sealed class SevenZipArchiveBackend
 		// A probe is only needed before a Shell folder is selected. Other
 		// items reach this backend directly, where mounting performs the same
 		// password and encryption checks without parsing the archive twice.
-		if (request.Source is not WindowsStorageSource
-			|| request.ArchiveModel.CoreModel is not IFolder)
+		if (request.Source is not WindowsStorageSource || request.ArchiveModel.CoreModel is not IFolder)
 		{
 			return ArchiveProbeResult.Unknown;
 		}
@@ -39,9 +38,7 @@ public sealed class SevenZipArchiveBackend
 		SevenZipExtractor? extractor = null;
 		try
 		{
-			stream = await ArchiveStreamResolver
-				.OpenSeekableReadAsync(request, cancellationToken)
-				.ConfigureAwait(false);
+			stream = await ArchiveStreamResolver.OpenSeekableReadAsync(request, cancellationToken).ConfigureAwait(false);
 			if (stream is null)
 			{
 				return ArchiveProbeResult.Unknown;
@@ -92,9 +89,7 @@ public sealed class SevenZipArchiveBackend
 		SevenZipExtractor? extractor = null;
 		try
 		{
-			stream = await ArchiveStreamResolver
-				.OpenSeekableReadAsync(request, cancellationToken)
-				.ConfigureAwait(false);
+			stream = await ArchiveStreamResolver.OpenSeekableReadAsync(request, cancellationToken).ConfigureAwait(false);
 			if (stream is null)
 			{
 				return ArchiveMountResult.Unsupported.Instance;
@@ -102,8 +97,7 @@ public sealed class SevenZipArchiveBackend
 
 			extractor = CreateExtractor(stream, request.Credential);
 			var entries = extractor.ArchiveFileData.ToArray();
-			if (entries.Any(IsEncrypted)
-				&& request.Credential is null)
+			if (entries.Any(IsEncrypted) && request.Credential is null)
 			{
 				return new ArchiveMountResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: false));
 			}
@@ -112,6 +106,7 @@ public sealed class SevenZipArchiveBackend
 			var mount = new SevenZipArchiveMount(request, stream, extractor, index);
 			stream = null;
 			extractor = null;
+
 			return new ArchiveMountResult.Success(mount);
 		}
 		catch (OperationCanceledException)

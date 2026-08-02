@@ -14,7 +14,7 @@ public sealed class WindowCommandManager : IDisposable
 	private readonly Dictionary<CommandId, CommandBindingViewModel> bindings = [];
 	private readonly Dictionary<CommandId, CancellationTokenSource> activeCalls = [];
 	private readonly CancellationTokenSource lifetime = new();
-	private readonly object syncRoot = new();
+	private readonly Lock syncRoot = new();
 	private int isDisposed;
 
 	public WindowCommandManager(RootViewModel root, CommandRegistry registry, IUIDispatcher dispatcher)
@@ -85,16 +85,12 @@ public sealed class WindowCommandManager : IDisposable
 		CancellationTokenSource callCancellation;
 		lock (syncRoot)
 		{
-			if (handler.ConcurrencyPolicy is
-				CommandConcurrencyPolicy.RejectWhileRunning
-				&& activeCalls.ContainsKey(id))
+			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.RejectWhileRunning && activeCalls.ContainsKey(id))
 			{
 				return CommandExecutionResult.Unsupported();
 			}
 
-			if (handler.ConcurrencyPolicy is
-				CommandConcurrencyPolicy.CancelPrevious
-				&& activeCalls.TryGetValue(id, out var previous))
+			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.CancelPrevious && activeCalls.TryGetValue(id, out var previous))
 			{
 				previous.Cancel();
 			}
@@ -108,8 +104,7 @@ public sealed class WindowCommandManager : IDisposable
 			var result = await handler
 				.ExecuteAsync(context, callCancellation.Token)
 				.ConfigureAwait(false);
-			if (result.Status is CommandExecutionStatus.Failed
-				&& result.Error is { } error)
+			if (result.Status is CommandExecutionStatus.Failed && result.Error is { } error)
 			{
 				ReportError(error);
 			}
@@ -123,14 +118,14 @@ public sealed class WindowCommandManager : IDisposable
 		catch (Exception exception)
 		{
 			ReportError(exception);
+
 			return CommandExecutionResult.Failed(exception);
 		}
 		finally
 		{
 			lock (syncRoot)
 			{
-				if (activeCalls.TryGetValue(id, out var active)
-					&& ReferenceEquals(active, callCancellation))
+				if (activeCalls.TryGetValue(id, out var active) && ReferenceEquals(active, callCancellation))
 				{
 					activeCalls.Remove(id);
 				}
@@ -178,6 +173,7 @@ public sealed class WindowCommandManager : IDisposable
 		if (dispatcher.HasThreadAccess)
 		{
 			root.ReportOperationError(exception);
+
 			return;
 		}
 
@@ -189,4 +185,5 @@ public sealed class WindowCommandManager : IDisposable
 
 	private void EnsureActive() =>
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
+
 }

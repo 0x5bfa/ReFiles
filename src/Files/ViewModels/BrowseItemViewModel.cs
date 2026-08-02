@@ -12,15 +12,6 @@ public sealed class BrowseItemViewModel : ObservableObject
 {
 	private BitmapImage? thumbnail;
 
-	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(name);
-		ArgumentNullException.ThrowIfNull(reference);
-		Name = name;
-		IsFolder = isFolder;
-		Reference = reference;
-	}
-
 	public string Name { get; }
 
 	public bool IsFolder { get; }
@@ -38,6 +29,16 @@ public sealed class BrowseItemViewModel : ObservableObject
 
 	public string ReferenceText =>
 		Reference.LastKnownAddress?.Value ?? Reference.ItemId;
+
+	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+		ArgumentNullException.ThrowIfNull(reference);
+
+		Name = name;
+		IsFolder = isFolder;
+		Reference = reference;
+	}
 
 	internal void SetThumbnail(BitmapImage? value) => Thumbnail = value;
 }

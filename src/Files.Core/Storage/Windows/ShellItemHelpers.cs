@@ -30,17 +30,39 @@ internal static unsafe class ShellItemHelpers
 			: null;
 		var itemId = itemIdReader.GetItemId(shellItem, parsingName, fileSystemPath);
 
-		var snapshot = new WindowsStorableSnapshot(
-			itemId,
-			name,
-			fileSystemPath,
-			(attributes & SFGAO_FLAGS.SFGAO_FOLDER) != 0,
-			(attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0);
+		var snapshot = new WindowsStorableSnapshot(itemId, name, fileSystemPath, (attributes & SFGAO_FLAGS.SFGAO_FOLDER) != 0, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0);
 		var address = fileSystemPath is null
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
 
 		return new WindowsStorableDescriptor(itemId, address, new WindowsItemLocator(CopyAbsolutePidl(shellItem), parsingName), snapshot);
+	}
+
+	public static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)
+	{
+		return TryGetDisplayName(shellItem, format)
+			?? throw new InvalidOperationException($"The Shell item does not expose a '{format}' display name.");
+	}
+
+	public static string? TryGetDisplayName(IShellItem shellItem, SIGDN format)
+	{
+		var result = shellItem.GetDisplayName(format, out var displayName);
+
+		if (result.Failed)
+		{
+			return null;
+		}
+
+		try
+		{
+			var value = displayName.ToString();
+
+			return string.IsNullOrWhiteSpace(value) ? null : value;
+		}
+		finally
+		{
+			PInvoke.CoTaskMemFree(displayName.Value);
+		}
 	}
 
 	private static unsafe ReadOnlyMemory<byte> CopyAbsolutePidl(IShellItem shellItem)
@@ -63,6 +85,7 @@ internal static unsafe class ShellItemHelpers
 
 			var bytes = GC.AllocateUninitializedArray<byte>(size);
 			Marshal.Copy((IntPtr)pidl, bytes, 0, size);
+
 			return bytes;
 		}
 		finally
@@ -92,31 +115,5 @@ internal static unsafe class ShellItemHelpers
 		}
 
 		return 0;
-	}
-
-	public static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)
-	{
-		return TryGetDisplayName(shellItem, format)
-			?? throw new InvalidOperationException($"The Shell item does not expose a '{format}' display name.");
-	}
-
-	public static string? TryGetDisplayName(IShellItem shellItem, SIGDN format)
-	{
-		var result = shellItem.GetDisplayName(format, out var displayName);
-
-		if (result.Failed)
-		{
-			return null;
-		}
-
-		try
-		{
-			var value = displayName.ToString();
-			return string.IsNullOrWhiteSpace(value) ? null : value;
-		}
-		finally
-		{
-			PInvoke.CoTaskMemFree(displayName.Value);
-		}
 	}
 }

@@ -63,10 +63,8 @@ public sealed class AppModelTests
 	public async Task EquivalentNavigationRefreshesTheStoredRecoveryAddress()
 	{
 		var sourceId = new Files.Core.Storage.StorageSourceId("source");
-		var before = new FolderLocation(
-			new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\before")));
-		var after = new FolderLocation(
-			new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\after")));
+		var before = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\before")));
+		var after = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\after")));
 		var resolver = new TestBrowseLocationResolver([]);
 		await using var pane = new BrowsePaneFactory(resolver).Create();
 
@@ -81,10 +79,8 @@ public sealed class AppModelTests
 	public async Task FailedEquivalentNavigationDoesNotRewriteHistory()
 	{
 		var sourceId = new Files.Core.Storage.StorageSourceId("source");
-		var before = new FolderLocation(
-			new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\before")));
-		var after = new FolderLocation(
-			new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\after")));
+		var before = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\before")));
+		var after = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\after")));
 		var resolver = new TestBrowseLocationResolver([]);
 		await using var pane = new BrowsePaneFactory(resolver).Create();
 		await pane.NavigateAsync(before);

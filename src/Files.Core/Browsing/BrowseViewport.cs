@@ -8,19 +8,6 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed record BrowseViewport
 {
-	public BrowseViewport(int firstVisibleIndex, int visibleCount, int lookAheadCount = 20, int dpi = 96)
-	{
-		ArgumentOutOfRangeException.ThrowIfNegative(firstVisibleIndex);
-		ArgumentOutOfRangeException.ThrowIfNegative(visibleCount);
-		ArgumentOutOfRangeException.ThrowIfNegative(lookAheadCount);
-		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(dpi);
-
-		FirstVisibleIndex = firstVisibleIndex;
-		VisibleCount = visibleCount;
-		LookAheadCount = lookAheadCount;
-		Dpi = dpi;
-	}
-
 	public int FirstVisibleIndex { get; }
 
 	public int VisibleCount { get; }
@@ -34,4 +21,17 @@ public sealed record BrowseViewport
 	/// Gets the display density used for DPI-aware thumbnail requests.
 	/// </summary>
 	public int Dpi { get; }
+
+	public BrowseViewport(int firstVisibleIndex, int visibleCount, int lookAheadCount = 20, int dpi = 96)
+	{
+		ArgumentOutOfRangeException.ThrowIfNegative(firstVisibleIndex);
+		ArgumentOutOfRangeException.ThrowIfNegative(visibleCount);
+		ArgumentOutOfRangeException.ThrowIfNegative(lookAheadCount);
+		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(dpi);
+
+		FirstVisibleIndex = firstVisibleIndex;
+		VisibleCount = visibleCount;
+		LookAheadCount = lookAheadCount;
+		Dpi = dpi;
+	}
 }

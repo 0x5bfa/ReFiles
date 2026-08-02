@@ -19,22 +19,28 @@ internal sealed class NavigationItemLoader
 {
 	private const string PinnedParsingName =
 		"shell:::{3936E9E4-D92C-4EEE-A85A-BC16D5EA0819}";
+
 	private const string NetworkParsingName =
 		"shell:::{208D2C60-3AEA-1069-A2D7-08002B30309D}";
+
 	private const string WslParsingName =
 		"shell:::{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}";
+
 	private const string HomeIsPinned = "System.Home.IsPinned";
-	private static readonly string MyComputerParsingName =
-		$"shell:::{CLSID.CLSID_MyComputer:B}";
 
 	private const int MaxConcurrentItemLoads = 4;
+
 	private const int ThumbnailSize = 20;
+
+	private static readonly string MyComputerParsingName =
+		$"shell:::{CLSID.CLSID_MyComputer:B}";
 
 	private readonly IFilesDataRoot dataRoot;
 
 	public NavigationItemLoader(IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(dataRoot);
+
 		this.dataRoot = dataRoot;
 	}
 
@@ -51,27 +57,9 @@ internal sealed class NavigationItemLoader
 		var pendingSections = new[]
 		{
 			TryLoadAddressSectionAsync(0, windowsSource, Strings.Pinned.GetLocalized(), PinnedParsingName, IsPinnedHomeItemAsync, cancellationToken),
-			TryLoadAddressSectionAsync(
-				1,
-				windowsSource,
-				Strings.Drives.GetLocalized(),
-				MyComputerParsingName,
-				static (_, _) => ValueTask.FromResult(true),
-				cancellationToken),
-			TryLoadAddressSectionAsync(
-				2,
-				windowsSource,
-				Strings.Network.GetLocalized(),
-				NetworkParsingName,
-				static (_, _) => ValueTask.FromResult(true),
-				cancellationToken),
-			TryLoadAddressSectionAsync(
-				3,
-				windowsSource,
-				Strings.WSL.GetLocalized(),
-				WslParsingName,
-				static (_, _) => ValueTask.FromResult(true),
-				cancellationToken),
+			TryLoadAddressSectionAsync(1, windowsSource, Strings.Drives.GetLocalized(), MyComputerParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
+			TryLoadAddressSectionAsync(2, windowsSource, Strings.Network.GetLocalized(), NetworkParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
+			TryLoadAddressSectionAsync(3, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
 		};
 
 		while (pendingSections.Length > 0)
@@ -106,24 +94,16 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(
-		int order,
-		WindowsStorageSource source,
-		string name,
-		string parsingName,
-		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
-		CancellationToken cancellationToken)
+	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(int order, WindowsStorageSource source, string name, string parsingName, Func<IStorableModel, CancellationToken, ValueTask<bool>> include, CancellationToken cancellationToken)
 	{
 		try
 		{
-			var model = await dataRoot.ResolveAsync(
-				source.SourceId,
-				new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName),
-				cancellationToken).ConfigureAwait(false);
+			var model = await dataRoot.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
 
 			if (model is not IFolderModel folder)
 			{
 				await model.DisposeAsync().ConfigureAwait(false);
+
 				return null;
 			}
 
@@ -139,20 +119,13 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	private static async Task<NavigationSectionData> LoadSectionAsync(
-		int order,
-		string name,
-		IFolderModel folder,
-		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
-		CancellationToken cancellationToken)
+	private static async Task<NavigationSectionData> LoadSectionAsync(int order, string name, IFolderModel folder, Func<IStorableModel, CancellationToken, ValueTask<bool>> include, CancellationToken cancellationToken)
 	{
 		var pendingItems = new List<Task<NavigationItemData?>>(MaxConcurrentItemLoads);
 		try
 		{
 			var children = new List<NavigationItemData>();
-			await foreach (var item in folder
-				.GetItemsAsync(StorableType.Folder, cancellationToken)
-				.ConfigureAwait(false))
+			await foreach (var item in folder .GetItemsAsync(StorableType.Folder, cancellationToken) .ConfigureAwait(false))
 			{
 				pendingItems.Add(LoadItemAsync(item, include, cancellationToken));
 				if (pendingItems.Count < MaxConcurrentItemLoads)
@@ -210,10 +183,7 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	private static async Task<NavigationItemData?> LoadItemAsync(
-		IStorableModel item,
-		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
-		CancellationToken cancellationToken)
+	private static async Task<NavigationItemData?> LoadItemAsync(IStorableModel item, Func<IStorableModel, CancellationToken, ValueTask<bool>> include, CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -239,6 +209,7 @@ internal sealed class NavigationItemLoader
 			var properties = await propertySource
 				.GetPropertiesAsync(new PropertyRequest([HomeIsPinned]), cancellationToken)
 				.ConfigureAwait(false);
+
 			return properties.TryGetValue(HomeIsPinned, out var value)
 				&& value is bool isPinned
 				&& isPinned;
@@ -265,6 +236,7 @@ internal sealed class NavigationItemLoader
 			var result = await source
 				.GetThumbnailAsync(new ThumbnailRequest(ThumbnailSize, ThumbnailMode.Icon), cancellationToken)
 				.ConfigureAwait(false);
+
 			return result?.Content.ToArray();
 		}
 		catch (OperationCanceledException)

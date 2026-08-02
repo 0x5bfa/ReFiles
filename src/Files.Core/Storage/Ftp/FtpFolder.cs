@@ -13,22 +13,20 @@ public sealed class FtpFolder : FtpStorable, IChildFolder
 	{
 	}
 
-	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(
-		StorableType type = StorableType.All,
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		if (type is StorableType.None)
 		{
 			yield break;
 		}
 
-		var entries = await Factory
-			.GetItemsAsync(Path, cancellationToken)
-			.ConfigureAwait(false);
+		var entries = await Factory.GetItemsAsync(Path, cancellationToken).ConfigureAwait(false);
 		foreach (var entry in entries)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			var include = entry.Kind is FtpEntryKind.Folder
 				? type.HasFlag(StorableType.Folder)
 				: type.HasFlag(StorableType.File);

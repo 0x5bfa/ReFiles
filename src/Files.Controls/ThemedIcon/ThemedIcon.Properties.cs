@@ -101,18 +101,11 @@ namespace Files.Controls
 		private void OnStylePropertyChanged(DependencyObject sender, DependencyProperty dp)
 		{
 			if (dp != StyleProperty)
-				return;
-
-			DispatcherQueue.TryEnqueue(() =>
 			{
-				GetTemplateParts();
-				OnFilledIconChanged();
-				OnOutlineIconChanged();
-				OnLayeredIconChanged();
-				OnIconTypeChanged();
-				OnIconColorTypeChanged();
-				OnIconSizeChanged();
-			});
+				return;
+			}
+
+			DispatcherQueue.TryEnqueue(() => { GetTemplateParts(); OnFilledIconChanged(); OnOutlineIconChanged(); OnLayeredIconChanged(); OnIconTypeChanged(); OnIconColorTypeChanged(); OnIconSizeChanged(); });
 		}
 	}
 }

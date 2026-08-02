@@ -20,9 +20,7 @@ public sealed class PriorityItemFeatureCombiner<TFeature> : IItemFeatureCombiner
 		}
 
 		var highestPriority = options.Max(static option => option.Priority);
-		var matches = options
-			.Where(option => option.Priority == highestPriority)
-			.ToArray();
+		var matches = options.Where(option => option.Priority == highestPriority).ToArray();
 
 		if (matches.Length is not 1)
 		{

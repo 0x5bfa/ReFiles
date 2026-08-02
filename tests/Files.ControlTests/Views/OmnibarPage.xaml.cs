@@ -78,7 +78,9 @@ namespace Files.ControlTests.Views
 		private void Omnibar1_TextChanged(Omnibar sender, OmnibarTextChangedEventArgs args)
 		{
 			if (args.Reason is not OmnibarTextChangeReason.SuggestionChosen)
+			{
 				Omnibar1_ChosenSuggestionIndex = -1;
+			}
 
 			Omnibar1_Text = args.Mode.Text ?? string.Empty;
 			Omnibar1_TextChangedReason = args.Reason.ToString();

@@ -31,7 +31,9 @@ namespace Files.SourceGenerators.Analyzers
 				var stringsTypeSymbol = ctx.Compilation.GetTypeByMetadataName(StringsMetadataName);
 
 				if (stringsTypeSymbol == null || ctx.CancellationToken.IsCancellationRequested)
+				{
 					return;
+				}
 
 				// Extract constants from the Strings class.
 				// Constant values aren't guaranteed to be unique (even though they most likely are).
@@ -40,11 +42,15 @@ namespace Files.SourceGenerators.Analyzers
 				foreach (var member in members)
 				{
 					if (member is IFieldSymbol { IsConst: true, ConstantValue: string value } field)
+					{
 						dictionary[value] = field.Name;
+					}
 				}
 
 				if (ctx.CancellationToken.IsCancellationRequested)
+				{
 					return;
+				}
 
 				var stringsConstants = dictionary.ToFrozenDictionary();
 
@@ -75,10 +81,10 @@ namespace Files.SourceGenerators.Analyzers
 				parent = literalExpression.Parent;
 			}
 
-			if (string.IsNullOrEmpty(literalValue) ||
-				parent is not MemberAccessExpressionSyntax memberAccessExpression ||
-				!LocalizedMethodNames.Contains(memberAccessExpression.Name.Identifier.Text))
+			if (string.IsNullOrEmpty(literalValue) || parent is not MemberAccessExpressionSyntax memberAccessExpression || !LocalizedMethodNames.Contains(memberAccessExpression.Name.Identifier.Text))
+			{
 				return;
+			}
 
 			// Check if the literal value matches any of the constants
 			if (stringsConstants.TryGetValue(literalValue, out string? name))

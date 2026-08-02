@@ -8,16 +8,6 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorableReference
 {
-	public StorableReference(StorageSourceId sourceId, string itemId, StorageAddress? lastKnownAddress = null)
-	{
-		ArgumentNullException.ThrowIfNull(sourceId);
-		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
-
-		SourceId = sourceId;
-		ItemId = itemId;
-		LastKnownAddress = lastKnownAddress;
-	}
-
 	public StorageSourceId SourceId { get; }
 
 	public string ItemId { get; }
@@ -27,6 +17,16 @@ public sealed record StorableReference
 	/// from equality and hashing.
 	/// </summary>
 	public StorageAddress? LastKnownAddress { get; }
+
+	public StorableReference(StorageSourceId sourceId, string itemId, StorageAddress? lastKnownAddress = null)
+	{
+		ArgumentNullException.ThrowIfNull(sourceId);
+		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+
+		SourceId = sourceId;
+		ItemId = itemId;
+		LastKnownAddress = lastKnownAddress;
+	}
 
 	public bool Equals(StorableReference? other)
 	{

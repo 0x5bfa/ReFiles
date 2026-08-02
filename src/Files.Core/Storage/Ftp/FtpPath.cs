@@ -8,11 +8,6 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed record FtpPath
 {
-	private FtpPath(string value)
-	{
-		Value = value;
-	}
-
 	public static FtpPath Root { get; } = new("/");
 
 	public string Value { get; }
@@ -32,10 +27,16 @@ public sealed record FtpPath
 			}
 
 			var separatorIndex = Value.LastIndexOf('/');
+
 			return separatorIndex is 0
 				? Root
 				: new FtpPath(Value[..separatorIndex]);
 		}
+	}
+
+	private FtpPath(string value)
+	{
+		Value = value;
 	}
 
 	public static FtpPath Parse(string value)
@@ -80,12 +81,8 @@ public sealed record FtpPath
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-		var rawSegments = value
-			.Replace('\\', '/')
-			.Split('/', StringSplitOptions.RemoveEmptyEntries);
-		var decodedSegments = rawSegments
-			.Select(Uri.UnescapeDataString)
-			.ToArray();
+		var rawSegments = value.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+		var decodedSegments = rawSegments.Select(Uri.UnescapeDataString).ToArray();
 		foreach (var segment in decodedSegments)
 		{
 			ValidateName(segment);
@@ -97,6 +94,7 @@ public sealed record FtpPath
 	public FtpPath Combine(string childName)
 	{
 		ValidateName(childName);
+
 		return new FtpPath(IsRoot ? $"/{childName}" : $"{Value}/{childName}");
 	}
 
@@ -138,10 +136,7 @@ public sealed record FtpPath
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-		if (name is "." or ".."
-			|| name.Contains('/')
-			|| name.Contains('\\')
-			|| name.Any(char.IsControl))
+		if (name is "." or ".." || name.Contains('/') || name.Contains('\\') || name.Any(char.IsControl))
 		{
 			throw new ArgumentException("An FTP item name must be one path segment.", nameof(name));
 		}

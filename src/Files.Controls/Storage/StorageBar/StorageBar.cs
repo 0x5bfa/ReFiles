@@ -146,7 +146,9 @@ namespace Files.Controls
 			if (_gapColumn != null && _valueColumn != null && _trackColumn != null && _valueBarBorder != null && _trackBarBorder != null)
 			{
 				if (_containerSize is not Size containerSize)
+				{
 					return;
+				}
 
 				if (containerSize.Width > TrackBarHeight || containerSize.Width > ValueBarHeight)
 				{
@@ -200,21 +202,9 @@ namespace Files.Controls
 
 						if (valuePercent > minPercent && valuePercent <= minPercent + 2.0)  // Between 0% and 2%
 						{
-							var interpolatedValueBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(
-								minPercent,
-								Percent,
-								minPercent + 2.0,
-								0.0,
-								valueBarHeight,
-								true);
+							var interpolatedValueBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(minPercent, Percent, minPercent + 2.0, 0.0, valueBarHeight, true);
 
-							var interpolatedTrackBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(
-								minPercent,
-								Percent,
-								minPercent + 2.0,
-								0.0,
-								trackBarHeight,
-								true);
+							var interpolatedTrackBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(minPercent, Percent, minPercent + 2.0, 0.0, trackBarHeight, true);
 
 							var interpolatedGapWidth = valueLarger
 								? StorageControlsHelpers.CalculateInterpolatedValue(minPercent, Percent, minPercent + 2.0, 0.0, gapWidth, true)
@@ -234,21 +224,9 @@ namespace Files.Controls
 						}
 						else if (valuePercent >= maxPercent - 1.0 && valuePercent < maxPercent)   // Between 98% and 100%
 						{
-							var interpolatedValueBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(
-								maxPercent - 2.0,
-								Percent,
-								maxPercent,
-								valueBarHeight,
-								0.0,
-								true);
+							var interpolatedValueBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(maxPercent - 2.0, Percent, maxPercent, valueBarHeight, 0.0, true);
 
-							var interpolatedTrackBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(
-								maxPercent - 2.0,
-								Percent,
-								maxPercent,
-								trackBarHeight,
-								0.0,
-								true);
+							var interpolatedTrackBarHeight = StorageControlsHelpers.CalculateInterpolatedValue(maxPercent - 2.0, Percent, maxPercent, trackBarHeight, 0.0, true);
 
 							var interpolatedGapWidth = valueLarger
 								? StorageControlsHelpers.CalculateInterpolatedValue(maxPercent - 2.0, Percent, maxPercent, 0.0, _smallerHeight, true)
@@ -323,8 +301,7 @@ namespace Files.Controls
 		{
 			Size minSize;
 
-			if (DesiredSize.Width < MinWidth || DesiredSize.Height < MinHeight ||
-				e.NewSize.Width < MinWidth || e.NewSize.Height < MinHeight)
+			if (DesiredSize.Width < MinWidth || DesiredSize.Height < MinHeight || e.NewSize.Width < MinWidth || e.NewSize.Height < MinHeight)
 			{
 				Width = MinWidth;
 				Height = MinHeight;

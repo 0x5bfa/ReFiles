@@ -15,14 +15,21 @@ namespace Files.Controls
 	{
 		private const double COMPACT_MAX_WIDTH = 200;
 
-		public event EventHandler<ItemInvokedEventArgs>? ItemInvoked;
-		public event EventHandler<ItemContextInvokedArgs>? ItemContextInvoked;
-		public event EventHandler<ItemDragOverEventArgs>? ItemDragOver;
-		public event EventHandler<ItemDroppedEventArgs>? ItemDropped;
 		internal SidebarItem? SelectedItemContainer = null;
 
 		private bool draggingSidebarResizer;
+
 		private double preManipulationSidebarWidth = 0;
+
+		public event EventHandler<ItemInvokedEventArgs>? ItemInvoked;
+
+		public event EventHandler<ItemContextInvokedArgs>? ItemContextInvoked;
+
+		public event EventHandler<ItemDragOverEventArgs>? ItemDragOver;
+
+		public event EventHandler<ItemDroppedEventArgs>? ItemDropped;
+
+		public double VerticalScrollOffset => MenuItemHostScrollViewer?.VerticalOffset ?? 0;
 
 		public SidebarView()
 		{
@@ -37,7 +44,10 @@ namespace Files.Controls
 		internal void RaiseItemInvoked(SidebarItem item, PointerUpdateKind pointerUpdateKind)
 		{
 			// Only true group headers (e.g. Pinned, Drives) suppress selection; leaves-with-children (tree-view folder rows) navigate AND get selected.
-			if (item.Item is null || (item.IsGroupHeader && item.Item.IsLeafWithChildren != true)) return;
+			if (item.Item is null || (item.IsGroupHeader && item.Item.IsLeafWithChildren != true))
+			{
+				return;
+			}
 
 			SelectedItem = item.Item;
 			ItemInvoked?.Invoke(item, new(pointerUpdateKind));
@@ -50,19 +60,35 @@ namespace Files.Controls
 
 		internal void RaiseItemDropped(SidebarItem sideBarItem, SidebarItemDropPosition dropPosition, DragEventArgs rawEvent)
 		{
-			if (sideBarItem.Item is null) return;
+			if (sideBarItem.Item is null)
+			{
+				return;
+			}
+
 			ItemDropped?.Invoke(this, new(sideBarItem.Item, rawEvent.DataView, dropPosition, rawEvent));
 		}
 
 		internal void RaiseItemDragOver(SidebarItem sideBarItem, SidebarItemDropPosition dropPosition, DragEventArgs rawEvent)
 		{
-			if (sideBarItem.Item is null) return;
+			if (sideBarItem.Item is null)
+			{
+				return;
+			}
+
 			ItemDragOver?.Invoke(this, new(sideBarItem.Item, rawEvent.DataView, dropPosition, rawEvent));
+		}
+
+		public void ScrollToVerticalOffset(double offset)
+		{
+			MenuItemHostScrollViewer?.ChangeView(null, offset, null, true);
 		}
 
 		private void UpdateMinimalMode()
 		{
-			if (DisplayMode != SidebarDisplayMode.Minimal) return;
+			if (DisplayMode != SidebarDisplayMode.Minimal)
+			{
+				return;
+			}
 
 			if (IsPaneOpen)
 			{
@@ -110,7 +136,9 @@ namespace Files.Controls
 		private void UpdateOpenPaneLengthColumn()
 		{
 			if (DisplayMode != SidebarDisplayMode.Expanded)
+			{
 				return;
+			}
 
 			PaneColumnDefinition.Width = new GridLength(OpenPaneLength);
 		}
@@ -121,12 +149,15 @@ namespace Files.Controls
 			{
 				SidebarResizer.Visibility = Visibility.Collapsed;
 				SidebarResizer.IsHitTestVisible = false;
+
 				return;
 			}
 
 			SidebarResizer.IsHitTestVisible = true;
 			if (DisplayMode != SidebarDisplayMode.Minimal)
+			{
 				SidebarResizer.Visibility = Visibility.Visible;
+			}
 		}
 
 		private void SidebarView_Loaded(object sender, RoutedEventArgs e)
@@ -136,17 +167,12 @@ namespace Files.Controls
 			PaneColumnGrid.Translation = new System.Numerics.Vector3(0, 0, 32);
 		}
 
-		public double VerticalScrollOffset => MenuItemHostScrollViewer?.VerticalOffset ?? 0;
-
-		public void ScrollToVerticalOffset(double offset)
-		{
-			MenuItemHostScrollViewer?.ChangeView(null, offset, null, true);
-		}
-
 		private void SidebarResizer_ManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
 		{
 			if (!CanResizePane)
+			{
 				return;
+			}
 
 			draggingSidebarResizer = true;
 			preManipulationSidebarWidth = PaneColumnGrid.ActualWidth;
@@ -164,11 +190,15 @@ namespace Files.Controls
 		private void SidebarResizerControl_KeyDown(object sender, KeyRoutedEventArgs e)
 		{
 			if (!CanResizePane)
+			{
 				return;
+			}
 
 			if
 			(e.Key != VirtualKey.Space && e.Key != VirtualKey.Enter && e.Key != VirtualKey.Left && e.Key != VirtualKey.Right && e.Key != VirtualKey.Control)
+			{
 				return;
+			}
 
 			var primaryInvocation = e.Key == VirtualKey.Space || e.Key == VirtualKey.Enter;
 			if (DisplayMode == SidebarDisplayMode.Expanded)
@@ -176,6 +206,7 @@ namespace Files.Controls
 				if (primaryInvocation)
 				{
 					DisplayMode = SidebarDisplayMode.Compact;
+
 					return;
 				}
 
@@ -184,11 +215,14 @@ namespace Files.Controls
 
 				// Left makes the pane smaller so we invert the increment
 				if (e.Key == VirtualKey.Left)
+				{
 					increment = -increment;
+				}
 
 				var newWidth = OpenPaneLength + increment;
 				UpdateDisplayModeForPaneWidth(newWidth);
 				e.Handled = true;
+
 				return;
 			}
 			else if (DisplayMode == SidebarDisplayMode.Compact)
@@ -216,7 +250,9 @@ namespace Files.Controls
 		private void SidebarResizer_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
 		{
 			if (!CanResizePane)
+			{
 				return;
+			}
 
 			if (DisplayMode == SidebarDisplayMode.Expanded)
 			{
@@ -233,7 +269,9 @@ namespace Files.Controls
 		private void SidebarResizer_PointerEntered(object sender, PointerRoutedEventArgs e)
 		{
 			if (!CanResizePane)
+			{
 				return;
+			}
 
 			var sidebarResizer = (FrameworkElement)sender;
 			sidebarResizer.ChangeCursor(InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast));
@@ -244,7 +282,9 @@ namespace Files.Controls
 		private void SidebarResizer_PointerExited(object sender, PointerRoutedEventArgs e)
 		{
 			if (!CanResizePane || draggingSidebarResizer)
+			{
 				return;
+			}
 
 			var sidebarResizer = (FrameworkElement)sender;
 			sidebarResizer.ChangeCursor(InputSystemCursor.Create(InputSystemCursorShape.Arrow));

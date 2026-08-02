@@ -79,11 +79,7 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="ItemTemplate"/> property.
 		/// </summary>
 		public static readonly DependencyProperty ItemTemplateProperty =
-			DependencyProperty.Register(
-				nameof(ItemTemplate),
-				typeof(DataTemplate),
-				typeof(Toolbar),
-				new PropertyMetadata(null, (d, e) => ((Toolbar)d).OnItemTemplatePropertyChanged((DataTemplate)e.OldValue, (DataTemplate)e.NewValue)));
+			DependencyProperty.Register(nameof(ItemTemplate), typeof(DataTemplate), typeof(Toolbar), new PropertyMetadata(null, (d, e) => ((Toolbar)d).OnItemTemplatePropertyChanged((DataTemplate)e.OldValue, (DataTemplate)e.NewValue)));
 
 
 

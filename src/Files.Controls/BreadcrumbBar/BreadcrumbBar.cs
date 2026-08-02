@@ -90,16 +90,18 @@ namespace Files.Controls
 		internal protected virtual void OnLayoutUpdated()
 		{
 			if (_itemsRepeater is null || (_itemsRepeaterLayout.IndexAfterEllipsis > _itemsRepeaterLayout.VisibleItemsCount && _isEllipsisRendered))
+			{
 				return;
+			}
 
 			if (_ellipsisBreadcrumbBarItem is not null && _isEllipsisRendered != _itemsRepeaterLayout.EllipsisIsRendered)
+			{
 				_ellipsisBreadcrumbBarItem.Visibility = _itemsRepeaterLayout.EllipsisIsRendered ? Visibility.Visible : Visibility.Collapsed;
+			}
 
 			_isEllipsisRendered = _itemsRepeaterLayout.EllipsisIsRendered;
 
-			for (int accessibilityIndex = 0, collectionIndex = _itemsRepeaterLayout.IndexAfterEllipsis;
-				accessibilityIndex < _itemsRepeaterLayout.VisibleItemsCount;
-				accessibilityIndex++, collectionIndex++)
+			for (int accessibilityIndex = 0, collectionIndex = _itemsRepeaterLayout.IndexAfterEllipsis; accessibilityIndex < _itemsRepeaterLayout.VisibleItemsCount; accessibilityIndex++, collectionIndex++)
 			{
 				if (_itemsRepeater.TryGetElement(collectionIndex) is { } element)
 				{
@@ -114,7 +116,9 @@ namespace Files.Controls
 			item = null;
 
 			if (_itemsRepeater is null)
+			{
 				return false;
+			}
 
 			item = _itemsRepeater.TryGetElement(index) as BreadcrumbBarItem;
 
@@ -126,7 +130,9 @@ namespace Files.Controls
 		private void ItemsRepeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
 		{
 			if (args.Element is not BreadcrumbBarItem item || _itemsRepeater is null)
+			{
 				return;
+			}
 
 			item.IsLastItem = false;
 			item.IsEllipsis = false;
@@ -143,11 +149,11 @@ namespace Files.Controls
 		private void ItemsSourceView_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
 		{
 			if (_lastBreadcrumbBarItem is not null)
+			{
 				_lastBreadcrumbBarItem.IsLastItem = false;
+			}
 
-			if (e.NewItems is not null &&
-				e.NewItems.Count > 0 &&
-				e.NewItems[e.NewItems.Count - 1] is BreadcrumbBarItem item)
+			if (e.NewItems is not null && e.NewItems.Count > 0 && e.NewItems[e.NewItems.Count - 1] is BreadcrumbBarItem item)
 			{
 				_lastBreadcrumbBarItem = item;
 				item.IsLastItem = true;

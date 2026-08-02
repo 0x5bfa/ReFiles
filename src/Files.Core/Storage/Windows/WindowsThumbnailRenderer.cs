@@ -23,8 +23,8 @@ internal static unsafe class WindowsThumbnailRenderer
 	private const byte SentinelRed = 0xE9;
 	private const int MaximumRenderSize = 4096;
 
-	private static readonly Lazy<nuint> gdiPlusToken = new(StartGdiPlus);
-	private static readonly Lazy<Guid?> pngEncoder = new(FindPngEncoder);
+	private static readonly Lazy<nuint> _gdiPlusToken = new(StartGdiPlus);
+	private static readonly Lazy<Guid?> _pngEncoder = new(FindPngEncoder);
 
 	public static byte[]? EncodeHBitmap(HBITMAP bitmap, CancellationToken cancellationToken, bool forceOpaque = false)
 	{
@@ -34,6 +34,7 @@ internal static unsafe class WindowsThumbnailRenderer
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		BITMAP bitmapInfo = default;
 		if (PInvoke.GetObject(new HGDIOBJ(bitmap.Value), sizeof(BITMAP), &bitmapInfo) is 0)
 		{
@@ -42,10 +43,7 @@ internal static unsafe class WindowsThumbnailRenderer
 
 		var width = Math.Abs(bitmapInfo.bmWidth);
 		var height = Math.Abs(bitmapInfo.bmHeight);
-		if (width is 0
-			|| height is 0
-			|| width > MaximumRenderSize
-			|| height > MaximumRenderSize)
+		if (width is 0 || height is 0 || width > MaximumRenderSize || height > MaximumRenderSize)
 		{
 			return null;
 		}
@@ -75,6 +73,7 @@ internal static unsafe class WindowsThumbnailRenderer
 	public static byte[]? EncodeHBitmap(SafeHandle bitmap, CancellationToken cancellationToken, bool forceOpaque = false)
 	{
 		ArgumentNullException.ThrowIfNull(bitmap);
+
 		if (bitmap.IsInvalid)
 		{
 			return null;
@@ -84,6 +83,7 @@ internal static unsafe class WindowsThumbnailRenderer
 		try
 		{
 			bitmap.DangerousAddRef(ref addedReference);
+
 			return EncodeHBitmap((HBITMAP)bitmap.DangerousGetHandle(), cancellationToken, forceOpaque);
 		}
 		finally
@@ -98,6 +98,7 @@ internal static unsafe class WindowsThumbnailRenderer
 	public static byte[]? EncodeHIcon(SafeHandle icon, int size, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(icon);
+
 		if (icon.IsInvalid || size is <= 0 or > MaximumRenderSize)
 		{
 			return null;
@@ -109,6 +110,7 @@ internal static unsafe class WindowsThumbnailRenderer
 			icon.DangerousAddRef(ref addedReference);
 			var rawIcon = (HICON)icon.DangerousGetHandle();
 			var bgra = RenderHIcon(rawIcon, size, cancellationToken);
+
 			return bgra is null
 				? null
 				: EncodeBgra(bgra, size, size, cancellationToken);
@@ -122,20 +124,13 @@ internal static unsafe class WindowsThumbnailRenderer
 		}
 	}
 
-	public static bool TryCompositeOverlay(
-		ReadOnlyMemory<byte> png,
-		SafeHandle overlayIcon,
-		out byte[] compositedPng,
-		CancellationToken cancellationToken)
+	public static bool TryCompositeOverlay(ReadOnlyMemory<byte> png, SafeHandle overlayIcon, out byte[] compositedPng, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(overlayIcon);
 		cancellationToken.ThrowIfCancellationRequested();
+
 		compositedPng = png.ToArray();
-		if (overlayIcon.IsInvalid
-			|| !TryDecodePng(png, out var baseBgra, out var width, out var height, cancellationToken)
-			|| width <= 0
-			|| height <= 0
-			|| width != height)
+		if (overlayIcon.IsInvalid || !TryDecodePng(png, out var baseBgra, out var width, out var height, cancellationToken) || width <= 0 || height <= 0 || width != height)
 		{
 			return false;
 		}
@@ -154,28 +149,26 @@ internal static unsafe class WindowsThumbnailRenderer
 		}
 
 		compositedPng = encoded;
+
 		return true;
 	}
 
 	private static byte[]? EncodeBgra(byte[] bgra, int width, int height, CancellationToken cancellationToken)
 	{
-		if (width <= 0
-			|| height <= 0
-			|| width > MaximumRenderSize
-			|| height > MaximumRenderSize
-			|| bgra.Length != checked(width * height * 4))
+		if (width <= 0 || height <= 0 || width > MaximumRenderSize || height > MaximumRenderSize || bgra.Length != checked(width * height * 4))
 		{
 			return null;
 		}
 
-		_ = gdiPlusToken.Value;
-		var encoder = pngEncoder.Value;
+		_ = _gdiPlusToken.Value;
+		var encoder = _pngEncoder.Value;
 		if (encoder is not { } encoderClsid)
 		{
 			return null;
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		GpBitmap* bitmap = null;
 		fixed (byte* scan0 = bgra)
 		{
@@ -205,13 +198,13 @@ internal static unsafe class WindowsThumbnailRenderer
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		if (PInvoke.GdipSaveImageToStream(image, stream, &encoderClsid, (EncoderParameters*)null) is not Status.Ok)
 		{
 			return null;
 		}
 
-		if (stream.Stat(out var stat, STATFLAG.STATFLAG_NONAME).Failed
-			|| stat.cbSize > int.MaxValue)
+		if (stream.Stat(out var stat, STATFLAG.STATFLAG_NONAME).Failed || stat.cbSize > int.MaxValue)
 		{
 			return null;
 		}
@@ -222,13 +215,13 @@ internal static unsafe class WindowsThumbnailRenderer
 			return null;
 		}
 
-		if (content.Length is not 0
-			&& stream.Read(content).Failed)
+		if (content.Length is not 0 && stream.Read(content).Failed)
 		{
 			return null;
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		return content;
 	}
 
@@ -238,15 +231,14 @@ internal static unsafe class WindowsThumbnailRenderer
 		width = 0;
 		height = 0;
 		cancellationToken.ThrowIfCancellationRequested();
+
 		if (png.IsEmpty)
 		{
 			return false;
 		}
 
 		var streamResult = PInvoke.CreateStreamOnHGlobal(HGLOBAL.Null, true, out IStream stream);
-		if (streamResult.Failed
-			|| stream.Write(png.Span).Failed
-			|| stream.Seek(0, SeekOrigin.Begin).Failed)
+		if (streamResult.Failed || stream.Write(png.Span).Failed || stream.Seek(0, SeekOrigin.Begin).Failed)
 		{
 			return false;
 		}
@@ -275,15 +267,13 @@ internal static unsafe class WindowsThumbnailRenderer
 
 			width = Math.Abs(bitmapInfo.bmWidth);
 			height = Math.Abs(bitmapInfo.bmHeight);
-			if (width is 0
-				|| height is 0
-				|| width > MaximumRenderSize
-				|| height > MaximumRenderSize)
+			if (width is 0 || height is 0 || width > MaximumRenderSize || height > MaximumRenderSize)
 			{
 				return false;
 			}
 
 			bgra = ReadBgra(bitmap, width, height);
+
 			return bgra.Length == checked(width * height * 4);
 		}
 		finally
@@ -312,6 +302,7 @@ internal static unsafe class WindowsThumbnailRenderer
 			fixed (byte* destination = result)
 			{
 				var scanLines = PInvoke.GetDIBits(screenDc, bitmap, 0, (uint)height, destination, &bitmapInfo, DIB_USAGE.DIB_RGB_COLORS);
+
 				return scanLines == height ? result : [];
 			}
 		}
@@ -329,14 +320,14 @@ internal static unsafe class WindowsThumbnailRenderer
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		var screenDc = PInvoke.GetDC(default);
 		var memoryDc = default(HDC);
 		DeleteObjectSafeHandle? bitmap = null;
 		var oldBitmap = default(HGDIOBJ);
 		try
 		{
-			if (screenDc.IsNull
-				|| (memoryDc = PInvoke.CreateCompatibleDC(default)).IsNull)
+			if (screenDc.IsNull || (memoryDc = PInvoke.CreateCompatibleDC(default)).IsNull)
 			{
 				return null;
 			}
@@ -359,8 +350,7 @@ internal static unsafe class WindowsThumbnailRenderer
 			}
 
 			oldBitmap = PInvoke.SelectObject(memoryDc, new HGDIOBJ(bitmap.DangerousGetHandle()));
-			if (oldBitmap.IsNull
-				|| PInvoke.DrawIconEx(memoryDc, 0, 0, icon, size, size, 0, default, DI_FLAGS.DI_NORMAL).Value == 0)
+			if (oldBitmap.IsNull || PInvoke.DrawIconEx(memoryDc, 0, 0, icon, size, size, 0, default, DI_FLAGS.DI_NORMAL).Value == 0)
 			{
 				return null;
 			}
@@ -369,6 +359,7 @@ internal static unsafe class WindowsThumbnailRenderer
 			var bgra = GC.AllocateUninitializedArray<byte>(byteCount);
 			Marshal.Copy(new IntPtr(bits), bgra, 0, bgra.Length);
 			SetRenderedAlpha(bgra);
+
 			return bgra;
 		}
 		finally
@@ -394,6 +385,7 @@ internal static unsafe class WindowsThumbnailRenderer
 	private static byte[]? RenderHIcon(SafeHandle icon, int size, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(icon);
+
 		if (icon.IsInvalid)
 		{
 			return null;
@@ -403,6 +395,7 @@ internal static unsafe class WindowsThumbnailRenderer
 		try
 		{
 			icon.DangerousAddRef(ref addedReference);
+
 			return RenderHIcon((HICON)icon.DangerousGetHandle(), size, cancellationToken);
 		}
 		finally
@@ -435,15 +428,9 @@ internal static unsafe class WindowsThumbnailRenderer
 				continue;
 			}
 
-			result[offset] = (byte)((overlayBgra[offset] * sourceAlpha
-				+ baseBgra[offset] * destinationAlpha * inverseSourceAlpha / 255)
-				/ resultAlpha);
-			result[offset + 1] = (byte)((overlayBgra[offset + 1] * sourceAlpha
-				+ baseBgra[offset + 1] * destinationAlpha * inverseSourceAlpha / 255)
-				/ resultAlpha);
-			result[offset + 2] = (byte)((overlayBgra[offset + 2] * sourceAlpha
-				+ baseBgra[offset + 2] * destinationAlpha * inverseSourceAlpha / 255)
-				/ resultAlpha);
+			result[offset] = (byte)((overlayBgra[offset] * sourceAlpha + baseBgra[offset] * destinationAlpha * inverseSourceAlpha / 255) / resultAlpha);
+			result[offset + 1] = (byte)((overlayBgra[offset + 1] * sourceAlpha + baseBgra[offset + 1] * destinationAlpha * inverseSourceAlpha / 255) / resultAlpha);
+			result[offset + 2] = (byte)((overlayBgra[offset + 2] * sourceAlpha + baseBgra[offset + 2] * destinationAlpha * inverseSourceAlpha / 255) / resultAlpha);
 			result[offset + 3] = (byte)resultAlpha;
 		}
 
@@ -494,10 +481,7 @@ internal static unsafe class WindowsThumbnailRenderer
 
 	private static Guid? FindPngEncoder()
 	{
-		if (PInvoke.GdipGetImageEncodersSize(out var count, out var size)
-			is not Status.Ok
-			|| count is 0
-			|| size is 0)
+		if (PInvoke.GdipGetImageEncodersSize(out var count, out var size) is not Status.Ok || count is 0 || size is 0)
 		{
 			return null;
 		}
@@ -505,8 +489,7 @@ internal static unsafe class WindowsThumbnailRenderer
 		var codecs = (ImageCodecInfo*)NativeMemory.Alloc(size);
 		try
 		{
-			if (PInvoke.GdipGetImageEncoders(count, size, codecs)
-				is not Status.Ok)
+			if (PInvoke.GdipGetImageEncoders(count, size, codecs) is not Status.Ok)
 			{
 				return null;
 			}

@@ -8,10 +8,10 @@ namespace Files.Core.ItemFeatures.Changes;
 /// </summary>
 public sealed class FolderChangeErrorEventArgs : EventArgs
 {
+	public Exception Error { get; }
+
 	public FolderChangeErrorEventArgs(Exception error)
 	{
 		Error = error ?? throw new ArgumentNullException(nameof(error));
 	}
-
-	public Exception Error { get; }
 }

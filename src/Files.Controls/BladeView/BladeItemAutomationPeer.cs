@@ -12,6 +12,11 @@ namespace Files.Controls
 	/// </summary>
 	public partial class BladeItemAutomationPeer : FrameworkElementAutomationPeer
 	{
+		private BladeItem OwnerBladeItem
+		{
+			get { return (BladeItem)Owner; }
+		}
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="BladeItemAutomationPeer"/> class.
 		/// </summary>
@@ -21,11 +26,6 @@ namespace Files.Controls
 		public BladeItemAutomationPeer(BladeItem owner)
 			: base(owner)
 		{
-		}
-
-		private BladeItem OwnerBladeItem
-		{
-			get { return (BladeItem)Owner; }
 		}
 
 		/// <summary>

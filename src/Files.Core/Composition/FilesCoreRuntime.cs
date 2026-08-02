@@ -16,9 +16,27 @@ namespace Files.Core.Composition;
 /// </summary>
 public sealed class FilesCoreRuntime : IAsyncDisposable
 {
-	private readonly IReadOnlyList<IAsyncDisposable> ownedServices;
-	private readonly object disposalLock = new();
-	private Task? disposeTask;
+	private readonly IReadOnlyList<IAsyncDisposable> _ownedServices;
+
+	private readonly Lock _disposalLock = new();
+
+	private Task? _disposeTask;
+
+	public IFilesDataRoot DataRoot { get; }
+
+	public IBrowseLocationResolver LocationResolver { get; }
+
+	public IBrowsePaneFactory PaneFactory { get; }
+
+	public FilesApplicationModel Application { get; }
+
+	public IStorageOperationService StorageOperations { get; }
+
+	public IViewSettingsStore ViewSettingsStore { get; }
+
+	public IThumbnailCache ThumbnailCache { get; }
+
+	public IWindowsShellPreviewSessionFactory? WindowsShellPreviewSessions { get; }
 
 	internal FilesCoreRuntime(
 		IFilesDataRoot dataRoot,
@@ -39,31 +57,16 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 		ViewSettingsStore = viewSettingsStore;
 		ThumbnailCache = thumbnailCache;
 		WindowsShellPreviewSessions = windowsShellPreviewSessions;
-		this.ownedServices = ownedServices;
+		_ownedServices = ownedServices;
 	}
-
-	public IFilesDataRoot DataRoot { get; }
-
-	public IBrowseLocationResolver LocationResolver { get; }
-
-	public IBrowsePaneFactory PaneFactory { get; }
-
-	public FilesApplicationModel Application { get; }
-
-	public IStorageOperationService StorageOperations { get; }
-
-	public IViewSettingsStore ViewSettingsStore { get; }
-
-	public IThumbnailCache ThumbnailCache { get; }
-
-	public IWindowsShellPreviewSessionFactory? WindowsShellPreviewSessions { get; }
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			disposeTask ??= DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_disposeTask ??= DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
@@ -73,7 +76,7 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 
 		await TryDisposeAsync(Application, errors).ConfigureAwait(false);
 
-		foreach (var service in ownedServices.Reverse())
+		foreach (var service in _ownedServices.Reverse())
 		{
 			await TryDisposeAsync(service, errors).ConfigureAwait(false);
 		}

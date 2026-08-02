@@ -57,12 +57,7 @@ public sealed class FtpStorageOperationTests
 		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
 		var handler = new FtpStorageOperationHandler(source);
 
-		var result = await handler.ExecuteAsync(
-			new CopyOperationRequest(
-				source.CreateReference(FtpPath.Parse("/report.txt")),
-				source.CreateReference(FtpPath.Root),
-				conflictBehavior:
-					StorageConflictBehavior.GenerateUniqueName));
+		var result = await handler.ExecuteAsync(new CopyOperationRequest(source.CreateReference(FtpPath.Parse("/report.txt")), source.CreateReference(FtpPath.Root), conflictBehavior: StorageConflictBehavior.GenerateUniqueName));
 
 		Assert.IsTrue(result.Succeeded, result.Error?.ToString());
 		Assert.AreEqual("/report (2).txt", result.ResultItem!.ItemId);
@@ -80,8 +75,7 @@ public sealed class FtpStorageOperationTests
 		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
 		var handler = new FtpStorageOperationHandler(source);
 
-		var result = await handler.ExecuteAsync(
-			new CopyOperationRequest(source.CreateReference(FtpPath.Parse("/source")), source.CreateReference(FtpPath.Root), "destination"));
+		var result = await handler.ExecuteAsync(new CopyOperationRequest(source.CreateReference(FtpPath.Parse("/source")), source.CreateReference(FtpPath.Root), "destination"));
 
 		Assert.IsTrue(result.Succeeded, result.Error?.ToString());
 		Assert.IsTrue(sessions.Contains("/destination"));

@@ -19,7 +19,9 @@ namespace Files.Controls
 			get
 			{
 				if (Owner.HasChildren)
+				{
 					return Owner.IsExpanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed;
+				}
 
 				return ExpandCollapseState.LeafNode;
 			}
@@ -53,7 +55,9 @@ namespace Files.Controls
 			else if (patternInterface == PatternInterface.ExpandCollapse)
 			{
 				if (Owner.CollapseEnabled)
+				{
 					return this;
+				}
 			}
 
 			return base.GetPatternCore(patternInterface);
@@ -62,13 +66,17 @@ namespace Files.Controls
 		public void Collapse()
 		{
 			if (Owner.CollapseEnabled)
+			{
 				Owner.IsExpanded = false;
+			}
 		}
 
 		public void Expand()
 		{
 			if (Owner.CollapseEnabled)
+			{
 				Owner.IsExpanded = true;
+			}
 		}
 
 		public void Invoke()
@@ -95,7 +103,9 @@ namespace Files.Controls
 		{
 			var baseValue = base.GetSizeOfSetCore();
 			if (baseValue != -1)
+			{
 				return baseValue;
+			}
 
 			return GetOwnerCollection().Count;
 		}
@@ -104,7 +114,9 @@ namespace Files.Controls
 		{
 			var baseValue = base.GetPositionInSetCore();
 			if (baseValue != -1)
+			{
 				return baseValue;
+			}
 
 			return GetOwnerCollection().IndexOf(Owner.DataContext) + 1;
 		}
@@ -112,10 +124,14 @@ namespace Files.Controls
 		private IList GetOwnerCollection()
 		{
 			if (Owner.FindAscendant<SidebarItem>() is SidebarItem parent && parent.Item?.Children is IList list)
+			{
 				return list;
+			}
 
 			if (Owner?.Owner is not null && Owner.Owner?.MenuItemsSource is IList items)
+			{
 				return items;
+			}
 
 			return new List<object>();
 		}

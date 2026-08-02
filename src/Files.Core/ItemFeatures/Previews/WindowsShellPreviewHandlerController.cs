@@ -11,10 +11,9 @@ using Windows.Win32.UI.Shell;
 namespace Files.Core.ItemFeatures.Previews;
 
 [SupportedOSPlatform("windows6.0.6000")]
-public sealed class WindowsShellPreviewHandlerControllerFactory
-    : IWindowsPreviewHandlerControllerFactory
+public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPreviewHandlerControllerFactory
 {
-	private readonly IWindowsPreviewHandlerActivationPolicy activationPolicy;
+	private readonly IWindowsPreviewHandlerActivationPolicy _activationPolicy;
 
 	public WindowsShellPreviewHandlerControllerFactory()
 		: this(new LocalServerWindowsPreviewHandlerActivationPolicy())
@@ -24,7 +23,8 @@ public sealed class WindowsShellPreviewHandlerControllerFactory
 	public WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(activationPolicy);
-		this.activationPolicy = activationPolicy;
+
+		_activationPolicy = activationPolicy;
 	}
 
 	public IWindowsPreviewHandlerController Create(Guid handlerClsid)
@@ -34,7 +34,7 @@ public sealed class WindowsShellPreviewHandlerControllerFactory
 			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
 		}
 
-		var activationContext = activationPolicy.GetContext(handlerClsid);
+		var activationContext = _activationPolicy.GetContext(handlerClsid);
 		if (activationContext is 0)
 		{
 			throw new InvalidOperationException("The preview handler activation policy returned no activation context.");
@@ -52,28 +52,28 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	private const int PreviewHandlerVisualsSetBackgroundColorSlot = 3;
 	private const int PreviewHandlerVisualsSetTextColorSlot = 5;
 
-	private static readonly Guid IObjectWithSiteId =
+	private static readonly Guid _iObjectWithSiteId =
 		new("00000118-0000-0000-C000-000000000046");
-	private static readonly Guid IInitializeWithStreamId =
+	private static readonly Guid _iInitializeWithStreamId =
 		new("B824B49D-22AC-4161-AC8A-9916E5FA3A8");
-	private static readonly Guid IInitializeWithItemId =
+	private static readonly Guid _iInitializeWithItemId =
 		new("7F73BE3F-FB79-493C-A6C7-7EE14E245841");
-	private static readonly Guid IInitializeWithFileId =
+	private static readonly Guid _iInitializeWithFileId =
 		new("B7D14566-0509-4CCE-A71F-0A554233BD9B");
-	private static readonly Guid IPreviewHandlerVisualsId =
+	private static readonly Guid _iPreviewHandlerVisualsId =
 		new("196BF9A5-B346-4EF0-AA1E-5DCDB76768B8");
 
-	private void* handler;
-	private void* initializedStream;
-	private void* initializedItem;
-	private void* previewHandlerFrame;
-	private bool didPreview;
-	private bool didUnload;
-	private bool isDisposed;
+	private void* _handler;
+	private void* _initializedStream;
+	private void* _initializedItem;
+	private void* _previewHandlerFrame;
+	private bool _didPreview;
+	private bool _didUnload;
+	private bool _isDisposed;
 
 	private WindowsShellPreviewHandlerController(void* handler)
 	{
-		this.handler = handler;
+		_handler = handler;
 	}
 
 	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext)
@@ -99,7 +99,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	public void SetSite()
 	{
 		EnsureActive();
-		if (!TryQuery(IObjectWithSiteId, out var siteInterface))
+		if (!TryQuery(_iObjectWithSiteId, out var siteInterface))
 		{
 			return;
 		}
@@ -108,7 +108,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		try
 		{
 			CallSetSite(siteInterface, (void*)frame).ThrowOnFailure();
-			previewHandlerFrame = (void*)frame;
+			_previewHandlerFrame = (void*)frame;
 		}
 		catch
 		{
@@ -124,9 +124,10 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	public bool TryInitializeWithStream(string fileSystemPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(fileSystemPath);
+
 		EnsureActive();
 
-		if (!TryQuery(IInitializeWithStreamId, out var initializer))
+		if (!TryQuery(_iInitializeWithStreamId, out var initializer))
 		{
 			return false;
 		}
@@ -145,8 +146,9 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 			}
 
 			initializeResult.ThrowOnFailure();
-			initializedStream = stream;
+			_initializedStream = stream;
 			stream = null;
+
 			return true;
 		}
 		finally
@@ -159,9 +161,10 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	public bool TryInitializeWithItem(string parsingName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
+
 		EnsureActive();
 
-		if (!TryQuery(IInitializeWithItemId, out var initializer))
+		if (!TryQuery(_iInitializeWithItemId, out var initializer))
 		{
 			return false;
 		}
@@ -187,8 +190,9 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 			}
 
 			initializeResult.ThrowOnFailure();
-			initializedItem = item;
+			_initializedItem = item;
 			item = null;
+
 			return true;
 		}
 		finally
@@ -201,9 +205,10 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	public bool TryInitializeWithFile(string fileSystemPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(fileSystemPath);
+
 		EnsureActive();
 
-		if (!TryQuery(IInitializeWithFileId, out var initializer))
+		if (!TryQuery(_iInitializeWithFileId, out var initializer))
 		{
 			return false;
 		}
@@ -219,6 +224,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 				}
 
 				initializeResult.ThrowOnFailure();
+
 				return true;
 			}
 		}
@@ -232,20 +238,20 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		CallSetWindow(handler, (HWND)windowHandle, in rectangle).ThrowOnFailure();
+		CallSetWindow(_handler, (HWND)windowHandle, in rectangle).ThrowOnFailure();
 	}
 
 	public void SetBounds(WindowsPreviewBounds bounds)
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		CallSetRect(handler, in rectangle).ThrowOnFailure();
+		CallSetRect(_handler, in rectangle).ThrowOnFailure();
 	}
 
 	public void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground)
 	{
 		EnsureActive();
-		if (!TryQuery(IPreviewHandlerVisualsId, out var visuals))
+		if (!TryQuery(_iPreviewHandlerVisualsId, out var visuals))
 		{
 			return;
 		}
@@ -264,25 +270,26 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	public void DoPreview()
 	{
 		EnsureActive();
-		if (didPreview)
+		if (_didPreview)
 		{
 			throw new InvalidOperationException("DoPreview can only be called once for a session.");
 		}
 
-		CallDoPreview(handler).ThrowOnFailure();
-		didPreview = true;
+		CallDoPreview(_handler).ThrowOnFailure();
+		_didPreview = true;
 	}
 
 	public void SetFocus()
 	{
 		EnsureActive();
-		CallSetFocus(handler).ThrowOnFailure();
+		CallSetFocus(_handler).ThrowOnFailure();
 	}
 
 	public nint QueryFocus()
 	{
 		EnsureActive();
-		return CallQueryFocus(handler);
+
+		return CallQueryFocus(_handler);
 	}
 
 	public bool TryTranslateAccelerator(nint messagePointer)
@@ -293,41 +300,42 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		}
 
 		EnsureActive();
-		var result = CallTranslateAccelerator(handler, (void*)messagePointer);
+		var result = CallTranslateAccelerator(_handler, (void*)messagePointer);
 		if (result == HRESULT.S_FALSE)
 		{
 			return false;
 		}
 
 		result.ThrowOnFailure();
+
 		return true;
 	}
 
 	public void Dispose()
 	{
-		if (isDisposed)
+		if (_isDisposed)
 		{
 			return;
 		}
 
-		isDisposed = true;
+		_isDisposed = true;
 		var errors = new List<Exception>();
 
-		if (handler is not null)
+		if (_handler is not null)
 		{
-			if (!didUnload)
+			if (!_didUnload)
 			{
-				TryCleanup(() => CallUnload(handler).ThrowOnFailure(), errors);
-				didUnload = true;
+				TryCleanup(() => CallUnload(_handler).ThrowOnFailure(), errors);
+				_didUnload = true;
 			}
 
 			TryCleanup(SetSiteForCleanup, errors);
-			Release(initializedStream);
-			initializedStream = null;
-			Release(initializedItem);
-			initializedItem = null;
-			Release(handler);
-			handler = null;
+			Release(_initializedStream);
+			_initializedStream = null;
+			Release(_initializedItem);
+			_initializedItem = null;
+			Release(_handler);
+			_handler = null;
 		}
 
 		if (errors.Count is 1)
@@ -346,7 +354,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		void* siteInterface = null;
 		try
 		{
-			if (TryQuery(IObjectWithSiteId, out siteInterface))
+			if (TryQuery(_iObjectWithSiteId, out siteInterface))
 			{
 				CallSetSite(siteInterface, null).ThrowOnFailure();
 			}
@@ -354,28 +362,31 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		finally
 		{
 			Release(siteInterface);
-			Release(previewHandlerFrame);
-			previewHandlerFrame = null;
+			Release(_previewHandlerFrame);
+			_previewHandlerFrame = null;
 		}
 	}
 
 	private bool TryQuery(Guid interfaceId, out void* interfacePointer)
 	{
-		var result = CallQueryInterface(handler, interfaceId, out interfacePointer);
+		var result = CallQueryInterface(_handler, interfaceId, out interfacePointer);
 		if (result == HRESULT.E_NOINTERFACE)
 		{
 			interfacePointer = null;
+
 			return false;
 		}
 
 		result.ThrowOnFailure();
+
 		return true;
 	}
 
 	private void EnsureActive()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
-		if (handler is null)
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+		if (_handler is null)
 		{
 			throw new ObjectDisposedException(nameof(WindowsShellPreviewHandlerController));
 		}
@@ -430,6 +441,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var setSite = (delegate* unmanaged[Stdcall]<void*, void*, HRESULT>)vtable[3];
+
 		return setSite(pointer, site);
 	}
 
@@ -440,6 +452,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		void* queriedPointer = null;
 		var result = queryInterface(pointer, &interfaceId, &queriedPointer);
 		resultPointer = queriedPointer;
+
 		return result;
 	}
 
@@ -448,6 +461,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		var vtable = *(void***)pointer;
 		var setWindow = (delegate* unmanaged[Stdcall]<void*, HWND, RECT*, HRESULT>)vtable[3];
 		var rectangleCopy = rectangle;
+
 		return setWindow(pointer, windowHandle, &rectangleCopy);
 	}
 
@@ -456,6 +470,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		var vtable = *(void***)pointer;
 		var setRect = (delegate* unmanaged[Stdcall]<void*, RECT*, HRESULT>)vtable[4];
 		var rectangleCopy = rectangle;
+
 		return setRect(pointer, &rectangleCopy);
 	}
 
@@ -463,6 +478,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var doPreview = (delegate* unmanaged[Stdcall]<void*, HRESULT>)vtable[5];
+
 		return doPreview(pointer);
 	}
 
@@ -470,6 +486,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var unload = (delegate* unmanaged[Stdcall]<void*, HRESULT>)vtable[6];
+
 		return unload(pointer);
 	}
 
@@ -477,6 +494,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var setFocus = (delegate* unmanaged[Stdcall]<void*, HRESULT>)vtable[7];
+
 		return setFocus(pointer);
 	}
 
@@ -487,6 +505,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		HWND focus;
 		var result = queryFocus(pointer, &focus);
 		result.ThrowOnFailure();
+
 		return focus;
 	}
 
@@ -494,6 +513,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var translate = (delegate* unmanaged[Stdcall]<void*, void*, HRESULT>)vtable[9];
+
 		return translate(pointer, message);
 	}
 
@@ -501,6 +521,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var initialize = (delegate* unmanaged[Stdcall]<void*, void*, uint, HRESULT>)vtable[3];
+
 		return initialize(pointer, stream, mode);
 	}
 
@@ -508,6 +529,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var initialize = (delegate* unmanaged[Stdcall]<void*, void*, uint, HRESULT>)vtable[3];
+
 		return initialize(pointer, item, mode);
 	}
 
@@ -515,6 +537,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var initialize = (delegate* unmanaged[Stdcall]<void*, char*, uint, HRESULT>)vtable[3];
+
 		return initialize(pointer, path, mode);
 	}
 
@@ -522,6 +545,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 	{
 		var vtable = *(void***)pointer;
 		var setColor = (delegate* unmanaged[Stdcall]<void*, uint, HRESULT>)vtable[slot];
+
 		return setColor(pointer, color);
 	}
 }

@@ -46,6 +46,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	internal void UpdateState(CommandState newState)
 	{
 		ArgumentNullException.ThrowIfNull(newState);
+
 		if (Equals(state, newState))
 		{
 			return;
@@ -85,9 +86,9 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 
 	private sealed partial class BindingCommand(CommandBindingViewModel owner) : ICommand
 	{
-		public bool CanExecute(object? parameter) => owner.IsEnabled;
-
 		public event EventHandler? CanExecuteChanged;
+
+		public bool CanExecute(object? parameter) => owner.IsEnabled;
 
 		public void Execute(object? parameter) =>
 			_ = owner.ExecuteFromBindingAsync(parameter);

@@ -16,12 +16,7 @@ var benchmarkArgs = args
 var baseJob = smoke
 	? Job.Dry
 	: Job.Default;
-var benchmarkJob = baseJob.WithMsBuildArguments(
-	"/p:MinimalWindowsVersion=10.0.19041.0",
-	"/p:TargetPlatformMinVersion=10.0.19041.0",
-	"/p:WindowsTargetFramework=net10.0-windows10.0.26100.0",
-	"/p:Platform=x64",
-	"/p:PlatformTarget=x64");
+var benchmarkJob = baseJob.WithMsBuildArguments("/p:MinimalWindowsVersion=10.0.19041.0", "/p:TargetPlatformMinVersion=10.0.19041.0", "/p:WindowsTargetFramework=net10.0-windows10.0.26100.0", "/p:Platform=x64", "/p:PlatformTarget=x64");
 
 var config = ManualConfig
 	.CreateEmpty()

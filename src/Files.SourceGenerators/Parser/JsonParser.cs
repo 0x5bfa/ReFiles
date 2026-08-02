@@ -21,6 +21,7 @@ namespace Files.SourceGenerators.Parser
 			var jsonDocument = JsonDocument.Parse(text);
 			var result = new List<ParserItem>();
 			ProcessJsonObject(jsonDocument.RootElement, string.Empty, result);
+
 			return result.OrderBy(item => item.Key);
 		}
 
@@ -38,12 +39,7 @@ namespace Files.SourceGenerators.Parser
 						if (obj.TryGetProperty("text", out var textElement) && obj.TryGetProperty("crowdinContext", out var crowdinContextElement))
 						{
 							// Add an entry for the "text" field and its corresponding context
-							result.Add(new ParserItem
-							{
-								Key = key,
-								Value = textElement.GetString() ?? string.Empty,
-								Comment = crowdinContextElement.GetString()
-							});
+							result.Add(new ParserItem { Key = key, Value = textElement.GetString() ?? string.Empty, Comment = crowdinContextElement.GetString() });
 						}
 						else
 						{
@@ -70,28 +66,16 @@ namespace Files.SourceGenerators.Parser
 			switch (element.ValueKind)
 			{
 				case JsonValueKind.String:
-					result.Add(new ParserItem
-					{
-						Key = key,
-						Value = element.GetString() ?? string.Empty
-					});
+					result.Add(new ParserItem { Key = key, Value = element.GetString() ?? string.Empty });
 					break;
 
 				case JsonValueKind.Number:
-					result.Add(new ParserItem
-					{
-						Key = key,
-						Value = element.GetRawText()
-					});
+					result.Add(new ParserItem { Key = key, Value = element.GetRawText() });
 					break;
 
 				case JsonValueKind.True:
 				case JsonValueKind.False:
-					result.Add(new ParserItem
-					{
-						Key = key,
-						Value = element.GetBoolean().ToString()
-					});
+					result.Add(new ParserItem { Key = key, Value = element.GetBoolean().ToString() });
 					break;
 
 				case JsonValueKind.Array:
@@ -105,11 +89,7 @@ namespace Files.SourceGenerators.Parser
 					break;
 
 				default:
-					result.Add(new ParserItem
-					{
-						Key = key,
-						Value = element.GetRawText()
-					});
+					result.Add(new ParserItem { Key = key, Value = element.GetRawText() });
 					break;
 			}
 		}

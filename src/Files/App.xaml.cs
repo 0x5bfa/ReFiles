@@ -14,7 +14,7 @@ public partial class App : Application
 	private FilesCoreRuntime? runtime;
 	private MainWindow? mainWindow;
 	private readonly CommandRegistry commandRegistry;
-	private readonly object shutdownLock = new();
+	private readonly Lock shutdownLock = new();
 	private Task? shutdownTask;
 
 	public App()

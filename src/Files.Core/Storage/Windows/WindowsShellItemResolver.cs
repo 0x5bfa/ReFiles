@@ -13,12 +13,13 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal sealed unsafe class WindowsShellItemResolver
 {
-	private readonly IWindowsShellScheduler scheduler;
+	private readonly IWindowsShellScheduler _scheduler;
 
 	public WindowsShellItemResolver(IWindowsShellScheduler scheduler)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
-		this.scheduler = scheduler;
+
+		_scheduler = scheduler;
 	}
 
 	public Task<T> InvokeAsync<T>(WindowsItemLocator locator, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
@@ -26,7 +27,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentNullException.ThrowIfNull(locator);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeAsync(() => InvokeCore(locator, action), cancellationToken);
+		return _scheduler.InvokeAsync(() => InvokeCore(locator, action), cancellationToken);
 	}
 
 	// Must be called on the ordered Shell STA because it creates and compares COM objects.
@@ -44,6 +45,7 @@ internal sealed unsafe class WindowsShellItemResolver
 
 		var first = TryCreateFromPidl(firstPidl);
 		var second = TryCreateFromPidl(secondPidl);
+
 		return first is not null
 			&& second is not null
 			&& AreSame(first, second);
@@ -93,7 +95,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentNullException.ThrowIfNull(locator);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeConcurrentAsync(() => InvokeCore(locator, action), cancellationToken);
+		return _scheduler.InvokeConcurrentAsync(() => InvokeCore(locator, action), cancellationToken);
 	}
 
 	public Task<T> InvokeOperationAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
@@ -101,28 +103,16 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeOperationAsync(
-			() =>
-			{
-				var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
-
-				result.ThrowOnFailure();
-				return action(shellItem);
-			},
-			cancellationToken);
+		return _scheduler.InvokeOperationAsync(() => { var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);  result.ThrowOnFailure(); return action(shellItem); }, cancellationToken);
 	}
 
-	public Task<T> InvokeOperationAsync<T>(
-		string firstParsingName,
-		string secondParsingName,
-		Func<IShellItem, IShellItem, T> action,
-		CancellationToken cancellationToken = default)
+	public Task<T> InvokeOperationAsync<T>(string firstParsingName, string secondParsingName, Func<IShellItem, IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(firstParsingName);
 		ArgumentException.ThrowIfNullOrWhiteSpace(secondParsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeOperationAsync(
+		return _scheduler.InvokeOperationAsync(
 			() =>
 			{
 				var firstResult = PInvoke.SHCreateItemFromParsingName(firstParsingName, null, out IShellItem first);
@@ -130,6 +120,7 @@ internal sealed unsafe class WindowsShellItemResolver
 
 				var secondResult = PInvoke.SHCreateItemFromParsingName(secondParsingName, null, out IShellItem second);
 				secondResult.ThrowOnFailure();
+
 				return action(first, second);
 			},
 			cancellationToken);
@@ -142,16 +133,11 @@ internal sealed unsafe class WindowsShellItemResolver
 		if (absolutePidl.IsEmpty)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			return Task.FromResult(default(T)!);
 		}
 
-		return scheduler.InvokeAsync(
-			() =>
-			{
-				var shellItem = TryCreateFromPidl(absolutePidl);
-				return shellItem is null ? default! : action(shellItem);
-			},
-			cancellationToken);
+		return _scheduler.InvokeAsync(() => { var shellItem = TryCreateFromPidl(absolutePidl); return shellItem is null ? default! : action(shellItem); }, cancellationToken);
 	}
 
 	public Task<T> InvokeAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
@@ -159,15 +145,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeAsync(
-			() =>
-			{
-				var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
-
-				result.ThrowOnFailure();
-				return action(shellItem);
-			},
-			cancellationToken);
+		return _scheduler.InvokeAsync(() => { var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);  result.ThrowOnFailure(); return action(shellItem); }, cancellationToken);
 	}
 
 	public Task<T> InvokeConcurrentAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
@@ -175,19 +153,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return scheduler.InvokeConcurrentAsync(
-			() =>
-			{
-				var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
-
-				if (result.Failed)
-				{
-					return default!;
-				}
-
-				return action(shellItem);
-			},
-			cancellationToken);
+		return _scheduler.InvokeConcurrentAsync(() => { var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);  if (result.Failed) { return default!; }  return action(shellItem); }, cancellationToken);
 	}
 
 	private static T InvokeCore<T>(WindowsItemLocator locator, Func<IShellItem, T> action)
@@ -229,9 +195,7 @@ internal sealed unsafe class WindowsShellItemResolver
 
 	private static bool AreSame(IShellItem first, IShellItem second)
 	{
-		return first
-			.Compare(second, unchecked((uint)_SICHINTF.SICHINT_ALLFIELDS), out var order)
-			.Succeeded
+		return first.Compare(second, unchecked((uint)_SICHINTF.SICHINT_ALLFIELDS), out var order).Succeeded
 			&& order is 0;
 	}
 

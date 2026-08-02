@@ -15,10 +15,4 @@ public enum BrowsePreviewStatus
 	Failed,
 }
 
-public sealed record BrowsePreviewSnapshot(
-	long RequestVersion,
-	StorableKey? TargetKey,
-	BrowsePreviewStatus Status,
-	PreviewResult? Result = null,
-	PreviewBlockReason? BlockReason = null,
-	Exception? Error = null);
+public sealed record BrowsePreviewSnapshot(long RequestVersion, StorableKey? TargetKey, BrowsePreviewStatus Status, PreviewResult? Result = null, PreviewBlockReason? BlockReason = null, Exception? Error = null);

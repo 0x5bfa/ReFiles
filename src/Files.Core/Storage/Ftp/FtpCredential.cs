@@ -8,6 +8,10 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed class FtpCredential
 {
+	public string UserName { get; }
+
+	public string Password { get; }
+
 	public FtpCredential(string userName, string password)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(userName);
@@ -16,10 +20,6 @@ public sealed class FtpCredential
 		UserName = userName;
 		Password = password;
 	}
-
-	public string UserName { get; }
-
-	public string Password { get; }
 
 	public override string ToString() => $"{UserName}:***";
 }

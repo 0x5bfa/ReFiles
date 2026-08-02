@@ -33,20 +33,28 @@ namespace Files.SourceGenerators.CodeFixProviders
 
 			var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 			if (root == null)
+			{
 				return;
+			}
 
 			var diagnosticSpan = diagnostic.Location.SourceSpan;
 
 			SyntaxNode? node = null;
 
 			if (root.FindNode(diagnosticSpan) is LiteralExpressionSyntax literalExpression)
+			{
 				node = literalExpression;
+			}
 
 			if (root.FindNode(diagnosticSpan) is InterpolatedStringTextSyntax interpolatedStringText)
+			{
 				node = interpolatedStringText.Parent;
+			}
 
 			if (node is null)
+			{
 				return;
+			}
 
 			var constantName = diagnostic.Properties[ConstantNameProperty];
 			var newExpression = SyntaxFactory.ParseExpression($"{StringsClassName}.{constantName}").WithTriviaFrom(node);

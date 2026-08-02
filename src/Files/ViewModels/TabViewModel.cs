@@ -13,31 +13,22 @@ namespace Files.ViewModels;
 public sealed class TabViewModel : ObservableObject, IDisposable
 {
 	private readonly TabModel tab;
+
 	private readonly IFilesDataRoot dataRoot;
+
 	private readonly IUIDispatcher dispatcher;
+
 	private readonly WindowCommandManager commandManager;
+
 	private readonly Dictionary<Guid, PaneViewModel> paneViewModels = [];
+
 	private int isDisposed;
+
 	private int refreshQueued;
+
 	private string? operationError;
+
 	private bool isRefreshing;
-
-	public TabViewModel(TabModel tab, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
-	{
-		ArgumentNullException.ThrowIfNull(tab);
-		ArgumentNullException.ThrowIfNull(dataRoot);
-		ArgumentNullException.ThrowIfNull(dispatcher);
-		ArgumentNullException.ThrowIfNull(commandManager);
-
-		this.tab = tab;
-		this.dataRoot = dataRoot;
-		this.dispatcher = dispatcher;
-		this.commandManager = commandManager;
-		Panes = [];
-
-		tab.StateChanged += Tab_StateChanged;
-		RefreshFromCore();
-	}
 
 	public Guid Id => tab.Id;
 
@@ -56,6 +47,23 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 		?? Strings.NoPane.GetLocalized();
 
 	public bool CanClosePane => Panes.Count > 1;
+
+	public TabViewModel(TabModel tab, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	{
+		ArgumentNullException.ThrowIfNull(tab);
+		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(dispatcher);
+		ArgumentNullException.ThrowIfNull(commandManager);
+
+		this.tab = tab;
+		this.dataRoot = dataRoot;
+		this.dispatcher = dispatcher;
+		this.commandManager = commandManager;
+		Panes = [];
+
+		tab.StateChanged += Tab_StateChanged;
+		RefreshFromCore();
+	}
 
 	public async Task OpenPaneAsync(PaneSplitOrientation orientation, CancellationToken cancellationToken = default)
 	{
@@ -79,12 +87,14 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 	public bool SetActivePane(Guid paneId)
 	{
 		EnsureActive();
+
 		return tab.SetActivePane(paneId);
 	}
 
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
+
 		operationError = exception.Message;
 		OnPropertyChanged(nameof(StatusText));
 	}
@@ -139,9 +149,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 				.Select(static pane => pane.Id)
 				.ToHashSet();
 
-			foreach (var removedId in paneViewModels.Keys
-				.Where(id => !corePaneIds.Contains(id))
-				.ToArray())
+			foreach (var removedId in paneViewModels.Keys .Where(id => !corePaneIds.Contains(id)) .ToArray())
 			{
 				var removedPane = paneViewModels[removedId];
 				removedPane.PropertyChanged -= PaneViewModel_PropertyChanged;
@@ -184,8 +192,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	private void PaneViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is nameof(PaneViewModel.StatusText)
-			or nameof(PaneViewModel.Title))
+		if (e.PropertyName is nameof(PaneViewModel.StatusText) or nameof(PaneViewModel.Title))
 		{
 			OnPropertyChanged(nameof(Title));
 			OnPropertyChanged(nameof(StatusText));
@@ -194,4 +201,5 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	private void EnsureActive() =>
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
+
 }

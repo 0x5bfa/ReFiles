@@ -37,9 +37,7 @@ public sealed class BrowsePreviewModelTests
 		await firstSource.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
 		session.SetSelection([second.Reference.GetKey()], second.Reference.GetKey(), null);
-		await WaitUntilAsync(() =>
-			preview.Current.Status is BrowsePreviewStatus.Ready
-				&& preview.Current.TargetKey == second.Reference.GetKey());
+		await WaitUntilAsync(() => preview.Current.Status is BrowsePreviewStatus.Ready && preview.Current.TargetKey == second.Reference.GetKey());
 
 		firstRelease.TrySetResult(firstResult);
 		await firstSource.Completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -80,9 +78,7 @@ public sealed class BrowsePreviewModelTests
 		resolver.Items.Clear();
 		resolver.Items.Add(replacement);
 		await session.RefreshAsync();
-		await WaitUntilAsync(() =>
-			preview.Current.Status is BrowsePreviewStatus.Ready
-				&& ReferenceEquals(preview.Current.Result, replacementResult));
+		await WaitUntilAsync(() => preview.Current.Status is BrowsePreviewStatus.Ready && ReferenceEquals(preview.Current.Result, replacementResult));
 
 		oldRelease.TrySetResult(oldResult);
 		await oldSource.Completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -103,6 +99,7 @@ public sealed class BrowsePreviewModelTests
 			Handler = async cancellationToken =>
 			{
 				await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+
 				return null;
 			},
 		};
@@ -216,6 +213,7 @@ public sealed class BrowsePreviewModelTests
 		public override ValueTask DisposeAsync()
 		{
 			IsDisposed = true;
+
 			return ValueTask.CompletedTask;
 		}
 	}
@@ -231,6 +229,7 @@ public sealed class BrowsePreviewModelTests
 		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 		{
 			Context = context;
+
 			return ValueTask.FromResult<PreviewResult?>(Result);
 		}
 	}

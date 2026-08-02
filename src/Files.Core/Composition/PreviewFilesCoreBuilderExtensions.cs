@@ -10,12 +10,12 @@ namespace Files.Core.Composition;
 /// </summary>
 public static class PreviewFilesCoreBuilderExtensions
 {
-	private const string DefaultStreamPreviewsModule =
-		"Files.Core.Previews.DefaultStreams";
+	private const string DefaultStreamPreviewsModule = "Files.Core.Previews.DefaultStreams";
 
 	public static FilesCoreBuilder AddDefaultStreamPreviews(this FilesCoreBuilder builder, IPreviewStreamAccessPolicy? policy = null)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
+
 		if (!builder.TryAddModule(DefaultStreamPreviewsModule))
 		{
 			return builder;
@@ -47,6 +47,7 @@ public static class PreviewFilesCoreBuilderExtensions
 			});
 		var loader = new StreamPreviewLoader(contentTypes, policy ?? AllowPreviewStreamAccessPolicy.Instance);
 		builder.ItemFeatures.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 200, origin: "Core stream preview");
+
 		return builder;
 	}
 }

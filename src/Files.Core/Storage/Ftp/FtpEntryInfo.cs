@@ -15,20 +15,26 @@ public enum FtpEntryKind
 /// </summary>
 public sealed record FtpEntryInfo
 {
-	public FtpEntryInfo(
-		FtpPath path,
-		string name,
-		FtpEntryKind kind,
-		long? size = null,
-		DateTimeOffset? dateModified = null,
-		DateTimeOffset? dateCreated = null,
-		string? linkTarget = null)
+	public FtpPath Path { get; }
+
+	public string Name { get; }
+
+	public FtpEntryKind Kind { get; }
+
+	public long? Size { get; }
+
+	public DateTimeOffset? DateModified { get; }
+
+	public DateTimeOffset? DateCreated { get; }
+
+	public string? LinkTarget { get; }
+
+	public FtpEntryInfo(FtpPath path, string name, FtpEntryKind kind, long? size = null, DateTimeOffset? dateModified = null, DateTimeOffset? dateCreated = null, string? linkTarget = null)
 	{
 		ArgumentNullException.ThrowIfNull(path);
 		ArgumentNullException.ThrowIfNull(name);
-		if (kind is not FtpEntryKind.File
-			and not FtpEntryKind.Folder
-			and not FtpEntryKind.SymbolicLink)
+
+		if (kind is not FtpEntryKind.File and not FtpEntryKind.Folder and not FtpEntryKind.SymbolicLink)
 		{
 			throw new ArgumentOutOfRangeException(nameof(kind));
 		}
@@ -46,18 +52,4 @@ public sealed record FtpEntryInfo
 		DateCreated = dateCreated;
 		LinkTarget = linkTarget;
 	}
-
-	public FtpPath Path { get; }
-
-	public string Name { get; }
-
-	public FtpEntryKind Kind { get; }
-
-	public long? Size { get; }
-
-	public DateTimeOffset? DateModified { get; }
-
-	public DateTimeOffset? DateCreated { get; }
-
-	public string? LinkTarget { get; }
 }

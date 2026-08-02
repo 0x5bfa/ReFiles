@@ -8,26 +8,29 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public sealed class ThumbnailCacheEntry
 {
-	private readonly byte[] content;
+	private readonly byte[] _content;
 
-	public ThumbnailCacheEntry(byte[] content, string contentType, bool isFallback = false)
-	{
-		ArgumentNullException.ThrowIfNull(content);
-		if (content.Length is 0)
-			throw new ArgumentException("Thumbnail content cannot be empty.", nameof(content));
-
-		ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
-
-		this.content = (byte[])content.Clone();
-		ContentType = contentType;
-		IsFallback = isFallback;
-	}
-
-	public ReadOnlyMemory<byte> Content => content;
+	public ReadOnlyMemory<byte> Content => _content;
 
 	public string ContentType { get; }
 
 	public bool IsFallback { get; }
+
+	public ThumbnailCacheEntry(byte[] content, string contentType, bool isFallback = false)
+	{
+		ArgumentNullException.ThrowIfNull(content);
+
+		if (content.Length is 0)
+		{
+			throw new ArgumentException("Thumbnail content cannot be empty.", nameof(content));
+		}
+
+		ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+
+		_content = (byte[])content.Clone();
+		ContentType = contentType;
+		IsFallback = isFallback;
+	}
 
 	internal ThumbnailResult CreateResult()
 	{

@@ -19,48 +19,53 @@ namespace Files.Core.Composition;
 /// </summary>
 public sealed class FilesCoreBuilder : IAsyncDisposable
 {
-	private readonly List<IStorageSource> sources = [];
-	private readonly List<IStorageOperationHandler> operationHandlers = [];
-	private readonly List<Func<IFilesDataRoot, IBrowseLocationHandler>> locationHandlerFactories = [];
-	private readonly List<IAsyncDisposable> ownedServices = [];
-	private readonly HashSet<string> configuredModules =
-		new(StringComparer.Ordinal);
-	private readonly IViewSettingsStore viewSettingsStore;
-	private readonly IThumbnailCache thumbnailCache;
-	private readonly object disposalLock = new();
-	private Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory?>?
-		windowsShellPreviewSessionFactory;
-	private Task? disposeTask;
-	private bool isBuilt;
-	private bool isDisposed;
+	private readonly List<IStorageSource> _sources = [];
+
+	private readonly List<IStorageOperationHandler> _operationHandlers = [];
+
+	private readonly List<Func<IFilesDataRoot, IBrowseLocationHandler>> _locationHandlerFactories = [];
+
+	private readonly List<IAsyncDisposable> _ownedServices = [];
+
+	private readonly HashSet<string> _configuredModules = new(StringComparer.Ordinal);
+
+	private readonly IViewSettingsStore _viewSettingsStore;
+
+	private readonly IThumbnailCache _thumbnailCache;
+
+	private readonly Lock _disposalLock = new();
+
+	private Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory?>? _windowsShellPreviewSessionFactory;
+
+	private Task? _disposeTask;
+
+	private bool _isBuilt;
+
+	private bool _isDisposed;
+
+	public ItemFeatureBuilder ItemFeatures { get; }
 
 	public FilesCoreBuilder(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
 	{
-		this.viewSettingsStore =
-			viewSettingsStore ?? new InMemoryViewSettingsStore();
-		this.thumbnailCache =
-			thumbnailCache ?? new MemoryThumbnailCache();
+		_viewSettingsStore = viewSettingsStore ?? new InMemoryViewSettingsStore();
+		_thumbnailCache = thumbnailCache ?? new MemoryThumbnailCache();
 
-		ItemFeatures = new ItemFeatureBuilder()
-			.SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner())
-			.SetCombiner<IPropertySource>(new PropertySourceCombiner())
-			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())
-			.AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(this.thumbnailCache));
+		ItemFeatures = new ItemFeatureBuilder().SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner()).SetCombiner<IPropertySource>(new PropertySourceCombiner())
+			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner()).AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(_thumbnailCache));
 	}
-
-	public ItemFeatureBuilder ItemFeatures { get; }
 
 	public FilesCoreBuilder AddStorageSource(IStorageSource source)
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(source);
 
-		if (sources.Any(candidate => candidate.SourceId == source.SourceId))
+		if (_sources.Any(candidate => candidate.SourceId == source.SourceId))
 		{
 			throw new InvalidOperationException($"Storage source '{source.SourceId}' is already registered.");
 		}
 
-		sources.Add(source);
+		_sources.Add(source);
+
 		return this;
 	}
 
@@ -68,7 +73,9 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(handler);
-		operationHandlers.Add(handler);
+
+		_operationHandlers.Add(handler);
+
 		return this;
 	}
 
@@ -76,14 +83,16 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(handlerFactory);
-		locationHandlerFactories.Add(handlerFactory);
+
+		_locationHandlerFactories.Add(handlerFactory);
+
 		return this;
 	}
 
 	public FilesCoreRuntime Build()
 	{
 		EnsureMutable();
-		isBuilt = true;
+		_isBuilt = true;
 
 		FilesDataRoot? dataRoot = null;
 		FilesApplicationModel? application = null;
@@ -91,14 +100,15 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		{
 			var itemFeatureRegistry = ItemFeatures.Build();
 			var modelFactory = new StorableModelFactory(itemFeatureRegistry);
-			dataRoot = new FilesDataRoot(sources, modelFactory);
+			dataRoot = new FilesDataRoot(_sources, modelFactory);
 
 			var handlers = new List<IBrowseLocationHandler>
 			{
 				new HomeBrowseLocationHandler(dataRoot),
 				new FolderBrowseLocationHandler(dataRoot),
 			};
-			foreach (var factory in locationHandlerFactories)
+
+			foreach (var factory in _locationHandlerFactories)
 			{
 				var handler = factory(dataRoot)
 					?? throw new InvalidOperationException("A browse location handler factory returned null.");
@@ -106,30 +116,20 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			}
 
 			var locationResolver = new BrowseLocationResolver(handlers);
-			var paneFactory = new BrowsePaneFactory(locationResolver, viewSettingsStore, thumbnailCache);
+			var paneFactory = new BrowsePaneFactory(locationResolver, _viewSettingsStore, _thumbnailCache);
 			application = new FilesApplicationModel(paneFactory);
-			var storageOperations =
-				new StorageOperationService(operationHandlers);
+			var storageOperations = new StorageOperationService(_operationHandlers);
 			IWindowsShellPreviewSessionFactory? previewSessions = null;
-			if (windowsShellPreviewSessionFactory is not null)
+			if (_windowsShellPreviewSessionFactory is not null)
 			{
-				previewSessions =
-					windowsShellPreviewSessionFactory(dataRoot)
+				previewSessions = _windowsShellPreviewSessionFactory(dataRoot)
 					?? throw new InvalidOperationException("The Windows Shell preview session factory returned null.");
 			}
 
-			var runtime = new FilesCoreRuntime(
-				dataRoot,
-				locationResolver,
-				paneFactory,
-				application,
-				storageOperations,
-				viewSettingsStore,
-				thumbnailCache,
-				previewSessions,
-				Array.AsReadOnly(ownedServices.ToArray()));
+			var runtime = new FilesCoreRuntime(dataRoot, locationResolver, paneFactory, application, storageOperations, _viewSettingsStore, _thumbnailCache, previewSessions, Array.AsReadOnly(_ownedServices.ToArray()));
 			dataRoot = null;
 			application = null;
+
 			return runtime;
 		}
 		catch (Exception buildError)
@@ -162,18 +162,17 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			disposeTask = isBuilt
-				? Task.CompletedTask
-				: DisposeUnbuiltResourcesAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_disposeTask = _isBuilt ? Task.CompletedTask : DisposeUnbuiltResourcesAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
@@ -181,7 +180,8 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	{
 		EnsureMutable();
 		ArgumentException.ThrowIfNullOrWhiteSpace(moduleId);
-		return configuredModules.Add(moduleId);
+
+		return _configuredModules.Add(moduleId);
 	}
 
 	internal void SetWindowsShellPreviewSessionFactory(Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory> factory)
@@ -189,12 +189,12 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(factory);
 
-		if (windowsShellPreviewSessionFactory is not null)
+		if (_windowsShellPreviewSessionFactory is not null)
 		{
 			throw new InvalidOperationException("A Windows Shell preview session factory is already configured.");
 		}
 
-		windowsShellPreviewSessionFactory = factory;
+		_windowsShellPreviewSessionFactory = factory;
 	}
 
 	internal void Own(IAsyncDisposable service)
@@ -202,15 +202,15 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(service);
 
-		if (!ownedServices.Any(existing => ReferenceEquals(existing, service)))
+		if (!_ownedServices.Any(existing => ReferenceEquals(existing, service)))
 		{
-			ownedServices.Add(service);
+			_ownedServices.Add(service);
 		}
 	}
 
 	private void DisposeSources(ICollection<Exception> errors)
 	{
-		foreach (var source in sources.AsEnumerable().Reverse())
+		foreach (var source in _sources.AsEnumerable().Reverse())
 		{
 			TryDisposeSynchronously(source, errors);
 		}
@@ -218,7 +218,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 	private void DisposeOwnedServices(ICollection<Exception> errors)
 	{
-		foreach (var service in ownedServices.AsEnumerable().Reverse())
+		foreach (var service in _ownedServices.AsEnumerable().Reverse())
 		{
 			TryDisposeSynchronously(service, errors);
 		}
@@ -228,11 +228,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	{
 		try
 		{
-			disposable
-				.DisposeAsync()
-				.AsTask()
-				.GetAwaiter()
-				.GetResult();
+			disposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
 		}
 		catch (Exception error)
 		{
@@ -242,8 +238,9 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 	private void EnsureMutable()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
-		if (isBuilt)
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+		if (_isBuilt)
 		{
 			throw new InvalidOperationException("A FilesCoreBuilder can only build one runtime.");
 		}
@@ -253,7 +250,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	{
 		var errors = new List<Exception>();
 
-		foreach (var source in sources.AsEnumerable().Reverse())
+		foreach (var source in _sources.AsEnumerable().Reverse())
 		{
 			try
 			{
@@ -265,7 +262,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			}
 		}
 
-		foreach (var service in ownedServices.AsEnumerable().Reverse())
+		foreach (var service in _ownedServices.AsEnumerable().Reverse())
 		{
 			try
 			{
@@ -278,6 +275,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		}
 
 		GC.SuppressFinalize(this);
+
 		if (errors.Count is 1)
 		{
 			throw errors[0];

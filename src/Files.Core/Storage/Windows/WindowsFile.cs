@@ -19,13 +19,7 @@ public sealed class WindowsFile : WindowsStorable, IChildFile
 
 		if (FileSystemPath is { } fileSystemPath)
 		{
-			return new FileStream(fileSystemPath, new FileStreamOptions
-			{
-				Mode = FileMode.Open,
-				Access = accessMode,
-				Share = FileShare.ReadWrite | FileShare.Delete,
-				Options = FileOptions.Asynchronous,
-			});
+			return new FileStream(fileSystemPath, new FileStreamOptions { Mode = FileMode.Open, Access = accessMode, Share = FileShare.ReadWrite | FileShare.Delete, Options = FileOptions.Asynchronous, });
 		}
 
 		if (accessMode is not FileAccess.Read)

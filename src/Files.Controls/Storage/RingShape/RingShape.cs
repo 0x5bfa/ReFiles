@@ -132,10 +132,10 @@ namespace Files.Controls.Primitives
 
 		private void UpdatePath()
 		{
-			if (_isUpdating ||
-				ActualWidth <= 0 || ActualHeight <= 0 ||
-				_radiusWidth <= 0 || _radiusHeight <= 0)
+			if (_isUpdating || ActualWidth <= 0 || ActualHeight <= 0 || _radiusWidth <= 0 || _radiusHeight <= 0)
+			{
 				return;
+			}
 
 			UpdateSizeAndStroke(this);
 
@@ -375,18 +375,23 @@ namespace Files.Controls.Primitives
 			var result = CalculateModulus(minAngle, 360);
 
 			if (result >= 180)
+			{
 				result = result - 360;
+			}
 
 			ringShape._normalizedMinAngle = result;
 
 			result = CalculateModulus(maxAngle, 360);
 
 			if (result < 180)
+			{
 				result = result + 360;
+			}
 
 			if (result > ringShape._normalizedMinAngle + 360)
+			{
 				result = result - 360;
-
+			}
 
 			ringShape._normalizedMaxAngle = result;
 		}

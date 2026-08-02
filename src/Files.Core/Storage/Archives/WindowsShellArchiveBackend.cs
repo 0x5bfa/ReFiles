@@ -24,21 +24,14 @@ public sealed class WindowsShellArchiveBackend : IArchiveBackend
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (request.Source is not WindowsStorageSource
-			|| request.ArchiveModel.CoreModel is not IWindowsStorable
-			{
-				IsStream: true,
-			}
-			|| request.ArchiveModel.CoreModel is not IFolder folder)
+		if (request.Source is not WindowsStorageSource || request.ArchiveModel.CoreModel is not IWindowsStorable { IsStream: true, } || request.ArchiveModel.CoreModel is not IFolder folder)
 		{
 			return ArchiveMountResult.Unsupported.Instance;
 		}
 
 		try
 		{
-			await using var enumerator = folder
-				.GetItemsAsync(StorableType.All, cancellationToken)
-				.GetAsyncEnumerator(cancellationToken);
+			await using var enumerator = folder.GetItemsAsync(StorableType.All, cancellationToken).GetAsyncEnumerator(cancellationToken);
 			_ = await enumerator.MoveNextAsync().ConfigureAwait(false);
 
 			return new ArchiveMountResult.Success(new WindowsShellArchiveMount(request.Archive, request.Source, folder));

@@ -15,10 +15,7 @@ public sealed class PreviewSourceCombiner : IItemFeatureCombiner<IPreviewSource>
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
 
-		var sources = options
-			.OrderByDescending(static option => option.Priority)
-			.Select(static option => option.Feature)
-			.ToArray();
+		var sources = options.OrderByDescending(static option => option.Priority).Select(static option => option.Feature).ToArray();
 
 		return sources.Length switch
 		{
@@ -30,23 +27,22 @@ public sealed class PreviewSourceCombiner : IItemFeatureCombiner<IPreviewSource>
 
 	private sealed class RoutedPreviewSource : IPreviewSource
 	{
-		private readonly IReadOnlyList<IPreviewSource> sources;
+		private readonly IReadOnlyList<IPreviewSource> _sources;
 
 		public RoutedPreviewSource(IReadOnlyList<IPreviewSource> sources)
 		{
-			this.sources = sources;
+			_sources = sources;
 		}
 
 		public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
-			foreach (var source in sources)
+			foreach (var source in _sources)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				var result = await source
-					.GetPreviewAsync(request, cancellationToken)
-					.ConfigureAwait(false);
+
+				var result = await source.GetPreviewAsync(request, cancellationToken).ConfigureAwait(false);
 
 				if (result is not null)
 				{

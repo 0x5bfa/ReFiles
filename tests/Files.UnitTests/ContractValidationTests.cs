@@ -38,10 +38,8 @@ public sealed class ContractValidationTests
 	public void ViewSettingsRejectAmbiguousOrNonFiniteValues()
 	{
 		Assert.Throws<ArgumentOutOfRangeException>(() => new ViewColumnSettings("System.Size", double.NaN, 0));
-		Assert.Throws<ArgumentException>(
-			() => new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 100, 0), new ViewColumnSettings("System.Size", 120, 1),]));
-		Assert.Throws<ArgumentException>(
-			() => new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 100, 0), new ViewColumnSettings("System.DateModified", 120, 0),]));
+		Assert.Throws<ArgumentException>(() => new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 100, 0), new ViewColumnSettings("System.Size", 120, 1),]));
+		Assert.Throws<ArgumentException>(() => new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 100, 0), new ViewColumnSettings("System.DateModified", 120, 0),]));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new BrowseViewSettings(itemSize: double.PositiveInfinity));
 	}
 }

@@ -16,25 +16,24 @@ public sealed class FtpPropertyReader : IPropertyReader
 	private const string Size = "System.Size";
 	private const string DateModified = "System.DateModified";
 	private const string DateCreated = "System.DateCreated";
-	private readonly FtpStorageSource source;
+	private readonly FtpStorageSource _source;
 
 	public FtpPropertyReader(FtpStorageSource source)
 	{
 		ArgumentNullException.ThrowIfNull(source);
-		this.source = source;
+
+		_source = source;
 	}
 
 	public bool CanRead(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
-		return ReferenceEquals(context.Source, source)
+
+		return ReferenceEquals(context.Source, _source)
 			&& context.CoreModel is FtpStorable;
 	}
 
-	public ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
-		PropertyRequest request,
-		IReadOnlyList<ItemContext> contexts,
-		CancellationToken cancellationToken = default)
+	public ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(contexts);
@@ -44,6 +43,7 @@ public sealed class FtpPropertyReader : IPropertyReader
 		foreach (var context in contexts.Where(CanRead))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			var item = (FtpStorable)context.CoreModel;
 			var properties =
 				new Dictionary<string, object?>(StringComparer.Ordinal);

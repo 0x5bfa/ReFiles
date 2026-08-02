@@ -8,6 +8,10 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorageAddress
 {
+	public string Scheme { get; }
+
+	public string Value { get; }
+
 	public StorageAddress(string scheme, string value)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(scheme);
@@ -16,10 +20,6 @@ public sealed record StorageAddress
 		Scheme = scheme;
 		Value = value;
 	}
-
-	public string Scheme { get; }
-
-	public string Value { get; }
 
 	public override string ToString() => $"{Scheme}:{Value}";
 }

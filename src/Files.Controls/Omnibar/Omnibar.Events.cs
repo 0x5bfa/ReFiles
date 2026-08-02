@@ -20,10 +20,11 @@ namespace Files.Controls
 			{
 				// Window is regaining activation and restoring focus to the TextBox - redirect
 				// to whatever was focused before, so the omnibar doesn't get stuck in edit mode.
-				if (args.InputDevice is FocusInputDeviceKind.None &&
-					_previouslyFocusedElement.TryGetTarget(out var previous) &&
-					previous is not null)
+				if (args.InputDevice is FocusInputDeviceKind.None && _previouslyFocusedElement.TryGetTarget(out var previous) && previous is not null)
+				{
 					args.TrySetNewFocusedElement(previous);
+				}
+
 				return;
 			}
 
@@ -38,14 +39,15 @@ namespace Files.Controls
 			if (args.InputDevice is FocusInputDeviceKind.None && args.FocusState is FocusState.Programmatic)
 			{
 				args.TryCancel();
+
 				return;
 			}
 
 			// Prevent the TextBox from losing focus when the ModeButton is focused
-			if (args.NewFocusedElement is not Button button ||
-				args.InputDevice is FocusInputDeviceKind.Keyboard ||
-				button.Name.ToString() != "PART_ModeButton")
+			if (args.NewFocusedElement is not Button button || args.InputDevice is FocusInputDeviceKind.Keyboard || button.Name.ToString() != "PART_ModeButton")
+			{
 				return;
+			}
 
 			args.TryCancel();
 		}
@@ -65,7 +67,9 @@ namespace Files.Controls
 			// TextBox still has focus if the context menu for selected text is open
 			var element = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(this.XamlRoot);
 			if (element is FlyoutBase or Popup)
+			{
 				return;
+			}
 
 			GlobalHelper.WriteDebugStringForOmnibar("The TextBox lost the focus.");
 
@@ -139,12 +143,16 @@ namespace Files.Controls
 		private void AutoSuggestBox_TextChanged(object sender, TextChangedEventArgs e)
 		{
 			if (string.Compare(_textBox.Text, CurrentSelectedMode!.Text, StringComparison.OrdinalIgnoreCase) is not 0)
+			{
 				CurrentSelectedMode!.Text = _textBox.Text;
+			}
 
 			// UpdateSuggestionListView();
 
 			if (_textChangeReason is OmnibarTextChangeReason.ProgrammaticChange)
+			{
 				_textBox.SelectAll();
+			}
 			else
 			{
 				_userInput = _textBox.Text;
@@ -165,13 +173,17 @@ namespace Files.Controls
 		private void AutoSuggestBoxSuggestionsPopup_Opened(object? sender, object e)
 		{
 			if (_textBoxSuggestionsListView.Items.Count > 0)
+			{
 				_textBoxSuggestionsListView.ScrollIntoView(_textBoxSuggestionsListView.Items[0]);
+			}
 		}
 
 		private void AutoSuggestBoxSuggestionsListView_ItemClick(object sender, ItemClickEventArgs e)
 		{
 			if (CurrentSelectedMode is null)
+			{
 				return;
+			}
 
 			ChooseSuggestionItem(e.ClickedItem);
 			SubmitQuery(e.ClickedItem);

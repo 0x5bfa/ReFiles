@@ -9,9 +9,19 @@ namespace Files.Core.Models;
 
 public class StorableModel : IStorableModel
 {
-	private readonly object disposalLock = new();
-	private Task? disposeTask;
-	private volatile bool isDisposed;
+	private readonly Lock _disposalLock = new();
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
+
+	public IStorable CoreModel { get; }
+
+	public StorableReference Reference { get; }
+
+	public string Name { get; }
+
+	public IItemFeatures Features { get; }
 
 	public StorableModel(IStorable coreModel, StorableReference reference, IItemFeatures features)
 	{
@@ -25,14 +35,6 @@ public class StorableModel : IStorableModel
 		Features = features;
 	}
 
-	public IStorable CoreModel { get; }
-
-	public StorableReference Reference { get; }
-
-	public string Name { get; }
-
-	public IItemFeatures Features { get; }
-
 	public void Dispose()
 	{
 		DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -40,21 +42,22 @@ public class StorableModel : IStorableModel
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is null)
+			if (_disposeTask is null)
 			{
-				isDisposed = true;
-				disposeTask = DisposeAsyncCore().AsTask();
+				_isDisposed = true;
+				_disposeTask = DisposeAsyncCore().AsTask();
 			}
 
-			return new ValueTask(disposeTask);
+			return new ValueTask(_disposeTask);
 		}
 	}
 
 	protected void ThrowIfDisposed()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 	}
 
 	protected virtual async ValueTask DisposeAsyncCore()

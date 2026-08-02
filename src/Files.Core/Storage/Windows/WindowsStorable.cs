@@ -10,27 +10,15 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStorable>
 {
-	private readonly WindowsStorableDescriptor descriptor;
-
-	internal WindowsStorable(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
-	{
-		ArgumentNullException.ThrowIfNull(descriptor);
-		ArgumentNullException.ThrowIfNull(factory);
-
-		this.descriptor = descriptor;
-		Factory = factory;
-		Id = descriptor.ItemId;
-		Name = descriptor.Snapshot.Name;
-		Address = descriptor.Address;
-	}
+	private readonly WindowsStorableDescriptor _descriptor;
 
 	internal WindowsStorableFactory Factory { get; }
 
-	internal WindowsStorableDescriptor Descriptor => descriptor;
+	internal WindowsStorableDescriptor Descriptor => _descriptor;
 
-	internal WindowsStorableSnapshot Snapshot => descriptor.Snapshot;
+	internal WindowsStorableSnapshot Snapshot => _descriptor.Snapshot;
 
-	internal WindowsItemLocator Locator => descriptor.Locator;
+	internal WindowsItemLocator Locator => _descriptor.Locator;
 
 	public string Id { get; }
 
@@ -38,13 +26,25 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 
 	public StorageAddress Address { get; }
 
-	public string ParsingName => descriptor.Locator.ParsingName;
+	public string ParsingName => _descriptor.Locator.ParsingName;
 
-	public string? FileSystemPath => descriptor.Snapshot.FileSystemPath;
+	public string? FileSystemPath => _descriptor.Snapshot.FileSystemPath;
 
 	public bool IsFileSystem => FileSystemPath is not null;
 
-	public bool IsStream => descriptor.Snapshot.IsStream;
+	public bool IsStream => _descriptor.Snapshot.IsStream;
+
+	internal WindowsStorable(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
+	{
+		ArgumentNullException.ThrowIfNull(descriptor);
+		ArgumentNullException.ThrowIfNull(factory);
+
+		_descriptor = descriptor;
+		Factory = factory;
+		Id = descriptor.ItemId;
+		Name = descriptor.Snapshot.Name;
+		Address = descriptor.Address;
+	}
 
 	public async Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
 	{

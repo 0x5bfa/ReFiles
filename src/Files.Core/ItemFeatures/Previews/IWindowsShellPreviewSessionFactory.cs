@@ -5,8 +5,5 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public interface IWindowsShellPreviewSessionFactory
 {
-	ValueTask<IWindowsShellPreviewSession> CreateAsync(
-		WindowsShellPreviewResult result,
-		WindowsPreviewHost host,
-		CancellationToken cancellationToken = default);
+	ValueTask<IWindowsShellPreviewSession> CreateAsync(WindowsShellPreviewResult result, WindowsPreviewHost host, CancellationToken cancellationToken = default);
 }

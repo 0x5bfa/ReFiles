@@ -12,11 +12,6 @@ public sealed partial class PaneView : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(PaneViewModel), typeof(PaneView), new PropertyMetadata(null));
 
-	public PaneView()
-	{
-		InitializeComponent();
-	}
-
 	public PaneViewModel? ViewModel
 	{
 		get => (PaneViewModel?)GetValue(ViewModelProperty);
@@ -24,6 +19,11 @@ public sealed partial class PaneView : UserControl
 	}
 
 	public event EventHandler? Activated;
+
+	public PaneView()
+	{
+		InitializeComponent();
+	}
 
 	internal void SetShadow(bool isActive, bool isMultiPane)
 	{

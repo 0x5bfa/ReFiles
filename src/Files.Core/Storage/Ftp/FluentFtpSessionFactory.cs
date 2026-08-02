@@ -14,10 +14,7 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 {
 	public static FluentFtpSessionFactory Instance { get; } = new();
 
-	public async ValueTask<IFtpSession> ConnectAsync(
-		FtpConnectionProfile profile,
-		FtpCredential credential,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IFtpSession> ConnectAsync(FtpConnectionProfile profile, FtpCredential credential, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(profile);
 		ArgumentNullException.ThrowIfNull(credential);
@@ -37,9 +34,8 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 
 		try
 		{
-			await client
-				.Connect(cancellationToken)
-				.ConfigureAwait(false);
+			await client.Connect(cancellationToken).ConfigureAwait(false);
+
 			return new FluentFtpSession(client, profile.PathComparer);
 		}
 		catch (OperationCanceledException)
@@ -50,8 +46,7 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 		}
 		catch (FtpAuthenticationException exception)
 		{
-			var cleanupError = await TryDisposeAsync(client)
-				.ConfigureAwait(false);
+			var cleanupError = await TryDisposeAsync(client).ConfigureAwait(false);
 			throw new FtpAuthenticationRequiredException(
 				profile.ConnectionId,
 				$"Authentication failed for FTP connection '{profile.DisplayName}'.",
@@ -61,8 +56,7 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 		}
 		catch (Exception connectionError)
 		{
-			var cleanupError = await TryDisposeAsync(client)
-				.ConfigureAwait(false);
+			var cleanupError = await TryDisposeAsync(client).ConfigureAwait(false);
 			if (cleanupError is not null)
 			{
 				throw new AggregateException("FTP connection and cleanup both failed.", connectionError, cleanupError);
@@ -77,6 +71,7 @@ public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 		try
 		{
 			await client.DisposeAsync().ConfigureAwait(false);
+
 			return null;
 		}
 		catch (Exception exception)

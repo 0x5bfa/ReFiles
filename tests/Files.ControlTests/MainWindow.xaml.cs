@@ -40,7 +40,9 @@ namespace Files.ControlTests
 		private void NavigationView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
 		{
 			if (args.SelectedItem is not NavigationViewItem item || item.Tag is not string tag)
+			{
 				return;
+			}
 
 			MainFrame.Navigate(
 				tag switch
@@ -60,9 +62,10 @@ namespace Files.ControlTests
 
 		private void AppThemeChangeToggleButton_Click(object sender, RoutedEventArgs e)
 		{
-			if (sender is not ToggleButton toggleButton ||
-				Content is not FrameworkElement element)
+			if (sender is not ToggleButton toggleButton || Content is not FrameworkElement element)
+			{
 				return;
+			}
 
 			if (toggleButton.IsChecked is true)
 			{

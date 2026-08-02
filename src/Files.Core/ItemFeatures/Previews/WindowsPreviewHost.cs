@@ -8,6 +8,14 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public readonly record struct WindowsPreviewBounds
 {
+	public int X { get; }
+
+	public int Y { get; }
+
+	public int Width { get; }
+
+	public int Height { get; }
+
 	public WindowsPreviewBounds(int x, int y, int width, int height)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(width);
@@ -18,20 +26,16 @@ public readonly record struct WindowsPreviewBounds
 		Width = width;
 		Height = height;
 	}
-
-	public int X { get; }
-
-	public int Y { get; }
-
-	public int Width { get; }
-
-	public int Height { get; }
 }
 
 public readonly record struct WindowsPreviewColor(byte Red, byte Green, byte Blue);
 
 public sealed record WindowsPreviewHost
 {
+	public nint WindowHandle { get; }
+
+	public WindowsPreviewBounds Bounds { get; }
+
 	public WindowsPreviewHost(nint windowHandle, WindowsPreviewBounds bounds)
 	{
 		if (windowHandle == 0)
@@ -47,8 +51,4 @@ public sealed record WindowsPreviewHost
 		WindowHandle = windowHandle;
 		Bounds = bounds;
 	}
-
-	public nint WindowHandle { get; }
-
-	public WindowsPreviewBounds Bounds { get; }
 }

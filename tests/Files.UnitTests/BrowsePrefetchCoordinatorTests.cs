@@ -30,6 +30,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				Handler = (_, _) =>
 				{
 					order.Add(id);
+
 					return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?>());
 				},
 			};
@@ -183,6 +184,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				catch (OperationCanceledException)
 				{
 					completed.TrySetResult(true);
+
 					return new Dictionary<string, object?>();
 				}
 
@@ -198,10 +200,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		using var session = new BrowseSessionModel(resolver);
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
-		coordinator.UpdateViewport(
-			new BrowseViewport(0, 1),
-			new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]),
-			session.Generation);
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]), session.Generation);
 		await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
 		resolver.Items.Clear();
@@ -280,6 +279,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 				entered.TrySetResult(true);
 				await release.Task;
 				returned.TrySetResult(true);
+
 				return new Dictionary<string, object?>
 				{
 					["System.Size"] = 42L,

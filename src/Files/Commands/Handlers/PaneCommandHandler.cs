@@ -18,6 +18,7 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 		var isEnabled = id == CommandIds.NewPane
 			? tab is not null
 			: tab?.CanClosePane is true;
+
 		return new(true, isEnabled);
 	}
 

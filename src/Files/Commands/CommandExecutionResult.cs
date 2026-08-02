@@ -25,6 +25,7 @@ public sealed record CommandExecutionResult(CommandExecutionStatus Status, Excep
 	public static CommandExecutionResult Failed(Exception error)
 	{
 		ArgumentNullException.ThrowIfNull(error);
+
 		return new(CommandExecutionStatus.Failed, error);
 	}
 }

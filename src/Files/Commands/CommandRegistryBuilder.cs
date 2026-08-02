@@ -15,6 +15,7 @@ public sealed class CommandRegistryBuilder
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 		ArgumentNullException.ThrowIfNull(factory);
+
 		EnsureNotBuilt();
 
 		if (!registrations.TryAdd(descriptor.Id, new CommandRegistry.CommandRegistration(descriptor, factory)))
@@ -29,6 +30,7 @@ public sealed class CommandRegistryBuilder
 	{
 		EnsureNotBuilt();
 		isBuilt = true;
+
 		return new CommandRegistry(new Dictionary<CommandId, CommandRegistry.CommandRegistration>(registrations));
 	}
 

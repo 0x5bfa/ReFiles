@@ -36,11 +36,7 @@ namespace Files.Controls
 			_modeButton = GetTemplateChild(TemplatePartName_ModeButton) as Button
 				?? throw new MissingFieldException($"Could not find {TemplatePartName_ModeButton} in the given {nameof(OmnibarMode)}'s style.");
 
-			RegisterPropertyChangedCallback(ItemsSourceProperty, (d, dp) =>
-			{
-				if (_ownerRef is not null && _ownerRef.TryGetTarget(out var owner))
-					owner.TryToggleIsSuggestionsPopupOpen(true);
-			});
+			RegisterPropertyChangedCallback(ItemsSourceProperty, (d, dp) => { if (_ownerRef is not null && _ownerRef.TryGetTarget(out var owner)) { owner.TryToggleIsSuggestionsPopupOpen(true); } });
 
 			Loaded += OmnibarMode_Loaded;
 			_modeButton.PointerEntered += ModeButton_PointerEntered;
@@ -55,12 +51,16 @@ namespace Files.Controls
 		protected override void OnKeyUp(KeyRoutedEventArgs args)
 		{
 			if (args.Handled || IsEnabled is false)
+			{
 				goto cleanup;
+			}
 
 			if (args.Key is Windows.System.VirtualKey.Enter)
 			{
 				if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false || owner.CurrentSelectedMode == this)
+				{
 					return;
+				}
 
 				VisualStateManager.GoToState(this, "PointerPressed", true);
 
@@ -82,18 +82,8 @@ namespace Files.Controls
 			base.OnItemsChanged(e);
 
 			if (_ownerRef is not null && _ownerRef.TryGetTarget(out var owner))
-				owner.TryToggleIsSuggestionsPopupOpen(true);
-		}
-
-		private void OmnibarMode_Loaded(object sender, RoutedEventArgs e)
-		{
-			// Set this mode as the current mode if it is the default mode
-			if (IsDefault && _ownerRef is not null && _ownerRef.TryGetTarget(out var owner))
 			{
-				DispatcherQueue.TryEnqueue(() =>
-				{
-					owner.CurrentSelectedMode = this;
-				});
+				owner.TryToggleIsSuggestionsPopupOpen(true);
 			}
 		}
 
@@ -105,6 +95,15 @@ namespace Files.Controls
 		public override string ToString()
 		{
 			return Name ?? string.Empty;
+		}
+
+		private void OmnibarMode_Loaded(object sender, RoutedEventArgs e)
+		{
+			// Set this mode as the current mode if it is the default mode
+			if (IsDefault && _ownerRef is not null && _ownerRef.TryGetTarget(out var owner))
+			{
+				DispatcherQueue.TryEnqueue(() => { owner.CurrentSelectedMode = this; });
+			}
 		}
 	}
 }

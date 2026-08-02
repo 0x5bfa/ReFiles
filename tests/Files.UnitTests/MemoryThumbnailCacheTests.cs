@@ -76,6 +76,7 @@ public sealed class MemoryThumbnailCacheTests
 			{
 				entered.TrySetResult(true);
 				await release.Task;
+
 				return new ThumbnailResult(new byte[] {1}, "image/png", IsFallback: false);
 			},
 		};
@@ -106,6 +107,7 @@ public sealed class MemoryThumbnailCacheTests
 			{
 				entered.TrySetResult(true);
 				await release.Task;
+
 				return new ThumbnailResult(new byte[] {1}, "image/png", IsFallback: false);
 			},
 		};

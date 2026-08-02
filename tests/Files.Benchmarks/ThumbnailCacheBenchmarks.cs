@@ -36,6 +36,7 @@ public class ThumbnailCacheBenchmarks
 	public ValueTask CacheInsertAndEvict()
 	{
 		var key = new ThumbnailCacheKey(new StorageSourceId("benchmark"), Guid.NewGuid().ToString("N"), 128, ThumbnailMode.Content);
+
 		return cache.SetAsync(key, entry);
 	}
 }

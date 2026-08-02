@@ -17,18 +17,41 @@ public enum PaneNavigationMode
 /// </summary>
 public sealed class PaneModel : IAsyncDisposable
 {
-	private readonly SemaphoreSlim navigationLock = new(1, 1);
-	private readonly CancellationTokenSource lifetime = new();
-	private readonly object disposalLock = new();
-	private Task? disposeTask;
-	private volatile bool isDisposed;
+	private readonly SemaphoreSlim _navigationLock = new(1, 1);
 
-	public PaneModel(
-		IBrowseSessionModel browseSession,
-		IBrowsePreviewModel preview,
-		IBrowsePrefetchCoordinator prefetch,
-		int historyCapacity = 50,
-		Guid? id = null)
+	private readonly CancellationTokenSource _lifetime = new();
+
+	private readonly Lock _disposalLock = new();
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
+
+	public Guid Id { get; }
+
+	public IBrowseSessionModel BrowseSession { get; }
+
+	public IBrowsePreviewModel Preview { get; }
+
+	public IBrowsePrefetchCoordinator Prefetch { get; }
+
+	public BrowseNavigationHistory History { get; }
+
+	public BrowseLocation? Location => BrowseSession.Location;
+
+	public bool CanGoBack => History.CanGoBack;
+
+	public bool CanGoForward => History.CanGoForward;
+
+	public bool CanGoUp =>
+		BrowseSession.Context is IBrowseLocationParentResolver parentResolver
+			? parentResolver.CanGetParent
+			: BrowseSession.Context?.LocationModel
+				is IFolderModel;
+
+	public event EventHandler? StateChanged;
+
+	public PaneModel(IBrowseSessionModel browseSession, IBrowsePreviewModel preview, IBrowsePrefetchCoordinator prefetch, int historyCapacity = 50, Guid? id = null)
 	{
 		ArgumentNullException.ThrowIfNull(browseSession);
 		ArgumentNullException.ThrowIfNull(preview);
@@ -50,148 +73,93 @@ public sealed class PaneModel : IAsyncDisposable
 		History.Changed += OnChildStateChanged;
 	}
 
-	public Guid Id { get; }
-
-	public IBrowseSessionModel BrowseSession { get; }
-
-	public IBrowsePreviewModel Preview { get; }
-
-	public IBrowsePrefetchCoordinator Prefetch { get; }
-
-	public BrowseNavigationHistory History { get; }
-
-	public BrowseLocation? Location => BrowseSession.Location;
-
-	public bool CanGoBack => History.CanGoBack;
-
-	public bool CanGoForward => History.CanGoForward;
-
-	public bool CanGoUp =>
-		BrowseSession.Context
-			is IBrowseLocationParentResolver parentResolver
-				? parentResolver.CanGetParent
-				: BrowseSession.Context?.LocationModel
-					is IFolderModel;
-
-	public event EventHandler? StateChanged;
-
-	public async ValueTask NavigateAsync(
-		BrowseLocation location,
-		PaneNavigationMode mode = PaneNavigationMode.Push,
-		CancellationToken cancellationToken = default)
+	public async ValueTask NavigateAsync(BrowseLocation location, PaneNavigationMode mode = PaneNavigationMode.Push, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
-		if (mode is not PaneNavigationMode.Push
-			and not PaneNavigationMode.Replace)
+
+		if (mode is not PaneNavigationMode.Push and not PaneNavigationMode.Replace)
 		{
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
 
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await navigationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			await NavigateAndCommitAsync(
-				location,
-				() =>
-				{
-					if (mode is PaneNavigationMode.Push)
-					{
-						History.Push(location);
-					}
-					else
-					{
-						History.Replace(location);
-					}
-				},
-				linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(location, () => { if (mode is PaneNavigationMode.Push) { History.Push(location); } else { History.Replace(location); } }, linkedCancellation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
-			navigationLock.Release();
+			_navigationLock.Release();
 		}
 	}
 
 	public async ValueTask<bool> GoBackAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await navigationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			if (!History.TryGetBack(out var target, out var targetIndex)
-				|| target is null)
+			if (!History.TryGetBack(out var target, out var targetIndex) || target is null)
 			{
 				return false;
 			}
 
 			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), linkedCancellation.Token).ConfigureAwait(false);
+
 			return Equals(BrowseSession.Location, target);
 		}
 		finally
 		{
-			navigationLock.Release();
+			_navigationLock.Release();
 		}
 	}
 
 	public async ValueTask<bool> GoForwardAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await navigationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			if (!History.TryGetForward(out var target, out var targetIndex)
-				|| target is null)
+			if (!History.TryGetForward(out var target, out var targetIndex) || target is null)
 			{
 				return false;
 			}
 
 			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), linkedCancellation.Token).ConfigureAwait(false);
+
 			return Equals(BrowseSession.Location, target);
 		}
 		finally
 		{
-			navigationLock.Release();
+			_navigationLock.Release();
 		}
 	}
 
 	public async ValueTask<bool> GoUpAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await navigationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			if (BrowseSession.Context
-				is IBrowseLocationParentResolver parentResolver)
+			if (BrowseSession.Context is IBrowseLocationParentResolver parentResolver)
 			{
-				var parentLocation = await parentResolver
-					.GetParentLocationAsync(linkedCancellation.Token)
-					.ConfigureAwait(false);
+				var parentLocation = await parentResolver.GetParentLocationAsync(linkedCancellation.Token).ConfigureAwait(false);
 				if (parentLocation is null)
 				{
 					return false;
 				}
 
 				await NavigateAndCommitAsync(parentLocation, () => History.Push(parentLocation), linkedCancellation.Token).ConfigureAwait(false);
+
 				return Equals(BrowseSession.Location, parentLocation);
 			}
 
@@ -200,9 +168,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return false;
 			}
 
-			var parent = await folder
-				.GetParentAsync(linkedCancellation.Token)
-				.ConfigureAwait(false);
+			var parent = await folder.GetParentAsync(linkedCancellation.Token).ConfigureAwait(false);
 			if (parent is null)
 			{
 				return false;
@@ -212,12 +178,13 @@ public sealed class PaneModel : IAsyncDisposable
 			{
 				var target = new FolderLocation(parent.Reference);
 				await NavigateAndCommitAsync(target, () => History.Push(target), linkedCancellation.Token).ConfigureAwait(false);
+
 				return Equals(BrowseSession.Location, target);
 			}
 		}
 		finally
 		{
-			navigationLock.Release();
+			_navigationLock.Release();
 		}
 	}
 
@@ -225,11 +192,8 @@ public sealed class PaneModel : IAsyncDisposable
 	{
 		ArgumentNullException.ThrowIfNull(restoredHistory);
 
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await navigationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		try
 		{
@@ -242,6 +206,7 @@ public sealed class PaneModel : IAsyncDisposable
 				}
 
 				History.Restore(restoredHistory);
+
 				return;
 			}
 
@@ -249,34 +214,30 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 		finally
 		{
-			navigationLock.Release();
+			_navigationLock.Release();
 		}
 	}
 
 	public async ValueTask RefreshAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await navigationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			await BrowseSession
-				.RefreshAsync(linkedCancellation.Token)
-				.ConfigureAwait(false);
+			await BrowseSession.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
-			navigationLock.Release();
+			_navigationLock.Release();
 		}
 	}
 
 	public void UpdateViewport(BrowseViewport viewport)
 	{
 		EnsureActive();
+
 		ArgumentNullException.ThrowIfNull(viewport);
 
 		Prefetch.UpdateViewport(viewport, BrowseSession.ViewSettings, BrowseSession.Generation);
@@ -284,17 +245,18 @@ public sealed class PaneModel : IAsyncDisposable
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			lifetime.Cancel();
-			disposeTask = DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_lifetime.Cancel();
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
@@ -302,17 +264,15 @@ public sealed class PaneModel : IAsyncDisposable
 	{
 		var previousGeneration = BrowseSession.Generation;
 		var completed = false;
+
 		try
 		{
-			await BrowseSession
-				.NavigateAsync(target, cancellationToken)
-				.ConfigureAwait(false);
+			await BrowseSession.NavigateAsync(target, cancellationToken).ConfigureAwait(false);
 			completed = true;
 		}
 		finally
 		{
-			if ((completed || BrowseSession.Generation != previousGeneration)
-				&& Equals(BrowseSession.Location, target))
+			if ((completed || BrowseSession.Generation != previousGeneration) && Equals(BrowseSession.Location, target))
 			{
 				commitHistory();
 			}
@@ -327,7 +287,8 @@ public sealed class PaneModel : IAsyncDisposable
 		Preview.Changed -= OnChildStateChanged;
 		History.Changed -= OnChildStateChanged;
 
-		await navigationLock.WaitAsync().ConfigureAwait(false);
+		await _navigationLock.WaitAsync().ConfigureAwait(false);
+
 		try
 		{
 			await TryDisposeAsync(Prefetch, errors).ConfigureAwait(false);
@@ -336,9 +297,9 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 		finally
 		{
-			navigationLock.Release();
-			navigationLock.Dispose();
-			lifetime.Dispose();
+			_navigationLock.Release();
+			_navigationLock.Dispose();
+			_lifetime.Dispose();
 			GC.SuppressFinalize(this);
 		}
 
@@ -367,7 +328,8 @@ public sealed class PaneModel : IAsyncDisposable
 
 	private void EnsureActive()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 	}
 
 	private void OnChildStateChanged(object? sender, EventArgs args)

@@ -265,9 +265,7 @@ namespace Files.Controls
 			double largeMinWidth = (double)Application.Current.Resources[LargeMinWidthResourceKey];
 			double largeMinHeight = (double)Application.Current.Resources[LargeMinHeightResourceKey];
 
-			if (!double.IsNaN(smallMinWidth) || !double.IsNaN(smallMinHeight) ||
-				 !double.IsNaN(mediumMinWidth) || !double.IsNaN(mediumMinHeight) ||
-				 !double.IsNaN(largeMinWidth) || !double.IsNaN(largeMinHeight))
+			if (!double.IsNaN(smallMinWidth) || !double.IsNaN(smallMinHeight) || !double.IsNaN(mediumMinWidth) || !double.IsNaN(mediumMinHeight) || !double.IsNaN(largeMinWidth) || !double.IsNaN(largeMinHeight))
 			{
 				SetSmallMinWidth(smallMinWidth);
 				SetSmallMinHeight(smallMinHeight);
@@ -432,33 +430,41 @@ namespace Files.Controls
 			{
 				case ToolbarItemTypes.Button:
 					// Add ToolbarButton
+
 					return CreateToolbarButton(item.Label, item.ThemedIcon, GetCurrentMinWidth(), GetCurrentMinHeight(), item.IconSize);
 
 				case ToolbarItemTypes.FlyoutButton:
 					// Add ToolbarFlyoutButton
+
 					return new ToolbarFlyoutButton();
 
 				case ToolbarItemTypes.RadioButton:
 					// Add ToolbarRadioButton
+
 					return new ToolbarRadioButton();
 
 				case ToolbarItemTypes.SplitButton:
 					// Add ToolbarSplitButton
+
 					return new ToolbarSplitButton();
 
 				case ToolbarItemTypes.ToggleButton:
 					// Add ToolbarToggleButton
+
 					return CreateToolbarToggleButton(item.Label, item.ThemedIcon, GetCurrentMinWidth(), GetCurrentMinHeight(), item.IconSize, item.IsChecked);
 
 				case ToolbarItemTypes.Separator:
 					// Add ToolbarToggleButton
+
 					return CreateToolbarSeparator();
 
 				case ToolbarItemTypes.Content:
 					// Add Content Presenter
+
 					return null;
 
 				default:
+
 					return null;
 			}
 		}
@@ -546,28 +552,14 @@ namespace Files.Controls
 				if (item.ItemType == ToolbarItemTypes.Button)
 				{
 					//Add a ToolbarButton to the ItemsSource for the ItemsRepeaterPartName
-					itemsSource.Add(new ToolbarButton
-					{
-						Label = item.Label,
-						ThemedIcon = item.ThemedIcon,
-						Command = item.Command,
-						CommandParameter = item.CommandParameter,
-						IconSize = item.IconSize,
-					});
+					itemsSource.Add(new ToolbarButton { Label = item.Label, ThemedIcon = item.ThemedIcon, Command = item.Command, CommandParameter = item.CommandParameter, IconSize = item.IconSize, });
 				}
 				;
 
 				if (item.ItemType == ToolbarItemTypes.ToggleButton)
 				{
 					//Add a ToolbarToggleButton to the ItemsSource for the ItemsRepeaterPartName
-					itemsSource.Add(new ToolbarToggleButton
-					{
-						Label = item.Label,
-						ThemedIcon = item.ThemedIcon,
-						Command = item.Command,
-						CommandParameter = item.CommandParameter,
-						IconSize = item.IconSize,
-					});
+					itemsSource.Add(new ToolbarToggleButton { Label = item.Label, ThemedIcon = item.ThemedIcon, Command = item.Command, CommandParameter = item.CommandParameter, IconSize = item.IconSize, });
 				}
 				;
 

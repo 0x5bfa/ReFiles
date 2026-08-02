@@ -13,21 +13,7 @@ public abstract class FtpStorable :
 	IStorageAddressSource,
 	IEquatable<FtpStorable>
 {
-	private readonly FtpStorageSource source;
-
-	internal FtpStorable(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
-	{
-		ArgumentNullException.ThrowIfNull(source);
-		ArgumentNullException.ThrowIfNull(snapshot);
-		ArgumentNullException.ThrowIfNull(factory);
-
-		this.source = source;
-		Snapshot = snapshot;
-		Factory = factory;
-		Id = snapshot.Path.Value;
-		Name = snapshot.Name;
-		Address = source.CreateAddress(snapshot.Path);
-	}
+	private readonly FtpStorageSource _source;
 
 	internal FtpStorableFactory Factory { get; }
 
@@ -43,18 +29,30 @@ public abstract class FtpStorable :
 
 	public FtpEntryKind Kind => Snapshot.Kind;
 
+	internal FtpStorable(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
+	{
+		ArgumentNullException.ThrowIfNull(source);
+		ArgumentNullException.ThrowIfNull(snapshot);
+		ArgumentNullException.ThrowIfNull(factory);
+
+		_source = source;
+		Snapshot = snapshot;
+		Factory = factory;
+		Id = snapshot.Path.Value;
+		Name = snapshot.Name;
+		Address = source.CreateAddress(snapshot.Path);
+	}
+
 	public async Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
 	{
 		var parentPath = Path.Parent;
-		if (parentPath is null
-			|| !parentPath.IsWithin(source.Profile.RootPath, source.Profile.PathComparer))
+		if (parentPath is null || !parentPath.IsWithin(_source.Profile.RootPath, _source.Profile.PathComparer))
 		{
 			return null;
 		}
 
-		var parent = await Factory
-			.ResolveAsync(parentPath, cancellationToken)
-			.ConfigureAwait(false);
+		var parent = await Factory.ResolveAsync(parentPath, cancellationToken).ConfigureAwait(false);
+
 		return parent as IFolder
 			?? throw new InvalidOperationException("The FTP parent path did not resolve to a folder.");
 	}
@@ -62,7 +60,7 @@ public abstract class FtpStorable :
 	public bool Equals(FtpStorable? other)
 	{
 		return other is not null
-			&& source.SourceId == other.source.SourceId
+			&& _source.SourceId == other._source.SourceId
 			&& StringComparer.Ordinal.Equals(Id, other.Id);
 	}
 
@@ -70,7 +68,7 @@ public abstract class FtpStorable :
 		=> Equals(obj as FtpStorable);
 
 	public override int GetHashCode()
-		=> HashCode.Combine(source.SourceId, StringComparer.Ordinal.GetHashCode(Id));
+		=> HashCode.Combine(_source.SourceId, StringComparer.Ordinal.GetHashCode(Id));
 
 	public override string ToString() => Address.ToString();
 }

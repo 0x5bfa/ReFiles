@@ -9,19 +9,21 @@ namespace Files.Core.ItemFeatures;
 public sealed class DelegateItemFeatureWrapper<TFeature> : IItemFeatureWrapper<TFeature>
 	where TFeature : class
 {
-	private readonly Func<ItemContext, TFeature, TFeature> wrap;
+	private readonly Func<ItemContext, TFeature, TFeature> _wrap;
 
 	public DelegateItemFeatureWrapper(Func<ItemContext, TFeature, TFeature> wrap)
 	{
 		ArgumentNullException.ThrowIfNull(wrap);
-		this.wrap = wrap;
+
+		_wrap = wrap;
 	}
 
 	public TFeature Wrap(ItemContext context, TFeature feature)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(feature);
-		return wrap(context, feature)
+
+		return _wrap(context, feature)
 			?? throw new InvalidOperationException("An item feature wrapper returned null.");
 	}
 }

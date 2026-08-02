@@ -14,8 +14,13 @@ namespace Files.Core.Browsing;
 public sealed class HomeBrowseLocationContext
 	: IBrowseLocationContext, IBrowseLocationItemResolver
 {
-	private readonly IFilesDataRoot dataRoot;
-	private int isDisposed;
+	private readonly IFilesDataRoot _dataRoot;
+
+	private int _isDisposed;
+
+	public BrowseLocation Location { get; }
+
+	public IStorableModel? LocationModel => null;
 
 	public HomeBrowseLocationContext(HomeLocation location, IFilesDataRoot dataRoot)
 	{
@@ -23,22 +28,16 @@ public sealed class HomeBrowseLocationContext
 		ArgumentNullException.ThrowIfNull(dataRoot);
 
 		Location = location;
-		this.dataRoot = dataRoot;
+		_dataRoot = dataRoot;
 	}
-
-	public BrowseLocation Location { get; }
-
-	public IStorableModel? LocationModel => null;
 
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		foreach (var source in dataRoot.Sources)
+		foreach (var source in _dataRoot.Sources)
 		{
-			await foreach (var root in dataRoot
-				.GetRootsAsync(source.SourceId, cancellationToken)
-				.ConfigureAwait(false))
+			await foreach (var root in _dataRoot .GetRootsAsync(source.SourceId, cancellationToken) .ConfigureAwait(false))
 			{
 				yield return root;
 			}
@@ -47,16 +46,17 @@ public sealed class HomeBrowseLocationContext
 
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
-		return dataRoot.ResolveAsync(reference, cancellationToken);
+		return _dataRoot.ResolveAsync(reference, cancellationToken);
 	}
 
 	public ValueTask DisposeAsync()
 	{
-		Interlocked.Exchange(ref isDisposed, 1);
+		Interlocked.Exchange(ref _isDisposed, 1);
 		GC.SuppressFinalize(this);
+
 		return ValueTask.CompletedTask;
 	}
 }

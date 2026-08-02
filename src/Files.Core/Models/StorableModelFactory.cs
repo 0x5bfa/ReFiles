@@ -9,11 +9,11 @@ namespace Files.Core.Models;
 
 public sealed class StorableModelFactory : IStorableModelFactory
 {
-	private readonly ItemFeatureRegistry itemFeatureRegistry;
+	private readonly ItemFeatureRegistry _itemFeatureRegistry;
 
 	public StorableModelFactory(ItemFeatureRegistry? itemFeatureRegistry = null)
 	{
-		this.itemFeatureRegistry = itemFeatureRegistry ?? ItemFeatureRegistry.Empty;
+		_itemFeatureRegistry = itemFeatureRegistry ?? ItemFeatureRegistry.Empty;
 	}
 
 	public IStorableModel Create(IStorageSource source, IStorable coreModel)
@@ -27,7 +27,7 @@ public sealed class StorableModelFactory : IStorableModelFactory
 		{
 			var reference = new StorableReference(source.SourceId, coreModel.Id, (coreModel as IStorageAddressSource)?.Address);
 			var context = new ItemContext(source, coreModel, reference);
-			features = itemFeatureRegistry.CreateFeatures(context);
+			features = _itemFeatureRegistry.CreateFeatures(context);
 
 			return coreModel switch
 			{
@@ -61,11 +61,7 @@ public sealed class StorableModelFactory : IStorableModelFactory
 		{
 			if (instance is IAsyncDisposable asyncDisposable)
 			{
-				asyncDisposable
-					.DisposeAsync()
-					.AsTask()
-					.GetAwaiter()
-					.GetResult();
+				asyncDisposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
 			}
 			else
 			{

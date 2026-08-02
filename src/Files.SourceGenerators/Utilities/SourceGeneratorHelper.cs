@@ -11,9 +11,13 @@ namespace Files.SourceGenerators.Utilities
 	internal static class SourceGeneratorHelper
 	{
 		internal const string AttributeNamespace = $"{nameof(Files)}.Shared.Attributes.";
+
 		internal const string StringsNamespace = "Files.Localization";
+
 		internal const string DisableSourceGeneratorAttribute = AttributeNamespace + "DisableSourceGeneratorAttribute";
+
 		internal const string AssemblyName = $"{nameof(Files)}.{nameof(SourceGenerators)}.";
+
 		internal const string AssemblyVersion = "1.1.1";
 
 		/// <summary>
@@ -29,9 +33,9 @@ namespace Files.SourceGenerators.Utilities
 		internal static ConstructorDeclarationSyntax GetDeclaration(IPropertySymbol property, ConstructorDeclarationSyntax ctor)
 		{
 			var newName = property.Name[..1].ToLower() + property.Name[1..];
+
 			return ctor.AddParameterListParameters(Parameter(Identifier(newName)).WithType(property.Type.GetTypeSyntax(false)))
-				.AddBodyStatements(ExpressionStatement(
-					AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, IdentifierName(property.Name), IdentifierName(newName))));
+				.AddBodyStatements(ExpressionStatement(AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, IdentifierName(property.Name), IdentifierName(newName))));
 		}
 
 		/// <summary>
@@ -53,6 +57,7 @@ namespace Files.SourceGenerators.Utilities
 				TypeKind.Class or TypeKind.Struct when symbol.IsRecord => RecordDeclaration(Token(SyntaxKind.RecordKeyword), name),
 				_ => throw new ArgumentOutOfRangeException(nameof(symbol.TypeKind))
 			};
+
 			return typeDeclarationTemp.AddModifiers(Token(SyntaxKind.PartialKeyword))
 				.WithOpenBraceToken(Token(SyntaxKind.OpenBraceToken))
 				.AddMembers(member)
@@ -97,7 +102,9 @@ namespace Files.SourceGenerators.Utilities
 			ExpressionSyntax getProperty = InvocationExpression(GetThisMemberAccessExpression("GetValue"))
 				.AddArgumentListArguments(Argument(IdentifierName(fieldName)));
 			if (type.SpecialType != SpecialType.System_Object)
+			{
 				getProperty = CastExpression(type.GetTypeSyntax(isNullable), getProperty);
+			}
 
 			return AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
 				.WithExpressionBody(ArrowExpressionClause(getProperty))
@@ -211,7 +218,9 @@ namespace Files.SourceGenerators.Utilities
 		internal static ClassDeclarationSyntax GetClassDeclaration(ISymbol specificType, IList<MemberDeclarationSyntax> members)
 		{
 			for (var i = 0; i < members.Count - 1; i++)
+			{
 				members[i] = members[i].WithTrailingTrivia(SyntaxTrivia(SyntaxKind.EndOfLineTrivia, "\n"));
+			}
 
 			return ClassDeclaration(specificType.Name)
 				.AddModifiers(Token(SyntaxKind.PartialKeyword))
@@ -231,8 +240,7 @@ namespace Files.SourceGenerators.Utilities
 		{
 			return FileScopedNamespaceDeclaration(ParseName(specificClass.ContainingNamespace.ToDisplayString()))
 				.AddMembers(generatedClass)
-				.WithNamespaceKeyword(Token(SyntaxKind.NamespaceKeyword)
-					.WithLeadingTrivia(Trivia(NullableDirectiveTrivia(Token(SyntaxKind.EnableKeyword), true))));
+				.WithNamespaceKeyword(Token(SyntaxKind.NamespaceKeyword) .WithLeadingTrivia(Trivia(NullableDirectiveTrivia(Token(SyntaxKind.EnableKeyword), true))));
 		}
 
 		/// <summary>
@@ -278,17 +286,8 @@ namespace Files.SourceGenerators.Utilities
 		public static TypeSyntax GetTypeSyntax(this ITypeSymbol typeSymbol, bool isNullable)
 		{
 			var typeName = ParseTypeName(typeSymbol.ToDisplayString());
+
 			return isNullable ? NullableType(typeName) : typeName;
-		}
-
-		private static MemberAccessExpressionSyntax GetThisMemberAccessExpression(string name)
-		{
-			return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, ThisExpression(), IdentifierName(name));
-		}
-
-		private static MemberAccessExpressionSyntax GetStaticMemberAccessExpression(this ITypeSymbol typeSymbol, string name)
-		{
-			return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName(typeSymbol.ToDisplayString()), IdentifierName(name));
 		}
 
 		/// <summary>
@@ -303,7 +302,9 @@ namespace Files.SourceGenerators.Utilities
 
 			var sb = new StringBuilder(n * 4);
 			foreach (var c in spaces)
+			{
 				_ = sb.Append(c);
+			}
 
 			return sb.ToString();
 		}
@@ -319,7 +320,9 @@ namespace Files.SourceGenerators.Utilities
 			foreach (var member in typeSymbol.GetMembers())
 			{
 				if (member is not IPropertySymbol { Name: not "EqualityContract" } property)
+				{
 					continue;
+				}
 
 				yield return property;
 			}
@@ -335,19 +338,29 @@ namespace Files.SourceGenerators.Utilities
 		internal static void UseNamespace(this HashSet<string> namespaces, HashSet<ITypeSymbol> usedTypes, INamedTypeSymbol contextType, ITypeSymbol symbol)
 		{
 			if (usedTypes.Contains(symbol))
+			{
 				return;
+			}
 
 			_ = usedTypes.Add(symbol);
 
 			if (symbol.ContainingNamespace is not { } ns)
+			{
 				return;
+			}
 
 			if (!SymbolEqualityComparer.Default.Equals(ns, contextType.ContainingNamespace))
+			{
 				_ = namespaces.Add(ns.ToDisplayString());
+			}
 
 			if (symbol is INamedTypeSymbol { IsGenericType: true } genericSymbol)
+			{
 				foreach (var a in genericSymbol.TypeArguments)
+				{
 					namespaces.UseNamespace(usedTypes, contextType, a);
+				}
+			}
 		}
 
 		/// <summary>
@@ -362,8 +375,21 @@ namespace Files.SourceGenerators.Utilities
 		{
 			var stringBuilder = new StringBuilder().AppendLine("#nullable enable\n");
 			foreach (var s in namespaces)
+			{
 				_ = stringBuilder.AppendLine($"using {s};");
+			}
+
 			return stringBuilder;
+		}
+
+		private static MemberAccessExpressionSyntax GetThisMemberAccessExpression(string name)
+		{
+			return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, ThisExpression(), IdentifierName(name));
+		}
+
+		private static MemberAccessExpressionSyntax GetStaticMemberAccessExpression(this ITypeSymbol typeSymbol, string name)
+		{
+			return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, IdentifierName(typeSymbol.ToDisplayString()), IdentifierName(name));
 		}
 	}
 }

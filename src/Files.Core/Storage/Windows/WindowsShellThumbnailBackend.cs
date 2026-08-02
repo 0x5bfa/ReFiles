@@ -11,8 +11,6 @@ using Windows.Win32.UI.Controls;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 
-using WindowsThumbnailCache = Windows.Win32.UI.Shell.IThumbnailCache;
-
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
@@ -21,17 +19,15 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsShellThumbnailBackend
 {
-	private static readonly Guid ClsidLocalThumbnailCache =
-		new("50EF4544-AC9F-4A8E-B21B-8A26180DB13F");
-	private static readonly Guid ClsidCfsIconOverlayManager =
-		new("63B51F81-C868-11D0-999C-00C04FD655E1");
-
 	private const SIIGBF ThumbnailFlags =
 		SIIGBF.SIIGBF_THUMBNAILONLY | SIIGBF.SIIGBF_BIGGERSIZEOK;
+
 	private const SIIGBF IconFlags =
 		SIIGBF.SIIGBF_ICONONLY | SIIGBF.SIIGBF_BIGGERSIZEOK;
+
 	private const WTS_FLAGS ThumbnailCacheOnlyFlags =
 		WTS_FLAGS.WTS_INCACHEONLY | WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE;
+
 	private const WTS_FLAGS ThumbnailCacheExtractFlags =
 		WTS_FLAGS.WTS_EXTRACT
 		| WTS_FLAGS.WTS_SCALETOREQUESTEDSIZE
@@ -40,23 +36,33 @@ public sealed class WindowsShellThumbnailBackend
 	// IExtractImage flags are not present in the Windows metadata used by
 	// CsWin32, so keep the named values at this interop boundary.
 	private const uint ExtractImageCacheFlag = 0x00000002;
+
 	private const uint ExtractImageQualityFlag = 0x00000200;
+
 	private const uint ExtractIconForShellFlag = 0x00000002;
 
 	// SIOM_* and SHIL_* are SDK macros rather than generated enum members.
 	private const uint OverlayIndexFlag = 0x00000001;
+
 	private const uint IconIndexFlag = 0x00000002;
+
 	private const int ShellImageListLarge = 0;
+
 	private const int ShellImageListSmall = 1;
+
 	private const int ShellImageListExtraLarge = 2;
+
 	private const int ShellImageListJumbo = 4;
+
 	private const int MaximumThumbnailSize = 1024;
 
-	internal unsafe WindowsThumbnailPayload? GetThumbnail(
-		IShellItem shellItem,
-		WindowsItemLocator locator,
-		ThumbnailRequest request,
-		CancellationToken cancellationToken)
+	private static readonly Guid _clsidLocalThumbnailCache =
+		new("50EF4544-AC9F-4A8E-B21B-8A26180DB13F");
+
+	private static readonly Guid _clsidCfsIconOverlayManager =
+		new("63B51F81-C868-11D0-999C-00C04FD655E1");
+
+	internal unsafe WindowsThumbnailPayload? GetThumbnail(IShellItem shellItem, WindowsItemLocator locator, ThumbnailRequest request, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 		ArgumentNullException.ThrowIfNull(locator);
@@ -78,11 +84,7 @@ public sealed class WindowsShellThumbnailBackend
 			: CompleteWithOverlay(payload, locator, requestedSize, cancellationToken);
 	}
 
-	private static WindowsThumbnailPayload? TryGetContent(
-		IShellItem shellItem,
-		WindowsItemLocator locator,
-		int requestedSize,
-		CancellationToken cancellationToken)
+	private static WindowsThumbnailPayload? TryGetContent(IShellItem shellItem, WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
 		var payload = TryGetThumbnailCache(shellItem, requestedSize, ThumbnailCacheOnlyFlags, cancellationToken);
 		if (payload is not null)
@@ -118,11 +120,7 @@ public sealed class WindowsShellThumbnailBackend
 		return TryExtractLegacyThumbnail(locator, requestedSize, cancellationToken);
 	}
 
-	private static WindowsThumbnailPayload? TryGetIcon(
-		IShellItem shellItem,
-		WindowsItemLocator locator,
-		int requestedSize,
-		CancellationToken cancellationToken)
+	private static WindowsThumbnailPayload? TryGetIcon(IShellItem shellItem, WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
 		var imageFactory = TryCreateImageFactory(locator);
 		if (imageFactory is not null)
@@ -159,48 +157,39 @@ public sealed class WindowsShellThumbnailBackend
 		fixed (byte* pidlBytes = locator.AbsolutePidl.Span)
 		{
 			var pidlResult = PInvoke.SHCreateItemFromIDList(in *(ITEMIDLIST*)pidlBytes, out imageFactory);
+
 			return pidlResult.Succeeded ? imageFactory : null;
 		}
 	}
 
-	private static WindowsThumbnailPayload? TryGetThumbnailCache(
-		IShellItem shellItem,
-		int requestedSize,
-		WTS_FLAGS flags,
-		CancellationToken cancellationToken)
+	private static WindowsThumbnailPayload? TryGetThumbnailCache(IShellItem shellItem, int requestedSize, WTS_FLAGS flags, CancellationToken cancellationToken)
 	{
 		if (requestedSize <= 0 || requestedSize > MaximumThumbnailSize)
 		{
 			return null;
 		}
 
-		var createResult = PInvoke.CoCreateInstance(ClsidLocalThumbnailCache, null, CLSCTX.CLSCTX_INPROC_SERVER, out WindowsThumbnailCache thumbnailCache);
+		var createResult = PInvoke.CoCreateInstance(_clsidLocalThumbnailCache, null, CLSCTX.CLSCTX_INPROC_SERVER, out global::Windows.Win32.UI.Shell.IThumbnailCache thumbnailCache);
 		if (createResult.Failed || thumbnailCache is null)
 		{
 			return null;
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
-		var result = UI_Shell_IThumbnailCache_Extensions.GetThumbnail(
-			thumbnailCache,
-			shellItem,
-			(uint)requestedSize,
-			flags,
-			out ISharedBitmap sharedBitmap,
-			out _,
-			out _);
+
+		var result = thumbnailCache.GetThumbnail(shellItem, (uint)requestedSize, flags, out ISharedBitmap sharedBitmap, out _, out _);
 		if (result.Failed || sharedBitmap is null)
 		{
 			return null;
 		}
 
-		var formatResult = UI_Shell_ISharedBitmap_Extensions.GetFormat(sharedBitmap, out var alphaType);
+		var formatResult = sharedBitmap.GetFormat(out var alphaType);
 		if (formatResult.Failed)
 		{
 			return null;
 		}
 
-		var bitmapResult = UI_Shell_ISharedBitmap_Extensions.GetSharedBitmap(sharedBitmap, out var sharedBitmapHandle);
+		var bitmapResult = sharedBitmap.GetSharedBitmap(out var sharedBitmapHandle);
 		using (sharedBitmapHandle)
 		{
 			if (bitmapResult.Failed || sharedBitmapHandle.IsInvalid)
@@ -209,20 +198,17 @@ public sealed class WindowsShellThumbnailBackend
 			}
 
 			var content = WindowsThumbnailRenderer.EncodeHBitmap(sharedBitmapHandle, cancellationToken, alphaType is WTS_ALPHATYPE.WTSAT_RGB);
+
 			return content is null
 				? null
 				: new WindowsThumbnailPayload(content, "image/png", IsFallback: false);
 		}
 	}
 
-	private static WindowsThumbnailPayload? TryGetImage(
-		IShellItemImageFactory imageFactory,
-		int requestedSize,
-		SIIGBF flags,
-		bool isFallback,
-		CancellationToken cancellationToken)
+	private static WindowsThumbnailPayload? TryGetImage(IShellItemImageFactory imageFactory, int requestedSize, SIIGBF flags, bool isFallback, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		var result = imageFactory.GetImage(new SIZE(requestedSize, requestedSize), flags, out var bitmap);
 		using (bitmap)
 		{
@@ -232,16 +218,14 @@ public sealed class WindowsShellThumbnailBackend
 			}
 
 			var content = WindowsThumbnailRenderer.EncodeHBitmap(bitmap, cancellationToken);
+
 			return content is null
 				? null
 				: new WindowsThumbnailPayload(content, "image/png", isFallback);
 		}
 	}
 
-	private static unsafe WindowsThumbnailPayload? TryExtractLegacyThumbnail(
-		WindowsItemLocator locator,
-		int requestedSize,
-		CancellationToken cancellationToken)
+	private static unsafe WindowsThumbnailPayload? TryExtractLegacyThumbnail(WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
 		if (!TryGetShellChildInterface<IExtractImage>(locator, out var extractImage, out var pidl))
 		{
@@ -253,20 +237,15 @@ public sealed class WindowsShellThumbnailBackend
 			Span<char> pathBuffer = stackalloc char[260];
 			var priority = 0U;
 			var flags = ExtractImageCacheFlag | ExtractImageQualityFlag;
-			var locationResult = UI_Shell_IExtractImage_Extensions.GetLocation(
-				extractImage,
-				pathBuffer,
-				ref priority,
-				new SIZE(requestedSize, requestedSize),
-				32,
-				ref flags);
+			var locationResult = extractImage.GetLocation(pathBuffer, ref priority, new SIZE(requestedSize, requestedSize), 32, ref flags);
 			if (locationResult.Failed)
 			{
 				return null;
 			}
 
 			cancellationToken.ThrowIfCancellationRequested();
-			var extractResult = UI_Shell_IExtractImage_Extensions.Extract(extractImage, out var bitmap);
+
+			var extractResult = extractImage.Extract(out var bitmap);
 			using (bitmap)
 			{
 				if (extractResult.Failed || bitmap.IsInvalid)
@@ -275,6 +254,7 @@ public sealed class WindowsShellThumbnailBackend
 				}
 
 				var content = WindowsThumbnailRenderer.EncodeHBitmap(bitmap, cancellationToken);
+
 				return content is null
 					? null
 					: new WindowsThumbnailPayload(content, "image/png", IsFallback: false);
@@ -286,10 +266,7 @@ public sealed class WindowsShellThumbnailBackend
 		}
 	}
 
-	private static unsafe WindowsThumbnailPayload? TryRenderSystemIcon(
-		WindowsItemLocator locator,
-		int requestedSize,
-		CancellationToken cancellationToken)
+	private static unsafe WindowsThumbnailPayload? TryRenderSystemIcon(WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
 		if (!TryGetShellChildInterface<IExtractIconW>(locator, out var extractIcon, out var pidl))
 		{
@@ -299,12 +276,7 @@ public sealed class WindowsShellThumbnailBackend
 		try
 		{
 			Span<char> iconPathBuffer = stackalloc char[260];
-			var locationResult = UI_Shell_IExtractIconW_Extensions.GetIconLocation(
-				extractIcon,
-				ExtractIconForShellFlag,
-				iconPathBuffer,
-				out var iconIndex,
-				out _);
+			var locationResult = extractIcon.GetIconLocation(ExtractIconForShellFlag, iconPathBuffer, out var iconIndex, out _);
 			if (locationResult.Failed)
 			{
 				return null;
@@ -318,13 +290,7 @@ public sealed class WindowsShellThumbnailBackend
 			}
 
 			var packedSize = checked((uint)requestedSize | ((uint)requestedSize << 16));
-			var extractResult = UI_Shell_IExtractIconW_Extensions.Extract(
-				extractIcon,
-				iconPath,
-				unchecked((uint)iconIndex),
-				out var largeIcon,
-				out var smallIcon,
-				packedSize);
+			var extractResult = extractIcon.Extract(iconPath, unchecked((uint)iconIndex), out var largeIcon, out var smallIcon, packedSize);
 			using (largeIcon)
 			using (smallIcon)
 			{
@@ -333,10 +299,7 @@ public sealed class WindowsShellThumbnailBackend
 					return null;
 				}
 
-				if (!largeIcon.IsInvalid
-					&& !smallIcon.IsInvalid
-					&& largeIcon.DangerousGetHandle()
-						== smallIcon.DangerousGetHandle())
+				if (!largeIcon.IsInvalid && !smallIcon.IsInvalid && largeIcon.DangerousGetHandle() == smallIcon.DangerousGetHandle())
 				{
 					smallIcon.SetHandleAsInvalid();
 				}
@@ -350,6 +313,7 @@ public sealed class WindowsShellThumbnailBackend
 				}
 
 				var content = WindowsThumbnailRenderer.EncodeHIcon(icon, requestedSize, cancellationToken);
+
 				return content is null
 					? null
 					: new WindowsThumbnailPayload(content, "image/png", IsFallback: true);
@@ -361,14 +325,9 @@ public sealed class WindowsShellThumbnailBackend
 		}
 	}
 
-	private static unsafe WindowsThumbnailPayload CompleteWithOverlay(
-		WindowsThumbnailPayload payload,
-		WindowsItemLocator locator,
-		int requestedSize,
-		CancellationToken cancellationToken)
+	private static unsafe WindowsThumbnailPayload CompleteWithOverlay(WindowsThumbnailPayload payload, WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
-		if (!TryGetOverlayIcon(locator, requestedSize, out var overlayIcon)
-			|| overlayIcon is null)
+		if (!TryGetOverlayIcon(locator, requestedSize, out var overlayIcon) || overlayIcon is null)
 		{
 			return payload;
 		}
@@ -384,7 +343,7 @@ public sealed class WindowsShellThumbnailBackend
 	private static unsafe bool TryGetOverlayIcon(WindowsItemLocator locator, int requestedSize, out DestroyIconSafeHandle? overlayIcon)
 	{
 		overlayIcon = null;
-		var createResult = PInvoke.CoCreateInstance(ClsidCfsIconOverlayManager, null, CLSCTX.CLSCTX_INPROC_SERVER, out IShellIconOverlayManager manager);
+		var createResult = PInvoke.CoCreateInstance(_clsidCfsIconOverlayManager, null, CLSCTX.CLSCTX_INPROC_SERVER, out IShellIconOverlayManager manager);
 		if (createResult.Failed || manager is null)
 		{
 			return false;
@@ -432,10 +391,12 @@ public sealed class WindowsShellThumbnailBackend
 		if (iconResult.Failed || icon.IsInvalid)
 		{
 			icon.Dispose();
+
 			return false;
 		}
 
 		overlayIcon = icon;
+
 		return true;
 	}
 
@@ -462,20 +423,23 @@ public sealed class WindowsShellThumbnailBackend
 		{
 			PInvoke.CoTaskMemFree(pidl);
 			pidl = null;
+
 			return false;
 		}
 
 		var childArray = childPidl;
 		var resultInterface = typeof(T).GUID;
-		var uiResult = UI_Shell_IShellFolder_Extensions.GetUIObjectOf(folder, default, 1, &childArray, resultInterface, out object interfaceObject);
+		var uiResult = folder.GetUIObjectOf(default, 1, &childArray, resultInterface, out object interfaceObject);
 		if (uiResult.Failed || interfaceObject is not T typedResult)
 		{
 			PInvoke.CoTaskMemFree(pidl);
 			pidl = null;
+
 			return false;
 		}
 
 		result = typedResult;
+
 		return true;
 	}
 }

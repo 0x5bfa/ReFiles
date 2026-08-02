@@ -54,7 +54,9 @@ namespace Files.AxeTests.Helper
 			for (int index = 0; index < 4; index++)
 			{
 				if (ushort.TryParse(parts[index][2..], out var res))
+				{
 					output[index] = res;
+				}
 			}
 
 			return $"x={output[0]},y={output[1]},w={output[2] - output[0]},h={output[3] - output[1]}";

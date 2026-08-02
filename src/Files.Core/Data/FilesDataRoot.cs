@@ -13,10 +13,17 @@ namespace Files.Core.Data;
 /// </summary>
 public sealed class FilesDataRoot : IFilesDataRoot
 {
-	private readonly IReadOnlyDictionary<StorageSourceId, IStorageSource> sourcesById;
-	private readonly object disposalLock = new();
-	private Task? disposeTask;
-	private volatile bool isDisposed;
+	private readonly ReadOnlyDictionary<StorageSourceId, IStorageSource> _sourcesById;
+
+	private readonly Lock _disposalLock = new();
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
+
+	public IReadOnlyList<IStorageSource> Sources { get; }
+
+	public IStorableModelFactory ModelFactory { get; }
 
 	public FilesDataRoot(IEnumerable<IStorageSource> sources, IStorableModelFactory modelFactory)
 	{
@@ -37,20 +44,16 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		}
 
 		Sources = Array.AsReadOnly(sourceList);
-		sourcesById = new ReadOnlyDictionary<StorageSourceId, IStorageSource>(sourceMap);
+		_sourcesById = new ReadOnlyDictionary<StorageSourceId, IStorageSource>(sourceMap);
 		ModelFactory = modelFactory;
 	}
 
-	public IReadOnlyList<IStorageSource> Sources { get; }
-
-	public IStorableModelFactory ModelFactory { get; }
-
 	public IStorageSource GetSource(StorageSourceId sourceId)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(sourceId);
 
-		if (!sourcesById.TryGetValue(sourceId, out var source))
+		if (!_sourcesById.TryGetValue(sourceId, out var source))
 		{
 			throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered.");
 		}
@@ -58,9 +61,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		return source;
 	}
 
-	public async IAsyncEnumerable<IFolderModel> GetRootsAsync(
-		StorageSourceId sourceId,
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IFolderModel> GetRootsAsync(StorageSourceId sourceId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		var source = GetSource(sourceId);
 
@@ -88,28 +89,23 @@ public sealed class FilesDataRoot : IFilesDataRoot
 			throw new ArgumentException($"Storage source '{sourceId}' cannot resolve address scheme '{address.Scheme}'.", nameof(address));
 		}
 
-		var coreModel = await source
-			.ResolveAsync(address, cancellationToken)
-			.ConfigureAwait(false);
+		var coreModel = await source.ResolveAsync(address, cancellationToken).ConfigureAwait(false);
+
 		return ModelFactory.Create(source, coreModel);
 	}
 
 	public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(address);
 
-		var candidates = Sources
-			.Where(source => source.CanResolve(address))
-			.Take(2)
-			.ToArray();
+		var candidates = Sources.Where(source => source.CanResolve(address)).Take(2).ToArray();
 
 		return candidates.Length switch
 		{
 			0 => ValueTask.FromException<IStorableModel>(new KeyNotFoundException($"No storage source can resolve address scheme '{address.Scheme}'.")),
 			1 => ResolveAsync(candidates[0].SourceId, address, cancellationToken),
-			_ => ValueTask.FromException<IStorableModel>(
-				new InvalidOperationException($"More than one storage source can resolve address scheme '{address.Scheme}'. Specify a source ID.")),
+			_ => ValueTask.FromException<IStorableModel>(new InvalidOperationException($"More than one storage source can resolve address scheme '{address.Scheme}'. Specify a source ID.")),
 		};
 	}
 
@@ -119,21 +115,23 @@ public sealed class FilesDataRoot : IFilesDataRoot
 
 		var source = GetSource(reference.SourceId);
 		var coreModel = await source.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+
 		return ModelFactory.Create(source, coreModel);
 	}
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			disposeTask = DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 

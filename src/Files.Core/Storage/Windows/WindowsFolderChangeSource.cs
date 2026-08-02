@@ -10,59 +10,64 @@ namespace Files.Core.Storage.Windows;
 
 internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 {
-	private readonly WindowsStorageSource source;
-	private readonly WindowsItemLocator folderLocator;
-	private readonly CancellationTokenSource lifetime = new();
-	private readonly SemaphoreSlim lifecycleGate = new(1, 1);
-	private readonly object disposeSync = new();
-	private WindowsShellChangeWatcher.WindowsShellChangeSubscription? subscription;
-	private Task? pumpTask;
-	private Task? disposeTask;
-	private int isStarted;
-	private int isDisposed;
+	private readonly WindowsStorageSource _source;
+
+	private readonly WindowsItemLocator _folderLocator;
+
+	private readonly CancellationTokenSource _lifetime = new();
+
+	private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+
+	private readonly Lock _disposeSync = new();
+
+	private WindowsShellChangeWatcher.WindowsShellChangeSubscription? _subscription;
+
+	private Task? _pumpTask;
+
+	private Task? _disposeTask;
+
+	private int _isStarted;
+
+	private int _isDisposed;
+
+	public event EventHandler<FolderChangeEventArgs>? Changed;
+
+	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
 	public WindowsFolderChangeSource(WindowsStorageSource source, WindowsItemLocator folderLocator)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(folderLocator);
 
-		this.source = source;
-		this.folderLocator = folderLocator;
+		_source = source;
+		_folderLocator = folderLocator;
 	}
-
-	public event EventHandler<FolderChangeEventArgs>? Changed;
-
-	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
 	public async ValueTask StartAsync(CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		await lifecycleGate
-			.WaitAsync(cancellationToken)
-			.ConfigureAwait(false);
+		await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
 		try
 		{
-			ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+			ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-			if (Volatile.Read(ref isStarted) != 0)
+			if (Volatile.Read(ref _isStarted) != 0)
 			{
 				return;
 			}
 
-			using var linkedCancellation =
-				CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-			var newSubscription = await source.ChangeWatcher
-				.SubscribeAsync(folderLocator, recursive: false, linkedCancellation.Token)
-				.ConfigureAwait(false);
+			using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+			var newSubscription = await _source.ChangeWatcher.SubscribeAsync(_folderLocator, recursive: false, linkedCancellation.Token).ConfigureAwait(false);
 
 			try
 			{
-				ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
-				subscription = newSubscription;
-				Volatile.Write(ref isStarted, 1);
-				pumpTask = PumpAsync(newSubscription, lifetime.Token);
+				ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+				_subscription = newSubscription;
+				Volatile.Write(ref _isStarted, 1);
+				_pumpTask = PumpAsync(newSubscription, _lifetime.Token);
 			}
 			catch (Exception startError)
 			{
@@ -80,27 +85,27 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		}
 		finally
 		{
-			lifecycleGate.Release();
+			_lifecycleGate.Release();
 		}
 	}
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) != 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
 		{
 			return;
 		}
 
-		lifetime.Cancel();
+		_lifetime.Cancel();
 		_ = ObserveDisposeAsync(GetDisposeTask());
 		GC.SuppressFinalize(this);
 	}
 
 	public ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) == 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
 		{
-			lifetime.Cancel();
+			_lifetime.Cancel();
 		}
 
 		return new ValueTask(GetDisposeTask());
@@ -110,14 +115,11 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 	{
 		try
 		{
-			while (await changeSubscription
-				.WaitToReadAsync(cancellationToken)
-				.ConfigureAwait(false))
+			while (await changeSubscription .WaitToReadAsync(cancellationToken) .ConfigureAwait(false))
 			{
 				while (changeSubscription.TryRead(out var change))
 				{
-					var converted = await ConvertAsync(change, cancellationToken)
-						.ConfigureAwait(false);
+					var converted = await ConvertAsync(change, cancellationToken).ConfigureAwait(false);
 					Publish(converted);
 				}
 			}
@@ -139,18 +141,12 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 
 		if (kind is FolderChangeKind.Renamed)
 		{
-			first = await source
-				.TryCreateFromAbsolutePidlAsync(change.FirstAbsolutePidl, cancellationToken)
-				.ConfigureAwait(false);
-			second = await source
-				.TryCreateFromAbsolutePidlAsync(change.SecondAbsolutePidl, cancellationToken)
-				.ConfigureAwait(false);
+			first = await _source.TryCreateFromAbsolutePidlAsync(change.FirstAbsolutePidl, cancellationToken).ConfigureAwait(false);
+			second = await _source.TryCreateFromAbsolutePidlAsync(change.SecondAbsolutePidl, cancellationToken).ConfigureAwait(false);
 		}
 		else if (kind is not FolderChangeKind.DirectoryUpdated)
 		{
-			first = await source
-				.TryCreateFromAbsolutePidlAsync(change.FirstAbsolutePidl, cancellationToken)
-				.ConfigureAwait(false);
+			first = await _source.TryCreateFromAbsolutePidlAsync(change.FirstAbsolutePidl, cancellationToken).ConfigureAwait(false);
 		}
 
 		var currentItem = kind is FolderChangeKind.Deleted
@@ -160,14 +156,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 			? CreateReference(first)
 			: null;
 
-		return new FolderChange(
-			kind,
-			currentItem,
-			previousItem,
-			kind is FolderChangeKind.DirectoryUpdated
-				|| (kind is FolderChangeKind.Renamed
-					? first is null || second is null
-					: first is null));
+		return new FolderChange(kind, currentItem, previousItem, kind is FolderChangeKind.DirectoryUpdated || (kind is FolderChangeKind.Renamed ? first is null || second is null : first is null));
 	}
 
 	private void Publish(FolderChange change)
@@ -198,6 +187,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		if (handlers is null)
 		{
 			Trace.TraceError(error.ToString());
+
 			return;
 		}
 
@@ -219,7 +209,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 	{
 		return storable is null
 			? null
-			: new StorableReference(source.SourceId, storable.Id, storable.Address);
+			: new StorableReference(_source.SourceId, storable.Id, storable.Address);
 	}
 
 	private static FolderChangeKind GetKind(SHCNE_ID eventId)
@@ -253,17 +243,17 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		Task? currentPump;
 		var errors = new List<Exception>();
 
-		await lifecycleGate.WaitAsync().ConfigureAwait(false);
+		await _lifecycleGate.WaitAsync().ConfigureAwait(false);
 		try
 		{
-			currentSubscription = subscription;
-			currentPump = pumpTask;
-			subscription = null;
-			pumpTask = null;
+			currentSubscription = _subscription;
+			currentPump = _pumpTask;
+			_subscription = null;
+			_pumpTask = null;
 		}
 		finally
 		{
-			lifecycleGate.Release();
+			_lifecycleGate.Release();
 		}
 
 		if (currentPump is not null)
@@ -290,8 +280,9 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 			}
 		}
 
-		lifetime.Dispose();
+		_lifetime.Dispose();
 		GC.SuppressFinalize(this);
+
 		if (errors.Count is 1)
 		{
 			throw errors[0];
@@ -305,9 +296,9 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 
 	private Task GetDisposeTask()
 	{
-		lock (disposeSync)
+		lock (_disposeSync)
 		{
-			return disposeTask ??= DisposeAsyncCore();
+			return _disposeTask ??= DisposeAsyncCore();
 		}
 	}
 

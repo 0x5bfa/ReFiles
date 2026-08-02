@@ -10,8 +10,5 @@ public interface IStorageOperationHandler
 {
 	bool CanHandle(StorageOperationRequest request);
 
-	ValueTask<StorageOperationResult> ExecuteAsync(
-		StorageOperationRequest request,
-		IProgress<StorageOperationProgress>? progress = null,
-		CancellationToken cancellationToken = default);
+	ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default);
 }

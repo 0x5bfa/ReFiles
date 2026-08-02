@@ -9,17 +9,19 @@ namespace Files.Core.ItemFeatures;
 public sealed class DelegateItemFeatureFactory<TFeature> : IItemFeatureFactory<TFeature>
 	where TFeature : class
 {
-	private readonly Func<ItemContext, TFeature?> factory;
+	private readonly Func<ItemContext, TFeature?> _factory;
 
 	public DelegateItemFeatureFactory(Func<ItemContext, TFeature?> factory)
 	{
 		ArgumentNullException.ThrowIfNull(factory);
-		this.factory = factory;
+
+		_factory = factory;
 	}
 
 	public TFeature? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
-		return factory(context);
+
+		return _factory(context);
 	}
 }

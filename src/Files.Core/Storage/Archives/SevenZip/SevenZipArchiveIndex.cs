@@ -9,19 +9,15 @@ namespace Files.Core.Storage.Archives.SevenZip;
 internal sealed class SevenZipArchiveIndex
 {
 	private const string NamelessEntryPlaceholder = "[no name]";
-	private readonly IReadOnlyDictionary<string, SevenZipArchiveNode> nodes;
+	private readonly IReadOnlyDictionary<string, SevenZipArchiveNode> _nodes;
 	private readonly IReadOnlyDictionary<
 		string,
-		IReadOnlyList<SevenZipArchiveNode>> children;
+		IReadOnlyList<SevenZipArchiveNode>> _children;
 
-	private SevenZipArchiveIndex(
-		IReadOnlyDictionary<string, SevenZipArchiveNode> nodes,
-		IReadOnlyDictionary<
-			string,
-			IReadOnlyList<SevenZipArchiveNode>> children)
+	private SevenZipArchiveIndex(IReadOnlyDictionary<string, SevenZipArchiveNode> nodes, IReadOnlyDictionary< string, IReadOnlyList<SevenZipArchiveNode>> children)
 	{
-		this.nodes = nodes;
-		this.children = children;
+		_nodes = nodes;
+		_children = children;
 	}
 
 	public static SevenZipArchiveIndex Create(IEnumerable<ArchiveFileInfo> entries, string rootName)
@@ -38,8 +34,7 @@ internal sealed class SevenZipArchiveIndex
 		foreach (var entry in entries)
 		{
 			var rawPath = GetEntryName(entry, rootName);
-			if (!ArchiveEntryPath.TryNormalize(rawPath, out var entryPath)
-				|| string.IsNullOrEmpty(entryPath))
+			if (!ArchiveEntryPath.TryNormalize(rawPath, out var entryPath) || string.IsNullOrEmpty(entryPath))
 			{
 				continue;
 			}
@@ -49,12 +44,7 @@ internal sealed class SevenZipArchiveIndex
 			var isDirectory = entry.IsDirectory
 				|| rawPath.EndsWith('/')
 				|| rawPath.EndsWith('\\');
-			mutableNodes[entryPath] = new SevenZipArchiveNode(
-				entryPath,
-				ArchiveEntryPath.GetName(entryPath),
-				isDirectory,
-				isDirectory ? null : entry.Index,
-				entry.Size);
+			mutableNodes[entryPath] = new SevenZipArchiveNode(entryPath, ArchiveEntryPath.GetName(entryPath), isDirectory, isDirectory ? null : entry.Index, entry.Size);
 		}
 
 		PromoteParentsToFolders(mutableNodes);
@@ -82,10 +72,7 @@ internal sealed class SevenZipArchiveIndex
 			static pair => pair.Key,
 			static pair =>
 				(IReadOnlyList<SevenZipArchiveNode>)Array.AsReadOnly(
-					pair.Value
-						.OrderByDescending(static node => node.IsDirectory)
-						.ThenBy(static node => node.Name, StringComparer.OrdinalIgnoreCase)
-						.ThenBy(static node => node.Name, StringComparer.Ordinal)
+					pair.Value.OrderByDescending(static node => node.IsDirectory).ThenBy(static node => node.Name, StringComparer.OrdinalIgnoreCase).ThenBy(static node => node.Name, StringComparer.Ordinal)
 						.ToArray()),
 			StringComparer.Ordinal);
 
@@ -95,7 +82,8 @@ internal sealed class SevenZipArchiveIndex
 	public SevenZipArchiveNode GetNode(string entryPath)
 	{
 		var normalizedPath = ArchiveEntryPath.Normalize(entryPath);
-		return nodes.TryGetValue(normalizedPath, out var node)
+
+		return _nodes.TryGetValue(normalizedPath, out var node)
 			? node
 			: throw new FileNotFoundException($"Archive entry '{normalizedPath}' was not found.", normalizedPath);
 	}
@@ -103,18 +91,15 @@ internal sealed class SevenZipArchiveIndex
 	public IReadOnlyList<SevenZipArchiveNode> GetChildren(string entryPath)
 	{
 		var normalizedPath = ArchiveEntryPath.Normalize(entryPath);
-		return children.TryGetValue(normalizedPath, out var childNodes)
+
+		return _children.TryGetValue(normalizedPath, out var childNodes)
 			? childNodes
 			: [];
 	}
 
 	private static void PromoteParentsToFolders(IDictionary<string, SevenZipArchiveNode> nodes)
 	{
-		var parentPaths = nodes.Keys
-			.Select(ArchiveEntryPath.GetParent)
-			.Where(static path => !string.IsNullOrEmpty(path))
-			.Distinct(StringComparer.Ordinal)
-			.ToArray();
+		var parentPaths = nodes.Keys.Select(ArchiveEntryPath.GetParent).Where(static path => !string.IsNullOrEmpty(path)).Distinct(StringComparer.Ordinal).ToArray();
 		foreach (var parentPath in parentPaths)
 		{
 			nodes[parentPath] = new SevenZipArchiveNode(parentPath, ArchiveEntryPath.GetName(parentPath), IsDirectory: true, EntryIndex: null, Size: 0);
@@ -133,13 +118,13 @@ internal sealed class SevenZipArchiveIndex
 
 	private static string GetEntryName(ArchiveFileInfo entry, string rootName)
 	{
-		if (!string.IsNullOrEmpty(entry.FileName)
-			&& !entry.FileName.Equals(NamelessEntryPlaceholder, StringComparison.Ordinal))
+		if (!string.IsNullOrEmpty(entry.FileName) && !entry.FileName.Equals(NamelessEntryPlaceholder, StringComparison.Ordinal))
 		{
 			return entry.FileName;
 		}
 
 		var fallback = Path.GetFileNameWithoutExtension(rootName);
+
 		return string.IsNullOrWhiteSpace(fallback)
 			? NamelessEntryPlaceholder
 			: fallback;

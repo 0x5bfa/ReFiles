@@ -10,36 +10,9 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public sealed class StreamPreviewResult : PreviewResult
 {
-	private Stream? content;
+	private Stream? _content;
 
-	public StreamPreviewResult(Stream content, string contentType, long? contentLength = null, string? suggestedFileName = null)
-	{
-		ArgumentNullException.ThrowIfNull(content);
-		if (!content.CanRead)
-		{
-			throw new ArgumentException("The preview stream must be readable.", nameof(content));
-		}
-
-		ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
-		if (contentLength is not null)
-		{
-			ArgumentOutOfRangeException.ThrowIfNegative(contentLength.Value);
-		}
-
-		if (suggestedFileName is not null)
-		{
-			ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
-		}
-
-		this.content = content;
-		ContentType = contentType;
-		ContentLength = contentLength;
-		SuggestedFileName = suggestedFileName;
-	}
-
-	public Stream Content =>
-		Volatile.Read(ref content)
-		?? throw new ObjectDisposedException(nameof(StreamPreviewResult));
+	public Stream Content => Volatile.Read(ref _content) ?? throw new ObjectDisposedException(nameof(StreamPreviewResult));
 
 	public string ContentType { get; }
 
@@ -47,9 +20,38 @@ public sealed class StreamPreviewResult : PreviewResult
 
 	public string? SuggestedFileName { get; }
 
+	public StreamPreviewResult(Stream content, string contentType, long? contentLength = null, string? suggestedFileName = null)
+	{
+		ArgumentNullException.ThrowIfNull(content);
+
+		if (!content.CanRead)
+		{
+			throw new ArgumentException("The preview stream must be readable.", nameof(content));
+		}
+
+		ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+
+		if (contentLength is not null)
+		{
+			ArgumentOutOfRangeException.ThrowIfNegative(contentLength.Value);
+
+		}
+
+		if (suggestedFileName is not null)
+		{
+			ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
+
+		}
+
+		_content = content;
+		ContentType = contentType;
+		ContentLength = contentLength;
+		SuggestedFileName = suggestedFileName;
+	}
+
 	public override async ValueTask DisposeAsync()
 	{
-		var stream = Interlocked.Exchange(ref content, null);
+		var stream = Interlocked.Exchange(ref _content, null);
 		if (stream is not null)
 		{
 			await stream.DisposeAsync().ConfigureAwait(false);

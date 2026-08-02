@@ -13,10 +13,17 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver
 {
-	private readonly FolderLocation location;
-	private readonly IFolderModel folderModel;
-	private readonly IFilesDataRoot dataRoot;
-	private int isDisposed;
+	private readonly FolderLocation _location;
+
+	private readonly IFolderModel _folderModel;
+
+	private readonly IFilesDataRoot _dataRoot;
+
+	private int _isDisposed;
+
+	public BrowseLocation Location => _location;
+
+	public IStorableModel LocationModel => _folderModel;
 
 	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IFilesDataRoot dataRoot)
 	{
@@ -24,20 +31,16 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		ArgumentNullException.ThrowIfNull(folderModel);
 		ArgumentNullException.ThrowIfNull(dataRoot);
 
-		this.location = location;
-		this.folderModel = folderModel;
-		this.dataRoot = dataRoot;
+		_location = location;
+		_folderModel = folderModel;
+		_dataRoot = dataRoot;
 	}
-
-	public BrowseLocation Location => location;
-
-	public IStorableModel LocationModel => folderModel;
 
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		await foreach (var item in folderModel.GetItemsAsync(cancellationToken: cancellationToken).ConfigureAwait(false))
+		await foreach (var item in _folderModel.GetItemsAsync(cancellationToken: cancellationToken).ConfigureAwait(false))
 		{
 			yield return item;
 		}
@@ -45,17 +48,17 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
-		return dataRoot.ResolveAsync(reference, cancellationToken);
+		return _dataRoot.ResolveAsync(reference, cancellationToken);
 	}
 
 	public async ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) == 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
 		{
-			await folderModel.DisposeAsync().ConfigureAwait(false);
+			await _folderModel.DisposeAsync().ConfigureAwait(false);
 		}
 
 		GC.SuppressFinalize(this);

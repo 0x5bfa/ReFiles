@@ -91,16 +91,6 @@ namespace Files.SourceGenerators
 			internal const string ConstantNameProperty = nameof(ConstantNameProperty);
 
 			/// <summary>
-			/// A collection of method names that are considered localized methods.
-			/// These methods are used to identify string literals that can be replaced with constants from the Strings class.
-			/// </summary>
-			internal static HashSet<string> LocalizedMethodNames = [
-				"GetLocalized",
-				/* TODO: Future use only this */ "ToLocalized",
-				/* TODO: Rewrite with ToLocalized */ "GetLocalizedResource",
-				/* TODO: Rewrite with ToLocalized */ "GetLocalizedFormatResource"];
-
-			/// <summary>
 			/// The title of the code fix provider that suggests replacing string literals with constants from the Strings class.
 			/// </summary>
 			internal const string CodeFixProviderTitle = $"Replace with constant from {StringsClassName}";
@@ -109,6 +99,16 @@ namespace Files.SourceGenerators
 			/// Represents a character used as a separator in constant names.
 			/// </summary>
 			internal const char ConstantSeparator = '/';
+
+			/// <summary>
+			/// A collection of method names that are considered localized methods.
+			/// These methods are used to identify string literals that can be replaced with constants from the Strings class.
+			/// </summary>
+			internal static HashSet<string> LocalizedMethodNames = [
+				"GetLocalized",
+				/* TODO: Future use only this */ "ToLocalized",
+				/* TODO: Rewrite with ToLocalized */ "GetLocalizedResource",
+				/* TODO: Rewrite with ToLocalized */ "GetLocalizedFormatResource"];
 		}
 	}
 }

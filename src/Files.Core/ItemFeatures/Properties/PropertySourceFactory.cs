@@ -11,45 +11,42 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public sealed class PropertySourceFactory : IItemFeatureFactory<IPropertySource>
 {
-	private readonly IPropertyReader reader;
+	private readonly IPropertyReader _reader;
 
 	public PropertySourceFactory(IPropertyReader reader)
 	{
 		ArgumentNullException.ThrowIfNull(reader);
-		this.reader = reader;
+
+		_reader = reader;
 	}
 
 	public IPropertySource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
-		return reader.CanRead(context)
-			? new BoundPropertySource(reader, context)
+		return _reader.CanRead(context)
+			? new BoundPropertySource(_reader, context)
 			: null;
 	}
 
 	private sealed class BoundPropertySource : IPropertySource
 	{
-		private readonly IPropertyReader reader;
-		private readonly ItemContext context;
+		private readonly IPropertyReader _reader;
+		private readonly ItemContext _context;
 
 		public BoundPropertySource(IPropertyReader reader, ItemContext context)
 		{
-			this.reader = reader;
-			this.context = context;
+			_reader = reader;
+			_context = context;
 		}
 
-		public async ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(
-			PropertyRequest request,
-			CancellationToken cancellationToken = default)
+		public async ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
-			var result = await reader
-				.GetPropertiesAsync(request, [context], cancellationToken)
-				.ConfigureAwait(false);
+			var result = await _reader.GetPropertiesAsync(request, [_context], cancellationToken).ConfigureAwait(false);
 
-			return result.TryGetValue(context.Reference, out var properties)
+			return result.TryGetValue(_context.Reference, out var properties)
 				? properties
 				: EmptyProperties.Instance;
 		}

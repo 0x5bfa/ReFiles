@@ -17,10 +17,8 @@ namespace Files.Core.Composition;
 [SupportedOSPlatform("windows6.0.6000")]
 public static class WindowsFilesCoreBuilderExtensions
 {
-	private const string WindowsItemFeaturesModule =
-		"Files.Core.Windows.ItemFeatures";
-	private const string WindowsShellPreviewsModule =
-		"Files.Core.Previews.WindowsShell";
+	private const string WindowsItemFeaturesModule = "Files.Core.Windows.ItemFeatures";
+	private const string WindowsShellPreviewsModule = "Files.Core.Previews.WindowsShell";
 
 	public static FilesCoreBuilder AddWindowsStorage(
 		this FilesCoreBuilder builder,
@@ -34,22 +32,16 @@ public static class WindowsFilesCoreBuilderExtensions
 		ArgumentNullException.ThrowIfNull(builder);
 
 		var windowsSource = source ?? new WindowsStorageSource();
+
 		try
 		{
-			builder
-				.AddStorageSource(windowsSource)
-				.AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
+			builder.AddStorageSource(windowsSource).AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
 		}
-		catch (Exception registrationError)
-			when (source is null)
+		catch (Exception registrationError) when (source is null)
 		{
 			try
 			{
-				windowsSource
-					.DisposeAsync()
-					.AsTask()
-					.GetAwaiter()
-					.GetResult();
+				windowsSource.DisposeAsync().AsTask().GetAwaiter().GetResult();
 			}
 			catch (Exception cleanupError)
 			{

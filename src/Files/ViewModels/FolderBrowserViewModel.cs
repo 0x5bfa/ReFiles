@@ -23,18 +23,14 @@ public enum FolderViewMode
 public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 {
 	private readonly CoreBrowseAdapter browseAdapter;
-	private string? operationError;
-	private bool isApplyingUpdate;
-	private int isDisposed;
-	private FolderViewMode viewMode = FolderViewMode.Details;
 
-	public FolderBrowserViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
-	{
-		ArgumentNullException.ThrowIfNull(commandManager);
-		CommandManager = commandManager;
-		browseAdapter = new CoreBrowseAdapter(pane, dataRoot, dispatcher);
-		browseAdapter.Updated += BrowseAdapter_Updated;
-	}
+	private string? operationError;
+
+	private bool isApplyingUpdate;
+
+	private int isDisposed;
+
+	private FolderViewMode viewMode = FolderViewMode.Details;
 
 	internal WindowCommandManager CommandManager { get; }
 
@@ -66,6 +62,15 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		operationError
 		?? browseAdapter.ErrorMessage
 		?? browseAdapter.StatusText;
+
+	public FolderBrowserViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	{
+		ArgumentNullException.ThrowIfNull(commandManager);
+
+		CommandManager = commandManager;
+		browseAdapter = new CoreBrowseAdapter(pane, dataRoot, dispatcher);
+		browseAdapter.Updated += BrowseAdapter_Updated;
+	}
 
 	public Task InitializeAsync(CancellationToken cancellationToken = default) =>
 		browseAdapter.InitializeAsync(cancellationToken);
@@ -113,6 +118,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
+
 		operationError = exception.Message;
 		OnPropertyChanged(nameof(StatusText));
 	}

@@ -14,13 +14,7 @@ namespace Files.Controls
 		{
 			Type type = typeof(UIElement);
 
-			type.InvokeMember(
-				"ProtectedCursor",
-				BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetProperty | BindingFlags.Instance,
-				null,
-				uiElement,
-				[cursor]
-			);
+			type.InvokeMember("ProtectedCursor", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetProperty | BindingFlags.Instance, null, uiElement, [cursor]);
 		}
 
 		[Conditional("OMNIBAR_DEBUG")]

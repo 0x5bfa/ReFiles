@@ -10,69 +10,74 @@ namespace Files.Core.AppModels;
 /// </summary>
 public sealed class FilesApplicationModel : IAsyncDisposable
 {
-	private readonly IBrowsePaneFactory paneFactory;
-	private readonly object syncRoot = new();
-	private readonly object disposalLock = new();
-	private readonly SemaphoreSlim mutationLock = new(1, 1);
-	private readonly CancellationTokenSource lifetime = new();
-	private readonly List<WindowModel> windows = [];
-	private IReadOnlyList<WindowModel> windowSnapshot =
-		Array.Empty<WindowModel>();
-	private Guid activeWindowId;
-	private Task? disposeTask;
-	private volatile bool isDisposed;
+	private readonly IBrowsePaneFactory _paneFactory;
 
-	public FilesApplicationModel(IBrowsePaneFactory paneFactory)
-	{
-		ArgumentNullException.ThrowIfNull(paneFactory);
-		this.paneFactory = paneFactory;
-	}
+	private readonly Lock _syncRoot = new();
 
-	public IReadOnlyList<WindowModel> Windows =>
-		Volatile.Read(ref windowSnapshot);
+	private readonly Lock _disposalLock = new();
+
+	private readonly SemaphoreSlim _mutationLock = new(1, 1);
+
+	private readonly CancellationTokenSource _lifetime = new();
+
+	private readonly List<WindowModel> _windows = [];
+
+	private IReadOnlyList<WindowModel> _windowSnapshot = [];
+
+	private Guid _activeWindowId;
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
+
+	public IReadOnlyList<WindowModel> Windows => Volatile.Read(ref _windowSnapshot);
 
 	public WindowModel? ActiveWindow
 	{
 		get
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				return windows.FirstOrDefault(window => window.Id == activeWindowId);
+				return _windows.FirstOrDefault(window => window.Id == _activeWindowId);
 			}
 		}
 	}
 
 	public event EventHandler? StateChanged;
 
+	public FilesApplicationModel(IBrowsePaneFactory paneFactory)
+	{
+		ArgumentNullException.ThrowIfNull(paneFactory);
+
+		_paneFactory = paneFactory;
+	}
+
 	public async ValueTask<WindowModel> CreateWindowAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await mutationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		WindowModel? window = null;
+
 		try
 		{
 			EnsureActive();
-			window = new WindowModel(paneFactory);
-			await window
-				.OpenTabAsync(initialLocation, linkedCancellation.Token)
-				.ConfigureAwait(false);
+			window = new WindowModel(_paneFactory);
+			await window.OpenTabAsync(initialLocation, linkedCancellation.Token).ConfigureAwait(false);
 
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
 				EnsureActive();
-				windows.Add(window);
+				_windows.Add(window);
 				window.StateChanged += OnWindowStateChanged;
-				activeWindowId = window.Id;
+				_activeWindowId = window.Id;
 				UpdateSnapshot();
 			}
 
 			var result = window;
 			window = null;
 			ModelEvent.Raise(this, StateChanged);
+
 			return result;
 		}
 		catch (Exception creationError)
@@ -95,7 +100,7 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 		}
 	}
 
@@ -106,32 +111,30 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 			throw new ArgumentException("A window ID is required.", nameof(windowId));
 		}
 
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await mutationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		WindowModel? removed = null;
 		try
 		{
 			EnsureActive();
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				var index = windows.FindIndex(window => window.Id == windowId);
+				var index = _windows.FindIndex(window => window.Id == windowId);
 				if (index < 0)
 				{
 					return false;
 				}
 
-				removed = windows[index];
-				windows.RemoveAt(index);
+				removed = _windows[index];
+				_windows.RemoveAt(index);
 				removed.StateChanged -= OnWindowStateChanged;
-				if (activeWindowId == windowId)
+
+				if (_activeWindowId == windowId)
 				{
-					activeWindowId = windows.Count is 0
+					_activeWindowId = _windows.Count is 0
 						? Guid.Empty
-						: windows[Math.Min(index, windows.Count - 1)].Id;
+						: _windows[Math.Min(index, _windows.Count - 1)].Id;
 				}
 
 				UpdateSnapshot();
@@ -141,11 +144,13 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 			var ownedWindow = removed!;
 			removed = null;
 			await ownedWindow.DisposeAsync().ConfigureAwait(false);
+
 			return true;
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
+
 			if (removed is not null)
 			{
 				await removed.DisposeAsync().ConfigureAwait(false);
@@ -161,17 +166,19 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		}
 
 		var changed = false;
-		lock (syncRoot)
+
+		lock (_syncRoot)
 		{
 			EnsureActive();
-			if (!windows.Any(window => window.Id == windowId))
+
+			if (!_windows.Any(window => window.Id == windowId))
 			{
 				return false;
 			}
 
-			if (activeWindowId != windowId)
+			if (_activeWindowId != windowId)
 			{
-				activeWindowId = windowId;
+				_activeWindowId = windowId;
 				changed = true;
 			}
 		}
@@ -186,42 +193,43 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			lifetime.Cancel();
-			disposeTask = DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_lifetime.Cancel();
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
 	private async Task DisposeCoreAsync()
 	{
-		await mutationLock.WaitAsync().ConfigureAwait(false);
+		await _mutationLock.WaitAsync().ConfigureAwait(false);
 		WindowModel[] ownedWindows;
 		try
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				ownedWindows = windows.ToArray();
+				ownedWindows = [.. _windows];
 				foreach (var window in ownedWindows)
 				{
 					window.StateChanged -= OnWindowStateChanged;
 				}
 
-				windows.Clear();
-				activeWindowId = Guid.Empty;
+				_windows.Clear();
+				_activeWindowId = Guid.Empty;
 				UpdateSnapshot();
 			}
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 		}
 
 		List<Exception>? errors = null;
@@ -237,8 +245,8 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 			}
 		}
 
-		mutationLock.Dispose();
-		lifetime.Dispose();
+		_mutationLock.Dispose();
+		_lifetime.Dispose();
 		GC.SuppressFinalize(this);
 
 		if (errors is { Count: 1 })
@@ -254,12 +262,13 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(ref windowSnapshot, Array.AsReadOnly(windows.ToArray()));
+		Volatile.Write(ref _windowSnapshot, Array.AsReadOnly(_windows.ToArray()));
 	}
 
 	private void EnsureActive()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 	}
 
 	private void OnWindowStateChanged(object? sender, EventArgs args)

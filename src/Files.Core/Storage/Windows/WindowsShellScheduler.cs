@@ -24,13 +24,13 @@ namespace Files.Core.Storage.Windows;
 public sealed class WindowsShellScheduler : IWindowsShellScheduler
 {
 	[ThreadStatic]
-	private static MessagePumpedStaScheduler? activeScheduler;
+	private static MessagePumpedStaScheduler? _activeScheduler;
 
-	private readonly object syncRoot = new();
-	private readonly MessagePumpedStaScheduler orderedScheduler;
-	private readonly MessagePumpedStaScheduler concurrentScheduler;
-	private readonly MessagePumpedStaScheduler operationScheduler;
-	private Task? disposeTask;
+	private readonly Lock _syncRoot = new();
+	private readonly MessagePumpedStaScheduler _orderedScheduler;
+	private readonly MessagePumpedStaScheduler _concurrentScheduler;
+	private readonly MessagePumpedStaScheduler _operationScheduler;
+	private Task? _disposeTask;
 
 	public WindowsShellScheduler(int? concurrentWorkerCount = null)
 	{
@@ -38,41 +38,39 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			?? Math.Min(Math.Max(Environment.ProcessorCount, 2), 4);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workerCount);
 
-		orderedScheduler = new MessagePumpedStaScheduler("Files Windows Shell STA", workerCount: 1);
-		concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount);
-		operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1);
+		_orderedScheduler = new MessagePumpedStaScheduler("Files Windows Shell STA", workerCount: 1);
+		_concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount);
+		_operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1);
 	}
 
 	public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
-		return orderedScheduler.InvokeAsync(action, cancellationToken);
+		return _orderedScheduler.InvokeAsync(action, cancellationToken);
 	}
 
 	public Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
-		return concurrentScheduler.InvokeAsync(action, cancellationToken);
+		return _concurrentScheduler.InvokeAsync(action, cancellationToken);
 	}
 
 	public Task<T> InvokeOperationAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
-		return operationScheduler.InvokeAsync(action, cancellationToken);
+		return _operationScheduler.InvokeAsync(action, cancellationToken);
 	}
 
 	public ValueTask DisposeAsync()
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			disposeTask ??= DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_disposeTask ??= DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
 	private async Task DisposeCoreAsync()
 	{
-		await Task.WhenAll(
-			orderedScheduler.DisposeAsync().AsTask(),
-			concurrentScheduler.DisposeAsync().AsTask(),
-			operationScheduler.DisposeAsync().AsTask()).ConfigureAwait(false);
+		await Task.WhenAll(_orderedScheduler.DisposeAsync().AsTask(), _concurrentScheduler.DisposeAsync().AsTask(), _operationScheduler.DisposeAsync().AsTask()).ConfigureAwait(false);
 
 		GC.SuppressFinalize(this);
 	}
@@ -86,23 +84,23 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 	private sealed class MessagePumpedStaScheduler : IAsyncDisposable
 	{
-		private readonly object stateLock = new();
-		private readonly ConcurrentQueue<WorkItem> workItems = [];
-		private readonly Semaphore workAvailable = new(0, int.MaxValue);
-		private readonly TaskCompletionSource<bool> stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
-		private readonly int workerCount;
-		private int remainingWorkers;
-		private bool isStopping;
-		private Exception? terminalException;
-		private Task? disposeTask;
+		private readonly Lock _stateLock = new();
+		private readonly ConcurrentQueue<WorkItem> _workItems = [];
+		private readonly Semaphore _workAvailable = new(0, int.MaxValue);
+		private readonly TaskCompletionSource<bool> _stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly int _workerCount;
+		private int _remainingWorkers;
+		private bool _isStopping;
+		private Exception? _terminalException;
+		private Task? _disposeTask;
 
 		public MessagePumpedStaScheduler(string threadName, int workerCount)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(threadName);
 			ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workerCount);
 
-			this.workerCount = workerCount;
-			remainingWorkers = workerCount;
+			_workerCount = workerCount;
+			_remainingWorkers = workerCount;
 
 			for (var index = 0; index < workerCount; index++)
 			{
@@ -121,16 +119,16 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			ArgumentNullException.ThrowIfNull(action);
 			cancellationToken.ThrowIfCancellationRequested();
 
-			if (ReferenceEquals(activeScheduler, this))
+			if (ReferenceEquals(_activeScheduler, this))
 			{
 				return InvokeInline(action, cancellationToken);
 			}
 
-			lock (stateLock)
+			lock (_stateLock)
 			{
-				if (terminalException is not null)
+				if (_terminalException is not null)
 				{
-					return Task.FromException<T>(terminalException);
+					return Task.FromException<T>(_terminalException);
 				}
 			}
 
@@ -142,13 +140,13 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			List<WorkItem>? pendingWork = null;
 			Exception? stopException = null;
 
-			lock (stateLock)
+			lock (_stateLock)
 			{
-				if (disposeTask is null)
+				if (_disposeTask is null)
 				{
 					stopException = new ObjectDisposedException(nameof(WindowsShellScheduler));
 					pendingWork = StopLocked(stopException);
-					disposeTask = CompleteDisposalAsync();
+					_disposeTask = CompleteDisposalAsync();
 				}
 			}
 
@@ -157,7 +155,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				SetPendingExceptions(pendingWork, stopException);
 			}
 
-			return new ValueTask(disposeTask!);
+			return new ValueTask(_disposeTask!);
 		}
 
 		private static Task<T> InvokeInline<T>(Func<T> action, CancellationToken cancellationToken)
@@ -165,6 +163,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			try
 			{
 				cancellationToken.ThrowIfCancellationRequested();
+
 				return Task.FromResult(action());
 			}
 			catch (OperationCanceledException exception)
@@ -181,24 +180,26 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		private Task<T> Enqueue<T>(Func<T> action, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			var workItem = new WorkItem<T>(action, cancellationToken);
 
-			lock (stateLock)
+			lock (_stateLock)
 			{
-				if (terminalException is not null)
+				if (_terminalException is not null)
 				{
-					return Task.FromException<T>(terminalException);
+					return Task.FromException<T>(_terminalException);
 				}
 
 				if (!workItem.TryPrepareForQueue())
 				{
 					workItem.Dispose();
+
 					return workItem.Task;
 				}
 
-				workItems.Enqueue(workItem);
+				_workItems.Enqueue(workItem);
 				workItem.RegisterCancellation();
-				workAvailable.Release();
+				_workAvailable.Release();
 			}
 
 			return workItem.Task;
@@ -216,11 +217,12 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				if (result.Failed)
 				{
 					Fault(CreateOleInitializationException(result));
+
 					return;
 				}
 
 				oleInitialized = true;
-				activeScheduler = this;
+				_activeScheduler = this;
 
 				PInvoke.PeekMessage(out _, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_NOREMOVE);
 
@@ -242,42 +244,43 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			}
 			finally
 			{
-				activeScheduler = null;
+				_activeScheduler = null;
 
 				if (oleInitialized)
 				{
 					PInvoke.OleUninitialize();
 				}
 
-				if (Interlocked.Decrement(ref remainingWorkers) == 0)
+				if (Interlocked.Decrement(ref _remainingWorkers) == 0)
 				{
-					stopped.TrySetResult(true);
+					_stopped.TrySetResult(true);
 				}
 			}
 		}
 
 		private bool IsStopping()
 		{
-			lock (stateLock)
+			lock (_stateLock)
 			{
-				return isStopping;
+				return _isStopping;
 			}
 		}
 
 		private bool TryExecuteNextWorkItem()
 		{
-			if (!workAvailable.WaitOne(0))
+			if (!_workAvailable.WaitOne(0))
 			{
 				return false;
 			}
 
 			ExecuteDequeuedWorkItem();
+
 			return true;
 		}
 
 		private void ExecuteDequeuedWorkItem()
 		{
-			if (workItems.TryDequeue(out var workItem))
+			if (_workItems.TryDequeue(out var workItem))
 			{
 				workItem.Execute();
 			}
@@ -286,7 +289,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		[SupportedOSPlatform("windows5.1.2600")]
 		private unsafe void WaitForWorkOrMessage()
 		{
-			var safeWaitHandle = workAvailable.SafeWaitHandle;
+			var safeWaitHandle = _workAvailable.SafeWaitHandle;
 			var addedReference = false;
 
 			try
@@ -296,22 +299,20 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				Span<HANDLE> handles = stackalloc HANDLE[1];
 				handles[0] = (HANDLE)safeWaitHandle.DangerousGetHandle();
 
-				var result = PInvoke.MsgWaitForMultipleObjectsEx(
-					handles,
-					uint.MaxValue,
-					QUEUE_STATUS_FLAGS.QS_ALLINPUT,
-					MSG_WAIT_FOR_MULTIPLE_OBJECTS_EX_FLAGS.MWMO_INPUTAVAILABLE);
+				var result = PInvoke.MsgWaitForMultipleObjectsEx(handles, uint.MaxValue, QUEUE_STATUS_FLAGS.QS_ALLINPUT, MSG_WAIT_FOR_MULTIPLE_OBJECTS_EX_FLAGS.MWMO_INPUTAVAILABLE);
 				var resultValue = (uint)result;
 
 				if (resultValue == (uint)WAIT_EVENT.WAIT_OBJECT_0)
 				{
 					ExecuteDequeuedWorkItem();
+
 					return;
 				}
 
 				if (resultValue == (uint)WAIT_EVENT.WAIT_OBJECT_0 + handles.Length)
 				{
 					PumpMessages();
+
 					return;
 				}
 
@@ -334,7 +335,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 					safeWaitHandle.DangerousRelease();
 				}
 
-				GC.KeepAlive(workAvailable);
+				GC.KeepAlive(_workAvailable);
 			}
 		}
 
@@ -352,9 +353,9 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			List<WorkItem> pendingWork;
 
-			lock (stateLock)
+			lock (_stateLock)
 			{
-				if (isStopping)
+				if (_isStopping)
 				{
 					return;
 				}
@@ -367,21 +368,21 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private List<WorkItem> StopLocked(Exception exception)
 		{
-			isStopping = true;
-			terminalException = exception;
+			_isStopping = true;
+			_terminalException = exception;
 
 			var pendingWork = new List<WorkItem>();
 
-			while (workItems.TryDequeue(out var workItem))
+			while (_workItems.TryDequeue(out var workItem))
 			{
 				pendingWork.Add(workItem);
 			}
 
-			for (var index = 0; index < workerCount; index++)
+			for (var index = 0; index < _workerCount; index++)
 			{
 				try
 				{
-					workAvailable.Release();
+					_workAvailable.Release();
 				}
 				catch (SemaphoreFullException)
 				{
@@ -393,8 +394,8 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private async Task CompleteDisposalAsync()
 		{
-			await stopped.Task.ConfigureAwait(false);
-			workAvailable.Dispose();
+			await _stopped.Task.ConfigureAwait(false);
+			_workAvailable.Dispose();
 		}
 
 		private static void SetPendingExceptions(IEnumerable<WorkItem> pendingWork, Exception exception)
@@ -414,44 +415,51 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 	private sealed class WorkItem<T> : WorkItem, IDisposable
 	{
 		private const int Pending = 0;
+
 		private const int Started = 1;
+
 		private const int Completed = 2;
 
-		private readonly Func<T> action;
-		private readonly CancellationToken cancellationToken;
-		private readonly TaskCompletionSource<T> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-		private CancellationTokenRegistration cancellationRegistration;
-		private int state;
+		private readonly Func<T> _action;
+
+		private readonly CancellationToken _cancellationToken;
+
+		private readonly TaskCompletionSource<T> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		private CancellationTokenRegistration _cancellationRegistration;
+
+		private int _state;
+
+		public Task<T> Task => _completion.Task;
 
 		public WorkItem(Func<T> action, CancellationToken cancellationToken)
 		{
-			this.action = action;
-			this.cancellationToken = cancellationToken;
+			_action = action;
+			_cancellationToken = cancellationToken;
 		}
-
-		public Task<T> Task => completion.Task;
 
 		public bool TryPrepareForQueue()
 		{
-			if (!cancellationToken.IsCancellationRequested)
+			if (!_cancellationToken.IsCancellationRequested)
 			{
 				return true;
 			}
 
 			CancelIfPending();
+
 			return false;
 		}
 
 		public void RegisterCancellation()
 		{
-			if (!cancellationToken.CanBeCanceled)
+			if (!_cancellationToken.CanBeCanceled)
 			{
 				return;
 			}
 
-			cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((WorkItem<T>)state!).CancelIfPending(), this);
+			_cancellationRegistration = _cancellationToken.UnsafeRegister(static state => ((WorkItem<T>)state!).CancelIfPending(), this);
 
-			if (cancellationToken.IsCancellationRequested)
+			if (_cancellationToken.IsCancellationRequested)
 			{
 				CancelIfPending();
 			}
@@ -459,44 +467,46 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		public override void Execute()
 		{
-			if (cancellationToken.IsCancellationRequested)
+			if (_cancellationToken.IsCancellationRequested)
 			{
 				CancelIfPending();
 				DisposeCancellationRegistration();
+
 				return;
 			}
 
-			if (Interlocked.CompareExchange(ref state, Started, Pending) != Pending)
+			if (Interlocked.CompareExchange(ref _state, Started, Pending) != Pending)
 			{
 				DisposeCancellationRegistration();
+
 				return;
 			}
 
 			try
 			{
-				completion.TrySetResult(action());
+				_completion.TrySetResult(_action());
 			}
 			catch (OperationCanceledException exception)
 				when (exception.CancellationToken.IsCancellationRequested)
 			{
-				completion.TrySetCanceled(exception.CancellationToken);
+				_completion.TrySetCanceled(exception.CancellationToken);
 			}
 			catch (Exception exception)
 			{
-				completion.TrySetException(exception);
+				_completion.TrySetException(exception);
 			}
 			finally
 			{
-				Volatile.Write(ref state, Completed);
+				Volatile.Write(ref _state, Completed);
 				DisposeCancellationRegistration();
 			}
 		}
 
 		public override void SetException(Exception exception)
 		{
-			if (Interlocked.CompareExchange(ref state, Completed, Pending) == Pending)
+			if (Interlocked.CompareExchange(ref _state, Completed, Pending) == Pending)
 			{
-				completion.TrySetException(exception);
+				_completion.TrySetException(exception);
 			}
 
 			DisposeCancellationRegistration();
@@ -509,15 +519,15 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private void CancelIfPending()
 		{
-			if (Interlocked.CompareExchange(ref state, Completed, Pending) == Pending)
+			if (Interlocked.CompareExchange(ref _state, Completed, Pending) == Pending)
 			{
-				completion.TrySetCanceled(cancellationToken);
+				_completion.TrySetCanceled(_cancellationToken);
 			}
 		}
 
 		private void DisposeCancellationRegistration()
 		{
-			cancellationRegistration.Dispose();
+			_cancellationRegistration.Dispose();
 		}
 	}
 }

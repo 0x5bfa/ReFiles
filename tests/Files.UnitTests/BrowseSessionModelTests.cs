@@ -141,9 +141,7 @@ public sealed class BrowseSessionModelTests
 		using var session = new BrowseSessionModel(resolver);
 		session.StateChanged += (_, _) =>
 		{
-			if (resolver.OpenedContexts.Count is 2
-				&& !session.IsLoading
-				&& ReferenceEquals(session.Context, resolver.OpenedContexts[1]))
+			if (resolver.OpenedContexts.Count is 2 && !session.IsLoading && ReferenceEquals(session.Context, resolver.OpenedContexts[1]))
 			{
 				refreshed.TrySetResult(true);
 			}
@@ -187,9 +185,7 @@ public sealed class BrowseSessionModelTests
 
 		resolver.EnumerationRelease.TrySetResult(true);
 		await navigation.WaitAsync(TimeSpan.FromSeconds(5));
-		await WaitUntilAsync(() =>
-			session.Items.Count is 1
-			&& ReferenceEquals(session.Items[0], created));
+		await WaitUntilAsync(() => session.Items.Count is 1 && ReferenceEquals(session.Items[0], created));
 
 		Assert.AreEqual(2, resolver.OpenedContexts.Count);
 		Assert.AreSame(resolver.OpenedContexts[1], session.Context);
@@ -212,9 +208,7 @@ public sealed class BrowseSessionModelTests
 		using var session = new BrowseSessionModel(resolver);
 		session.StateChanged += (_, _) =>
 		{
-			if (resolver.OpenedContexts.Count is 2
-				&& !session.IsLoading
-				&& ReferenceEquals(session.Context, resolver.OpenedContexts[1]))
+			if (resolver.OpenedContexts.Count is 2 && !session.IsLoading && ReferenceEquals(session.Context, resolver.OpenedContexts[1]))
 			{
 				refreshed.TrySetResult(true);
 			}
@@ -325,15 +319,7 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var created = factory.CreateModel("created", "Created", out _);
 		var resolveCount = 0;
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			created,
-			created.Reference,
-			itemResolver: (_, _) =>
-			{
-				resolveCount++;
-				return ValueTask.FromResult<IStorableModel>(created);
-			});
+		var resolver = CreateIncrementalResolver(locationModel, created, created.Reference, itemResolver: (_, _) => { resolveCount++; return ValueTask.FromResult<IStorableModel>(created); });
 		using var session = new BrowseSessionModel(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
@@ -361,9 +347,7 @@ public sealed class BrowseSessionModelTests
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, deleted.Reference, RequiresRefresh: false));
 
-		await WaitUntilAsync(() =>
-			session.Items.Count is 0
-			&& deletedCore.DisposeCount is 1);
+		await WaitUntilAsync(() => session.Items.Count is 0 && deletedCore.DisposeCount is 1);
 
 		Assert.AreEqual(1, deletedCore.DisposeCount);
 	}
@@ -440,10 +424,7 @@ public sealed class BrowseSessionModelTests
 		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, renamedReference, created.Reference, RequiresRefresh: false));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, renamedReference, RequiresRefresh: false));
 
-		await WaitUntilAsync(() =>
-			session.Items.Count is 0
-			&& createdCore.DisposeCount is 1
-			&& renamedCore.DisposeCount is 1);
+		await WaitUntilAsync(() => session.Items.Count is 0 && createdCore.DisposeCount is 1 && renamedCore.DisposeCount is 1);
 
 		Assert.AreEqual(0, session.Items.Count);
 		Assert.IsTrue(createdCore.IsDisposed);
@@ -497,6 +478,7 @@ public sealed class BrowseSessionModelTests
 			{
 				resolveStarted.TrySetResult(true);
 				await releaseResolve.Task.WaitAsync(cancellationToken);
+
 				return created;
 			});
 		resolver.LocationModelFactory = location =>
@@ -514,9 +496,7 @@ public sealed class BrowseSessionModelTests
 		releaseResolve.TrySetResult(true);
 		await WaitUntilAsync(() => createdCore.DisposeCount is 1);
 
-		Assert.AreSame(secondLocation.Reference, session.Location is FolderLocation location
-			? location.Folder
-			: null);
+		Assert.AreSame(secondLocation.Reference, session.Location is FolderLocation location ? location.Folder : null);
 		Assert.IsTrue(createdCore.IsDisposed);
 	}
 
@@ -529,15 +509,8 @@ public sealed class BrowseSessionModelTests
 		var failedLocationModel = factory.CreateModel("folder-refresh", "Folder", out _);
 		var current = factory.CreateModel("current", "Current", out var currentCore);
 		var partial = factory.CreateModel("partial", "Partial", out var partialCore);
-		var locationModels = new Queue<IStorableModel>([
-			locationModel,
-			failedLocationModel]);
-		var resolver = CreateIncrementalResolver(
-			locationModel,
-			current,
-			current.Reference,
-			items: [current],
-			itemResolver: (_, _) => throw new InvalidOperationException("resolve failed"));
+		var locationModels = new Queue<IStorableModel>([ locationModel, failedLocationModel]);
+		var resolver = CreateIncrementalResolver(locationModel, current, current.Reference, items: [current], itemResolver: (_, _) => throw new InvalidOperationException("resolve failed"));
 		resolver.LocationModelFactory = _ => locationModels.Dequeue();
 		using var session = new BrowseSessionModel(resolver);
 
@@ -600,9 +573,7 @@ public sealed class BrowseSessionModelTests
 		session.SetSelection([previousKey], previousKey, previousKey);
 		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, replacement.Reference, previous.Reference, RequiresRefresh: false));
 
-		await WaitUntilAsync(() =>
-			session.Items.Count is 1
-			&& session.Selection.SelectedKeys.Single() == replacementKey);
+		await WaitUntilAsync(() => session.Items.Count is 1 && session.Selection.SelectedKeys.Single() == replacementKey);
 
 		Assert.AreEqual(replacementKey, session.Selection.FocusedKey);
 		Assert.AreEqual(replacementKey, session.Selection.AnchorKey);
@@ -625,9 +596,7 @@ public sealed class BrowseSessionModelTests
 		session.SetSelection([key], key, key);
 		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, item.Reference, RequiresRefresh: false));
 
-		await WaitUntilAsync(() =>
-			session.Items.Count is 0
-			&& session.Selection.SelectedKeys.Count is 0);
+		await WaitUntilAsync(() => session.Items.Count is 0 && session.Selection.SelectedKeys.Count is 0);
 
 		Assert.IsEmpty(session.Selection.SelectedKeys);
 		Assert.IsNull(session.Selection.FocusedKey);
@@ -652,10 +621,7 @@ public sealed class BrowseSessionModelTests
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, replacement.Reference, previous.Reference, RequiresRefresh: false));
 
-		await WaitUntilAsync(() =>
-			session.Items.Count is 2
-			&& ReferenceEquals(session.Items[1], replacement)
-			&& itemChanges.OfType<BrowseItemMoved>().Any());
+		await WaitUntilAsync(() => session.Items.Count is 2 && ReferenceEquals(session.Items[1], replacement) && itemChanges.OfType<BrowseItemMoved>().Any());
 
 		var moved = itemChanges.OfType<BrowseItemMoved>().Last();
 		Assert.AreEqual(0, moved.PreviousIndex);
@@ -757,9 +723,7 @@ public sealed class BrowseSessionModelTests
 		resolver.Items.Add(refreshedRetained);
 		firstSource.RaiseChange(new FolderChange(FolderChangeKind.DirectoryUpdated, null, null, RequiresRefresh: false));
 
-		await WaitUntilAsync(() =>
-			session.Items.Count is 1
-			&& ReferenceEquals(session.Items[0], refreshedRetained));
+		await WaitUntilAsync(() => session.Items.Count is 1 && ReferenceEquals(session.Items[0], refreshedRetained));
 
 		Assert.AreEqual(retainedKey, session.Selection.SelectedKeys.Single());
 		Assert.IsNull(session.Selection.FocusedKey);

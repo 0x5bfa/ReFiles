@@ -11,39 +11,40 @@ namespace Files.Core.ItemFeatures.Previews;
 public sealed class PreviewSourceFactory
 	: IItemFeatureFactory<IPreviewSource>
 {
-	private readonly IPreviewLoader loader;
+	private readonly IPreviewLoader _loader;
 
 	public PreviewSourceFactory(IPreviewLoader loader)
 	{
 		ArgumentNullException.ThrowIfNull(loader);
-		this.loader = loader;
+
+		_loader = loader;
 	}
 
 	public IPreviewSource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
-		return loader.CanLoad(context)
-			? new BoundPreviewSource(loader, context)
+		return _loader.CanLoad(context)
+			? new BoundPreviewSource(_loader, context)
 			: null;
 	}
 
 	private sealed class BoundPreviewSource : IPreviewSource
 	{
-		private readonly IPreviewLoader loader;
-		private readonly ItemContext context;
+		private readonly IPreviewLoader _loader;
+		private readonly ItemContext _context;
 
 		public BoundPreviewSource(IPreviewLoader loader, ItemContext context)
 		{
-			this.loader = loader;
-			this.context = context;
+			_loader = loader;
+			_context = context;
 		}
 
 		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
-			return loader.GetPreviewAsync(request, context, cancellationToken);
+			return _loader.GetPreviewAsync(request, _context, cancellationToken);
 		}
 	}
 }

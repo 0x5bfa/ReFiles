@@ -37,6 +37,7 @@ namespace Files.Controls
 			if (newWidth > ActualWidth)
 			{
 				columnDefinition.Width = new GridLength(newWidth, unitType);
+
 				return true;
 			}
 
@@ -86,6 +87,7 @@ namespace Files.Controls
 			if (newHeight > ActualHeight)
 			{
 				rowDefinition.Height = new GridLength(newHeight, unitType);
+
 				return true;
 			}
 
@@ -120,6 +122,7 @@ namespace Files.Controls
 		private int GetTargetedColumn()
 		{
 			var currentIndex = Grid.GetColumn(TargetControl);
+
 			return GetTargetIndex(currentIndex);
 		}
 
@@ -127,6 +130,7 @@ namespace Files.Controls
 		private int GetTargetedRow()
 		{
 			var currentIndex = Grid.GetRow(TargetControl);
+
 			return GetTargetIndex(currentIndex);
 		}
 
@@ -134,6 +138,7 @@ namespace Files.Controls
 		private int GetSiblingColumn()
 		{
 			var currentIndex = Grid.GetColumn(TargetControl);
+
 			return GetSiblingIndex(currentIndex);
 		}
 
@@ -141,6 +146,7 @@ namespace Files.Controls
 		private int GetSiblingRow()
 		{
 			var currentIndex = Grid.GetRow(TargetControl);
+
 			return GetSiblingIndex(currentIndex);
 		}
 
@@ -150,12 +156,16 @@ namespace Files.Controls
 			switch (_resizeBehavior)
 			{
 				case GridResizeBehavior.CurrentAndNext:
+
 					return currentIndex;
 				case GridResizeBehavior.PreviousAndNext:
+
 					return currentIndex - 1;
 				case GridResizeBehavior.PreviousAndCurrent:
+
 					return currentIndex - 1;
 				default:
+
 					return -1;
 			}
 		}
@@ -166,12 +176,16 @@ namespace Files.Controls
 			switch (_resizeBehavior)
 			{
 				case GridResizeBehavior.CurrentAndNext:
+
 					return currentIndex + 1;
 				case GridResizeBehavior.PreviousAndNext:
+
 					return currentIndex + 1;
 				case GridResizeBehavior.PreviousAndCurrent:
+
 					return currentIndex;
 				default:
+
 					return -1;
 			}
 		}

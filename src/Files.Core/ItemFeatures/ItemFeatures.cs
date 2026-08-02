@@ -7,50 +7,50 @@ namespace Files.Core.ItemFeatures;
 
 internal sealed class ItemFeatures : IItemFeatures
 {
-	private static readonly object MissingFeature = new();
+	private static readonly object _missingFeature = new();
 
-	private readonly object syncRoot = new();
-	private readonly ItemFeatureRegistry registry;
-	private readonly ItemContext context;
-	private readonly Dictionary<Type, object> resolvedFeatures = [];
-	private readonly List<object> ownedInstances = [];
-	private Task? disposeTask;
-	private bool isDisposed;
+	private readonly Lock _syncRoot = new();
+	private readonly ItemFeatureRegistry _registry;
+	private readonly ItemContext _context;
+	private readonly Dictionary<Type, object> _resolvedFeatures = [];
+	private readonly List<object> _ownedInstances = [];
+	private Task? _disposeTask;
+	private bool _isDisposed;
 
 	public ItemFeatures(ItemFeatureRegistry registry, ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(registry);
 		ArgumentNullException.ThrowIfNull(context);
 
-		this.registry = registry;
-		this.context = context;
+		_registry = registry;
+		_context = context;
 	}
 
 	public TFeature? Get<TFeature>()
 		where TFeature : class
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			ObjectDisposedException.ThrowIf(isDisposed, this);
+			ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-			if (resolvedFeatures.TryGetValue(typeof(TFeature), out var cached))
+			if (_resolvedFeatures.TryGetValue(typeof(TFeature), out var cached))
 			{
-				return ReferenceEquals(cached, MissingFeature)
+				return ReferenceEquals(cached, _missingFeature)
 					? null
 					: (TFeature)cached;
 			}
 
-			var resolution = registry.Resolve<TFeature>(context);
+			var resolution = _registry.Resolve<TFeature>(_context);
 
 			foreach (var instance in resolution.OwnedInstances)
 			{
-				if (!ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
+				if (!_ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
 				{
-					ownedInstances.Add(instance);
+					_ownedInstances.Add(instance);
 				}
 			}
 
-			resolvedFeatures.Add(typeof(TFeature), resolution.Feature ?? MissingFeature);
+			_resolvedFeatures.Add(typeof(TFeature), resolution.Feature ?? _missingFeature);
 
 			return resolution.Feature;
 		}
@@ -60,6 +60,7 @@ internal sealed class ItemFeatures : IItemFeatures
 		where TFeature : class
 	{
 		feature = Get<TFeature>();
+
 		return feature is not null;
 	}
 
@@ -70,20 +71,21 @@ internal sealed class ItemFeatures : IItemFeatures
 
 	public ValueTask DisposeAsync()
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			var instances = ownedInstances.ToArray();
-			ownedInstances.Clear();
-			resolvedFeatures.Clear();
-			disposeTask = DisposeInstancesAsync(instances);
+			_isDisposed = true;
+			var instances = _ownedInstances.ToArray();
+			_ownedInstances.Clear();
+			_resolvedFeatures.Clear();
+			_disposeTask = DisposeInstancesAsync(instances);
 			GC.SuppressFinalize(this);
-			return new ValueTask(disposeTask);
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 

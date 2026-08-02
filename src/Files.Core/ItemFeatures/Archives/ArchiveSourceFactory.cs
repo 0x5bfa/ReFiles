@@ -11,7 +11,7 @@ namespace Files.Core.ItemFeatures.Archives;
 public sealed class ArchiveSourceFactory
 	: IItemFeatureFactory<IArchiveSource>
 {
-	private static readonly string[] DefaultExtensions =
+	private static readonly string[] _defaultExtensions =
 	[
 		".7z",
 		".gz",
@@ -23,20 +23,17 @@ public sealed class ArchiveSourceFactory
 		".zip",
 	];
 
-	private readonly IReadOnlyList<string> extensions;
+	private readonly IReadOnlyList<string> _extensions;
 
 	public ArchiveSourceFactory(IEnumerable<string>? extensions = null)
 	{
-		var extensionArray = (extensions ?? DefaultExtensions)
-			.Select(NormalizeExtension)
-			.Distinct(StringComparer.OrdinalIgnoreCase)
-			.ToArray();
+		var extensionArray = (extensions ?? _defaultExtensions).Select(NormalizeExtension).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 		if (extensionArray.Length is 0)
 		{
 			throw new ArgumentException("At least one archive extension is required.", nameof(extensions));
 		}
 
-		this.extensions = Array.AsReadOnly(extensionArray);
+		_extensions = Array.AsReadOnly(extensionArray);
 	}
 
 	public IArchiveSource? Create(ItemContext context)
@@ -47,20 +44,17 @@ public sealed class ArchiveSourceFactory
 		// registered in FilesDataRoot. Nested archives require an explicit
 		// mount-chain contract rather than a reference that becomes stale
 		// when the containing browse context is replaced.
-		if (context.CoreModel is IArchiveEntry
-			|| context.CoreModel is IArchiveSource)
+		if (context.CoreModel is IArchiveEntry || context.CoreModel is IArchiveSource)
 		{
 			return null;
 		}
 
 		var isArchiveFile = context.CoreModel is IFile;
 		var isShellArchiveFolder =
-			context.Source is WindowsStorageSource
-			&& context.CoreModel is IFolder
-			&& context.CoreModel is IWindowsStorable
-			{
-				IsStream: true,
-			};
+			context.Source is WindowsStorageSource &&
+			context.CoreModel is IFolder &&
+			context.CoreModel is IWindowsStorable { IsStream: true, };
+
 		if (!isArchiveFile && !isShellArchiveFolder)
 		{
 			return null;
@@ -68,10 +62,10 @@ public sealed class ArchiveSourceFactory
 
 		var extensionSource = context.CoreModel
 			is IWindowsStorable windowsStorable
-				? windowsStorable.FileSystemPath
-					?? windowsStorable.ParsingName
+				? windowsStorable.FileSystemPath ?? windowsStorable.ParsingName
 				: context.CoreModel.Name;
-		return extensions.Any(extension => extensionSource.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+
+		return _extensions.Any(extension => extensionSource.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
 			? new ArchiveSource(context.Reference)
 			: null;
 	}
@@ -79,12 +73,13 @@ public sealed class ArchiveSourceFactory
 	private static string NormalizeExtension(string extension)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(extension);
+
 		var trimmedExtension = extension.Trim();
+
 		return trimmedExtension[0] is '.'
 			? trimmedExtension
 			: $".{trimmedExtension}";
 	}
 
-	private sealed record ArchiveSource(StorableReference Archive)
-		: IArchiveSource;
+	private sealed record ArchiveSource(StorableReference Archive) : IArchiveSource;
 }

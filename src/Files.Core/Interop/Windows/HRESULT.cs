@@ -16,7 +16,10 @@ namespace Windows.Win32.Foundation
 		public readonly HRESULT ThrowIfFailedOnDebug()
 		{
 #if DEBUG
-			if (Failed) Marshal.ThrowExceptionForHR(Value);
+			if (Failed)
+			{
+				Marshal.ThrowExceptionForHR(Value);
+			}
 #endif
 
 			return this;

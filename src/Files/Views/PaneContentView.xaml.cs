@@ -14,17 +14,17 @@ public sealed partial class PaneContentView : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(PaneViewModel), typeof(PaneContentView), new PropertyMetadata(null, ViewModelChanged));
 
+	public PaneViewModel? ViewModel
+	{
+		get => (PaneViewModel?)GetValue(ViewModelProperty);
+		set => SetValue(ViewModelProperty, value);
+	}
+
 	public PaneContentView()
 	{
 		InitializeComponent();
 		Loaded += PaneContentView_Loaded;
 		Unloaded += PaneContentView_Unloaded;
-	}
-
-	public PaneViewModel? ViewModel
-	{
-		get => (PaneViewModel?)GetValue(ViewModelProperty);
-		set => SetValue(ViewModelProperty, value);
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -77,6 +77,7 @@ public sealed partial class PaneContentView : UserControl
 		{
 			PaneContentPresenter.Content = null;
 			PaneContentPresenter.ContentTemplate = null;
+
 			return;
 		}
 

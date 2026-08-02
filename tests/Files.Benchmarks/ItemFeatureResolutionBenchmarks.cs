@@ -11,12 +11,14 @@ namespace Files.Benchmarks;
 [MemoryDiagnoser]
 public class ItemFeatureResolutionBenchmarks
 {
+	private ItemFeatureRegistry registry = null!;
+
+	private ItemContext context = null!;
+
+	private IItemFeatures cachedFeatures = null!;
+
 	[Params(1, 4, 16)]
 	public int FactoryCount { get; set; }
-
-	private ItemFeatureRegistry registry = null!;
-	private ItemContext context = null!;
-	private IItemFeatures cachedFeatures = null!;
 
 	[GlobalSetup]
 	public void Setup()
@@ -47,6 +49,7 @@ public class ItemFeatureResolutionBenchmarks
 	public string ColdResolution()
 	{
 		using var features = registry.CreateFeatures(context);
+
 		return features.Get<BenchmarkFeature>()!.Value;
 	}
 
@@ -56,22 +59,22 @@ public class ItemFeatureResolutionBenchmarks
 
 internal sealed class BenchmarkFeature
 {
-	public BenchmarkFeature(string value) => Value = value;
-
 	public string Value { get; }
+
+	public BenchmarkFeature(string value) => Value = value;
 }
 
 internal sealed class BenchmarkStorable : IStorable
 {
+	public string Id { get; }
+
+	public string Name { get; }
+
 	public BenchmarkStorable(string id, string name)
 	{
 		Id = id;
 		Name = name;
 	}
-
-	public string Id { get; }
-
-	public string Name { get; }
 }
 
 internal sealed class BenchmarkStorageSource : IStorageSource
@@ -82,10 +85,10 @@ internal sealed class BenchmarkStorageSource : IStorageSource
 
 	public string DisplayName => "Benchmark";
 
-	public async IAsyncEnumerable<IFolder> GetRootsAsync(
-		[System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IFolder> GetRootsAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		await Task.CompletedTask.ConfigureAwait(false);
 		yield break;
 	}

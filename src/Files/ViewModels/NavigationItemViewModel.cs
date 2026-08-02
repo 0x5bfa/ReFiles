@@ -11,30 +11,8 @@ namespace Files.ViewModels;
 public sealed class NavigationItemViewModel : ObservableObject
 {
 	private readonly bool prefersThumbnail;
+
 	private BitmapImage? thumbnail;
-
-	private NavigationItemViewModel(
-		string name,
-		StorableReference? reference,
-		bool isHome,
-		bool selectsOnInvoked,
-		IconElement icon,
-		IEnumerable<NavigationItemViewModel>? children = null,
-		bool prefersThumbnail = false)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(name);
-		ArgumentNullException.ThrowIfNull(icon);
-
-		Name = name;
-		Reference = reference;
-		IsHome = isHome;
-		SelectsOnInvoked = selectsOnInvoked;
-		Icon = icon;
-		this.prefersThumbnail = prefersThumbnail;
-		Children = children is null
-			? []
-			: new ObservableCollection<NavigationItemViewModel>(children);
-	}
 
 	public string Name { get; }
 
@@ -52,6 +30,22 @@ public sealed class NavigationItemViewModel : ObservableObject
 	{
 		get => thumbnail;
 		private set => SetProperty(ref thumbnail, value);
+	}
+
+	private NavigationItemViewModel(string name, StorableReference? reference, bool isHome, bool selectsOnInvoked, IconElement icon, IEnumerable<NavigationItemViewModel>? children = null, bool prefersThumbnail = false)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+		ArgumentNullException.ThrowIfNull(icon);
+
+		Name = name;
+		Reference = reference;
+		IsHome = isHome;
+		SelectsOnInvoked = selectsOnInvoked;
+		Icon = icon;
+		this.prefersThumbnail = prefersThumbnail;
+		Children = children is null
+			? []
+			: new ObservableCollection<NavigationItemViewModel>(children);
 	}
 
 	internal static NavigationItemViewModel CreateHome(string name) =>

@@ -25,6 +25,7 @@ public sealed class CommandRegistry
 	internal IReadOnlyDictionary<CommandId, ICommandHandler> CreateHandlers(RootViewModel root)
 	{
 		ArgumentNullException.ThrowIfNull(root);
+
 		return registrations.ToDictionary(static entry => entry.Key, entry => entry.Value.Factory(root));
 	}
 

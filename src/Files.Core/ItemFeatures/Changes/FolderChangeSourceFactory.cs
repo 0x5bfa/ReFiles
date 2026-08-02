@@ -16,8 +16,7 @@ public sealed class FolderChangeSourceFactory : IItemFeatureFactory<IFolderChang
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
-		return context.Source is WindowsStorageSource source
-			&& context.CoreModel is WindowsFolder folder
+		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsFolder folder
 			? new WindowsFolderChangeSource(source, folder.Locator)
 			: null;
 	}

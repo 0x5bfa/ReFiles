@@ -15,10 +15,7 @@ public sealed class ThumbnailSourceCombiner : IItemFeatureCombiner<IThumbnailSou
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
 
-		var sources = options
-			.OrderByDescending(static option => option.Priority)
-			.Select(static option => option.Feature)
-			.ToArray();
+		var sources = options.OrderByDescending(static option => option.Priority).Select(static option => option.Feature).ToArray();
 
 		return sources.Length switch
 		{
@@ -30,24 +27,22 @@ public sealed class ThumbnailSourceCombiner : IItemFeatureCombiner<IThumbnailSou
 
 	private sealed class FallbackThumbnailSource : IThumbnailSource
 	{
-		private readonly IReadOnlyList<IThumbnailSource> sources;
+		private readonly IReadOnlyList<IThumbnailSource> _sources;
 
 		public FallbackThumbnailSource(IReadOnlyList<IThumbnailSource> sources)
 		{
-			this.sources = sources;
+			_sources = sources;
 		}
 
 		public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(request);
 
-			foreach (var source in sources)
+			foreach (var source in _sources)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				var result = await source
-					.GetThumbnailAsync(request, cancellationToken)
-					.ConfigureAwait(false);
 
+				var result = await source.GetThumbnailAsync(request, cancellationToken).ConfigureAwait(false);
 				if (result is not null)
 				{
 					return result;

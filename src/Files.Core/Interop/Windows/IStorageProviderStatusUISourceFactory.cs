@@ -21,7 +21,5 @@ public partial interface IStorageProviderStatusUISourceFactory
 	HRESULT GetTrustLevel(out TrustLevel trustLevel);
 
 	[PreserveSig]
-	HRESULT GetStatusUISource(
-		[MarshalUsing(typeof(global::Windows.Win32.HStringStringMarshaller))] string? syncRootId,
-		[MarshalAs(UnmanagedType.Interface)] out IStorageProviderStatusUISource result);
+	HRESULT GetStatusUISource([MarshalUsing(typeof(global::Windows.Win32.HStringStringMarshaller))] string? syncRootId, [MarshalAs(UnmanagedType.Interface)] out IStorageProviderStatusUISource result);
 }

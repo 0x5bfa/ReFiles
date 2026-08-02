@@ -128,6 +128,7 @@ namespace Files.Controls
 				var percentage = normalizedValue * 100.0;
 
 				double roundedPercentage = Math.Round(percentage, 2, MidpointRounding.ToEven);
+
 				return roundedPercentage;
 			}
 		}
@@ -145,9 +146,13 @@ namespace Files.Controls
 
 			// Ensure the converted value stays within the specified range
 			if (convertedValue < minValue)
+			{
 				convertedValue = minValue;
+			}
 			else if (convertedValue > maxValue)
+			{
 				convertedValue = maxValue;
+			}
 
 			return convertedValue;
 		}
@@ -202,6 +207,7 @@ namespace Files.Controls
 			//return angleDifference == 360;
 
 			// Changed to this as suggested by Marcel
+
 			return Math.Abs(angleDifference - 360) < Double.Epsilon;
 		}
 

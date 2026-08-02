@@ -15,18 +15,18 @@ public sealed partial class PaneHost : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(TabViewModel), typeof(PaneHost), new PropertyMetadata(null, ViewModelChanged));
 
+	public TabViewModel? ViewModel
+	{
+		get => (TabViewModel?)GetValue(ViewModelProperty);
+		set => SetValue(ViewModelProperty, value);
+	}
+
 	public PaneHost()
 	{
 		InitializeComponent();
 		Loaded += PaneHost_Loaded;
 		Unloaded += PaneHost_Unloaded;
 		SizeChanged += PaneHost_SizeChanged;
-	}
-
-	public TabViewModel? ViewModel
-	{
-		get => (TabViewModel?)GetValue(ViewModelProperty);
-		set => SetValue(ViewModelProperty, value);
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -148,8 +148,7 @@ public sealed partial class PaneHost : UserControl
 
 	private void PaneView_Activated(object sender, EventArgs e)
 	{
-		if (ViewModel is { } viewModel
-			&& sender is PaneView { ViewModel: { } pane })
+		if (ViewModel is { } viewModel && sender is PaneView { ViewModel: { } pane })
 		{
 			viewModel.SetActivePane(pane.Id);
 		}

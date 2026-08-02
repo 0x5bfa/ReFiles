@@ -11,21 +11,14 @@ namespace Files.Core.ItemFeatures.Previews;
 [SupportedOSPlatform("windows5.0")]
 public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandlerAssociation
 {
-	private const string PreviewHandlerCategory =
-		"{8895B1C6-B41F-4C1C-A562-0D564250836F}";
+	private const string PreviewHandlerCategory = "{8895B1C6-B41F-4C1C-A562-0D564250836F}";
 
 	public unsafe string? QueryPreviewHandler(string normalizedExtension)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(normalizedExtension);
 
 		uint characterCount = 0;
-		var firstResult = PInvoke.AssocQueryString(
-			ASSOCF.ASSOCF_NONE,
-			ASSOCSTR.ASSOCSTR_SHELLEXTENSION,
-			normalizedExtension,
-			PreviewHandlerCategory,
-			Span<char>.Empty,
-			ref characterCount);
+		var firstResult = PInvoke.AssocQueryString(ASSOCF.ASSOCF_NONE, ASSOCSTR.ASSOCSTR_SHELLEXTENSION, normalizedExtension, PreviewHandlerCategory, Span<char>.Empty, ref characterCount);
 
 		if (characterCount is 0 || firstResult.Failed && firstResult != HRESULT.S_FALSE)
 		{
@@ -38,13 +31,7 @@ public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandl
 		}
 
 		Span<char> buffer = stackalloc char[(int)characterCount];
-		var secondResult = PInvoke.AssocQueryString(
-			ASSOCF.ASSOCF_NONE,
-			ASSOCSTR.ASSOCSTR_SHELLEXTENSION,
-			normalizedExtension,
-			PreviewHandlerCategory,
-			buffer,
-			ref characterCount);
+		var secondResult = PInvoke.AssocQueryString(ASSOCF.ASSOCF_NONE, ASSOCSTR.ASSOCSTR_SHELLEXTENSION, normalizedExtension, PreviewHandlerCategory, buffer, ref characterCount);
 
 		if (secondResult.Failed)
 		{
@@ -53,6 +40,7 @@ public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandl
 
 		var value = buffer[..(int)Math.Min(characterCount, (uint)buffer.Length)];
 		var terminator = value.IndexOf('\0');
+
 		return (terminator >= 0 ? value[..terminator] : value).ToString();
 	}
 }

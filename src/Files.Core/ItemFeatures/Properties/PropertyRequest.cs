@@ -8,23 +8,23 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public sealed record PropertyRequest
 {
-	public PropertyRequest(IEnumerable<string> PropertyIds)
-	{
-		ArgumentNullException.ThrowIfNull(PropertyIds);
+	public IReadOnlyList<string> PropertyIds { get; }
 
-		var values = PropertyIds.ToArray();
+	public PropertyRequest(IEnumerable<string> propertyIds)
+	{
+		ArgumentNullException.ThrowIfNull(propertyIds);
+
+		var values = propertyIds.ToArray();
 		if (values.Any(string.IsNullOrWhiteSpace))
 		{
-			throw new ArgumentException("Property IDs cannot contain null or whitespace values.", nameof(PropertyIds));
+			throw new ArgumentException("Property IDs cannot contain null or whitespace values.", nameof(propertyIds));
 		}
 
 		if (values.Distinct(StringComparer.Ordinal).Count() != values.Length)
 		{
-			throw new ArgumentException("Property IDs must be unique.", nameof(PropertyIds));
+			throw new ArgumentException("Property IDs must be unique.", nameof(propertyIds));
 		}
 
-		this.PropertyIds = Array.AsReadOnly(values);
+		PropertyIds = Array.AsReadOnly(values);
 	}
-
-	public IReadOnlyList<string> PropertyIds { get; }
 }

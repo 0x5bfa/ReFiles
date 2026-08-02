@@ -10,17 +10,22 @@ public abstract record BrowseLocation;
 
 public sealed record FolderLocation : BrowseLocation
 {
+	public StorableReference Folder { get; }
+
 	public FolderLocation(StorableReference folder)
 	{
 		ArgumentNullException.ThrowIfNull(folder);
+
 		Folder = folder;
 	}
-
-	public StorableReference Folder { get; }
 }
 
 public sealed record ArchiveLocation : BrowseLocation
 {
+	public StorableReference Archive { get; }
+
+	public string EntryPath { get; }
+
 	public ArchiveLocation(StorableReference archive, string? entryPath = null)
 	{
 		ArgumentNullException.ThrowIfNull(archive);
@@ -33,10 +38,6 @@ public sealed record ArchiveLocation : BrowseLocation
 		: this(entry?.Archive ?? throw new ArgumentNullException(nameof(entry)), entry?.EntryPath)
 	{
 	}
-
-	public StorableReference Archive { get; }
-
-	public string EntryPath { get; }
 }
 
 public sealed record HomeLocation : BrowseLocation
@@ -50,25 +51,27 @@ public sealed record HomeLocation : BrowseLocation
 
 public sealed record SearchLocation : BrowseLocation
 {
-	public SearchLocation(string query, StorableReference? scope = null)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(query);
-		Query = query;
-		Scope = scope;
-	}
-
 	public string Query { get; }
 
 	public StorableReference? Scope { get; }
+
+	public SearchLocation(string query, StorableReference? scope = null)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+		Query = query;
+		Scope = scope;
+	}
 }
 
 public sealed record TagLocation : BrowseLocation
 {
+	public string TagId { get; }
+
 	public TagLocation(string tagId)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(tagId);
+
 		TagId = tagId;
 	}
-
-	public string TagId { get; }
 }

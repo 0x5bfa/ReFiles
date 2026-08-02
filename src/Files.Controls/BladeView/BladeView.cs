@@ -86,6 +86,11 @@ namespace Files.Controls
 			return new BladeViewAutomationPeer(this);
 		}
 
+		public void ScrollToEnd()
+		{
+			LayoutUpdated += OnLayoutUpdatedScrollToEnd;
+		}
+
 		private void CycleBlades()
 		{
 			ActiveBlades = new ObservableCollection<BladeItem>();
@@ -129,12 +134,7 @@ namespace Files.Controls
 				UpdateLayout();
 
 				// Need to do this because of touch. See more information here: https://github.com/CommunityToolkit/WindowsCommunityToolkit/issues/760#issuecomment-276466464
-				await DispatcherQueue.EnqueueAsync(
-					() =>
-					{
-						var scrollViewer = GetScrollViewer();
-						scrollViewer?.ChangeView(scrollViewer.ScrollableWidth, null, null);
-					}, Microsoft.UI.Dispatching.DispatcherQueuePriority.Low);
+				await DispatcherQueue.EnqueueAsync(() => { var scrollViewer = GetScrollViewer(); scrollViewer?.ChangeView(scrollViewer.ScrollableWidth, null, null); }, Microsoft.UI.Dispatching.DispatcherQueuePriority.Low);
 
 				return;
 			}
@@ -146,12 +146,8 @@ namespace Files.Controls
 		private ScrollViewer? GetScrollViewer()
 		{
 			_scrollViewer ??= this.FindDescendant<ScrollViewer>();
-			return _scrollViewer;
-		}
 
-		public void ScrollToEnd()
-		{
-			LayoutUpdated += OnLayoutUpdatedScrollToEnd;
+			return _scrollViewer;
 		}
 
 		private void OnLayoutUpdatedScrollToEnd(object? sender, object e)

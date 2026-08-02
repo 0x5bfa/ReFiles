@@ -10,6 +10,13 @@ namespace Files.Core.AppModels;
 /// </summary>
 public sealed record BrowseNavigationHistorySnapshot
 {
+	public IReadOnlyList<BrowseLocation> Entries { get; }
+
+	public int CurrentIndex { get; }
+
+	public BrowseLocation? Current =>
+		CurrentIndex < 0 ? null : Entries[CurrentIndex];
+
 	public BrowseNavigationHistorySnapshot(IEnumerable<BrowseLocation> entries, int currentIndex)
 	{
 		ArgumentNullException.ThrowIfNull(entries);
@@ -35,13 +42,6 @@ public sealed record BrowseNavigationHistorySnapshot
 		Entries = Array.AsReadOnly(entryArray);
 		CurrentIndex = currentIndex;
 	}
-
-	public IReadOnlyList<BrowseLocation> Entries { get; }
-
-	public int CurrentIndex { get; }
-
-	public BrowseLocation? Current =>
-		CurrentIndex < 0 ? null : Entries[CurrentIndex];
 }
 
 /// <summary>
@@ -49,31 +49,27 @@ public sealed record BrowseNavigationHistorySnapshot
 /// </summary>
 public sealed class BrowseNavigationHistory
 {
-	private const int DefaultCapacity = 50;
+	private const int _defaultCapacity = 50;
 
-	private readonly object syncRoot = new();
-	private readonly int capacity;
-	private readonly List<BrowseLocation> entries = [];
-	private IReadOnlyList<BrowseLocation> snapshot =
-		Array.Empty<BrowseLocation>();
-	private int currentIndex = -1;
+	private readonly Lock _syncRoot = new();
 
-	public BrowseNavigationHistory(int capacity = DefaultCapacity)
-	{
-		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
-		this.capacity = capacity;
-	}
+	private readonly int _capacity;
 
-	public IReadOnlyList<BrowseLocation> Entries =>
-		Volatile.Read(ref snapshot);
+	private readonly List<BrowseLocation> _entries = [];
+
+	private IReadOnlyList<BrowseLocation> _snapshot = [];
+
+	private int _currentIndex = -1;
+
+	public IReadOnlyList<BrowseLocation> Entries => Volatile.Read(ref _snapshot);
 
 	public int CurrentIndex
 	{
 		get
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				return currentIndex;
+				return _currentIndex;
 			}
 		}
 	}
@@ -82,9 +78,9 @@ public sealed class BrowseNavigationHistory
 	{
 		get
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				return currentIndex < 0 ? null : entries[currentIndex];
+				return _currentIndex < 0 ? null : _entries[_currentIndex];
 			}
 		}
 	}
@@ -93,9 +89,9 @@ public sealed class BrowseNavigationHistory
 	{
 		get
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				return currentIndex > 0;
+				return _currentIndex > 0;
 			}
 		}
 	}
@@ -104,56 +100,64 @@ public sealed class BrowseNavigationHistory
 	{
 		get
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				return currentIndex >= 0 && currentIndex < entries.Count - 1;
+				return _currentIndex >= 0 && _currentIndex < _entries.Count - 1;
 			}
 		}
 	}
 
 	public event EventHandler? Changed;
 
+	public BrowseNavigationHistory(int capacity = _defaultCapacity)
+	{
+		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+
+		_capacity = capacity;
+	}
+
 	public BrowseNavigationHistorySnapshot Capture()
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			return new BrowseNavigationHistorySnapshot(entries, currentIndex);
+			return new BrowseNavigationHistorySnapshot(_entries, _currentIndex);
 		}
 	}
 
 	internal void Push(BrowseLocation location)
 	{
 		ArgumentNullException.ThrowIfNull(location);
+
 		var changed = false;
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			if (currentIndex >= 0 && Equals(entries[currentIndex], location))
+			if (_currentIndex >= 0 && Equals(_entries[_currentIndex], location))
 			{
-				if (ReferenceEquals(entries[currentIndex], location))
+				if (ReferenceEquals(_entries[_currentIndex], location))
 				{
 					return;
 				}
 
-				entries[currentIndex] = location;
+				_entries[_currentIndex] = location;
 				UpdateSnapshot();
 				changed = true;
 			}
 			else
 			{
-				if (currentIndex < entries.Count - 1)
+				if (_currentIndex < _entries.Count - 1)
 				{
-					entries.RemoveRange(currentIndex + 1, entries.Count - currentIndex - 1);
+					_entries.RemoveRange(_currentIndex + 1, _entries.Count - _currentIndex - 1);
 				}
 
-				entries.Add(location);
-				currentIndex = entries.Count - 1;
+				_entries.Add(location);
+				_currentIndex = _entries.Count - 1;
 
-				if (entries.Count > capacity)
+				if (_entries.Count > _capacity)
 				{
-					var removeCount = entries.Count - capacity;
-					entries.RemoveRange(0, removeCount);
-					currentIndex -= removeCount;
+					var removeCount = _entries.Count - _capacity;
+					_entries.RemoveRange(0, removeCount);
+					_currentIndex -= removeCount;
 				}
 
 				UpdateSnapshot();
@@ -170,19 +174,20 @@ public sealed class BrowseNavigationHistory
 	internal void Replace(BrowseLocation location)
 	{
 		ArgumentNullException.ThrowIfNull(location);
+
 		var changed = false;
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			if (currentIndex < 0)
+			if (_currentIndex < 0)
 			{
-				entries.Add(location);
-				currentIndex = 0;
+				_entries.Add(location);
+				_currentIndex = 0;
 				changed = true;
 			}
-			else if (!ReferenceEquals(entries[currentIndex], location))
+			else if (!ReferenceEquals(_entries[_currentIndex], location))
 			{
-				entries[currentIndex] = location;
+				_entries[_currentIndex] = location;
 				changed = true;
 			}
 
@@ -200,20 +205,22 @@ public sealed class BrowseNavigationHistory
 
 	internal bool TryGetBack(out BrowseLocation? location, out int targetIndex)
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			targetIndex = currentIndex - 1;
-			location = targetIndex >= 0 ? entries[targetIndex] : null;
+			targetIndex = _currentIndex - 1;
+			location = targetIndex >= 0 ? _entries[targetIndex] : null;
+
 			return location is not null;
 		}
 	}
 
 	internal bool TryGetForward(out BrowseLocation? location, out int targetIndex)
 	{
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			targetIndex = currentIndex + 1;
-			location = targetIndex < entries.Count ? entries[targetIndex] : null;
+			targetIndex = _currentIndex + 1;
+			location = targetIndex < _entries.Count ? _entries[targetIndex] : null;
+
 			return location is not null;
 		}
 	}
@@ -221,20 +228,19 @@ public sealed class BrowseNavigationHistory
 	internal bool TryMoveTo(int targetIndex, BrowseLocation expectedLocation)
 	{
 		ArgumentNullException.ThrowIfNull(expectedLocation);
+
 		var changed = false;
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			if (targetIndex < 0
-				|| targetIndex >= entries.Count
-				|| !Equals(entries[targetIndex], expectedLocation))
+			if (targetIndex < 0 || targetIndex >= _entries.Count || !Equals(_entries[targetIndex], expectedLocation))
 			{
 				return false;
 			}
 
-			if (currentIndex != targetIndex)
+			if (_currentIndex != targetIndex)
 			{
-				currentIndex = targetIndex;
+				_currentIndex = targetIndex;
 				changed = true;
 			}
 		}
@@ -251,23 +257,19 @@ public sealed class BrowseNavigationHistory
 	{
 		ArgumentNullException.ThrowIfNull(restored);
 
-		lock (syncRoot)
+		lock (_syncRoot)
 		{
-			entries.Clear();
+			_entries.Clear();
 
 			var sourceEntries = restored.Entries;
-			var firstIndex = sourceEntries.Count <= capacity
-				? 0
-				: Math.Clamp(restored.CurrentIndex - (capacity / 2), 0, sourceEntries.Count - capacity);
-			var lastIndex = Math.Min(sourceEntries.Count, firstIndex + capacity);
+			var firstIndex = sourceEntries.Count <= _capacity ? 0 : Math.Clamp(restored.CurrentIndex - (_capacity / 2), 0, sourceEntries.Count - _capacity);
+			var lastIndex = Math.Min(sourceEntries.Count, firstIndex + _capacity);
 			for (var index = firstIndex; index < lastIndex; index++)
 			{
-				entries.Add(sourceEntries[index]);
+				_entries.Add(sourceEntries[index]);
 			}
 
-			currentIndex = restored.CurrentIndex < 0
-				? -1
-				: restored.CurrentIndex - firstIndex;
+			_currentIndex = restored.CurrentIndex < 0 ? -1 : restored.CurrentIndex - firstIndex;
 			UpdateSnapshot();
 		}
 
@@ -276,6 +278,6 @@ public sealed class BrowseNavigationHistory
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(ref snapshot, Array.AsReadOnly(entries.ToArray()));
+		Volatile.Write(ref _snapshot, Array.AsReadOnly(_entries.ToArray()));
 	}
 }

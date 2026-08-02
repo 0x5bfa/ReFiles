@@ -13,9 +13,8 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 	public CommandState GetState(CommandContext context)
 	{
 		var isEnabled = id == CommandIds.NewTab
-			|| (id == CommandIds.CloseTab
-				&& context.InvokedTab is not null
-				&& context.Root.Tabs.Count > 1);
+			|| (id == CommandIds.CloseTab && context.InvokedTab is not null && context.Root.Tabs.Count > 1);
+
 		return new(true, isEnabled);
 	}
 

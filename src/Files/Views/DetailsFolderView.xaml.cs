@@ -10,25 +10,21 @@ namespace Files.Views;
 public sealed partial class DetailsFolderView : UserControl
 {
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(
-			nameof(ViewModel),
-			typeof(FolderBrowserViewModel),
-			typeof(DetailsFolderView),
-			new PropertyMetadata(null, ViewModelChanged));
+		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(DetailsFolderView), new PropertyMetadata(null, ViewModelChanged));
 
 	private FolderViewInteraction? interaction;
+
+	public FolderBrowserViewModel? ViewModel
+	{
+		get => (FolderBrowserViewModel?)GetValue(ViewModelProperty);
+		set => SetValue(ViewModelProperty, value);
+	}
 
 	public DetailsFolderView()
 	{
 		InitializeComponent();
 		Loaded += FolderView_Loaded;
 		Unloaded += FolderView_Unloaded;
-	}
-
-	public FolderBrowserViewModel? ViewModel
-	{
-		get => (FolderBrowserViewModel?)GetValue(ViewModelProperty);
-		set => SetValue(ViewModelProperty, value);
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

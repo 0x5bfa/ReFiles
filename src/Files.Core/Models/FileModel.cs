@@ -9,11 +9,11 @@ namespace Files.Core.Models;
 
 public sealed class FileModel : StorableModel, IFileModel
 {
+	public IFile File { get; }
+
 	public FileModel(IFile file, StorableReference reference, IItemFeatures features)
 		: base(file, reference, features)
 	{
 		File = file;
 	}
-
-	public IFile File { get; }
 }

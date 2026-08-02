@@ -33,6 +33,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 			// A file ID identifies the shared file object, while the parsing name
 			// identifies the directory entry that Shell enumerated.
+
 			return CreateAddressIdentity(parsingName);
 		}
 
@@ -54,6 +55,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	public bool IsFileSystemIdentity(string itemId)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
+
 		return itemId.StartsWith(FileIdentityPrefix, StringComparison.Ordinal);
 	}
 
@@ -65,16 +67,13 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		{
 			using var handle = File.OpenHandle(fileSystemPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, BackupSemantics);
 
-			if (handle.IsInvalid
-				|| !PInvoke.GetFileInformationByHandle(handle, out var information))
+			if (handle.IsInvalid || !PInvoke.GetFileInformationByHandle(handle, out var information))
 			{
 				return false;
 			}
 
-			fileId = new WindowsFileId(
-				information.dwVolumeSerialNumber,
-				((ulong)information.nFileIndexHigh << 32) | information.nFileIndexLow,
-				information.nNumberOfLinks);
+			fileId = new WindowsFileId(information.dwVolumeSerialNumber, ((ulong)information.nFileIndexHigh << 32) | information.nFileIndexLow, information.nNumberOfLinks);
+
 			return true;
 		}
 		catch (IOException)
@@ -94,10 +93,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 	private static string EncodeAddress(string parsingName)
 	{
-		return Convert.ToBase64String(Encoding.UTF8.GetBytes(parsingName))
-			.TrimEnd('=')
-			.Replace('+', '-')
-			.Replace('/', '_');
+		return Convert.ToBase64String(Encoding.UTF8.GetBytes(parsingName)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 	}
 
 	private static bool TryDecodeAddress(string encodedAddress, out string parsingName)
@@ -111,11 +107,10 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 		try
 		{
-			var paddedAddress = encodedAddress
-				.Replace('-', '+')
-				.Replace('_', '/');
+			var paddedAddress = encodedAddress.Replace('-', '+').Replace('_', '/');
 			paddedAddress = paddedAddress.PadRight(paddedAddress.Length + ((4 - paddedAddress.Length % 4) % 4), '=');
 			parsingName = Encoding.UTF8.GetString(Convert.FromBase64String(paddedAddress));
+
 			return !string.IsNullOrWhiteSpace(parsingName);
 		}
 		catch (FormatException)

@@ -8,23 +8,24 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorageOperationProgress
 {
-	public StorageOperationProgress(int CompletedItems, int TotalItems, StorableReference? CurrentItem = null)
-	{
-		ArgumentOutOfRangeException.ThrowIfNegative(CompletedItems);
-		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(TotalItems);
-		if (CompletedItems > TotalItems)
-		{
-			throw new ArgumentOutOfRangeException(nameof(CompletedItems), "Completed items cannot exceed the total item count.");
-		}
-
-		this.CompletedItems = CompletedItems;
-		this.TotalItems = TotalItems;
-		this.CurrentItem = CurrentItem;
-	}
-
 	public int CompletedItems { get; }
 
 	public int TotalItems { get; }
 
 	public StorableReference? CurrentItem { get; }
+
+	public StorageOperationProgress(int completedItems, int totalItems, StorableReference? currentItem = null)
+	{
+		ArgumentOutOfRangeException.ThrowIfNegative(completedItems);
+		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(totalItems);
+
+		if (completedItems > totalItems)
+		{
+			throw new ArgumentOutOfRangeException(nameof(completedItems), "Completed items cannot exceed the total item count.");
+		}
+
+		CompletedItems = completedItems;
+		TotalItems = totalItems;
+		CurrentItem = currentItem;
+	}
 }

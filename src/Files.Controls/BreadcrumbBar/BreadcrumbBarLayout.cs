@@ -48,7 +48,9 @@ namespace Files.Controls
 
 			// Get a reference to the ellipsis item
 			if (context.Children.Count > 0)
+			{
 				_ellipsisButton ??= context.Children[0] as BreadcrumbBarItem;
+			}
 
 			// Sets the ellipsis item's visibility based on whether the items are overflowing
 			EllipsisIsRendered = indexAfterEllipsis is not 0;
@@ -86,7 +88,9 @@ namespace Files.Controls
 			}
 
 			if (_ownerRef?.TryGetTarget(out var breadcrumbBar) ?? false)
+			{
 				breadcrumbBar.OnLayoutUpdated();
+			}
 
 			finalSize.Width = accumulatedWidths;
 
@@ -100,14 +104,18 @@ namespace Files.Controls
 
 			// Handle zero or negative available width - hide all items
 			if (_availableSize.Width <= 0)
+			{
 				return itemCount;
+			}
 
 			// Go through all items from the last item
 			for (int index = itemCount - 1; index >= 0; index--)
 			{
 				var newAccumulatedWidth = accumulatedWidth + context.Children[index].DesiredSize.Width;
 				if (newAccumulatedWidth >= _availableSize.Width)
+				{
 					return index + 1;
+				}
 
 				accumulatedWidth = newAccumulatedWidth;
 			}

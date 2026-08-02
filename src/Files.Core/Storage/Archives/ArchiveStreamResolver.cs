@@ -16,32 +16,11 @@ internal static class ArchiveStreamResolver
 		Stream? input = null;
 		if (request.ArchiveModel.CoreModel is IFile file)
 		{
-			input = await file
-				.OpenStreamAsync(FileAccess.Read, cancellationToken)
-				.ConfigureAwait(false);
+			input = await file.OpenStreamAsync(FileAccess.Read, cancellationToken).ConfigureAwait(false);
 		}
-		else if (request.ArchiveModel.CoreModel
-			is IStorageAddressSource
-			{
-				Address:
-				{
-					Scheme: var scheme,
-					Value: var path,
-				},
-			}
-			&& scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
+		else if (request.ArchiveModel.CoreModel is IStorageAddressSource { Address: { Scheme: var scheme, Value: var path, }, } && scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
 		{
-			input = new FileStream(
-				path,
-				new FileStreamOptions
-				{
-					Mode = FileMode.Open,
-					Access = FileAccess.Read,
-					Share = FileShare.ReadWrite | FileShare.Delete,
-					Options =
-						FileOptions.Asynchronous
-						| FileOptions.SequentialScan,
-				});
+			input = new FileStream(path, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.ReadWrite | FileShare.Delete, Options = FileOptions.Asynchronous | FileOptions.SequentialScan, });
 		}
 
 		if (input is null)
@@ -52,6 +31,7 @@ internal static class ArchiveStreamResolver
 		if (input.CanSeek)
 		{
 			input.Position = 0;
+
 			return input;
 		}
 
@@ -59,11 +39,10 @@ internal static class ArchiveStreamResolver
 		try
 		{
 			seekableCopy = CreateTemporaryStream();
-			await input
-				.CopyToAsync(seekableCopy, cancellationToken)
-				.ConfigureAwait(false);
+			await input.CopyToAsync(seekableCopy, cancellationToken).ConfigureAwait(false);
 			seekableCopy.Position = 0;
 			await input.DisposeAsync().ConfigureAwait(false);
+
 			return seekableCopy;
 		}
 		catch

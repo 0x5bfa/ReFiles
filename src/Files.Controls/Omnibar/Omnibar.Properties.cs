@@ -25,6 +25,7 @@ namespace Files.Controls
 		partial void OnCurrentSelectedModePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			if (e.NewValue is not OmnibarMode newMode)
+
 				return;
 
 			if (e.OldValue is OmnibarMode oldMode)
@@ -38,14 +39,13 @@ namespace Files.Controls
 
 		partial void OnCurrentSelectedModeNameChanged(string? newValue)
 		{
-			if (string.IsNullOrEmpty(newValue) ||
-				string.IsNullOrEmpty(CurrentSelectedMode?.Name) ||
-				CurrentSelectedMode.Name.Equals(newValue) ||
-				Modes is null)
+			if (string.IsNullOrEmpty(newValue) || string.IsNullOrEmpty(CurrentSelectedMode?.Name) || CurrentSelectedMode.Name.Equals(newValue) || Modes is null)
+
 				return;
 
 			var newMode = Modes.Where(x => x.Name?.Equals(newValue) ?? false).FirstOrDefault();
 			if (newMode is null)
+
 				return;
 
 			CurrentSelectedMode = newMode;
@@ -54,6 +54,7 @@ namespace Files.Controls
 		partial void OnIsFocusedChanged(bool newValue)
 		{
 			if (CurrentSelectedMode is null || _textBox is null)
+
 				return;
 
 			GlobalHelper.WriteDebugStringForOmnibar($"{nameof(IsFocused)} has been changed to {IsFocused}");

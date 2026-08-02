@@ -9,9 +9,9 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 {
-	private readonly WindowsShellItemResolver resolver;
-	private readonly WindowsShellThumbnailBackend backend;
-	private readonly WindowsItemLocator locator;
+	private readonly WindowsShellItemResolver _resolver;
+	private readonly WindowsShellThumbnailBackend _backend;
+	private readonly WindowsItemLocator _locator;
 
 	public WindowsShellThumbnailSource(WindowsShellItemResolver resolver, WindowsShellThumbnailBackend backend, WindowsItemLocator locator)
 	{
@@ -19,18 +19,16 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		ArgumentNullException.ThrowIfNull(backend);
 		ArgumentNullException.ThrowIfNull(locator);
 
-		this.resolver = resolver;
-		this.backend = backend;
-		this.locator = locator;
+		_resolver = resolver;
+		_backend = backend;
+		_locator = locator;
 	}
 
 	public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
-		var payload = await resolver
-			.InvokeConcurrentAsync(locator, shellItem => backend.GetThumbnail(shellItem, locator, request, cancellationToken), cancellationToken)
-			.ConfigureAwait(false);
+		var payload = await _resolver.InvokeConcurrentAsync(_locator, shellItem => _backend.GetThumbnail(shellItem, _locator, request, cancellationToken), cancellationToken).ConfigureAwait(false);
 
 		return payload is null
 			? null

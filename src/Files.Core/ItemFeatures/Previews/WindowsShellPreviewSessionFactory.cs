@@ -10,22 +10,19 @@ namespace Files.Core.ItemFeatures.Previews;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSessionFactory
 {
-	private readonly IWindowsPreviewTargetResolver targetResolver;
-	private readonly IWindowsShellScheduler scheduler;
-	private readonly IWindowsPreviewHandlerControllerFactory controllerFactory;
+	private readonly IWindowsPreviewTargetResolver _targetResolver;
+	private readonly IWindowsShellScheduler _scheduler;
+	private readonly IWindowsPreviewHandlerControllerFactory _controllerFactory;
 
-	public WindowsShellPreviewSessionFactory(
-		IWindowsPreviewTargetResolver targetResolver,
-		IWindowsShellScheduler dedicatedScheduler,
-		IWindowsPreviewHandlerControllerFactory controllerFactory)
+	public WindowsShellPreviewSessionFactory(IWindowsPreviewTargetResolver targetResolver, IWindowsShellScheduler dedicatedScheduler, IWindowsPreviewHandlerControllerFactory controllerFactory)
 	{
 		ArgumentNullException.ThrowIfNull(targetResolver);
 		ArgumentNullException.ThrowIfNull(dedicatedScheduler);
 		ArgumentNullException.ThrowIfNull(controllerFactory);
 
-		this.targetResolver = targetResolver;
-		scheduler = dedicatedScheduler;
-		this.controllerFactory = controllerFactory;
+		_targetResolver = targetResolver;
+		_scheduler = dedicatedScheduler;
+		_controllerFactory = controllerFactory;
 	}
 
 	public WindowsShellPreviewSessionFactory(IFilesDataRoot dataRoot, IWindowsShellScheduler dedicatedScheduler)
@@ -33,10 +30,7 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 	{
 	}
 
-	public async ValueTask<IWindowsShellPreviewSession> CreateAsync(
-		WindowsShellPreviewResult result,
-		WindowsPreviewHost host,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IWindowsShellPreviewSession> CreateAsync(WindowsShellPreviewResult result, WindowsPreviewHost host, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(result);
 		ArgumentNullException.ThrowIfNull(host);
@@ -45,19 +39,16 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 		WindowsPreviewTarget? target = null;
 		try
 		{
-			target = await targetResolver
-				.ResolveAsync(result.Reference, cancellationToken)
-				.ConfigureAwait(false);
+			target = await _targetResolver.ResolveAsync(result.Reference, cancellationToken).ConfigureAwait(false);
 
-			var session = await scheduler
-				.InvokeOperationAsync(() => CreateOnPreviewSta(result, host, target), cancellationToken)
-				.ConfigureAwait(false);
+			var session = await _scheduler.InvokeOperationAsync(() => CreateOnPreviewSta(result, host, target), cancellationToken).ConfigureAwait(false);
 
 			target = null;
 			if (cancellationToken.IsCancellationRequested)
 			{
 				await session.DisposeAsync().ConfigureAwait(false);
 				cancellationToken.ThrowIfCancellationRequested();
+
 			}
 
 			return session;
@@ -84,8 +75,8 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 
 	private IWindowsShellPreviewSession CreateOnPreviewSta(WindowsShellPreviewResult result, WindowsPreviewHost host, WindowsPreviewTarget target)
 	{
-		var controller = controllerFactory.Create(result.HandlerClsid);
-		var session = new WindowsShellPreviewSession(target, controller, scheduler);
+		var controller = _controllerFactory.Create(result.HandlerClsid);
+		var session = new WindowsShellPreviewSession(target, controller, _scheduler);
 		try
 		{
 			session.TransitionTo(WindowsShellPreviewSessionState.Activating);
@@ -100,8 +91,7 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 				initialized = controller.TryInitializeWithItem(windowsItem.ParsingName);
 			}
 
-			if (!initialized
-				&& windowsItem.FileSystemPath is { } fallbackPath)
+			if (!initialized && windowsItem.FileSystemPath is { } fallbackPath)
 			{
 				initialized = controller.TryInitializeWithFile(fallbackPath);
 			}

@@ -25,17 +25,18 @@ public enum StorageItemKind
 /// </summary>
 public sealed record RenameOperationRequest : StorageOperationRequest
 {
+	public StorableReference Item { get; }
+
+	public string NewName { get; }
+
 	public RenameOperationRequest(StorableReference item, string newName)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+
 		Item = item;
 		NewName = newName;
 	}
-
-	public StorableReference Item { get; }
-
-	public string NewName { get; }
 }
 
 /// <summary>
@@ -43,17 +44,20 @@ public sealed record RenameOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record CreateItemOperationRequest : StorageOperationRequest
 {
-	public CreateItemOperationRequest(
-		StorableReference parent,
-		string name,
-		StorageItemKind kind,
-		StorageConflictBehavior conflictBehavior =
-			StorageConflictBehavior.Fail)
+	public StorableReference Parent { get; }
+
+	public string Name { get; }
+
+	public StorageItemKind Kind { get; }
+
+	public StorageConflictBehavior ConflictBehavior { get; }
+
+	public CreateItemOperationRequest(StorableReference parent, string name, StorageItemKind kind, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(parent);
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
-		if (kind is not StorageItemKind.File
-			and not StorageItemKind.Folder)
+
+		if (kind is not StorageItemKind.File and not StorageItemKind.Folder)
 		{
 			throw new ArgumentOutOfRangeException(nameof(kind));
 		}
@@ -66,18 +70,9 @@ public sealed record CreateItemOperationRequest : StorageOperationRequest
 		ConflictBehavior = conflictBehavior;
 	}
 
-	public StorableReference Parent { get; }
-
-	public string Name { get; }
-
-	public StorageItemKind Kind { get; }
-
-	public StorageConflictBehavior ConflictBehavior { get; }
-
 	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
-		if (conflictBehavior is not StorageConflictBehavior.Fail
-			and not StorageConflictBehavior.GenerateUniqueName)
+		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName)
 		{
 			throw new ArgumentOutOfRangeException(nameof(conflictBehavior));
 		}
@@ -89,18 +84,23 @@ public sealed record CreateItemOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record CopyOperationRequest : StorageOperationRequest
 {
-	public CopyOperationRequest(
-		StorableReference item,
-		StorableReference destinationFolder,
-		string? newName = null,
-		StorageConflictBehavior conflictBehavior =
-			StorageConflictBehavior.Fail)
+	public StorableReference Item { get; }
+
+	public StorableReference DestinationFolder { get; }
+
+	public string? NewName { get; }
+
+	public StorageConflictBehavior ConflictBehavior { get; }
+
+	public CopyOperationRequest(StorableReference item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		ArgumentNullException.ThrowIfNull(destinationFolder);
+
 		if (newName is not null)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+
 		}
 
 		ValidateConflictBehavior(conflictBehavior);
@@ -110,18 +110,9 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 		ConflictBehavior = conflictBehavior;
 	}
 
-	public StorableReference Item { get; }
-
-	public StorableReference DestinationFolder { get; }
-
-	public string? NewName { get; }
-
-	public StorageConflictBehavior ConflictBehavior { get; }
-
 	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
-		if (conflictBehavior is not StorageConflictBehavior.Fail
-			and not StorageConflictBehavior.GenerateUniqueName)
+		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName)
 		{
 			throw new ArgumentOutOfRangeException(nameof(conflictBehavior));
 		}
@@ -133,18 +124,23 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record MoveOperationRequest : StorageOperationRequest
 {
-	public MoveOperationRequest(
-		StorableReference item,
-		StorableReference destinationFolder,
-		string? newName = null,
-		StorageConflictBehavior conflictBehavior =
-			StorageConflictBehavior.Fail)
+	public StorableReference Item { get; }
+
+	public StorableReference DestinationFolder { get; }
+
+	public string? NewName { get; }
+
+	public StorageConflictBehavior ConflictBehavior { get; }
+
+	public MoveOperationRequest(StorableReference item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		ArgumentNullException.ThrowIfNull(destinationFolder);
+
 		if (newName is not null)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+
 		}
 
 		ValidateConflictBehavior(conflictBehavior);
@@ -154,18 +150,9 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 		ConflictBehavior = conflictBehavior;
 	}
 
-	public StorableReference Item { get; }
-
-	public StorableReference DestinationFolder { get; }
-
-	public string? NewName { get; }
-
-	public StorageConflictBehavior ConflictBehavior { get; }
-
 	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
-		if (conflictBehavior is not StorageConflictBehavior.Fail
-			and not StorageConflictBehavior.GenerateUniqueName)
+		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName)
 		{
 			throw new ArgumentOutOfRangeException(nameof(conflictBehavior));
 		}
@@ -177,14 +164,15 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record DeleteOperationRequest : StorageOperationRequest
 {
-	public DeleteOperationRequest(StorableReference item, bool permanently = false)
-	{
-		ArgumentNullException.ThrowIfNull(item);
-		Item = item;
-		Permanently = permanently;
-	}
-
 	public StorableReference Item { get; }
 
 	public bool Permanently { get; }
+
+	public DeleteOperationRequest(StorableReference item, bool permanently = false)
+	{
+		ArgumentNullException.ThrowIfNull(item);
+
+		Item = item;
+		Permanently = permanently;
+	}
 }

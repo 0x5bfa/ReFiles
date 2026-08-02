@@ -9,10 +9,10 @@ namespace Files.Views;
 
 public sealed partial class InfoPane : UserControl
 {
+	public string Text => Strings.InfoPane.GetLocalized();
+
 	public InfoPane()
 	{
 		InitializeComponent();
 	}
-
-	public string Text => Strings.InfoPane.GetLocalized();
 }

@@ -8,8 +8,11 @@ namespace Files.Core.Storage.Archives;
 /// </summary>
 public sealed class ArchiveBackendSelector
 {
-	private readonly IReadOnlyList<IArchiveBackend> backends;
-	private readonly IArchiveProbe? probe;
+	private readonly IReadOnlyList<IArchiveBackend> _backends;
+
+	private readonly IArchiveProbe? _probe;
+
+	public IReadOnlyList<IArchiveBackend> Backends => _backends;
 
 	public ArchiveBackendSelector(IEnumerable<IArchiveBackend> backends, IArchiveProbe? probe = null)
 	{
@@ -31,22 +34,16 @@ public sealed class ArchiveBackendSelector
 			throw new ArgumentException("Archive backend IDs cannot be empty.", nameof(backends));
 		}
 
-		var backendArray = suppliedBackends
-			.OrderByDescending(static backend => backend.Priority)
-			.ToArray();
-		var duplicateId = backendArray
-			.GroupBy(static backend => backend.Id, StringComparer.Ordinal)
-			.FirstOrDefault(static group => group.Count() > 1);
+		var backendArray = suppliedBackends.OrderByDescending(static backend => backend.Priority).ToArray();
+		var duplicateId = backendArray.GroupBy(static backend => backend.Id, StringComparer.Ordinal).FirstOrDefault(static group => group.Count() > 1);
 		if (duplicateId is not null)
 		{
 			throw new ArgumentException($"Archive backend ID '{duplicateId.Key}' was supplied more than once.", nameof(backends));
 		}
 
-		this.backends = Array.AsReadOnly(backendArray);
-		this.probe = probe;
+		_backends = Array.AsReadOnly(backendArray);
+		_probe = probe;
 	}
-
-	public IReadOnlyList<IArchiveBackend> Backends => backends;
 
 	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
@@ -55,13 +52,11 @@ public sealed class ArchiveBackendSelector
 
 		ArchiveProbeResult probeResult = ArchiveProbeResult.Unknown;
 		Exception? probeError = null;
-		if (probe is not null)
+		if (_probe is not null)
 		{
 			try
 			{
-				probeResult = await probe
-					.ProbeAsync(request, cancellationToken)
-					.ConfigureAwait(false);
+				probeResult = await _probe.ProbeAsync(request, cancellationToken).ConfigureAwait(false);
 			}
 			catch (OperationCanceledException)
 				when (cancellationToken.IsCancellationRequested)
@@ -74,11 +69,7 @@ public sealed class ArchiveBackendSelector
 			}
 		}
 
-		if (probeResult is
-			{
-				Kind: ArchiveProbeKind.CredentialRequired,
-				Challenge: { } challenge,
-			})
+		if (probeResult is { Kind: ArchiveProbeKind.CredentialRequired, Challenge: { } challenge, })
 		{
 			return new ArchiveMountResult.CredentialRequired(challenge);
 		}
@@ -89,11 +80,11 @@ public sealed class ArchiveBackendSelector
 			? null
 			: [probeError];
 
-		foreach (var backend in backends)
+		foreach (var backend in _backends)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			if (requireEncryptedSupport
-				&& !backend.SupportsEncryptedArchives)
+
+			if (requireEncryptedSupport && !backend.SupportsEncryptedArchives)
 			{
 				continue;
 			}
@@ -101,9 +92,7 @@ public sealed class ArchiveBackendSelector
 			ArchiveMountResult result;
 			try
 			{
-				result = await backend
-					.TryMountAsync(request, cancellationToken)
-					.ConfigureAwait(false);
+				result = await backend.TryMountAsync(request, cancellationToken).ConfigureAwait(false);
 			}
 			catch (OperationCanceledException)
 				when (cancellationToken.IsCancellationRequested)
@@ -120,6 +109,7 @@ public sealed class ArchiveBackendSelector
 			{
 				case ArchiveMountResult.Success:
 				case ArchiveMountResult.CredentialRequired:
+
 					return result;
 				case ArchiveMountResult.Failed failed:
 					(errors ??= []).Add(failed.Error);

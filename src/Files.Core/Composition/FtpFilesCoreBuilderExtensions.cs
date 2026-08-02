@@ -27,6 +27,7 @@ public static class FtpFilesCoreBuilderExtensions
 		ArgumentNullException.ThrowIfNull(profile);
 
 		var source = new FtpStorageSource(profile, credentialResolver, sessionFactory);
+
 		try
 		{
 			RegisterStorage(builder, source);
@@ -35,11 +36,7 @@ public static class FtpFilesCoreBuilderExtensions
 		{
 			try
 			{
-				source
-					.DisposeAsync()
-					.AsTask()
-					.GetAwaiter()
-					.GetResult();
+				source.DisposeAsync().AsTask().GetAwaiter().GetResult();
 			}
 			catch (Exception cleanupError)
 			{
@@ -64,28 +61,18 @@ public static class FtpFilesCoreBuilderExtensions
 		ArgumentNullException.ThrowIfNull(source);
 
 		RegisterStorage(builder, source);
+
 		return AddFtpItemFeatures(builder, source, streamPreviewPolicy, enablePreviews, enableArchives, archiveCredentialResolver);
 	}
 
 	private static void RegisterStorage(FilesCoreBuilder builder, FtpStorageSource source)
 	{
-		builder
-			.AddStorageSource(source)
-			.AddStorageOperationHandler(new FtpStorageOperationHandler(source));
+		builder.AddStorageSource(source).AddStorageOperationHandler(new FtpStorageOperationHandler(source));
 	}
 
-	private static FilesCoreBuilder AddFtpItemFeatures(
-		FilesCoreBuilder builder,
-		FtpStorageSource source,
-		IPreviewStreamAccessPolicy? streamPreviewPolicy,
-		bool enablePreviews,
-		bool enableArchives,
-		IArchiveCredentialResolver? archiveCredentialResolver)
+	private static FilesCoreBuilder AddFtpItemFeatures(FilesCoreBuilder builder, FtpStorageSource source, IPreviewStreamAccessPolicy? streamPreviewPolicy, bool enablePreviews, bool enableArchives, IArchiveCredentialResolver? archiveCredentialResolver)
 	{
-		builder.ItemFeatures.Add<IPropertySource>(
-			new PropertySourceFactory(new FtpPropertyReader(source)),
-			priority: 100,
-			origin: $"FTP:{source.Profile.ConnectionId}");
+		builder.ItemFeatures.Add<IPropertySource>(new PropertySourceFactory(new FtpPropertyReader(source)), priority: 100, origin: $"FTP:{source.Profile.ConnectionId}");
 
 		if (enablePreviews)
 		{

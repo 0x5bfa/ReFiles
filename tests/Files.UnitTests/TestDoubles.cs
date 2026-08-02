@@ -30,6 +30,7 @@ internal sealed class TestStorageSource : IStorageSource
 	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		await Task.CompletedTask.ConfigureAwait(false);
 		yield break;
 	}
@@ -46,33 +47,34 @@ internal sealed class TestStorageSource : IStorageSource
 	{
 		DisposeCount++;
 		IsDisposed = true;
+
 		return ValueTask.CompletedTask;
 	}
 }
 
 internal class TestStorable : IStorable
 {
+	public string Id { get; }
+
+	public string Name { get; }
+
 	public TestStorable(string id, string name)
 	{
 		Id = id;
 		Name = name;
 	}
-
-	public string Id { get; }
-
-	public string Name { get; }
 }
 
 internal sealed class DisposableStorable : TestStorable, IDisposable
 {
+	public bool IsDisposed { get; private set; }
+
+	public int DisposeCount { get; private set; }
+
 	public DisposableStorable(string id, string name)
 		: base(id, name)
 	{
 	}
-
-	public bool IsDisposed { get; private set; }
-
-	public int DisposeCount { get; private set; }
 
 	public void Dispose()
 	{
@@ -85,15 +87,15 @@ internal sealed class TestItemFeature : IDisposable
 {
 	private readonly IList<string> disposalOrder;
 
+	public string Name { get; }
+
+	public bool IsDisposed { get; private set; }
+
 	public TestItemFeature(string name, IList<string> disposalOrder)
 	{
 		Name = name;
 		this.disposalOrder = disposalOrder;
 	}
-
-	public string Name { get; }
-
-	public bool IsDisposed { get; private set; }
 
 	public void Dispose()
 	{
@@ -171,8 +173,10 @@ internal sealed class TestPropertySource : IPropertySource
 	public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
+
 		CallCount++;
 		Requests.Add(request.PropertyIds);
+
 		return Handler is null
 			? ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?>())
 			: Handler(request, cancellationToken);
@@ -190,8 +194,10 @@ internal sealed class TestThumbnailSource : IThumbnailSource
 	public ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
+
 		CallCount++;
 		Requests.Add(request);
+
 		return Handler is null
 			? ValueTask.FromResult<ThumbnailResult?>(null)
 			: Handler(request, cancellationToken);
@@ -200,12 +206,6 @@ internal sealed class TestThumbnailSource : IThumbnailSource
 
 internal sealed class TestBrowseLocationResolver : IBrowseLocationResolver
 {
-	public TestBrowseLocationResolver(IEnumerable<IStorableModel> items, Exception? exception = null)
-	{
-		Items = items.ToList();
-		Exception = exception;
-	}
-
 	public IList<IStorableModel> Items { get; }
 
 	public Exception? Exception { get; set; }
@@ -228,24 +228,21 @@ internal sealed class TestBrowseLocationResolver : IBrowseLocationResolver
 
 	public Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? ItemResolver { get; set; }
 
+	public TestBrowseLocationResolver(IEnumerable<IStorableModel> items, Exception? exception = null)
+	{
+		Items = items.ToList();
+		Exception = exception;
+	}
+
 	public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var context = new TestBrowseLocationContext(
-			location,
-			Items.ToArray(),
-			Exception,
-			EnumerationStarted,
-			BlockEnumeration,
-			EnumerationRelease,
-			LocationModelFactory?.Invoke(location),
-			EnumerationGuard,
-			EnumerationAction,
-			ItemResolver);
+		var context = new TestBrowseLocationContext(location, Items.ToArray(), Exception, EnumerationStarted, BlockEnumeration, EnumerationRelease, LocationModelFactory?.Invoke(location), EnumerationGuard, EnumerationAction, ItemResolver);
 		OpenedContexts.Add(context);
 		ContextOpened?.Invoke(context);
+
 		return ValueTask.FromResult<IBrowseLocationContext>(context);
 	}
 }
@@ -255,15 +252,30 @@ internal sealed class TestBrowseLocationContext :
 	IBrowseLocationItemResolver
 {
 	private readonly IReadOnlyList<IStorableModel> items;
+
 	private readonly Exception? exception;
+
 	private readonly TaskCompletionSource<bool>? enumerationStarted;
+
 	private readonly bool blockEnumeration;
+
 	private readonly TaskCompletionSource<bool>? enumerationRelease;
+
 	private readonly IStorableModel? locationModel;
+
 	private readonly Func<bool>? enumerationGuard;
+
 	private readonly Action? enumerationAction;
+
 	private readonly Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? itemResolver;
+
 	private int isDisposed;
+
+	public BrowseLocation Location { get; }
+
+	public IStorableModel? LocationModel => locationModel;
+
+	public bool IsDisposed => Volatile.Read(ref isDisposed) != 0;
 
 	public TestBrowseLocationContext(
 		BrowseLocation location,
@@ -289,15 +301,10 @@ internal sealed class TestBrowseLocationContext :
 		this.itemResolver = itemResolver;
 	}
 
-	public BrowseLocation Location { get; }
-
-	public IStorableModel? LocationModel => locationModel;
-
-	public bool IsDisposed => Volatile.Read(ref isDisposed) != 0;
-
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+
 		return itemResolver is null
 			? throw new NotSupportedException()
 			: itemResolver(reference, cancellationToken);
@@ -306,6 +313,7 @@ internal sealed class TestBrowseLocationContext :
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(IsDisposed, this);
+
 		enumerationStarted?.TrySetResult(true);
 		if (enumerationGuard is not null && !enumerationGuard())
 		{
@@ -333,6 +341,7 @@ internal sealed class TestBrowseLocationContext :
 		foreach (var item in items)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			yield return item;
 			await Task.Yield();
 		}
@@ -372,8 +381,10 @@ internal sealed class TestFolderChangeSource : IFolderChangeSource
 	{
 		ObjectDisposedException.ThrowIf(IsDisposed, this);
 		cancellationToken.ThrowIfCancellationRequested();
+
 		IsStarted = true;
 		StartCount++;
+
 		return ValueTask.CompletedTask;
 	}
 
@@ -385,6 +396,7 @@ internal sealed class TestFolderChangeSource : IFolderChangeSource
 	public void RaiseChange(FolderChange change)
 	{
 		ArgumentNullException.ThrowIfNull(change);
+
 		Changed?.Invoke(this, new FolderChangeEventArgs(change));
 	}
 
@@ -404,6 +416,7 @@ internal sealed class TestFolderChangeSource : IFolderChangeSource
 	public ValueTask DisposeAsync()
 	{
 		Dispose();
+
 		return ValueTask.CompletedTask;
 	}
 }
@@ -423,17 +436,14 @@ internal sealed class TestThumbnailCache : IThumbnailCache
 	public ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
 		=> ValueTask.FromResult(Volatile.Read(ref invalidationVersion));
 
-	public ValueTask<bool> TrySetAsync(
-		ThumbnailCacheKey key,
-		ThumbnailCacheEntry entry,
-		long expectedInvalidationVersion,
-		CancellationToken cancellationToken = default)
+	public ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default)
 		=> ValueTask.FromResult(expectedInvalidationVersion == Volatile.Read(ref invalidationVersion));
 
 	public ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		InvalidatedReferences.Add(reference);
 		Interlocked.Increment(ref invalidationVersion);
+
 		return ValueTask.CompletedTask;
 	}
 }
@@ -445,13 +455,16 @@ internal sealed class TestViewSettingsStore : IViewSettingsStore
 	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		return ValueTask.FromResult(values.GetValueOrDefault(location));
 	}
 
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		values[location] = settings;
+
 		return ValueTask.CompletedTask;
 	}
 }

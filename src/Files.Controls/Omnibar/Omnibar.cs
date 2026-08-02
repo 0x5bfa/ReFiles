@@ -92,7 +92,9 @@ namespace Files.Controls
 		public void PopulateModes()
 		{
 			if (Modes is null || _modesHostGrid is null)
+			{
 				return;
+			}
 
 			// Populate the modes
 			foreach (var mode in Modes)
@@ -118,7 +120,9 @@ namespace Files.Controls
 		protected void ChangeMode(OmnibarMode? oldMode, OmnibarMode newMode)
 		{
 			if (_modesHostGrid is null || Modes is null || CurrentSelectedMode is null)
+			{
 				return;
+			}
 
 			foreach (var mode in Modes)
 			{
@@ -131,13 +135,17 @@ namespace Files.Controls
 			var index = _modesHostGrid.Children.IndexOf(newMode);
 
 			if (oldMode is not null)
+			{
 				VisualStateManager.GoToState(oldMode, "Unfocused", true);
+			}
 
 			DispatcherQueue.TryEnqueue(() =>
 			{
 				// Reset
 				foreach (var column in _modesHostGrid.ColumnDefinitions)
+				{
 					column.Width = GridLength.Auto;
+				}
 
 				// Expand the given mode
 				_modesHostGrid.ColumnDefinitions[index].Width = new(1, GridUnitType.Star);
@@ -208,7 +216,9 @@ namespace Files.Controls
 		internal protected bool TryToggleIsSuggestionsPopupOpen(bool wantToOpen)
 		{
 			if (_textBoxSuggestionsPopup is null)
+			{
 				return false;
+			}
 
 			if (wantToOpen && (!IsFocused || CurrentSelectedMode?.ItemsSource is null || (CurrentSelectedMode?.ItemsSource is IList collection && collection.Count is 0)))
 			{
@@ -235,10 +245,11 @@ namespace Files.Controls
 		public void ChooseSuggestionItem(object obj, bool isOriginatedFromArrowKey = false)
 		{
 			if (CurrentSelectedMode is null)
+			{
 				return;
+			}
 
-			if (CurrentSelectedMode.UpdateTextOnSelect ||
-				(isOriginatedFromArrowKey && CurrentSelectedMode.UpdateTextOnArrowKeys))
+			if (CurrentSelectedMode.UpdateTextOnSelect || (isOriginatedFromArrowKey && CurrentSelectedMode.UpdateTextOnArrowKeys))
 			{
 				_textChangeReason = OmnibarTextChangeReason.SuggestionChosen;
 				ChangeTextBoxText(GetObjectText(obj));
@@ -253,13 +264,17 @@ namespace Files.Controls
 
 			// Move the cursor to the end of the TextBox
 			if (_textChangeReason == OmnibarTextChangeReason.SuggestionChosen)
+			{
 				_textBox?.Select(_textBox.Text.Length, 0);
+			}
 		}
 
 		private void SubmitQuery(object? item)
 		{
 			if (CurrentSelectedMode is null)
+			{
 				return;
+			}
 
 			QuerySubmitted?.Invoke(this, new OmnibarQuerySubmittedEventArgs(CurrentSelectedMode, item, _textBox.Text));
 
@@ -269,9 +284,12 @@ namespace Files.Controls
 		private string GetObjectText(object obj)
 		{
 			if (CurrentSelectedMode is null)
+			{
 				return string.Empty;
+			}
 
 			// Get the text to put into the text box from the chosen suggestion item
+
 			return obj is string text
 				? text
 				: obj is IOmnibarTextMemberPathProvider textMemberPathProvider
@@ -282,7 +300,9 @@ namespace Files.Controls
 		private void RevertTextToUserInput()
 		{
 			if (CurrentSelectedMode is null)
+			{
 				return;
+			}
 
 			_textBoxSuggestionsListView.SelectedIndex = -1;
 			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;

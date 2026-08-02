@@ -10,14 +10,15 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolver
 {
-	private readonly IWindowsPreviewHandlerAssociation association;
-	private readonly Dictionary<string, CacheEntry> cache = new(StringComparer.OrdinalIgnoreCase);
-	private readonly object cacheLock = new();
+	private readonly IWindowsPreviewHandlerAssociation _association;
+	private readonly Dictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
+	private readonly Lock _cacheLock = new();
 
 	public WindowsPreviewHandlerResolver(IWindowsPreviewHandlerAssociation association)
 	{
 		ArgumentNullException.ThrowIfNull(association);
-		this.association = association;
+
+		_association = association;
 	}
 
 	public ValueTask<Guid?> ResolveAsync(ItemContext context, CancellationToken cancellationToken = default)
@@ -25,8 +26,7 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		ArgumentNullException.ThrowIfNull(context);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (context.CoreModel is not IWindowsStorable
-			|| context.CoreModel is not IFile file)
+		if (context.CoreModel is not IWindowsStorable || context.CoreModel is not IFile file)
 		{
 			return ValueTask.FromResult<Guid?>(null);
 		}
@@ -38,27 +38,26 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 			return ValueTask.FromResult<Guid?>(null);
 		}
 
-		lock (cacheLock)
+		lock (_cacheLock)
 		{
-			if (cache.TryGetValue(extension, out var cached))
+			if (_cache.TryGetValue(extension, out var cached))
 			{
 				return ValueTask.FromResult(cached.Clsid);
 			}
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
-		var rawClsid = association.QueryPreviewHandler(extension);
+
+		var rawClsid = _association.QueryPreviewHandler(extension);
 		Guid? clsid = null;
-		if (!string.IsNullOrWhiteSpace(rawClsid)
-			&& Guid.TryParse(rawClsid.Trim(), out var parsed)
-			&& parsed != Guid.Empty)
+		if (!string.IsNullOrWhiteSpace(rawClsid) && Guid.TryParse(rawClsid.Trim(), out var parsed) && parsed != Guid.Empty)
 		{
 			clsid = parsed;
 		}
 
-		lock (cacheLock)
+		lock (_cacheLock)
 		{
-			cache[extension] = new CacheEntry(clsid);
+			_cache[extension] = new CacheEntry(clsid);
 		}
 
 		return ValueTask.FromResult(clsid);
@@ -66,9 +65,9 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 
 	public void ClearCache()
 	{
-		lock (cacheLock)
+		lock (_cacheLock)
 		{
-			cache.Clear();
+			_cache.Clear();
 		}
 	}
 

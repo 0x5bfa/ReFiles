@@ -18,24 +18,21 @@ internal sealed class SevenZipArchiveFolder
 		}
 	}
 
-	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(
-		StorableType type = StorableType.All,
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		await Task.CompletedTask.ConfigureAwait(false);
 
 		foreach (var child in Mount.GetChildren(Node.Path))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			if (child.IsDirectory
-				&& type.HasFlag(StorableType.Folder))
+			if (child.IsDirectory && type.HasFlag(StorableType.Folder))
 			{
 				yield return Mount.CreateFolder(child.Path);
 			}
-			else if (!child.IsDirectory
-				&& type.HasFlag(StorableType.File))
+			else if (!child.IsDirectory && type.HasFlag(StorableType.File))
 			{
 				yield return Mount.CreateFile(child.Path);
 			}

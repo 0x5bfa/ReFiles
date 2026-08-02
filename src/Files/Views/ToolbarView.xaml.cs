@@ -12,14 +12,14 @@ public sealed partial class ToolbarView : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(ToolbarViewModel), typeof(ToolbarView), new PropertyMetadata(null));
 
-	public ToolbarView()
-	{
-		InitializeComponent();
-	}
-
 	public ToolbarViewModel? ViewModel
 	{
 		get => (ToolbarViewModel?)GetValue(ViewModelProperty);
 		set => SetValue(ViewModelProperty, value);
+	}
+
+	public ToolbarView()
+	{
+		InitializeComponent();
 	}
 }

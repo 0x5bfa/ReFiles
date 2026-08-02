@@ -15,15 +15,15 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 {
-	private const FILEOPERATION_FLAGS RecycleOnDeleteFlag =
-		(FILEOPERATION_FLAGS)0x00080000;
+	private const FILEOPERATION_FLAGS RecycleOnDeleteFlag = FILEOPERATION_FLAGS.FOFX_RECYCLEONDELETE;
 
-	private readonly WindowsStorageSource source;
+	private readonly WindowsStorageSource _source;
 
 	public WindowsStorageOperationHandler(WindowsStorageSource source)
 	{
 		ArgumentNullException.ThrowIfNull(source);
-		this.source = source;
+
+		_source = source;
 	}
 
 	public bool CanHandle(StorageOperationRequest request)
@@ -32,27 +32,17 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		return request switch
 		{
-			RenameOperationRequest rename =>
-				IsOwnedFileSystemItem(rename.Item),
-			CreateItemOperationRequest create =>
-				IsOwnedFileSystemItem(create.Parent),
-			CopyOperationRequest copy =>
-				IsOwnedFileSystemItem(copy.Item)
-					&& IsOwnedFileSystemItem(copy.DestinationFolder),
-			MoveOperationRequest move =>
-				IsOwnedFileSystemItem(move.Item)
-					&& IsOwnedFileSystemItem(move.DestinationFolder),
-			DeleteOperationRequest delete =>
-				IsOwned(delete.Item),
+			RenameOperationRequest rename => IsOwnedFileSystemItem(rename.Item),
+			CreateItemOperationRequest create => IsOwnedFileSystemItem(create.Parent),
+			CopyOperationRequest copy => IsOwnedFileSystemItem(copy.Item) && IsOwnedFileSystemItem(copy.DestinationFolder),
+			MoveOperationRequest move => IsOwnedFileSystemItem(move.Item) && IsOwnedFileSystemItem(move.DestinationFolder),
+			DeleteOperationRequest delete => IsOwned(delete.Item),
 			_ => false,
 		};
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	public async ValueTask<StorageOperationResult> ExecuteAsync(
-		StorageOperationRequest request,
-		IProgress<StorageOperationProgress>? progress = null,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
@@ -64,6 +54,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		try
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			return request switch
 			{
 				RenameOperationRequest rename =>
@@ -71,23 +62,9 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 				CreateItemOperationRequest create =>
 					await ExecuteCreateAsync(create, progress, cancellationToken).ConfigureAwait(false),
 				CopyOperationRequest copy =>
-					await ExecuteTransferAsync(
-						copy.Item,
-						copy.DestinationFolder,
-						copy.NewName,
-						copy.ConflictBehavior,
-						move: false,
-						progress: progress,
-						cancellationToken: cancellationToken).ConfigureAwait(false),
+					await ExecuteTransferAsync(copy.Item, copy.DestinationFolder, copy.NewName, copy.ConflictBehavior, move: false, progress: progress, cancellationToken: cancellationToken).ConfigureAwait(false),
 				MoveOperationRequest move =>
-					await ExecuteTransferAsync(
-						move.Item,
-						move.DestinationFolder,
-						move.NewName,
-						move.ConflictBehavior,
-						move: true,
-						progress: progress,
-						cancellationToken: cancellationToken).ConfigureAwait(false),
+					await ExecuteTransferAsync(move.Item, move.DestinationFolder, move.NewName, move.ConflictBehavior, move: true, progress: progress, cancellationToken: cancellationToken).ConfigureAwait(false),
 				DeleteOperationRequest delete =>
 					await ExecuteDeleteAsync(delete, progress, cancellationToken).ConfigureAwait(false),
 				_ => Failed(new NotSupportedException($"The Windows storage handler cannot handle '{request.GetType().Name}'.")),
@@ -103,10 +80,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		}
 	}
 
-	private async ValueTask<StorageOperationResult> ExecuteRenameAsync(
-		RenameOperationRequest request,
-		IProgress<StorageOperationProgress>? progress,
-		CancellationToken cancellationToken)
+	private async ValueTask<StorageOperationResult> ExecuteRenameAsync(RenameOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
 		ValidateName(request.NewName);
 
@@ -123,9 +97,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var isSameItem = hasSamePathSpelling
 			|| PathEquals(itemPath, destinationPath)
 				&& await IsSameFileSystemItemAsync(destinationPath, item.Id, cancellationToken).ConfigureAwait(false);
-		if (!hasSamePathSpelling
-			&& PathExists(destinationPath)
-			&& !isSameItem)
+		if (!hasSamePathSpelling && PathExists(destinationPath) && !isSameItem)
 		{
 			return Failed(new IOException($"An item named '{request.NewName}' already exists."));
 		}
@@ -133,9 +105,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 		if (!hasSamePathSpelling)
 		{
-			var outcome = await source.ShellItemResolver
-				.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteRename(shellItem, item.Id, request.NewName), cancellationToken)
-				.ConfigureAwait(false);
+			var outcome = await _source.ShellItemResolver.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteRename(shellItem, item.Id, request.NewName), cancellationToken).ConfigureAwait(false);
 			if (!outcome.Succeeded)
 			{
 				return Failed(outcome.Error!);
@@ -144,13 +114,11 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		var resultItem = await ResolveResultAsync(destinationPath, expectedItemId: item.Id).ConfigureAwait(false);
 		progress?.Report(new StorageOperationProgress(1, 1, resultItem));
+
 		return new StorageOperationResult(true, resultItem);
 	}
 
-	private async ValueTask<StorageOperationResult> ExecuteCreateAsync(
-		CreateItemOperationRequest request,
-		IProgress<StorageOperationProgress>? progress,
-		CancellationToken cancellationToken)
+	private async ValueTask<StorageOperationResult> ExecuteCreateAsync(CreateItemOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
 		ValidateName(request.Name);
 		var parent = await ResolveFileSystemFolderAsync(request.Parent, "create an item", cancellationToken).ConfigureAwait(false);
@@ -159,28 +127,20 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var destinationPath = Path.Combine(parentPath, destinationName);
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
-		var outcome = await source.ShellItemResolver
-			.InvokeOperationAsync(parent.ParsingName, destinationFolder => ExecuteCreate(destinationFolder, destinationName, request.Kind), cancellationToken)
+		var outcome = await _source.ShellItemResolver.InvokeOperationAsync(parent.ParsingName, destinationFolder => ExecuteCreate(destinationFolder, destinationName, request.Kind), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
 			return Failed(outcome.Error!);
 		}
 
-		var resultItem = await ResolveResultAsync(destinationPath)
-			.ConfigureAwait(false);
+		var resultItem = await ResolveResultAsync(destinationPath).ConfigureAwait(false);
 		progress?.Report(new StorageOperationProgress(1, 1, resultItem));
+
 		return new StorageOperationResult(true, resultItem);
 	}
 
-	private async ValueTask<StorageOperationResult> ExecuteTransferAsync(
-		StorableReference itemReference,
-		StorableReference destinationFolderReference,
-		string? requestedName,
-		StorageConflictBehavior conflictBehavior,
-		bool move,
-		IProgress<StorageOperationProgress>? progress,
-		CancellationToken cancellationToken)
+	private async ValueTask<StorageOperationResult> ExecuteTransferAsync(StorableReference itemReference, StorableReference destinationFolderReference, string? requestedName, StorageConflictBehavior conflictBehavior, bool move, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
 		var operationName = move ? "move" : "copy";
 		var item = await ResolveFileSystemItemAsync(itemReference, operationName, cancellationToken).ConfigureAwait(false);
@@ -208,65 +168,50 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		progress?.Report(new StorageOperationProgress(0, 1, itemReference));
 		if (move && PathSpellingEquals(itemPath, destinationPath))
 		{
-			var unchanged = new StorableReference(source.SourceId, item.Id, item.Address);
+			var unchanged = new StorableReference(_source.SourceId, item.Id, item.Address);
 			progress?.Report(new StorageOperationProgress(1, 1, unchanged));
+
 			return new StorageOperationResult(true, unchanged);
 		}
 
-		var outcome = await source.ShellItemResolver
-			.InvokeOperationAsync(
-				item.ParsingName,
-				destinationFolder.ParsingName,
-				(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move),
-				cancellationToken)
+		var outcome = await _source.ShellItemResolver
+			.InvokeOperationAsync(item.ParsingName, destinationFolder.ParsingName, (sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
 			return Failed(outcome.Error!);
 		}
 
-		var resultItem = await ResolveResultAsync(destinationPath)
-			.ConfigureAwait(false);
+		var resultItem = await ResolveResultAsync(destinationPath).ConfigureAwait(false);
 		progress?.Report(new StorageOperationProgress(1, 1, resultItem));
+
 		return new StorageOperationResult(true, resultItem);
 	}
 
-	private async ValueTask<StorageOperationResult> ExecuteDeleteAsync(
-		DeleteOperationRequest request,
-		IProgress<StorageOperationProgress>? progress,
-		CancellationToken cancellationToken)
+	private async ValueTask<StorageOperationResult> ExecuteDeleteAsync(DeleteOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
-		var resolved = await source
-			.ResolveAsync(request.Item, cancellationToken)
-			.ConfigureAwait(false);
+		var resolved = await _source.ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
 		if (resolved is not WindowsStorable item)
 		{
 			return Failed(new NotSupportedException("The delete target is not a Windows Shell item."));
 		}
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
-		var outcome = await source.ShellItemResolver
-			.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently), cancellationToken)
-			.ConfigureAwait(false);
+		var outcome = await _source.ShellItemResolver.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently), cancellationToken).ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
 			return Failed(outcome.Error!);
 		}
 
 		progress?.Report(new StorageOperationProgress(1, 1));
+
 		return new StorageOperationResult(true, null);
 	}
 
-	private async ValueTask<WindowsStorable> ResolveFileSystemItemAsync(
-		StorableReference reference,
-		string operationName,
-		CancellationToken cancellationToken)
+	private async ValueTask<WindowsStorable> ResolveFileSystemItemAsync(StorableReference reference, string operationName, CancellationToken cancellationToken)
 	{
-		var resolved = await source
-			.ResolveAsync(reference, cancellationToken)
-			.ConfigureAwait(false);
-		if (resolved is not WindowsStorable item
-			|| item.FileSystemPath is null)
+		var resolved = await _source.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+		if (resolved is not WindowsStorable item || item.FileSystemPath is null)
 		{
 			throw new NotSupportedException($"The Windows storage handler can only {operationName} file-system items.");
 		}
@@ -274,16 +219,10 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return item;
 	}
 
-	private async ValueTask<WindowsFolder> ResolveFileSystemFolderAsync(
-		StorableReference reference,
-		string operationName,
-		CancellationToken cancellationToken)
+	private async ValueTask<WindowsFolder> ResolveFileSystemFolderAsync(StorableReference reference, string operationName, CancellationToken cancellationToken)
 	{
-		var resolved = await source
-			.ResolveAsync(reference, cancellationToken)
-			.ConfigureAwait(false);
-		if (resolved is not WindowsFolder folder
-			|| folder.FileSystemPath is null)
+		var resolved = await _source.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+		if (resolved is not WindowsFolder folder || folder.FileSystemPath is null)
 		{
 			throw new NotSupportedException($"The destination for {operationName} must be a file-system folder.");
 		}
@@ -293,21 +232,18 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 	private async ValueTask<StorableReference> ResolveResultAsync(string path, string? expectedItemId = null)
 	{
-		var resolved = await source
-			.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), CancellationToken.None)
-			.ConfigureAwait(false);
+		var resolved = await _source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), CancellationToken.None).ConfigureAwait(false);
 		if (resolved is not IWindowsStorable windowsItem)
 		{
 			throw new InvalidOperationException("The Windows Shell operation result could not be materialized.");
 		}
 
-		if (expectedItemId is not null
-			&& !StringComparer.Ordinal.Equals(expectedItemId, windowsItem.Id))
+		if (expectedItemId is not null && !StringComparer.Ordinal.Equals(expectedItemId, windowsItem.Id))
 		{
 			throw new IOException("The Windows Shell operation affected an unexpected item.");
 		}
 
-		return new StorableReference(source.SourceId, windowsItem.Id, windowsItem.Address);
+		return new StorableReference(_source.SourceId, windowsItem.Id, windowsItem.Address);
 	}
 
 	private async ValueTask<bool> IsSameFileSystemItemAsync(string path, string expectedItemId, CancellationToken cancellationToken)
@@ -319,9 +255,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		try
 		{
-			var candidate = await source
-				.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken)
-				.ConfigureAwait(false);
+			var candidate = await _source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false);
+
 			return candidate is IWindowsStorable windowsItem
 				&& StringComparer.Ordinal.Equals(expectedItemId, windowsItem.Id);
 		}
@@ -455,6 +390,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		}
 
 		result = ConfigureOperation(fileOperation, allowUndo, recycleOnDelete);
+
 		return result.Failed
 			? new FileOperationCreation(null, Failure(result, "The Windows Shell file operation could not be configured."))
 			: new FileOperationCreation(fileOperation, new ShellOperationOutcome(true, null));
@@ -498,19 +434,12 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			: new ShellOperationOutcome(true, null);
 	}
 
-	private static string ResolveDestinationName(
-		string destinationFolderPath,
-		string desiredName,
-		bool isFolder,
-		StorageConflictBehavior conflictBehavior,
-		string? ignoredExistingPath = null)
+	private static string ResolveDestinationName(string destinationFolderPath, string desiredName, bool isFolder, StorageConflictBehavior conflictBehavior, string? ignoredExistingPath = null)
 	{
 		ValidateName(desiredName);
 
 		var desiredPath = Path.Combine(destinationFolderPath, desiredName);
-		if (!PathExists(desiredPath)
-			|| ignoredExistingPath is not null
-				&& PathEquals(desiredPath, ignoredExistingPath))
+		if (!PathExists(desiredPath) || ignoredExistingPath is not null && PathEquals(desiredPath, ignoredExistingPath))
 		{
 			return desiredName;
 		}
@@ -558,7 +487,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 	private bool IsOwned(StorableReference reference)
 	{
-		return reference.SourceId == source.SourceId;
+		return reference.SourceId == _source.SourceId;
 	}
 
 	private bool IsOwnedFileSystemItem(StorableReference reference)
@@ -591,6 +520,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var stem = extensionIndex < 0
 			? newName
 			: newName[..extensionIndex];
+
 		return stem.Equals("CON", StringComparison.OrdinalIgnoreCase)
 			|| stem.Equals("PRN", StringComparison.OrdinalIgnoreCase)
 			|| stem.Equals("AUX", StringComparison.OrdinalIgnoreCase)

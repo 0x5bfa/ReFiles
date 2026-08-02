@@ -12,18 +12,20 @@ public sealed class DelegateItemFeatureCombiner<TFeature> : IItemFeatureCombiner
 	private readonly Func<
 		ItemContext,
 		IReadOnlyList<ItemFeatureOption<TFeature>>,
-		TFeature?> combine;
+		TFeature?> _combine;
 
 	public DelegateItemFeatureCombiner(Func< ItemContext, IReadOnlyList<ItemFeatureOption<TFeature>>, TFeature?> combine)
 	{
 		ArgumentNullException.ThrowIfNull(combine);
-		this.combine = combine;
+
+		_combine = combine;
 	}
 
 	public TFeature? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 		ArgumentNullException.ThrowIfNull(options);
-		return combine(context, options);
+
+		return _combine(context, options);
 	}
 }

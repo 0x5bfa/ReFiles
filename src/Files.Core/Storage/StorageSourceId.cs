@@ -8,13 +8,14 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorageSourceId
 {
+	public string Value { get; }
+
 	public StorageSourceId(string value)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(value);
+
 		Value = value;
 	}
-
-	public string Value { get; }
 
 	public override string ToString() => Value;
 }

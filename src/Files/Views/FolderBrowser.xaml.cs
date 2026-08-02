@@ -13,17 +13,17 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(FolderBrowser), new PropertyMetadata(null, ViewModelChanged));
 
+	public FolderBrowserViewModel? ViewModel
+	{
+		get => (FolderBrowserViewModel?)GetValue(ViewModelProperty);
+		set => SetValue(ViewModelProperty, value);
+	}
+
 	public FolderBrowser()
 	{
 		InitializeComponent();
 		Loaded += FolderBrowser_Loaded;
 		Unloaded += FolderBrowser_Unloaded;
-	}
-
-	public FolderBrowserViewModel? ViewModel
-	{
-		get => (FolderBrowserViewModel?)GetValue(ViewModelProperty);
-		set => SetValue(ViewModelProperty, value);
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -76,6 +76,7 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		{
 			FolderViewPresenter.Content = null;
 			FolderViewPresenter.ContentTemplate = null;
+
 			return;
 		}
 

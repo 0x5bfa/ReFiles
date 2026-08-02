@@ -12,32 +12,29 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 {
-	private readonly IFilesDataRoot dataRoot;
+	private readonly IFilesDataRoot _dataRoot;
 
 	public WindowsPreviewTargetResolver(IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(dataRoot);
-		this.dataRoot = dataRoot;
+
+		_dataRoot = dataRoot;
 	}
 
 	public async ValueTask<WindowsPreviewTarget> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 
-		var model = await dataRoot
-			.ResolveAsync(reference, cancellationToken)
-			.ConfigureAwait(false);
+		var model = await _dataRoot.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 
 		try
 		{
-			if (model.Reference.SourceId != reference.SourceId
-				|| !StringComparer.Ordinal.Equals(model.Reference.ItemId, reference.ItemId))
+			if (model.Reference.SourceId != reference.SourceId || !StringComparer.Ordinal.Equals(model.Reference.ItemId, reference.ItemId))
 			{
 				throw new InvalidDataException("The resolved preview target does not match the requested identity.");
 			}
 
-			if (model.CoreModel is not IWindowsStorable
-				|| model.CoreModel is not IFile)
+			if (model.CoreModel is not IWindowsStorable || model.CoreModel is not IFile)
 			{
 				throw new NotSupportedException("The resolved preview target is not a Windows Shell-backed file.");
 			}

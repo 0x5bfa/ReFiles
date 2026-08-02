@@ -15,41 +15,25 @@ namespace Files.Controls
 		/// Identifies the <see cref="Element"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty ElementProperty
-			= DependencyProperty.Register(
-				nameof(Element),
-				typeof(UIElement),
-				typeof(GridSplitter),
-				new PropertyMetadata(default(UIElement), OnElementPropertyChanged));
+			= DependencyProperty.Register(nameof(Element), typeof(UIElement), typeof(GridSplitter), new PropertyMetadata(default(UIElement), OnElementPropertyChanged));
 
 		/// <summary>
 		/// Identifies the <see cref="ResizeDirection"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty ResizeDirectionProperty
-			= DependencyProperty.Register(
-				nameof(ResizeDirection),
-				typeof(GridResizeDirection),
-				typeof(GridSplitter),
-				new PropertyMetadata(GridResizeDirection.Auto));
+			= DependencyProperty.Register(nameof(ResizeDirection), typeof(GridResizeDirection), typeof(GridSplitter), new PropertyMetadata(GridResizeDirection.Auto));
 
 		/// <summary>
 		/// Identifies the <see cref="ResizeBehavior"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty ResizeBehaviorProperty
-			= DependencyProperty.Register(
-				nameof(ResizeBehavior),
-				typeof(GridResizeBehavior),
-				typeof(GridSplitter),
-				new PropertyMetadata(GridResizeBehavior.BasedOnAlignment));
+			= DependencyProperty.Register(nameof(ResizeBehavior), typeof(GridResizeBehavior), typeof(GridSplitter), new PropertyMetadata(GridResizeBehavior.BasedOnAlignment));
 
 		/// <summary>
 		/// Identifies the <see cref="GripperForeground"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty GripperForegroundProperty
-			= DependencyProperty.Register(
-				nameof(GripperForeground),
-				typeof(Brush),
-				typeof(GridSplitter),
-				new PropertyMetadata(default(Brush), OnGripperForegroundPropertyChanged));
+			= DependencyProperty.Register(nameof(GripperForeground), typeof(Brush), typeof(GridSplitter), new PropertyMetadata(default(Brush), OnGripperForegroundPropertyChanged));
 
 		/// <summary>
 		/// Identifies the <see cref="ParentLevel"/> dependency property.
@@ -61,31 +45,19 @@ namespace Files.Controls
 		/// Identifies the <see cref="GripperCursor"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty GripperCursorProperty =
-			DependencyProperty.RegisterAttached(
-				nameof(GripperCursor),
-				typeof(GripperCursorType),
-				typeof(GridSplitter),
-				new PropertyMetadata(GripperCursorType.Default, OnGripperCursorPropertyChanged));
+			DependencyProperty.RegisterAttached(nameof(GripperCursor), typeof(GripperCursorType), typeof(GridSplitter), new PropertyMetadata(GripperCursorType.Default, OnGripperCursorPropertyChanged));
 
 		/// <summary>
 		/// Identifies the <see cref="GripperCustomCursorResource"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty GripperCustomCursorResourceProperty =
-			DependencyProperty.RegisterAttached(
-				nameof(GripperCustomCursorResource),
-				typeof(uint),
-				typeof(GridSplitter),
-				new PropertyMetadata(GripperCustomCursorDefaultResource, GripperCustomCursorResourcePropertyChanged));
+			DependencyProperty.RegisterAttached(nameof(GripperCustomCursorResource), typeof(uint), typeof(GridSplitter), new PropertyMetadata(GripperCustomCursorDefaultResource, GripperCustomCursorResourcePropertyChanged));
 
 		/// <summary>
 		/// Identifies the <see cref="CursorBehavior"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty CursorBehaviorProperty =
-			DependencyProperty.RegisterAttached(
-				nameof(CursorBehavior),
-				typeof(SplitterCursorBehavior),
-				typeof(GridSplitter),
-				new PropertyMetadata(SplitterCursorBehavior.ChangeOnSplitterHover, CursorBehaviorPropertyChanged));
+			DependencyProperty.RegisterAttached(nameof(CursorBehavior), typeof(SplitterCursorBehavior), typeof(GridSplitter), new PropertyMetadata(SplitterCursorBehavior.ChangeOnSplitterHover, CursorBehaviorPropertyChanged));
 
 		/// <summary>
 		/// Gets or sets the visual content of this Grid Splitter
@@ -203,20 +175,14 @@ namespace Files.Controls
 		{
 			var gridSplitter = (GridSplitter)d;
 
-			gridSplitter._hoverWrapper?.UpdateHoverElement(gridSplitter.CursorBehavior ==
-				SplitterCursorBehavior.ChangeOnSplitterHover
-				? gridSplitter
-				: gridSplitter.Element);
+			gridSplitter._hoverWrapper?.UpdateHoverElement(gridSplitter.CursorBehavior == SplitterCursorBehavior.ChangeOnSplitterHover ? gridSplitter : gridSplitter.Element);
 		}
 
 		private static void OnElementPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
 		{
 			var gridSplitter = (GridSplitter)d;
 
-			gridSplitter._hoverWrapper?.UpdateHoverElement(gridSplitter.CursorBehavior ==
-				SplitterCursorBehavior.ChangeOnSplitterHover
-				? gridSplitter
-				: gridSplitter.Element);
+			gridSplitter._hoverWrapper?.UpdateHoverElement(gridSplitter.CursorBehavior == SplitterCursorBehavior.ChangeOnSplitterHover ? gridSplitter : gridSplitter.Element);
 		}
 	}
 }

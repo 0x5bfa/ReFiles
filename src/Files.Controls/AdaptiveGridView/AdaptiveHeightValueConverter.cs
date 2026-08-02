@@ -61,6 +61,7 @@ namespace Files.Controls
 				}
 
 				// Use the default thickness for a GridViewItem
+
 				return fallback;
 			}
 		}

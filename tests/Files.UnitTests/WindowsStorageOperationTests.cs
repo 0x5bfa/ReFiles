@@ -55,8 +55,7 @@ public sealed class WindowsStorageOperationTests
 			Assert.IsTrue(createdFolder.Succeeded, createdFolder.Error?.ToString());
 			Assert.IsTrue(Directory.Exists(Path.Combine(rootPath, "created-folder")));
 
-			var uniqueCopy = await service.ExecuteAsync(
-				new CopyOperationRequest(createdReference, root, conflictBehavior: StorageConflictBehavior.GenerateUniqueName));
+			var uniqueCopy = await service.ExecuteAsync(new CopyOperationRequest(createdReference, root, conflictBehavior: StorageConflictBehavior.GenerateUniqueName));
 			Assert.IsTrue(uniqueCopy.Succeeded, uniqueCopy.Error?.ToString());
 			Assert.IsNotNull(uniqueCopy.ResultItem);
 			Assert.AreEqual(Path.Combine(rootPath, "created (2).txt"), uniqueCopy.ResultItem.LastKnownAddress!.Value);
@@ -152,9 +151,7 @@ public sealed class WindowsStorageOperationTests
 		await using var scheduler = new WindowsShellScheduler();
 		await using var source = new WindowsStorageSource(scheduler: scheduler);
 		var handler = new WindowsStorageOperationHandler(source);
-		var request = new RenameOperationRequest(
-			new StorableReference(source.SourceId, "winfs:v1:missing", new StorageAddress(WindowsStorageSource.FileAddressScheme, "C:\\missing.txt")),
-			"..\\escape.txt");
+		var request = new RenameOperationRequest(new StorableReference(source.SourceId, "winfs:v1:missing", new StorageAddress(WindowsStorageSource.FileAddressScheme, "C:\\missing.txt")), "..\\escape.txt");
 
 		var result = await handler.ExecuteAsync(request);
 
@@ -171,9 +168,7 @@ public sealed class WindowsStorageOperationTests
 
 		foreach (var newName in new[] { "trailing.", "trailing ", "CON.txt", "LPT9" })
 		{
-			var request = new RenameOperationRequest(
-				new StorableReference(source.SourceId, "winfs:v1:missing", new StorageAddress(WindowsStorageSource.FileAddressScheme, "C:\\missing.txt")),
-				newName);
+			var request = new RenameOperationRequest(new StorableReference(source.SourceId, "winfs:v1:missing", new StorageAddress(WindowsStorageSource.FileAddressScheme, "C:\\missing.txt")), newName);
 
 			var result = await handler.ExecuteAsync(request);
 
@@ -189,6 +184,7 @@ public sealed class WindowsStorageOperationTests
 		public InlineProgress(Action<T> report)
 		{
 			ArgumentNullException.ThrowIfNull(report);
+
 			this.report = report;
 		}
 
@@ -201,6 +197,7 @@ public sealed class WindowsStorageOperationTests
 	private static async ValueTask<StorableReference> ResolveReferenceAsync(WindowsStorageSource source, string path)
 	{
 		var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path));
+
 		return new StorableReference(source.SourceId, item.Id, item.Address);
 	}
 }

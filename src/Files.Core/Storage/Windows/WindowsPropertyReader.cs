@@ -24,11 +24,11 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	private const string DateCreated = "System.DateCreated";
 	private const string HomeIsPinned = "System.Home.IsPinned";
 
-	private static readonly PROPERTYKEY itemTypeTextKey = ResolvePropertyKey(ItemTypeText);
-	private static readonly PROPERTYKEY sizeKey = ResolvePropertyKey(Size);
-	private static readonly PROPERTYKEY dateModifiedKey = ResolvePropertyKey(DateModified);
-	private static readonly PROPERTYKEY dateCreatedKey = ResolvePropertyKey(DateCreated);
-	private static readonly PROPERTYKEY homeIsPinnedKey = new()
+	private static readonly PROPERTYKEY _itemTypeTextKey = ResolvePropertyKey(ItemTypeText);
+	private static readonly PROPERTYKEY _sizeKey = ResolvePropertyKey(Size);
+	private static readonly PROPERTYKEY _dateModifiedKey = ResolvePropertyKey(DateModified);
+	private static readonly PROPERTYKEY _dateCreatedKey = ResolvePropertyKey(DateCreated);
+	private static readonly PROPERTYKEY _homeIsPinnedKey = new()
 	{
 		fmtid = new Guid(0x30C8EEF4u, 0xA832, 0x41E2, 0xAB, 0x32, 0xE3, 0xC3, 0xCA, 0x28, 0xFD, 0x29),
 		pid = 4,
@@ -42,27 +42,19 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			&& context.CoreModel is WindowsStorable;
 	}
 
-	public async ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
-		PropertyRequest request,
-		IReadOnlyList<ItemContext> contexts,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(contexts);
 
-		var tasks = contexts
-			.Where(CanRead)
-			.Select(context => ReadOneAsync(request, context, cancellationToken))
-			.ToArray();
+		var tasks = contexts.Where(CanRead).Select(context => ReadOneAsync(request, context, cancellationToken)).ToArray();
 
 		if (tasks.Length is 0)
 		{
 			return EmptyResults.Instance;
 		}
 
-		var entries = await Task
-			.WhenAll(tasks)
-			.ConfigureAwait(false);
+		var entries = await Task.WhenAll(tasks).ConfigureAwait(false);
 
 		var results = entries.ToDictionary(static entry => entry.Reference, static entry => entry.Properties);
 
@@ -74,16 +66,10 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var source = (WindowsStorageSource)context.Source;
 		var item = (WindowsStorable)context.CoreModel;
 
-		return source.ShellItemResolver.InvokeConcurrentAsync(
-			((WindowsStorable)item).Locator,
-			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)),
-			cancellationToken);
+		return source.ShellItemResolver.InvokeConcurrentAsync(((WindowsStorable)item).Locator, shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)), cancellationToken);
 	}
 
-	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(
-		IShellItem shellItem,
-		PropertyRequest request,
-		CancellationToken cancellationToken)
+	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, PropertyRequest request, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -101,19 +87,19 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			switch (propertyId)
 			{
 				case ItemTypeText:
-					AddString(shellItem2, itemTypeTextKey, ItemTypeText, properties);
+					AddString(shellItem2, _itemTypeTextKey, ItemTypeText, properties);
 					break;
 				case Size:
-					AddUInt64(shellItem2, sizeKey, Size, properties);
+					AddUInt64(shellItem2, _sizeKey, Size, properties);
 					break;
 				case DateModified:
-					AddFileTime(shellItem2, dateModifiedKey, DateModified, properties);
+					AddFileTime(shellItem2, _dateModifiedKey, DateModified, properties);
 					break;
 				case DateCreated:
-					AddFileTime(shellItem2, dateCreatedKey, DateCreated, properties);
+					AddFileTime(shellItem2, _dateCreatedKey, DateCreated, properties);
 					break;
 				case HomeIsPinned:
-					AddBool(shellItem2, homeIsPinnedKey, HomeIsPinned, properties);
+					AddBool(shellItem2, _homeIsPinnedKey, HomeIsPinned, properties);
 					break;
 			}
 		}
@@ -178,6 +164,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	{
 		var result = PInvoke.PSGetPropertyKeyFromName(propertyId, out var key);
 		result.ThrowOnFailure();
+
 		return key;
 	}
 
@@ -192,7 +179,6 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	private static class EmptyResults
 	{
 		public static IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>> Instance { get; }
-			= new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(
-				new Dictionary<StorableReference, IReadOnlyDictionary<string, object?>>());
+			= new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(new Dictionary<StorableReference, IReadOnlyDictionary<string, object?>>());
 	}
 }

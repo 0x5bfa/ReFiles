@@ -10,17 +10,42 @@ namespace Files.Core.AppModels;
 /// </summary>
 public sealed class WindowModel : IAsyncDisposable
 {
-	private readonly IBrowsePaneFactory paneFactory;
-	private readonly object syncRoot = new();
-	private readonly object disposalLock = new();
-	private readonly SemaphoreSlim mutationLock = new(1, 1);
-	private readonly CancellationTokenSource lifetime = new();
-	private readonly List<TabModel> tabs = [];
-	private IReadOnlyList<TabModel> tabSnapshot =
-		Array.Empty<TabModel>();
-	private Guid activeTabId;
-	private Task? disposeTask;
-	private volatile bool isDisposed;
+	private readonly IBrowsePaneFactory _paneFactory;
+
+	private readonly Lock _syncRoot = new();
+
+	private readonly Lock _disposalLock = new();
+
+	private readonly SemaphoreSlim _mutationLock = new(1, 1);
+
+	private readonly CancellationTokenSource _lifetime = new();
+
+	private readonly List<TabModel> _tabs = [];
+
+	private IReadOnlyList<TabModel> _tabSnapshot = [];
+
+	private Guid _activeTabId;
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
+
+	public Guid Id { get; }
+
+	public IReadOnlyList<TabModel> Tabs => Volatile.Read(ref _tabSnapshot);
+
+	public TabModel? ActiveTab
+	{
+		get
+		{
+			lock (_syncRoot)
+			{
+				return _tabs.FirstOrDefault(tab => tab.Id == _activeTabId);
+			}
+		}
+	}
+
+	public event EventHandler? StateChanged;
 
 	public WindowModel(IBrowsePaneFactory paneFactory, Guid? id = null)
 	{
@@ -32,63 +57,42 @@ public sealed class WindowModel : IAsyncDisposable
 			throw new ArgumentException("A window ID cannot be empty.", nameof(id));
 		}
 
-		this.paneFactory = paneFactory;
+		_paneFactory = paneFactory;
 	}
-
-	public Guid Id { get; }
-
-	public IReadOnlyList<TabModel> Tabs =>
-		Volatile.Read(ref tabSnapshot);
-
-	public TabModel? ActiveTab
-	{
-		get
-		{
-			lock (syncRoot)
-			{
-				return tabs.FirstOrDefault(tab => tab.Id == activeTabId);
-			}
-		}
-	}
-
-	public event EventHandler? StateChanged;
 
 	public async ValueTask<TabModel> OpenTabAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await mutationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		PaneModel? pane = null;
 		TabModel? tab = null;
+
 		try
 		{
 			EnsureActive();
-			pane = paneFactory.Create();
+			pane = _paneFactory.Create();
 			if (initialLocation is not null)
 			{
-				await pane
-					.NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token)
-					.ConfigureAwait(false);
+				await pane.NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 			}
 
-			tab = new TabModel(paneFactory, pane);
+			tab = new TabModel(_paneFactory, pane);
 			pane = null;
 
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
 				EnsureActive();
-				tabs.Add(tab);
+				_tabs.Add(tab);
 				tab.StateChanged += OnTabStateChanged;
-				activeTabId = tab.Id;
+				_activeTabId = tab.Id;
 				UpdateSnapshot();
 			}
 
 			var result = tab;
 			tab = null;
 			ModelEvent.Raise(this, StateChanged);
+
 			return result;
 		}
 		catch (Exception creationError)
@@ -112,7 +116,7 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 		}
 	}
 
@@ -123,32 +127,30 @@ public sealed class WindowModel : IAsyncDisposable
 			throw new ArgumentException("A tab ID is required.", nameof(tabId));
 		}
 
-		using var linkedCancellation =
-			CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-		await mutationLock
-			.WaitAsync(linkedCancellation.Token)
-			.ConfigureAwait(false);
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
 		TabModel? removed = null;
 		try
 		{
 			EnsureActive();
-			lock (syncRoot)
+
+			lock (_syncRoot)
 			{
-				var index = tabs.FindIndex(tab => tab.Id == tabId);
+				var index = _tabs.FindIndex(tab => tab.Id == tabId);
 				if (index < 0)
 				{
 					return false;
 				}
 
-				removed = tabs[index];
-				tabs.RemoveAt(index);
+				removed = _tabs[index];
+				_tabs.RemoveAt(index);
 				removed.StateChanged -= OnTabStateChanged;
-				if (activeTabId == tabId)
+				if (_activeTabId == tabId)
 				{
-					activeTabId = tabs.Count is 0
+					_activeTabId = _tabs.Count is 0
 						? Guid.Empty
-						: tabs[Math.Min(index, tabs.Count - 1)].Id;
+						: _tabs[Math.Min(index, _tabs.Count - 1)].Id;
 				}
 
 				UpdateSnapshot();
@@ -158,11 +160,12 @@ public sealed class WindowModel : IAsyncDisposable
 			var ownedTab = removed!;
 			removed = null;
 			await ownedTab.DisposeAsync().ConfigureAwait(false);
+
 			return true;
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 			if (removed is not null)
 			{
 				await removed.DisposeAsync().ConfigureAwait(false);
@@ -178,17 +181,18 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 
 		var changed = false;
-		lock (syncRoot)
+
+		lock (_syncRoot)
 		{
 			EnsureActive();
-			if (!tabs.Any(tab => tab.Id == tabId))
+			if (!_tabs.Any(tab => tab.Id == tabId))
 			{
 				return false;
 			}
 
-			if (activeTabId != tabId)
+			if (_activeTabId != tabId)
 			{
-				activeTabId = tabId;
+				_activeTabId = tabId;
 				changed = true;
 			}
 		}
@@ -209,25 +213,26 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 
 		var changed = false;
-		lock (syncRoot)
+
+		lock (_syncRoot)
 		{
 			EnsureActive();
-			var currentIndex = tabs.FindIndex(tab => tab.Id == tabId);
+			var currentIndex = _tabs.FindIndex(tab => tab.Id == tabId);
 			if (currentIndex < 0)
 			{
 				return false;
 			}
 
-			if (targetIndex < 0 || targetIndex >= tabs.Count)
+			if (targetIndex < 0 || targetIndex >= _tabs.Count)
 			{
 				throw new ArgumentOutOfRangeException(nameof(targetIndex));
 			}
 
 			if (currentIndex != targetIndex)
 			{
-				var tab = tabs[currentIndex];
-				tabs.RemoveAt(currentIndex);
-				tabs.Insert(targetIndex, tab);
+				var tab = _tabs[currentIndex];
+				_tabs.RemoveAt(currentIndex);
+				_tabs.Insert(targetIndex, tab);
 				UpdateSnapshot();
 				changed = true;
 			}
@@ -243,42 +248,44 @@ public sealed class WindowModel : IAsyncDisposable
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			if (disposeTask is not null)
+			if (_disposeTask is not null)
 			{
-				return new ValueTask(disposeTask);
+				return new ValueTask(_disposeTask);
 			}
 
-			isDisposed = true;
-			lifetime.Cancel();
-			disposeTask = DisposeCoreAsync();
-			return new ValueTask(disposeTask);
+			_isDisposed = true;
+			_lifetime.Cancel();
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
 	private async Task DisposeCoreAsync()
 	{
-		await mutationLock.WaitAsync().ConfigureAwait(false);
+		await _mutationLock.WaitAsync().ConfigureAwait(false);
 		TabModel[] ownedTabs;
+
 		try
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				ownedTabs = tabs.ToArray();
+				ownedTabs = _tabs.ToArray();
 				foreach (var tab in ownedTabs)
 				{
 					tab.StateChanged -= OnTabStateChanged;
 				}
 
-				tabs.Clear();
-				activeTabId = Guid.Empty;
+				_tabs.Clear();
+				_activeTabId = Guid.Empty;
 				UpdateSnapshot();
 			}
 		}
 		finally
 		{
-			mutationLock.Release();
+			_mutationLock.Release();
 		}
 
 		List<Exception>? errors = null;
@@ -294,8 +301,8 @@ public sealed class WindowModel : IAsyncDisposable
 			}
 		}
 
-		mutationLock.Dispose();
-		lifetime.Dispose();
+		_mutationLock.Dispose();
+		_lifetime.Dispose();
 		GC.SuppressFinalize(this);
 
 		if (errors is { Count: 1 })
@@ -311,12 +318,13 @@ public sealed class WindowModel : IAsyncDisposable
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(ref tabSnapshot, Array.AsReadOnly(tabs.ToArray()));
+		Volatile.Write(ref _tabSnapshot, Array.AsReadOnly(_tabs.ToArray()));
 	}
 
 	private void EnsureActive()
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 	}
 
 	private void OnTabStateChanged(object? sender, EventArgs args)

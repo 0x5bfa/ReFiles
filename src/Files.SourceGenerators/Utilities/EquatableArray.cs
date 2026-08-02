@@ -57,7 +57,9 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array) : IEquatable
 	public override unsafe int GetHashCode()
 	{
 		if (this.array is not T[] array)
+		{
 			return 0;
+		}
 
 		HashCode hashCode = default;
 
@@ -77,7 +79,9 @@ internal readonly struct EquatableArray<T>(ImmutableArray<T> array) : IEquatable
 		else
 		{
 			foreach (T item in array)
+			{
 				hashCode.Add(item);
+			}
 		}
 
 		return hashCode.ToHashCode();

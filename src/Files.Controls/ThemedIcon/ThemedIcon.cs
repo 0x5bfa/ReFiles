@@ -13,8 +13,11 @@ namespace Files.Controls
 	public partial class ThemedIcon : Control
 	{
 		private Viewbox? _filledViewBox;
+
 		private Viewbox? _outlineViewBox;
+
 		private Viewbox? _layeredViewBox;
+
 		private Canvas? _layeredCanvas;
 
 		private long _stylePropertyChangedToken;
@@ -25,13 +28,6 @@ namespace Files.Controls
 			_stylePropertyChangedToken = RegisterPropertyChangedCallback(StyleProperty, OnStylePropertyChanged);
 
 			Unloaded += OnUnloaded;
-		}
-
-		private void OnUnloaded(object sender, RoutedEventArgs e)
-		{
-			UnregisterPropertyChangedCallback(StyleProperty, _stylePropertyChangedToken);
-			IsEnabledChanged -= OnIsEnabledChanged;
-			Unloaded -= OnUnloaded;
 		}
 
 		protected override void OnApplyTemplate()
@@ -54,6 +50,13 @@ namespace Files.Controls
 			OnIconSizeChanged();
 		}
 
+		private void OnUnloaded(object sender, RoutedEventArgs e)
+		{
+			UnregisterPropertyChangedCallback(StyleProperty, _stylePropertyChangedToken);
+			IsEnabledChanged -= OnIsEnabledChanged;
+			Unloaded -= OnUnloaded;
+		}
+
 		private void GetTemplateParts()
 		{
 			// Gets the template parts and sets the private fields
@@ -70,7 +73,9 @@ namespace Files.Controls
 		{
 			// Updates Filled Icon from Path Data
 			if (_filledViewBox == null)
+			{
 				return;
+			}
 
 			SetPathData(FilledIconPath, FilledIconData ?? string.Empty, _filledViewBox);
 		}
@@ -79,7 +84,9 @@ namespace Files.Controls
 		{
 			// Updates Outline Icon from Path Data
 			if (_outlineViewBox == null)
+			{
 				return;
+			}
 
 			SetPathData(OutlineIconPath, OutlineIconData ?? string.Empty, _outlineViewBox);
 		}
@@ -87,10 +94,10 @@ namespace Files.Controls
 		private void OnLayeredIconChanged()
 		{
 			// Updates Layered Icon from it's Layers
-			if (_layeredViewBox == null ||
-				 _layeredCanvas == null ||
-				 Layers is not ICollection<ThemedIconLayer> layers)
+			if (_layeredViewBox == null || _layeredCanvas == null || Layers is not ICollection<ThemedIconLayer> layers)
+			{
 				return;
+			}
 
 			_layeredCanvas.Children.Clear();
 
@@ -126,12 +133,14 @@ namespace Files.Controls
 						if (_isOwnerToggled is true || IsFilled is true)
 						{
 							VisualStateManager.GoToState(this, FilledTypeStateName, true);
+
 							return;
 						}
 						else if (IsHighContrast is true || _isOwnerEnabled is false || IsEnabled is false)
 						{
 							VisualStateManager.GoToState(this, OutlineTypeStateName, true);
 							VisualStateManager.GoToState(this, DisabledStateName, true);
+
 							return;
 						}
 						else
@@ -145,12 +154,14 @@ namespace Files.Controls
 						if (IsFilled is true)
 						{
 							VisualStateManager.GoToState(this, FilledTypeStateName, true);
+
 							return;
 						}
 						else if (IsHighContrast is true || _isOwnerEnabled is false || IsEnabled is false)
 						{
 							VisualStateManager.GoToState(this, OutlineTypeStateName, true);
 							VisualStateManager.GoToState(this, DisabledStateName, true);
+
 							return;
 						}
 						else
@@ -173,8 +184,7 @@ namespace Files.Controls
 		{
 			if (_isOwnerEnabled && IsEnabled)
 			{
-				if ((ToggleBehavior is ToggleBehaviors.Auto && _isOwnerToggled) ||
-					ToggleBehavior is ToggleBehaviors.On)
+				if ((ToggleBehavior is ToggleBehaviors.Auto && _isOwnerToggled) || ToggleBehavior is ToggleBehaviors.On)
 				{
 					// Toggle
 					VisualStateManager.GoToState(this, ToggleStateName, true);
@@ -199,18 +209,25 @@ namespace Files.Controls
 
 				// Update layered icon color
 				if (_layeredCanvas != null)
+				{
 					foreach (var layer in _layeredCanvas.Children.Cast<ThemedIconLayer>())
+					{
 						layer.IconColorType = IconColorType;
+					}
+				}
 			}
 			else
 			{
 				// Disable + toggle
-				if ((ToggleBehavior is ToggleBehaviors.Auto && _isOwnerToggled is true) ||
-					ToggleBehavior is ToggleBehaviors.On)
+				if ((ToggleBehavior is ToggleBehaviors.Auto && _isOwnerToggled is true) || ToggleBehavior is ToggleBehaviors.On)
+				{
 					VisualStateManager.GoToState(this, DisabledToggleColorStateName, true);
+				}
 				// Disable
 				else
+				{
 					VisualStateManager.GoToState(this, DisabledColorStateName, true);
+				}
 			}
 		}
 
@@ -226,7 +243,9 @@ namespace Files.Controls
 		{
 			// Updates PathData
 			if (string.IsNullOrEmpty(pathData))
+			{
 				return;
+			}
 
 			var geometry = (Geometry)XamlReader.Load(
 				$"<Geometry xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>{pathData}</Geometry>");
@@ -247,10 +266,14 @@ namespace Files.Controls
 		private void OnIconColorChanged()
 		{
 			if (GetTemplateChild(OutlineIconPath) is Path outlinePath)
+			{
 				outlinePath.Fill = (Brush)this.GetValue(ColorProperty);
+			}
 
 			if (GetTemplateChild(FilledIconPath) is Path fillPath)
+			{
 				fillPath.Fill = (Brush)this.GetValue(ColorProperty);
+			}
 		}
 
 		private void OnIconSizeChanged()

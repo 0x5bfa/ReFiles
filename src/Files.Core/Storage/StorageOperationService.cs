@@ -8,14 +8,14 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed class StorageOperationService : IStorageOperationService
 {
-	private readonly IReadOnlyList<IStorageOperationHandler> handlers;
+	private readonly IReadOnlyList<IStorageOperationHandler> _handlers;
 
 	public StorageOperationService(IEnumerable<IStorageOperationHandler> handlers)
 	{
 		ArgumentNullException.ThrowIfNull(handlers);
 
-		this.handlers = handlers.ToArray();
-		if (this.handlers.Any(static handler => handler is null))
+		_handlers = handlers.ToArray();
+		if (_handlers.Any(static handler => handler is null))
 		{
 			throw new ArgumentException("The handler collection cannot contain null entries.", nameof(handlers));
 		}
@@ -24,13 +24,11 @@ public sealed class StorageOperationService : IStorageOperationService
 	public bool CanHandle(StorageOperationRequest request)
 	{
 		ArgumentNullException.ThrowIfNull(request);
-		return handlers.Any(handler => handler.CanHandle(request));
+
+		return _handlers.Any(handler => handler.CanHandle(request));
 	}
 
-	public async ValueTask<StorageOperationResult> ExecuteAsync(
-		StorageOperationRequest request,
-		IProgress<StorageOperationProgress>? progress = null,
-		CancellationToken cancellationToken = default)
+	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -38,7 +36,7 @@ public sealed class StorageOperationService : IStorageOperationService
 		IStorageOperationHandler? handler = null;
 		try
 		{
-			handler = handlers.FirstOrDefault(candidate => candidate.CanHandle(request));
+			handler = _handlers.FirstOrDefault(candidate => candidate.CanHandle(request));
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
@@ -56,9 +54,8 @@ public sealed class StorageOperationService : IStorageOperationService
 
 		try
 		{
-			StorageOperationResult? result = await handler
-				.ExecuteAsync(request, progress, cancellationToken)
-				.ConfigureAwait(false);
+			StorageOperationResult? result = await handler.ExecuteAsync(request, progress, cancellationToken).ConfigureAwait(false);
+
 			return result ?? Failed(new InvalidOperationException($"Storage operation handler '{handler.GetType().FullName}' returned null."));
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -73,6 +70,6 @@ public sealed class StorageOperationService : IStorageOperationService
 
 	private static StorageOperationResult Failed(Exception exception)
 	{
-		return new StorageOperationResult(Succeeded: false, ResultItem: null, Error: exception);
+		return new StorageOperationResult(false, null, exception);
 	}
 }

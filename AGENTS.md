@@ -6,6 +6,7 @@ This project is a C#/.NET WinUI 3 desktop app; an alternative to File Explorer.
 - Always follow `.editorconfig`
 - Keep changed text files in CRLF line endings
 - Keep comments concise and useful. Do not add comments that restate obvious code.
+- Follow the mandatory C# style and API documentation rules below.
 - Never read entire generated files in `bin` or `obj` unless the generated source is directly needed.
 - Prefer targeted search over full file reads.
 - Touch only what you must. Clean up only files you created or changed for the task.
@@ -29,6 +30,20 @@ This project is a C#/.NET WinUI 3 desktop app; an alternative to File Explorer.
 - Read nearby code before adding new abstractions. Prefer existing WinUI, MVVM, service, command, and storage patterns.
 - Keep implementation scoped to the requested behavior. Avoid opportunistic refactors, formatting churn, dependency updates, and generated file edits.
 - Treat tool output as evidence. When behavior changes, run the focused build that can prove it and report anything left unverified.
+
+## C# Style and API Documentation
+
+These rules are mandatory for new and modified C# code:
+
+- Do not insert line breaks in the middle of code, including argument lists, parameter lists, and expressions, unless the resulting line would be longer than 200 characters. When a break is necessary, break at a natural syntactic boundary.
+- Always use braces for `if`, `else if`, and `else` blocks. Do not use single-line or brace-less alternatives.
+- Insert a blank line immediately before every `return` statement, except when the `return` is the first statement in its block.
+- Insert a blank line immediately after every guard statement, including guards that throw `ArgumentNullException` or another argument-related exception. The blank line follows the complete guard block.
+- Add concise XML documentation comments to every public and protected API in `src/Files.Core`, including types, constructors, methods, properties, fields, events, delegates, and indexers. Document parameters and return values where applicable. Do not edit generated source; document the source declaration or wrapper instead.
+- Prefix every private field with `_` and use camel case for the remainder of the field name.
+- Order members within each type as follows: constants, fields, properties, constructors, public methods, then private methods. Keep related declarations together within their category.
+
+Before completing a C# change, inspect the diff and verify that these rules are followed. Do not suppress or relax the rules to avoid fixing a violation.
 
 ## Licensing
 

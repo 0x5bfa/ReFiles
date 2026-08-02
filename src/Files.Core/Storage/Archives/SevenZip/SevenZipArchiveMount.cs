@@ -14,34 +14,26 @@ internal sealed class SevenZipArchiveMount
 	: IArchiveMount, IStorageSource
 {
 	public const string EntryAddressScheme = "archive-entry";
+
 	private const int MaximumCredentialAttempts = 5;
-	private readonly Stream archiveStream;
-	private readonly SevenZipArchiveIndex index;
-	private readonly SemaphoreSlim extractorLock = new(1, 1);
-	private readonly object disposalLock = new();
-	private readonly IArchiveCredentialResolver? credentialResolver;
-	private SevenZipExtractor extractor;
-	private int credentialAttempt;
-	private Task? disposeTask;
-	private volatile bool isDisposed;
 
-	public SevenZipArchiveMount(ArchiveMountRequest request, Stream archiveStream, SevenZipExtractor extractor, SevenZipArchiveIndex index)
-	{
-		ArgumentNullException.ThrowIfNull(request);
-		ArgumentNullException.ThrowIfNull(archiveStream);
-		ArgumentNullException.ThrowIfNull(extractor);
-		ArgumentNullException.ThrowIfNull(index);
+	private readonly Stream _archiveStream;
 
-		Archive = request.Archive;
-		DisplayName = request.ArchiveModel.Name;
-		this.archiveStream = archiveStream;
-		this.extractor = extractor;
-		this.index = index;
-		credentialAttempt = request.CredentialAttempt;
-		credentialResolver = request.CredentialResolver;
-		SourceId = CreateSourceId(request.Archive);
-		Root = CreateFolder(string.Empty);
-	}
+	private readonly SevenZipArchiveIndex _index;
+
+	private readonly SemaphoreSlim _extractorLock = new(1, 1);
+
+	private readonly Lock _disposalLock = new();
+
+	private readonly IArchiveCredentialResolver? _credentialResolver;
+
+	private SevenZipExtractor _extractor;
+
+	private int _credentialAttempt;
+
+	private Task? _disposeTask;
+
+	private volatile bool _isDisposed;
 
 	public string BackendId =>
 		SevenZipArchiveBackend.DefaultBackendId;
@@ -59,10 +51,29 @@ internal sealed class SevenZipArchiveMount
 
 	public string DisplayName { get; }
 
+	public SevenZipArchiveMount(ArchiveMountRequest request, Stream archiveStream, SevenZipExtractor extractor, SevenZipArchiveIndex index)
+	{
+		ArgumentNullException.ThrowIfNull(request);
+		ArgumentNullException.ThrowIfNull(archiveStream);
+		ArgumentNullException.ThrowIfNull(extractor);
+		ArgumentNullException.ThrowIfNull(index);
+
+		Archive = request.Archive;
+		DisplayName = request.ArchiveModel.Name;
+		_archiveStream = archiveStream;
+		_extractor = extractor;
+		_index = index;
+		_credentialAttempt = request.CredentialAttempt;
+		_credentialResolver = request.CredentialResolver;
+		SourceId = CreateSourceId(request.Archive);
+		Root = CreateFolder(string.Empty);
+	}
+
 	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		cancellationToken.ThrowIfCancellationRequested();
+
 		await Task.CompletedTask.ConfigureAwait(false);
 		yield return Root;
 	}
@@ -70,13 +81,15 @@ internal sealed class SevenZipArchiveMount
 	public bool CanResolve(StorageAddress address)
 	{
 		ArgumentNullException.ThrowIfNull(address);
+
 		return address.Scheme.Equals(EntryAddressScheme, StringComparison.OrdinalIgnoreCase);
 	}
 
 	public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(address);
+
 		if (!CanResolve(address))
 		{
 			throw new ArgumentException($"Address scheme '{address.Scheme}' is not supported.", nameof(address));
@@ -87,8 +100,9 @@ internal sealed class SevenZipArchiveMount
 
 	public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(reference);
+
 		if (reference.SourceId != SourceId)
 		{
 			throw new ArgumentException($"Reference belongs to storage source '{reference.SourceId}'.", nameof(reference));
@@ -99,34 +113,39 @@ internal sealed class SevenZipArchiveMount
 
 	public ValueTask<IStorable> ResolveAsync(string entryPath, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var node = index.GetNode(entryPath);
+		var node = _index.GetNode(entryPath);
+
 		return ValueTask.FromResult<IStorable>(node.IsDirectory ? CreateFolder(node.Path) : CreateFile(node.Path));
 	}
 
 	internal IReadOnlyList<SevenZipArchiveNode> GetChildren(string entryPath)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
-		return index.GetChildren(entryPath);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+		return _index.GetChildren(entryPath);
 	}
 
 	internal SevenZipArchiveFolder CreateFolder(string entryPath)
 	{
-		var node = index.GetNode(entryPath);
+		var node = _index.GetNode(entryPath);
+
 		return new SevenZipArchiveFolder(this, node);
 	}
 
 	internal SevenZipArchiveFile CreateFile(string entryPath)
 	{
-		var node = index.GetNode(entryPath);
+		var node = _index.GetNode(entryPath);
+
 		return new SevenZipArchiveFile(this, node);
 	}
 
 	internal async Task<Stream> OpenFileAsync(SevenZipArchiveNode node, CancellationToken cancellationToken)
 	{
-		ObjectDisposedException.ThrowIf(isDisposed, this);
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 		if (node.EntryIndex is not { } entryIndex)
 		{
 			throw new InvalidOperationException($"Archive entry '{node.Path}' has no extraction index.");
@@ -135,21 +154,19 @@ internal sealed class SevenZipArchiveMount
 		var output = ArchiveStreamResolver.CreateTemporaryStream();
 		try
 		{
-			await extractorLock
-				.WaitAsync(cancellationToken)
-				.ConfigureAwait(false);
+			await _extractorLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 			try
 			{
 				while (true)
 				{
-					ObjectDisposedException.ThrowIf(isDisposed, this);
+					ObjectDisposedException.ThrowIf(_isDisposed, this);
 					cancellationToken.ThrowIfCancellationRequested();
+
 					try
 					{
-						await extractor
-							.ExtractFileAsync(entryIndex, output)
-							.ConfigureAwait(false);
+						await _extractor.ExtractFileAsync(entryIndex, output).ConfigureAwait(false);
 						cancellationToken.ThrowIfCancellationRequested();
+
 						break;
 					}
 					catch (Exception error)
@@ -161,16 +178,27 @@ internal sealed class SevenZipArchiveMount
 			}
 			finally
 			{
-				extractorLock.Release();
+				_extractorLock.Release();
 			}
 
 			output.Position = 0;
+
 			return output;
 		}
 		catch
 		{
 			await output.DisposeAsync().ConfigureAwait(false);
 			throw;
+		}
+	}
+
+	public ValueTask DisposeAsync()
+	{
+		lock (_disposalLock)
+		{
+			_disposeTask ??= DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 
@@ -182,17 +210,14 @@ internal sealed class SevenZipArchiveMount
 		while (true)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			var challenge = new ArchiveCredentialChallenge(Archive, DisplayName, credentialAttempt + 1, previousCredentialRejected: true);
-			if (credentialResolver is null
-				|| challenge.Attempt
-					> MaximumCredentialAttempts)
+
+			var challenge = new ArchiveCredentialChallenge(Archive, DisplayName, _credentialAttempt + 1, previousCredentialRejected: true);
+			if (_credentialResolver is null || challenge.Attempt > MaximumCredentialAttempts)
 			{
 				throw new ArchiveCredentialRequiredException(challenge);
 			}
 
-			var credential = await credentialResolver
-				.ResolveAsync(challenge, cancellationToken)
-				.ConfigureAwait(false);
+			var credential = await _credentialResolver.ResolveAsync(challenge, cancellationToken).ConfigureAwait(false);
 			if (credential is null)
 			{
 				throw new OperationCanceledException("The archive credential request was canceled.");
@@ -201,21 +226,22 @@ internal sealed class SevenZipArchiveMount
 			SevenZipExtractor? replacement = null;
 			try
 			{
-				archiveStream.Position = 0;
+				_archiveStream.Position = 0;
 				replacement =
-					SevenZipArchiveBackend.CreateExtractor(archiveStream, credential);
+					SevenZipArchiveBackend.CreateExtractor(_archiveStream, credential);
 				_ = replacement.ArchiveFileData;
-				var previous = extractor;
-				extractor = replacement;
+				var previous = _extractor;
+				_extractor = replacement;
 				replacement = null;
 				previous.Dispose();
-				credentialAttempt = challenge.Attempt;
+				_credentialAttempt = challenge.Attempt;
+
 				return;
 			}
 			catch (Exception error)
 				when (SevenZipArchiveBackend.IsPasswordFailure(error))
 			{
-				credentialAttempt = challenge.Attempt;
+				_credentialAttempt = challenge.Attempt;
 			}
 			finally
 			{
@@ -224,25 +250,16 @@ internal sealed class SevenZipArchiveMount
 		}
 	}
 
-	public ValueTask DisposeAsync()
-	{
-		lock (disposalLock)
-		{
-			disposeTask ??= DisposeCoreAsync();
-			return new ValueTask(disposeTask);
-		}
-	}
-
 	private async Task DisposeCoreAsync()
 	{
-		isDisposed = true;
-		await extractorLock.WaitAsync().ConfigureAwait(false);
+		_isDisposed = true;
+		await _extractorLock.WaitAsync().ConfigureAwait(false);
 		List<Exception>? errors = null;
 		try
 		{
 			try
 			{
-				extractor.Dispose();
+				_extractor.Dispose();
 			}
 			catch (Exception error)
 			{
@@ -251,9 +268,7 @@ internal sealed class SevenZipArchiveMount
 
 			try
 			{
-				await archiveStream
-					.DisposeAsync()
-					.ConfigureAwait(false);
+				await _archiveStream.DisposeAsync().ConfigureAwait(false);
 			}
 			catch (Exception error)
 			{
@@ -262,7 +277,7 @@ internal sealed class SevenZipArchiveMount
 		}
 		finally
 		{
-			extractorLock.Release();
+			_extractorLock.Release();
 		}
 
 		GC.SuppressFinalize(this);
@@ -281,6 +296,7 @@ internal sealed class SevenZipArchiveMount
 	{
 		var identity = Encoding.UTF8.GetBytes($"{archive.SourceId.Value}\0{archive.ItemId}");
 		var hash = SHA256.HashData(identity);
+
 		return new StorageSourceId($"archive-{Convert.ToHexString(hash)}");
 	}
 }

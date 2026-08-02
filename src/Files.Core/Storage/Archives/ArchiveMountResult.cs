@@ -11,24 +11,26 @@ public abstract record ArchiveMountResult
 
 	public sealed record Success : ArchiveMountResult
 	{
+		public IArchiveMount Mount { get; }
+
 		public Success(IArchiveMount mount)
 		{
 			ArgumentNullException.ThrowIfNull(mount);
+
 			Mount = mount;
 		}
-
-		public IArchiveMount Mount { get; }
 	}
 
 	public sealed record CredentialRequired : ArchiveMountResult
 	{
+		public ArchiveCredentialChallenge Challenge { get; }
+
 		public CredentialRequired(ArchiveCredentialChallenge challenge)
 		{
 			ArgumentNullException.ThrowIfNull(challenge);
+
 			Challenge = challenge;
 		}
-
-		public ArchiveCredentialChallenge Challenge { get; }
 	}
 
 	public sealed record Unsupported : ArchiveMountResult
@@ -42,12 +44,13 @@ public abstract record ArchiveMountResult
 
 	public sealed record Failed : ArchiveMountResult
 	{
+		public Exception Error { get; }
+
 		public Failed(Exception error)
 		{
 			ArgumentNullException.ThrowIfNull(error);
+
 			Error = error;
 		}
-
-		public Exception Error { get; }
 	}
 }

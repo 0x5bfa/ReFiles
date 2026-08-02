@@ -54,24 +54,6 @@ namespace Files.Controls
 		public static readonly DependencyProperty StretchContentForSingleRowProperty =
 		DependencyProperty.Register(nameof(StretchContentForSingleRow), typeof(bool), typeof(AdaptiveGridView), new PropertyMetadata(true, OnStretchContentForSingleRowPropertyChanged));
 
-		private static void OnOneRowModeEnabledChanged(DependencyObject d, object newValue)
-		{
-			var self = (AdaptiveGridView)d;
-			self.DetermineOneRowMode();
-		}
-
-		private static void DesiredWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-		{
-			var self = (AdaptiveGridView)d;
-			self.RecalculateLayout(self.ActualWidth);
-		}
-
-		private static void OnStretchContentForSingleRowPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-		{
-			var self = (AdaptiveGridView)d;
-			self.RecalculateLayout(self.ActualWidth);
-		}
-
 		/// <summary>
 		/// Gets or sets the desired width of each item
 		/// </summary>
@@ -143,6 +125,24 @@ namespace Files.Controls
 		{
 			get { return (double)GetValue(ItemWidthProperty); }
 			set { SetValue(ItemWidthProperty, value); }
+		}
+
+		private static void OnOneRowModeEnabledChanged(DependencyObject d, object newValue)
+		{
+			var self = (AdaptiveGridView)d;
+			self.DetermineOneRowMode();
+		}
+
+		private static void DesiredWidthChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+		{
+			var self = (AdaptiveGridView)d;
+			self.RecalculateLayout(self.ActualWidth);
+		}
+
+		private static void OnStretchContentForSingleRowPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+		{
+			var self = (AdaptiveGridView)d;
+			self.RecalculateLayout(self.ActualWidth);
 		}
 
 		private static int CalculateColumns(double containerWidth, double itemWidth)

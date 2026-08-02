@@ -17,17 +17,12 @@ public interface IBrowsePaneFactory
 /// </summary>
 public sealed class BrowsePaneFactory : IBrowsePaneFactory
 {
-	private readonly Func<IBrowseSessionModel> sessionFactory;
-	private readonly Func<IBrowseSessionModel, IBrowsePreviewModel> previewFactory;
-	private readonly Func<IBrowseSessionModel, IBrowsePrefetchCoordinator> prefetchFactory;
-	private readonly int historyCapacity;
+	private readonly Func<IBrowseSessionModel> _sessionFactory;
+	private readonly Func<IBrowseSessionModel, IBrowsePreviewModel> _previewFactory;
+	private readonly Func<IBrowseSessionModel, IBrowsePrefetchCoordinator> _prefetchFactory;
+	private readonly int _historyCapacity;
 
-	public BrowsePaneFactory(
-		IBrowseLocationResolver locationResolver,
-		IViewSettingsStore? viewSettingsStore = null,
-		IThumbnailCache? thumbnailCache = null,
-		int thumbnailSize = 96,
-		int historyCapacity = 50)
+	public BrowsePaneFactory(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, int thumbnailSize = 96, int historyCapacity = 50)
 		: this(
 			() => new BrowseSessionModel(locationResolver, viewSettingsStore, thumbnailCache),
 			static session => new BrowsePreviewModel(session),
@@ -35,6 +30,7 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 			historyCapacity)
 	{
 		ArgumentNullException.ThrowIfNull(locationResolver);
+
 	}
 
 	public BrowsePaneFactory(
@@ -48,27 +44,25 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 		ArgumentNullException.ThrowIfNull(prefetchFactory);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(historyCapacity);
 
-		this.sessionFactory = sessionFactory;
-		this.previewFactory = previewFactory;
-		this.prefetchFactory = prefetchFactory;
-		this.historyCapacity = historyCapacity;
+		_sessionFactory = sessionFactory;
+		_previewFactory = previewFactory;
+		_prefetchFactory = prefetchFactory;
+		_historyCapacity = historyCapacity;
 	}
 
 	public PaneModel Create()
 	{
-		var session = sessionFactory()
-			?? throw new InvalidOperationException("The browse session factory returned null.");
+		var session = _sessionFactory() ?? throw new InvalidOperationException("The browse session factory returned null.");
+
 		IBrowsePreviewModel? preview = null;
 		IBrowsePrefetchCoordinator? prefetch = null;
 
 		try
 		{
-			preview = previewFactory(session)
-				?? throw new InvalidOperationException("The browse preview factory returned null.");
-			prefetch = prefetchFactory(session)
-				?? throw new InvalidOperationException("The browse prefetch factory returned null.");
+			preview = _previewFactory(session) ?? throw new InvalidOperationException("The browse preview factory returned null.");
+			prefetch = _prefetchFactory(session) ?? throw new InvalidOperationException("The browse prefetch factory returned null.");
 
-			return new PaneModel(session, preview, prefetch, historyCapacity);
+			return new PaneModel(session, preview, prefetch, _historyCapacity);
 		}
 		catch (Exception creationError)
 		{
@@ -90,6 +84,7 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 			}
 
 			cleanupErrors.Insert(0, creationError);
+
 			throw new AggregateException("Pane construction and cleanup failed.", cleanupErrors);
 		}
 	}
@@ -98,11 +93,7 @@ public sealed class BrowsePaneFactory : IBrowsePaneFactory
 	{
 		try
 		{
-			disposable
-				.DisposeAsync()
-				.AsTask()
-				.GetAwaiter()
-				.GetResult();
+			disposable.DisposeAsync().AsTask().GetAwaiter().GetResult();
 		}
 		catch (Exception error)
 		{

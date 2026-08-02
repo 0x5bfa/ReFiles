@@ -37,7 +37,9 @@ namespace Files.Controls
 		private void LayerPathDataChanged(string pathData)
 		{
 			if (GetTemplateChild(LayerCanvasPart) is not Canvas layerCanvas)
+			{
 				return;
+			}
 
 			SetPathData(pathData ?? string.Empty, layerCanvas);
 		}
@@ -103,7 +105,9 @@ namespace Files.Controls
 			// We check the Template Part exists, and is the right type, and assign it's data
 
 			if (string.IsNullOrEmpty(pathData))
+			{
 				return;
+			}
 
 			var geometry = (Geometry)XamlReader.Load(
 				$"<Geometry xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>{pathData}</Geometry>");

@@ -14,6 +14,7 @@ public static class ItemFeatureExtensions
 		where TFeature : class
 	{
 		ArgumentNullException.ThrowIfNull(host);
+
 		return host.Features.Get<TFeature>();
 	}
 
@@ -21,6 +22,7 @@ public static class ItemFeatureExtensions
 		where TFeature : class
 	{
 		ArgumentNullException.ThrowIfNull(host);
+
 		return host.Features.TryGet(out feature);
 	}
 }

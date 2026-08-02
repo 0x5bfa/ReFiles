@@ -40,7 +40,9 @@ namespace Files.Controls
 		private void OwnerControl_IsCheckedChanged(object sender, RoutedEventArgs e)
 		{
 			if (ownerToggleButton is null)
+			{
 				return;
+			}
 
 			_isOwnerToggled = ownerToggleButton.IsChecked is true;
 			UpdateVisualStates();
@@ -50,7 +52,9 @@ namespace Files.Controls
 		private void OwnerControl_IsEnabledChanged(object sender, DependencyPropertyChangedEventArgs e)
 		{
 			if (ownerControl is null)
+			{
 				return;
+			}
 
 			_isOwnerEnabled = ownerControl.IsEnabled;
 			UpdateVisualStates();

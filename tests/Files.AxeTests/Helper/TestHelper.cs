@@ -36,6 +36,7 @@ namespace Files.AxeTests.Helper
 					}
 				}
 			}
+
 			return elementsToReturn;
 		}
 

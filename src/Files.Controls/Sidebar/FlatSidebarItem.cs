@@ -8,6 +8,10 @@ namespace Files.Controls
 	/// </summary>
 	public sealed class FlatSidebarItem : INotifyPropertyChanged
 	{
+		private static readonly PropertyChangedEventArgs SectionGapMarginChangedArgs = new(nameof(SectionGapMargin));
+
+		private bool _hasExpandedPredecessor;
+
 		public ISidebarItemModel Item { get; }
 
 		public int Depth { get; }
@@ -15,16 +19,16 @@ namespace Files.Controls
 		// Caller-supplied at construction; hidden filesystem items are dimmed to match the file list's dimming convention.
 		public double RowOpacity { get; }
 
-		private static readonly PropertyChangedEventArgs SectionGapMarginChangedArgs = new(nameof(SectionGapMargin));
-
-		private bool _hasExpandedPredecessor;
 		public bool HasExpandedPredecessor
 		{
 			get => _hasExpandedPredecessor;
 			set
 			{
 				if (_hasExpandedPredecessor == value)
+				{
 					return;
+				}
+
 				_hasExpandedPredecessor = value;
 				PropertyChanged?.Invoke(this, SectionGapMarginChangedArgs);
 			}

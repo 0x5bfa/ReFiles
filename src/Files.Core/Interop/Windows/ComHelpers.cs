@@ -16,9 +16,12 @@ public static class ComHelpers
 		instance = null;
 
 		if (nativeObject is not TInterface casted)
+		{
 			return HRESULT.E_NOINTERFACE;
+		}
 
 		instance = casted;
+
 		return HRESULT.S_OK;
 	}
 }

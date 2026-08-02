@@ -153,6 +153,7 @@ public sealed class WindowsFolderChangeTests
 		var changeSource = new FolderChangeSourceFactory().Create(new ItemContext(source, folder, reference));
 
 		Assert.IsNotNull(changeSource);
+
 		return changeSource!;
 	}
 
@@ -172,6 +173,7 @@ public sealed class WindowsFolderChangeTests
 		};
 
 		changeSource.Changed += handler;
+
 		return completion.Task;
 	}
 }

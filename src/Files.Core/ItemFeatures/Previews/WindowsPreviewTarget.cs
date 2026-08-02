@@ -10,9 +10,17 @@ namespace Files.Core.ItemFeatures.Previews;
 
 public sealed class WindowsPreviewTarget : IDisposable, IAsyncDisposable
 {
-	private readonly IStorableModel model;
-	private readonly object disposalLock = new();
-	private Task? disposeTask;
+	private readonly IStorableModel _model;
+
+	private readonly Lock _disposalLock = new();
+
+	private Task? _disposeTask;
+
+	public IWindowsStorable Item { get; }
+
+	public IStorableModel Model => _model;
+
+	public StorableReference Reference => _model.Reference;
 
 	public WindowsPreviewTarget(IStorableModel model, IWindowsStorable item)
 	{
@@ -24,15 +32,9 @@ public sealed class WindowsPreviewTarget : IDisposable, IAsyncDisposable
 			throw new InvalidDataException("The target model and Windows item have different identities.");
 		}
 
-		this.model = model;
+		_model = model;
 		Item = item;
 	}
-
-	public IWindowsStorable Item { get; }
-
-	public IStorableModel Model => model;
-
-	public StorableReference Reference => model.Reference;
 
 	public void Dispose()
 	{
@@ -41,10 +43,11 @@ public sealed class WindowsPreviewTarget : IDisposable, IAsyncDisposable
 
 	public ValueTask DisposeAsync()
 	{
-		lock (disposalLock)
+		lock (_disposalLock)
 		{
-			disposeTask ??= model.DisposeAsync().AsTask();
-			return new ValueTask(disposeTask);
+			_disposeTask ??= _model.DisposeAsync().AsTask();
+
+			return new ValueTask(_disposeTask);
 		}
 	}
 }

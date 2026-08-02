@@ -74,6 +74,7 @@ namespace Files.Controls
 			get
 			{
 				this._parentBladeView.TryGetTarget(out var bladeView);
+
 				return bladeView!;
 			}
 			set => this._parentBladeView = new WeakReference<BladeView>(value);

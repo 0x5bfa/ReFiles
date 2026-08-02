@@ -90,18 +90,18 @@ public sealed class StorableModelLifetimeTests
 	{
 		private readonly IList<string> order;
 
+		public string Id { get; }
+
+		public string Name { get; }
+
+		public bool IsDisposed { get; private set; }
+
 		public AsyncOrderStorable(string id, string name, IList<string> order)
 		{
 			Id = id;
 			Name = name;
 			this.order = order;
 		}
-
-		public string Id { get; }
-
-		public string Name { get; }
-
-		public bool IsDisposed { get; private set; }
 
 		public async ValueTask DisposeAsync()
 		{

@@ -8,25 +8,25 @@ namespace Files.Core.ItemFeatures;
 /// </summary>
 public sealed class ItemFeatureRegistry
 {
-	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> factories;
-	private readonly IReadOnlyDictionary<Type, object> combiners;
-	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> wrappers;
+	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> _factories;
 
-	internal ItemFeatureRegistry(
-		IReadOnlyDictionary<Type, IReadOnlyList<object>> factories,
-		IReadOnlyDictionary<Type, object> combiners,
-		IReadOnlyDictionary<Type, IReadOnlyList<object>> wrappers)
-	{
-		this.factories = factories;
-		this.combiners = combiners;
-		this.wrappers = wrappers;
-	}
+	private readonly IReadOnlyDictionary<Type, object> _combiners;
+
+	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> _wrappers;
 
 	public static ItemFeatureRegistry Empty { get; } = new ItemFeatureBuilder().Build();
+
+	internal ItemFeatureRegistry(IReadOnlyDictionary<Type, IReadOnlyList<object>> factories, IReadOnlyDictionary<Type, object> combiners, IReadOnlyDictionary<Type, IReadOnlyList<object>> wrappers)
+	{
+		_factories = factories;
+		_combiners = combiners;
+		_wrappers = wrappers;
+	}
 
 	public IItemFeatures CreateFeatures(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
+
 		return new ItemFeatures(this, context);
 	}
 
@@ -65,6 +65,7 @@ public sealed class ItemFeatureRegistry
 			if (featureResult is null)
 			{
 				DisposeTrackedInstances(ownedInstances);
+
 				return ItemFeatureResolution<TFeature>.Empty;
 			}
 
@@ -109,7 +110,7 @@ public sealed class ItemFeatureRegistry
 	private TFeature? Combine<TFeature>(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options)
 		where TFeature : class
 	{
-		if (combiners.TryGetValue(typeof(TFeature), out var combiner))
+		if (_combiners.TryGetValue(typeof(TFeature), out var combiner))
 		{
 			return ((IItemFeatureCombiner<TFeature>)combiner).Combine(context, options);
 		}
@@ -125,34 +126,28 @@ public sealed class ItemFeatureRegistry
 	private IReadOnlyList<ItemFeatureRegistration<TFeature>> GetFactories<TFeature>()
 		where TFeature : class
 	{
-		if (!factories.TryGetValue(typeof(TFeature), out var registrations))
+		if (!_factories.TryGetValue(typeof(TFeature), out var registrations))
 		{
 			return Array.Empty<ItemFeatureRegistration<TFeature>>();
 		}
 
-		return registrations
-			.Cast<ItemFeatureRegistration<TFeature>>()
-			.ToArray();
+		return registrations.Cast<ItemFeatureRegistration<TFeature>>().ToArray();
 	}
 
 	private IReadOnlyList<IItemFeatureWrapper<TFeature>> GetWrappers<TFeature>()
 		where TFeature : class
 	{
-		if (!wrappers.TryGetValue(typeof(TFeature), out var registrations))
+		if (!_wrappers.TryGetValue(typeof(TFeature), out var registrations))
 		{
 			return Array.Empty<IItemFeatureWrapper<TFeature>>();
 		}
 
-		return registrations
-			.Cast<IItemFeatureWrapper<TFeature>>()
-			.ToArray();
+		return registrations.Cast<IItemFeatureWrapper<TFeature>>().ToArray();
 	}
 
 	private static void TrackOwned(ItemContext context, object instance, List<object> ownedInstances)
 	{
-		if (ReferenceEquals(instance, context.CoreModel)
-			|| ReferenceEquals(instance, context.Source)
-			|| ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
+		if (ReferenceEquals(instance, context.CoreModel) || ReferenceEquals(instance, context.Source) || ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
 		{
 			return;
 		}
@@ -167,10 +162,7 @@ public sealed class ItemFeatureRegistry
 	{
 		var instances = ownedInstances.ToArray();
 		ownedInstances.Clear();
-		ItemFeatures
-			.DisposeInstancesAsync(instances)
-			.GetAwaiter()
-			.GetResult();
+		ItemFeatures.DisposeInstancesAsync(instances).GetAwaiter().GetResult();
 	}
 }
 

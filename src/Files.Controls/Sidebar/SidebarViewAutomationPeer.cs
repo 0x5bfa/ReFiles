@@ -24,7 +24,9 @@ namespace Files.Controls
 		protected override object GetPatternCore(PatternInterface patternInterface)
 		{
 			if (patternInterface is PatternInterface.Selection)
+			{
 				return this;
+			}
 
 			return base.GetPatternCore(patternInterface);
 		}
@@ -32,7 +34,9 @@ namespace Files.Controls
 		public IRawElementProviderSimple[] GetSelection()
 		{
 			if (Owner.SelectedItemContainer != null)
+			{
 				return [ProviderFromPeer(CreatePeerForElement(Owner.SelectedItemContainer))];
+			}
 
 			return [];
 		}

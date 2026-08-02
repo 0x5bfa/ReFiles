@@ -9,10 +9,10 @@ namespace Files.Views;
 
 public sealed partial class WebView : UserControl
 {
+	public string Text => Strings.WebView.GetLocalized();
+
 	public WebView()
 	{
 		InitializeComponent();
 	}
-
-	public string Text => Strings.WebView.GetLocalized();
 }

@@ -20,7 +20,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	private readonly IFilesDataRoot dataRoot;
 	private readonly IUIDispatcher dispatcher;
 	private readonly CancellationTokenSource lifetime = new();
-	private readonly object pendingLock = new();
+	private readonly Lock pendingLock = new();
 	private readonly Queue<PendingItemBatch> pendingItemBatches = new();
 	private readonly Dictionary<StorableKey, ThumbnailResult?> pendingThumbnails = [];
 	private readonly List<BrowseItemViewModel> items = [];
@@ -67,12 +67,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		ErrorMessage
 		?? (IsLoading
 			? Strings.Loading.GetLocalized()
-			: string.Format(
-				CultureInfo.CurrentCulture,
-				items.Count is 1
-					? Strings.ItemCountSingle.GetLocalized()
-					: Strings.ItemCountPlural.GetLocalized(),
-				items.Count));
+			: string.Format(CultureInfo.CurrentCulture, items.Count is 1 ? Strings.ItemCountSingle.GetLocalized() : Strings.ItemCountPlural.GetLocalized(), items.Count));
 
 	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 
@@ -91,10 +86,10 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-		if (string.Equals(path, Strings.Home.GetLocalized(), StringComparison.OrdinalIgnoreCase)
-			|| string.Equals(path, "Home", StringComparison.OrdinalIgnoreCase))
+		if (string.Equals(path, Strings.Home.GetLocalized(), StringComparison.OrdinalIgnoreCase) || string.Equals(path, "Home", StringComparison.OrdinalIgnoreCase))
 		{
 			await InitializeAsync(cancellationToken).ConfigureAwait(false);
+
 			return;
 		}
 
@@ -119,6 +114,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	{
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(item);
+
 		if (!item.IsFolder)
 		{
 			return;
@@ -333,8 +329,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 				continue;
 			}
 
-			if (appliedItemsVersion >= 0
-				&& batch.PreviousVersion != appliedItemsVersion)
+			if (appliedItemsVersion >= 0 && batch.PreviousVersion != appliedItemsVersion)
 			{
 				ResetFromCurrentSession(appliedChanges);
 				break;
@@ -427,6 +422,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 					items.AddRange(reset.Items);
 					break;
 				default:
+
 					return false;
 			}
 

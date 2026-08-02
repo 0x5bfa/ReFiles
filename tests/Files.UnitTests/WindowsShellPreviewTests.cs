@@ -117,12 +117,9 @@ public sealed class WindowsShellPreviewTests
 	[TestMethod]
 	public void PreviewHostValidatesBoundsAndWindowHandle()
 	{
-		Assert.Throws<ArgumentOutOfRangeException>(() =>
-			new WindowsPreviewBounds(0, 0, -1, 10));
-		Assert.Throws<ArgumentOutOfRangeException>(() =>
-			new WindowsPreviewBounds(0, 0, 10, -1));
-		Assert.Throws<ArgumentException>(() =>
-			new WindowsPreviewHost(0, new WindowsPreviewBounds(0, 0, 1, 1)));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new WindowsPreviewBounds(0, 0, -1, 10));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new WindowsPreviewBounds(0, 0, 10, -1));
+		Assert.Throws<ArgumentException>(() => new WindowsPreviewHost(0, new WindowsPreviewBounds(0, 0, 1, 1)));
 
 		var desktop = PInvoke.GetDesktopWindow();
 		var host = new WindowsPreviewHost((desktop), new WindowsPreviewBounds(0, 0, 640, 480));
@@ -136,13 +133,9 @@ public sealed class WindowsShellPreviewTests
 		var source = new TestStorageSource();
 		var item = new FakeWindowsFile("actual", "document.pdf");
 		var requestedReference = new StorableReference(source.SourceId, "requested");
-		var model = new StorableModel(
-			item,
-			requestedReference,
-			ItemFeatureRegistry.Empty.CreateFeatures(new ItemContext(source, item, requestedReference)));
+		var model = new StorableModel(item, requestedReference, ItemFeatureRegistry.Empty.CreateFeatures(new ItemContext(source, item, requestedReference)));
 
-		Assert.Throws<InvalidDataException>(() =>
-			new WindowsPreviewTarget(model, item));
+		Assert.Throws<InvalidDataException>(() => new WindowsPreviewTarget(model, item));
 
 		model.Dispose();
 	}
@@ -210,8 +203,7 @@ public sealed class WindowsShellPreviewTests
 		var target = CreateTarget("item", "document.pdf");
 		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller));
 
-		await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-			await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
+		await Assert.ThrowsAsync<InvalidOperationException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
 
 		Assert.AreEqual(1, controller.DisposeCount);
 		Assert.IsTrue(((FakeWindowsFile)target.Model.CoreModel).IsDisposed);
@@ -222,11 +214,7 @@ public sealed class WindowsShellPreviewTests
 	{
 		var source = new TestStorageSource();
 		var handlerResolver = new FakeHandlerResolver { HandlerClsid = Guid.NewGuid() };
-		var streamLoader = new StreamPreviewLoader(
-			new ExtensionPreviewContentTypeResolver([
-				new KeyValuePair<string, string>(".txt", "text/plain"),
-			]),
-			new AllowPreviewPolicy());
+		var streamLoader = new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", "text/plain"), ]), new AllowPreviewPolicy());
 		var shellLoader = new WindowsShellPreviewLoader(handlerResolver, new FakeShellPolicy());
 		var featureRegistry = new ItemFeatureBuilder()
 			.Add<IPreviewSource>(new PreviewSourceFactory(streamLoader), priority: 200)
@@ -273,6 +261,7 @@ public sealed class WindowsShellPreviewTests
 		var item = new FakeWindowsFile(id, name);
 		var reference = new StorableReference(source.SourceId, item.Id);
 		var model = new StorableModel(item, reference, ItemFeatureRegistry.Empty.CreateFeatures(new ItemContext(source, item, reference)));
+
 		return new WindowsPreviewTarget(model, item);
 	}
 
@@ -288,6 +277,7 @@ public sealed class WindowsShellPreviewTests
 		{
 			CallCount++;
 			Extensions.Add(normalizedExtension);
+
 			return Value;
 		}
 	}
@@ -302,6 +292,7 @@ public sealed class WindowsShellPreviewTests
 		{
 			ActivationCount++;
 			cancellationToken.ThrowIfCancellationRequested();
+
 			return ValueTask.FromResult(HandlerClsid);
 		}
 	}
@@ -316,10 +307,7 @@ public sealed class WindowsShellPreviewTests
 
 	private sealed class AllowPreviewPolicy : IPreviewStreamAccessPolicy
 	{
-		public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(
-			PreviewRequest request,
-			ItemContext context,
-			CancellationToken cancellationToken = default)
+		public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 			=> ValueTask.FromResult<PreviewBlockReason?>(null);
 	}
 
@@ -335,8 +323,10 @@ public sealed class WindowsShellPreviewTests
 		public ValueTask<WindowsPreviewTarget> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			var resolved = target;
 			target = null!;
+
 			return ValueTask.FromResult(resolved);
 		}
 	}
@@ -358,11 +348,6 @@ public sealed class WindowsShellPreviewTests
 	{
 		private readonly IList<string> order;
 
-		public FakeController(IList<string> order)
-		{
-			this.order = order;
-		}
-
 		public bool StreamResult { get; init; }
 
 		public bool ItemResult { get; init; }
@@ -373,23 +358,31 @@ public sealed class WindowsShellPreviewTests
 
 		public int DisposeCount { get; private set; }
 
+		public FakeController(IList<string> order)
+		{
+			this.order = order;
+		}
+
 		public void SetSite() => order.Add("site");
 
 		public bool TryInitializeWithStream(string fileSystemPath)
 		{
 			order.Add("stream");
+
 			return StreamResult;
 		}
 
 		public bool TryInitializeWithItem(string parsingName)
 		{
 			order.Add("item");
+
 			return ItemResult;
 		}
 
 		public bool TryInitializeWithFile(string fileSystemPath)
 		{
 			order.Add("file");
+
 			return FileResult;
 		}
 
@@ -418,6 +411,7 @@ public sealed class WindowsShellPreviewTests
 		public bool TryTranslateAccelerator(nint messagePointer)
 		{
 			order.Add("translate");
+
 			return messagePointer != 0;
 		}
 
@@ -444,19 +438,13 @@ public sealed class WindowsShellPreviewTests
 		private static Task<T> Invoke<T>(Func<T> action, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			return Task.FromResult(action());
 		}
 	}
 
 	private sealed class FakeWindowsFile : IWindowsStorable, IFile, IDisposable
 	{
-		public FakeWindowsFile(string id, string name, string? fileSystemPath = null)
-		{
-			Id = id;
-			Name = name;
-			Address = new StorageAddress("file", fileSystemPath ?? name);
-		}
-
 		public string Id { get; }
 
 		public string Name { get; }
@@ -478,12 +466,20 @@ public sealed class WindowsShellPreviewTests
 
 		public bool IsDisposed { get; private set; }
 
+		public FakeWindowsFile(string id, string name, string? fileSystemPath = null)
+		{
+			Id = id;
+			Name = name;
+			Address = new StorageAddress("file", fileSystemPath ?? name);
+		}
+
 		public Task<IFolder> GetParentAsync(CancellationToken cancellationToken = default)
 			=> Task.FromResult<IFolder>(null!);
 
 		public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 		{
 			OpenCount++;
+
 			return await StreamFactory(cancellationToken);
 		}
 

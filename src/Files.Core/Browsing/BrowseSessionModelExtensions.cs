@@ -21,6 +21,7 @@ public static class BrowseSessionModelExtensions
 		ArgumentNullException.ThrowIfNull(session);
 
 		var selectedKeys = session.Selection.SelectedKeys.ToHashSet();
+
 		return Array.AsReadOnly(session.Items .Where(item => selectedKeys.Contains(item.Reference.GetKey())) .ToArray());
 	}
 }

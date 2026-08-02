@@ -58,6 +58,7 @@ namespace Files.SourceGenerators.Generators
 		private static bool IsEnglishResourceFile(string path)
 		{
 			var normalizedPath = path.Replace('\\', '/');
+
 			return normalizedPath.EndsWith("en-US/Resources.resw", StringComparison.OrdinalIgnoreCase)
 				|| normalizedPath.EndsWith("en-US/Resources.json", StringComparison.OrdinalIgnoreCase);
 		}
@@ -82,6 +83,7 @@ namespace Files.SourceGenerators.Generators
 			catch (Exception exception)
 			{
 				ctx.ReportDiagnostic(Diagnostic.Create(FSG1004, Location.None, file.Path, exception.Message));
+
 				return;
 			}
 
@@ -221,6 +223,7 @@ namespace Files.SourceGenerators.Generators
 		private static IEnumerable<ParserItem> ReadAllKeys(AdditionalText file, CancellationToken cancellationToken)
 		{
 			var text = file.GetText(cancellationToken)?.ToString() ?? string.Empty;
+
 			return SystemIO.Path.GetExtension(file.Path) switch
 			{
 				var extension when string.Equals(extension, ".resw", StringComparison.OrdinalIgnoreCase) => ReswParser.GetKeys(text),
@@ -261,6 +264,7 @@ namespace Files.SourceGenerators.Generators
 			}
 
 			var result = builder.ToString();
+
 			return SyntaxFacts.GetKeywordKind(result) is not SyntaxKind.None
 				|| SyntaxFacts.GetContextualKeywordKind(result) is not SyntaxKind.None
 				? $"_{result}"

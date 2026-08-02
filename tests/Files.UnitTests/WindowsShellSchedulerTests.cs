@@ -14,12 +14,7 @@ public sealed class WindowsShellSchedulerTests
 		var order = new ConcurrentQueue<int>();
 
 		var tasks = Enumerable.Range(0, 16)
-			.Select(index => scheduler.InvokeAsync(() =>
-			{
-				Assert.AreEqual(ApartmentState.STA, Thread.CurrentThread.GetApartmentState());
-				order.Enqueue(index);
-				return index;
-			}))
+			.Select(index => scheduler.InvokeAsync(() => { Assert.AreEqual(ApartmentState.STA, Thread.CurrentThread.GetApartmentState()); order.Enqueue(index); return index; }))
 			.ToArray();
 
 		await Task.WhenAll(tasks);
@@ -35,25 +30,10 @@ public sealed class WindowsShellSchedulerTests
 		var maximumActive = 0;
 
 		var tasks = Enumerable.Range(0, 8)
-			.Select(_ => scheduler.InvokeConcurrentAsync(() =>
-			{
-				var current = Interlocked.Increment(ref active);
-				SpinUpdateMaximum(ref maximumActive, current);
-				try
-				{
-					release.Wait();
-					return current;
-				}
-				finally
-				{
-					Interlocked.Decrement(ref active);
-				}
-			}))
+			.Select(_ => scheduler.InvokeConcurrentAsync(() => { var current = Interlocked.Increment(ref active); SpinUpdateMaximum(ref maximumActive, current); try { release.Wait(); return current; } finally { Interlocked.Decrement(ref active); } }))
 			.ToArray();
 
-		Assert.IsTrue(
-			SpinWait.SpinUntil(() => Volatile.Read(ref maximumActive) == 2, TimeSpan.FromSeconds(5)),
-			"The configured concurrent workers did not reach the expected parallelism.");
+		Assert.IsTrue(SpinWait.SpinUntil(() => Volatile.Read(ref maximumActive) == 2, TimeSpan.FromSeconds(5)), "The configured concurrent workers did not reach the expected parallelism.");
 		release.Set();
 		await Task.WhenAll(tasks);
 
@@ -89,11 +69,7 @@ public sealed class WindowsShellSchedulerTests
 	{
 		await using var scheduler = new WindowsShellScheduler();
 
-		var result = await scheduler.InvokeAsync(() =>
-			scheduler.InvokeAsync(() =>
-				(Thread.CurrentThread.GetApartmentState(), Thread.CurrentThread.ManagedThreadId))
-			.GetAwaiter()
-			.GetResult());
+		var result = await scheduler.InvokeAsync(() => scheduler.InvokeAsync(() => (Thread.CurrentThread.GetApartmentState(), Thread.CurrentThread.ManagedThreadId)) .GetAwaiter() .GetResult());
 
 		Assert.AreEqual(ApartmentState.STA, result.Item1);
 }
@@ -106,8 +82,7 @@ public sealed class WindowsShellSchedulerTests
 		cancellation.Cancel();
 		var executed = false;
 
-		await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-			await scheduler.InvokeAsync(() => {executed = true; return true;}, cancellation.Token));
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await scheduler.InvokeAsync(() => {executed = true; return true;}, cancellation.Token));
 
 		Assert.IsFalse(executed);
 }
@@ -119,12 +94,7 @@ public sealed class WindowsShellSchedulerTests
 		var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-		var work = scheduler.InvokeAsync(() =>
-		{
-			started.SetResult(true);
-			release.Task.GetAwaiter().GetResult();
-			return true;
-		});
+		var work = scheduler.InvokeAsync(() => { started.SetResult(true); release.Task.GetAwaiter().GetResult(); return true; });
 
 		await started.Task;
 		var disposeTask = scheduler.DisposeAsync().AsTask();

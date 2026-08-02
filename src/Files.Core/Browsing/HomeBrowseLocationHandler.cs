@@ -10,12 +10,13 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed class HomeBrowseLocationHandler : IBrowseLocationHandler
 {
-	private readonly IFilesDataRoot dataRoot;
+	private readonly IFilesDataRoot _dataRoot;
 
 	public HomeBrowseLocationHandler(IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(dataRoot);
-		this.dataRoot = dataRoot;
+
+		_dataRoot = dataRoot;
 	}
 
 	public bool CanHandle(BrowseLocation location) => location is HomeLocation;
@@ -28,6 +29,7 @@ public sealed class HomeBrowseLocationHandler : IBrowseLocationHandler
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
-		return ValueTask.FromResult<IBrowseLocationContext>(new HomeBrowseLocationContext(homeLocation, dataRoot));
+
+		return ValueTask.FromResult<IBrowseLocationContext>(new HomeBrowseLocationContext(homeLocation, _dataRoot));
 	}
 }

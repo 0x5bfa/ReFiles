@@ -13,8 +13,5 @@ public interface IPropertyReader
 {
 	bool CanRead(ItemContext context);
 
-	ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
-		PropertyRequest request,
-		IReadOnlyList<ItemContext> contexts,
-		CancellationToken cancellationToken = default);
+	ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default);
 }

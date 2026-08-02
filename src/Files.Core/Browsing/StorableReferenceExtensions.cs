@@ -10,6 +10,7 @@ public static class StorableReferenceExtensions
 	public static StorableKey GetKey(this StorableReference reference)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+
 		return new StorableKey(reference.SourceId, reference.ItemId);
 	}
 }

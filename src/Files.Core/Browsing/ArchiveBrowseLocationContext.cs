@@ -12,24 +12,29 @@ namespace Files.Core.Browsing;
 /// <summary>
 /// Owns an archive mount for one active browse location.
 /// </summary>
-public sealed class ArchiveBrowseLocationContext
-	: IBrowseLocationContext,
-		IBrowseLocationItemResolver,
-		IBrowseLocationParentResolver
+public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationParentResolver
 {
-	private readonly ArchiveLocation location;
-	private readonly IStorableModel archiveModel;
-	private readonly IFolderModel folderModel;
-	private readonly IArchiveMount mount;
-	private readonly IFilesDataRoot dataRoot;
-	private int isDisposed;
+	private readonly ArchiveLocation _location;
 
-	public ArchiveBrowseLocationContext(
-		ArchiveLocation location,
-		IStorableModel archiveModel,
-		IFolderModel folderModel,
-		IArchiveMount mount,
-		IFilesDataRoot dataRoot)
+	private readonly IStorableModel _archiveModel;
+
+	private readonly IFolderModel _folderModel;
+
+	private readonly IArchiveMount _mount;
+
+	private readonly IFilesDataRoot _dataRoot;
+
+	private int _isDisposed;
+
+	public BrowseLocation Location => _location;
+
+	public IStorableModel LocationModel => _folderModel;
+
+	public bool CanGetParent =>
+		!string.IsNullOrEmpty(_location.EntryPath) ||
+		_archiveModel.CoreModel is OwlCore.Storage.IStorableChild;
+
+	public ArchiveBrowseLocationContext(ArchiveLocation location, IStorableModel archiveModel, IFolderModel folderModel, IArchiveMount mount, IFilesDataRoot dataRoot)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		ArgumentNullException.ThrowIfNull(archiveModel);
@@ -37,28 +42,18 @@ public sealed class ArchiveBrowseLocationContext
 		ArgumentNullException.ThrowIfNull(mount);
 		ArgumentNullException.ThrowIfNull(dataRoot);
 
-		this.location = location;
-		this.archiveModel = archiveModel;
-		this.folderModel = folderModel;
-		this.mount = mount;
-		this.dataRoot = dataRoot;
+		_location = location;
+		_archiveModel = archiveModel;
+		_folderModel = folderModel;
+		_mount = mount;
+		_dataRoot = dataRoot;
 	}
-
-	public BrowseLocation Location => location;
-
-	public IStorableModel LocationModel => folderModel;
-
-	public bool CanGetParent =>
-		!string.IsNullOrEmpty(location.EntryPath)
-		|| archiveModel.CoreModel is OwlCore.Storage.IStorableChild;
 
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		await foreach (var item in folderModel
-			.GetItemsAsync(cancellationToken: cancellationToken)
-			.ConfigureAwait(false))
+		await foreach (var item in _folderModel .GetItemsAsync(cancellationToken: cancellationToken) .ConfigureAwait(false))
 		{
 			yield return item;
 		}
@@ -66,48 +61,43 @@ public sealed class ArchiveBrowseLocationContext
 
 	public async ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
-		if (reference.SourceId != mount.ItemSource.SourceId)
+		if (reference.SourceId != _mount.ItemSource.SourceId)
 		{
-			return await dataRoot
-				.ResolveAsync(reference, cancellationToken)
-				.ConfigureAwait(false);
+			return await _dataRoot.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 		}
 
-		var coreModel = await mount.ItemSource
-			.ResolveAsync(reference, cancellationToken)
-			.ConfigureAwait(false);
-		return dataRoot.ModelFactory.Create(mount.ItemSource, coreModel);
+		var coreModel = await _mount.ItemSource.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+
+		return _dataRoot.ModelFactory.Create(_mount.ItemSource, coreModel);
 	}
 
 	public async ValueTask<BrowseLocation?> GetParentLocationAsync(CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) != 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (!string.IsNullOrEmpty(location.EntryPath))
+		if (!string.IsNullOrEmpty(_location.EntryPath))
 		{
-			return new ArchiveLocation(location.Archive, ArchiveEntryPath.GetParent(location.EntryPath));
+			return new ArchiveLocation(_location.Archive, ArchiveEntryPath.GetParent(_location.EntryPath));
 		}
 
-		if (archiveModel.CoreModel
-			is not OwlCore.Storage.IStorableChild child)
+		if (_archiveModel.CoreModel is not OwlCore.Storage.IStorableChild child)
 		{
 			return null;
 		}
 
-		var parent = await child
-			.GetParentAsync(cancellationToken)
-			.ConfigureAwait(false);
+		var parent = await child.GetParentAsync(cancellationToken).ConfigureAwait(false);
 		if (parent is null)
 		{
 			return null;
 		}
 
-		var source = dataRoot.GetSource(archiveModel.Reference.SourceId);
-		var parentModel = dataRoot.ModelFactory.Create(source, parent);
+		var source = _dataRoot.GetSource(_archiveModel.Reference.SourceId);
+		var parentModel = _dataRoot.ModelFactory.Create(source, parent);
+
 		try
 		{
 			if (parentModel is not IFolderModel)
@@ -119,27 +109,25 @@ public sealed class ArchiveBrowseLocationContext
 		}
 		finally
 		{
-			await parentModel
-				.DisposeAsync()
-				.ConfigureAwait(false);
+			await parentModel.DisposeAsync().ConfigureAwait(false);
 		}
 	}
 
 	public async ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) != 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
 		{
 			return;
 		}
 
 		var errors = new List<Exception>();
-		if (!ReferenceEquals(folderModel, archiveModel))
+		if (!ReferenceEquals(_folderModel, _archiveModel))
 		{
-			await TryDisposeAsync(folderModel, errors).ConfigureAwait(false);
+			await TryDisposeAsync(_folderModel, errors).ConfigureAwait(false);
 		}
 
-		await TryDisposeAsync(mount, errors).ConfigureAwait(false);
-		await TryDisposeAsync(archiveModel, errors).ConfigureAwait(false);
+		await TryDisposeAsync(_mount, errors).ConfigureAwait(false);
+		await TryDisposeAsync(_archiveModel, errors).ConfigureAwait(false);
 		GC.SuppressFinalize(this);
 
 		if (errors.Count is 1)

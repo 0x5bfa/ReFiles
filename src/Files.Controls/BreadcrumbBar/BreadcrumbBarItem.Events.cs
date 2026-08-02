@@ -16,7 +16,9 @@ namespace Files.Controls
 		private void ItemChevronButton_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
 		{
 			if (e.Key == VirtualKey.Down)
+			{
 				FlyoutBase.ShowAttachedFlyout(_itemChevronButton);
+			}
 		}
 
 		private void ItemChevronButton_RightTapped(object sender, RightTappedRoutedEventArgs e)
@@ -28,15 +30,17 @@ namespace Files.Controls
 		private void ItemContentButton_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
 		{
 			if (e.Key == VirtualKey.Down)
+			{
 				FlyoutBase.ShowAttachedFlyout(_itemChevronButton);
+			}
 		}
 
 		private void ChevronDropDownMenuFlyout_Opening(object? sender, object e)
 		{
-			if (_ownerRef is null ||
-				_ownerRef.TryGetTarget(out var breadcrumbBar) is false ||
-				sender is not MenuFlyout flyout)
+			if (_ownerRef is null || _ownerRef.TryGetTarget(out var breadcrumbBar) is false || sender is not MenuFlyout flyout)
+			{
 				return;
+			}
 
 			breadcrumbBar.RaiseItemDropDownFlyoutOpening(this, flyout);
 		}
@@ -48,10 +52,10 @@ namespace Files.Controls
 
 		private void ChevronDropDownMenuFlyout_Closed(object? sender, object e)
 		{
-			if (_ownerRef is null ||
-				_ownerRef.TryGetTarget(out var breadcrumbBar) is false ||
-				sender is not MenuFlyout flyout)
+			if (_ownerRef is null || _ownerRef.TryGetTarget(out var breadcrumbBar) is false || sender is not MenuFlyout flyout)
+			{
 				return;
+			}
 
 			breadcrumbBar.RaiseItemDropDownFlyoutClosed(this, flyout);
 

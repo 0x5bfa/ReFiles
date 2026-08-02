@@ -91,14 +91,18 @@ internal static unsafe class HStringStringMarshaller
 	private static nint CreateHString(string? managed)
 	{
 		if (managed is null)
+		{
 			return 0;
+		}
 
 		HSTRING hstring;
 		fixed (char* sourceString = managed)
 		{
 			HRESULT hr = PInvoke.WindowsCreateString(new(sourceString), checked((uint)managed.Length), &hstring);
 			if (hr.Failed)
+			{
 				Marshal.ThrowExceptionForHR(hr.Value);
+			}
 		}
 
 		return hstring;
@@ -107,16 +111,21 @@ internal static unsafe class HStringStringMarshaller
 	private static string? ToManagedString(nint hstring)
 	{
 		if (hstring == 0)
+		{
 			return null;
+		}
 
 		uint length;
 		PCWSTR buffer = PInvoke.WindowsGetStringRawBuffer(new HSTRING(hstring), &length);
+
 		return new string((char*)buffer.Value, 0, checked((int)length));
 	}
 
 	private static void DeleteHString(nint hstring)
 	{
 		if (hstring != 0)
+		{
 			PInvoke.WindowsDeleteString(new HSTRING(hstring));
+		}
 	}
 }

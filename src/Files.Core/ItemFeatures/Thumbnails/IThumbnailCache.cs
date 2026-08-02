@@ -22,11 +22,7 @@ public interface IThumbnailCache
 	/// <summary>
 	/// Stores an entry only when no invalidation occurred after the supplied token was read.
 	/// </summary>
-	ValueTask<bool> TrySetAsync(
-		ThumbnailCacheKey key,
-		ThumbnailCacheEntry entry,
-		long expectedInvalidationVersion,
-		CancellationToken cancellationToken = default);
+	ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default);
 
 	ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default);
 }

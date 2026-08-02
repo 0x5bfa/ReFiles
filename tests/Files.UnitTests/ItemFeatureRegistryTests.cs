@@ -103,8 +103,7 @@ public sealed class ItemFeatureRegistryTests
 		var feature = new ThrowingDisposableFeature();
 		var featureRegistry = new ItemFeatureBuilder()
 			.Add<ThrowingDisposableFeature>(new DelegateItemFeatureFactory<ThrowingDisposableFeature>(_ => feature))
-			.AddWrapper<ThrowingDisposableFeature>(
-				new DelegateItemFeatureWrapper<ThrowingDisposableFeature>((_, _) => throw new InvalidOperationException("resolution failed")))
+			.AddWrapper<ThrowingDisposableFeature>(new DelegateItemFeatureWrapper<ThrowingDisposableFeature>((_, _) => throw new InvalidOperationException("resolution failed")))
 			.Build();
 		using var features = featureRegistry.CreateFeatures(context);
 

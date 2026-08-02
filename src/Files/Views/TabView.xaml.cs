@@ -18,15 +18,15 @@ public sealed partial class TabView : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(TabStripViewModel), typeof(TabView), new PropertyMetadata(null));
 
-	public TabView()
-	{
-		InitializeComponent();
-	}
-
 	public TabStripViewModel? ViewModel
 	{
 		get => (TabStripViewModel?)GetValue(ViewModelProperty);
 		set => SetValue(ViewModelProperty, value);
+	}
+
+	public TabView()
+	{
+		InitializeComponent();
 	}
 
 	public void AttachWindow(Window window)
@@ -48,8 +48,7 @@ public sealed partial class TabView : UserControl
 
 	private void NativeTabView_SelectionChanged(object sender, SelectionChangedEventArgs args)
 	{
-		if (ViewModel is { } viewModel
-			&& sender is NativeTabView tabView)
+		if (ViewModel is { } viewModel && sender is NativeTabView tabView)
 		{
 			viewModel.SetActiveTabAt(tabView.SelectedIndex);
 		}
@@ -57,8 +56,7 @@ public sealed partial class TabView : UserControl
 
 	private async void NativeTabView_TabCloseRequested(NativeTabView sender, TabViewTabCloseRequestedEventArgs args)
 	{
-		if (ViewModel is not { } viewModel
-			|| args.Item is not TabViewModel tab)
+		if (ViewModel is not { } viewModel || args.Item is not TabViewModel tab)
 		{
 			return;
 		}

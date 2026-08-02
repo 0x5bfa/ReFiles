@@ -14,15 +14,15 @@ public sealed partial class NavigationToolbar : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(NavigationToolbarViewModel), typeof(NavigationToolbar), new PropertyMetadata(null));
 
-	public NavigationToolbar()
-	{
-		InitializeComponent();
-	}
-
 	public NavigationToolbarViewModel? ViewModel
 	{
 		get => (NavigationToolbarViewModel?)GetValue(ViewModelProperty);
 		set => SetValue(ViewModelProperty, value);
+	}
+
+	public NavigationToolbar()
+	{
+		InitializeComponent();
 	}
 
 	private async void PathTextBox_KeyDown(object sender, KeyRoutedEventArgs e)

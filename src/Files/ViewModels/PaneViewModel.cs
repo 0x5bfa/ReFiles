@@ -19,17 +19,12 @@ public enum PaneContentKind
 public sealed class PaneViewModel : ObservableObject, IDisposable
 {
 	private readonly PaneModel pane;
-	private bool isActive;
-	private int isDisposed;
-	private PaneContentKind contentKind = PaneContentKind.FolderBrowser;
 
-	public PaneViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
-	{
-		ArgumentNullException.ThrowIfNull(pane);
-		this.pane = pane;
-		FolderBrowser = new FolderBrowserViewModel(pane, dataRoot, dispatcher, commandManager);
-		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
-	}
+	private bool isActive;
+
+	private int isDisposed;
+
+	private PaneContentKind contentKind = PaneContentKind.FolderBrowser;
 
 	public Guid Id => pane.Id;
 
@@ -50,6 +45,15 @@ public sealed class PaneViewModel : ObservableObject, IDisposable
 	public string Title => FolderBrowser.LocationText;
 
 	public string StatusText => FolderBrowser.StatusText;
+
+	public PaneViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	{
+		ArgumentNullException.ThrowIfNull(pane);
+
+		this.pane = pane;
+		FolderBrowser = new FolderBrowserViewModel(pane, dataRoot, dispatcher, commandManager);
+		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
+	}
 
 	public void SetActive(bool value)
 	{

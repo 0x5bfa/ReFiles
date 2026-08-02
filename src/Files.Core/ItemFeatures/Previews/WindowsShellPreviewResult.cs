@@ -10,9 +10,14 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public sealed class WindowsShellPreviewResult : PreviewResult
 {
+	public StorableReference Reference { get; }
+
+	public Guid HandlerClsid { get; }
+
 	public WindowsShellPreviewResult(StorableReference reference, Guid handlerClsid)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+
 		if (handlerClsid == Guid.Empty)
 		{
 			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
@@ -21,8 +26,4 @@ public sealed class WindowsShellPreviewResult : PreviewResult
 		Reference = reference;
 		HandlerClsid = handlerClsid;
 	}
-
-	public StorableReference Reference { get; }
-
-	public Guid HandlerClsid { get; }
 }

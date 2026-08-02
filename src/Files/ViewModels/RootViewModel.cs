@@ -15,43 +15,32 @@ namespace Files.ViewModels;
 public sealed class RootViewModel : ObservableObject, IDisposable
 {
 	private readonly WindowModel window;
+
 	private readonly IFilesDataRoot dataRoot;
+
 	private readonly IUIDispatcher dispatcher;
+
 	private readonly WindowCommandManager commandManager;
+
 	private readonly NavigationItemLoader navigationItemLoader;
+
 	private readonly CancellationTokenSource lifetime = new();
+
 	private readonly Dictionary<Guid, TabViewModel> tabViewModels = [];
+
 	private readonly Dictionary<int, NavigationItemViewModel> navigationSectionViewModels = [];
+
 	private readonly SemaphoreSlim navigationThumbnailGate = new(4);
+
 	private string? operationError;
+
 	private int isDisposed;
+
 	private int navigationItemsStarted;
+
 	private int refreshQueued;
+
 	private bool isRefreshing;
-
-	public RootViewModel(WindowModel window, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, CommandRegistry commandRegistry)
-	{
-		ArgumentNullException.ThrowIfNull(window);
-		ArgumentNullException.ThrowIfNull(dataRoot);
-		ArgumentNullException.ThrowIfNull(dispatcher);
-		ArgumentNullException.ThrowIfNull(commandRegistry);
-
-		this.window = window;
-		this.dataRoot = dataRoot;
-		this.dispatcher = dispatcher;
-		navigationItemLoader = new NavigationItemLoader(dataRoot);
-		Tabs = [];
-		NavigationItems = [];
-		HomeNavigationItem = NavigationItemViewModel.CreateHome(Strings.Home.GetLocalized());
-		NavigationItems.Add(HomeNavigationItem);
-		commandManager = new WindowCommandManager(this, commandRegistry, dispatcher);
-		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
-		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
-		Toolbar = new(NewPaneCommand, ClosePaneCommand);
-
-		window.StateChanged += Window_StateChanged;
-		RefreshFromCore();
-	}
 
 	public ObservableCollection<TabViewModel> Tabs { get; }
 
@@ -110,6 +99,30 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		?? ActiveTab?.StatusText
 		?? Strings.NoTabs.GetLocalized();
 
+	public RootViewModel(WindowModel window, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, CommandRegistry commandRegistry)
+	{
+		ArgumentNullException.ThrowIfNull(window);
+		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(dispatcher);
+		ArgumentNullException.ThrowIfNull(commandRegistry);
+
+		this.window = window;
+		this.dataRoot = dataRoot;
+		this.dispatcher = dispatcher;
+		navigationItemLoader = new NavigationItemLoader(dataRoot);
+		Tabs = [];
+		NavigationItems = [];
+		HomeNavigationItem = NavigationItemViewModel.CreateHome(Strings.Home.GetLocalized());
+		NavigationItems.Add(HomeNavigationItem);
+		commandManager = new WindowCommandManager(this, commandRegistry, dispatcher);
+		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
+		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
+		Toolbar = new(NewPaneCommand, ClosePaneCommand);
+
+		window.StateChanged += Window_StateChanged;
+		RefreshFromCore();
+	}
+
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
@@ -134,9 +147,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(item);
 
-		if (!item.SelectsOnInvoked
-			|| item.Reference is not { } reference
-			|| ActiveFolderBrowser is not { } browser)
+		if (!item.SelectsOnInvoked || item.Reference is not { } reference || ActiveFolderBrowser is not { } browser)
 		{
 			return Task.CompletedTask;
 		}
@@ -166,6 +177,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	public bool SetActiveTab(Guid tabId)
 	{
 		EnsureActive();
+
 		return window.SetActiveTab(tabId);
 	}
 
@@ -180,6 +192,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
+
 		operationError = exception.Message;
 		OnPropertyChanged(nameof(StatusText));
 	}
@@ -214,9 +227,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	{
 		try
 		{
-			await foreach (var section in navigationItemLoader
-				.LoadSectionsAsync(cancellationToken)
-				.ConfigureAwait(false))
+			await foreach (var section in navigationItemLoader .LoadSectionsAsync(cancellationToken) .ConfigureAwait(false))
 			{
 				await ApplyNavigationSectionOnUiAsync(section)
 					.ConfigureAwait(false);
@@ -237,23 +248,12 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		if (dispatcher.HasThreadAccess)
 		{
 			ApplyNavigationSection(section);
+
 			return Task.CompletedTask;
 		}
 
 		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-		if (!dispatcher.TryEnqueue(
-			() =>
-			{
-				try
-				{
-					ApplyNavigationSection(section);
-					completion.SetResult(true);
-				}
-				catch (Exception exception)
-				{
-					completion.SetException(exception);
-				}
-			}))
+		if (!dispatcher.TryEnqueue(() => { try { ApplyNavigationSection(section); completion.SetResult(true); } catch (Exception exception) { completion.SetException(exception); } }))
 		{
 			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected navigation items."));
 		}
@@ -308,8 +308,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 				var thumbnail = await navigationItemLoader
 					.LoadThumbnailAsync(item.Reference, cancellationToken)
 					.ConfigureAwait(false);
-				if (thumbnail is null
-					|| Volatile.Read(ref isDisposed) is not 0)
+				if (thumbnail is null || Volatile.Read(ref isDisposed) is not 0)
 				{
 					return;
 				}
@@ -340,19 +339,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		}
 
 		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-		if (!dispatcher.TryEnqueue(
-			async () =>
-			{
-				try
-				{
-					await SetNavigationThumbnailAsync(viewModel, thumbnail);
-					completion.SetResult(true);
-				}
-				catch (Exception exception)
-				{
-					completion.SetException(exception);
-				}
-			}))
+		if (!dispatcher.TryEnqueue(async () => { try { await SetNavigationThumbnailAsync(viewModel, thumbnail); completion.SetResult(true); } catch (Exception exception) { completion.SetException(exception); } }))
 		{
 			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected a navigation thumbnail."));
 		}
@@ -375,6 +362,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		if (dispatcher.HasThreadAccess)
 		{
 			ReportOperationError(exception);
+
 			return;
 		}
 
@@ -400,10 +388,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 	private void TabViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is nameof(TabViewModel.StatusText)
-			or nameof(TabViewModel.ActivePane)
-			or nameof(TabViewModel.Title)
-			or nameof(TabViewModel.CanClosePane))
+		if (e.PropertyName is nameof(TabViewModel.StatusText) or nameof(TabViewModel.ActivePane) or nameof(TabViewModel.Title) or nameof(TabViewModel.CanClosePane))
 		{
 			OnPropertyChanged(nameof(StatusText));
 			OnPropertyChanged(nameof(ActiveFolderBrowser));
@@ -428,9 +413,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 				.Select(static tab => tab.Id)
 				.ToHashSet();
 
-			foreach (var removedId in tabViewModels.Keys
-				.Where(id => !coreTabIds.Contains(id))
-				.ToArray())
+			foreach (var removedId in tabViewModels.Keys .Where(id => !coreTabIds.Contains(id)) .ToArray())
 			{
 				var removedTab = tabViewModels[removedId];
 				removedTab.PropertyChanged -= TabViewModel_PropertyChanged;
@@ -478,4 +461,5 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 	private void EnsureActive() =>
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
+
 }

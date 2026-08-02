@@ -10,8 +10,11 @@ namespace Files.Core.Models;
 
 public sealed class FolderModel : StorableModel, IFolderModel
 {
-	private readonly IStorageSource source;
-	private readonly IStorableModelFactory modelFactory;
+	private readonly IStorageSource _source;
+
+	private readonly IStorableModelFactory _modelFactory;
+
+	public IFolder Folder { get; }
 
 	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, IItemFeatures features)
 		: base(folder, reference, features)
@@ -19,22 +22,18 @@ public sealed class FolderModel : StorableModel, IFolderModel
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(modelFactory);
 
-		this.source = source;
-		this.modelFactory = modelFactory;
+		_source = source;
+		_modelFactory = modelFactory;
 		Folder = folder;
 	}
 
-	public IFolder Folder { get; }
-
-	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(
-		StorableType type = StorableType.All,
-		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 
 		await foreach (var item in Folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
 		{
-			yield return modelFactory.Create(source, item);
+			yield return _modelFactory.Create(_source, item);
 		}
 	}
 
@@ -47,15 +46,13 @@ public sealed class FolderModel : StorableModel, IFolderModel
 			return null;
 		}
 
-		var parent = await child
-			.GetParentAsync(cancellationToken)
-			.ConfigureAwait(false);
+		var parent = await child.GetParentAsync(cancellationToken).ConfigureAwait(false);
 		if (parent is null)
 		{
 			return null;
 		}
 
-		var model = modelFactory.Create(source, parent);
+		var model = _modelFactory.Create(_source, parent);
 		if (model is IFolderModel folder)
 		{
 			return folder;

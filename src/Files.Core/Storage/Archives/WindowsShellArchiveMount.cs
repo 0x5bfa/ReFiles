@@ -8,6 +8,15 @@ namespace Files.Core.Storage.Archives;
 
 internal sealed class WindowsShellArchiveMount : IArchiveMount
 {
+	public string BackendId =>
+		WindowsShellArchiveBackend.DefaultBackendId;
+
+	public StorableReference Archive { get; }
+
+	public IStorageSource ItemSource { get; }
+
+	public IFolder Root { get; }
+
 	public WindowsShellArchiveMount(StorableReference archive, IStorageSource itemSource, IFolder root)
 	{
 		ArgumentNullException.ThrowIfNull(archive);
@@ -19,18 +28,10 @@ internal sealed class WindowsShellArchiveMount : IArchiveMount
 		Root = root;
 	}
 
-	public string BackendId =>
-		WindowsShellArchiveBackend.DefaultBackendId;
-
-	public StorableReference Archive { get; }
-
-	public IStorageSource ItemSource { get; }
-
-	public IFolder Root { get; }
-
 	public async ValueTask<IStorable> ResolveAsync(string entryPath, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+
 		var normalizedPath = ArchiveEntryPath.Normalize(entryPath);
 		if (string.IsNullOrEmpty(normalizedPath))
 		{
@@ -46,9 +47,7 @@ internal sealed class WindowsShellArchiveMount : IArchiveMount
 			}
 
 			IStorable? match = null;
-			await foreach (var child in folder
-				.GetItemsAsync(StorableType.All, cancellationToken)
-				.ConfigureAwait(false))
+			await foreach (var child in folder .GetItemsAsync(StorableType.All, cancellationToken) .ConfigureAwait(false))
 			{
 				if (child.Name.Equals(segment, StringComparison.OrdinalIgnoreCase))
 				{
@@ -67,6 +66,7 @@ internal sealed class WindowsShellArchiveMount : IArchiveMount
 	public ValueTask DisposeAsync()
 	{
 		GC.SuppressFinalize(this);
+
 		return ValueTask.CompletedTask;
 	}
 }

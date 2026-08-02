@@ -131,17 +131,19 @@ public sealed class FtpStorageTests
 	{
 		private readonly Queue<FtpCredential> credentials;
 
+		public IList<FtpCredentialRequest> Requests { get; } = [];
+
 		public SequenceCredentialResolver(params FtpCredential[] credentials)
 		{
 			this.credentials = new Queue<FtpCredential>(credentials);
 		}
 
-		public IList<FtpCredentialRequest> Requests { get; } = [];
-
 		public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			Requests.Add(request);
+
 			return ValueTask.FromResult<FtpCredential?>(credentials.Dequeue());
 		}
 	}

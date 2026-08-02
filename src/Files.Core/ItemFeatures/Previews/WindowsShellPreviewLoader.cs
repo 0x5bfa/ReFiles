@@ -11,15 +11,16 @@ namespace Files.Core.ItemFeatures.Previews;
 [SupportedOSPlatform("windows")]
 public sealed class WindowsShellPreviewLoader : IPreviewLoader
 {
-	private readonly IWindowsPreviewHandlerResolver handlerResolver;
-	private readonly IWindowsShellPreviewPolicy policy;
+	private readonly IWindowsPreviewHandlerResolver _handlerResolver;
+	private readonly IWindowsShellPreviewPolicy _policy;
 
 	public WindowsShellPreviewLoader(IWindowsPreviewHandlerResolver handlerResolver, IWindowsShellPreviewPolicy policy)
 	{
 		ArgumentNullException.ThrowIfNull(handlerResolver);
 		ArgumentNullException.ThrowIfNull(policy);
-		this.handlerResolver = handlerResolver;
-		this.policy = policy;
+
+		_handlerResolver = handlerResolver;
+		_policy = policy;
 	}
 
 	public bool CanLoad(ItemContext context)
@@ -41,9 +42,7 @@ public sealed class WindowsShellPreviewLoader : IPreviewLoader
 			return null;
 		}
 
-		var handlerClsid = await handlerResolver
-			.ResolveAsync(context, cancellationToken)
-			.ConfigureAwait(false);
+		var handlerClsid = await _handlerResolver.ResolveAsync(context, cancellationToken).ConfigureAwait(false);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		if (handlerClsid is null)
@@ -51,7 +50,8 @@ public sealed class WindowsShellPreviewLoader : IPreviewLoader
 			return null;
 		}
 
-		var blockReason = policy.GetBlockReason(context, handlerClsid.Value);
+		var blockReason = _policy.GetBlockReason(context, handlerClsid.Value);
+
 		return blockReason is not null
 			? new BlockedPreviewResult(blockReason.Value)
 			: new WindowsShellPreviewResult(context.Reference, handlerClsid.Value);

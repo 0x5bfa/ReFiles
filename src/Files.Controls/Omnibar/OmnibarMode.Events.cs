@@ -10,7 +10,9 @@ namespace Files.Controls
 		private void ModeButton_PointerEntered(object sender, PointerRoutedEventArgs e)
 		{
 			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false || owner.CurrentSelectedMode == this)
+			{
 				return;
+			}
 
 			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has entered the UI area of this Mode ({this})");
 
@@ -20,7 +22,9 @@ namespace Files.Controls
 		private void ModeButton_PointerPressed(object sender, PointerRoutedEventArgs e)
 		{
 			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false || owner.CurrentSelectedMode == this)
+			{
 				return;
+			}
 
 			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has been pressed on the UI area of this Mode ({this})");
 
@@ -30,7 +34,9 @@ namespace Files.Controls
 		private void ModeButton_PointerReleased(object sender, PointerRoutedEventArgs e)
 		{
 			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false || owner.CurrentSelectedMode == this)
+			{
 				return;
+			}
 
 			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has been unpressed from the UI area of this Mode ({this})");
 
@@ -47,7 +53,9 @@ namespace Files.Controls
 		private void ModeButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false || owner.CurrentSelectedMode == this)
+			{
 				return;
+			}
 
 			owner.CurrentSelectedMode = this;
 		}

@@ -8,6 +8,27 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed record FtpConnectionProfile
 {
+	public string ConnectionId { get; }
+
+	public string DisplayName { get; }
+
+	public string Host { get; }
+
+	public int Port { get; }
+
+	public FtpSecurityMode SecurityMode { get; }
+
+	public FtpPath RootPath { get; }
+
+	public string? UserNameHint { get; }
+
+	public FtpPathComparison PathComparison { get; }
+
+	internal StringComparer PathComparer =>
+		PathComparison is FtpPathComparison.CaseInsensitive
+			? StringComparer.OrdinalIgnoreCase
+			: StringComparer.Ordinal;
+
 	public FtpConnectionProfile(
 		string connectionId,
 		string displayName,
@@ -22,6 +43,7 @@ public sealed record FtpConnectionProfile
 		ArgumentException.ThrowIfNullOrWhiteSpace(connectionId);
 		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 		ArgumentException.ThrowIfNullOrWhiteSpace(host);
+
 		ValidateSecurityMode(securityMode);
 		ValidatePathComparison(pathComparison);
 
@@ -44,42 +66,15 @@ public sealed record FtpConnectionProfile
 		PathComparison = pathComparison;
 	}
 
-	public string ConnectionId { get; }
-
-	public string DisplayName { get; }
-
-	public string Host { get; }
-
-	public int Port { get; }
-
-	public FtpSecurityMode SecurityMode { get; }
-
-	public FtpPath RootPath { get; }
-
-	public string? UserNameHint { get; }
-
-	public FtpPathComparison PathComparison { get; }
-
-	internal StringComparer PathComparer =>
-		PathComparison is FtpPathComparison.CaseInsensitive
-			? StringComparer.OrdinalIgnoreCase
-			: StringComparer.Ordinal;
-
 	private static string NormalizeHost(string host)
 	{
 		var value = host.Trim();
-		if (value.Length > 1
-			&& value[0] is '['
-			&& value[^1] is ']')
+		if (value.Length > 1 && value[0] is '[' && value[^1] is ']')
 		{
 			value = value[1..^1];
 		}
 
-		if (value.Length is 0
-			|| value.Any(char.IsWhiteSpace)
-			|| value.Contains('/')
-			|| value.Contains('\\')
-			|| value.Contains('@'))
+		if (value.Length is 0 || value.Any(char.IsWhiteSpace) || value.Contains('/') || value.Contains('\\') || value.Contains('@'))
 		{
 			throw new ArgumentException("The FTP host must be a hostname or IP address without a URI scheme.", nameof(host));
 		}
@@ -110,9 +105,7 @@ public sealed record FtpConnectionProfile
 
 	private static void ValidateSecurityMode(FtpSecurityMode securityMode)
 	{
-		if (securityMode is not FtpSecurityMode.Plain
-			and not FtpSecurityMode.ExplicitTls
-			and not FtpSecurityMode.ImplicitTls)
+		if (securityMode is not FtpSecurityMode.Plain and not FtpSecurityMode.ExplicitTls and not FtpSecurityMode.ImplicitTls)
 		{
 			throw new ArgumentOutOfRangeException(nameof(securityMode));
 		}
@@ -120,8 +113,7 @@ public sealed record FtpConnectionProfile
 
 	private static void ValidatePathComparison(FtpPathComparison pathComparison)
 	{
-		if (pathComparison is not FtpPathComparison.CaseSensitive
-			and not FtpPathComparison.CaseInsensitive)
+		if (pathComparison is not FtpPathComparison.CaseSensitive and not FtpPathComparison.CaseInsensitive)
 		{
 			throw new ArgumentOutOfRangeException(nameof(pathComparison));
 		}
