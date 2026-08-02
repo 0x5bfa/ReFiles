@@ -26,13 +26,16 @@
 						<ColumnDefinition Width="2*" />
 					</Grid.ColumnDefinitions>
 					<Grid Width="16" Height="16">
-						<FontIcon
+						<!--<FontIcon
 							HorizontalAlignment="Center"
 							VerticalAlignment="Center"
 							FontSize="16"
 							Glyph="&#xE8B7;"
-							Opacity="0.5" />
-						<Viewbox Width="16" Height="16" Stretch="Uniform">
+							Opacity="0.5" />-->
+						<Viewbox
+							Width="16"
+							Height="16"
+							Stretch="Uniform">
 							<Image Source="{x:Bind Thumbnail, Mode=OneWay}" />
 						</Viewbox>
 					</Grid>
