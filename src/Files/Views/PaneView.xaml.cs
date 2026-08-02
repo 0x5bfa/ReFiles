@@ -29,6 +29,14 @@ public sealed partial class PaneView : UserControl
 
 	public event EventHandler? Activated;
 
+	internal void SetShadow(bool isActive, bool isMultiPane)
+	{
+		PaneBorder.Translation = new System.Numerics.Vector3(
+			0,
+			0,
+			isActive ? (isMultiPane ? 32 : 8) : 0);
+	}
+
 	private void Pane_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e) =>
 		Activated?.Invoke(this, EventArgs.Empty);
 }

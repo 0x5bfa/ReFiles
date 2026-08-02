@@ -7,18 +7,40 @@
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 	<Border
+		x:Name="PaneBorder"
 		Background="{ThemeResource CardBackgroundFillColorDefault}"
 		BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
 		BorderThickness="1"
 		CornerRadius="8"
 		Tapped="Pane_Tapped">
-		<ScrollViewer
-			HorizontalScrollBarVisibility="Auto"
-			VerticalScrollBarVisibility="Auto">
-			<local:PaneContentView
-				HorizontalAlignment="Stretch"
-				VerticalAlignment="Stretch"
-				ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
-		</ScrollViewer>
+		<Border.Shadow>
+			<ThemeShadow />
+		</Border.Shadow>
+		<Grid>
+			<Grid.RowDefinitions>
+				<RowDefinition Height="*" />
+				<RowDefinition Height="Auto" />
+			</Grid.RowDefinitions>
+
+			<ScrollViewer
+				Grid.Row="0"
+				HorizontalScrollBarVisibility="Auto"
+				VerticalScrollBarVisibility="Auto">
+				<local:PaneContentView
+					HorizontalAlignment="Stretch"
+					VerticalAlignment="Stretch"
+					ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
+			</ScrollViewer>
+
+			<Border
+				Grid.Row="1"
+				Padding="12,6"
+				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+				<TextBlock
+					Opacity="0.7"
+					Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+					TextTrimming="CharacterEllipsis" />
+			</Border>
+		</Grid>
 	</Border>
 </UserControl>

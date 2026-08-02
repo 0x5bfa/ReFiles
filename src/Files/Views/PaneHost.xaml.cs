@@ -83,6 +83,10 @@ public sealed partial class PaneHost : UserControl
 		{
 			UpdateLayoutOrientation();
 		}
+		else if (e.PropertyName is nameof(TabViewModel.ActivePane))
+		{
+			UpdatePaneShadows();
+		}
 	}
 
 	private void UpdateLayoutOrientation()
@@ -94,6 +98,7 @@ public sealed partial class PaneHost : UserControl
 					? Orientation.Horizontal
 					: Orientation.Vertical;
 			UpdatePaneSizes();
+			UpdatePaneShadows();
 		}
 	}
 
@@ -103,7 +108,11 @@ public sealed partial class PaneHost : UserControl
 
 	private void PaneRepeater_ElementPrepared(
 		ItemsRepeater sender,
-		ItemsRepeaterElementPreparedEventArgs args) => UpdatePaneSizes();
+		ItemsRepeaterElementPreparedEventArgs args)
+	{
+		UpdatePaneSizes();
+		UpdatePaneShadows();
+	}
 
 	private void UpdatePaneSizes()
 	{
@@ -128,6 +137,26 @@ public sealed partial class PaneHost : UserControl
 			{
 				pane.Width = paneWidth;
 				pane.Height = paneHeight;
+			}
+		}
+	}
+
+	private void UpdatePaneShadows()
+	{
+		if (ViewModel is not { } viewModel)
+		{
+			return;
+		}
+
+		var activePane = viewModel.ActivePane;
+		var isMultiPane = viewModel.Panes.Count > 1;
+		for (var index = 0; index < viewModel.Panes.Count; index++)
+		{
+			if (PaneRepeater.TryGetElement(index) is PaneView pane)
+			{
+				pane.SetShadow(
+					ReferenceEquals(pane.ViewModel, activePane),
+					isMultiPane);
 			}
 		}
 	}

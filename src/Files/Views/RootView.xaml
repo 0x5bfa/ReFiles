@@ -33,7 +33,6 @@
 					<StaticResource x:Key="NavigationViewContentGridBorderBrush" ResourceKey="ControlFillColorTransparentBrush" />
 					<Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
 					<CornerRadius x:Key="NavigationViewContentGridCornerRadius">0</CornerRadius>
-					<Thickness x:Key="NavigationViewContentMargin">0,0,8,8</Thickness>
 				</ResourceDictionary>
 			</NavigationView.Resources>
 
@@ -56,7 +55,6 @@
 						<RowDefinition Height="*" />
 						<RowDefinition Height="Auto" />
 						<RowDefinition Height="Auto" />
-						<RowDefinition Height="Auto" />
 					</Grid.RowDefinitions>
 
 					<views:ToolbarView ViewModel="{x:Bind ViewModel.Toolbar, Mode=OneWay}" />
@@ -66,16 +64,6 @@
 					<views:TerminalView Grid.Row="2" Visibility="Collapsed" />
 
 					<views:InfoPane Grid.Row="3" Visibility="Collapsed" />
-
-					<Border
-						Grid.Row="4"
-						Padding="12,6"
-						Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-						<TextBlock
-							Opacity="0.7"
-							Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-							TextTrimming="CharacterEllipsis" />
-					</Border>
 				</Grid>
 			</NavigationView.Content>
 		</NavigationView>
