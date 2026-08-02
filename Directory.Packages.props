@@ -60,8 +60,8 @@
 		<PackageVersion Include="MSTest.TestFramework" Version="4.3.2" />
 		<PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.2" />
 		<PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
-		<PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
-		<PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
+		<PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
+		<PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.6.0" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.3.0" />
 
 	</ItemGroup>
