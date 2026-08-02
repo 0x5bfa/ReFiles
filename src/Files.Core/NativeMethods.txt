@@ -231,9 +231,13 @@ GdipGetImageEncodersSize
 GdipGetImageEncoders
 ImageFormatPNG
 ImageFormatJPEG
+CreateBindCtx
+IBindCtx
+BIND_OPTS
 IStream
 CreateStreamOnHGlobal
 STATFLAG
+STGC
 STREAM_SEEK
 STGM
 GdipSaveImageToStream

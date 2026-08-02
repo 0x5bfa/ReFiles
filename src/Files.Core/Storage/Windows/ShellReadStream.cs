@@ -15,15 +15,19 @@ internal sealed unsafe class ShellReadStream : Stream
 
 	private IStream? _shellStream;
 
-	private readonly long _length;
+	private readonly bool _canRead;
+
+	private readonly bool _canWrite;
+
+	private long _length;
 
 	private int _isDisposed;
 
-	public override bool CanRead => Volatile.Read(ref _isDisposed) == 0;
+	public override bool CanRead => _canRead && Volatile.Read(ref _isDisposed) == 0;
 
 	public override bool CanSeek => Volatile.Read(ref _isDisposed) == 0;
 
-	public override bool CanWrite => false;
+	public override bool CanWrite => _canWrite && Volatile.Read(ref _isDisposed) == 0;
 
 	public override long Length
 	{
@@ -31,7 +35,7 @@ internal sealed unsafe class ShellReadStream : Stream
 		{
 			ThrowIfDisposed();
 
-			return _length;
+			return Volatile.Read(ref _length);
 		}
 	}
 
@@ -47,23 +51,42 @@ internal sealed unsafe class ShellReadStream : Stream
 	}
 
 	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream)
+		: this(scheduler, shellStream, FileAccess.Read)
+	{
+	}
+
+	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream, FileAccess accessMode)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 		ArgumentNullException.ThrowIfNull(shellStream);
+		if (accessMode is not (FileAccess.Read or FileAccess.Write or FileAccess.ReadWrite))
+		{
+			throw new ArgumentOutOfRangeException(nameof(accessMode));
+		}
 
 		_scheduler = scheduler;
 		_shellStream = shellStream;
+		_canRead = accessMode is FileAccess.Read or FileAccess.ReadWrite;
+		_canWrite = accessMode is FileAccess.Write or FileAccess.ReadWrite;
 
-		STATSTG statistics = default;
-		var result = shellStream.Stat(&statistics, STATFLAG.STATFLAG_NONAME);
-		result.ThrowOnFailure();
-		_length = checked((long)statistics.cbSize);
+		UpdateLengthOnCurrentSta();
 	}
 
 	public override void Flush()
 	{
 		ThrowIfDisposed();
 
+		if (!_canWrite)
+		{
+			return;
+		}
+
+		_scheduler.InvokeAsync(() =>
+		{
+			NativeStream.Commit(STGC.STGC_DEFAULT).ThrowOnFailure();
+
+			return true;
+		}).GetAwaiter().GetResult();
 	}
 
 	public override int Read(byte[] buffer, int offset, int count)
@@ -82,12 +105,13 @@ internal sealed unsafe class ShellReadStream : Stream
 			throw new ArgumentException("The offset and count exceed the buffer length.", nameof(count));
 		}
 
+		ThrowIfDisposed();
+		EnsureCanRead();
+
 		if (count is 0)
 		{
 			return Task.FromResult(0);
 		}
-
-		ThrowIfDisposed();
 
 		return _scheduler.InvokeAsync(
 			() =>
@@ -111,9 +135,66 @@ internal sealed unsafe class ShellReadStream : Stream
 		return _scheduler.InvokeAsync(() => { ulong position = 0; var result = NativeStream.Seek(offset, origin, &position); result.ThrowOnFailure(); return checked((long)position); }).GetAwaiter().GetResult();
 	}
 
-	public override void SetLength(long value) => throw new NotSupportedException();
+	public override void SetLength(long value)
+	{
+		ThrowIfDisposed();
+		EnsureCanWrite();
+		ArgumentOutOfRangeException.ThrowIfNegative(value);
 
-	public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+		_scheduler.InvokeAsync(() =>
+		{
+			NativeStream.SetSize(checked((ulong)value)).ThrowOnFailure();
+			Volatile.Write(ref _length, value);
+
+			return true;
+		}).GetAwaiter().GetResult();
+	}
+
+	public override void Write(byte[] buffer, int offset, int count)
+	{
+		WriteAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
+	}
+
+	public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(buffer);
+		ArgumentOutOfRangeException.ThrowIfNegative(offset);
+		ArgumentOutOfRangeException.ThrowIfNegative(count);
+
+		if (buffer.Length - offset < count)
+		{
+			throw new ArgumentException("The offset and count exceed the buffer length.", nameof(count));
+		}
+
+		ThrowIfDisposed();
+		EnsureCanWrite();
+
+		if (count is 0)
+		{
+			return Task.CompletedTask;
+		}
+
+		return _scheduler.InvokeAsync(
+			() =>
+			{
+				fixed (byte* source = &buffer[offset])
+				{
+					uint bytesWritten = 0;
+					var result = NativeStream.Write(source, checked((uint)count), &bytesWritten);
+					result.ThrowOnFailure();
+
+					if (bytesWritten != count)
+					{
+						throw new IOException("The Shell stream wrote fewer bytes than requested.");
+					}
+
+					UpdateLengthOnCurrentSta();
+				}
+
+				return true;
+			},
+			cancellationToken);
+	}
 
 	protected override void Dispose(bool disposing)
 	{
@@ -121,7 +202,17 @@ internal sealed unsafe class ShellReadStream : Stream
 		{
 			try
 			{
-				_scheduler.InvokeAsync(() => {_shellStream = null; return true;}).GetAwaiter().GetResult();
+				_scheduler.InvokeAsync(() =>
+				{
+					if (_canWrite)
+					{
+						NativeStream.Commit(STGC.STGC_DEFAULT).ThrowOnFailure();
+					}
+
+					_shellStream = null;
+
+					return true;
+				}).GetAwaiter().GetResult();
 			}
 			finally
 			{
@@ -137,5 +228,28 @@ internal sealed unsafe class ShellReadStream : Stream
 	private void ThrowIfDisposed()
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+	}
+
+	private void EnsureCanRead()
+	{
+		if (!_canRead)
+		{
+			throw new NotSupportedException("The Shell stream was not opened for reading.");
+		}
+	}
+
+	private void EnsureCanWrite()
+	{
+		if (!_canWrite)
+		{
+			throw new NotSupportedException("The Shell stream was not opened for writing.");
+		}
+	}
+
+	private void UpdateLengthOnCurrentSta()
+	{
+		STATSTG statistics = default;
+		NativeStream.Stat(&statistics, STATFLAG.STATFLAG_NONAME).ThrowOnFailure();
+		Volatile.Write(ref _length, checked((long)statistics.cbSize));
 	}
 }

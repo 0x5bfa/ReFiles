@@ -149,7 +149,7 @@ internal sealed class WindowsStorableFactory
 		}
 	}
 
-	public Task<Stream> OpenReadStreamAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
+	public Task<Stream> OpenStreamAsync(WindowsStorableDescriptor descriptor, FileAccess accessMode, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
@@ -157,15 +157,36 @@ internal sealed class WindowsStorableFactory
 			descriptor.Locator,
 			shellItem =>
 			{
-				var bindResult = shellItem.BindToHandler(null, PInvoke.BHID_Stream, out IStream? shellStream);
+				var bindContextResult = PInvoke.CreateBindCtx(0, out IBindCtx? bindContext);
+				bindContextResult.ThrowOnFailure();
+
+				if (bindContext is null)
+				{
+					throw new IOException("Could not create a Shell bind context.");
+				}
+
+				var bindOptions = new BIND_OPTS
+				{
+					cbStruct = (uint)Unsafe.SizeOf<BIND_OPTS>(),
+					grfMode = accessMode switch
+					{
+						FileAccess.Read => (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE),
+						FileAccess.Write => (uint)(STGM.STGM_WRITE | STGM.STGM_SHARE_DENY_WRITE),
+						FileAccess.ReadWrite => (uint)(STGM.STGM_READWRITE | STGM.STGM_SHARE_DENY_WRITE),
+						_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),
+					},
+				};
+				bindContext.SetBindOptions(bindOptions).ThrowOnFailure();
+
+				var bindResult = shellItem.BindToHandler(bindContext, PInvoke.BHID_Stream, out IStream? shellStream);
 				bindResult.ThrowOnFailure();
 
 				if (shellStream is null)
 				{
-					throw new IOException("The virtual Shell item returned no stream.");
+					throw new IOException("The Shell item returned no stream.");
 				}
 
-				return new ShellReadStream(_scheduler, shellStream);
+				return new ShellReadStream(_scheduler, shellStream, accessMode);
 			},
 			cancellationToken);
 	}

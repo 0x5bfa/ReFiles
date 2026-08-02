@@ -17,16 +17,6 @@ public sealed class WindowsFile : WindowsStorable, IChildFile
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (FileSystemPath is { } fileSystemPath)
-		{
-			return new FileStream(fileSystemPath, new FileStreamOptions { Mode = FileMode.Open, Access = accessMode, Share = FileShare.ReadWrite | FileShare.Delete, Options = FileOptions.Asynchronous, });
-		}
-
-		if (accessMode is not FileAccess.Read)
-		{
-			throw new UnauthorizedAccessException("The virtual Shell item does not expose a writable file-system path.");
-		}
-
-		return await Factory.OpenReadStreamAsync(Descriptor, cancellationToken).ConfigureAwait(false);
+		return await Factory.OpenStreamAsync(Descriptor, accessMode, cancellationToken).ConfigureAwait(false);
 	}
 }
