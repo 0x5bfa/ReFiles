@@ -391,7 +391,7 @@ public sealed class StreamPreviewLoaderTests
 			base.Dispose(disposing);
 		}
 
-		private int Read(Span<byte> buffer)
+		public override int Read(Span<byte> buffer)
 		{
 			if (ReadException is not null)
 			{

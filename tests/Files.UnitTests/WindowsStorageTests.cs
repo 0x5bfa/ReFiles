@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Diagnostics;
+using Files.Core.Browsing;
+using Files.Core.Composition;
 using Files.Core.Storage;
 
 namespace Files.UnitTests;
@@ -10,6 +12,73 @@ namespace Files.UnitTests;
 [DoNotParallelize]
 public sealed class WindowsStorageTests
 {
+	public TestContext TestContext { get; set; } = null!;
+
+	[TestMethod]
+	public async Task MeasuresSystem32CoreEnumeration()
+	{
+		var directoryPath = Environment.SystemDirectory;
+		Assert.IsTrue(Directory.Exists(directoryPath), $"The system directory does not exist: {directoryPath}");
+
+		var totalStart = Stopwatch.GetTimestamp();
+		await using var scheduler = new WindowsShellScheduler();
+		await using var source = new WindowsStorageSource(scheduler: scheduler);
+		var resolveStart = Stopwatch.GetTimestamp();
+		var folder = (IFolder)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+		var resolveMilliseconds = Stopwatch.GetElapsedTime(resolveStart).TotalMilliseconds;
+		var enumerationStart = Stopwatch.GetTimestamp();
+		var firstItemTimestamp = 0L;
+		var itemCount = 0;
+
+		await foreach (var item in folder.GetItemsAsync().ConfigureAwait(false))
+		{
+			itemCount++;
+			if (firstItemTimestamp is 0)
+			{
+				firstItemTimestamp = Stopwatch.GetTimestamp();
+			}
+		}
+
+		var firstItemMilliseconds = firstItemTimestamp is 0 ? -1 : Stopwatch.GetElapsedTime(enumerationStart, firstItemTimestamp).TotalMilliseconds;
+		var enumerationMilliseconds = Stopwatch.GetElapsedTime(enumerationStart).TotalMilliseconds;
+		var totalMilliseconds = Stopwatch.GetElapsedTime(totalStart).TotalMilliseconds;
+		var measurement = $"System32 Core: path={directoryPath}, items={itemCount}, resolve={resolveMilliseconds:F1} ms, firstItem={firstItemMilliseconds:F1} ms, " +
+			$"enumeration={enumerationMilliseconds:F1} ms, total={totalMilliseconds:F1} ms";
+		TestContext.WriteLine(measurement);
+
+		Assert.IsTrue(itemCount > 0, "The system directory should contain at least one item.");
+	}
+
+	[TestMethod]
+	public async Task MeasuresSystem32AppModelNavigation()
+	{
+		var directoryPath = Environment.SystemDirectory;
+		Assert.IsTrue(Directory.Exists(directoryPath), $"The system directory does not exist: {directoryPath}");
+
+		var totalStart = Stopwatch.GetTimestamp();
+		await using var runtime = new FilesCoreBuilder()
+			.AddWindowsStorage(enablePreviews: false, enableArchives: false)
+			.Build();
+		var runtimeMilliseconds = Stopwatch.GetElapsedTime(totalStart).TotalMilliseconds;
+		var resolveStart = Stopwatch.GetTimestamp();
+		var folderModel = await runtime.DataRoot.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+		var reference = folderModel.Reference;
+		await folderModel.DisposeAsync();
+		var resolveMilliseconds = Stopwatch.GetElapsedTime(resolveStart).TotalMilliseconds;
+		var navigationStart = Stopwatch.GetTimestamp();
+		var window = await runtime.Application.CreateWindowAsync(new FolderLocation(reference));
+		var navigationMilliseconds = Stopwatch.GetElapsedTime(navigationStart).TotalMilliseconds;
+		var totalMilliseconds = Stopwatch.GetElapsedTime(totalStart).TotalMilliseconds;
+		var pane = window.ActiveTab?.ActivePane;
+		Assert.IsNotNull(pane);
+		var itemCount = pane!.BrowseSession.Items.Count;
+		var measurement = $"System32 AppModel: path={directoryPath}, items={itemCount}, runtime={runtimeMilliseconds:F1} ms, resolve={resolveMilliseconds:F1} ms, " +
+			$"navigation={navigationMilliseconds:F1} ms, total={totalMilliseconds:F1} ms";
+		TestContext.WriteLine(measurement);
+
+		Assert.IsTrue(itemCount > 0, "The system directory should contain at least one item.");
+	}
+
 	[TestMethod]
 	public async Task FileSystemFolderEnumerationBatchesAndFiltersItems()
 	{

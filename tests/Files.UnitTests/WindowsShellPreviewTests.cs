@@ -473,8 +473,8 @@ public sealed class WindowsShellPreviewTests
 			Address = new StorageAddress("file", fileSystemPath ?? name);
 		}
 
-		public Task<IFolder> GetParentAsync(CancellationToken cancellationToken = default)
-			=> Task.FromResult<IFolder>(null!);
+		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
+			=> Task.FromResult<IFolder?>(null);
 
 		public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 		{
