@@ -86,6 +86,15 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	public CommandBindingViewModel ClosePaneCommand =>
 		_commandManager.GetBinding(CommandIds.ClosePane);
 
+	public CommandBindingViewModel LayoutDetailsCommand =>
+		_commandManager.GetBinding(CommandIds.LayoutDetails);
+
+	public CommandBindingViewModel LayoutListCommand =>
+		_commandManager.GetBinding(CommandIds.LayoutList);
+
+	public CommandBindingViewModel LayoutGridCommand =>
+		_commandManager.GetBinding(CommandIds.LayoutGrid);
+
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	public TabViewModel? ActiveTab =>
@@ -117,7 +126,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		_commandManager = new WindowCommandManager(this, commandRegistry, dispatcher);
 		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
 		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
-		Toolbar = new(NewPaneCommand, ClosePaneCommand);
+		Toolbar = new(NewPaneCommand, ClosePaneCommand, LayoutDetailsCommand, LayoutListCommand, LayoutGridCommand);
 
 		window.StateChanged += Window_StateChanged;
 		RefreshFromCore();

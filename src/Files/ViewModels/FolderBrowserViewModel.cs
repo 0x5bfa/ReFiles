@@ -10,6 +10,7 @@ using Files.Core.AppModels;
 using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.Storage;
+using Files.Core.ViewSettings;
 
 namespace Files.ViewModels;
 
@@ -22,15 +23,17 @@ public enum FolderViewMode
 
 public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 {
-	private readonly CoreBrowseAdapter browseAdapter;
+	private readonly CoreBrowseAdapter _browseAdapter;
 
-	private string? operationError;
+	private readonly IUIDispatcher _dispatcher;
 
-	private bool isApplyingUpdate;
+	private string? _operationError;
 
-	private int isDisposed;
+	private bool _isApplyingUpdate;
 
-	private FolderViewMode viewMode = FolderViewMode.Details;
+	private int _isDisposed;
+
+	private FolderViewMode _viewMode = FolderViewMode.Details;
 
 	internal WindowCommandManager CommandManager { get; }
 
@@ -38,113 +41,129 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public FolderViewMode ViewMode
 	{
-		get => viewMode;
-		private set => SetProperty(ref viewMode, value);
+		get => _viewMode;
+		private set => SetProperty(ref _viewMode, value);
 	}
 
-	public bool IsApplyingUpdate => isApplyingUpdate;
+	public bool IsApplyingUpdate => _isApplyingUpdate;
 
-	public IReadOnlyList<StorableKey> SelectedKeys => browseAdapter.SelectedKeys;
+	public IReadOnlyList<StorableKey> SelectedKeys => _browseAdapter.SelectedKeys;
 
-	public string LocationText => browseAdapter.LocationText;
+	public string LocationText => _browseAdapter.LocationText;
 
-	public bool IsLoading => browseAdapter.IsLoading;
+	public bool IsLoading => _browseAdapter.IsLoading;
 
-	public bool CanGoBack => browseAdapter.CanGoBack;
+	public bool CanGoBack => _browseAdapter.CanGoBack;
 
-	public bool CanGoForward => browseAdapter.CanGoForward;
+	public bool CanGoForward => _browseAdapter.CanGoForward;
 
-	public bool CanGoUp => browseAdapter.CanGoUp;
+	public bool CanGoUp => _browseAdapter.CanGoUp;
 
 	public bool CanRefresh => !IsLoading;
 
 	public string StatusText =>
-		operationError
-		?? browseAdapter.ErrorMessage
-		?? browseAdapter.StatusText;
+		_operationError
+		?? _browseAdapter.ErrorMessage
+		?? _browseAdapter.StatusText;
 
 	public FolderBrowserViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(commandManager);
+		ArgumentNullException.ThrowIfNull(dispatcher);
 
 		CommandManager = commandManager;
-		browseAdapter = new CoreBrowseAdapter(pane, dataRoot, dispatcher);
-		browseAdapter.Updated += BrowseAdapter_Updated;
+		_dispatcher = dispatcher;
+		_browseAdapter = new CoreBrowseAdapter(pane, dataRoot, dispatcher);
+		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
+		_browseAdapter.Updated += BrowseAdapter_Updated;
 	}
 
 	public Task InitializeAsync(CancellationToken cancellationToken = default) =>
-		browseAdapter.InitializeAsync(cancellationToken);
+		_browseAdapter.InitializeAsync(cancellationToken);
 
 	public Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default) =>
-		browseAdapter.NavigateToPathAsync(path, cancellationToken);
+		_browseAdapter.NavigateToPathAsync(path, cancellationToken);
 
 	public Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
-		browseAdapter.NavigateHomeAsync(cancellationToken);
+		_browseAdapter.NavigateHomeAsync(cancellationToken);
 
 	public Task NavigateToItemAsync(BrowseItemViewModel item, CancellationToken cancellationToken = default) =>
-		browseAdapter.NavigateToItemAsync(item, cancellationToken);
+		_browseAdapter.NavigateToItemAsync(item, cancellationToken);
 
 	public Task NavigateToReferenceAsync(StorableReference reference, CancellationToken cancellationToken = default) =>
-		browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
+		_browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
 
 	public Task GoBackAsync(CancellationToken cancellationToken = default) =>
-		browseAdapter.GoBackAsync(cancellationToken);
+		_browseAdapter.GoBackAsync(cancellationToken);
 
 	public Task GoForwardAsync(CancellationToken cancellationToken = default) =>
-		browseAdapter.GoForwardAsync(cancellationToken);
+		_browseAdapter.GoForwardAsync(cancellationToken);
 
 	public Task GoUpAsync(CancellationToken cancellationToken = default) =>
-		browseAdapter.GoUpAsync(cancellationToken);
+		_browseAdapter.GoUpAsync(cancellationToken);
 
 	public Task RefreshAsync(CancellationToken cancellationToken = default) =>
-		browseAdapter.RefreshAsync(cancellationToken);
+		_browseAdapter.RefreshAsync(cancellationToken);
 
 	public void UpdateViewport(BrowseViewport viewport) =>
-		browseAdapter.UpdateViewport(viewport);
+		_browseAdapter.UpdateViewport(viewport);
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems) =>
-		browseAdapter.SetSelection(selectedItems);
+		_browseAdapter.SetSelection(selectedItems);
 
-	public void SetViewMode(FolderViewMode mode)
+	public async Task SetViewModeAsync(FolderViewMode mode, CancellationToken cancellationToken = default)
 	{
+		EnsureActive();
+
 		if (!Enum.IsDefined(mode))
 		{
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
 
-		ViewMode = mode;
+		await SetViewModeOnUiAsync(mode).ConfigureAwait(false);
+		try
+		{
+			await _browseAdapter.UpdateLayoutModeAsync(ToViewLayoutMode(mode), cancellationToken).ConfigureAwait(false);
+		}
+		catch
+		{
+			await SetViewModeOnUiAsync(ToFolderViewMode(_browseAdapter.LayoutMode)).ConfigureAwait(false);
+			throw;
+		}
 	}
 
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
 
-		operationError = exception.Message;
+		_operationError = exception.Message;
 		OnPropertyChanged(nameof(StatusText));
 	}
 
 	public void ReportOperationCanceled()
 	{
-		operationError = Strings.OperationCanceled.GetLocalized();
+		_operationError = Strings.OperationCanceled.GetLocalized();
 		OnPropertyChanged(nameof(StatusText));
 	}
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
 
-		browseAdapter.Updated -= BrowseAdapter_Updated;
-		browseAdapter.Dispose();
+		_browseAdapter.Updated -= BrowseAdapter_Updated;
+		_browseAdapter.Dispose();
 	}
 
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
 	{
-		isApplyingUpdate = true;
+		_isApplyingUpdate = true;
 		try
 		{
+			ViewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
+
 			foreach (var change in args.ItemChanges)
 			{
 				switch (change)
@@ -174,7 +193,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				}
 			}
 
-			operationError = null;
+			_operationError = null;
 			OnPropertyChanged(nameof(SelectedKeys));
 			OnPropertyChanged(nameof(LocationText));
 			OnPropertyChanged(nameof(IsLoading));
@@ -186,7 +205,60 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 		finally
 		{
-			isApplyingUpdate = false;
+			_isApplyingUpdate = false;
 		}
+	}
+
+	private Task SetViewModeOnUiAsync(FolderViewMode mode)
+	{
+		if (_dispatcher.HasThreadAccess)
+		{
+			ViewMode = mode;
+
+			return Task.CompletedTask;
+		}
+
+		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!_dispatcher.TryEnqueue(() =>
+		{
+			try
+			{
+				ViewMode = mode;
+				completion.SetResult(true);
+			}
+			catch (Exception exception)
+			{
+				completion.SetException(exception);
+			}
+		}))
+		{
+			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected a folder view update."));
+		}
+
+		return completion.Task;
+	}
+
+	private static FolderViewMode ToFolderViewMode(ViewLayoutMode mode) =>
+		mode switch
+		{
+			ViewLayoutMode.Details => FolderViewMode.Details,
+			ViewLayoutMode.List => FolderViewMode.List,
+			ViewLayoutMode.Grid => FolderViewMode.Grid,
+			ViewLayoutMode.Columns => FolderViewMode.Details,
+			_ => throw new InvalidOperationException($"Unsupported folder layout mode '{mode}'."),
+		};
+
+	private static ViewLayoutMode ToViewLayoutMode(FolderViewMode mode) =>
+		mode switch
+		{
+			FolderViewMode.Details => ViewLayoutMode.Details,
+			FolderViewMode.List => ViewLayoutMode.List,
+			FolderViewMode.Grid => ViewLayoutMode.Grid,
+			_ => throw new InvalidOperationException($"Unsupported folder view mode '{mode}'."),
+		};
+
+	private void EnsureActive()
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 	}
 }

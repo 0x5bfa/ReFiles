@@ -37,4 +37,13 @@ public static class CommandIds
 
 	public static readonly CommandId ClosePane =
 		new("files.pane.close");
+
+	public static readonly CommandId LayoutDetails =
+		new("files.layout.details");
+
+	public static readonly CommandId LayoutList =
+		new("files.layout.list");
+
+	public static readonly CommandId LayoutGrid =
+		new("files.layout.grid");
 }

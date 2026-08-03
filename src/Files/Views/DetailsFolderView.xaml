@@ -19,6 +19,7 @@
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 			</Style>
 		</ListView.ItemContainerStyle>
+
 		<ListView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">
 				<Grid ColumnSpacing="12">
@@ -60,5 +61,7 @@
 				</Grid>
 			</DataTemplate>
 		</ListView.ItemTemplate>
+
 	</ListView>
+
 </UserControl>

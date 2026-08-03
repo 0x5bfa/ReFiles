@@ -11,6 +11,7 @@ using Files.Core.Data;
 using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
+using Files.Core.ViewSettings;
 
 namespace Files.Adapters;
 
@@ -62,6 +63,8 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	public bool CanGoForward => pane.CanGoForward;
 
 	public bool CanGoUp => pane.CanGoUp;
+
+	public ViewLayoutMode LayoutMode => pane.BrowseSession.ViewSettings.LayoutMode;
 
 	public string StatusText =>
 		ErrorMessage
@@ -165,6 +168,32 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	{
 		EnsureActive();
 		pane.UpdateViewport(viewport);
+	}
+
+	public async ValueTask UpdateLayoutModeAsync(ViewLayoutMode mode, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		if (!Enum.IsDefined(mode))
+		{
+			throw new ArgumentOutOfRangeException(nameof(mode));
+		}
+
+		var currentSettings = pane.BrowseSession.ViewSettings;
+		if (currentSettings.LayoutMode == mode)
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			mode,
+			currentSettings.Columns,
+			currentSettings.SortPropertyId,
+			currentSettings.SortDirection,
+			currentSettings.ItemSize);
+
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)

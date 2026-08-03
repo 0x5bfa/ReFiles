@@ -33,4 +33,8 @@
 	<data name="EnterFolderPath" xml:space="preserve"><value>Enter a folder path</value></data>
 	<data name="InfoPane" xml:space="preserve"><value>Info pane</value></data>
 	<data name="WebView" xml:space="preserve"><value>Web view</value></data>
+	<data name="Layout" xml:space="preserve"><value>Layout</value></data>
+	<data name="Details" xml:space="preserve"><value>Details</value></data>
+	<data name="List" xml:space="preserve"><value>List</value></data>
+	<data name="Grid" xml:space="preserve"><value>Grid</value></data>
 </root>

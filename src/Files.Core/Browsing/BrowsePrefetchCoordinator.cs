@@ -24,6 +24,8 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private readonly int _thumbnailSize;
 	private readonly HashSet<PrefetchWork> _activeWork = [];
 	private PrefetchWork? _currentWork;
+	private BrowseViewport? _lastViewport;
+	private ViewLayoutMode _lastLayoutMode;
 	private long _workIdCounter;
 	private bool _isDisposed;
 
@@ -35,6 +37,8 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		_session = session;
 		_target = session as IBrowsePrefetchTarget;
 		_thumbnailSize = thumbnailSize;
+		_lastLayoutMode = session.ViewSettings.LayoutMode;
+		session.StateChanged += OnSessionStateChanged;
 		session.ItemsChanged += OnSessionItemsChanged;
 	}
 
@@ -52,6 +56,8 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		{
 			ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+			_lastViewport = viewport;
+			_lastLayoutMode = settings.LayoutMode;
 			cancellation = new CancellationTokenSource();
 			var workId = checked(++_workIdCounter);
 			var contentVersion = GetContentVersion();
@@ -81,6 +87,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			work = [.. _activeWork];
 		}
 
+		_session.StateChanged -= OnSessionStateChanged;
 		_session.ItemsChanged -= OnSessionItemsChanged;
 		foreach (var item in work)
 		{
@@ -203,6 +210,30 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				currentId == workId &&
 				currentGeneration == generation &&
 				currentContentVersion == contentVersion;
+		}
+	}
+
+	private void OnSessionStateChanged(object? sender, EventArgs args)
+	{
+		BrowseViewport viewport;
+		BrowseViewSettings settings;
+		lock (_syncRoot)
+		{
+			if (_isDisposed || _lastViewport is not { } currentViewport || _lastLayoutMode == _session.ViewSettings.LayoutMode)
+			{
+				return;
+			}
+
+			viewport = currentViewport;
+			settings = _session.ViewSettings;
+		}
+
+		try
+		{
+			UpdateViewport(viewport, settings, _session.Generation);
+		}
+		catch (ObjectDisposedException)
+		{
 		}
 	}
 

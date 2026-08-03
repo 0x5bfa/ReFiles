@@ -16,6 +16,7 @@
 			<ColumnDefinition Width="*" />
 			<ColumnDefinition Width="Auto" />
 			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
 		<TextBlock
@@ -23,17 +24,72 @@
 			FontWeight="SemiBold"
 			Text="{x:Bind ViewModel.ActiveTabTitle, Mode=OneWay}" />
 		<Button
+			Grid.Column="1"
+			ToolTipService.ToolTip="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
+			AutomationProperties.Name="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}">
+			<FontIcon FontSize="18" Glyph="{x:Bind ViewModel.LayoutGlyph, Mode=OneWay}" />
+			<Button.Flyout>
+				<Flyout x:Name="LayoutFlyout" Placement="Bottom">
+					<StackPanel Padding="4" Spacing="8">
+						<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}" />
+						<StackPanel Orientation="Horizontal" Spacing="8">
+							<RadioButton
+								AutomationProperties.Name="{x:Bind ViewModel.LayoutDetailsCommand.AutomationName, Mode=OneWay}"
+								Click="LayoutButton_Click"
+								Command="{x:Bind ViewModel.LayoutDetailsCommand.Command}"
+								GroupName="LayoutRadio"
+								IsChecked="{x:Bind ViewModel.LayoutDetailsCommand.IsChecked, Mode=OneWay}"
+								IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
+								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutDetailsCommand.ToolTip, Mode=OneWay}">
+								<StackPanel Spacing="4">
+									<FontIcon FontSize="28" Glyph="&#xE8A9;" />
+									<TextBlock HorizontalAlignment="Center" Text="{x:Bind ViewModel.LayoutDetailsCommand.Label, Mode=OneWay}" />
+								</StackPanel>
+							</RadioButton>
+							<RadioButton
+								AutomationProperties.Name="{x:Bind ViewModel.LayoutListCommand.AutomationName, Mode=OneWay}"
+								Click="LayoutButton_Click"
+								Command="{x:Bind ViewModel.LayoutListCommand.Command}"
+								GroupName="LayoutRadio"
+								IsChecked="{x:Bind ViewModel.LayoutListCommand.IsChecked, Mode=OneWay}"
+								IsEnabled="{x:Bind ViewModel.LayoutListCommand.IsEnabled, Mode=OneWay}"
+								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutListCommand.ToolTip, Mode=OneWay}">
+								<StackPanel Spacing="4">
+									<FontIcon FontSize="28" Glyph="&#xE8FD;" />
+									<TextBlock HorizontalAlignment="Center" Text="{x:Bind ViewModel.LayoutListCommand.Label, Mode=OneWay}" />
+								</StackPanel>
+							</RadioButton>
+							<RadioButton
+								AutomationProperties.Name="{x:Bind ViewModel.LayoutGridCommand.AutomationName, Mode=OneWay}"
+								Click="LayoutButton_Click"
+								Command="{x:Bind ViewModel.LayoutGridCommand.Command}"
+								GroupName="LayoutRadio"
+								IsChecked="{x:Bind ViewModel.LayoutGridCommand.IsChecked, Mode=OneWay}"
+								IsEnabled="{x:Bind ViewModel.LayoutGridCommand.IsEnabled, Mode=OneWay}"
+								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutGridCommand.ToolTip, Mode=OneWay}">
+								<StackPanel Spacing="4">
+									<FontIcon FontSize="28" Glyph="&#xECA5;" />
+									<TextBlock HorizontalAlignment="Center" Text="{x:Bind ViewModel.LayoutGridCommand.Label, Mode=OneWay}" />
+								</StackPanel>
+							</RadioButton>
+						</StackPanel>
+					</StackPanel>
+				</Flyout>
+			</Button.Flyout>
+		</Button>
+		<Button
+			Grid.Column="2"
 			ToolTipService.ToolTip="{x:Bind ViewModel.NewPaneCommand.ToolTip, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.NewPaneCommand.AutomationName, Mode=OneWay}"
-			Grid.Column="1"
 			Command="{x:Bind ViewModel.NewPaneCommand.Command}"
 			IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}">
 			<SymbolIcon Symbol="Add" />
 		</Button>
 		<Button
+			Grid.Column="3"
 			ToolTipService.ToolTip="{x:Bind ViewModel.ClosePaneCommand.ToolTip, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.ClosePaneCommand.AutomationName, Mode=OneWay}"
-			Grid.Column="2"
 			Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
 			IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}">
 			<SymbolIcon Symbol="Cancel" />

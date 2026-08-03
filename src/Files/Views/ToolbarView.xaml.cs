@@ -22,4 +22,7 @@ public sealed partial class ToolbarView : UserControl
 	{
 		InitializeComponent();
 	}
+
+	private void LayoutButton_Click(object sender, RoutedEventArgs e) =>
+		LayoutFlyout.Hide();
 }

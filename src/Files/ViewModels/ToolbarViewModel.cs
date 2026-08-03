@@ -9,65 +9,93 @@ namespace Files.ViewModels;
 
 public sealed class ToolbarViewModel : ObservableObject, IDisposable
 {
-	private TabViewModel? activeTab;
+	private TabViewModel? _activeTab;
 
-	private int isDisposed;
+	private int _isDisposed;
 
 	public CommandBindingViewModel NewPaneCommand { get; }
 
 	public CommandBindingViewModel ClosePaneCommand { get; }
 
-	public string ActiveTabTitle => activeTab?.Title ?? Strings.NoTabs.GetLocalized();
+	public CommandBindingViewModel LayoutDetailsCommand { get; }
 
-	internal ToolbarViewModel(CommandBindingViewModel newPaneCommand, CommandBindingViewModel closePaneCommand)
+	public CommandBindingViewModel LayoutListCommand { get; }
+
+	public CommandBindingViewModel LayoutGridCommand { get; }
+
+	public string ActiveTabTitle => _activeTab?.Title ?? Strings.NoTabs.GetLocalized();
+
+	public string LayoutLabel => Strings.Layout.GetLocalized();
+
+	public string LayoutGlyph => _activeTab?.ActivePane?.FolderBrowser.ViewMode switch
+	{
+		FolderViewMode.List => "\uE8FD",
+		FolderViewMode.Grid => "\uECA5",
+		_ => "\uE8A9",
+	};
+
+	internal ToolbarViewModel(
+		CommandBindingViewModel newPaneCommand,
+		CommandBindingViewModel closePaneCommand,
+		CommandBindingViewModel layoutDetailsCommand,
+		CommandBindingViewModel layoutListCommand,
+		CommandBindingViewModel layoutGridCommand)
 	{
 		ArgumentNullException.ThrowIfNull(newPaneCommand);
 		ArgumentNullException.ThrowIfNull(closePaneCommand);
+		ArgumentNullException.ThrowIfNull(layoutDetailsCommand);
+		ArgumentNullException.ThrowIfNull(layoutListCommand);
+		ArgumentNullException.ThrowIfNull(layoutGridCommand);
 
 		NewPaneCommand = newPaneCommand;
 		ClosePaneCommand = closePaneCommand;
+		LayoutDetailsCommand = layoutDetailsCommand;
+		LayoutListCommand = layoutListCommand;
+		LayoutGridCommand = layoutGridCommand;
 	}
 
 	internal void SetActiveTab(TabViewModel? value)
 	{
-		if (ReferenceEquals(activeTab, value))
+		if (ReferenceEquals(_activeTab, value))
 		{
 			return;
 		}
 
-		if (activeTab is not null)
+		if (_activeTab is not null)
 		{
-			activeTab.PropertyChanged -= ActiveTab_PropertyChanged;
+			_activeTab.PropertyChanged -= ActiveTab_PropertyChanged;
 		}
 
-		activeTab = value;
-		if (activeTab is not null)
+		_activeTab = value;
+		if (_activeTab is not null)
 		{
-			activeTab.PropertyChanged += ActiveTab_PropertyChanged;
+			_activeTab.PropertyChanged += ActiveTab_PropertyChanged;
 		}
 
 		OnPropertyChanged(nameof(ActiveTabTitle));
+		OnPropertyChanged(nameof(LayoutGlyph));
 	}
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
 
-		if (activeTab is not null)
+		if (_activeTab is not null)
 		{
-			activeTab.PropertyChanged -= ActiveTab_PropertyChanged;
-			activeTab = null;
+			_activeTab.PropertyChanged -= ActiveTab_PropertyChanged;
+			_activeTab = null;
 		}
 	}
 
 	private void ActiveTab_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is null or nameof(TabViewModel.Title))
+		if (e.PropertyName is null or nameof(TabViewModel.Title) or nameof(TabViewModel.ActivePane))
 		{
 			OnPropertyChanged(nameof(ActiveTabTitle));
+			OnPropertyChanged(nameof(LayoutGlyph));
 		}
 	}
 }

@@ -900,6 +900,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
 		ArgumentNullException.ThrowIfNull(settings);
 
+		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = [];
 		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
 		try
@@ -918,14 +919,25 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				_sessionViewSettings[Location] = settings;
 			}
 
+			var previousLayoutMode = ViewSettings.LayoutMode;
 			var changes = Volatile.Read(ref _itemProjection).UpdateSort(settings);
 			ViewSettings = settings;
+			if (previousLayoutMode != settings.LayoutMode)
+			{
+				clearedThumbnails = ClearThumbnailPresentations();
+			}
+
 			PublishItemsChanged(changes, contentChanged: false);
 			OnStateChanged();
 		}
 		finally
 		{
 			_navigationLock.Release();
+		}
+
+		foreach (var thumbnail in clearedThumbnails)
+		{
+			RaiseEvent(ItemPresentationChanged, thumbnail);
 		}
 	}
 
@@ -1063,6 +1075,27 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		{
 			_presentations.Clear();
 		}
+	}
+
+	private BrowseItemPresentationChangedEventArgs[] ClearThumbnailPresentations()
+	{
+		var changes = new List<BrowseItemPresentationChangedEventArgs>();
+		lock (_presentationLock)
+		{
+			foreach (var pair in _presentations.ToArray())
+			{
+				if (pair.Value.Presentation.Thumbnail is null)
+				{
+					continue;
+				}
+
+				var presentation = new BrowseItemPresentation(pair.Value.Presentation.Properties);
+				_presentations[pair.Key] = new PresentationEntry(pair.Value.Item, presentation);
+				changes.Add(new BrowseItemPresentationChangedEventArgs(pair.Key, presentation));
+			}
+		}
+
+		return changes.ToArray();
 	}
 
 	private void RemovePresentation(StorableKey key)

@@ -1,26 +1,55 @@
 <!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
 <UserControl
 	x:Class="Files.Views.GridFolderView"
-	x:Name="Root"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:vm="using:Files.ViewModels">
+	xmlns:vm="using:Files.ViewModels"
+	x:Name="Root">
+
 	<GridView
 		x:Name="ItemGrid"
 		ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
-		SelectionMode="Multiple">
+		SelectionMode="Extended">
+		<GridView.ItemContainerTransitions>
+			<TransitionCollection />
+		</GridView.ItemContainerTransitions>
+		<GridView.ItemContainerStyle>
+			<Style BasedOn="{StaticResource DefaultGridViewItemStyle}" TargetType="GridViewItem">
+				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+				<Setter Property="VerticalContentAlignment" Value="Stretch" />
+			</Style>
+		</GridView.ItemContainerStyle>
+
 		<GridView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">
 				<StackPanel
-					Width="140"
-					Padding="12"
-					Spacing="6">
-					<FontIcon Glyph="&#xE8B7;" />
+					Width="156"
+					MinHeight="156"
+					Padding="10"
+					AutomationProperties.Name="{x:Bind Name}"
+					Spacing="8">
+					<Grid
+						Width="112"
+						Height="112"
+						HorizontalAlignment="Center">
+						<FontIcon
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							FontSize="64"
+							Glyph="&#xE8B7;"
+							Opacity="0.45" />
+						<Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
+					</Grid>
 					<TextBlock
+						HorizontalAlignment="Center"
 						Text="{x:Bind Name}"
-						TextTrimming="CharacterEllipsis" />
+						TextAlignment="Center"
+						TextTrimming="CharacterEllipsis"
+						TextWrapping="Wrap" />
 				</StackPanel>
 			</DataTemplate>
 		</GridView.ItemTemplate>
+
 	</GridView>
+
 </UserControl>
