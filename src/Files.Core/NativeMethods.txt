@@ -77,6 +77,10 @@ GetFileInformationByHandle
 BY_HANDLE_FILE_INFORMATION
 GetFileInformationByHandleEx
 FILE_ID_BOTH_DIR_INFO
+GetFileInformationByName
+FILE_INFO_BY_NAME_CLASS
+Windows.Win32.System.SystemServices.FILE_STAT_INFORMATION
+GetVolumePathName
 FindFirstStreamW
 FindNextStreamW
 WIN32_FIND_STREAM_DATA

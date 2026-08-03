@@ -112,7 +112,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			}
 		}
 
-		var resultItem = await ResolveResultAsync(destinationPath, expectedItemId: item.Id).ConfigureAwait(false);
+		var expectedResultItemId = _source.IsFileSystemIdentity(item.Id) ? item.Id : null;
+		var resultItem = await ResolveResultAsync(destinationPath, expectedResultItemId).ConfigureAwait(false);
 		progress?.Report(new StorageOperationProgress(1, 1, resultItem));
 
 		return new StorageOperationResult(true, resultItem);

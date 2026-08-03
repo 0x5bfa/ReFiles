@@ -65,6 +65,70 @@ internal sealed class BrowseItemProjection
 		return new BrowseItemChangeSet([ new BrowseItemAdded(index, model)]);
 	}
 
+	public BrowseItemChangeSet AddRange(IReadOnlyList<IStorableModel> models)
+	{
+		ArgumentNullException.ThrowIfNull(models);
+
+		if (models.Count is 0)
+		{
+			return BrowseItemChangeSet.Empty;
+		}
+
+		var incomingKeys = new HashSet<StorableKey>();
+		foreach (var model in models)
+		{
+			ArgumentNullException.ThrowIfNull(model);
+
+			var key = model.Reference.GetKey();
+			if (!incomingKeys.Add(key) || _modelsByKey.ContainsKey(key))
+			{
+				throw new InvalidOperationException("The item projection contains duplicate keys.");
+			}
+		}
+
+		var incomingItems = models.ToList();
+		incomingItems.Sort(_comparer);
+		var mergedItems = new List<IStorableModel>(_orderedItems.Count + incomingItems.Count);
+		var changes = new List<BrowseItemChange>(incomingItems.Count);
+		var existingIndex = 0;
+		var incomingIndex = 0;
+		while (existingIndex < _orderedItems.Count && incomingIndex < incomingItems.Count)
+		{
+			if (_comparer.Compare(_orderedItems[existingIndex], incomingItems[incomingIndex]) <= 0)
+			{
+				mergedItems.Add(_orderedItems[existingIndex++]);
+				continue;
+			}
+
+			var incomingItem = incomingItems[incomingIndex++];
+			changes.Add(new BrowseItemAdded(mergedItems.Count, incomingItem));
+			mergedItems.Add(incomingItem);
+		}
+
+		while (existingIndex < _orderedItems.Count)
+		{
+			mergedItems.Add(_orderedItems[existingIndex++]);
+		}
+
+		while (incomingIndex < incomingItems.Count)
+		{
+			var incomingItem = incomingItems[incomingIndex++];
+			changes.Add(new BrowseItemAdded(mergedItems.Count, incomingItem));
+			mergedItems.Add(incomingItem);
+		}
+
+		foreach (var model in incomingItems)
+		{
+			_modelsByKey.Add(model.Reference.GetKey(), model);
+		}
+
+		_orderedItems.Clear();
+		_orderedItems.AddRange(mergedItems);
+		UpdateSnapshot();
+
+		return new BrowseItemChangeSet(changes);
+	}
+
 	public BrowseItemChangeSet Remove(StorableKey key)
 	{
 		if (!_modelsByKey.Remove(key, out _))

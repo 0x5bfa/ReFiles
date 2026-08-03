@@ -1,11 +1,13 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Text;
 using Windows.Win32;
-using Windows.Win32.UI.Shell;
+using Windows.Win32.Storage.FileSystem;
+using Windows.Win32.System.SystemServices;
 
 namespace Files.Core.Storage.Windows;
 
@@ -18,10 +20,12 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	private const string FileIdentityPrefix = "winfs:v1:";
 	private const string AddressPrefix = "winshell-address:v1:";
 	private const FileOptions BackupSemantics = (FileOptions)0x02000000;
+	private const int VolumePathBufferLength = 261;
 
-	public string GetItemId(IShellItem shellItem, string parsingName, string? fileSystemPath)
+	private readonly ConcurrentDictionary<string, uint> _volumeSerialNumbers = new(StringComparer.OrdinalIgnoreCase);
+
+	public string GetItemId(string parsingName, string? fileSystemPath)
 	{
-		ArgumentNullException.ThrowIfNull(shellItem);
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
 		if (fileSystemPath is not null && TryGetFileId(fileSystemPath, out var fileId))
@@ -59,7 +63,67 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		return itemId.StartsWith(FileIdentityPrefix, StringComparison.Ordinal);
 	}
 
-	private static bool TryGetFileId(string fileSystemPath, out WindowsFileId fileId)
+	private bool TryGetFileId(string fileSystemPath, out WindowsFileId fileId)
+	{
+		return TryGetFileIdByName(fileSystemPath, out fileId) || TryGetFileIdByHandle(fileSystemPath, out fileId);
+	}
+
+	private unsafe bool TryGetFileIdByName(string fileSystemPath, out WindowsFileId fileId)
+	{
+		fileId = default;
+		if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22621))
+		{
+			return false;
+		}
+
+		FILE_STAT_INFORMATION information = default;
+		var informationBuffer = new Span<byte>(&information, sizeof(FILE_STAT_INFORMATION));
+		if (!PInvoke.GetFileInformationByName(fileSystemPath, FILE_INFO_BY_NAME_CLASS.FileStatByNameInfo, informationBuffer) || !TryGetVolumeSerialNumber(fileSystemPath, out var volumeSerialNumber))
+		{
+			return false;
+		}
+
+		fileId = new WindowsFileId(volumeSerialNumber, unchecked((ulong)information.FileId), information.NumberOfLinks);
+
+		return true;
+	}
+
+	private bool TryGetVolumeSerialNumber(string fileSystemPath, out uint volumeSerialNumber)
+	{
+		var parentPath = Path.GetDirectoryName(fileSystemPath) ?? Path.GetPathRoot(fileSystemPath);
+		if (string.IsNullOrWhiteSpace(parentPath))
+		{
+			volumeSerialNumber = 0;
+
+			return false;
+		}
+
+		if (_volumeSerialNumbers.TryGetValue(parentPath, out volumeSerialNumber))
+		{
+			return true;
+		}
+
+		Span<char> volumePathBuffer = stackalloc char[VolumePathBufferLength];
+		if (!PInvoke.GetVolumePathName(fileSystemPath, volumePathBuffer))
+		{
+			volumeSerialNumber = 0;
+
+			return false;
+		}
+
+		var terminatorIndex = volumePathBuffer.IndexOf('\0');
+		var volumePath = volumePathBuffer[..(terminatorIndex < 0 ? volumePathBuffer.Length : terminatorIndex)].ToString();
+		if (!PInvoke.GetVolumeInformation(volumePath, [], out volumeSerialNumber, out _, out _, []))
+		{
+			return false;
+		}
+
+		_volumeSerialNumbers.TryAdd(parentPath, volumeSerialNumber);
+
+		return true;
+	}
+
+	private static bool TryGetFileIdByHandle(string fileSystemPath, out WindowsFileId fileId)
 	{
 		fileId = default;
 

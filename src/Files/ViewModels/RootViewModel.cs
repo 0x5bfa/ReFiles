@@ -136,10 +136,11 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	{
 		EnsureActive();
 
+		cancellationToken.ThrowIfCancellationRequested();
+
 		if (Interlocked.Exchange(ref _navigationItemsStarted, 1) is 0)
 		{
-			var navigationCancellationToken = _lifetime.Token;
-			_ = Task.Run(() => LoadNavigationItemsAsync(navigationCancellationToken), cancellationToken);
+			_ = LoadNavigationItemsForInitializationAsync(cancellationToken, _lifetime.Token);
 		}
 
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
@@ -232,7 +233,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		_lifetime.Dispose();
 	}
 
-	private async Task LoadNavigationItemsAsync(CancellationToken cancellationToken)
+	private async Task<bool> LoadNavigationItemsAsync(CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -240,14 +241,36 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 			{
 				await ApplyNavigationSectionOnUiAsync(section).ConfigureAwait(false);
 			}
+
+			return true;
 		}
 		catch (OperationCanceledException)
 			when (cancellationToken.IsCancellationRequested)
 		{
+			return false;
 		}
 		catch (Exception exception)
 		{
 			ReportNavigationLoadError(exception);
+
+			return false;
+		}
+	}
+
+	private async Task LoadNavigationItemsForInitializationAsync(CancellationToken initializationCancellationToken, CancellationToken lifetimeCancellationToken)
+	{
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(initializationCancellationToken, lifetimeCancellationToken);
+		var completed = false;
+		try
+		{
+			completed = await LoadNavigationItemsAsync(linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			if (!completed && !lifetimeCancellationToken.IsCancellationRequested)
+			{
+				Interlocked.Exchange(ref _navigationItemsStarted, 0);
+			}
 		}
 	}
 

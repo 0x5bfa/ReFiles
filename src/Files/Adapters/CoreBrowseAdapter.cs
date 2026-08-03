@@ -17,6 +17,8 @@ namespace Files.Adapters;
 
 internal sealed class CoreBrowseAdapter : IDisposable
 {
+	private const int MaxItemsPerDrain = 128;
+
 	private readonly PaneModel pane;
 	private readonly IFilesDataRoot dataRoot;
 	private readonly IUIDispatcher dispatcher;
@@ -327,6 +329,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 	private void DrainPendingUpdates()
 	{
 		PendingItemBatch[] itemBatches;
+		bool hasPendingItemBatches;
 		PendingState? state;
 		IReadOnlyList<StorableKey>? selection;
 		KeyValuePair<StorableKey, ThumbnailResult?>[] thumbnails;
@@ -337,10 +340,7 @@ internal sealed class CoreBrowseAdapter : IDisposable
 				return;
 			}
 
-			itemBatches = pendingItemBatches
-				.OrderBy(static batch => batch.Version)
-				.ToArray();
-			pendingItemBatches.Clear();
+			itemBatches = TakePendingItemBatchesLocked(out hasPendingItemBatches);
 			state = pendingState;
 			pendingState = null;
 			selection = pendingSelection;
@@ -394,12 +394,63 @@ internal sealed class CoreBrowseAdapter : IDisposable
 		{
 			_ = ApplyThumbnailAsync(thumbnail.Key, thumbnail.Value);
 		}
+
+		if (hasPendingItemBatches)
+		{
+			ScheduleDrain();
+		}
+	}
+
+	private PendingItemBatch[] TakePendingItemBatchesLocked(out bool hasPendingItemBatches)
+	{
+		var batches = new List<PendingItemBatch>();
+		var itemCount = 0;
+		while (pendingItemBatches.Count is not 0)
+		{
+			var batch = pendingItemBatches.Peek();
+			var batchItemCount = GetItemCount(batch.Changes);
+			if (batches.Count is not 0 && itemCount + batchItemCount > MaxItemsPerDrain)
+			{
+				break;
+			}
+
+			pendingItemBatches.Dequeue();
+			batches.Add(batch);
+			itemCount += batchItemCount;
+		}
+
+		hasPendingItemBatches = pendingItemBatches.Count is not 0;
+
+		return batches.ToArray();
+	}
+
+	private static int GetItemCount(IReadOnlyList<BrowseItemViewModelChange> changes)
+	{
+		var count = 0;
+		foreach (var change in changes)
+		{
+			count += change switch
+			{
+				BrowseItemViewModelsReset reset => reset.Items.Count,
+				_ => 1,
+			};
+		}
+
+		return count;
 	}
 
 	private async Task ApplyThumbnailAsync(StorableKey key, ThumbnailResult? thumbnail)
 	{
 		try
 		{
+			var item = items.FirstOrDefault(item => item.Reference.GetKey() == key);
+			if (item is null)
+			{
+				RequeueThumbnailIfCurrent(key, thumbnail);
+
+				return;
+			}
+
 			var image = thumbnail is null
 				? null
 				: await ThumbnailImageFactory
@@ -410,13 +461,38 @@ internal sealed class CoreBrowseAdapter : IDisposable
 				return;
 			}
 
-			items.FirstOrDefault(item => item.Reference.GetKey() == key)
-				?.SetThumbnail(image);
+			item = items.FirstOrDefault(item => item.Reference.GetKey() == key);
+			if (item is not null)
+			{
+				item.SetThumbnail(image);
+
+				return;
+			}
+
+			RequeueThumbnailIfCurrent(key, thumbnail);
 		}
 		catch
 		{
 			// Thumbnail decoding is best effort.
 		}
+	}
+
+	private void RequeueThumbnailIfCurrent(StorableKey key, ThumbnailResult? thumbnail)
+	{
+		if (!pane.BrowseSession.Items.Any(item => item.Reference.GetKey() == key))
+		{
+			return;
+		}
+
+		lock (pendingLock)
+		{
+			if (Volatile.Read(ref isDisposed) is 0)
+			{
+				pendingThumbnails[key] = thumbnail;
+			}
+		}
+
+		ScheduleDrain();
 	}
 
 	private bool TryApplyChanges(IReadOnlyList<BrowseItemViewModelChange> changes, ICollection<BrowseItemViewModelChange> appliedChanges)

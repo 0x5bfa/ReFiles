@@ -88,8 +88,8 @@ public sealed class StorageOperationServiceTests
 	{
 		var reference = CreateRenameRequest().Item;
 
-		Assert.Throws<ArgumentException>(() => new StorageOperationResult(Succeeded: true, ResultItem: reference, Error: new IOException("unexpected")));
-		Assert.Throws<ArgumentNullException>(() => new StorageOperationResult(Succeeded: false, ResultItem: null));
+		Assert.Throws<ArgumentException>(() => new StorageOperationResult(succeeded: true, resultItem: reference, error: new IOException("unexpected")));
+		Assert.Throws<ArgumentNullException>(() => new StorageOperationResult(succeeded: false, resultItem: null));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(completedItems: 2, totalItems: 1));
 	}
 

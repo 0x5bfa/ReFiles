@@ -36,7 +36,9 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 			_ => true,
 		};
 
-		return new(true, isAvailable && !browser.IsLoading);
+		var canRunWhileLoading = id == CommandIds.OpenItem;
+
+		return new(true, isAvailable && (canRunWhileLoading || !browser.IsLoading));
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)

@@ -54,6 +54,37 @@ public sealed class WindowsStorageTests
 	}
 
 	[TestMethod]
+	public async Task LargeFileSystemFolderEnumerationCompletesBeyondTheChannelCapacity()
+	{
+		const int itemCount = 512;
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.LargeEnumerationTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+
+		try
+		{
+			for (var index = 0; index < itemCount; index++)
+			{
+				File.WriteAllText(Path.Combine(directoryPath, $"file-{index:D3}.txt"), string.Empty);
+			}
+
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var folder = (IFolder)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+			var items = new List<IStorableChild>(itemCount);
+			await foreach (var item in folder.GetItemsAsync(StorableType.File))
+			{
+				items.Add(item);
+			}
+
+			Assert.AreEqual(itemCount, items.Count);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	[TestMethod]
 	public async Task HardLinkedFileEnumerationUsesDistinctDirectoryEntryIdentities()
 	{
 		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.HardLinkTests-{Guid.NewGuid():N}");

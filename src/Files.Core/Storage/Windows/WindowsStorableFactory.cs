@@ -79,6 +79,11 @@ internal sealed class WindowsStorableFactory
 		return _resolver.InvokeAsync<WindowsStorable?>(absolutePidl, shellItem => Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader)), cancellationToken);
 	}
 
+	internal bool IsFileSystemIdentity(string itemId)
+	{
+		return _itemIdReader.IsFileSystemIdentity(itemId);
+	}
+
 	public Task<WindowsStorable?> TryCreateFromItemIdAsync(string itemId, StorageAddress? lastKnownAddress = null, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
@@ -110,22 +115,22 @@ internal sealed class WindowsStorableFactory
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
-		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptor>>(new BoundedChannelOptions(EnumerationBufferSize) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, });
+		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, });
 		using var enumerationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
 		Task? producer = null;
 		try
 		{
-			var scheduledProducer = _resolver.InvokeConcurrentAsync(descriptor.Locator, shellItem => EnumerateChildrenOnCurrentSta(shellItem, batches.Writer, _itemIdReader, enumerationCancellation.Token), enumerationCancellation.Token);
+			var scheduledProducer = _resolver.InvokeConcurrentAsync(descriptor.Locator, shellItem => EnumerateChildrenOnCurrentSta(shellItem, batches.Writer, enumerationCancellation.Token), enumerationCancellation.Token);
 			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
-			await foreach (var batch in batches.Reader .ReadAllAsync(cancellationToken) .ConfigureAwait(false))
+			await foreach (var batch in batches.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
 			{
-				foreach (var child in batch)
+				foreach (var item in batch)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 
-					yield return child;
+					yield return ShellItemHelpers.CreateDescriptor(item, _itemIdReader);
 				}
 			}
 
@@ -257,7 +262,7 @@ internal sealed class WindowsStorableFactory
 		return null;
 	}
 
-	private static unsafe bool EnumerateChildrenOnCurrentSta(IShellItem shellItem, ChannelWriter<IReadOnlyList<WindowsStorableDescriptor>> writer, IWindowsItemIdReader itemIdReader, CancellationToken cancellationToken)
+	private static unsafe bool EnumerateChildrenOnCurrentSta(IShellItem shellItem, ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer, CancellationToken cancellationToken)
 	{
 		try
 		{
@@ -269,7 +274,7 @@ internal sealed class WindowsStorableFactory
 				throw new InvalidOperationException("The Shell folder returned no item enumerator.");
 			}
 
-			var batch = new List<WindowsStorableDescriptor>(EnumerationBatchSize);
+			var batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
 			var children = new IShellItem[1];
 			uint fetched = 0;
 
@@ -285,12 +290,12 @@ internal sealed class WindowsStorableFactory
 				}
 
 				result.ThrowOnFailure();
-				batch.Add(ShellItemHelpers.CreateDescriptor(children[0], itemIdReader));
+				batch.Add(ShellItemHelpers.CreateDescriptorData(children[0]));
 
 				if (batch.Count >= EnumerationBatchSize)
 				{
 					WriteBatch(writer, batch, cancellationToken);
-					batch = new List<WindowsStorableDescriptor>(EnumerationBatchSize);
+					batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
 				}
 			}
 
@@ -310,12 +315,12 @@ internal sealed class WindowsStorableFactory
 		}
 	}
 
-	private static void WriteBatch(ChannelWriter<IReadOnlyList<WindowsStorableDescriptor>> writer, IReadOnlyList<WindowsStorableDescriptor> batch, CancellationToken cancellationToken)
+	private static void WriteBatch(ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer, IReadOnlyList<WindowsStorableDescriptorData> batch, CancellationToken cancellationToken)
 	{
-		writer.WriteAsync(batch, cancellationToken).GetAwaiter().GetResult();
+		writer.WriteAsync(batch, cancellationToken).AsTask().GetAwaiter().GetResult();
 	}
 
-	private static async Task CompleteChannelWhenFinishedAsync(Task<bool> producer, ChannelWriter<IReadOnlyList<WindowsStorableDescriptor>> writer)
+	private static async Task CompleteChannelWhenFinishedAsync(Task<bool> producer, ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer)
 	{
 		try
 		{

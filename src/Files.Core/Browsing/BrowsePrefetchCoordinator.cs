@@ -17,12 +17,14 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private const int DefaultThumbnailSize = 96;
 	private const int DetailsThumbnailSize = 16;
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
+	private static readonly TimeSpan ItemsChangedRestartDelay = TimeSpan.FromMilliseconds(100);
 
 	private readonly IBrowseSessionModel _session;
 	private readonly IBrowsePrefetchTarget? _target;
 	private readonly Lock _syncRoot = new();
 	private readonly int _thumbnailSize;
 	private readonly HashSet<PrefetchWork> _activeWork = [];
+	private readonly Timer _restartTimer;
 	private PrefetchWork? _currentWork;
 	private BrowseViewport? _lastViewport;
 	private ViewLayoutMode _lastLayoutMode;
@@ -38,6 +40,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		_target = session as IBrowsePrefetchTarget;
 		_thumbnailSize = thumbnailSize;
 		_lastLayoutMode = session.ViewSettings.LayoutMode;
+		_restartTimer = new Timer(RestartPrefetch, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 		session.StateChanged += OnSessionStateChanged;
 		session.ItemsChanged += OnSessionItemsChanged;
 	}
@@ -56,6 +59,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		{
 			ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+			_restartTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 			_lastViewport = viewport;
 			_lastLayoutMode = settings.LayoutMode;
 			cancellation = new CancellationTokenSource();
@@ -89,6 +93,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 
 		_session.StateChanged -= OnSessionStateChanged;
 		_session.ItemsChanged -= OnSessionItemsChanged;
+		await _restartTimer.DisposeAsync().ConfigureAwait(false);
 		foreach (var item in work)
 		{
 			item.Cancel();
@@ -242,14 +247,50 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		PrefetchWork? work = null;
 		lock (_syncRoot)
 		{
+			if (_isDisposed)
+			{
+				return;
+			}
+
 			if (_currentWork is { } current && (current.Generation != _session.Generation || current.ContentVersion != GetContentVersion()))
 			{
 				work = current;
 				_currentWork = null;
 			}
+
+			if (_lastViewport is not null && _session.Generation is not 0)
+			{
+				_restartTimer.Change(ItemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
+			}
 		}
 
 		work?.Cancel();
+	}
+
+	private void RestartPrefetch(object? state)
+	{
+		BrowseViewport viewport;
+		BrowseViewSettings settings;
+		long generation;
+		lock (_syncRoot)
+		{
+			if (_isDisposed || _lastViewport is not { } currentViewport || _session.Generation is 0)
+			{
+				return;
+			}
+
+			viewport = currentViewport;
+			settings = _session.ViewSettings;
+			generation = _session.Generation;
+		}
+
+		try
+		{
+			UpdateViewport(viewport, settings, generation);
+		}
+		catch (ObjectDisposedException)
+		{
+		}
 	}
 
 	private long GetContentVersion()

@@ -49,6 +49,8 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
 
+	internal bool IsFileSystemIdentity(string itemId) => _storableFactory.IsFileSystemIdentity(itemId);
+
 	public WindowsStorageSource(StorageSourceId? sourceId = null, string displayName = "Windows", IEnumerable<Guid>? rootFolderIds = null, IWindowsShellScheduler? scheduler = null)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);

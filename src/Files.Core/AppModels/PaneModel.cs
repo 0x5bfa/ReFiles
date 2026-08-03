@@ -22,8 +22,10 @@ public sealed class PaneModel : IAsyncDisposable
 	private readonly CancellationTokenSource _lifetime = new();
 
 	private readonly Lock _disposalLock = new();
+	private readonly Lock _navigationCancellationLock = new();
 
 	private Task? _disposeTask;
+	private CancellationTokenSource? _activeNavigationCancellation;
 
 	private volatile bool _isDisposed;
 
@@ -82,13 +84,13 @@ public sealed class PaneModel : IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
 
-		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		using var navigation = BeginNavigation(cancellationToken);
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			await NavigateAndCommitAsync(location, () => { if (mode is PaneNavigationMode.Push) { History.Push(location); } else { History.Replace(location); } }, linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(location, () => { if (mode is PaneNavigationMode.Push) { History.Push(location); } else { History.Replace(location); } }, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -98,8 +100,8 @@ public sealed class PaneModel : IAsyncDisposable
 
 	public async ValueTask<bool> GoBackAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		using var navigation = BeginNavigation(cancellationToken);
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
@@ -109,7 +111,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return false;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), navigation.Token).ConfigureAwait(false);
 
 			return Equals(BrowseSession.Location, target);
 		}
@@ -121,8 +123,8 @@ public sealed class PaneModel : IAsyncDisposable
 
 	public async ValueTask<bool> GoForwardAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		using var navigation = BeginNavigation(cancellationToken);
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
@@ -132,7 +134,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return false;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), navigation.Token).ConfigureAwait(false);
 
 			return Equals(BrowseSession.Location, target);
 		}
@@ -144,21 +146,21 @@ public sealed class PaneModel : IAsyncDisposable
 
 	public async ValueTask<bool> GoUpAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		using var navigation = BeginNavigation(cancellationToken);
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
 			if (BrowseSession.Context is IBrowseLocationParentResolver parentResolver)
 			{
-				var parentLocation = await parentResolver.GetParentLocationAsync(linkedCancellation.Token).ConfigureAwait(false);
+				var parentLocation = await parentResolver.GetParentLocationAsync(navigation.Token).ConfigureAwait(false);
 				if (parentLocation is null)
 				{
 					return false;
 				}
 
-				await NavigateAndCommitAsync(parentLocation, () => History.Push(parentLocation), linkedCancellation.Token).ConfigureAwait(false);
+				await NavigateAndCommitAsync(parentLocation, () => History.Push(parentLocation), navigation.Token).ConfigureAwait(false);
 
 				return Equals(BrowseSession.Location, parentLocation);
 			}
@@ -168,7 +170,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return false;
 			}
 
-			var parent = await folder.GetParentAsync(linkedCancellation.Token).ConfigureAwait(false);
+			var parent = await folder.GetParentAsync(navigation.Token).ConfigureAwait(false);
 			if (parent is null)
 			{
 				return false;
@@ -177,7 +179,7 @@ public sealed class PaneModel : IAsyncDisposable
 			await using (parent.ConfigureAwait(false))
 			{
 				var target = new FolderLocation(parent.Reference);
-				await NavigateAndCommitAsync(target, () => History.Push(target), linkedCancellation.Token).ConfigureAwait(false);
+				await NavigateAndCommitAsync(target, () => History.Push(target), navigation.Token).ConfigureAwait(false);
 
 				return Equals(BrowseSession.Location, target);
 			}
@@ -192,8 +194,8 @@ public sealed class PaneModel : IAsyncDisposable
 	{
 		ArgumentNullException.ThrowIfNull(restoredHistory);
 
-		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		using var navigation = BeginNavigation(cancellationToken);
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
@@ -210,7 +212,7 @@ public sealed class PaneModel : IAsyncDisposable
 				return;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.Restore(restoredHistory), linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.Restore(restoredHistory), navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -220,13 +222,13 @@ public sealed class PaneModel : IAsyncDisposable
 
 	public async ValueTask RefreshAsync(CancellationToken cancellationToken = default)
 	{
-		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		await _navigationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		using var navigation = BeginNavigation(cancellationToken);
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
 			EnsureActive();
-			await BrowseSession.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
+			await BrowseSession.RefreshAsync(navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -272,7 +274,7 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 		finally
 		{
-			if ((completed || BrowseSession.Generation != previousGeneration) && Equals(BrowseSession.Location, target))
+			if ((completed || (!cancellationToken.IsCancellationRequested && BrowseSession.Generation != previousGeneration)) && Equals(BrowseSession.Location, target))
 			{
 				commitHistory();
 			}
@@ -326,6 +328,42 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
+	private NavigationOperation BeginNavigation(CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		CancellationTokenSource? previousCancellation;
+		lock (_navigationCancellationLock)
+		{
+			previousCancellation = _activeNavigationCancellation;
+			_activeNavigationCancellation = operationCancellation;
+		}
+
+		try
+		{
+			previousCancellation?.Cancel();
+		}
+		catch (ObjectDisposedException)
+		{
+		}
+
+		return new NavigationOperation(this, operationCancellation);
+	}
+
+	private void EndNavigation(CancellationTokenSource operationCancellation)
+	{
+		lock (_navigationCancellationLock)
+		{
+			if (ReferenceEquals(_activeNavigationCancellation, operationCancellation))
+			{
+				_activeNavigationCancellation = null;
+			}
+		}
+
+		operationCancellation.Dispose();
+	}
+
 	private void EnsureActive()
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -335,5 +373,30 @@ public sealed class PaneModel : IAsyncDisposable
 	private void OnChildStateChanged(object? sender, EventArgs args)
 	{
 		ModelEvent.Raise(this, StateChanged);
+	}
+
+	private sealed class NavigationOperation : IDisposable
+	{
+		private readonly PaneModel _owner;
+		private readonly CancellationTokenSource _cancellation;
+		private int _isDisposed;
+
+		public CancellationToken Token => _cancellation.Token;
+
+		public NavigationOperation(PaneModel owner, CancellationTokenSource cancellation)
+		{
+			_owner = owner;
+			_cancellation = cancellation;
+		}
+
+		public void Dispose()
+		{
+			if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+			{
+				return;
+			}
+
+			_owner.EndNavigation(_cancellation);
+		}
 	}
 }

@@ -18,6 +18,13 @@ internal static unsafe class ShellItemHelpers
 		ArgumentNullException.ThrowIfNull(shellItem);
 		ArgumentNullException.ThrowIfNull(itemIdReader);
 
+		return CreateDescriptor(CreateDescriptorData(shellItem), itemIdReader);
+	}
+
+	public static WindowsStorableDescriptorData CreateDescriptorData(IShellItem shellItem)
+	{
+		ArgumentNullException.ThrowIfNull(shellItem);
+
 		var result = shellItem.GetAttributes(SFGAO_FLAGS.SFGAO_FOLDER | SFGAO_FLAGS.SFGAO_FILESYSTEM | SFGAO_FLAGS.SFGAO_STREAM, out var attributes);
 		result.ThrowOnFailure();
 
@@ -28,14 +35,25 @@ internal static unsafe class ShellItemHelpers
 		var fileSystemPath = (attributes & SFGAO_FLAGS.SFGAO_FILESYSTEM) != 0
 			? TryGetDisplayName(shellItem, SIGDN.SIGDN_FILESYSPATH)
 			: null;
-		var itemId = itemIdReader.GetItemId(shellItem, parsingName, fileSystemPath);
-
-		var snapshot = new WindowsStorableSnapshot(itemId, name, fileSystemPath, (attributes & SFGAO_FLAGS.SFGAO_FOLDER) != 0, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0);
+		var isFolder = (attributes & SFGAO_FLAGS.SFGAO_FOLDER) != 0;
+		var snapshot = new WindowsStorableSnapshot(name, fileSystemPath, isFolder, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0);
 		var address = fileSystemPath is null
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
 
-		return new WindowsStorableDescriptor(itemId, address, new WindowsItemLocator(CopyAbsolutePidl(shellItem), parsingName), snapshot);
+		var absolutePidl = isFolder ? CopyAbsolutePidl(shellItem) : ReadOnlyMemory<byte>.Empty;
+
+		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName), snapshot);
+	}
+
+	public static WindowsStorableDescriptor CreateDescriptor(WindowsStorableDescriptorData data, IWindowsItemIdReader itemIdReader)
+	{
+		ArgumentNullException.ThrowIfNull(data);
+		ArgumentNullException.ThrowIfNull(itemIdReader);
+
+		var itemId = itemIdReader.GetItemId(data.Locator.ParsingName, data.Snapshot.FileSystemPath);
+
+		return new WindowsStorableDescriptor(itemId, data.Address, data.Locator, data.Snapshot);
 	}
 
 	public static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)

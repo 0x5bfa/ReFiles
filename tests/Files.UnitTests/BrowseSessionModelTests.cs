@@ -15,6 +15,69 @@ namespace Files.UnitTests;
 public sealed class BrowseSessionModelTests
 {
 	[TestMethod]
+	public async Task PublishesEnumerationBatchesBeforeEnumerationCompletes()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var items = Enumerable.Range(0, 600)
+			.Select(index => factory.CreateModel($"item-{index:D2}", $"Item {index:D2}", out _))
+			.Cast<IStorableModel>()
+			.ToArray();
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSessionModel(resolver);
+		var firstBatch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var publishedBatchCount = 0;
+		session.ItemsChanged += (_, _) =>
+		{
+			publishedBatchCount++;
+			if (session.IsLoading && session.Items.Count is 32)
+			{
+				firstBatch.TrySetResult(true);
+			}
+		};
+
+		var navigation = session.NavigateAsync(new FolderLocation(locationModel.Reference)).AsTask();
+		await firstBatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+		await navigation;
+		Assert.AreEqual(600, session.Items.Count);
+		Assert.AreEqual(4, publishedBatchCount);
+	}
+
+	[TestMethod]
+	public async Task NewNavigationCancelsCurrentEnumeration()
+	{
+		var factory = new TestModelFactory();
+		var firstLocation = factory.CreateModel("first", "First", out _);
+		var secondLocation = factory.CreateModel("second", "Second", out _);
+		var firstItem = factory.CreateModel("first-item", "First Item", out _);
+		var secondItem = factory.CreateModel("second-item", "Second Item", out _);
+		var enumerationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new TestBrowseLocationResolver([firstItem])
+		{
+			LocationModelFactory = location => location is FolderLocation folder && folder.Folder == firstLocation.Reference ? firstLocation : secondLocation,
+			EnumerationStarted = enumerationStarted,
+			BlockEnumeration = true,
+		};
+		using var session = new BrowseSessionModel(resolver);
+
+		var firstNavigation = session.NavigateAsync(new FolderLocation(firstLocation.Reference)).AsTask();
+		await enumerationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		resolver.BlockEnumeration = false;
+		resolver.Items.Clear();
+		resolver.Items.Add(secondItem);
+
+		await session.NavigateAsync(new FolderLocation(secondLocation.Reference));
+
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await firstNavigation);
+		Assert.AreEqual(secondLocation.Reference, ((FolderLocation)session.Location!).Folder);
+		Assert.AreSame(secondItem, session.Items.Single());
+	}
+
+	[TestMethod]
 	public async Task NavigationDisposesPreviousItemsAfterSuccessfulReplacement()
 	{
 		var factory = new TestModelFactory();
@@ -453,7 +516,7 @@ public sealed class BrowseSessionModelTests
 		resolver.Items.Add(newItem);
 		firstSource.RaiseChange(new FolderChange(FolderChangeKind.DirectoryUpdated, null, null, RequiresRefresh: false));
 
-		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), newItem));
+		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), newItem) && oldItemCore.IsDisposed);
 
 		Assert.AreEqual(2, resolver.OpenedContexts.Count);
 		Assert.IsTrue(oldItemCore.IsDisposed);

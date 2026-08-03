@@ -1,8 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Windows.Win32.UI.Shell;
-
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
@@ -10,7 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal interface IWindowsItemIdReader
 {
-	string GetItemId(IShellItem shellItem, string parsingName, string? fileSystemPath);
+	string GetItemId(string parsingName, string? fileSystemPath);
 
 	bool TryGetParsingName(string itemId, out string parsingName);
 
