@@ -76,6 +76,8 @@ internal sealed class CoreBrowseAdapter : IDisposable
 
 	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 
+	public IReadOnlyList<BrowseItemViewModel> Items => items;
+
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
