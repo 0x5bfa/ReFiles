@@ -106,6 +106,9 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			var requestedThumbnailSize = settings.LayoutMode is ViewLayoutMode.Details
 				? DetailsThumbnailSize
 				: _thumbnailSize;
+			var thumbnailMode = settings.LayoutMode is ViewLayoutMode.Details
+				? ThumbnailMode.Icon
+				: ThumbnailMode.PreferContent;
 			var items = _session.Items;
 			foreach (var index in EnumerateIndices(items.Count, viewport))
 			{
@@ -116,7 +119,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 					return;
 				}
 
-				await PrefetchItemAsync(items[index], propertyIds, requestedThumbnailSize, viewport.Dpi, workId, generation, contentVersion, cancellationToken).ConfigureAwait(false);
+				await PrefetchItemAsync(items[index], propertyIds, requestedThumbnailSize, thumbnailMode, viewport.Dpi, workId, generation, contentVersion, cancellationToken).ConfigureAwait(false);
 			}
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -128,7 +131,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private async ValueTask PrefetchItemAsync(IStorableModel item, IReadOnlyList<string> propertyIds, int requestedThumbnailSize, int dpi, long workId, long generation, long contentVersion, CancellationToken cancellationToken)
+	private async ValueTask PrefetchItemAsync(IStorableModel item, IReadOnlyList<string> propertyIds, int requestedThumbnailSize, ThumbnailMode thumbnailMode, int dpi, long workId, long generation, long contentVersion, CancellationToken cancellationToken)
 	{
 		if (propertyIds.Count is not 0 && item.Get<IPropertySource>() is { } propertySource)
 		{
@@ -164,7 +167,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		{
 			try
 			{
-				var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, ThumbnailMode.PreferContent, dpi), cancellationToken).ConfigureAwait(false);
+				var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, thumbnailMode, dpi), cancellationToken).ConfigureAwait(false);
 				if (thumbnail is null || !IsCurrent(workId, generation, contentVersion, cancellationToken))
 				{
 					return;

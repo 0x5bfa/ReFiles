@@ -66,7 +66,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 			Assert.AreEqual(1, thumbnailSources[id].CallCount);
 			Assert.AreEqual(16, thumbnailSources[id].Requests.Single().RequestedSize);
 			Assert.AreEqual(24, thumbnailSources[id].Requests.Single().RequestedPixelSize);
-			Assert.AreEqual(ThumbnailMode.PreferContent, thumbnailSources[id].Requests.Single().Mode);
+			Assert.AreEqual(ThumbnailMode.Icon, thumbnailSources[id].Requests.Single().Mode);
 		}
 
 		Assert.AreEqual(0, propertySources["d"].CallCount);

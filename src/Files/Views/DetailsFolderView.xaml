@@ -11,6 +11,9 @@
 		IsMultiSelectCheckBoxEnabled="False"
 		ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
 		SelectionMode="Extended">
+		<ListView.ItemContainerTransitions>
+			<TransitionCollection />
+		</ListView.ItemContainerTransitions>
 		<ListView.ItemContainerStyle>
 			<Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
