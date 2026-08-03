@@ -16,31 +16,21 @@ public enum PaneContentKind
 	Web,
 }
 
-public sealed class PaneViewModel : ObservableObject, IDisposable
+public sealed partial class PaneViewModel : ObservableObject, IDisposable
 {
-	private readonly PaneModel pane;
+	private readonly PaneModel _pane;
 
-	private bool isActive;
+	private int _isDisposed;
 
-	private int isDisposed;
-
-	private PaneContentKind contentKind = PaneContentKind.FolderBrowser;
-
-	public Guid Id => pane.Id;
+	public Guid Id => _pane.Id;
 
 	public FolderBrowserViewModel FolderBrowser { get; }
 
-	public PaneContentKind ContentKind
-	{
-		get => contentKind;
-		private set => SetProperty(ref contentKind, value);
-	}
+	[ObservableProperty]
+	public partial PaneContentKind ContentKind { get; private set; } = PaneContentKind.FolderBrowser;
 
-	public bool IsActive
-	{
-		get => isActive;
-		private set => SetProperty(ref isActive, value);
-	}
+	[ObservableProperty]
+	public partial bool IsActive { get; private set; }
 
 	public string Title => FolderBrowser.LocationText;
 
@@ -50,8 +40,8 @@ public sealed class PaneViewModel : ObservableObject, IDisposable
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 
-		this.pane = pane;
-		FolderBrowser = new FolderBrowserViewModel(pane, dataRoot, dispatcher, commandManager);
+		_pane = pane;
+		FolderBrowser = new(pane, dataRoot, dispatcher, commandManager);
 		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
 	}
 
@@ -76,7 +66,7 @@ public sealed class PaneViewModel : ObservableObject, IDisposable
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}

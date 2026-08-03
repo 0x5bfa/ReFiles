@@ -7,7 +7,7 @@ using Files.Localization;
 
 namespace Files.ViewModels;
 
-public sealed class ToolbarViewModel : ObservableObject, IDisposable
+public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 {
 	private TabViewModel? _activeTab;
 
@@ -61,16 +61,9 @@ public sealed class ToolbarViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		if (_activeTab is not null)
-		{
-			_activeTab.PropertyChanged -= ActiveTab_PropertyChanged;
-		}
-
+		_activeTab?.PropertyChanged -= ActiveTab_PropertyChanged;
 		_activeTab = value;
-		if (_activeTab is not null)
-		{
-			_activeTab.PropertyChanged += ActiveTab_PropertyChanged;
-		}
+		_activeTab?.PropertyChanged += ActiveTab_PropertyChanged;
 
 		OnPropertyChanged(nameof(ActiveTabTitle));
 		OnPropertyChanged(nameof(LayoutGlyph));
@@ -83,11 +76,8 @@ public sealed class ToolbarViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		if (_activeTab is not null)
-		{
-			_activeTab.PropertyChanged -= ActiveTab_PropertyChanged;
-			_activeTab = null;
-		}
+		_activeTab?.PropertyChanged -= ActiveTab_PropertyChanged;
+		_activeTab = null;
 	}
 
 	private void ActiveTab_PropertyChanged(object? sender, PropertyChangedEventArgs e)

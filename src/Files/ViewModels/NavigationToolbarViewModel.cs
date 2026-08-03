@@ -9,9 +9,9 @@ namespace Files.ViewModels;
 
 public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 {
-	private FolderBrowserViewModel? activeFolderBrowser;
+	private FolderBrowserViewModel? _activeFolderBrowser;
 
-	private int isDisposed;
+	private int _isDisposed;
 
 	public CommandBindingViewModel BackCommand { get; }
 
@@ -27,7 +27,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	public string PathPlaceholderText => Strings.EnterFolderPath.GetLocalized();
 
-	public string LocationText => activeFolderBrowser?.LocationText ?? string.Empty;
+	public string LocationText => _activeFolderBrowser?.LocationText ?? string.Empty;
 
 	internal NavigationToolbarViewModel(
 		CommandBindingViewModel backCommand,
@@ -54,37 +54,27 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	internal void SetActiveFolderBrowser(FolderBrowserViewModel? value)
 	{
-		if (ReferenceEquals(activeFolderBrowser, value))
+		if (ReferenceEquals(_activeFolderBrowser, value))
 		{
 			return;
 		}
 
-		if (activeFolderBrowser is not null)
-		{
-			activeFolderBrowser.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
-		}
-
-		activeFolderBrowser = value;
-		if (activeFolderBrowser is not null)
-		{
-			activeFolderBrowser.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
-		}
+		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
+		_activeFolderBrowser = value;
+		_activeFolderBrowser?.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
 
 		OnPropertyChanged(nameof(LocationText));
 	}
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
 
-		if (activeFolderBrowser is not null)
-		{
-			activeFolderBrowser.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
-			activeFolderBrowser = null;
-		}
+		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
+		_activeFolderBrowser = null;
 	}
 
 	private void ActiveFolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)

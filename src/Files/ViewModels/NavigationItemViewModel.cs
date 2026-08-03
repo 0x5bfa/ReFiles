@@ -8,11 +8,9 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
-public sealed class NavigationItemViewModel : ObservableObject
+public sealed partial class NavigationItemViewModel : ObservableObject
 {
-	private readonly bool prefersThumbnail;
-
-	private BitmapImage? thumbnail;
+	private readonly bool _prefersThumbnail;
 
 	public string Name { get; }
 
@@ -26,11 +24,8 @@ public sealed class NavigationItemViewModel : ObservableObject
 
 	public IconElement Icon { get; private set; }
 
-	public BitmapImage? Thumbnail
-	{
-		get => thumbnail;
-		private set => SetProperty(ref thumbnail, value);
-	}
+	[ObservableProperty]
+	public partial BitmapImage? Thumbnail { get; set; }
 
 	private NavigationItemViewModel(string name, StorableReference? reference, bool isHome, bool selectsOnInvoked, IconElement icon, IEnumerable<NavigationItemViewModel>? children = null, bool prefersThumbnail = false)
 	{
@@ -42,25 +37,29 @@ public sealed class NavigationItemViewModel : ObservableObject
 		IsHome = isHome;
 		SelectsOnInvoked = selectsOnInvoked;
 		Icon = icon;
-		this.prefersThumbnail = prefersThumbnail;
-		Children = children is null
-			? []
-			: new ObservableCollection<NavigationItemViewModel>(children);
+		_prefersThumbnail = prefersThumbnail;
+		Children = children is null ? [] : new ObservableCollection<NavigationItemViewModel>(children);
 	}
 
-	internal static NavigationItemViewModel CreateHome(string name) =>
-		new(name, reference: null, isHome: true, selectsOnInvoked: true, icon: new SymbolIcon {Symbol = Symbol.Home});
+	internal static NavigationItemViewModel CreateHome(string name)
+	{
+		return new(name, reference: null, true, true, new SymbolIcon() { Symbol = Symbol.Home });
+	}
 
-	internal static NavigationItemViewModel CreateSection(string name, StorableReference reference, IEnumerable<NavigationItemViewModel> children) =>
-		new(name, reference, isHome: false, selectsOnInvoked: false, icon: new SymbolIcon {Symbol = Symbol.Folder}, children: children);
+	internal static NavigationItemViewModel CreateSection(string name, StorableReference reference, IEnumerable<NavigationItemViewModel> children)
+	{
+		return new(name, reference, false, false, new SymbolIcon() { Symbol = Symbol.Folder }, children: children);
+	}
 
-	internal static NavigationItemViewModel CreateFolder(string name, StorableReference reference) =>
-		new(name, reference, isHome: false, selectsOnInvoked: true, icon: new SymbolIcon {Symbol = Symbol.Folder}, prefersThumbnail: true);
+	internal static NavigationItemViewModel CreateFolder(string name, StorableReference reference)
+	{
+		return new(name, reference, false, true, new SymbolIcon() { Symbol = Symbol.Folder }, prefersThumbnail: true);
+	}
 
 	internal void SetThumbnail(BitmapImage? value)
 	{
 		Thumbnail = value;
-		if (!prefersThumbnail || value is null)
+		if (!_prefersThumbnail || value is null)
 		{
 			return;
 		}

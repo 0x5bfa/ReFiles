@@ -12,7 +12,7 @@ using Files.Core.Data;
 
 namespace Files.ViewModels;
 
-public sealed class RootViewModel : ObservableObject, IDisposable
+public sealed partial class RootViewModel : ObservableObject, IDisposable
 {
 	private readonly WindowModel _window;
 
@@ -56,57 +56,39 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 	public WindowCommandManager Commands => _commandManager;
 
-	public CommandBindingViewModel BackCommand =>
-		_commandManager.GetBinding(CommandIds.NavigateBack);
+	public CommandBindingViewModel BackCommand => _commandManager.GetBinding(CommandIds.NavigateBack);
 
-	public CommandBindingViewModel ForwardCommand =>
-		_commandManager.GetBinding(CommandIds.NavigateForward);
+	public CommandBindingViewModel ForwardCommand => _commandManager.GetBinding(CommandIds.NavigateForward);
 
-	public CommandBindingViewModel UpCommand =>
-		_commandManager.GetBinding(CommandIds.NavigateUp);
+	public CommandBindingViewModel UpCommand => _commandManager.GetBinding(CommandIds.NavigateUp);
 
-	public CommandBindingViewModel HomeCommand =>
-		_commandManager.GetBinding(CommandIds.NavigateHome);
+	public CommandBindingViewModel HomeCommand => _commandManager.GetBinding(CommandIds.NavigateHome);
 
-	public CommandBindingViewModel NavigatePathCommand =>
-		_commandManager.GetBinding(CommandIds.NavigatePath);
+	public CommandBindingViewModel NavigatePathCommand => _commandManager.GetBinding(CommandIds.NavigatePath);
 
-	public CommandBindingViewModel RefreshCommand =>
-		_commandManager.GetBinding(CommandIds.Refresh);
+	public CommandBindingViewModel RefreshCommand => _commandManager.GetBinding(CommandIds.Refresh);
 
-	public CommandBindingViewModel NewTabCommand =>
-		_commandManager.GetBinding(CommandIds.NewTab);
+	public CommandBindingViewModel NewTabCommand => _commandManager.GetBinding(CommandIds.NewTab);
 
-	public CommandBindingViewModel CloseTabCommand =>
-		_commandManager.GetBinding(CommandIds.CloseTab);
+	public CommandBindingViewModel CloseTabCommand => _commandManager.GetBinding(CommandIds.CloseTab);
 
-	public CommandBindingViewModel NewPaneCommand =>
-		_commandManager.GetBinding(CommandIds.NewPane);
+	public CommandBindingViewModel NewPaneCommand => _commandManager.GetBinding(CommandIds.NewPane);
 
-	public CommandBindingViewModel ClosePaneCommand =>
-		_commandManager.GetBinding(CommandIds.ClosePane);
+	public CommandBindingViewModel ClosePaneCommand => _commandManager.GetBinding(CommandIds.ClosePane);
 
-	public CommandBindingViewModel LayoutDetailsCommand =>
-		_commandManager.GetBinding(CommandIds.LayoutDetails);
+	public CommandBindingViewModel LayoutDetailsCommand => _commandManager.GetBinding(CommandIds.LayoutDetails);
 
-	public CommandBindingViewModel LayoutListCommand =>
-		_commandManager.GetBinding(CommandIds.LayoutList);
+	public CommandBindingViewModel LayoutListCommand => _commandManager.GetBinding(CommandIds.LayoutList);
 
-	public CommandBindingViewModel LayoutGridCommand =>
-		_commandManager.GetBinding(CommandIds.LayoutGrid);
+	public CommandBindingViewModel LayoutGridCommand => _commandManager.GetBinding(CommandIds.LayoutGrid);
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
-	public TabViewModel? ActiveTab =>
-		Tabs.FirstOrDefault(tab => tab.Id == _window.ActiveTab?.Id);
+	public TabViewModel? ActiveTab => Tabs.FirstOrDefault(tab => tab.Id == _window.ActiveTab?.Id);
 
-	public FolderBrowserViewModel? ActiveFolderBrowser =>
-		ActiveTab?.ActivePane?.FolderBrowser;
+	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;
 
-	public string StatusText =>
-		_operationError
-		?? ActiveTab?.StatusText
-		?? Strings.NoTabs.GetLocalized();
+	public string StatusText => _operationError ?? ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
 
 	public RootViewModel(WindowModel window, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, CommandRegistry commandRegistry)
 	{
@@ -219,6 +201,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		NavigationToolbar.Dispose();
 		Toolbar.Dispose();
 		_commandManager.Dispose();
+
 		foreach (var tab in _tabViewModels.Values)
 		{
 			tab.PropertyChanged -= TabViewModel_PropertyChanged;
@@ -237,7 +220,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	{
 		try
 		{
-			await foreach (var section in _navigationItemLoader .LoadSectionsAsync(cancellationToken) .ConfigureAwait(false))
+			await foreach (var section in _navigationItemLoader.LoadSectionsAsync(cancellationToken).ConfigureAwait(false))
 			{
 				await ApplyNavigationSectionOnUiAsync(section).ConfigureAwait(false);
 			}
@@ -261,6 +244,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 	{
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(initializationCancellationToken, lifetimeCancellationToken);
 		var completed = false;
+
 		try
 		{
 			completed = await LoadNavigationItemsAsync(linkedCancellation.Token).ConfigureAwait(false);
@@ -284,7 +268,19 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		}
 
 		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-		if (!_dispatcher.TryEnqueue(() => { try { ApplyNavigationSection(section); completion.SetResult(true); } catch (Exception exception) { completion.SetException(exception); } }))
+
+		if (!_dispatcher.TryEnqueue(() =>
+		{
+			try
+			{
+				ApplyNavigationSection(section);
+				completion.SetResult(true);
+			}
+			catch (Exception exception)
+			{
+				completion.SetException(exception);
+			}
+		}))
 		{
 			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected navigation items."));
 		}
@@ -306,6 +302,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 		var children = new List<NavigationItemViewModel>(section.Items.Count);
 		var navigationCancellationToken = _lifetime.Token;
+
 		foreach (var item in section.Items)
 		{
 			var child = NavigationItemViewModel.CreateFolder(item.Name, item.Reference);
@@ -315,6 +312,7 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 
 		var sectionViewModel = NavigationItemViewModel.CreateSection(section.Name, section.Reference, children);
 		var insertIndex = 1;
+
 		foreach (var order in _navigationSectionViewModels.Keys)
 		{
 			if (order < section.Order)
@@ -365,7 +363,19 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 		}
 
 		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-		if (!_dispatcher.TryEnqueue(async () => { try { await SetNavigationThumbnailAsync(viewModel, thumbnail); completion.SetResult(true); } catch (Exception exception) { completion.SetException(exception); } }))
+
+		if (!_dispatcher.TryEnqueue(async () =>
+		{
+			try
+			{
+				await SetNavigationThumbnailAsync(viewModel, thumbnail);
+				completion.SetResult(true);
+			}
+			catch (Exception exception)
+			{
+				completion.SetException(exception);
+			}
+		}))
 		{
 			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected a navigation thumbnail."));
 		}
@@ -392,7 +402,13 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		_dispatcher.TryEnqueue(() => {if (Volatile.Read(ref _isDisposed) is 0) {ReportOperationError(exception);}});
+		_dispatcher.TryEnqueue(() =>
+		{
+			if (Volatile.Read(ref _isDisposed) is 0)
+			{
+				ReportOperationError(exception);
+			}
+		});
 	}
 
 	private void Window_StateChanged(object? sender, EventArgs args)
@@ -402,7 +418,11 @@ public sealed class RootViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		if (!_dispatcher.TryEnqueue(() => {Interlocked.Exchange(ref _refreshQueued, 0); RefreshFromCore();}))
+		if (!_dispatcher.TryEnqueue(() =>
+		{
+			Interlocked.Exchange(ref _refreshQueued, 0);
+			RefreshFromCore();
+		}))
 		{
 			Interlocked.Exchange(ref _refreshQueued, 0);
 			if (Volatile.Read(ref _isDisposed) is 0)

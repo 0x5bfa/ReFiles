@@ -8,27 +8,20 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
-public sealed class BrowseItemViewModel : ObservableObject
+public sealed partial class BrowseItemViewModel : ObservableObject
 {
-	private BitmapImage? thumbnail;
-
 	public string Name { get; }
 
 	public bool IsFolder { get; }
 
 	public StorableReference Reference { get; }
 
-	public BitmapImage? Thumbnail
-	{
-		get => thumbnail;
-		private set => SetProperty(ref thumbnail, value);
-	}
+	[ObservableProperty]
+	public partial BitmapImage? Thumbnail { get; set; }
 
-	public string Kind =>
-		(IsFolder ? Strings.Folder : Strings.File).GetLocalized();
+	public string Kind => (IsFolder ? Strings.Folder : Strings.File).GetLocalized();
 
-	public string ReferenceText =>
-		Reference.LastKnownAddress?.Value ?? Reference.ItemId;
+	public string ReferenceText => Reference.LastKnownAddress?.Value ?? Reference.ItemId;
 
 	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference)
 	{
@@ -40,5 +33,8 @@ public sealed class BrowseItemViewModel : ObservableObject
 		Reference = reference;
 	}
 
-	internal void SetThumbnail(BitmapImage? value) => Thumbnail = value;
+	internal void SetThumbnail(BitmapImage? value)
+	{
+		Thumbnail = value;
+	}
 }

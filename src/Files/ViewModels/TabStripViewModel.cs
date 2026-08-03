@@ -6,11 +6,9 @@ using Files.Commands;
 
 namespace Files.ViewModels;
 
-public sealed class TabStripViewModel : ObservableObject
+public sealed partial class TabStripViewModel : ObservableObject
 {
-	private readonly Action<int> setActiveTabAt;
-
-	private int activeTabIndex = -1;
+	private readonly Action<int> _setActiveTabAt;
 
 	public ObservableCollection<TabViewModel> Tabs { get; }
 
@@ -18,11 +16,8 @@ public sealed class TabStripViewModel : ObservableObject
 
 	public CommandBindingViewModel CloseTabCommand { get; }
 
-	public int ActiveTabIndex
-	{
-		get => activeTabIndex;
-		private set => SetProperty(ref activeTabIndex, value);
-	}
+	[ObservableProperty]
+	public partial int ActiveTabIndex { get; private set; } = -1;
 
 	internal TabStripViewModel(ObservableCollection<TabViewModel> tabs, CommandBindingViewModel newTabCommand, CommandBindingViewModel closeTabCommand, Action<int> setActiveTabAt)
 	{
@@ -34,10 +29,16 @@ public sealed class TabStripViewModel : ObservableObject
 		Tabs = tabs;
 		NewTabCommand = newTabCommand;
 		CloseTabCommand = closeTabCommand;
-		this.setActiveTabAt = setActiveTabAt;
+		_setActiveTabAt = setActiveTabAt;
 	}
 
-	public void SetActiveTabAt(int index) => setActiveTabAt(index);
+	public void SetActiveTabAt(int index)
+	{
+		_setActiveTabAt(index);
+	}
 
-	internal void SetActiveTabIndex(int index) => ActiveTabIndex = index;
+	internal void SetActiveTabIndex(int index)
+	{
+		ActiveTabIndex = index;
+	}
 }
