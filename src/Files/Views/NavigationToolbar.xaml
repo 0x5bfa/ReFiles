@@ -5,7 +5,7 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	x:Name="Root">
 
-	<Grid Padding="8,6" ColumnSpacing="6">
+	<Grid Padding="8,0,8,8" ColumnSpacing="6">
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="Auto" />
 			<ColumnDefinition Width="Auto" />
@@ -16,47 +16,47 @@
 		</Grid.ColumnDefinitions>
 
 		<Button
-			Content="{x:Bind ViewModel.BackCommand.Label, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.BackCommand.ToolTip, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.BackCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.BackCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.BackCommand.IsEnabled, Mode=OneWay}" />
+			Content="{x:Bind ViewModel.BackCommand.Label, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.BackCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.BackCommand.ToolTip, Mode=OneWay}" />
 		<Button
-			Content="{x:Bind ViewModel.ForwardCommand.Label, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.ForwardCommand.ToolTip, Mode=OneWay}"
-			AutomationProperties.Name="{x:Bind ViewModel.ForwardCommand.AutomationName, Mode=OneWay}"
 			Grid.Column="1"
+			AutomationProperties.Name="{x:Bind ViewModel.ForwardCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.ForwardCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.ForwardCommand.IsEnabled, Mode=OneWay}" />
+			Content="{x:Bind ViewModel.ForwardCommand.Label, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.ForwardCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.ForwardCommand.ToolTip, Mode=OneWay}" />
 		<Button
-			Content="{x:Bind ViewModel.UpCommand.Label, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.UpCommand.ToolTip, Mode=OneWay}"
-			AutomationProperties.Name="{x:Bind ViewModel.UpCommand.AutomationName, Mode=OneWay}"
 			Grid.Column="2"
+			AutomationProperties.Name="{x:Bind ViewModel.UpCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.UpCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.UpCommand.IsEnabled, Mode=OneWay}" />
+			Content="{x:Bind ViewModel.UpCommand.Label, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.UpCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.UpCommand.ToolTip, Mode=OneWay}" />
 		<Button
-			Content="{x:Bind ViewModel.HomeCommand.Label, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.HomeCommand.ToolTip, Mode=OneWay}"
-			AutomationProperties.Name="{x:Bind ViewModel.HomeCommand.AutomationName, Mode=OneWay}"
 			Grid.Column="3"
+			AutomationProperties.Name="{x:Bind ViewModel.HomeCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.HomeCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.HomeCommand.IsEnabled, Mode=OneWay}" />
+			Content="{x:Bind ViewModel.HomeCommand.Label, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.HomeCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.HomeCommand.ToolTip, Mode=OneWay}" />
 
 		<TextBox
 			x:Name="PathTextBox"
-			PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
 			Grid.Column="4"
 			MinWidth="260"
 			HorizontalAlignment="Stretch"
 			KeyDown="PathTextBox_KeyDown"
+			PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
 			Text="{x:Bind ViewModel.LocationText, Mode=OneWay}" />
 		<Button
-			Content="{x:Bind ViewModel.RefreshCommand.Label, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.RefreshCommand.ToolTip, Mode=OneWay}"
-			AutomationProperties.Name="{x:Bind ViewModel.RefreshCommand.AutomationName, Mode=OneWay}"
 			Grid.Column="5"
+			AutomationProperties.Name="{x:Bind ViewModel.RefreshCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.RefreshCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}" />
+			Content="{x:Bind ViewModel.RefreshCommand.Label, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.RefreshCommand.ToolTip, Mode=OneWay}" />
 	</Grid>
 </UserControl>

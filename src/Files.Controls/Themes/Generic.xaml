@@ -75,6 +75,11 @@
 		<ResourceDictionary Source="ms-appx:///Files.Controls/BreadcrumbBar/BreadcrumbBar.xaml" />
 		<!--#endregion-->
 
+		<!--#region TabView-->
+		<ResourceDictionary Source="ms-appx:///Files.Controls/TabView/TabView.xaml" />
+		<ResourceDictionary Source="ms-appx:///Files.Controls/TabView/TabViewItem.xaml" />
+		<!--#endregion-->
+
 	</ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

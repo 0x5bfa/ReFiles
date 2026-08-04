@@ -3,45 +3,70 @@
 	x:Class="Files.Views.TabView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:controls="using:Microsoft.UI.Xaml.Controls"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
-	<Grid>
-		<Grid
-			x:Name="TitleBarDragRegion"
-			MinHeight="48"
-			Background="Transparent">
-			<controls:TabView
-				x:Name="NativeTabView"
-				AllowDropTabs="False"
-				CanDragTabs="False"
-				CanReorderTabs="False"
-				IsAddTabButtonVisible="False"
-				SelectedIndex="{x:Bind ViewModel.ActiveTabIndex, Mode=OneWay}"
-				SelectionChanged="NativeTabView_SelectionChanged"
-				TabCloseRequested="NativeTabView_TabCloseRequested"
-				TabItemsSource="{x:Bind ViewModel.Tabs, Mode=OneWay}">
-				<controls:TabView.TabStripHeader>
-					<Button
-						ToolTipService.ToolTip="{x:Bind ViewModel.NewTabCommand.ToolTip, Mode=OneWay}"
-						AutomationProperties.Name="{x:Bind ViewModel.NewTabCommand.AutomationName, Mode=OneWay}"
-						Width="36"
-						Height="36"
-						Margin="4,0"
-						Padding="0"
-						Command="{x:Bind ViewModel.NewTabCommand.Command}"
-						IsEnabled="{x:Bind ViewModel.NewTabCommand.IsEnabled, Mode=OneWay}">
-						<SymbolIcon Symbol="Add" />
-					</Button>
-				</controls:TabView.TabStripHeader>
+	<Grid x:Name="TitleBarDragRegion" Background="Transparent">
+		<TabView
+			x:Name="NativeTabView"
+			Padding="0"
+			AllowDropTabs="False"
+			CanDragTabs="False"
+			CanReorderTabs="False"
+			IsAddTabButtonVisible="False"
+			SelectedIndex="{x:Bind ViewModel.ActiveTabIndex, Mode=OneWay}"
+			SelectionChanged="NativeTabView_SelectionChanged"
+			Style="{StaticResource RoundedTabViewStyle}"
+			TabCloseRequested="NativeTabView_TabCloseRequested"
+			TabItemsSource="{x:Bind ViewModel.Tabs, Mode=OneWay}">
+			<TabView.TabItemTemplate>
+				<DataTemplate x:DataType="vm:TabViewModel">
+					<TabViewItem
+						Header="{x:Bind Title, Mode=OneWay}"
+						Style="{StaticResource RoundedTabViewItemStyle}"
+						ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}" />
+				</DataTemplate>
+			</TabView.TabItemTemplate>
 
-				<controls:TabView.TabItemTemplate>
-					<DataTemplate x:DataType="vm:TabViewModel">
-						<controls:TabViewItem Header="{x:Bind Title}" ToolTipService.ToolTip="{x:Bind Title}" />
-					</DataTemplate>
-				</controls:TabView.TabItemTemplate>
-			</controls:TabView>
-		</Grid>
+			<TabView.TabStripFooter>
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="Auto" />
+						<ColumnDefinition Width="*" />
+						<ColumnDefinition x:Name="RightPaddingColumn" Width="0" />
+					</Grid.ColumnDefinitions>
+
+					<!--  Height is not divisble by four in order to properly align the button  -->
+					<Button
+						x:Name="TabBarAddNewTabButton"
+						Grid.Column="0"
+						Width="30"
+						Height="30"
+						Padding="8"
+						HorizontalAlignment="Left"
+						VerticalAlignment="Center"
+						AllowDrop="True"
+						AutomationProperties.Name="{x:Bind ViewModel.NewTabCommand.AutomationName, Mode=OneWay}"
+						Background="Transparent"
+						BorderThickness="0"
+						Command="{x:Bind ViewModel.NewTabCommand.Command}"
+						IsEnabled="{x:Bind ViewModel.NewTabCommand.IsEnabled, Mode=OneWay}"
+						ToolTipService.ToolTip="{x:Bind ViewModel.NewTabCommand.ToolTip, Mode=OneWay}">
+						<FontIcon FontSize="12" Glyph="&#xE710;" />
+					</Button>
+
+					<!--  Left Side Drag Area  -->
+					<Rectangle
+						x:Name="DragAreaRectangle"
+						Grid.Column="1"
+						Grid.ColumnSpan="2"
+						HorizontalAlignment="Stretch"
+						VerticalAlignment="Stretch"
+						Fill="Transparent" />
+
+				</Grid>
+			</TabView.TabStripFooter>
+
+		</TabView>
 	</Grid>
 </UserControl>

@@ -30,6 +30,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\Files.Controls\Files.Controls.csproj" />
 		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<AdditionalFiles Include="Strings\en-US\Resources.resw" />
 	</ItemGroup>
