@@ -24,6 +24,8 @@ internal sealed class WindowsStorableFactory
 
 	private const int EnumerationBufferSize = 4;
 
+	private const int IdentityWorkerCount = 4;
+
 	private readonly IWindowsShellScheduler _scheduler;
 
 	private readonly IWindowsItemIdReader _itemIdReader;
@@ -144,13 +146,13 @@ internal sealed class WindowsStorableFactory
 			{
 				batchCount++;
 				itemCount += batch.Count;
-				foreach (var item in batch)
+				var identityStartTimestamp = Stopwatch.GetTimestamp();
+				var childDescriptors = CreateDescriptors(batch, cancellationToken);
+				identityDuration += Stopwatch.GetElapsedTime(identityStartTimestamp);
+
+				foreach (var childDescriptor in childDescriptors)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
-
-					var identityStartTimestamp = Stopwatch.GetTimestamp();
-					var childDescriptor = ShellItemHelpers.CreateDescriptor(item, _itemIdReader);
-					identityDuration += Stopwatch.GetElapsedTime(identityStartTimestamp);
 
 					yield return childDescriptor;
 				}
@@ -227,6 +229,20 @@ internal sealed class WindowsStorableFactory
 		return descriptor.Snapshot.IsFolder
 			? new WindowsFolder(descriptor, this)
 			: new WindowsFile(descriptor, this);
+	}
+
+	private WindowsStorableDescriptor[] CreateDescriptors(IReadOnlyList<WindowsStorableDescriptorData> items, CancellationToken cancellationToken)
+	{
+		var descriptors = new WindowsStorableDescriptor[items.Count];
+		var parallelOptions = new ParallelOptions
+		{
+			CancellationToken = cancellationToken,
+			MaxDegreeOfParallelism = IdentityWorkerCount,
+			TaskScheduler = TaskScheduler.Default,
+		};
+		Parallel.For(0, items.Count, parallelOptions, index => descriptors[index] = ShellItemHelpers.CreateDescriptor(items[index], _itemIdReader));
+
+		return descriptors;
 	}
 
 	private async Task<WindowsStorable?> TryCreateFromItemIdCoreAsync(string itemId, StorageAddress? lastKnownAddress, CancellationToken cancellationToken)
