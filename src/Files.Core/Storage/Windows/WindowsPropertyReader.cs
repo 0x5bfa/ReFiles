@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Runtime.Versioning;
+using Files.Core.Diagnostics;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Properties;
 using Files.Core.Storage;
@@ -42,21 +44,32 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			&& context.CoreModel is WindowsStorable;
 	}
 
-	public async ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default)
+	public async ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
+		PropertyRequest request,
+		IReadOnlyList<ItemContext> contexts,
+		CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		ArgumentNullException.ThrowIfNull(contexts);
+
+		var startTimestamp = Stopwatch.GetTimestamp();
+		CoreDiagnosticLog.Write("WindowsPropertyReader", $"GetProperties START propertyCount={request.PropertyIds.Count} contextCount={contexts.Count}");
 
 		var tasks = contexts.Where(CanRead).Select(context => ReadOneAsync(request, context, cancellationToken)).ToArray();
 
 		if (tasks.Length is 0)
 		{
+			CoreDiagnosticLog.Write("WindowsPropertyReader", $"GetProperties END readableContexts=0 elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+
 			return EmptyResults.Instance;
 		}
 
 		var entries = await Task.WhenAll(tasks).ConfigureAwait(false);
 
 		var results = entries.ToDictionary(static entry => entry.Reference, static entry => entry.Properties);
+		CoreDiagnosticLog.Write(
+			"WindowsPropertyReader",
+			$"GetProperties END readableContexts={tasks.Length} resultCount={results.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 		return new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(results);
 	}
@@ -66,7 +79,10 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var source = (WindowsStorageSource)context.Source;
 		var item = (WindowsStorable)context.CoreModel;
 
-		return source.ShellItemResolver.InvokeConcurrentAsync(((WindowsStorable)item).Locator, shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)), cancellationToken);
+		return source.ShellItemResolver.InvokeConcurrentAsync(
+			((WindowsStorable)item).Locator,
+			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)),
+			cancellationToken);
 	}
 
 	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, PropertyRequest request, CancellationToken cancellationToken)

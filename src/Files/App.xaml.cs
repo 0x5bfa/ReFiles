@@ -1,12 +1,12 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Diagnostics;
 using Files.Views;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Core.Composition;
 using Microsoft.UI.Xaml;
+using System.Diagnostics;
 
 namespace Files;
 
@@ -40,14 +40,18 @@ public partial class App : Application
 
 	private async Task LaunchAsync()
 	{
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("App", "Launch START");
 		var currentRuntime = new FilesCoreBuilder()
 			.AddWindowsStorage()
 			.Build();
 		_runtime = currentRuntime;
+		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 		var coreWindow = await currentRuntime.ShellSession
 			.CreateWindowAsync()
 			.ConfigureAwait(true);
+		UiDiagnosticLog.Write("App", $"Core window created elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		if (coreWindow.ActiveTab?.ActivePane is null)
 		{
 			throw new InvalidOperationException("Files.Core did not create an active pane.");
@@ -55,6 +59,7 @@ public partial class App : Application
 
 		_mainWindow = new MainWindow(coreWindow, currentRuntime.Workspace, _commandRegistry, () => currentRuntime.ShellSession.SetActiveWindow(coreWindow.Id), ShutdownAsync);
 		_mainWindow.Activate();
+		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private Task ShutdownAsync()

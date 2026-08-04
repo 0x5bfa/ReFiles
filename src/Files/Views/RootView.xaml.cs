@@ -3,6 +3,7 @@
 
 using Files.ViewModels;
 using Files.Infrastructure;
+using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -48,6 +49,8 @@ public sealed partial class RootView : UserControl, IDisposable
 		}
 
 		_isLoaded = true;
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("RootView", "Loaded START");
 		if (Sidebar.MenuItems.Count > 0)
 		{
 			Sidebar.SelectedItem = Sidebar.MenuItems[0];
@@ -63,6 +66,10 @@ public sealed partial class RootView : UserControl, IDisposable
 		catch (Exception exception)
 		{
 			_viewModel.ReportOperationError(exception);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("RootView", $"Loaded END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 

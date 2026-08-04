@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Diagnostics;
 using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
@@ -116,6 +117,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("RootViewModel", "Initialize START");
 
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -125,9 +128,19 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		}
 
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-		if (ActiveTab?.ActivePane is { } pane)
+
+		try
 		{
-			await pane.FolderBrowser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
+			if (ActiveTab?.ActivePane is { } pane)
+			{
+				var folderStartTimestamp = Stopwatch.GetTimestamp();
+				await pane.FolderBrowser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
+				UiDiagnosticLog.Write("RootViewModel", $"Folder initialization END elapsedMs={Stopwatch.GetElapsedTime(folderStartTimestamp).TotalMilliseconds:F1}");
+			}
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("RootViewModel", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -217,13 +230,17 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	private async Task<bool> LoadNavigationItemsAsync(CancellationToken cancellationToken)
 	{
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("RootViewModel", "LoadNavigationItems START");
 		try
 		{
 			await foreach (var section in _navigationItemLoader.LoadSectionsAsync(cancellationToken).ConfigureAwait(false))
 			{
 				await ApplyNavigationSectionOnUiAsync(section).ConfigureAwait(false);
+				UiDiagnosticLog.Write("RootViewModel", $"Navigation section applied order={section.Order} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			}
 
+			UiDiagnosticLog.Write("RootViewModel", $"LoadNavigationItems END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 			return true;
 		}
@@ -234,6 +251,9 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		}
 		catch (Exception exception)
 		{
+			UiDiagnosticLog.Write(
+				"RootViewModel",
+				$"LoadNavigationItems ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			ReportNavigationLoadError(exception);
 
 			return false;
@@ -323,10 +343,13 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 		NavigationItems.Insert(insertIndex, sectionViewModel);
 		_navigationSectionViewModels.Add(section.Order, sectionViewModel);
+		UiDiagnosticLog.Write("RootViewModel", $"ApplyNavigationSection order={section.Order} items={section.Items.Count} navigationItems={NavigationItems.Count}");
 	}
 
 	private async Task LoadNavigationThumbnailAsync(NavigationItemData item, NavigationItemViewModel viewModel, CancellationToken cancellationToken)
 	{
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail START name={item.Name}");
 		try
 		{
 			await _navigationThumbnailGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -340,6 +363,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 				}
 
 				await SetNavigationThumbnailOnUiAsync(viewModel, thumbnail).ConfigureAwait(false);
+				UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail END name={item.Name} bytes={thumbnail.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			}
 			finally
 			{
@@ -349,8 +373,9 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
 		}
-		catch (Exception)
+		catch (Exception exception)
 		{
+			UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail ERROR name={item.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			// Shell thumbnail loading is best effort.
 		}
 	}
@@ -385,7 +410,9 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	private static async Task SetNavigationThumbnailAsync(NavigationItemViewModel viewModel, byte[] thumbnail)
 	{
+		var startTimestamp = Stopwatch.GetTimestamp();
 		viewModel.SetThumbnail(await ThumbnailImageFactory .CreateAsync(thumbnail) .ConfigureAwait(true));
+		UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail decode END bytes={thumbnail.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private void ReportNavigationLoadError(Exception exception)

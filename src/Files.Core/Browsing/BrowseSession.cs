@@ -1,13 +1,14 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Diagnostics;
+using Files.Core.Diagnostics;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Changes;
 using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
+using System.Diagnostics;
 
 namespace Files.Core.Browsing;
 
@@ -34,6 +35,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	private long _generationCounter;
 	private long _contentVersion;
 	private long _itemsVersion;
+	private long _diagnosticNavigationStartTimestamp;
 	private bool _isDisposed;
 
 	/// <inheritdoc />
@@ -114,6 +116,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 	private async ValueTask NavigateCoreAsync(BrowseLocation location, CancellationToken cancellationToken)
 	{
+		var navigationStartTimestamp = Stopwatch.GetTimestamp();
+		Volatile.Write(ref _diagnosticNavigationStartTimestamp, navigationStartTimestamp);
+		CoreDiagnosticLog.Write("BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
 		IsLoading = true;
 		Error = null;
 		OnStateChanged();
@@ -233,6 +238,10 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 			IsLoading = false;
 			OnStateChanged();
+			CoreDiagnosticLog.Write(
+				"BrowseSession",
+				$"Navigate END location={location.GetType().Name} items={Items.Count} loading={IsLoading} error={Error is not null} " +
+				$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -246,6 +255,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		ref bool activated)
 	{
 		var changes = projection.AddRange(batch);
+		var navigationStartTimestamp = Volatile.Read(ref _diagnosticNavigationStartTimestamp);
+		CoreDiagnosticLog.Write(
+			"BrowseSession",
+			$"PublishEnumerationBatch activated={activated} batchItems={batch.Count} changes={changes.Changes.Count} projectedItems={projection.Items.Count} " +
+			$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 		if (!activated)
 		{
 			previousState = CaptureNavigationState();
@@ -1157,7 +1171,10 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 		var previousVersion = Interlocked.Read(ref _itemsVersion);
 		var version = Interlocked.Increment(ref _itemsVersion);
+		var eventStartTimestamp = Stopwatch.GetTimestamp();
+		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} contentChanged={contentChanged} items={Items.Count}");
 		RaiseEvent(ItemsChanged, new BrowseItemsChangedEventArgs(previousVersion, version, changeSet.Changes));
+		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged END version={version} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private void SetSelectionState(BrowseSelectionState nextSelection)
@@ -1308,7 +1325,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 	private void OnStateChanged()
 	{
+		var eventStartTimestamp = Stopwatch.GetTimestamp();
 		RaiseEvent(StateChanged);
+		CoreDiagnosticLog.Write("BrowseSession", $"StateChanged loading={IsLoading} items={Items.Count} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private NavigationOperation BeginNavigation(CancellationToken cancellationToken)

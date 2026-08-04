@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Diagnostics;
 using System.Globalization;
 using Files.Infrastructure;
 using Files.Localization;
@@ -31,6 +32,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private PendingState? _pendingState;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
 	private long _appliedItemsVersion = -1;
+	private int _diagnosticDrainSequence;
 	private bool _drainQueued;
 	private int _isDisposed;
 
@@ -52,6 +54,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			BrowseSession_ItemPresentationChanged;
 		_pane.BrowseSession.SelectionChanged += BrowseSession_SelectionChanged;
 		QueueInitialSnapshot();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"created items={_items.Count} loading={IsLoading}");
 	}
 
 	public IReadOnlyList<StorableKey> SelectedKeys { get; private set; }
@@ -84,8 +87,17 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		EnsureActive();
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", "Initialize START");
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.NavigateAsync(HomeLocation.Instance, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			await _pane.NavigateAsync(HomeLocation.Instance, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}");
+		}
 	}
 
 	public Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
@@ -96,6 +108,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath START path={path}");
+
 		if (string.Equals(path, Strings.Home.GetLocalized(), StringComparison.OrdinalIgnoreCase) || string.Equals(path, "Home", StringComparison.OrdinalIgnoreCase))
 		{
 			await InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -104,19 +119,28 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		var model = await _workspace.ResolveAsync(new StorageAddress("file", path), linkedCancellation.Token).ConfigureAwait(false);
 		try
 		{
-			if (model is not IFolderModel)
+			var resolveStartTimestamp = Stopwatch.GetTimestamp();
+			var model = await _workspace.ResolveAsync(new StorageAddress("file", path), linkedCancellation.Token).ConfigureAwait(false);
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath resolved elapsedMs={Stopwatch.GetElapsedTime(resolveStartTimestamp).TotalMilliseconds:F1} model={model.GetType().Name}");
+			try
 			{
-				throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Strings.NotFolderFormat.GetLocalized(), path));
-			}
+				if (model is not IFolderModel)
+				{
+					throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Strings.NotFolderFormat.GetLocalized(), path));
+				}
 
-			await _pane.NavigateAsync(new FolderLocation(model.Reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+				await _pane.NavigateAsync(new FolderLocation(model.Reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+			}
+			finally
+			{
+				await model.DisposeAsync().ConfigureAwait(false);
+			}
 		}
 		finally
 		{
-			await model.DisposeAsync().ConfigureAwait(false);
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}");
 		}
 	}
 
@@ -139,46 +163,93 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(reference);
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToReference START id={reference.ItemId}");
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.NavigateAsync(new FolderLocation(reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			await _pane.NavigateAsync(new FolderLocation(reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToReference END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}");
+		}
 	}
 
 	public async Task GoBackAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", "GoBack START");
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.GoBackAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			await _pane.GoBackAsync(linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"GoBack END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+		}
 	}
 
 	public async Task GoForwardAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", "GoForward START");
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.GoForwardAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			await _pane.GoForwardAsync(linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"GoForward END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+		}
 	}
 
 	public async Task GoUpAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", "GoUp START");
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.GoUpAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			await _pane.GoUpAsync(linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"GoUp END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+		}
 	}
 
 	public async Task RefreshAsync(CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 
+		var startTimestamp = Stopwatch.GetTimestamp();
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", "Refresh START");
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			await _pane.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"Refresh END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+		}
 	}
 
 	public void UpdateViewport(BrowseViewport viewport)
 	{
 		EnsureActive();
 
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"UpdateViewport first={viewport.FirstVisibleIndex} visible={viewport.VisibleCount} lookAhead={viewport.LookAheadCount}");
 		_prefetch.UpdateViewport(viewport, _pane.BrowseSession.ViewSettings, _pane.BrowseSession.Generation);
 	}
 
@@ -277,7 +348,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void BrowseSession_ItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
+		var projectionStartTimestamp = Stopwatch.GetTimestamp();
 		var changes = args.Changes.Select(ProjectChange).ToArray();
+		UiDiagnosticLog.Write(
+			"BrowsePresentationAdapter",
+			$"ItemsChanged version={args.Version} previous={args.PreviousVersion} changes={args.Changes.Count} projected={changes.Length} " +
+			$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.Items.Count}");
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.Enqueue(new PendingItemBatch(args.PreviousVersion, args.Version, changes));
@@ -299,6 +375,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void BrowseSession_ItemPresentationChanged(object? sender, BrowseItemPresentationChangedEventArgs args)
 	{
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"ItemPresentationChanged key={args.Key} hasThumbnail={args.Presentation.Thumbnail is not null}");
 		lock (_pendingLock)
 		{
 			_pendingThumbnails[args.Key] = args.Presentation.Thumbnail;
@@ -311,6 +388,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		var session = _pane.BrowseSession;
 		var reset = new BrowseItemViewModelsReset(session.Items.Select(CreateItemViewModel).ToArray());
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"QueueInitialSnapshot items={reset.Items.Count} version={session.ItemsVersion}");
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.Enqueue(new PendingItemBatch(-1, session.ItemsVersion, [reset]));
@@ -331,6 +409,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void ScheduleDrain()
 	{
+		int pendingBatchCount;
+		int pendingThumbnailCount;
 		lock (_pendingLock)
 		{
 			if (_drainQueued || Volatile.Read(ref _isDisposed) is not 0)
@@ -339,6 +419,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			_drainQueued = true;
+			pendingBatchCount = _pendingItemBatches.Count;
+			pendingThumbnailCount = _pendingThumbnails.Count;
 		}
 
 		if (!_dispatcher.TryEnqueue(DrainPendingUpdates))
@@ -353,10 +435,16 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				throw new InvalidOperationException("The Files UI dispatcher rejected a Core update.");
 			}
 		}
+		else
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"Drain queued pendingBatches={pendingBatchCount} _pendingThumbnails={pendingThumbnailCount}");
+		}
 	}
 
 	private void DrainPendingUpdates()
 	{
+		var drainStartTimestamp = Stopwatch.GetTimestamp();
+		var drainSequence = Interlocked.Increment(ref _diagnosticDrainSequence);
 		PendingItemBatch[] itemBatches;
 		bool hasPendingItemBatches;
 		PendingState? state;
@@ -378,6 +466,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingThumbnails.Clear();
 			_drainQueued = false;
 		}
+		var pendingItemCount = itemBatches.Sum(batch => GetItemCount(batch.Changes));
+		UiDiagnosticLog.Write(
+			"BrowsePresentationAdapter",
+			$"Drain START sequence={drainSequence} batches={itemBatches.Length} items={pendingItemCount} thumbnails={thumbnails.Length} hasPending={hasPendingItemBatches}");
+
 		var appliedChanges = new List<BrowseItemViewModelChange>();
 		foreach (var batch in itemBatches)
 		{
@@ -415,7 +508,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 		if (appliedChanges.Count > 0 || state is not null || selection is not null)
 		{
+			var updateStartTimestamp = Stopwatch.GetTimestamp();
 			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges));
+			UiDiagnosticLog.Write(
+				"BrowsePresentationAdapter",
+				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
 
 		foreach (var thumbnail in thumbnails)
@@ -427,6 +524,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		{
 			ScheduleDrain();
 		}
+
+		UiDiagnosticLog.Write(
+			"BrowsePresentationAdapter",
+			$"Drain END sequence={drainSequence} adapterItems={_items.Count} loading={IsLoading} elapsedMs={Stopwatch.GetElapsedTime(drainStartTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private PendingItemBatch[] TakePendingItemBatchesLocked(out bool hasPendingItemBatches)

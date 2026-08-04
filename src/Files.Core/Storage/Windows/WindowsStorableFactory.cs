@@ -1,9 +1,11 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
+using Files.Core.Diagnostics;
 using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -115,22 +117,42 @@ internal sealed class WindowsStorableFactory
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
-		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize) { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, });
+		var enumerationStartTimestamp = Stopwatch.GetTimestamp();
+		var batchCount = 0;
+		var itemCount = 0;
+		var identityDuration = TimeSpan.Zero;
+		CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Snapshot.Name} parsingName={descriptor.Locator.ParsingName}");
+
+		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize)
+		{
+			SingleReader = true,
+			SingleWriter = true,
+			FullMode = BoundedChannelFullMode.Wait,
+		});
 		using var enumerationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
 		Task? producer = null;
 		try
 		{
-			var scheduledProducer = _resolver.InvokeConcurrentAsync(descriptor.Locator, shellItem => EnumerateChildrenOnCurrentSta(shellItem, batches.Writer, enumerationCancellation.Token), enumerationCancellation.Token);
+			var scheduledProducer = _resolver.InvokeConcurrentAsync(
+				descriptor.Locator,
+				shellItem => EnumerateChildrenOnCurrentSta(shellItem, batches.Writer, enumerationCancellation.Token),
+				enumerationCancellation.Token);
 			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
 			await foreach (var batch in batches.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
 			{
+				batchCount++;
+				itemCount += batch.Count;
 				foreach (var item in batch)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 
-					yield return ShellItemHelpers.CreateDescriptor(item, _itemIdReader);
+					var identityStartTimestamp = Stopwatch.GetTimestamp();
+					var childDescriptor = ShellItemHelpers.CreateDescriptor(item, _itemIdReader);
+					identityDuration += Stopwatch.GetElapsedTime(identityStartTimestamp);
+
+					yield return childDescriptor;
 				}
 			}
 
@@ -151,6 +173,8 @@ internal sealed class WindowsStorableFactory
 				{
 				}
 			}
+
+			CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate END name={descriptor.Snapshot.Name} batches={batchCount} items={itemCount} identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -264,6 +288,14 @@ internal sealed class WindowsStorableFactory
 
 	private static unsafe bool EnumerateChildrenOnCurrentSta(IShellItem shellItem, ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer, CancellationToken cancellationToken)
 	{
+		var enumerationStartTimestamp = Stopwatch.GetTimestamp();
+		var batchCount = 0;
+		var itemCount = 0;
+		var nextCallCount = 0;
+		var nextDuration = TimeSpan.Zero;
+		var descriptorDuration = TimeSpan.Zero;
+		var channelWriteDuration = TimeSpan.Zero;
+		CoreDiagnosticLog.Write("WindowsStorableFactory", "EnumerateOnSTA START");
 		try
 		{
 			var bindResult = shellItem.BindToHandler(null, PInvoke.BHID_EnumItems, out IEnumShellItems? enumerator);
@@ -281,8 +313,11 @@ internal sealed class WindowsStorableFactory
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 
+				var nextStartTimestamp = Stopwatch.GetTimestamp();
 				uint fetched = 0;
 				var result = enumerator.Next((uint)children.Length, children, &fetched);
+				nextCallCount++;
+				nextDuration += Stopwatch.GetElapsedTime(nextStartTimestamp);
 
 				if (result == HRESULT.S_FALSE && fetched is 0)
 				{
@@ -300,11 +335,17 @@ internal sealed class WindowsStorableFactory
 				{
 					var child = children[index];
 					children[index] = null!;
+					var descriptorStartTimestamp = Stopwatch.GetTimestamp();
 					batch.Add(ShellItemHelpers.CreateDescriptorData(child));
+					descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
+					itemCount++;
 
 					if (batch.Count >= EnumerationBatchSize)
 					{
+						batchCount++;
+						var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
 						WriteBatch(writer, batch, cancellationToken);
+						channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
 						batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
 					}
 				}
@@ -317,15 +358,22 @@ internal sealed class WindowsStorableFactory
 
 			if (batch.Count > 0)
 			{
+				batchCount++;
+				var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
 				WriteBatch(writer, batch, cancellationToken);
+				channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
 			}
 
 			writer.TryComplete();
+			CoreDiagnosticLog.Write("WindowsStorableFactory", $"EnumerateOnSTA END batches={batchCount} items={itemCount} nextCalls={nextCallCount} nextMs={nextDuration.TotalMilliseconds:F1} descriptorMs={descriptorDuration.TotalMilliseconds:F1} channelWriteMs={channelWriteDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 
 			return true;
 		}
 		catch (Exception exception)
 		{
+			CoreDiagnosticLog.Write(
+				"WindowsStorableFactory",
+				$"EnumerateOnSTA ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 			writer.TryComplete(exception);
 			throw;
 		}

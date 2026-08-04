@@ -15,6 +15,8 @@ internal sealed class FolderViewInteraction : IDisposable
 	private readonly ListViewBase listView;
 	private readonly FolderBrowserViewModel viewModel;
 	private readonly HashSet<int> realizedIndices = [];
+	private int _containerContentChangeCount;
+	private int _viewportUpdateCount;
 	private bool synchronizingSelection;
 	private bool viewportUpdateQueued;
 	private bool isDisposed;
@@ -23,6 +25,7 @@ internal sealed class FolderViewInteraction : IDisposable
 	{
 		this.listView = listView;
 		this.viewModel = viewModel;
+		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
 
 		listView.DoubleTapped += ListView_DoubleTapped;
 		listView.SelectionChanged += ListView_SelectionChanged;
@@ -44,6 +47,7 @@ internal sealed class FolderViewInteraction : IDisposable
 		listView.ContainerContentChanging -= ListView_ContainerContentChanging;
 		viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		realizedIndices.Clear();
+		UiDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
 	}
 
 	private async void ListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -66,6 +70,12 @@ internal sealed class FolderViewInteraction : IDisposable
 
 	private void ListView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
 	{
+		var eventCount = Interlocked.Increment(ref _containerContentChangeCount);
+		if (eventCount <= 10 || eventCount % 100 is 0)
+		{
+			UiDiagnosticLog.Write("FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={args.ItemIndex} recycled={args.InRecycleQueue} realizedBefore={realizedIndices.Count}");
+		}
+
 		if (args.InRecycleQueue)
 		{
 			realizedIndices.Remove(args.ItemIndex);
@@ -99,6 +109,9 @@ internal sealed class FolderViewInteraction : IDisposable
 		{
 			return;
 		}
+
+		var updateCount = Interlocked.Increment(ref _viewportUpdateCount);
+		UiDiagnosticLog.Write("FolderViewInteraction", $"UpdateViewport count={updateCount} realized={realizedIndices.Count} items={viewModel.Items.Count}");
 
 		if (realizedIndices.Count is 0)
 		{

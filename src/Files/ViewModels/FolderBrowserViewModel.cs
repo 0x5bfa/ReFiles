@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Diagnostics;
 using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
@@ -164,6 +165,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
 	{
+		var updateStartTimestamp = Stopwatch.GetTimestamp();
 		var itemCountBefore = Items.Count;
 		var wasLoading = _wasLoading;
 		_wasLoading = _browseAdapter.IsLoading;
@@ -175,9 +177,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 			if (args.ItemChanges.Count is not 0)
 			{
 				var shouldReplaceItems = ShouldReplaceItems(args.ItemChanges, wasLoading, _browseAdapter.IsLoading);
+		UiDiagnosticLog.Write(
+			"FolderBrowserViewModel",
+			$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}");
 				if (shouldReplaceItems)
 				{
+					var replaceStartTimestamp = Stopwatch.GetTimestamp();
 					Items.ReplaceAll(_browseAdapter.Items);
+					UiDiagnosticLog.Write("FolderBrowserViewModel", $"ReplaceAll completed items={Items.Count} elapsedMs={Stopwatch.GetElapsedTime(replaceStartTimestamp).TotalMilliseconds:F1}");
 				}
 				else
 				{
@@ -198,6 +205,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		finally
 		{
 			_isApplyingUpdate = false;
+			UiDiagnosticLog.Write(
+				"FolderBrowserViewModel",
+				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -229,6 +239,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 						Items.InsertRange(firstAdded.Index, addedItems);
 					}
 
+					UiDiagnosticLog.Write("FolderBrowserViewModel", $"Applied range index={firstAdded.Index} count={addedItems.Count} append={firstAdded.Index == Items.Count - addedItems.Count}");
 					changeIndex = nextChangeIndex;
 
 					continue;

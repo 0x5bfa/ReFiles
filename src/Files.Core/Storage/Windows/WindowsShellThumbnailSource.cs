@@ -1,7 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Diagnostics;
 using System.Runtime.Versioning;
+using Files.Core.Diagnostics;
 using Files.Core.ItemFeatures.Thumbnails;
 
 namespace Files.Core.Storage.Windows;
@@ -28,10 +30,27 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
-		var payload = await _resolver.InvokeConcurrentAsync(_locator, shellItem => _backend.GetThumbnail(shellItem, _locator, request, cancellationToken), cancellationToken).ConfigureAwait(false);
+		var startTimestamp = Stopwatch.GetTimestamp();
+		CoreDiagnosticLog.Write("WindowsShellThumbnailSource", $"GetThumbnail START size={request.RequestedPixelSize} mode={request.Mode} parsingName={_locator.ParsingName}");
 
-		return payload is null
-			? null
-			: new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback);
+		try
+		{
+			var payload = await _resolver.InvokeConcurrentAsync(_locator, shellItem => _backend.GetThumbnail(shellItem, _locator, request, cancellationToken), cancellationToken).ConfigureAwait(false);
+			CoreDiagnosticLog.Write(
+				"WindowsShellThumbnailSource",
+				$"GetThumbnail END hasResult={payload is not null} bytes={payload?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+
+			return payload is null
+				? null
+				: new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback);
+		}
+		catch (Exception exception)
+		{
+			CoreDiagnosticLog.Write(
+				"WindowsShellThumbnailSource",
+				$"GetThumbnail ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+
+			throw;
+		}
 	}
 }
