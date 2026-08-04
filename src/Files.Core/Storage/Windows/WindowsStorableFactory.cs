@@ -275,27 +275,43 @@ internal sealed class WindowsStorableFactory
 			}
 
 			var batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
-			var children = new IShellItem[1];
-			uint fetched = 0;
+			var children = new IShellItem[EnumerationBatchSize];
 
 			while (true)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 
-				var result = enumerator.Next(1, children, &fetched);
+				uint fetched = 0;
+				var result = enumerator.Next((uint)children.Length, children, &fetched);
 
-				if (result == HRESULT.S_FALSE)
+				if (result == HRESULT.S_FALSE && fetched is 0)
 				{
 					break;
 				}
 
 				result.ThrowOnFailure();
-				batch.Add(ShellItemHelpers.CreateDescriptorData(children[0]));
-
-				if (batch.Count >= EnumerationBatchSize)
+				if (fetched is 0)
 				{
-					WriteBatch(writer, batch, cancellationToken);
-					batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
+					break;
+				}
+
+				var fetchedCount = checked((int)fetched);
+				for (var index = 0; index < fetchedCount; index++)
+				{
+					var child = children[index];
+					children[index] = null!;
+					batch.Add(ShellItemHelpers.CreateDescriptorData(child));
+
+					if (batch.Count >= EnumerationBatchSize)
+					{
+						WriteBatch(writer, batch, cancellationToken);
+						batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
+					}
+				}
+
+				for (var index = fetchedCount; index < children.Length; index++)
+				{
+					children[index] = null!;
 				}
 			}
 
