@@ -29,7 +29,7 @@ public sealed class BrowsePreviewModelTests
 		{
 			LocationModelFactory = _ => folder,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(folder.Reference));
 		await using var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
 
@@ -68,7 +68,7 @@ public sealed class BrowsePreviewModelTests
 			LocationModelFactory = _ =>
 				resolverLocations.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(firstFolder.Reference));
 		await using var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
 
@@ -108,7 +108,7 @@ public sealed class BrowsePreviewModelTests
 		{
 			LocationModelFactory = _ => folder,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(folder.Reference));
 		await using var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
 
@@ -136,7 +136,7 @@ public sealed class BrowsePreviewModelTests
 		{
 			LocationModelFactory = _ => folder,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(folder.Reference));
 		var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
 		session.SetSelection([item.Reference.GetKey()], item.Reference.GetKey(), null);

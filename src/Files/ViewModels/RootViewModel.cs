@@ -6,17 +6,17 @@ using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Files.Core.Browsing;
-using Files.Core.Data;
+using Files.Presentation;
 
 namespace Files.ViewModels;
 
 public sealed partial class RootViewModel : ObservableObject, IDisposable
 {
-	private readonly WindowModel _window;
+	private readonly WindowSession _window;
 
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly WindowPresentationFactory _presentationFactory;
 
 	private readonly IUIDispatcher _dispatcher;
 
@@ -90,27 +90,26 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	public string StatusText => _operationError ?? ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
 
-	public RootViewModel(WindowModel window, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, CommandRegistry commandRegistry)
+	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory)
 	{
 		ArgumentNullException.ThrowIfNull(window);
-		ArgumentNullException.ThrowIfNull(dataRoot);
-		ArgumentNullException.ThrowIfNull(dispatcher);
-		ArgumentNullException.ThrowIfNull(commandRegistry);
+		ArgumentNullException.ThrowIfNull(presentationFactory);
 
 		_window = window;
-		_dataRoot = dataRoot;
-		_dispatcher = dispatcher;
-		_navigationItemLoader = new NavigationItemLoader(dataRoot);
+		_presentationFactory = presentationFactory;
+		_dispatcher = presentationFactory.Dispatcher;
+		_navigationItemLoader = presentationFactory.CreateNavigationItemLoader();
 		Tabs = [];
 		NavigationItems = [];
 		HomeNavigationItem = NavigationItemViewModel.CreateHome(Strings.Home.GetLocalized());
 		NavigationItems.Add(HomeNavigationItem);
-		_commandManager = new WindowCommandManager(this, commandRegistry, dispatcher);
+		_commandManager = presentationFactory.CreateCommandManager(this);
 		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
 		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
 		Toolbar = new(NewPaneCommand, ClosePaneCommand, LayoutDetailsCommand, LayoutListCommand, LayoutGridCommand);
 
-		window.StateChanged += Window_StateChanged;
+		window.TabsChanged += Window_StateChanged;
+		window.ActiveTabChanged += Window_StateChanged;
 		RefreshFromCore();
 	}
 
@@ -126,7 +125,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		}
 
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-
 		if (ActiveTab?.ActivePane is { } pane)
 		{
 			await pane.FolderBrowser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
@@ -197,7 +195,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		}
 
 		_lifetime.Cancel();
-		_window.StateChanged -= Window_StateChanged;
+		_window.TabsChanged -= Window_StateChanged;
+		_window.ActiveTabChanged -= Window_StateChanged;
 		NavigationToolbar.Dispose();
 		Toolbar.Dispose();
 		_commandManager.Dispose();
@@ -224,6 +223,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 			{
 				await ApplyNavigationSectionOnUiAsync(section).ConfigureAwait(false);
 			}
+
 
 			return true;
 		}
@@ -470,7 +470,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 			{
 				if (!_tabViewModels.ContainsKey(coreTab.Id))
 				{
-					var tabViewModel = new TabViewModel(coreTab, _dataRoot, _dispatcher, _commandManager);
+					var tabViewModel = _presentationFactory.CreateTab(coreTab, _commandManager);
 					tabViewModel.PropertyChanged += TabViewModel_PropertyChanged;
 					_tabViewModels[coreTab.Id] = tabViewModel;
 				}

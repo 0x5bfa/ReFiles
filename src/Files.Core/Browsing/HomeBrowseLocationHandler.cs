@@ -10,17 +10,21 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed class HomeBrowseLocationHandler : IBrowseLocationHandler
 {
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly IStorageWorkspace _workspace;
 
-	public HomeBrowseLocationHandler(IFilesDataRoot dataRoot)
+	/// <summary>Initializes a home browse location handler.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	public HomeBrowseLocationHandler(IStorageWorkspace workspace)
 	{
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
 
-		_dataRoot = dataRoot;
+		_workspace = workspace;
 	}
 
+	/// <inheritdoc />
 	public bool CanHandle(BrowseLocation location) => location is HomeLocation;
 
+	/// <inheritdoc />
 	public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		if (location is not HomeLocation homeLocation)
@@ -30,6 +34,6 @@ public sealed class HomeBrowseLocationHandler : IBrowseLocationHandler
 
 		cancellationToken.ThrowIfCancellationRequested();
 
-		return ValueTask.FromResult<IBrowseLocationContext>(new HomeBrowseLocationContext(homeLocation, _dataRoot));
+		return ValueTask.FromResult<IBrowseLocationContext>(new HomeBrowseLocationContext(homeLocation, _workspace));
 	}
 }

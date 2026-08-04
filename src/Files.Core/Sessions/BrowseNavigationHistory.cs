@@ -3,20 +3,26 @@
 
 using Files.Core.Browsing;
 
-namespace Files.Core.AppModels;
+namespace Files.Core.Sessions;
 
 /// <summary>
 /// Immutable representation of a pane's navigation history.
 /// </summary>
 public sealed record BrowseNavigationHistorySnapshot
 {
+	/// <summary>Gets the committed locations.</summary>
 	public IReadOnlyList<BrowseLocation> Entries { get; }
 
+	/// <summary>Gets the index of the current location.</summary>
 	public int CurrentIndex { get; }
 
+	/// <summary>Gets the current location.</summary>
 	public BrowseLocation? Current =>
 		CurrentIndex < 0 ? null : Entries[CurrentIndex];
 
+	/// <summary>Initializes an immutable navigation history snapshot.</summary>
+	/// <param name="entries">The committed locations.</param>
+	/// <param name="currentIndex">The current entry index, or <c>-1</c> for an empty history.</param>
 	public BrowseNavigationHistorySnapshot(IEnumerable<BrowseLocation> entries, int currentIndex)
 	{
 		ArgumentNullException.ThrowIfNull(entries);
@@ -61,8 +67,10 @@ public sealed class BrowseNavigationHistory
 
 	private int _currentIndex = -1;
 
+	/// <summary>Gets the committed locations.</summary>
 	public IReadOnlyList<BrowseLocation> Entries => Volatile.Read(ref _snapshot);
 
+	/// <summary>Gets the index of the current location.</summary>
 	public int CurrentIndex
 	{
 		get
@@ -74,6 +82,7 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
+	/// <summary>Gets the current location.</summary>
 	public BrowseLocation? Current
 	{
 		get
@@ -85,6 +94,7 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
+	/// <summary>Gets a value indicating whether a previous location exists.</summary>
 	public bool CanGoBack
 	{
 		get
@@ -96,6 +106,7 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
+	/// <summary>Gets a value indicating whether a following location exists.</summary>
 	public bool CanGoForward
 	{
 		get
@@ -107,8 +118,11 @@ public sealed class BrowseNavigationHistory
 		}
 	}
 
+	/// <summary>Occurs when the committed history changes.</summary>
 	public event EventHandler? Changed;
 
+	/// <summary>Initializes an empty bounded navigation history.</summary>
+	/// <param name="capacity">The maximum number of retained locations.</param>
 	public BrowseNavigationHistory(int capacity = _defaultCapacity)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
@@ -116,6 +130,8 @@ public sealed class BrowseNavigationHistory
 		_capacity = capacity;
 	}
 
+	/// <summary>Captures an immutable history snapshot.</summary>
+	/// <returns>The captured snapshot.</returns>
 	public BrowseNavigationHistorySnapshot Capture()
 	{
 		lock (_syncRoot)
@@ -167,7 +183,7 @@ public sealed class BrowseNavigationHistory
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, Changed);
+			SessionEvent.Raise(this, Changed);
 		}
 	}
 
@@ -199,7 +215,7 @@ public sealed class BrowseNavigationHistory
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, Changed);
+			SessionEvent.Raise(this, Changed);
 		}
 	}
 
@@ -247,7 +263,7 @@ public sealed class BrowseNavigationHistory
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, Changed);
+			SessionEvent.Raise(this, Changed);
 		}
 
 		return true;
@@ -273,7 +289,7 @@ public sealed class BrowseNavigationHistory
 			UpdateSnapshot();
 		}
 
-		ModelEvent.Raise(this, Changed);
+		SessionEvent.Raise(this, Changed);
 	}
 
 	private void UpdateSnapshot()

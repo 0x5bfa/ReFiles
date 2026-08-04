@@ -12,7 +12,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Files.UnitTests;
 
 [TestClass]
-public sealed class BrowseSessionModelTests
+public sealed class BrowseSessionTests
 {
 	[TestMethod]
 	public async Task PublishesEnumerationBatchesBeforeEnumerationCompletes()
@@ -27,7 +27,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		var firstBatch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var publishedBatchCount = 0;
 		session.ItemsChanged += (_, _) =>
@@ -62,7 +62,7 @@ public sealed class BrowseSessionModelTests
 			EnumerationStarted = enumerationStarted,
 			BlockEnumeration = true,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		var firstNavigation = session.NavigateAsync(new FolderLocation(firstLocation.Reference)).AsTask();
 		await enumerationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -84,7 +84,7 @@ public sealed class BrowseSessionModelTests
 		var first = factory.CreateModel("first", "First", out var firstCore);
 		var second = factory.CreateModel("second", "Second", out var secondCore);
 		var resolver = new TestBrowseLocationResolver([first]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(first.Reference));
 		Assert.AreSame(first, session.Items.Single());
@@ -107,7 +107,7 @@ public sealed class BrowseSessionModelTests
 		var current = factory.CreateModel("current", "Current", out var currentCore);
 		var partial = factory.CreateModel("partial", "Partial", out var partialCore);
 		var resolver = new TestBrowseLocationResolver([current]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(current.Reference));
 
 		resolver.Items.Clear();
@@ -130,7 +130,7 @@ public sealed class BrowseSessionModelTests
 		var next = factory.CreateModel("next", "Next", out var nextCore);
 		var enumerationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var resolver = new TestBrowseLocationResolver([current]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(current.Reference));
 
 		resolver.Items.Clear();
@@ -157,7 +157,7 @@ public sealed class BrowseSessionModelTests
 		var factory = new TestModelFactory();
 		var item = factory.CreateModel("item", "Item", out var itemCore);
 		var resolver = new TestBrowseLocationResolver([item]);
-		var session = new BrowseSessionModel(resolver);
+		var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(item.Reference));
 		var context = resolver.OpenedContexts.Single();
 
@@ -180,7 +180,7 @@ public sealed class BrowseSessionModelTests
 			LocationModelFactory = _ => locationModel,
 			EnumerationGuard = () => changeSource.IsStarted,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 
@@ -201,7 +201,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		session.StateChanged += (_, _) =>
 		{
 			if (resolver.OpenedContexts.Count is 2 && !session.IsLoading && ReferenceEquals(session.Context, resolver.OpenedContexts[1]))
@@ -234,7 +234,7 @@ public sealed class BrowseSessionModelTests
 			LocationModelFactory = _ => locationModels.Dequeue(),
 			ItemResolver = (_, _) => ValueTask.FromResult<IStorableModel>(created),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 
 		resolver.EnumerationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -268,7 +268,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		session.StateChanged += (_, _) =>
 		{
 			if (resolver.OpenedContexts.Count is 2 && !session.IsLoading && ReferenceEquals(session.Context, resolver.OpenedContexts[1]))
@@ -303,7 +303,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(firstModel.Reference));
 		await session.NavigateAsync(new FolderLocation(secondModel.Reference));
@@ -331,7 +331,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		session.StateChanged += (_, _) =>
 		{
 			if (session.Error is not null && !session.IsLoading)
@@ -364,7 +364,7 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var created = factory.CreateModel("created", "Created", out _);
 		var resolver = CreateIncrementalResolver(locationModel, created, created.Reference);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false));
@@ -383,7 +383,7 @@ public sealed class BrowseSessionModelTests
 		var created = factory.CreateModel("created", "Created", out _);
 		var resolveCount = 0;
 		var resolver = CreateIncrementalResolver(locationModel, created, created.Reference, itemResolver: (_, _) => { resolveCount++; return ValueTask.FromResult<IStorableModel>(created); });
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var change = new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false);
@@ -405,7 +405,7 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var deleted = factory.CreateModel("deleted", "Deleted", out var deletedCore);
 		var resolver = CreateIncrementalResolver(locationModel, deleted, deleted.Reference, items: [deleted]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, deleted.Reference, RequiresRefresh: false));
@@ -425,7 +425,7 @@ public sealed class BrowseSessionModelTests
 		var replacement = factory.CreateModel("item", "After", out _);
 		var currentReference = new StorableReference(previous.Reference.SourceId, previous.Reference.ItemId, new StorageAddress("test", "renamed"));
 		var resolver = CreateIncrementalResolver(locationModel, replacement, currentReference, items: [previous]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, currentReference, previous.Reference, RequiresRefresh: false));
@@ -446,7 +446,7 @@ public sealed class BrowseSessionModelTests
 		var replacement = factory.CreateModel("item", "After", out _);
 		var cache = new TestThumbnailCache();
 		var resolver = CreateIncrementalResolver(locationModel, replacement, previous.Reference, items: [previous]);
-		using var session = new BrowseSessionModel(resolver, thumbnailCache: cache);
+		using var session = new BrowseSession(resolver, thumbnailCache: cache);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		source.RaiseChange(new FolderChange(FolderChangeKind.Updated, replacement.Reference, null, RequiresRefresh: false));
@@ -479,7 +479,7 @@ public sealed class BrowseSessionModelTests
 
 				return ValueTask.FromResult<IStorableModel>(renamed);
 			});
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var renamedReference = new StorableReference(created.Reference.SourceId, created.Reference.ItemId, new StorageAddress("test", "renamed"));
@@ -509,7 +509,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 		resolver.Items.Clear();
@@ -549,7 +549,7 @@ public sealed class BrowseSessionModelTests
 				&& folderLocation.Folder == firstLocation.Reference
 				? firstLocation
 				: secondLocation;
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 		firstSource.RaiseChange(new FolderChange(FolderChangeKind.Created, created.Reference, null, RequiresRefresh: false));
@@ -575,7 +575,7 @@ public sealed class BrowseSessionModelTests
 		var locationModels = new Queue<IStorableModel>([ locationModel, failedLocationModel]);
 		var resolver = CreateIncrementalResolver(locationModel, current, current.Reference, items: [current], itemResolver: (_, _) => throw new InvalidOperationException("resolve failed"));
 		resolver.LocationModelFactory = _ => locationModels.Dequeue();
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		resolver.Items.Clear();
@@ -600,7 +600,7 @@ public sealed class BrowseSessionModelTests
 		var replacement = factory.CreateModel("item", "After", out _);
 		var currentReference = new StorableReference(previous.Reference.SourceId, previous.Reference.ItemId, new StorageAddress("test", "renamed"));
 		var resolver = CreateIncrementalResolver(locationModel, replacement, currentReference, items: [previous]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		var itemChanges = new List<BrowseItemsChangedEventArgs>();
 		session.ItemsChanged += (_, args) => itemChanges.Add(args);
 
@@ -628,7 +628,7 @@ public sealed class BrowseSessionModelTests
 		var previous = factory.CreateModel("old", "Before", out _);
 		var replacement = factory.CreateModel("new", "After", out _);
 		var resolver = CreateIncrementalResolver(locationModel, replacement, replacement.Reference, items: [previous]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var previousKey = previous.Reference.GetKey();
@@ -650,7 +650,7 @@ public sealed class BrowseSessionModelTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
 		var item = factory.CreateModel("item", "Item", out _);
 		var resolver = CreateIncrementalResolver(locationModel, item, item.Reference, items: [item]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		var selectionChanged = 0;
 		session.SelectionChanged += (_, _) => selectionChanged++;
 
@@ -677,7 +677,7 @@ public sealed class BrowseSessionModelTests
 		var other = factory.CreateModel("second", "Gamma", out _);
 		var replacement = factory.CreateModel("first", "Zulu", out _);
 		var resolver = CreateIncrementalResolver(locationModel, replacement, replacement.Reference, items: [previous, other]);
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		var itemChanges = new List<BrowseItemChange>();
 		session.ItemsChanged += (_, args) => itemChanges.AddRange(args.Changes);
 
@@ -703,7 +703,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 
@@ -723,7 +723,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var changes = new List<BrowseItemChange>();
 		session.ItemsChanged += (_, args) => changes.AddRange(args.Changes);
@@ -745,7 +745,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		var laterHandlerCalled = false;
 		session.ItemsChanged += (_, _) => throw new InvalidOperationException("subscriber failed");
 		session.ItemsChanged += (_, _) => laterHandlerCalled = true;
@@ -775,7 +775,7 @@ public sealed class BrowseSessionModelTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 		var selectedKey = selected.Reference.GetKey();
@@ -800,7 +800,7 @@ public sealed class BrowseSessionModelTests
 		using var model = factory.CreateModel("folder", "Folder", out _);
 		var location = new FolderLocation(model.Reference);
 		var settingsStore = new TestViewSettingsStore();
-		using var session = new BrowseSessionModel(new TestBrowseLocationResolver([]), settingsStore);
+		using var session = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
 
 		await session.NavigateAsync(location);
 		var settings = new BrowseViewSettings(ViewLayoutMode.List, sortPropertyId: "name");

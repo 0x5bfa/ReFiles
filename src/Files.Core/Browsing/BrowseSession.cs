@@ -1,20 +1,18 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Diagnostics;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Changes;
 using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using System.Diagnostics;
-using System.Threading.Channels;
 
 namespace Files.Core.Browsing;
 
-public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTarget
+public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 {
-	private const int ChangeQueueCapacity = 256;
 	private const int InitialEnumerationBatchSize = 32;
 	private const int EnumerationBatchSize = 256;
 
@@ -24,68 +22,78 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _sessionViewSettings = [];
 	private BrowseItemProjection _itemProjection;
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
-	private readonly SemaphoreSlim _refreshSignal = new(0, 1);
-	private readonly Channel<QueuedFolderChange> _changeQueue = Channel.CreateBounded<QueuedFolderChange>(new BoundedChannelOptions(ChangeQueueCapacity) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true, SingleWriter = false, AllowSynchronousContinuations = false, });
-	private readonly CancellationTokenSource _refreshLifetime = new();
+	private readonly BrowseChangeCoordinator _changeCoordinator;
 	private readonly Lock _disposalLock = new();
 	private readonly Lock _navigationCancellationLock = new();
-	private readonly Lock _presentationLock = new();
-	private readonly Lock _selectionLock = new();
-	private readonly Dictionary<StorableKey, PresentationEntry> _presentations = [];
+	private readonly BrowsePresentationStore _presentationStore = new();
+	private readonly BrowseSelectionModel _selectionModel = new();
 	private BrowseContextState? _activeContext;
 	private BrowseContextState? _preparingContext;
 	private Task? _disposeTask;
 	private CancellationTokenSource? _activeNavigationCancellation;
-	private readonly Task _refreshPumpTask;
 	private long _generationCounter;
-	private long _requestedFullRefreshGeneration;
-	private int _refreshSignalPending;
-	private readonly Queue<QueuedFolderChange> _deferredChanges = [];
-	private BrowseSelectionState _selection = BrowseSelectionState.Empty;
 	private long _contentVersion;
 	private long _itemsVersion;
 	private bool _isDisposed;
 
-	public BrowseSessionModel(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
+	/// <inheritdoc />
+	public BrowseLocation? Location { get; private set; }
+
+	/// <inheritdoc />
+	public IBrowseLocationContext? Context => Volatile.Read(ref _activeContext)?.Context;
+
+	/// <inheritdoc />
+	public long Generation => Volatile.Read(ref _activeContext)?.Generation ?? 0;
+
+	/// <inheritdoc />
+	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _itemProjection).Items;
+
+	/// <inheritdoc />
+	public long ItemsVersion => Volatile.Read(ref _itemsVersion);
+
+	long IBrowsePrefetchTarget.ContentVersion => Volatile.Read(ref _contentVersion);
+
+	/// <inheritdoc />
+	public BrowseSelectionState Selection => _selectionModel.State;
+
+	/// <inheritdoc />
+	public BrowseViewSettings ViewSettings { get; private set; }
+
+	/// <inheritdoc />
+	public bool IsLoading { get; private set; }
+
+	/// <inheritdoc />
+	public Exception? Error { get; private set; }
+
+	/// <inheritdoc />
+	public event EventHandler? StateChanged;
+
+	/// <inheritdoc />
+	public event EventHandler<BrowseItemsChangedEventArgs>? ItemsChanged;
+
+	/// <inheritdoc />
+	public event EventHandler<BrowseItemPresentationChangedEventArgs>? ItemPresentationChanged;
+
+	/// <inheritdoc />
+	public event EventHandler? SelectionChanged;
+
+	/// <summary>Initializes a browse session.</summary>
+	/// <param name="locationResolver">The resolver used to open browse locations.</param>
+	/// <param name="viewSettingsStore">The optional persistent view settings store.</param>
+	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
+	public BrowseSession(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
 	{
 		ArgumentNullException.ThrowIfNull(locationResolver);
 
 		_locationResolver = locationResolver;
 		_viewSettingsStore = viewSettingsStore;
 		_thumbnailCache = thumbnailCache;
-		_itemProjection = new BrowseItemProjection(BrowseViewSettings.Default, GetSortPropertyValue);
+		_changeCoordinator = new BrowseChangeCoordinator(ProcessPendingChangesAsync);
+		_itemProjection = new BrowseItemProjection(BrowseViewSettings.Default, _presentationStore.GetSortPropertyValue);
 		ViewSettings = BrowseViewSettings.Default;
-		_refreshPumpTask = RefreshPumpAsync(_refreshLifetime.Token);
 	}
 
-	public BrowseLocation? Location { get; private set; }
-
-	public IBrowseLocationContext? Context => Volatile.Read(ref _activeContext)?.Context;
-
-	public long Generation => Volatile.Read(ref _activeContext)?.Generation ?? 0;
-
-	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _itemProjection).Items;
-
-	public long ItemsVersion => Volatile.Read(ref _itemsVersion);
-
-	long IBrowsePrefetchTarget.ContentVersion => Volatile.Read(ref _contentVersion);
-
-	public BrowseSelectionState Selection => Volatile.Read(ref _selection);
-
-	public BrowseViewSettings ViewSettings { get; private set; }
-
-	public bool IsLoading { get; private set; }
-
-	public Exception? Error { get; private set; }
-
-	public event EventHandler? StateChanged;
-
-	public event EventHandler<BrowseItemsChangedEventArgs>? ItemsChanged;
-
-	public event EventHandler<BrowseItemPresentationChangedEventArgs>? ItemPresentationChanged;
-
-	public event EventHandler? SelectionChanged;
-
+	/// <inheritdoc />
 	public async ValueTask NavigateAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
@@ -134,7 +142,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 					?? BrowseViewSettings.Default;
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
-			nextProjection = new BrowseItemProjection(nextViewSettings, GetSortPropertyValue);
+			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
 			var pendingBatch = new List<IStorableModel>(EnumerationBatchSize);
 
 			await foreach (var item in nextLocationContext.GetItemsAsync(cancellationToken).ConfigureAwait(false))
@@ -162,12 +170,12 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			}
 
 			var nextSelection = Equals(previousState!.Location, location)
-				? NormalizeSelection(previousState.Selection, nextProjection.Items)
+				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection.Items)
 				: BrowseSelectionState.Empty;
 			Volatile.Write(ref _preparingContext, null);
 			Error = null;
 			SetSelectionState(nextSelection);
-			SignalRefreshPump();
+			_changeCoordinator.Signal();
 			committed = true;
 
 			var previousContext = previousState.ActiveContext;
@@ -203,7 +211,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				if (nextContext is not null)
 				{
 					Volatile.Write(ref _preparingContext, null);
-					Interlocked.CompareExchange(ref _requestedFullRefreshGeneration, 0, nextContext.Generation);
+					_changeCoordinator.TryClearFullRefresh(nextContext.Generation);
 				}
 
 				try
@@ -228,19 +236,29 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		}
 	}
 
-	private void PublishEnumerationBatch(BrowseLocation location, BrowseViewSettings settings, BrowseContextState context, BrowseItemProjection projection, IReadOnlyList<IStorableModel> batch, ref BrowseNavigationSnapshot? previousState, ref bool activated)
+	private void PublishEnumerationBatch(
+		BrowseLocation location,
+		BrowseViewSettings settings,
+		BrowseContextState context,
+		BrowseItemProjection projection,
+		IReadOnlyList<IStorableModel> batch,
+		ref BrowseNavigationSnapshot? previousState,
+		ref bool activated)
 	{
 		var changes = projection.AddRange(batch);
 		if (!activated)
 		{
 			previousState = CaptureNavigationState();
+			var provisionalSelection = Equals(previousState.Location, location)
+				? BrowseSelectionModel.Normalize(previousState.Selection, projection.Items)
+				: BrowseSelectionState.Empty;
 			Location = location;
 			Volatile.Write(ref _activeContext, context);
-			Volatile.Write(ref _itemProjection, projection);
 			ViewSettings = settings;
 			Error = null;
-			ClearPresentations();
-			SetSelectionState(BrowseSelectionState.Empty);
+			_presentationStore.Clear();
+			SetSelectionState(provisionalSelection);
+			Volatile.Write(ref _itemProjection, projection);
 			PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(projection.Items)]));
 			OnStateChanged();
 			activated = true;
@@ -248,12 +266,17 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			return;
 		}
 
+		if (Equals(previousState!.Location, location))
+		{
+			SetSelectionState(BrowseSelectionModel.Normalize(previousState.Selection, projection.Items));
+		}
+
 		PublishItemsChanged(changes);
 	}
 
 	private BrowseNavigationSnapshot CaptureNavigationState()
 	{
-		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), ViewSettings, Selection, Items, CapturePresentations());
+		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), ViewSettings, Selection, Items, _presentationStore.Capture());
 	}
 
 	private void RestoreNavigationState(BrowseNavigationSnapshot previousState)
@@ -265,12 +288,13 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		Volatile.Write(ref _preparingContext, null);
 		Volatile.Write(ref _itemProjection, previousState.ItemProjection);
 		ViewSettings = previousState.ViewSettings;
-		RestorePresentations(previousState.Presentations);
+		_presentationStore.Restore(previousState.Presentations);
 		SetSelectionState(previousState.Selection);
 		PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(previousState.Items)]));
 		OnStateChanged();
 	}
 
+	/// <inheritdoc />
 	public ValueTask RefreshAsync(CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
@@ -280,48 +304,36 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			: NavigateAsync(Location, cancellationToken);
 	}
 
-	private async Task RefreshPumpAsync(CancellationToken cancellationToken)
+	private async ValueTask ProcessPendingChangesAsync(CancellationToken cancellationToken)
 	{
+		var currentContext = Volatile.Read(ref _activeContext);
+		if (currentContext is null)
+		{
+			return;
+		}
+
 		try
 		{
-			while (true)
+			if (await ProcessRequestedFullRefreshAsync(currentContext, cancellationToken).ConfigureAwait(false))
 			{
-				await _refreshSignal.WaitAsync(cancellationToken).ConfigureAwait(false);
-				Interlocked.Exchange(ref _refreshSignalPending, 0);
-
-				var currentContext = Volatile.Read(ref _activeContext);
-				if (currentContext is null)
-				{
-					continue;
-				}
-
-				try
-				{
-					if (await ProcessRequestedFullRefreshAsync(currentContext, cancellationToken).ConfigureAwait(false))
-					{
-						continue;
-					}
-
-					await ProcessChangesAsync(cancellationToken).ConfigureAwait(false);
-				}
-				catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-				{
-					return;
-				}
-				catch
-				{
-					// NavigateCoreAsync records the refresh failure in Error.
-				}
+				return;
 			}
+
+			await ProcessChangesAsync(cancellationToken).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
+			throw;
+		}
+		catch
+		{
+			// NavigateCoreAsync records the refresh failure in Error.
 		}
 	}
 
 	private async ValueTask<bool> ProcessRequestedFullRefreshAsync(BrowseContextState currentContext, CancellationToken cancellationToken)
 	{
-		var generation = Volatile.Read(ref _requestedFullRefreshGeneration);
+		var generation = _changeCoordinator.RequestedFullRefreshGeneration;
 		if (generation is 0)
 		{
 			return false;
@@ -334,12 +346,12 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 		if (generation < currentContext.Generation)
 		{
-			Interlocked.CompareExchange(ref _requestedFullRefreshGeneration, 0, generation);
+			_changeCoordinator.TryClearFullRefresh(generation);
 
 			return false;
 		}
 
-		if (Interlocked.CompareExchange(ref _requestedFullRefreshGeneration, 0, generation) != generation)
+		if (!_changeCoordinator.TryClearFullRefresh(generation))
 		{
 			return false;
 		}
@@ -351,12 +363,12 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 	private async ValueTask ProcessChangesAsync(CancellationToken cancellationToken)
 	{
-		while (TryReadNextChange(out var pendingChange))
+		while (_changeCoordinator.TryRead(out var pendingChange))
 		{
 			var currentContext = Volatile.Read(ref _activeContext);
 			if (currentContext is null)
 			{
-				_deferredChanges.Enqueue(pendingChange);
+				_changeCoordinator.Defer(pendingChange);
 
 				return;
 			}
@@ -370,7 +382,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			{
 				if (Volatile.Read(ref _preparingContext)?.Generation == pendingChange.Generation)
 				{
-					_deferredChanges.Enqueue(pendingChange);
+					_changeCoordinator.Defer(pendingChange);
 
 					return;
 				}
@@ -378,7 +390,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				continue;
 			}
 
-			if (Volatile.Read(ref _requestedFullRefreshGeneration) == currentContext.Generation)
+			if (_changeCoordinator.RequestedFullRefreshGeneration == currentContext.Generation)
 			{
 				return;
 			}
@@ -391,18 +403,6 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				return;
 			}
 		}
-	}
-
-	private bool TryReadNextChange(out QueuedFolderChange pendingChange)
-	{
-		if (_deferredChanges.Count is not 0)
-		{
-			pendingChange = _deferredChanges.Dequeue();
-
-			return true;
-		}
-
-		return _changeQueue.Reader.TryRead(out pendingChange);
 	}
 
 	private async ValueTask RefreshCurrentAsync(long generation, CancellationToken cancellationToken)
@@ -425,7 +425,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		}
 	}
 
-	private async ValueTask<IncrementalApplyResult> ApplyChangeAsync(QueuedFolderChange pendingChange, CancellationToken cancellationToken)
+	private async ValueTask<IncrementalApplyResult> ApplyChangeAsync(BrowseQueuedChange pendingChange, CancellationToken cancellationToken)
 	{
 		var currentContext = Volatile.Read(ref _activeContext);
 		if (currentContext is null || currentContext.Generation != pendingChange.Generation)
@@ -598,7 +598,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 			try
 			{
-				RemovePresentation(key);
+				_presentationStore.Remove(key);
 				PublishItemsChanged(changes);
 				RemoveSelectionKey(key);
 				OnStateChanged();
@@ -692,10 +692,10 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				retained = true;
 				try
 				{
-					RemovePresentation(previousKeyToReplace);
+					_presentationStore.Remove(previousKeyToReplace);
 					if (previousKeyToReplace != currentKey)
 					{
-						RemovePresentation(currentKey);
+						_presentationStore.Remove(currentKey);
 					}
 
 					PublishItemsChanged(changes);
@@ -789,7 +789,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				retained = true;
 				try
 				{
-					RemovePresentation(key);
+					_presentationStore.Remove(key);
 					PublishItemsChanged(changes);
 					OnStateChanged();
 				}
@@ -878,13 +878,11 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			return false;
 		}
 
-		var pendingChange = new QueuedFolderChange(context.Generation, change);
-		if (!_changeQueue.Writer.TryWrite(pendingChange))
+		var pendingChange = new BrowseQueuedChange(context.Generation, change);
+		if (!_changeCoordinator.TryEnqueue(pendingChange))
 		{
 			return RequestFullRefresh(context.Generation);
 		}
-
-		SignalRefreshPump();
 
 		return true;
 	}
@@ -919,23 +917,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			return false;
 		}
 
-		while (true)
-		{
-			var requestedGeneration = Volatile.Read(ref _requestedFullRefreshGeneration);
-			if (requestedGeneration >= generation)
-			{
-				break;
-			}
-
-			if (Interlocked.CompareExchange(ref _requestedFullRefreshGeneration, generation, requestedGeneration) == requestedGeneration)
-			{
-				break;
-			}
-		}
-
-		SignalRefreshPump();
-
-		return true;
+		return _changeCoordinator.RequestFullRefresh(generation);
 	}
 
 	private bool IsKnownContext(BrowseContextState context)
@@ -943,22 +925,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		return ReferenceEquals(Volatile.Read(ref _activeContext), context) || ReferenceEquals(Volatile.Read(ref _preparingContext), context);
 	}
 
-	private void SignalRefreshPump()
-	{
-		if (Interlocked.Exchange(ref _refreshSignalPending, 1) is not 0)
-		{
-			return;
-		}
-
-		try
-		{
-			_refreshSignal.Release();
-		}
-		catch (ObjectDisposedException)
-		{
-		}
-	}
-
+	/// <inheritdoc />
 	public async ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
@@ -988,7 +955,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			ViewSettings = settings;
 			if (previousLayoutMode != settings.LayoutMode)
 			{
-				clearedThumbnails = ClearThumbnailPresentations();
+				clearedThumbnails = _presentationStore.ClearThumbnails();
 			}
 
 			PublishItemsChanged(changes, contentChanged: false);
@@ -1005,24 +972,18 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		}
 	}
 
+	/// <inheritdoc />
 	public bool TryGetPresentation(StorableKey key, out BrowseItemPresentation presentation)
 	{
-		lock (_presentationLock)
-		{
-			if (_presentations.TryGetValue(key, out var entry))
-			{
-				presentation = entry.Presentation;
-
-				return true;
-			}
-		}
-
-		presentation = null!;
-
-		return false;
+		return _presentationStore.TryGet(key, out presentation);
 	}
 
-	async ValueTask<bool> IBrowsePrefetchTarget.PublishPropertiesAsync(long generation, long expectedContentVersion, IStorableModel item, IReadOnlyDictionary<string, object?> properties, CancellationToken cancellationToken)
+	async ValueTask<bool> IBrowsePrefetchTarget.PublishPropertiesAsync(
+		long generation,
+		long expectedContentVersion,
+		IStorableModel item,
+		IReadOnlyDictionary<string, object?> properties,
+		CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		ArgumentNullException.ThrowIfNull(properties);
@@ -1036,7 +997,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				return false;
 			}
 
-			var presentation = UpdatePresentation(key, item, properties, thumbnail: null, updateProperties: true, updateThumbnail: false);
+			var presentation = _presentationStore.Update(key, item, properties, thumbnail: null, updateProperties: true, updateThumbnail: false);
 			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation);
 
 			if (!string.IsNullOrWhiteSpace(ViewSettings.SortPropertyId) && properties.ContainsKey(ViewSettings.SortPropertyId))
@@ -1070,7 +1031,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 				return false;
 			}
 
-			var presentation = UpdatePresentation(key, item, properties: null, thumbnail: thumbnail, updateProperties: false, updateThumbnail: true);
+			var presentation = _presentationStore.Update(key, item, properties: null, thumbnail: thumbnail, updateProperties: false, updateThumbnail: true);
 			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation);
 		}
 		finally
@@ -1095,103 +1056,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			&& ReferenceEquals(current, item);
 	}
 
-	private BrowseItemPresentation UpdatePresentation(StorableKey key, IStorableModel item, IReadOnlyDictionary<string, object?>? properties, ThumbnailResult? thumbnail, bool updateProperties, bool updateThumbnail)
-	{
-		lock (_presentationLock)
-		{
-			var current = _presentations.TryGetValue(key, out var entry) && ReferenceEquals(entry.Item, item) ? entry.Presentation : new BrowseItemPresentation();
-			var nextProperties = current.Properties;
-			if (updateProperties)
-			{
-				var mergedProperties = new Dictionary<string, object?>(current.Properties, StringComparer.Ordinal);
-				foreach (var pair in properties!)
-				{
-					mergedProperties[pair.Key] = pair.Value;
-				}
-
-				nextProperties = mergedProperties;
-			}
-
-			var next = new BrowseItemPresentation(nextProperties, updateThumbnail ? thumbnail : current.Thumbnail);
-			_presentations[key] = new PresentationEntry(item, next);
-
-			return next;
-		}
-	}
-
-	private object? GetSortPropertyValue(IStorableModel item, string propertyId)
-	{
-		lock (_presentationLock)
-		{
-			var key = item.Reference.GetKey();
-
-			return _presentations.TryGetValue(key, out var entry) &&
-				ReferenceEquals(entry.Item, item) &&
-				entry.Presentation.Properties.TryGetValue(propertyId, out var value)
-					? value
-					: null;
-		}
-	}
-
-	private void ClearPresentations()
-	{
-		lock (_presentationLock)
-		{
-			_presentations.Clear();
-		}
-	}
-
-	private IReadOnlyDictionary<StorableKey, PresentationEntry> CapturePresentations()
-	{
-		lock (_presentationLock)
-		{
-			return new Dictionary<StorableKey, PresentationEntry>(_presentations);
-		}
-	}
-
-	private void RestorePresentations(IReadOnlyDictionary<StorableKey, PresentationEntry> presentations)
-	{
-		ArgumentNullException.ThrowIfNull(presentations);
-
-		lock (_presentationLock)
-		{
-			_presentations.Clear();
-			foreach (var pair in presentations)
-			{
-				_presentations.Add(pair.Key, pair.Value);
-			}
-		}
-	}
-
-	private BrowseItemPresentationChangedEventArgs[] ClearThumbnailPresentations()
-	{
-		var changes = new List<BrowseItemPresentationChangedEventArgs>();
-		lock (_presentationLock)
-		{
-			foreach (var pair in _presentations.ToArray())
-			{
-				if (pair.Value.Presentation.Thumbnail is null)
-				{
-					continue;
-				}
-
-				var presentation = new BrowseItemPresentation(pair.Value.Presentation.Properties);
-				_presentations[pair.Key] = new PresentationEntry(pair.Value.Item, presentation);
-				changes.Add(new BrowseItemPresentationChangedEventArgs(pair.Key, presentation));
-			}
-		}
-
-		return changes.ToArray();
-	}
-
-	private void RemovePresentation(StorableKey key)
-	{
-		lock (_presentationLock)
-		{
-			_presentations.Remove(key);
-		}
-	}
-
+	/// <inheritdoc />
 	public void SetSelection(IEnumerable<StorableKey> selectedKeys, StorableKey? focusedKey, StorableKey? anchorKey)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
@@ -1201,18 +1066,15 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		while (true)
 		{
 			var version = ItemsVersion;
-			var normalized = NormalizeSelection(requestedSelection, Items);
-			lock (_selectionLock)
+			var normalized = BrowseSelectionModel.Normalize(requestedSelection, Items);
+			if (version != ItemsVersion)
 			{
-				if (version != ItemsVersion)
-				{
-					continue;
-				}
+				continue;
+			}
 
-				if (!TrySetSelectionState(normalized))
-				{
-					return;
-				}
+			if (!_selectionModel.Set(normalized))
+			{
+				return;
 			}
 
 			RaiseEvent(SelectionChanged);
@@ -1221,11 +1083,13 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		}
 	}
 
+	/// <inheritdoc />
 	public void Dispose()
 	{
 		DisposeAsync().AsTask().GetAwaiter().GetResult();
 	}
 
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -1239,25 +1103,18 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 	private async Task DisposeCoreAsync()
 	{
-		_refreshLifetime.Cancel();
-		SignalRefreshPump();
+		await _changeCoordinator.DisposeAsync().ConfigureAwait(false);
 		try
 		{
-			await _refreshPumpTask.ConfigureAwait(false);
-			_changeQueue.Writer.TryComplete();
 			await _navigationLock.WaitAsync().ConfigureAwait(false);
 
 			try
 			{
 				var items = Items;
 				var currentContext = Volatile.Read(ref _activeContext);
-				Volatile.Write(ref _itemProjection, new BrowseItemProjection(ViewSettings, GetSortPropertyValue));
-				lock (_selectionLock)
-				{
-					Volatile.Write(ref _selection, BrowseSelectionState.Empty);
-				}
-
-				ClearPresentations();
+				Volatile.Write(ref _itemProjection, new BrowseItemProjection(ViewSettings, _presentationStore.GetSortPropertyValue));
+				_selectionModel.Set(BrowseSelectionState.Empty);
+				_presentationStore.Clear();
 				Volatile.Write(ref _activeContext, null);
 				Volatile.Write(ref _preparingContext, null);
 				_sessionViewSettings.Clear();
@@ -1282,8 +1139,6 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		finally
 		{
 			_navigationLock.Dispose();
-			_refreshSignal.Dispose();
-			_refreshLifetime.Dispose();
 			GC.SuppressFinalize(this);
 		}
 	}
@@ -1309,48 +1164,17 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 	{
 		ArgumentNullException.ThrowIfNull(nextSelection);
 
-		lock (_selectionLock)
+		if (!_selectionModel.Set(nextSelection))
 		{
-			if (!TrySetSelectionState(nextSelection))
-			{
-				return;
-			}
+			return;
 		}
 
 		RaiseEvent(SelectionChanged);
 	}
 
-	private bool TrySetSelectionState(BrowseSelectionState nextSelection)
-	{
-		var currentSelection = Volatile.Read(ref _selection);
-		if (currentSelection.FocusedKey == nextSelection.FocusedKey && currentSelection.AnchorKey == nextSelection.AnchorKey && currentSelection.SelectedKeys.SequenceEqual(nextSelection.SelectedKeys))
-		{
-			return false;
-		}
-
-		Volatile.Write(ref _selection, nextSelection);
-
-		return true;
-	}
-
 	private void RemoveSelectionKey(StorableKey key)
 	{
-		var changed = false;
-		lock (_selectionLock)
-		{
-			var currentSelection = Volatile.Read(ref _selection);
-			if (!currentSelection.SelectedKeys.Contains(key) && currentSelection.FocusedKey != key && currentSelection.AnchorKey != key)
-			{
-				return;
-			}
-
-			changed = TrySetSelectionState(new BrowseSelectionState(
-				Array.AsReadOnly(currentSelection.SelectedKeys .Where(selectedKey => selectedKey != key) .ToArray()),
-				currentSelection.FocusedKey == key ? null : currentSelection.FocusedKey,
-				currentSelection.AnchorKey == key ? null : currentSelection.AnchorKey));
-		}
-
-		if (changed)
+		if (_selectionModel.Remove(key))
 		{
 			RaiseEvent(SelectionChanged);
 		}
@@ -1358,52 +1182,30 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 	private void MigrateSelection(StorableKey previousKey, StorableKey currentKey)
 	{
-		if (previousKey == currentKey)
-		{
-			return;
-		}
-
-		var changed = false;
-		lock (_selectionLock)
-		{
-			var currentSelection = Volatile.Read(ref _selection);
-			changed = TrySetSelectionState(new BrowseSelectionState(
-				Array.AsReadOnly(currentSelection.SelectedKeys .Select(selectedKey => selectedKey == previousKey ? currentKey : selectedKey) .Distinct() .ToArray()),
-				currentSelection.FocusedKey == previousKey ? currentKey : currentSelection.FocusedKey,
-				currentSelection.AnchorKey == previousKey ? currentKey : currentSelection.AnchorKey));
-		}
-
-		if (changed)
+		if (_selectionModel.Migrate(previousKey, currentKey))
 		{
 			RaiseEvent(SelectionChanged);
 		}
 	}
 
-	private static BrowseSelectionState NormalizeSelection(BrowseSelectionState state, IReadOnlyList<IStorableModel> items)
-	{
-		var existingKeys = items.Select(static item => item.Reference.GetKey()).ToHashSet();
-
-		return new BrowseSelectionState(
-			Array.AsReadOnly(state.SelectedKeys .Where(existingKeys.Contains) .Distinct() .ToArray()),
-			state.FocusedKey is { } focusedKey && existingKeys.Contains(focusedKey) ? focusedKey : null,
-			state.AnchorKey is { } anchorKey && existingKeys.Contains(anchorKey) ? anchorKey : null);
-	}
-
-	private readonly record struct QueuedFolderChange(long Generation, FolderChange Change);
-
-	private sealed record BrowseNavigationSnapshot(BrowseLocation? Location, BrowseContextState? ActiveContext, BrowseItemProjection ItemProjection, BrowseViewSettings ViewSettings, BrowseSelectionState Selection, IReadOnlyList<IStorableModel> Items, IReadOnlyDictionary<StorableKey, PresentationEntry> Presentations);
-
-	private sealed record PresentationEntry(IStorableModel Item, BrowseItemPresentation Presentation);
+	private sealed record BrowseNavigationSnapshot(
+		BrowseLocation? Location,
+		BrowseContextState? ActiveContext,
+		BrowseItemProjection ItemProjection,
+		BrowseViewSettings ViewSettings,
+		BrowseSelectionState Selection,
+		IReadOnlyList<IStorableModel> Items,
+		BrowsePresentationStore.Snapshot Presentations);
 
 	private sealed class NavigationOperation : IDisposable
 	{
-		private readonly BrowseSessionModel _owner;
+		private readonly BrowseSession _owner;
 		private readonly CancellationTokenSource _cancellation;
 		private int _isDisposed;
 
 		public CancellationToken Token => _cancellation.Token;
 
-		public NavigationOperation(BrowseSessionModel owner, CancellationTokenSource cancellation)
+		public NavigationOperation(BrowseSession owner, CancellationTokenSource cancellation)
 		{
 			_owner = owner;
 			_cancellation = cancellation;
@@ -1436,7 +1238,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 	private sealed class BrowseContextState : IAsyncDisposable
 	{
-		private readonly BrowseSessionModel _owner;
+		private readonly BrowseSession _owner;
 
 		private readonly IFolderChangeSource? _changes;
 
@@ -1446,7 +1248,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 
 		public long Generation { get; }
 
-		public BrowseContextState(BrowseSessionModel owner, IBrowseLocationContext context, IFolderChangeSource? changes, long generation)
+		public BrowseContextState(BrowseSession owner, IBrowseLocationContext context, IFolderChangeSource? changes, long generation)
 		{
 			_owner = owner;
 			Context = context;
@@ -1504,13 +1306,16 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 		}
 	}
 
-	private void OnStateChanged() => RaiseEvent(StateChanged);
+	private void OnStateChanged()
+	{
+		RaiseEvent(StateChanged);
+	}
 
 	private NavigationOperation BeginNavigation(CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _refreshLifetime.Token);
+		var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _changeCoordinator.LifetimeToken);
 		CancellationTokenSource? previousCancellation;
 		lock (_navigationCancellationLock)
 		{
@@ -1557,7 +1362,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			}
 			catch (Exception exception)
 			{
-				Trace.TraceError("BrowseSessionModel event handler failed: {0}", exception);
+				Trace.TraceError("BrowseSession event handler failed: {0}", exception);
 			}
 		}
 	}
@@ -1578,7 +1383,7 @@ public sealed class BrowseSessionModel : IBrowseSessionModel, IBrowsePrefetchTar
 			}
 			catch (Exception exception)
 			{
-				Trace.TraceError("BrowseSessionModel event handler failed: {0}", exception);
+				Trace.TraceError("BrowseSession event handler failed: {0}", exception);
 			}
 		}
 	}

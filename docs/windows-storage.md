@@ -44,13 +44,13 @@ classDiagram
 `WindowsStorageSource` は `shell` と `file` の両方のアドレスを解決します。既定のルートは、Shell の既知のフォルダーである `ComputerFolder` です。
 
 ```csharp
-await using var dataRoot = new FilesDataRoot(
+await using var workspace = new StorageWorkspace(
 	[new WindowsStorageSource()],
 	new StorableModelFactory(item features));
 
-var windows = dataRoot.Sources.Single();
+var windows = workspace.Sources.Single();
 
-await foreach (var root in dataRoot.GetRootsAsync(windows.SourceId))
+await foreach (var root in workspace.GetRootsAsync(windows.SourceId))
 {
 	using (root)
 	{
@@ -277,7 +277,7 @@ sequenceDiagram
 
 ## ライフタイム
 
-- `FilesDataRoot` が各 `WindowsStorageSource` を所有します。
+- `StorageWorkspace` が各 `WindowsStorageSource` を所有します。
 - 注入されたスケジューラーなしで作成されたソースは、`WindowsShellScheduler` を所有して破棄します。
 - `IWindowsShellScheduler` を渡されたソースはそれを借用し、合成ルートが共有スケジューラーを所有します。
 - `WindowsStorable` は管理対象スナップショットだけを含み、破棄可能ではありません。

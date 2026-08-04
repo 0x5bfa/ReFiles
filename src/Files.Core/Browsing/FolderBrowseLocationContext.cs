@@ -17,25 +17,32 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 
 	private readonly IFolderModel _folderModel;
 
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly IStorageWorkspace _workspace;
 
 	private int _isDisposed;
 
+	/// <inheritdoc />
 	public BrowseLocation Location => _location;
 
+	/// <inheritdoc />
 	public IStorableModel LocationModel => _folderModel;
 
-	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IFilesDataRoot dataRoot)
+	/// <summary>Initializes a folder browse context and takes ownership of the folder model.</summary>
+	/// <param name="location">The folder location.</param>
+	/// <param name="folderModel">The folder model.</param>
+	/// <param name="workspace">The storage workspace.</param>
+	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IStorageWorkspace workspace)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 		ArgumentNullException.ThrowIfNull(folderModel);
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
 
 		_location = location;
 		_folderModel = folderModel;
-		_dataRoot = dataRoot;
+		_workspace = workspace;
 	}
 
+	/// <inheritdoc />
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
@@ -46,14 +53,16 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 	}
 
+	/// <inheritdoc />
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 		ArgumentNullException.ThrowIfNull(reference);
 
-		return _dataRoot.ResolveAsync(reference, cancellationToken);
+		return _workspace.ResolveAsync(reference, cancellationToken);
 	}
 
+	/// <inheritdoc />
 	public async ValueTask DisposeAsync()
 	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) == 0)

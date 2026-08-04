@@ -11,7 +11,7 @@ namespace Files.Core.Data;
 /// <summary>
 /// Composes configured storage sources and owns their lifetime.
 /// </summary>
-public sealed class FilesDataRoot : IFilesDataRoot
+public sealed class StorageWorkspace : IStorageWorkspace
 {
 	private readonly ReadOnlyDictionary<StorageSourceId, IStorageSource> _sourcesById;
 
@@ -21,11 +21,15 @@ public sealed class FilesDataRoot : IFilesDataRoot
 
 	private volatile bool _isDisposed;
 
+	/// <inheritdoc />
 	public IReadOnlyList<IStorageSource> Sources { get; }
 
-	public IStorableModelFactory ModelFactory { get; }
+	internal IStorableModelFactory ModelFactory { get; }
 
-	public FilesDataRoot(IEnumerable<IStorageSource> sources, IStorableModelFactory modelFactory)
+	/// <summary>Initializes a storage workspace and takes ownership of its sources.</summary>
+	/// <param name="sources">The configured storage sources.</param>
+	/// <param name="modelFactory">The factory that adapts source items to Files models.</param>
+	public StorageWorkspace(IEnumerable<IStorageSource> sources, IStorableModelFactory modelFactory)
 	{
 		ArgumentNullException.ThrowIfNull(sources);
 		ArgumentNullException.ThrowIfNull(modelFactory);
@@ -48,19 +52,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		ModelFactory = modelFactory;
 	}
 
-	public IStorageSource GetSource(StorageSourceId sourceId)
-	{
-		ObjectDisposedException.ThrowIf(_isDisposed, this);
-		ArgumentNullException.ThrowIfNull(sourceId);
-
-		if (!_sourcesById.TryGetValue(sourceId, out var source))
-		{
-			throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered.");
-		}
-
-		return source;
-	}
-
+	/// <inheritdoc />
 	public async IAsyncEnumerable<IFolderModel> GetRootsAsync(StorageSourceId sourceId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		var source = GetSource(sourceId);
@@ -79,6 +71,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		}
 	}
 
+	/// <inheritdoc />
 	public async ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(address);
@@ -94,6 +87,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		return ModelFactory.Create(source, coreModel);
 	}
 
+	/// <inheritdoc />
 	public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -109,6 +103,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		};
 	}
 
+	/// <inheritdoc />
 	public async ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
@@ -119,6 +114,7 @@ public sealed class FilesDataRoot : IFilesDataRoot
 		return ModelFactory.Create(source, coreModel);
 	}
 
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -133,6 +129,19 @@ public sealed class FilesDataRoot : IFilesDataRoot
 
 			return new ValueTask(_disposeTask);
 		}
+	}
+
+	private IStorageSource GetSource(StorageSourceId sourceId)
+	{
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+		ArgumentNullException.ThrowIfNull(sourceId);
+
+		if (!_sourcesById.TryGetValue(sourceId, out var source))
+		{
+			throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered.");
+		}
+
+		return source;
 	}
 
 	private async Task DisposeCoreAsync()

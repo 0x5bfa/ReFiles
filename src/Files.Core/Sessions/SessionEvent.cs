@@ -3,9 +3,9 @@
 
 using System.Diagnostics;
 
-namespace Files.Core.AppModels;
+namespace Files.Core.Sessions;
 
-internal static class ModelEvent
+internal static class SessionEvent
 {
 	public static void Raise(object sender, EventHandler? handlers)
 	{

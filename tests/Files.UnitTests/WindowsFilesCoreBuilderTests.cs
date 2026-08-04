@@ -16,7 +16,7 @@ public sealed class WindowsFilesCoreBuilderTests
 		var runtime = new FilesCoreBuilder()
 			.AddWindowsStorage()
 			.Build();
-		var source = runtime.DataRoot.Sources.Single();
+		var source = runtime.Workspace.Sources.Single();
 		var reference = new StorableReference(source.SourceId, "winfs:v1:00000000:0000000000000000", new StorageAddress(WindowsStorageSource.FileAddressScheme, @"C:\missing.txt"));
 
 		Assert.AreEqual(WindowsStorageSource.DefaultSourceType, source.SourceType);

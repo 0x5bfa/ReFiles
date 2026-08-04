@@ -3,21 +3,27 @@
 
 using Files.Core.Browsing;
 
-namespace Files.Core.AppModels;
+namespace Files.Core.Sessions;
 
+/// <summary>Specifies the split layout of a tab.</summary>
 public enum PaneSplitOrientation
 {
+	/// <summary>The tab contains one pane.</summary>
 	None,
+
+	/// <summary>The panes are arranged side by side.</summary>
 	Vertical,
+
+	/// <summary>The panes are arranged one above the other.</summary>
 	Horizontal,
 }
 
 /// <summary>
 /// Owns one or two panes and the active-pane state for a tab.
 /// </summary>
-public sealed class TabModel : IAsyncDisposable
+public sealed class TabSession : IAsyncDisposable
 {
-	private readonly IBrowsePaneFactory _paneFactory;
+	private readonly IBrowsePaneSessionFactory _paneFactory;
 
 	private readonly Lock _syncRoot = new();
 
@@ -27,9 +33,9 @@ public sealed class TabModel : IAsyncDisposable
 
 	private readonly CancellationTokenSource _lifetime = new();
 
-	private readonly List<PaneModel> _panes;
+	private readonly List<PaneSession> _panes;
 
-	private IReadOnlyList<PaneModel> _paneSnapshot;
+	private IReadOnlyList<PaneSession> _paneSnapshot;
 
 	private Guid _activePaneId;
 
@@ -39,11 +45,14 @@ public sealed class TabModel : IAsyncDisposable
 
 	private PaneSplitOrientation _splitOrientation;
 
+	/// <summary>Gets the stable tab identifier.</summary>
 	public Guid Id { get; }
 
-	public IReadOnlyList<PaneModel> Panes => Volatile.Read(ref _paneSnapshot);
+	/// <summary>Gets the owned pane sessions.</summary>
+	public IReadOnlyList<PaneSession> Panes => Volatile.Read(ref _paneSnapshot);
 
-	public PaneModel? ActivePane
+	/// <summary>Gets the active pane session.</summary>
+	public PaneSession? ActivePane
 	{
 		get
 		{
@@ -54,6 +63,7 @@ public sealed class TabModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Gets the current split orientation.</summary>
 	public PaneSplitOrientation SplitOrientation
 	{
 		get
@@ -65,9 +75,20 @@ public sealed class TabModel : IAsyncDisposable
 		}
 	}
 
-	public event EventHandler? StateChanged;
+	/// <summary>Occurs when the pane collection changes.</summary>
+	public event EventHandler? PanesChanged;
 
-	public TabModel(IBrowsePaneFactory paneFactory, PaneModel primaryPane, Guid? id = null)
+	/// <summary>Occurs when the active pane changes.</summary>
+	public event EventHandler? ActivePaneChanged;
+
+	/// <summary>Occurs when the split orientation changes.</summary>
+	public event EventHandler? SplitOrientationChanged;
+
+	/// <summary>Initializes a tab that owns its primary pane.</summary>
+	/// <param name="paneFactory">The factory used to create split panes.</param>
+	/// <param name="primaryPane">The primary pane to own.</param>
+	/// <param name="id">An optional stable tab identifier.</param>
+	public TabSession(IBrowsePaneSessionFactory paneFactory, PaneSession primaryPane, Guid? id = null)
 	{
 		ArgumentNullException.ThrowIfNull(paneFactory);
 		ArgumentNullException.ThrowIfNull(primaryPane);
@@ -82,10 +103,14 @@ public sealed class TabModel : IAsyncDisposable
 		_panes = [primaryPane];
 		_paneSnapshot = Array.AsReadOnly(_panes.ToArray());
 		_activePaneId = primaryPane.Id;
-		primaryPane.StateChanged += OnPaneStateChanged;
 	}
 
-	public async ValueTask<PaneModel> OpenSplitAsync(PaneSplitOrientation orientation, BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
+	/// <summary>Opens and activates a second pane.</summary>
+	/// <param name="orientation">The split orientation.</param>
+	/// <param name="initialLocation">The optional initial browse location.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The created pane session.</returns>
+	public async ValueTask<PaneSession> OpenSplitAsync(PaneSplitOrientation orientation, BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
 		if (orientation is not PaneSplitOrientation.Vertical and not PaneSplitOrientation.Horizontal)
 		{
@@ -95,7 +120,7 @@ public sealed class TabModel : IAsyncDisposable
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
-		PaneModel? pane = null;
+		PaneSession? pane = null;
 
 		try
 		{
@@ -108,20 +133,19 @@ public sealed class TabModel : IAsyncDisposable
 					throw new InvalidOperationException("A tab cannot contain more than two panes.");
 				}
 
-				initialLocation ??= _panes.FirstOrDefault(candidate => candidate.Id == _activePaneId)?.Location;
+				initialLocation ??= _panes.FirstOrDefault(candidate => candidate.Id == _activePaneId) is { } activePane ? GetBrowseContent(activePane).Location : null;
 			}
 
 			pane = _paneFactory.Create();
 			if (initialLocation is not null)
 			{
-				await pane.NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+				await GetBrowseContent(pane).NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 			}
 
 			lock (_syncRoot)
 			{
 				EnsureActive();
 				_panes.Add(pane);
-				pane.StateChanged += OnPaneStateChanged;
 				_activePaneId = pane.Id;
 				_splitOrientation = orientation;
 				UpdateSnapshot();
@@ -129,7 +153,9 @@ public sealed class TabModel : IAsyncDisposable
 
 			var result = pane;
 			pane = null;
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, PanesChanged);
+			SessionEvent.Raise(this, ActivePaneChanged);
+			SessionEvent.Raise(this, SplitOrientationChanged);
 
 			return result;
 		}
@@ -157,6 +183,10 @@ public sealed class TabModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Closes and disposes a pane.</summary>
+	/// <param name="paneId">The pane identifier.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the pane could be closed.</returns>
 	public async ValueTask<bool> ClosePaneAsync(Guid paneId, CancellationToken cancellationToken = default)
 	{
 		if (paneId == Guid.Empty)
@@ -167,7 +197,8 @@ public sealed class TabModel : IAsyncDisposable
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
-		PaneModel? removed = null;
+		PaneSession? removed = null;
+		var activePaneChanged = false;
 
 		try
 		{
@@ -188,9 +219,9 @@ public sealed class TabModel : IAsyncDisposable
 
 				removed = _panes[index];
 				_panes.RemoveAt(index);
-				removed.StateChanged -= OnPaneStateChanged;
 				if (_activePaneId == paneId)
 				{
+					activePaneChanged = true;
 					_activePaneId = _panes[Math.Min(index, _panes.Count - 1)].Id;
 				}
 
@@ -198,7 +229,13 @@ public sealed class TabModel : IAsyncDisposable
 				UpdateSnapshot();
 			}
 
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, PanesChanged);
+			if (activePaneChanged)
+			{
+				SessionEvent.Raise(this, ActivePaneChanged);
+			}
+
+			SessionEvent.Raise(this, SplitOrientationChanged);
 			var ownedPane = removed!;
 			removed = null;
 			await ownedPane.DisposeAsync().ConfigureAwait(false);
@@ -215,6 +252,9 @@ public sealed class TabModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Activates a pane.</summary>
+	/// <param name="paneId">The pane identifier.</param>
+	/// <returns><see langword="true"/> when the pane exists.</returns>
 	public bool SetActivePane(Guid paneId)
 	{
 		if (paneId == Guid.Empty)
@@ -241,12 +281,15 @@ public sealed class TabModel : IAsyncDisposable
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, ActivePaneChanged);
 		}
 
 		return true;
 	}
 
+	/// <summary>Changes the orientation of an existing split.</summary>
+	/// <param name="orientation">The new split orientation.</param>
+	/// <returns><see langword="true"/> when the tab is split.</returns>
 	public bool SetSplitOrientation(PaneSplitOrientation orientation)
 	{
 		if (orientation is not PaneSplitOrientation.Vertical and not PaneSplitOrientation.Horizontal)
@@ -273,12 +316,13 @@ public sealed class TabModel : IAsyncDisposable
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, SplitOrientationChanged);
 		}
 
 		return true;
 	}
 
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -299,18 +343,13 @@ public sealed class TabModel : IAsyncDisposable
 	private async Task DisposeCoreAsync()
 	{
 		await _mutationLock.WaitAsync().ConfigureAwait(false);
-		PaneModel[] ownedPanes;
+		PaneSession[] ownedPanes;
 
 		try
 		{
 			lock (_syncRoot)
 			{
 				ownedPanes = [.. _panes];
-				foreach (var pane in ownedPanes)
-				{
-					pane.StateChanged -= OnPaneStateChanged;
-				}
-
 				_panes.Clear();
 				_activePaneId = Guid.Empty;
 				_splitOrientation = PaneSplitOrientation.None;
@@ -361,8 +400,8 @@ public sealed class TabModel : IAsyncDisposable
 
 	}
 
-	private void OnPaneStateChanged(object? sender, EventArgs args)
+	private static BrowsePaneSession GetBrowseContent(PaneSession pane)
 	{
-		ModelEvent.Raise(this, StateChanged);
+		return pane.Content as BrowsePaneSession ?? throw new InvalidOperationException("The browse pane factory returned a pane with unsupported content.");
 	}
 }

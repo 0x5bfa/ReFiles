@@ -31,7 +31,7 @@ builder は常に次を登録します。
 | サムネイルラッパー | 共有 `MemoryThumbnailCache` |
 | ビュー設定 | `InMemoryViewSettingsStore` |
 | 場所 | `HomeBrowseLocationHandler` と `FolderBrowseLocationHandler` |
-| AppModel | `BrowsePaneFactory` と `FilesApplicationModel` |
+| Shell Session | `BrowsePaneSessionFactory` と `FilesApplicationSession` |
 | 操作 | 登録済みハンドラーを使う `StorageOperationService` |
 
 Files は `Build` の前に、永続化された `IViewSettingsStore` と durable または instrumented な `IThumbnailCache` を注入します。
@@ -93,7 +93,7 @@ builder
 	.AddStorageSource(source)
 	.AddStorageOperationHandler(operationHandler)
 	.AddBrowseLocationHandler(
-		dataRoot => new SearchBrowseLocationHandler(dataRoot, searchService));
+		workspace => new SearchBrowseLocationHandler(workspace, searchService));
 
 builder.ItemFeatures.Add<IPropertySource>(
 	new PropertySourceFactory(propertyReader),
@@ -114,21 +114,21 @@ builder.ItemFeatures.Add<IPropertySource>(
 
 | プロパティ | コンシューマー |
 | --- | --- |
-| `Application` | ウィンドウ単位の Files ホスト |
-| `PaneFactory` | テストまたはウィンドウ復元を行う特殊ホスト |
-| `LocationResolver` | 診断とカスタム AppModel |
-| `DataRoot` | ソース検出と明示的な参照解決 |
+| `Workspace` | UI、CLI、バックグラウンドホストのソース列挙と項目 AppModel 解決 |
+| `ShellSession` | ウィンドウ単位の Files ホスト |
+| `PaneSessionFactory` | テストまたはウィンドウ復元を行う特殊ホスト |
+| `LocationResolver` | 診断とカスタム Shell Session |
 | `StorageOperations` | コマンドアダプター |
 | `ViewSettingsStore` | 設定の診断または移行 |
 | `ThumbnailCache` | 無効化とテレメトリ |
 | `WindowsShellPreviewSessions` | WinUI Shell プレビュープレゼンター |
 
-これらは構築時の依存関係です。末端の ViewModel には必要な 1 つの AppModel またはアダプターだけを渡し、runtime をサービスロケーターとして渡して使わせないでください。
+`Workspace` と `ShellSession` は同じ AppModel グラフの2スコープではなく、runtime が所有する別々のルートです。末端の ViewModel には必要な 1 つの Session/AppModel またはアダプターだけを渡し、runtime をサービスロケーターとして渡して使わせないでください。
 
 ## Build と dispose の保証
 
 builder は 1 回だけ build できます。重複する `StorageSourceId` と、2 つ目の Shell プレビューセッションファクトリは拒否します。
-カスタムハンドラーファクトリの構築に失敗した場合は、作成済みソース、アプリケーションモデル、所有するサービスをすべてクリーンアップし、
+カスタムハンドラーファクトリの構築に失敗した場合は、作成済みソース、Shell Session、所有するサービスをすべてクリーンアップし、
 クリーンアップ失敗を構築失敗と一緒に集約します。
 
 `FilesCoreBuilder` 自体は非同期で破棄できます。未構築の builder を破棄すると、受け入れたすべてのソースと所有サービスをクリーンアップします。
@@ -139,16 +139,16 @@ runtime は次の順で破棄します。
 ```mermaid
 flowchart TD
     UI["Files ViewModel とプレゼンター"]
-    App["Application model graph"]
+    App["Shell session graph"]
     Shared["Core が所有する共有サービス"]
-    Sources["FilesDataRoot とソース"]
+    Sources["StorageWorkspace とソース"]
 
     UI --> App
     App --> Shared
     Shared --> Sources
 ```
 
-最初のノードは Files が所有し、runtime より先に破棄しなければなりません。runtime 内部では、アプリケーションモデル、プレビュー STA などの専用サービス、ストレージソースの順に破棄します。
+最初のノードは Files が所有し、runtime より先に破棄しなければなりません。runtime 内部では、Shell Session、プレビュー STA などの専用サービス、Storage Workspace とソースの順に破棄します。
 各段階はエラー後も継続し、最終破棄は冪等です。
 
 ## アンチパターン
@@ -159,5 +159,5 @@ flowchart TD
 - 項目ごとにスケジューラー、キャッシュ、ソースを作る。
 - モデル内部でグローバル IoC コンテナーから依存関係を解決する。
 - WinUI レンダラーを項目機能として登録する。
-- `FilesDataRoot` から借りたソースを Files が破棄する。
+- `StorageWorkspace` から借りたソースを Files が破棄する。
 - `WindowsStorable` モデルを `StorableReference` の代わりに保持する。

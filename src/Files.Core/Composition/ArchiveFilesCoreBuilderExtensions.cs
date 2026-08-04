@@ -9,10 +9,15 @@ using Files.Core.Storage.Archives.SevenZip;
 
 namespace Files.Core.Composition;
 
+/// <summary>Provides archive browsing composition extensions.</summary>
 public static class ArchiveFilesCoreBuilderExtensions
 {
 	private const string ArchiveBrowsingModule = "Files.Core.Archives.Browsing";
 
+	/// <summary>Adds the built-in archive browsing backends.</summary>
+	/// <param name="builder">The Files.Core builder.</param>
+	/// <param name="credentialResolver">The optional archive credential resolver.</param>
+	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddArchiveBrowsing(this FilesCoreBuilder builder, IArchiveCredentialResolver? credentialResolver = null)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
@@ -22,7 +27,17 @@ public static class ArchiveFilesCoreBuilderExtensions
 		return builder.AddArchiveBrowsing([new WindowsShellArchiveBackend(), sevenZipBackend,], sevenZipBackend, credentialResolver);
 	}
 
-	public static FilesCoreBuilder AddArchiveBrowsing(this FilesCoreBuilder builder, IEnumerable<IArchiveBackend> backends, IArchiveProbe? probe = null, IArchiveCredentialResolver? credentialResolver = null)
+	/// <summary>Adds archive browsing with explicit backends.</summary>
+	/// <param name="builder">The Files.Core builder.</param>
+	/// <param name="backends">The archive backends.</param>
+	/// <param name="probe">The optional archive probe.</param>
+	/// <param name="credentialResolver">The optional archive credential resolver.</param>
+	/// <returns>The builder.</returns>
+	public static FilesCoreBuilder AddArchiveBrowsing(
+		this FilesCoreBuilder builder,
+		IEnumerable<IArchiveBackend> backends,
+		IArchiveProbe? probe = null,
+		IArchiveCredentialResolver? credentialResolver = null)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(backends);
@@ -34,7 +49,7 @@ public static class ArchiveFilesCoreBuilderExtensions
 
 		var selector = new ArchiveBackendSelector(backends, probe);
 		builder.ItemFeatures.SetCombiner<IArchiveSource>(new PriorityItemFeatureCombiner<IArchiveSource>()).Add<IArchiveSource>(new ArchiveSourceFactory(), priority: 100, origin: "Archive browsing");
-		builder.AddBrowseLocationHandler(dataRoot => new ArchiveBrowseLocationHandler(dataRoot, selector, credentialResolver));
+		builder.AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, selector, credentialResolver));
 
 		return builder;
 	}

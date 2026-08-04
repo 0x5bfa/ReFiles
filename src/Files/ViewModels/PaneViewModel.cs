@@ -3,22 +3,14 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
-using Files.Infrastructure;
-using Files.Core.AppModels;
-using Files.Core.Data;
+using Files.Core.Sessions;
+using Files.Presentation;
 
 namespace Files.ViewModels;
 
-public enum PaneContentKind
-{
-	FolderBrowser,
-	Settings,
-	Web,
-}
-
 public sealed partial class PaneViewModel : ObservableObject, IDisposable
 {
-	private readonly PaneModel _pane;
+	private readonly PaneSession _pane;
 
 	private int _isDisposed;
 
@@ -26,8 +18,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 
 	public FolderBrowserViewModel FolderBrowser { get; }
 
-	[ObservableProperty]
-	public partial PaneContentKind ContentKind { get; private set; } = PaneContentKind.FolderBrowser;
+	public object Content => FolderBrowser;
 
 	[ObservableProperty]
 	public partial bool IsActive { get; private set; }
@@ -36,12 +27,16 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 
 	public string StatusText => FolderBrowser.StatusText;
 
-	public PaneViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	internal PaneViewModel(PaneSession pane, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
+		ArgumentNullException.ThrowIfNull(presentationFactory);
+		ArgumentNullException.ThrowIfNull(commandManager);
 
 		_pane = pane;
-		FolderBrowser = new(pane, dataRoot, dispatcher, commandManager);
+		FolderBrowser = pane.Content is BrowsePaneSession browsePane
+			? presentationFactory.CreateFolderBrowser(browsePane, commandManager)
+			: throw new NotSupportedException($"Pane content '{pane.Content.GetType().Name}' has no presentation mapping.");
 		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
 	}
 
@@ -52,16 +47,6 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 			IsActive = value;
 			OnPropertyChanged(nameof(Title));
 		}
-	}
-
-	public void SetContentKind(PaneContentKind kind)
-	{
-		if (!Enum.IsDefined(kind))
-		{
-			throw new ArgumentOutOfRangeException(nameof(kind));
-		}
-
-		ContentKind = kind;
 	}
 
 	public void Dispose()

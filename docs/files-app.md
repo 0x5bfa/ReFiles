@@ -11,7 +11,7 @@ flowchart TB
     Views["既存 WinUI Views / Controls"]
     Shell["ShellPanesPage / ModernShellPage / ShellViewModel"]
     Adapter["CoreBrowseSessionAdapter"]
-    Models["Files.Core Application / Window / Tab / Pane / BrowseSession"]
+    Models["Files.Core ShellSession / Window / Tab / Pane / BrowseSession"]
     Services["Files.Core storage sources / capabilities / operations"]
 
     Views --> Shell
@@ -35,11 +35,11 @@ flowchart TD
     App["App / DI host"]
     CoreHost["FilesAppCoreHost"]
     Runtime["FilesCoreRuntime"]
-    Window["WindowModel"]
+    Window["WindowSession"]
     Lease["CoreTabLease"]
-    Tab["TabModel"]
-    Pane["PaneModel 1..2"]
-    Session["BrowseSessionModel"]
+    Tab["TabSession"]
+    Pane["PaneSession 1..2"]
+    Session["BrowseSession"]
 
     App *-- CoreHost
     CoreHost *-- Runtime
@@ -54,11 +54,11 @@ flowchart TD
 
 | UI側 | Core側 | 所有と破棄 |
 | --- | --- | --- |
-| `App` | `FilesCoreRuntime` と主 `WindowModel` | `FilesAppCoreHost` がprocess終了まで所有 |
-| `ShellPanesPage` | `TabModel` | `CoreTabLease` を所有し、tab破棄時にrelease |
-| `ModernShellPage` | `PaneModel` | 親tabが所有。pageはadapterの購読だけを所有 |
+| `App` | `FilesCoreRuntime` と主 `WindowSession` | `FilesAppCoreHost` がprocess終了まで所有 |
+| `ShellPanesPage` | `TabSession` | `CoreTabLease` を所有し、tab破棄時にrelease |
+| `ModernShellPage` | `PaneSession` | 親tabが所有。pageはadapterの購読だけを所有 |
 | `ShellViewModel` | `CoreBrowseSessionAdapter` | pane pageと同時に購読解除・破棄 |
-| 表示中folder | `IBrowseLocationContext` | `BrowseSessionModel` がnavigation/refresh成功まで所有 |
+| 表示中folder | `IBrowseLocationContext` | `BrowseSession` がnavigation/refresh成功まで所有 |
 
 Core側では新しいcontextとitemsの列挙が成功してからactive contextを交換します。失敗またはcancel時は
 新しいcontextだけを破棄するため、現在表示中の一覧は維持されます。
@@ -74,8 +74,8 @@ sequenceDiagram
     participant View as WinUI layout
     participant Shell as ShellViewModel
     participant Adapter as CoreBrowseSessionAdapter
-    participant Pane as PaneModel
-    participant Session as BrowseSessionModel
+    participant Pane as PaneSession
+    participant Session as BrowseSession
     participant Source as WindowsStorageSource
 
     View->>Shell: pathを開く
@@ -94,7 +94,7 @@ Core modelを `ListedItem` そのものへ変換して所有権を移すこと�
 
 ## 変更通知と表示能力
 
-`BrowseSessionModel` はlocation modelの `IFolderChangeSource` を列挙前に開始します。完全な変更はkey単位で
+`BrowseSession` はlocation modelの `IFolderChangeSource` を列挙前に開始します。完全な変更はkey単位で
 反映し、不完全な通知、overflow、source faultはcoalesced refreshへfallbackします。Files.AppはCoreの
 `ItemsChanged`、`StateChanged`、`SelectionChanged` をsnapshotへ変換します。
 
@@ -181,7 +181,7 @@ elevation、out-of-process operation hostを保ったまま順次置換する必
 - Home/Search/Library/Tag/FTPの既存presentation path
 - preview paneのWinUI hostと既存preview selection
 
-Coreの `PaneModel.History` とpreview modelは各paneとともに生成・破棄され、ローカルpath navigationを記録します。
+Coreの `PaneSession.History` とpreview modelは各paneとともに生成・破棄され、ローカルpath navigationを記録します。
 ただしtoolbarのback/forwardとpreview UIはまだ既存surfaceが正です。両者を同時に正としないよう、次の移行では
 commandをpaneへroutingした時点でFrame履歴との二重管理を取り除きます。
 

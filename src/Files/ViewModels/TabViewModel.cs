@@ -5,18 +5,17 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
-using Files.Core.AppModels;
-using Files.Core.Data;
+using Files.Core.Sessions;
+using Files.Presentation;
 
 namespace Files.ViewModels;
 
 public sealed class TabViewModel : ObservableObject, IDisposable
 {
-	private readonly TabModel _tab;
-
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly TabSession _tab;
 
 	private readonly IUIDispatcher _dispatcher;
+	private readonly WindowPresentationFactory _presentationFactory;
 
 	private readonly WindowCommandManager _commandManager;
 
@@ -44,20 +43,21 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	public bool CanClosePane => Panes.Count > 1;
 
-	public TabViewModel(TabModel tab, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	internal TabViewModel(TabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(tab);
-		ArgumentNullException.ThrowIfNull(dataRoot);
-		ArgumentNullException.ThrowIfNull(dispatcher);
+		ArgumentNullException.ThrowIfNull(presentationFactory);
 		ArgumentNullException.ThrowIfNull(commandManager);
 
 		_tab = tab;
-		_dataRoot = dataRoot;
-		_dispatcher = dispatcher;
+		_presentationFactory = presentationFactory;
+		_dispatcher = presentationFactory.Dispatcher;
 		_commandManager = commandManager;
 		Panes = [];
 
-		tab.StateChanged += Tab_StateChanged;
+		tab.PanesChanged += Tab_StateChanged;
+		tab.ActivePaneChanged += Tab_StateChanged;
+		tab.SplitOrientationChanged += Tab_StateChanged;
 		RefreshFromCore();
 	}
 
@@ -102,7 +102,9 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		_tab.StateChanged -= Tab_StateChanged;
+		_tab.PanesChanged -= Tab_StateChanged;
+		_tab.ActivePaneChanged -= Tab_StateChanged;
+		_tab.SplitOrientationChanged -= Tab_StateChanged;
 
 		foreach (var pane in _paneViewModels.Values)
 		{
@@ -161,7 +163,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			{
 				if (!_paneViewModels.ContainsKey(corePane.Id))
 				{
-					var paneViewModel = new PaneViewModel(corePane, _dataRoot, _dispatcher, _commandManager);
+					var paneViewModel = _presentationFactory.CreatePane(corePane, _commandManager);
 					paneViewModel.PropertyChanged += PaneViewModel_PropertyChanged;
 					_paneViewModels[corePane.Id] = paneViewModel;
 				}

@@ -3,14 +3,14 @@
 
 using Files.Core.Browsing;
 
-namespace Files.Core.AppModels;
+namespace Files.Core.Sessions;
 
 /// <summary>
-/// Root AppModel that owns every window model in one Files process.
+/// Owns the UI-independent window sessions in one Files process.
 /// </summary>
-public sealed class FilesApplicationModel : IAsyncDisposable
+public sealed class FilesApplicationSession : IAsyncDisposable
 {
-	private readonly IBrowsePaneFactory _paneFactory;
+	private readonly IBrowsePaneSessionFactory _paneFactory;
 
 	private readonly Lock _syncRoot = new();
 
@@ -20,9 +20,9 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 	private readonly CancellationTokenSource _lifetime = new();
 
-	private readonly List<WindowModel> _windows = [];
+	private readonly List<WindowSession> _windows = [];
 
-	private IReadOnlyList<WindowModel> _windowSnapshot = [];
+	private IReadOnlyList<WindowSession> _windowSnapshot = [];
 
 	private Guid _activeWindowId;
 
@@ -30,9 +30,11 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 	private volatile bool _isDisposed;
 
-	public IReadOnlyList<WindowModel> Windows => Volatile.Read(ref _windowSnapshot);
+	/// <summary>Gets the owned window sessions.</summary>
+	public IReadOnlyList<WindowSession> Windows => Volatile.Read(ref _windowSnapshot);
 
-	public WindowModel? ActiveWindow
+	/// <summary>Gets the window most recently activated by a host.</summary>
+	public WindowSession? ActiveWindow
 	{
 		get
 		{
@@ -43,40 +45,50 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		}
 	}
 
-	public event EventHandler? StateChanged;
+	/// <summary>Occurs when the window collection changes.</summary>
+	public event EventHandler? WindowsChanged;
 
-	public FilesApplicationModel(IBrowsePaneFactory paneFactory)
+	/// <summary>Occurs when the active window changes.</summary>
+	public event EventHandler? ActiveWindowChanged;
+
+	/// <summary>Initializes an empty application shell session.</summary>
+	/// <param name="paneFactory">The factory used for browse panes.</param>
+	public FilesApplicationSession(IBrowsePaneSessionFactory paneFactory)
 	{
 		ArgumentNullException.ThrowIfNull(paneFactory);
 
 		_paneFactory = paneFactory;
 	}
 
-	public async ValueTask<WindowModel> CreateWindowAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
+	/// <summary>Creates and owns a window session.</summary>
+	/// <param name="initialLocation">The optional initial browse location.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The created window session.</returns>
+	public async ValueTask<WindowSession> CreateWindowAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
-		WindowModel? window = null;
+		WindowSession? window = null;
 
 		try
 		{
 			EnsureActive();
-			window = new WindowModel(_paneFactory);
+			window = new WindowSession(_paneFactory);
 			await window.OpenTabAsync(initialLocation, linkedCancellation.Token).ConfigureAwait(false);
 
 			lock (_syncRoot)
 			{
 				EnsureActive();
 				_windows.Add(window);
-				window.StateChanged += OnWindowStateChanged;
 				_activeWindowId = window.Id;
 				UpdateSnapshot();
 			}
 
 			var result = window;
 			window = null;
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, WindowsChanged);
+			SessionEvent.Raise(this, ActiveWindowChanged);
 
 			return result;
 		}
@@ -104,6 +116,10 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Closes and disposes a window session.</summary>
+	/// <param name="windowId">The window identifier.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the window existed.</returns>
 	public async ValueTask<bool> CloseWindowAsync(Guid windowId, CancellationToken cancellationToken = default)
 	{
 		if (windowId == Guid.Empty)
@@ -114,7 +130,8 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
-		WindowModel? removed = null;
+		WindowSession? removed = null;
+		var activeWindowChanged = false;
 		try
 		{
 			EnsureActive();
@@ -128,10 +145,10 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 				removed = _windows[index];
 				_windows.RemoveAt(index);
-				removed.StateChanged -= OnWindowStateChanged;
 
 				if (_activeWindowId == windowId)
 				{
+					activeWindowChanged = true;
 					_activeWindowId = _windows.Count is 0
 						? Guid.Empty
 						: _windows[Math.Min(index, _windows.Count - 1)].Id;
@@ -140,7 +157,12 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 				UpdateSnapshot();
 			}
 
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, WindowsChanged);
+			if (activeWindowChanged)
+			{
+				SessionEvent.Raise(this, ActiveWindowChanged);
+			}
+
 			var ownedWindow = removed!;
 			removed = null;
 			await ownedWindow.DisposeAsync().ConfigureAwait(false);
@@ -158,6 +180,9 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Records host activation for a window.</summary>
+	/// <param name="windowId">The activated window identifier.</param>
+	/// <returns><see langword="true"/> when the window exists.</returns>
 	public bool SetActiveWindow(Guid windowId)
 	{
 		if (windowId == Guid.Empty)
@@ -185,12 +210,13 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, ActiveWindowChanged);
 		}
 
 		return true;
 	}
 
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -211,17 +237,12 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 	private async Task DisposeCoreAsync()
 	{
 		await _mutationLock.WaitAsync().ConfigureAwait(false);
-		WindowModel[] ownedWindows;
+		WindowSession[] ownedWindows;
 		try
 		{
 			lock (_syncRoot)
 			{
 				ownedWindows = [.. _windows];
-				foreach (var window in ownedWindows)
-				{
-					window.StateChanged -= OnWindowStateChanged;
-				}
-
 				_windows.Clear();
 				_activeWindowId = Guid.Empty;
 				UpdateSnapshot();
@@ -269,10 +290,5 @@ public sealed class FilesApplicationModel : IAsyncDisposable
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-	}
-
-	private void OnWindowStateChanged(object? sender, EventArgs args)
-	{
-		ModelEvent.Raise(this, StateChanged);
 	}
 }

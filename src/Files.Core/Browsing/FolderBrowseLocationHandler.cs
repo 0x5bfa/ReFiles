@@ -6,19 +6,24 @@ using Files.Core.Models;
 
 namespace Files.Core.Browsing;
 
+/// <summary>Opens browse contexts for storage folders.</summary>
 public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 {
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly IStorageWorkspace _workspace;
 
-	public FolderBrowseLocationHandler(IFilesDataRoot dataRoot)
+	/// <summary>Initializes a folder browse location handler.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	public FolderBrowseLocationHandler(IStorageWorkspace workspace)
 	{
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
 
-		_dataRoot = dataRoot;
+		_workspace = workspace;
 	}
 
+	/// <inheritdoc />
 	public bool CanHandle(BrowseLocation location) => location is FolderLocation;
 
+	/// <inheritdoc />
 	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		if (location is not FolderLocation folderLocation)
@@ -26,7 +31,7 @@ public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 			throw new ArgumentException("The location must identify a folder.", nameof(location));
 		}
 
-		var model = await _dataRoot.ResolveAsync(folderLocation.Folder, cancellationToken).ConfigureAwait(false);
+		var model = await _workspace.ResolveAsync(folderLocation.Folder, cancellationToken).ConfigureAwait(false);
 
 		if (model is not IFolderModel folderModel)
 		{
@@ -34,6 +39,6 @@ public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 			throw new InvalidOperationException($"Item '{folderLocation.Folder.ItemId}' is not a folder.");
 		}
 
-		return new FolderBrowseLocationContext(folderLocation, folderModel, _dataRoot);
+		return new FolderBrowseLocationContext(folderLocation, folderModel, _workspace);
 	}
 }

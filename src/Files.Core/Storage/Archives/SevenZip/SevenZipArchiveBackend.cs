@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
+using Files.Core.Models;
 using Files.Core.Storage.Windows;
 using global::SevenZip;
 using OwlCore.Storage;
@@ -29,7 +30,7 @@ public sealed class SevenZipArchiveBackend
 		// A probe is only needed before a Shell folder is selected. Other
 		// items reach this backend directly, where mounting performs the same
 		// password and encryption checks without parsing the archive twice.
-		if (request.Source is not WindowsStorageSource || request.ArchiveModel.CoreModel is not IFolder)
+		if (request.Source is not WindowsStorageSource || request.ArchiveModel.GetCoreModel() is not IFolder)
 		{
 			return ArchiveProbeResult.Unknown;
 		}

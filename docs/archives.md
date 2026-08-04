@@ -24,7 +24,7 @@ SevenZipSharp では、シーク可能なストリームに対して `SevenZipEx
 sequenceDiagram
     actor User
     participant App as Files
-    participant Session as BrowseSessionModel
+    participant Session as BrowseSession
     participant Resolver as BrowseLocationResolver
     participant Handler as ArchiveBrowseLocationHandler
     participant Selector as ArchiveBackendSelector
@@ -244,5 +244,5 @@ Shell マウントはプロセス全体の Windows ソースを所有せず、�
 これらの操作はダイアログを Files.Core に置かず、同じ Core の結果と認証情報契約を再利用しなければなりません。
 
 SevenZip ベースのアーカイブ内の入れ子アーカイブは、まだ新しい `IArchiveSource` として公開していません。その backing entry はスコープ付きマウントに属し、
-コンテキストが置き換わった後に `FilesDataRoot` から冷たい参照を解決できないためです。対応するには明示的なマウントチェーン参照または参照カウント付きマウントレジストリが必要であり、
+コンテキストが置き換わった後に `StorageWorkspace` から冷たい参照を解決できないためです。対応するには明示的なマウントチェーン参照または参照カウント付きマウントレジストリが必要であり、
 古いスコープ付きソース ID で近似してはいけません。

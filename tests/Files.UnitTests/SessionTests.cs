@@ -1,20 +1,21 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Files.Core.Browsing;
 
 namespace Files.UnitTests;
 
 [TestClass]
-public sealed class AppModelTests
+public sealed class SessionTests
 {
 	[TestMethod]
 	public async Task PaneNavigationCommitsHistoryAndDropsForwardBranch()
 	{
 		var resolver = new TestBrowseLocationResolver([]);
-		var paneFactory = new BrowsePaneFactory(resolver, historyCapacity: 4);
-		await using var pane = paneFactory.Create();
+		var paneFactory = new BrowsePaneSessionFactory(resolver, historyCapacity: 4);
+		await using var paneOwner = paneFactory.Create();
+		var pane = GetBrowsePane(paneOwner);
 		var home = HomeLocation.Instance;
 		var search = new SearchLocation("first");
 		var tag = new TagLocation("tag");
@@ -42,8 +43,9 @@ public sealed class AppModelTests
 	public async Task PaneRestoresBoundedHistoryAroundCurrentEntry()
 	{
 		var resolver = new TestBrowseLocationResolver([]);
-		var paneFactory = new BrowsePaneFactory(resolver, historyCapacity: 3);
-		await using var pane = paneFactory.Create();
+		var paneFactory = new BrowsePaneSessionFactory(resolver, historyCapacity: 3);
+		await using var paneOwner = paneFactory.Create();
+		var pane = GetBrowsePane(paneOwner);
 		var entries = Enumerable
 			.Range(0, 10)
 			.Select(index => (BrowseLocation)new TagLocation($"tag-{index}"))
@@ -66,7 +68,8 @@ public sealed class AppModelTests
 		var before = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\before")));
 		var after = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\after")));
 		var resolver = new TestBrowseLocationResolver([]);
-		await using var pane = new BrowsePaneFactory(resolver).Create();
+		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
+		var pane = GetBrowsePane(paneOwner);
 
 		await pane.NavigateAsync(before);
 		await pane.NavigateAsync(after);
@@ -82,7 +85,8 @@ public sealed class AppModelTests
 		var before = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\before")));
 		var after = new FolderLocation(new Files.Core.Storage.StorableReference(sourceId, "item", new Files.Core.Storage.StorageAddress("file", @"C:\after")));
 		var resolver = new TestBrowseLocationResolver([]);
-		await using var pane = new BrowsePaneFactory(resolver).Create();
+		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
+		var pane = GetBrowsePane(paneOwner);
 		await pane.NavigateAsync(before);
 		resolver.Exception = new IOException("refresh failed");
 
@@ -95,7 +99,8 @@ public sealed class AppModelTests
 	public async Task EmptyHistoryCanRestoreOnlyAnEmptyPane()
 	{
 		var resolver = new TestBrowseLocationResolver([]);
-		await using var pane = new BrowsePaneFactory(resolver).Create();
+		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
+		var pane = GetBrowsePane(paneOwner);
 		var empty = new BrowseNavigationHistorySnapshot(Array.Empty<BrowseLocation>(), currentIndex: -1);
 
 		await pane.RestoreAsync(empty);
@@ -110,12 +115,12 @@ public sealed class AppModelTests
 	public async Task ApplicationOwnsWindowsTabsAndSplitPanes()
 	{
 		var resolver = new TestBrowseLocationResolver([]);
-		var paneFactory = new BrowsePaneFactory(resolver);
-		var application = new FilesApplicationModel(paneFactory);
+		var paneFactory = new BrowsePaneSessionFactory(resolver);
+		var application = new FilesApplicationSession(paneFactory);
 
 		var firstWindow = await application.CreateWindowAsync(HomeLocation.Instance);
 		var firstTab = firstWindow.ActiveTab!;
-		Assert.AreEqual(HomeLocation.Instance, firstTab.ActivePane!.Location);
+		Assert.AreEqual(HomeLocation.Instance, GetBrowsePane(firstTab.ActivePane!).Location);
 
 		var secondTab = await firstWindow.OpenTabAsync(new SearchLocation("query"));
 		var secondaryPane = await secondTab.OpenSplitAsync(PaneSplitOrientation.Vertical);
@@ -123,7 +128,7 @@ public sealed class AppModelTests
 		Assert.AreEqual(2, secondTab.Panes.Count);
 		Assert.AreSame(secondaryPane, secondTab.ActivePane);
 		Assert.AreEqual(PaneSplitOrientation.Vertical, secondTab.SplitOrientation);
-		Assert.AreEqual(new SearchLocation("query"), secondaryPane.Location);
+		Assert.AreEqual(new SearchLocation("query"), GetBrowsePane(secondaryPane).Location);
 		Assert.IsTrue(secondTab.SetSplitOrientation(PaneSplitOrientation.Horizontal));
 		Assert.IsTrue(await secondTab.ClosePaneAsync(secondaryPane.Id));
 		Assert.AreEqual(1, secondTab.Panes.Count);
@@ -143,10 +148,53 @@ public sealed class AppModelTests
 	}
 
 	[TestMethod]
+	public async Task SessionEventsDoNotBubbleChildStateToAncestors()
+	{
+		var resolver = new TestBrowseLocationResolver([]);
+		await using var application = new FilesApplicationSession(new BrowsePaneSessionFactory(resolver));
+		var window = await application.CreateWindowAsync(HomeLocation.Instance);
+		var applicationWindowsChanged = 0;
+		var applicationActiveWindowChanged = 0;
+		var windowTabsChanged = 0;
+		var windowActiveTabChanged = 0;
+		application.WindowsChanged += (_, _) => applicationWindowsChanged++;
+		application.ActiveWindowChanged += (_, _) => applicationActiveWindowChanged++;
+		window.TabsChanged += (_, _) => windowTabsChanged++;
+		window.ActiveTabChanged += (_, _) => windowActiveTabChanged++;
+
+		var tab = await window.OpenTabAsync(new SearchLocation("events"));
+
+		Assert.AreEqual(0, applicationWindowsChanged);
+		Assert.AreEqual(0, applicationActiveWindowChanged);
+		Assert.AreEqual(1, windowTabsChanged);
+		Assert.AreEqual(1, windowActiveTabChanged);
+
+		var panesChanged = 0;
+		var activePaneChanged = 0;
+		var splitOrientationChanged = 0;
+		tab.PanesChanged += (_, _) => panesChanged++;
+		tab.ActivePaneChanged += (_, _) => activePaneChanged++;
+		tab.SplitOrientationChanged += (_, _) => splitOrientationChanged++;
+		var pane = await tab.OpenSplitAsync(PaneSplitOrientation.Vertical);
+
+		Assert.AreEqual(1, panesChanged);
+		Assert.AreEqual(1, activePaneChanged);
+		Assert.AreEqual(1, splitOrientationChanged);
+		Assert.AreEqual(1, windowTabsChanged);
+		Assert.AreEqual(1, windowActiveTabChanged);
+
+		await GetBrowsePane(pane).NavigateAsync(new TagLocation("child-state"));
+
+		Assert.AreEqual(1, panesChanged);
+		Assert.AreEqual(1, windowTabsChanged);
+		Assert.AreEqual(0, applicationWindowsChanged);
+	}
+
+	[TestMethod]
 	public async Task FailedWindowCreationDisposesTheIncompleteModelGraph()
 	{
 		var resolver = new TestBrowseLocationResolver([], new InvalidOperationException("open failed"));
-		var application = new FilesApplicationModel(new BrowsePaneFactory(resolver));
+		var application = new FilesApplicationSession(new BrowsePaneSessionFactory(resolver));
 
 		await Assert.ThrowsAsync<InvalidOperationException>(async () => await application.CreateWindowAsync(HomeLocation.Instance));
 
@@ -154,5 +202,10 @@ public sealed class AppModelTests
 		Assert.AreEqual(1, resolver.OpenedContexts.Count);
 		Assert.IsTrue(resolver.OpenedContexts[0].IsDisposed);
 		await application.DisposeAsync();
+	}
+
+	private static BrowsePaneSession GetBrowsePane(PaneSession pane)
+	{
+		return pane.Content as BrowsePaneSession ?? throw new AssertFailedException("Expected browse pane content.");
 	}
 }

@@ -7,22 +7,10 @@
 	xmlns:local="using:Files.Views"
 	xmlns:vm="using:Files.ViewModels">
 	<ContentPresenter x:Name="PaneContentPresenter">
-		<ContentPresenter.Resources>
-			<DataTemplate
-				x:Key="FolderBrowserTemplate"
-				x:DataType="vm:PaneViewModel">
-				<local:FolderBrowser ViewModel="{x:Bind FolderBrowser, Mode=OneWay}" />
+		<ContentPresenter.ContentTemplate>
+			<DataTemplate x:DataType="vm:FolderBrowserViewModel">
+				<local:FolderBrowser ViewModel="{x:Bind}" />
 			</DataTemplate>
-			<DataTemplate
-				x:Key="SettingsTemplate"
-				x:DataType="vm:PaneViewModel">
-				<local:SettingsView />
-			</DataTemplate>
-			<DataTemplate
-				x:Key="WebTemplate"
-				x:DataType="vm:PaneViewModel">
-				<local:WebView />
-			</DataTemplate>
-		</ContentPresenter.Resources>
+		</ContentPresenter.ContentTemplate>
 	</ContentPresenter>
 </UserControl>

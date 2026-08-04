@@ -19,7 +19,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
 	private static readonly TimeSpan ItemsChangedRestartDelay = TimeSpan.FromMilliseconds(100);
 
-	private readonly IBrowseSessionModel _session;
+	private readonly IBrowseSession _session;
 	private readonly IBrowsePrefetchTarget? _target;
 	private readonly Lock _syncRoot = new();
 	private readonly int _thumbnailSize;
@@ -31,7 +31,10 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private long _workIdCounter;
 	private bool _isDisposed;
 
-	public BrowsePrefetchCoordinator(IBrowseSessionModel session, int thumbnailSize = DefaultThumbnailSize)
+	/// <summary>Initializes a presenter-owned prefetch coordinator.</summary>
+	/// <param name="session">The browse session that supplies item snapshots.</param>
+	/// <param name="thumbnailSize">The requested thumbnail size.</param>
+	public BrowsePrefetchCoordinator(IBrowseSession session, int thumbnailSize = DefaultThumbnailSize)
 	{
 		ArgumentNullException.ThrowIfNull(session);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(thumbnailSize);
@@ -45,6 +48,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		session.ItemsChanged += OnSessionItemsChanged;
 	}
 
+	/// <inheritdoc />
 	public void UpdateViewport(BrowseViewport viewport, BrowseViewSettings settings, long browseGeneration)
 	{
 		ArgumentNullException.ThrowIfNull(viewport);
@@ -76,6 +80,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		previousWork?.Cancel();
 	}
 
+	/// <inheritdoc />
 	public async ValueTask DisposeAsync()
 	{
 		PrefetchWork[] work;
@@ -143,7 +148,16 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private async ValueTask PrefetchItemAsync(IStorableModel item, IReadOnlyList<string> propertyIds, int requestedThumbnailSize, ThumbnailMode thumbnailMode, int dpi, long workId, long generation, long contentVersion, CancellationToken cancellationToken)
+	private async ValueTask PrefetchItemAsync(
+		IStorableModel item,
+		IReadOnlyList<string> propertyIds,
+		int requestedThumbnailSize,
+		ThumbnailMode thumbnailMode,
+		int dpi,
+		long workId,
+		long generation,
+		long contentVersion,
+		CancellationToken cancellationToken)
 	{
 		if (propertyIds.Count is not 0 && item.Get<IPropertySource>() is { } propertySource)
 		{

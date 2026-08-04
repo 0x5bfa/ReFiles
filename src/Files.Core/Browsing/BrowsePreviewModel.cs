@@ -15,7 +15,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 {
 	private static readonly TimeSpan _defaultRefreshDelay = TimeSpan.FromMilliseconds(100);
 
-	private readonly IBrowseSessionModel _browseSession;
+	private readonly IBrowseSession _browseSession;
 
 	private readonly TimeSpan _refreshDelay;
 
@@ -35,6 +35,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 
 	private bool _isDisposed;
 
+	/// <inheritdoc />
 	public BrowsePreviewSnapshot Current
 	{
 		get
@@ -46,9 +47,13 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		}
 	}
 
+	/// <inheritdoc />
 	public event EventHandler? Changed;
 
-	public BrowsePreviewModel(IBrowseSessionModel browseSession, TimeSpan? refreshDelay = null)
+	/// <summary>Initializes a preview model for a browse session.</summary>
+	/// <param name="browseSession">The browse session to observe.</param>
+	/// <param name="refreshDelay">The optional selection debounce delay.</param>
+	public BrowsePreviewModel(IBrowseSession browseSession, TimeSpan? refreshDelay = null)
 	{
 		ArgumentNullException.ThrowIfNull(browseSession);
 
@@ -63,6 +68,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		browseSession.ItemsChanged += OnItemsChanged;
 	}
 
+	/// <inheritdoc />
 	public ValueTask RefreshAsync(PreviewHydrationPolicy hydrationPolicy = PreviewHydrationPolicy.LocalOnly, CancellationToken cancellationToken = default)
 	{
 		if (hydrationPolicy is not PreviewHydrationPolicy.LocalOnly and not PreviewHydrationPolicy.AllowHydration)
@@ -73,6 +79,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		return new ValueTask(BeginRefresh(hydrationPolicy, cancellationToken));
 	}
 
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		CancellationTokenSource? requestCts;

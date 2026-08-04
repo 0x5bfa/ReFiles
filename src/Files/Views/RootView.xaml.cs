@@ -2,30 +2,28 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.ViewModels;
-using Files.Commands;
 using Files.Infrastructure;
-using Files.Core.AppModels;
-using Files.Core.Data;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Files.Views;
 
-public sealed partial class RootView : Page, IDisposable
+public sealed partial class RootView : UserControl, IDisposable
 {
-	private readonly RootViewModel viewModel;
+	private readonly RootViewModel _viewModel;
 
-	private bool isLoaded;
+	private bool _isLoaded;
 
-	private int isDisposed;
+	private int _isDisposed;
 
-	public RootViewModel ViewModel => viewModel;
+	public RootViewModel ViewModel => _viewModel;
 
-	public RootView(WindowModel window, IFilesDataRoot dataRoot, DispatcherQueue dispatcherQueue, CommandRegistry commandRegistry)
+	public RootView(RootViewModel viewModel)
 	{
+		ArgumentNullException.ThrowIfNull(viewModel);
+
 		InitializeComponent();
-		viewModel = new RootViewModel(window, dataRoot, new DispatcherQueueUIDispatcher(dispatcherQueue), commandRegistry);
+		_viewModel = viewModel;
 		Loaded += RootView_Loaded;
 	}
 
@@ -33,23 +31,23 @@ public sealed partial class RootView : Page, IDisposable
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
 
 		Loaded -= RootView_Loaded;
-		viewModel.Dispose();
+		_viewModel.Dispose();
 	}
 
 	private async void RootView_Loaded(object sender, RoutedEventArgs e)
 	{
-		if (isLoaded)
+		if (_isLoaded)
 		{
 			return;
 		}
 
-		isLoaded = true;
+		_isLoaded = true;
 		if (Sidebar.MenuItems.Count > 0)
 		{
 			Sidebar.SelectedItem = Sidebar.MenuItems[0];
@@ -57,20 +55,20 @@ public sealed partial class RootView : Page, IDisposable
 
 		try
 		{
-			await viewModel.InitializeAsync();
+			await _viewModel.InitializeAsync();
 		}
 		catch (OperationCanceledException)
 		{
 		}
 		catch (Exception exception)
 		{
-			viewModel.ReportOperationError(exception);
+			_viewModel.ReportOperationError(exception);
 		}
 	}
 
 	private async void NavigationView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
 	{
-		if (!isLoaded)
+		if (!_isLoaded)
 		{
 			return;
 		}
@@ -87,11 +85,11 @@ public sealed partial class RootView : Page, IDisposable
 		{
 			if (item.IsHome)
 			{
-				await viewModel.HomeCommand.ExecuteAsync();
+				await _viewModel.HomeCommand.ExecuteAsync();
 			}
 			else
 			{
-				await viewModel.NavigateToNavigationItemAsync(item);
+				await _viewModel.NavigateToNavigationItemAsync(item);
 			}
 		}
 		catch (OperationCanceledException)
@@ -99,7 +97,7 @@ public sealed partial class RootView : Page, IDisposable
 		}
 		catch (Exception exception)
 		{
-			viewModel.ReportOperationError(exception);
+			_viewModel.ReportOperationError(exception);
 		}
 	}
 }

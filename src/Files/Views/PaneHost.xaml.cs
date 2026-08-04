@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.ViewModels;
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 

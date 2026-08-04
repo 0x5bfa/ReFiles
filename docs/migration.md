@@ -50,7 +50,7 @@ flowchart LR
     Window --> Tab["TabViewModel"]
     Tab --> Pane["PaneViewModel"]
     Pane --> Browser["FolderBrowserViewModel"]
-    Browser --> Adapter["CoreBrowseAdapter"]
+    Browser --> Adapter["BrowsePresentationAdapter"]
     Adapter --> Core["Window/Tab/Pane/BrowseSession"]
 ```
 
@@ -63,7 +63,7 @@ flowchart LR
 独立したview sliceとして追加します。
 
 `Files` の navigation、tab、pane、folder double-click は `src/Files/Commands/` の stable command ID へ集約します。
-process-level `CommandRegistry` は `App2CommandRegistration`（改名前の残存型名）で構築し、window ごとの
+process-level `CommandRegistry` は `AppCommandRegistration` で構築し、window ごとの
 `WindowCommandManager`が各ViewModelとcontrolへbindingを提供します。Coreはこの境界からWinUI型を参照しません。
 
 ## 相互運用コードの所有権

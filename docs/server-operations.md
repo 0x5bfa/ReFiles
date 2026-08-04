@@ -1287,7 +1287,7 @@ public async ValueTask ExecuteAsync(
 }
 ```
 
-開始後にコマンドハンドラーが `BrowseSessionModel.Items` を変更してはいけません。
+開始後にコマンドハンドラーが `BrowseSession.Items` を変更してはいけません。
 `IFolderChangeSource` と通常の参照セッション更新が表示を調整します。
 
 ## 最初の対応範囲

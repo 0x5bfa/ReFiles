@@ -8,6 +8,7 @@ using OwlCore.Storage;
 
 namespace Files.Core.ItemFeatures.Archives;
 
+/// <summary>Creates archive capabilities for supported storage items.</summary>
 public sealed class ArchiveSourceFactory
 	: IItemFeatureFactory<IArchiveSource>
 {
@@ -25,6 +26,8 @@ public sealed class ArchiveSourceFactory
 
 	private readonly IReadOnlyList<string> _extensions;
 
+	/// <summary>Initializes an archive source factory.</summary>
+	/// <param name="extensions">The optional supported extension list.</param>
 	public ArchiveSourceFactory(IEnumerable<string>? extensions = null)
 	{
 		var extensionArray = (extensions ?? _defaultExtensions).Select(NormalizeExtension).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -36,12 +39,13 @@ public sealed class ArchiveSourceFactory
 		_extensions = Array.AsReadOnly(extensionArray);
 	}
 
+	/// <inheritdoc />
 	public IArchiveSource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
 		// SevenZip archive entries belong to a scoped mount that is not
-		// registered in FilesDataRoot. Nested archives require an explicit
+		// registered in StorageWorkspace. Nested archives require an explicit
 		// mount-chain contract rather than a reference that becomes stale
 		// when the containing browse context is replaced.
 		if (context.CoreModel is IArchiveEntry || context.CoreModel is IArchiveSource)

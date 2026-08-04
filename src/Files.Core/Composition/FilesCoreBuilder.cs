@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Previews;
@@ -15,7 +15,7 @@ using Files.Core.ViewSettings;
 namespace Files.Core.Composition;
 
 /// <summary>
-/// Configures storage sources, item features, and AppModel factories.
+/// Configures storage sources, item features, workspace services, and shell sessions.
 /// </summary>
 public sealed class FilesCoreBuilder : IAsyncDisposable
 {
@@ -23,7 +23,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 	private readonly List<IStorageOperationHandler> _operationHandlers = [];
 
-	private readonly List<Func<IFilesDataRoot, IBrowseLocationHandler>> _locationHandlerFactories = [];
+	private readonly List<Func<StorageWorkspace, IBrowseLocationHandler>> _locationHandlerFactories = [];
 
 	private readonly List<IAsyncDisposable> _ownedServices = [];
 
@@ -35,7 +35,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 	private readonly Lock _disposalLock = new();
 
-	private Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory?>? _windowsShellPreviewSessionFactory;
+	private Func<IStorageWorkspace, IWindowsShellPreviewSessionFactory?>? _windowsShellPreviewSessionFactory;
 
 	private Task? _disposeTask;
 
@@ -43,8 +43,12 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 	private bool _isDisposed;
 
+	/// <summary>Gets the item capability composition builder.</summary>
 	public ItemFeatureBuilder ItemFeatures { get; }
 
+	/// <summary>Initializes an empty Files.Core builder.</summary>
+	/// <param name="viewSettingsStore">The optional view settings store.</param>
+	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
 	public FilesCoreBuilder(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
 	{
 		_viewSettingsStore = viewSettingsStore ?? new InMemoryViewSettingsStore();
@@ -54,6 +58,9 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner()).AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(_thumbnailCache));
 	}
 
+	/// <summary>Adds an owned storage source.</summary>
+	/// <param name="source">The source to add.</param>
+	/// <returns>This builder.</returns>
 	public FilesCoreBuilder AddStorageSource(IStorageSource source)
 	{
 		EnsureMutable();
@@ -69,6 +76,9 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		return this;
 	}
 
+	/// <summary>Adds a storage operation handler.</summary>
+	/// <param name="handler">The handler to add.</param>
+	/// <returns>This builder.</returns>
 	public FilesCoreBuilder AddStorageOperationHandler(IStorageOperationHandler handler)
 	{
 		EnsureMutable();
@@ -79,70 +89,84 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		return this;
 	}
 
-	public FilesCoreBuilder AddBrowseLocationHandler(Func<IFilesDataRoot, IBrowseLocationHandler> handlerFactory)
+	/// <summary>Adds a browse location handler factory that depends only on the public workspace contract.</summary>
+	/// <param name="handlerFactory">The handler factory.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder AddBrowseLocationHandler(Func<IStorageWorkspace, IBrowseLocationHandler> handlerFactory)
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(handlerFactory);
 
-		_locationHandlerFactories.Add(handlerFactory);
+		_locationHandlerFactories.Add(workspace => handlerFactory(workspace));
 
 		return this;
 	}
 
+	/// <summary>Builds the runtime and transfers ownership of configured resources.</summary>
+	/// <returns>The composed runtime.</returns>
 	public FilesCoreRuntime Build()
 	{
 		EnsureMutable();
 		_isBuilt = true;
 
-		FilesDataRoot? dataRoot = null;
-		FilesApplicationModel? application = null;
+		StorageWorkspace? workspace = null;
+		FilesApplicationSession? shellSession = null;
 		try
 		{
 			var itemFeatureRegistry = ItemFeatures.Build();
 			var modelFactory = new StorableModelFactory(itemFeatureRegistry);
-			dataRoot = new FilesDataRoot(_sources, modelFactory);
+			workspace = new StorageWorkspace(_sources, modelFactory);
 
 			var handlers = new List<IBrowseLocationHandler>
 			{
-				new HomeBrowseLocationHandler(dataRoot),
-				new FolderBrowseLocationHandler(dataRoot),
+				new HomeBrowseLocationHandler(workspace),
+				new FolderBrowseLocationHandler(workspace),
 			};
 
 			foreach (var factory in _locationHandlerFactories)
 			{
-				var handler = factory(dataRoot)
+				var handler = factory(workspace)
 					?? throw new InvalidOperationException("A browse location handler factory returned null.");
 				handlers.Add(handler);
 			}
 
 			var locationResolver = new BrowseLocationResolver(handlers);
-			var paneFactory = new BrowsePaneFactory(locationResolver, _viewSettingsStore, _thumbnailCache);
-			application = new FilesApplicationModel(paneFactory);
+			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache);
+			shellSession = new FilesApplicationSession(paneFactory);
 			var storageOperations = new StorageOperationService(_operationHandlers);
 			IWindowsShellPreviewSessionFactory? previewSessions = null;
 			if (_windowsShellPreviewSessionFactory is not null)
 			{
-				previewSessions = _windowsShellPreviewSessionFactory(dataRoot)
+				previewSessions = _windowsShellPreviewSessionFactory(workspace)
 					?? throw new InvalidOperationException("The Windows Shell preview session factory returned null.");
 			}
 
-			var runtime = new FilesCoreRuntime(dataRoot, locationResolver, paneFactory, application, storageOperations, _viewSettingsStore, _thumbnailCache, previewSessions, Array.AsReadOnly(_ownedServices.ToArray()));
-			dataRoot = null;
-			application = null;
+			var runtime = new FilesCoreRuntime(
+				workspace,
+				locationResolver,
+				paneFactory,
+				shellSession,
+				storageOperations,
+				_viewSettingsStore,
+				_thumbnailCache,
+				previewSessions,
+				Array.AsReadOnly(_ownedServices.ToArray()));
+			workspace = null;
+			shellSession = null;
 
 			return runtime;
 		}
 		catch (Exception buildError)
 		{
 			var cleanupErrors = new List<Exception>();
-			if (application is not null)
+			if (shellSession is not null)
 			{
-				TryDisposeSynchronously(application, cleanupErrors);
+				TryDisposeSynchronously(shellSession, cleanupErrors);
 			}
 
-			if (dataRoot is not null)
+			if (workspace is not null)
 			{
-				TryDisposeSynchronously(dataRoot, cleanupErrors);
+				TryDisposeSynchronously(workspace, cleanupErrors);
 			}
 			else
 			{
@@ -160,6 +184,8 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Disposes resources that have not been transferred to a runtime.</summary>
+	/// <returns>A task that represents asynchronous disposal.</returns>
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -184,7 +210,17 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		return _configuredModules.Add(moduleId);
 	}
 
-	internal void SetWindowsShellPreviewSessionFactory(Func<IFilesDataRoot, IWindowsShellPreviewSessionFactory> factory)
+	internal FilesCoreBuilder AddStorageBrowseLocationHandler(Func<StorageWorkspace, IBrowseLocationHandler> handlerFactory)
+	{
+		EnsureMutable();
+		ArgumentNullException.ThrowIfNull(handlerFactory);
+
+		_locationHandlerFactories.Add(handlerFactory);
+
+		return this;
+	}
+
+	internal void SetWindowsShellPreviewSessionFactory(Func<IStorageWorkspace, IWindowsShellPreviewSessionFactory> factory)
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(factory);

@@ -1,7 +1,7 @@
 # Files.Core
 
 Files.Core is the UI-independent model, storage, item feature, and application
-state foundation for the next Files.App.
+state foundation for Files hosts.
 
 ## Public entry point
 
@@ -16,33 +16,53 @@ await using var runtime = new FilesCoreBuilder(
 		shellPreviewPolicy: shellPolicy)
 	.Build();
 
-var window = await runtime.Application.CreateWindowAsync(
+var window = await runtime.ShellSession.CreateWindowAsync(
 	HomeLocation.Instance,
 	cancellationToken);
 ```
 
-The runtime exposes explicit roots for application models, data/source
-resolution, storage operations, view settings, thumbnail caching, and Windows
-Shell preview sessions.
+The runtime exposes separate roots for the storage AppModel graph and the shell
+session graph. A CLI or background host can use `runtime.Workspace` and
+`runtime.StorageOperations` without creating any window, tab, pane, ViewModel,
+or WinUI object:
+
+```csharp
+foreach (var source in runtime.Workspace.Sources)
+{
+	await foreach (var root in runtime.Workspace.GetRootsAsync(source.SourceId, cancellationToken))
+	{
+		await using (root)
+		{
+			Console.WriteLine(root.Name);
+		}
+	}
+}
+```
 
 ## Implemented model graph
 
 ```mermaid
 flowchart TB
     Runtime["FilesCoreRuntime"]
-    App["FilesApplicationModel"]
-    Window["WindowModel"]
-    Tab["TabModel"]
-    Pane["PaneModel"]
-    Session["BrowseSessionModel"]
+    Workspace["IStorageWorkspace"]
+    App["FilesApplicationSession<br/>(ShellSession)"]
+    Window["WindowSession"]
+    Tab["TabSession"]
+    Pane["PaneSession"]
+    Content["IPaneContentSession"]
+    BrowsePane["BrowsePaneSession"]
+    Session["BrowseSession"]
     Items["IStorableModel + item features"]
 
+    Runtime --> Workspace
     Runtime --> App
     App --> Window
     Window --> Tab
     Tab --> Pane
-    Pane --> Session
-    Session --> Items
+    Pane --> Content
+    Content --> BrowsePane
+    BrowsePane --> Session
+    Workspace --> Items
 ```
 
 Implemented areas:
@@ -50,10 +70,11 @@ Implemented areas:
 - stable source and item identity with recovery addresses;
 - OwlCore.Storage CoreModels wrapped by Files AppModels;
 - lazy per-item feature factories, combiners, wrappers, and ownership;
-- application, window, tab, split-pane, navigation-history, and browse models;
+- UI-independent shell sessions for application, window, tab, split-pane,
+  navigation-history, and browsing state;
 - home/folder/archive locations plus extensible search/tag location contracts;
 - immutable item snapshots, selection, sorting, granular changes, and
-  viewport prefetch;
+  UI-agnostic presentation data;
 - in-memory and pluggable view settings;
 - cached encoded thumbnails, typed properties, and folder changes;
 - stream previews and hosted Windows Shell preview sessions;
@@ -102,7 +123,7 @@ and cross-source transfer coordination remain separate extension boundaries.
 
 - WinUI ViewModels, dispatcher adaptation, image decoding, media/document
   rendering, the preview child HWND, activation, drag/drop, and context menus
-  belong to Files.App.
+  belong to the Files UI host.
 - Search/tag behavior needs a selected backend and custom location handler.
 - Additional storage sources plug into the same storage, item feature,
   location, and operation contracts.
@@ -112,4 +133,4 @@ and cross-source transfer coordination remain separate extension boundaries.
   concerns.
 
 The complete design and Files.App implementation blueprint are in
-[`docs/architecture`](../../docs/architecture/README.md).
+[`docs`](../../docs/README.md).

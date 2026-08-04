@@ -3,14 +3,14 @@
 
 using Files.Core.Browsing;
 
-namespace Files.Core.AppModels;
+namespace Files.Core.Sessions;
 
 /// <summary>
 /// Owns the tab collection and active-tab state for one application window.
 /// </summary>
-public sealed class WindowModel : IAsyncDisposable
+public sealed class WindowSession : IAsyncDisposable
 {
-	private readonly IBrowsePaneFactory _paneFactory;
+	private readonly IBrowsePaneSessionFactory _paneFactory;
 
 	private readonly Lock _syncRoot = new();
 
@@ -20,9 +20,9 @@ public sealed class WindowModel : IAsyncDisposable
 
 	private readonly CancellationTokenSource _lifetime = new();
 
-	private readonly List<TabModel> _tabs = [];
+	private readonly List<TabSession> _tabs = [];
 
-	private IReadOnlyList<TabModel> _tabSnapshot = [];
+	private IReadOnlyList<TabSession> _tabSnapshot = [];
 
 	private Guid _activeTabId;
 
@@ -30,11 +30,14 @@ public sealed class WindowModel : IAsyncDisposable
 
 	private volatile bool _isDisposed;
 
+	/// <summary>Gets the stable window identifier.</summary>
 	public Guid Id { get; }
 
-	public IReadOnlyList<TabModel> Tabs => Volatile.Read(ref _tabSnapshot);
+	/// <summary>Gets the owned tab sessions.</summary>
+	public IReadOnlyList<TabSession> Tabs => Volatile.Read(ref _tabSnapshot);
 
-	public TabModel? ActiveTab
+	/// <summary>Gets the active tab session.</summary>
+	public TabSession? ActiveTab
 	{
 		get
 		{
@@ -45,9 +48,16 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 	}
 
-	public event EventHandler? StateChanged;
+	/// <summary>Occurs when the tab collection or ordering changes.</summary>
+	public event EventHandler? TabsChanged;
 
-	public WindowModel(IBrowsePaneFactory paneFactory, Guid? id = null)
+	/// <summary>Occurs when the active tab changes.</summary>
+	public event EventHandler? ActiveTabChanged;
+
+	/// <summary>Initializes an empty window session.</summary>
+	/// <param name="paneFactory">The factory used for browse panes.</param>
+	/// <param name="id">An optional stable window identifier.</param>
+	public WindowSession(IBrowsePaneSessionFactory paneFactory, Guid? id = null)
 	{
 		ArgumentNullException.ThrowIfNull(paneFactory);
 
@@ -60,13 +70,17 @@ public sealed class WindowModel : IAsyncDisposable
 		_paneFactory = paneFactory;
 	}
 
-	public async ValueTask<TabModel> OpenTabAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
+	/// <summary>Opens and activates a tab.</summary>
+	/// <param name="initialLocation">The optional initial browse location.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The created tab session.</returns>
+	public async ValueTask<TabSession> OpenTabAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
 	{
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
-		PaneModel? pane = null;
-		TabModel? tab = null;
+		PaneSession? pane = null;
+		TabSession? tab = null;
 
 		try
 		{
@@ -74,24 +88,24 @@ public sealed class WindowModel : IAsyncDisposable
 			pane = _paneFactory.Create();
 			if (initialLocation is not null)
 			{
-				await pane.NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+				await GetBrowseContent(pane).NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
 			}
 
-			tab = new TabModel(_paneFactory, pane);
+			tab = new TabSession(_paneFactory, pane);
 			pane = null;
 
 			lock (_syncRoot)
 			{
 				EnsureActive();
 				_tabs.Add(tab);
-				tab.StateChanged += OnTabStateChanged;
 				_activeTabId = tab.Id;
 				UpdateSnapshot();
 			}
 
 			var result = tab;
 			tab = null;
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, TabsChanged);
+			SessionEvent.Raise(this, ActiveTabChanged);
 
 			return result;
 		}
@@ -120,6 +134,10 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Closes and disposes a tab.</summary>
+	/// <param name="tabId">The tab identifier.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the tab existed.</returns>
 	public async ValueTask<bool> CloseTabAsync(Guid tabId, CancellationToken cancellationToken = default)
 	{
 		if (tabId == Guid.Empty)
@@ -130,7 +148,8 @@ public sealed class WindowModel : IAsyncDisposable
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
 
-		TabModel? removed = null;
+		TabSession? removed = null;
+		var activeTabChanged = false;
 		try
 		{
 			EnsureActive();
@@ -145,9 +164,9 @@ public sealed class WindowModel : IAsyncDisposable
 
 				removed = _tabs[index];
 				_tabs.RemoveAt(index);
-				removed.StateChanged -= OnTabStateChanged;
 				if (_activeTabId == tabId)
 				{
+					activeTabChanged = true;
 					_activeTabId = _tabs.Count is 0
 						? Guid.Empty
 						: _tabs[Math.Min(index, _tabs.Count - 1)].Id;
@@ -156,7 +175,12 @@ public sealed class WindowModel : IAsyncDisposable
 				UpdateSnapshot();
 			}
 
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, TabsChanged);
+			if (activeTabChanged)
+			{
+				SessionEvent.Raise(this, ActiveTabChanged);
+			}
+
 			var ownedTab = removed!;
 			removed = null;
 			await ownedTab.DisposeAsync().ConfigureAwait(false);
@@ -173,6 +197,9 @@ public sealed class WindowModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Activates a tab.</summary>
+	/// <param name="tabId">The tab identifier.</param>
+	/// <returns><see langword="true"/> when the tab exists.</returns>
 	public bool SetActiveTab(Guid tabId)
 	{
 		if (tabId == Guid.Empty)
@@ -199,12 +226,16 @@ public sealed class WindowModel : IAsyncDisposable
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, ActiveTabChanged);
 		}
 
 		return true;
 	}
 
+	/// <summary>Moves a tab within the window.</summary>
+	/// <param name="tabId">The tab identifier.</param>
+	/// <param name="targetIndex">The destination index.</param>
+	/// <returns><see langword="true"/> when the tab exists.</returns>
 	public bool MoveTab(Guid tabId, int targetIndex)
 	{
 		if (tabId == Guid.Empty)
@@ -240,12 +271,13 @@ public sealed class WindowModel : IAsyncDisposable
 
 		if (changed)
 		{
-			ModelEvent.Raise(this, StateChanged);
+			SessionEvent.Raise(this, TabsChanged);
 		}
 
 		return true;
 	}
 
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -266,18 +298,13 @@ public sealed class WindowModel : IAsyncDisposable
 	private async Task DisposeCoreAsync()
 	{
 		await _mutationLock.WaitAsync().ConfigureAwait(false);
-		TabModel[] ownedTabs;
+		TabSession[] ownedTabs;
 
 		try
 		{
 			lock (_syncRoot)
 			{
 				ownedTabs = _tabs.ToArray();
-				foreach (var tab in ownedTabs)
-				{
-					tab.StateChanged -= OnTabStateChanged;
-				}
-
 				_tabs.Clear();
 				_activeTabId = Guid.Empty;
 				UpdateSnapshot();
@@ -327,8 +354,8 @@ public sealed class WindowModel : IAsyncDisposable
 
 	}
 
-	private void OnTabStateChanged(object? sender, EventArgs args)
+	private static BrowsePaneSession GetBrowseContent(PaneSession pane)
 	{
-		ModelEvent.Raise(this, StateChanged);
+		return pane.Content as BrowsePaneSession ?? throw new InvalidOperationException("The browse pane factory returned a pane with unsupported content.");
 	}
 }

@@ -3,13 +3,13 @@
 詳細ビューの列幅、レイアウトモード、並べ替えの選択、項目サイズは、参照場所の表示方法を表します。
 1 つのストレージ項目のプロパティや項目機能ではありません。
 
-そのため `Files.Core` では `IBrowseSessionModel` に配置し、`IViewSettingsStore` を通して保存します。
+そのため `Files.Core` では `IBrowseSession` に配置し、`IViewSettingsStore` を通して保存します。
 
 ```mermaid
 flowchart TD
     Location["BrowseLocation"]
     Store["IViewSettingsStore"]
-    Session["BrowseSessionModel"]
+    Session["BrowseSession"]
     Settings["BrowseViewSettings"]
     VM["ViewModel"]
     View["WinUI レイアウト"]
@@ -45,7 +45,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant VM as ViewModel
-    participant Session as BrowseSessionModel
+    participant Session as BrowseSession
     participant Store as IViewSettingsStore
     participant Resolver as BrowseLocationResolver
     participant Context as BrowseLocationContext
@@ -75,7 +75,7 @@ Files は Files の設定データベースをバックエンドにした永続�
 
 ## 投影と選択
 
-`BrowseSessionModel` は UI 非依存の順序付き投影を所有します。不変の項目スナップショットと、バージョン付き `BrowseItemChange` 値を公開します。
+`BrowseSession` は UI 非依存の順序付き投影を所有します。不変の項目スナップショットと、バージョン付き `BrowseItemChange` 値を公開します。
 追加、削除、置換、単一項目の位置変更は細粒度のまま保ちます。設定またはプロパティ値による再並べ替えでは `BrowseItemsReset` を公開します。
 コンシューマーがレコードを順番に適用すると、最終インデックスの移動レコードの集合は一般に有効でないためです。
 

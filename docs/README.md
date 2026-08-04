@@ -11,13 +11,18 @@
 flowchart TB
     Views["WinUI ビュー"]
     ViewModels["Files ViewModel"]
-    AppModels["Files.Core AppModel"]
+    ShellSessions["Shell Session Model"]
+    Workspace["StorageWorkspace"]
+    AppModels["項目 AppModel"]
     ItemFeatures["項目機能"]
     CoreModels["OwlCore.Storage CoreModel"]
     Sources["ストレージ/プラットフォームソース"]
 
     Views --> ViewModels
+    ViewModels --> ShellSessions
     ViewModels --> AppModels
+    ShellSessions --> Workspace
+    Workspace --> AppModels
     AppModels --> ItemFeatures
     AppModels --> CoreModels
     ItemFeatures --> Sources
@@ -34,19 +39,21 @@ WinUI に依存しないコードを最終的に 1 つの物理的な `Files.Cor
 | --- | --- | --- |
 | ストレージ CoreModel | OwlCore.Storage `IStorable`、`IFile`、`IFolder` | ソースが扱う最小限のストレージ形状 |
 | 項目 AppModel | `Files.Core.Models.IStorableModel` | Files の識別情報、ライフタイム、合成済み項目機能 |
-| アプリケーション状態 AppModel | `Files.Core.AppModels.*` と参照モデル | アプリケーション、ウィンドウ、タブ、ペイン、参照の状態 |
-| ViewModel | `Files.ViewModels.*` | 1 つの直接的な AppModel と明示的な UI adapter を WinUI バインディングへ適応する薄いラッパー |
+| ストレージ Workspace | `Files.Core.Data.IStorageWorkspace` | ソースの列挙と、アドレスまたは安定参照から項目 AppModel を解決する UI 非依存ルート |
+| Shell Session Model | `Files.Core.Sessions.*` と参照モデル | ウィンドウ、タブ、ペイン、ナビゲーションなど、復元可能なアプリケーションセッション状態 |
+| ViewModel | `Files.ViewModels.*` | 対応する Session/AppModel と明示的な UI adapter を WinUI バインディングへ適応する薄いラッパー |
 
-項目 AppModel とアプリケーション状態 AppModel はどちらも UI 非依存です。完全なアプリケーション状態グラフより先に `Files.Core.Models` 名前空間が存在していたため、
-この名前空間を別のアーキテクチャレイヤーだと判断しないでください。移行の初期スライスでは、既存の名前空間を直ちに変更しません。
+項目 AppModel と Shell Session Model はどちらも UI 非依存ですが、同じモデルレイヤーではありません。前者はストレージ CoreModel を Files 向けに適応し、
+後者は UI ホストが持つセッション状態を表します。`Files.Core.Sessions` はそのための明示的な名前空間であり、CLI から項目 AppModel と同一視しません。
 
 ## 依存関係の規則
 
 | レイヤー | 所有するもの | 依存できるもの |
 | --- | --- | --- |
 | Views | コントロール、表示状態、入力ルーティング | ウィンドウ単位の ViewModel |
-| ViewModels | ローカライズ表示、コマンド binding、UI コレクション | 直接の AppModel と明示的な UI adapter |
-| AppModels | ウィンドウ、タブ、ペイン、参照、選択、履歴 | CoreModel と項目機能契約 |
+| ViewModels | ローカライズ表示、コマンド binding、UI コレクション | 直接の Session/AppModel と明示的な UI adapter |
+| Shell Sessions | ウィンドウ、タブ、ペイン、参照、選択、履歴 | Workspace、項目 AppModel、UI 非依存サービス |
+| Storage Workspace / AppModels | ソース解決、安定参照、項目モデルとその所有権 | CoreModel と項目機能契約 |
 | CoreModels | 標準化されたストレージ項目 | OwlCore.Storage とソース抽象化 |
 | 項目機能 | サムネイル、プロパティ、プレビュー、ウォッチャーのオプション処理 | 項目コンテキストとソースサービス |
 | ソース | Windows Shell、クラウド、FTP、アーカイブ | バックエンド/プラットフォーム API |
@@ -66,20 +73,24 @@ WinUI に依存しないコードを最終的に 1 つの物理的な `Files.Cor
 ```mermaid
 flowchart TB
     Runtime["FilesCoreRuntime"]
-    App["FilesApplicationModel"]
-    Window["WindowModel"]
-    Tab["TabModel"]
-    Pane["PaneModel"]
+    Workspace["IStorageWorkspace"]
+    App["FilesApplicationSession<br/>(ShellSession)"]
+    Window["WindowSession"]
+    Tab["TabSession"]
+    Pane["PaneSession"]
+    Content["IPaneContentSession"]
     Item["IStorableModel"]
 
+    Runtime --> Workspace
     Runtime --> App
     App --> Window
     Window --> Tab
     Tab --> Pane
-    Pane --> Item
+    Pane --> Content
+    Workspace --> Item
 ```
 
-親は子を所有し、非同期に破棄します。共有ソース、キャッシュ、スケジューラーはランタイムまたはソースレベルで所有します。
+Storage Workspace と Shell Session は runtime が持つ別々のルートです。それぞれのグラフで親は子を所有し、非同期に破棄します。共有ソース、キャッシュ、スケジューラーはランタイムまたはソースレベルで所有します。
 項目に結び付いたアダプターは、その項目の `ItemFeatures` が所有します。
 
 ## 文書一覧
@@ -88,7 +99,7 @@ flowchart TB
 
 1. [Trickle-down MVVM の設計規約](trickle-down-mvvm.md)
 2. [移行進捗](migration-progress.md)
-3. [アプリケーションモデルグラフ](app-models.md)
+3. [Shell Session モデルグラフ](app-models.md)
 4. [合成ルート](composition.md)
 5. [Files アーキテクチャ](files.md)
 6. [Files.App の Core 統合（旧互換経路）](files-app.md)

@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Models;
 using Files.Core.Storage.Windows;
 using OwlCore.Storage;
 
@@ -24,7 +25,8 @@ public sealed class WindowsShellArchiveBackend : IArchiveBackend
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (request.Source is not WindowsStorageSource || request.ArchiveModel.CoreModel is not IWindowsStorable { IsStream: true, } || request.ArchiveModel.CoreModel is not IFolder folder)
+		var archiveItem = request.ArchiveModel.GetCoreModel();
+		if (request.Source is not WindowsStorageSource || archiveItem is not IWindowsStorable { IsStream: true, } || archiveItem is not IFolder folder)
 		{
 			return ArchiveMountResult.Unsupported.Instance;
 		}

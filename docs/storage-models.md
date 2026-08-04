@@ -6,8 +6,10 @@ CoreModel はソースをまたいでストレージ項目を標準化します�
 `IStorable`、`IFile`、`IFolder` などの OwlCore.Storage インターフェースです。
 
 項目 AppModel は CoreModel をラップし、Files 固有の合成を追加します。これは `Files.Core.Models.IStorableModel` として実装され、
-WinUI の概念を公開しません。`Files.Core.AppModels` にはウィンドウ、タブ、ペインのアプリケーション状態 AppModel があり、
-参照モデルがその状態グラフを完成させます。これは AppModel にある 2 つのスコープであり、競合するアーキテクチャレイヤーではありません。
+WinUI の概念を公開しません。`IStorageWorkspace` はソースと項目 AppModel グラフの UI 非依存な入口です。
+
+`Files.Core.Sessions` にあるウィンドウ、タブ、ペイン、参照セッションは、CoreModel を適応する AppModel ではなく Shell Session Model です。
+Storage Workspace と Shell Session は `FilesCoreRuntime` が所有する別々のルートとして扱います。
 
 `Files.Core` プロジェクトには CoreModel アダプターと AppModel の両方を含めます。プロジェクトの配置を、この文書で定める依存境界の代わりに使ってはいけません。
 
@@ -38,8 +40,8 @@ classDiagram
     class IFile
     class IFolder
     class IStorableModel {
-        +CoreModel
         +Reference
+        +Name
         +Features
     }
     class IItemFeatures {
@@ -148,7 +150,7 @@ flowchart LR
 クリーンアップは所有するすべての項目を試行し、残りのモデルを放棄せずに失敗を集約します。同期 `Dispose` メンバーは互換性ブリッジです。
 Files は UI スレッド上の破棄を非同期のまま維持しなければなりません。
 
-ストレージソースと共有サービスはより長いライフタイムを持ち、`FilesDataRoot` またはアプリケーションの合成ルートが所有します。
+ストレージソースと共有サービスはより長いライフタイムを持ち、`StorageWorkspace` またはアプリケーションの合成ルートが所有します。
 これにより、ネイティブリソースの数をビジュアルツリーではなくモデルグラフに対応させて制限できます。
 
 開かれたアーカイブは、プロセス全体のソースライフタイムに対するスコープ付きの例外です。選択された `IArchiveMount` は、アクティブな `ArchiveBrowseLocationContext` の間だけ項目ソースを公開します。

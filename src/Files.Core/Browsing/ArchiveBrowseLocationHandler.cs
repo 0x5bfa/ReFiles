@@ -3,6 +3,7 @@
 
 using Files.Core.Data;
 using Files.Core.Models;
+using Files.Core.Storage;
 using Files.Core.Storage.Archives;
 using OwlCore.Storage;
 
@@ -14,23 +15,33 @@ namespace Files.Core.Browsing;
 public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 {
 	private const int _maximumCredentialAttempts = 5;
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly IStorageWorkspace _workspace;
+	private readonly IStorableModelFactory _modelFactory;
 	private readonly ArchiveBackendSelector _backendSelector;
 	private readonly IArchiveCredentialResolver? _credentialResolver;
 
-	public ArchiveBrowseLocationHandler(IFilesDataRoot dataRoot, ArchiveBackendSelector backendSelector, IArchiveCredentialResolver? credentialResolver = null)
+	/// <summary>Initializes an archive browse location handler.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	/// <param name="modelFactory">The internal model factory for mounted entries.</param>
+	/// <param name="backendSelector">The archive backend selector.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
+	public ArchiveBrowseLocationHandler(IStorageWorkspace workspace, IStorableModelFactory modelFactory, ArchiveBackendSelector backendSelector, IArchiveCredentialResolver? credentialResolver = null)
 	{
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
+		ArgumentNullException.ThrowIfNull(modelFactory);
 		ArgumentNullException.ThrowIfNull(backendSelector);
 
-		_dataRoot = dataRoot;
+		_workspace = workspace;
+		_modelFactory = modelFactory;
 		_backendSelector = backendSelector;
 		_credentialResolver = credentialResolver;
 	}
 
+	/// <inheritdoc />
 	public bool CanHandle(BrowseLocation location)
 		=> location is ArchiveLocation;
 
+	/// <inheritdoc />
 	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		if (location is not ArchiveLocation archiveLocation)
@@ -38,13 +49,13 @@ public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 			throw new ArgumentException("The location must identify an archive.", nameof(location));
 		}
 
-		var archiveModel = await _dataRoot.ResolveAsync(archiveLocation.Archive, cancellationToken).ConfigureAwait(false);
+		var archiveModel = await _workspace.ResolveAsync(archiveLocation.Archive, cancellationToken).ConfigureAwait(false);
 		IArchiveMount? mount = null;
 		IStorableModel? locationModel = null;
 
 		try
 		{
-			var source = _dataRoot.GetSource(archiveLocation.Archive.SourceId);
+			var source = GetSource(archiveLocation.Archive.SourceId);
 			ArchiveCredential? credential = null;
 			var credentialAttempt = 0;
 			var credentialPromptCount = 0;
@@ -92,15 +103,15 @@ public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' is not a folder.");
 			}
 
-			locationModel = ReferenceEquals(locationCoreModel, archiveModel.CoreModel)
+			locationModel = ReferenceEquals(locationCoreModel, archiveModel.GetCoreModel())
 				? archiveModel
-				: _dataRoot.ModelFactory.Create(mount.ItemSource, locationCoreModel);
+				: _modelFactory.Create(mount.ItemSource, locationCoreModel);
 			if (locationModel is not IFolderModel folderModel)
 			{
 				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' did not produce a folder model.");
 			}
 
-			var context = new ArchiveBrowseLocationContext(archiveLocation, archiveModel, folderModel, mount, _dataRoot);
+			var context = new ArchiveBrowseLocationContext(archiveLocation, archiveModel, folderModel, mount, _workspace, _modelFactory);
 
 			return context;
 		}
@@ -126,6 +137,18 @@ public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 			cleanupErrors.Insert(0, openError);
 			throw new AggregateException("Archive location opening and cleanup failed.", cleanupErrors);
 		}
+	}
+
+	private IStorageSource GetSource(StorageSourceId sourceId)
+	{
+		var matches = _workspace.Sources.Where(source => source.SourceId == sourceId).Take(2).ToArray();
+
+		return matches.Length switch
+		{
+			1 => matches[0],
+			0 => throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered."),
+			_ => throw new InvalidOperationException($"Storage source '{sourceId}' is registered more than once."),
+		};
 	}
 
 	private static async ValueTask TryDisposeAsync(IAsyncDisposable disposable, ICollection<Exception> errors)

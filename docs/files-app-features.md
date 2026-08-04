@@ -15,7 +15,7 @@
 | クラウド | 任意の `ICloudInfoSource` と `IPropertySource` | `CloudRootCatalog` | サイドバーと同期状態を投影する |
 | 列 | `IPropertySource` が値を返す | `ColumnCatalog` が列定義を合成する | 列定義と設定からセルを作る |
 | ファイルを開く | `ILaunchTargetSource` | `FileLauncher` | `files.item.open` を呼ぶ |
-| フォルダー / アーカイブを開く | `IFolderModel`、`IArchiveSource`、`IArchiveEntry` | コマンドハンドラー | `PaneModel` の状態を投影する |
+| フォルダー / アーカイブを開く | `IFolderModel`、`IArchiveSource`、`IArchiveEntry` | コマンドハンドラー | `PaneSession` の状態を投影する |
 
 ```mermaid
 flowchart LR
@@ -334,7 +334,7 @@ sequenceDiagram
     participant View as Item View
     participant Commands as WindowCommandManager
     participant Handler as OpenItemCommandHandler
-    participant Pane as PaneModel
+    participant Pane as PaneSession
     participant Item as IStorableModel
     participant Target as ILaunchTargetSource
     participant Launcher as FileLauncher

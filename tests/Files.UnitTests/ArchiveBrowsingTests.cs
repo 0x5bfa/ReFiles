@@ -58,7 +58,7 @@ public sealed class ArchiveBrowsingTests
 		var archive = new TestStorable("archive", "encrypted.7z");
 		var source = new ResolvingArchiveSource(archive);
 		var modelFactory = new StorableModelFactory();
-		await using var dataRoot = new FilesDataRoot([source], modelFactory);
+		await using var workspace = new StorageWorkspace([source], modelFactory);
 		var mount = new TestArchiveMount(new StorableReference(source.SourceId, archive.Id), source);
 		var backend = new TestArchiveBackend(
 			"sevenzip",
@@ -68,7 +68,7 @@ public sealed class ArchiveBrowsingTests
 				? new ArchiveMountResult.CredentialRequired(new ArchiveCredentialChallenge(request.Archive, request.ArchiveModel.Name, attempt: 1, previousCredentialRejected: false))
 				: new ArchiveMountResult.Success(mount));
 		var credentials = new TestArchiveCredentialResolver();
-		var handler = new ArchiveBrowseLocationHandler(dataRoot, new ArchiveBackendSelector([backend]), credentials);
+		var handler = new ArchiveBrowseLocationHandler(workspace, modelFactory, new ArchiveBackendSelector([backend]), credentials);
 		var location = new ArchiveLocation(new StorableReference(source.SourceId, archive.Id));
 
 		await using var context = await handler.OpenAsync(location);
@@ -95,14 +95,14 @@ public sealed class ArchiveBrowsingTests
 		var archive = new TestStorable("archive", "example.7z");
 		var source = new ResolvingArchiveSource(archive);
 		var modelFactory = new StorableModelFactory();
-		await using var dataRoot = new FilesDataRoot([source], modelFactory);
+		await using var workspace = new StorageWorkspace([source], modelFactory);
 		var reference = new StorableReference(source.SourceId, archive.Id);
 		var archiveModel = modelFactory.Create(source, archive);
 		var mount = new TestArchiveMount(reference, source);
 		var folderModel = (IFolderModel)modelFactory.Create(source, mount.Root);
 		var location = new ArchiveLocation(reference, "one/two");
 		await using var context =
-			new ArchiveBrowseLocationContext(location, archiveModel, folderModel, mount, dataRoot);
+			new ArchiveBrowseLocationContext(location, archiveModel, folderModel, mount, workspace, modelFactory);
 
 		var parent = await context.GetParentLocationAsync();
 

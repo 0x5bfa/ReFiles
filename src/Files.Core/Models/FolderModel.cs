@@ -8,14 +8,23 @@ using OwlCore.Storage;
 
 namespace Files.Core.Models;
 
+/// <summary>Adapts an OwlCore folder to the Files folder model contract.</summary>
 public sealed class FolderModel : StorableModel, IFolderModel
 {
+	private readonly IFolder _folder;
+
 	private readonly IStorageSource _source;
 
 	private readonly IStorableModelFactory _modelFactory;
 
-	public IFolder Folder { get; }
-
+	/// <summary>
+	/// Initializes a Files folder model.
+	/// </summary>
+	/// <param name="source">The storage source that owns the folder.</param>
+	/// <param name="folder">The owned OwlCore folder.</param>
+	/// <param name="modelFactory">The factory used to adapt child items.</param>
+	/// <param name="reference">The stable Files item reference.</param>
+	/// <param name="features">The owned composed item features.</param>
 	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, IItemFeatures features)
 		: base(folder, reference, features)
 	{
@@ -23,25 +32,36 @@ public sealed class FolderModel : StorableModel, IFolderModel
 		ArgumentNullException.ThrowIfNull(modelFactory);
 
 		_source = source;
+		_folder = folder;
 		_modelFactory = modelFactory;
-		Folder = folder;
 	}
 
+	/// <summary>
+	/// Enumerates child item models owned by the caller.
+	/// </summary>
+	/// <param name="type">The item types to include.</param>
+	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
+	/// <returns>The child item models.</returns>
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 
-		await foreach (var item in Folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
+		await foreach (var item in _folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
 		{
 			yield return _modelFactory.Create(_source, item);
 		}
 	}
 
+	/// <summary>
+	/// Gets the parent folder model when the storage source exposes one.
+	/// </summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The parent folder model owned by the caller, or <see langword="null"/> for a root.</returns>
 	public async ValueTask<IFolderModel?> GetParentAsync(CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
 
-		if (Folder is not IStorableChild child)
+		if (_folder is not IStorableChild child)
 		{
 			return null;
 		}

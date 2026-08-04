@@ -18,7 +18,7 @@ Files.Core にすでに実装されているナビゲーションとストレー
 - XAML コントロールを構築せずにハンドラーをテスト可能にする。
 - コマンドレジストリをサービスロケーターに変えず、選択範囲に限定したコマンド拡張を許可する。
 
-コマンドシステムは `PaneModel`、`IStorageOperationService`、ソース項目機能の合成、WinUI の入力ルーティングを
+コマンドシステムは `PaneSession`、`IStorageOperationService`、ソース項目機能の合成、WinUI の入力ルーティングを
 置き換えません。これら既存の境界を調整するものです。
 
 ## 依存関係の境界
@@ -252,7 +252,7 @@ sequenceDiagram
 
 ## ナビゲーションアダプター
 
-`NavigationCommandAdapter` はウィンドウ構築時に直接渡された `PaneModel` を呼び出します。
+`NavigationCommandAdapter` はウィンドウ構築時に直接渡された `PaneSession` を呼び出します。
 
 | コマンド ID | モデル操作 | 状態ソース |
 | --- | --- | --- |
@@ -411,7 +411,7 @@ flowchart TB
 
 1. 既存のコマンド設定と互換性のある安定した `CommandId` 値を導入する。
 2. レジストリと 1 つのウィンドウマネージャーを構築する。
-3. 新しい `PaneModel` に対するナビゲーションハンドラーを実装する。
+3. 新しい `PaneSession` に対するナビゲーションハンドラーを実装する。
 4. `IStorageOperationService` に対するストレージハンドラーを実装する。
 5. 既存のコマンドバーとショートカットサーフェスを `CommandBindingViewModel` に適応する。
 6. クリップボードと Shell コマンドをプラットフォームアダプターへ移行する。
@@ -423,7 +423,7 @@ flowchart TB
 
 `Files` は、`src/Files/Commands/`でこの command boundary を UI adapter として適用します。
 
-- `App2CommandRegistration.Build()`（改名前の残存型名）が `App` の composition root で一度だけ呼び出され、
+- `AppCommandRegistration.Build()` が `App` の composition root で一度だけ呼び出され、
   `CommandRegistryBuilder`へstable ID、descriptor、handler factoryを明示登録します。
 - `CommandRegistry`はprocess-levelのimmutable catalogです。`MainWindow`から作られた各`RootViewModel`は、
   そのcatalogから独立した`WindowCommandManager`を作成します。
@@ -431,12 +431,12 @@ flowchart TB
   `ToolbarView`、custom `TabView`、native `NavigationView`のHome、folder double-clickは
   `WindowCommandManager`を経由します。
 - browsing command はCore modelをXAMLへ公開せず、`RootViewModel`のactive tab/browserと
-  `CoreBrowseAdapter`を使います。storage operation、shortcut、localization、extension commandは
+  `BrowsePresentationAdapter`を使います。storage operation、shortcut、localization、extension commandは
   同じ登録境界へ追加します。
 
 これは Trickle-down MVVM の例外ではありません。registry は process scope、manager は window scope、
 `CommandContext` は active pane scope とし、ViewModel は binding adapter に留めます。新しい pane/context command は
-`RootViewModel` の全体状態を直接読むのではなく、`PaneModel` または明示的な window/pane context から評価します。
+`RootViewModel` の全体状態を直接読むのではなく、`PaneSession` または明示的な window/pane context から評価します。
 Control は `FolderBrowser` や現在の pane の command surface を dependency property で受け取り、
 handler や service を Control 内で解決しません。
 
@@ -460,7 +460,7 @@ handler や service を Control 内で解決しません。
 - プロンプトまたは長時間の操作をまたいで `IStorableModel` を保持する。
 - 永続化するコマンド識別にラベル、インデックス、enum の序数を使う。
 - `GetState` でネットワーク、COM、列挙の処理を行う。
-- 操作後に `BrowseSessionModel.Items` を変更する。
+- 操作後に `BrowseSession.Items` を変更する。
 - 複数選択コマンドを項目機能として表現する。
 - ネイティブ Shell メニュー項目を XAML にコピーし、すべての拡張が動作すると仮定する。
 - `async void` メソッドに実行やエラー処理を所有させる。

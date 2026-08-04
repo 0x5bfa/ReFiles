@@ -5,11 +5,11 @@
 
 ## 完了した境界
 
-`Files.Core` はUI非依存のstorage、capability、operation、browse session、application modelを提供します。
+`Files.Core` はUI非依存のstorage、capability、operation、項目 AppModel、Shell Sessionを提供します。
 
 | 領域 | 状況 |
 | --- | --- |
-| application model | application、window、tab、1..2 pane、pane history、preview、browse sessionを実装済み |
+| Shell Session | application、window、tab、1..2 pane、typed pane content、history、preview、browse sessionを実装済み |
 | Windows storage | resolve、enumeration、stable reference、property、thumbnail、change sourceを実装済み |
 | FTP storage | FTP/FTPS source、stream、property、operationを実装済み |
 | browse | context ownership、atomic navigation/refresh、incremental reconciliation、selection、projectionを実装済み |
@@ -25,17 +25,17 @@
 - custom `TabView`はWinUI 3 title bar APIを使い、`PaneHost`は`Panes` collectionをItemsRepeaterへ投影する。
 - `DetailsFolderView`は現在stable key selectionをCoreへroutingするListView実装で、表示モードの差し替え境界を提供する。
 - 起動時に `FilesCoreRuntime` を1つ作成し、最終終了時に非同期破棄する。
-- `FilesApplicationModel` が作成した `WindowModel` の active `TabModel`/`PaneModel` をUI adapterへ渡す。
+- `FilesApplicationSession` が作成した `WindowSession` の active `TabSession`/`PaneSession` をUI adapterへ渡す。
 - Home と rooted local Windows folderをCoreでresolve、enumerate、watch、refreshする。
 - Coreのversion付き一覧をDispatcherQueue上で`Files`のpresentation collectionへ投影する。
 - selectionをstable keyでCoreへ送り、Coreのselection stateをUIへreconcileする。
-- back/forward/up、path navigation、refreshを `PaneModel` へroutingする。
-- `App2CommandRegistration`（改名前の残存型名）でstable command IDをprocess-level registryへ登録し、window単位の
+- back/forward/up、path navigation、refreshを `PaneSession` へroutingする。
+- `AppCommandRegistration`でstable command IDをprocess-level registryへ登録し、window単位の
   `WindowCommandManager`からnavigation、tab、pane、Home、folder double-clickを実行する。
 
 ## 基本 browsing の完了条件
 
-次の操作は `Files.Core` の `WindowModel`、`TabModel`、`PaneModel`、`BrowseSessionModel` を正本として
+次の操作は `Files.Core` の `WindowSession`、`TabSession`、`PaneSession`、`BrowseSession` を正本として
 実行されます。
 
 - tab の作成、選択、終了。
@@ -44,13 +44,13 @@
 - folder の double-click、stable-key selection、selection の再同期。
 - Core event の dispatcher 越しの snapshot 適用と、tab selection の安定性。
 
-Core の `TabModel` は現在 1..2 pane を所有します。`Files` の `PaneHost` は collection 境界を維持しますが、
+Core の `TabSession` は現在 1..2 pane を所有します。`Files` の `PaneHost` は collection 境界を維持しますが、
 3 pane 以上のレイアウトは別の Core 拡張です。
 
 ## 次の移行単位
 
 1. Details viewをList/Grid/Card/Columnsへ拡張し、view settingsとviewport reportingを接続する。
-2. `Files`へ preview UIをCore `PaneModel.Preview` とWindows Shell preview sessionへ接続する。
+2. `Files`へ preview UIをCore `PaneSession.Preview` とWindows Shell preview sessionへ接続する。
 3. delete/copy/move/createをCore operation requestへ移し、既存dialog、進行状況、elevation、server継続をadapter化する。
 4. Search/Library/Tag/FTPを型付き `BrowseLocation` とCore sourceへ移す。
 5. `Files`のWinUI presentation model、localization、activation、永続化を追加する。
@@ -58,7 +58,7 @@ Core の `TabModel` は現在 1..2 pane を所有します。`Files` の `PaneHo
 
 ## Trickle-down MVVM の残作業
 
-最初の browsing slice は動作境界を優先したため、入れ子 ViewModel に `IFilesDataRoot`、dispatcher、command manager が引き継がれています。
+最初の browsing slice は動作境界を優先したため、入れ子 ViewModel に `IStorageWorkspace`、dispatcher、command manager が引き継がれています。
 次の UI slice では、[Trickle-down MVVM の設計規約](trickle-down-mvvm.md)に従って次を完了条件にします。
 
 - `RootViewModel` が作った UI adapter/presenter factory を必要な View 層へ明示的に渡す。

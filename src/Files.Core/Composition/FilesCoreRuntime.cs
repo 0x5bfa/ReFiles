@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.ItemFeatures.Previews;
 using Files.Core.ItemFeatures.Thumbnails;
@@ -12,7 +12,7 @@ using Files.Core.ViewSettings;
 namespace Files.Core.Composition;
 
 /// <summary>
-/// Owns the complete UI-independent Files model graph for one process.
+/// Owns the UI-independent storage workspace, shell session, and shared services for one process.
 /// </summary>
 public sealed class FilesCoreRuntime : IAsyncDisposable
 {
@@ -22,37 +22,61 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 
 	private Task? _disposeTask;
 
-	public IFilesDataRoot DataRoot { get; }
+	/// <summary>
+	/// Gets the storage workspace used by UI, CLI, and background hosts.
+	/// </summary>
+	public IStorageWorkspace Workspace { get; }
 
+	/// <summary>
+	/// Gets the root of the window, tab, and pane shell session graph.
+	/// </summary>
+	public FilesApplicationSession ShellSession { get; }
+
+	/// <summary>
+	/// Gets the resolver for typed browse locations.
+	/// </summary>
 	public IBrowseLocationResolver LocationResolver { get; }
 
-	public IBrowsePaneFactory PaneFactory { get; }
+	/// <summary>
+	/// Gets the factory used to create browse pane sessions.
+	/// </summary>
+	public IBrowsePaneSessionFactory PaneSessionFactory { get; }
 
-	public FilesApplicationModel Application { get; }
-
+	/// <summary>
+	/// Gets the UI-independent storage operation service.
+	/// </summary>
 	public IStorageOperationService StorageOperations { get; }
 
+	/// <summary>
+	/// Gets the view settings store shared by browse sessions.
+	/// </summary>
 	public IViewSettingsStore ViewSettingsStore { get; }
 
+	/// <summary>
+	/// Gets the thumbnail cache shared by item features.
+	/// </summary>
 	public IThumbnailCache ThumbnailCache { get; }
 
+	/// <summary>
+	/// Gets the optional factory for Windows Shell preview sessions.
+	/// </summary>
 	public IWindowsShellPreviewSessionFactory? WindowsShellPreviewSessions { get; }
 
 	internal FilesCoreRuntime(
-		IFilesDataRoot dataRoot,
+		IStorageWorkspace workspace,
 		IBrowseLocationResolver locationResolver,
-		IBrowsePaneFactory paneFactory,
-		FilesApplicationModel application,
+		IBrowsePaneSessionFactory paneSessionFactory,
+		FilesApplicationSession shellSession,
 		IStorageOperationService storageOperations,
 		IViewSettingsStore viewSettingsStore,
 		IThumbnailCache thumbnailCache,
 		IWindowsShellPreviewSessionFactory? windowsShellPreviewSessions,
 		IReadOnlyList<IAsyncDisposable> ownedServices)
 	{
-		DataRoot = dataRoot;
+		Workspace = workspace;
 		LocationResolver = locationResolver;
-		PaneFactory = paneFactory;
-		Application = application;
+		PaneSessionFactory = paneSessionFactory;
+		ShellSession = shellSession;
 		StorageOperations = storageOperations;
 		ViewSettingsStore = viewSettingsStore;
 		ThumbnailCache = thumbnailCache;
@@ -60,6 +84,10 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 		_ownedServices = ownedServices;
 	}
 
+	/// <summary>
+	/// Asynchronously disposes the shell session, shared services, and storage workspace.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous disposal operation.</returns>
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -74,14 +102,14 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 	{
 		var errors = new List<Exception>();
 
-		await TryDisposeAsync(Application, errors).ConfigureAwait(false);
+		await TryDisposeAsync(ShellSession, errors).ConfigureAwait(false);
 
 		foreach (var service in _ownedServices.Reverse())
 		{
 			await TryDisposeAsync(service, errors).ConfigureAwait(false);
 		}
 
-		await TryDisposeAsync(DataRoot, errors).ConfigureAwait(false);
+		await TryDisposeAsync(Workspace, errors).ConfigureAwait(false);
 		GC.SuppressFinalize(this);
 
 		if (errors.Count is 1)

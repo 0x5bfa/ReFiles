@@ -6,7 +6,7 @@ using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.Storage;
@@ -25,7 +25,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 {
 	private const int BulkNotificationThreshold = 32;
 
-	private readonly CoreBrowseAdapter _browseAdapter;
+	private readonly BrowsePresentationAdapter _browseAdapter;
 
 	private readonly IUIDispatcher _dispatcher;
 
@@ -70,14 +70,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		?? _browseAdapter.ErrorMessage
 		?? _browseAdapter.StatusText;
 
-	public FolderBrowserViewModel(PaneModel pane, IFilesDataRoot dataRoot, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(commandManager);
 		ArgumentNullException.ThrowIfNull(dispatcher);
 
 		CommandManager = commandManager;
 		_dispatcher = dispatcher;
-		_browseAdapter = new CoreBrowseAdapter(pane, dataRoot, dispatcher);
+		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 		_wasLoading = _browseAdapter.IsLoading;
 		_browseAdapter.Updated += BrowseAdapter_Updated;
@@ -164,6 +164,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
 	{
+		var itemCountBefore = Items.Count;
 		var wasLoading = _wasLoading;
 		_wasLoading = _browseAdapter.IsLoading;
 		_isApplyingUpdate = true;
@@ -173,7 +174,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 			if (args.ItemChanges.Count is not 0)
 			{
-				if (ShouldReplaceItems(args.ItemChanges, wasLoading, _browseAdapter.IsLoading))
+				var shouldReplaceItems = ShouldReplaceItems(args.ItemChanges, wasLoading, _browseAdapter.IsLoading);
+				if (shouldReplaceItems)
 				{
 					Items.ReplaceAll(_browseAdapter.Items);
 				}
@@ -201,28 +203,64 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	private void ApplyItemChanges(IReadOnlyList<BrowseItemViewModelChange> changes)
 	{
-		foreach (var change in changes)
+		var changeIndex = 0;
+		while (changeIndex < changes.Count)
 		{
-			switch (change)
+			if (changes[changeIndex] is BrowseItemViewModelAdded firstAdded)
 			{
-				case BrowseItemViewModelAdded added:
-					Items.Insert(added.Index, added.Item);
-					break;
-				case BrowseItemViewModelRemoved removed:
-					Items.RemoveAt(removed.Index);
-					break;
-				case BrowseItemViewModelReplaced replaced:
-					Items[replaced.Index] = replaced.Item;
-					break;
-				case BrowseItemViewModelMoved moved:
-					Items.Move(moved.PreviousIndex, moved.CurrentIndex);
-					break;
-				case BrowseItemViewModelsReset reset:
-					Items.ReplaceAll(reset.Items);
-					break;
-				default:
-					throw new InvalidOperationException($"Unsupported browse item change '{change.GetType().Name}'.");
+				var addedItems = new List<BrowseItemViewModel> { firstAdded.Item };
+				var nextChangeIndex = changeIndex + 1;
+				var expectedIndex = firstAdded.Index + 1;
+				while (nextChangeIndex < changes.Count && changes[nextChangeIndex] is BrowseItemViewModelAdded nextAdded && nextAdded.Index == expectedIndex)
+				{
+					addedItems.Add(nextAdded.Item);
+					nextChangeIndex++;
+					expectedIndex++;
+				}
+
+				if (addedItems.Count > 1)
+				{
+					if (firstAdded.Index == Items.Count)
+					{
+						Items.AddRange(addedItems);
+					}
+					else
+					{
+						Items.InsertRange(firstAdded.Index, addedItems);
+					}
+
+					changeIndex = nextChangeIndex;
+
+					continue;
+				}
 			}
+
+			ApplyItemChange(changes[changeIndex]);
+			changeIndex++;
+		}
+	}
+
+	private void ApplyItemChange(BrowseItemViewModelChange change)
+	{
+		switch (change)
+		{
+			case BrowseItemViewModelAdded added:
+				Items.Insert(added.Index, added.Item);
+				break;
+			case BrowseItemViewModelRemoved removed:
+				Items.RemoveAt(removed.Index);
+				break;
+			case BrowseItemViewModelReplaced replaced:
+				Items[replaced.Index] = replaced.Item;
+				break;
+			case BrowseItemViewModelMoved moved:
+				Items.Move(moved.PreviousIndex, moved.CurrentIndex);
+				break;
+			case BrowseItemViewModelsReset reset:
+				Items.ReplaceAll(reset.Items);
+				break;
+			default:
+				throw new InvalidOperationException($"Unsupported browse item change '{change.GetType().Name}'.");
 		}
 	}
 
@@ -233,7 +271,38 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 			return true;
 		}
 
-		return (wasLoading || isLoading) && changes.Count >= BulkNotificationThreshold && changes.All(static change => change is BrowseItemViewModelAdded);
+		if (!(wasLoading || isLoading) || changes.Count < BulkNotificationThreshold)
+		{
+			return false;
+		}
+
+		return !IsContiguousAddedRange(changes);
+	}
+
+	private static bool IsContiguousAddedRange(IReadOnlyList<BrowseItemViewModelChange> changes)
+	{
+		if (changes.Count is 0)
+		{
+			return false;
+		}
+
+		var expectedIndex = -1;
+		foreach (var change in changes)
+		{
+			if (change is not BrowseItemViewModelAdded added)
+			{
+				return false;
+			}
+
+			if (expectedIndex >= 0 && added.Index != expectedIndex)
+			{
+				return false;
+			}
+
+			expectedIndex = added.Index + 1;
+		}
+
+		return true;
 	}
 
 	private Task SetViewModeOnUiAsync(FolderViewMode mode)

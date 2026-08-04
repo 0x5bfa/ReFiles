@@ -59,7 +59,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     Location["FolderLocation"]
-    Root["FilesDataRoot"]
+    Root["StorageWorkspace"]
     Source["FtpStorageSource"]
     Factory["FtpStorableFactory"]
     Resolver["FtpItemResolver"]
@@ -218,7 +218,7 @@ await using var runtime = builder.Build();
 `AddDefaultStreamPreviews` とアーカイブ参照はモジュールガードを使うため、複数の FTP ソースを追加しても
 共有ローダーやハンドラーが重複登録されません。FTP プロパティファクトリはソース単位のままです。
 
-現在の `FilesDataRoot` のソース集合は `Build` 後には不変です。保存済み接続を実行時に追加・削除するには、
+現在の `StorageWorkspace` のソース集合は `Build` 後には不変です。保存済み接続を実行時に追加・削除するには、
 ソースの有効期間を明示した将来のソースレジストリ契約が必要です。初期の Files はプロセス起動時に
 プロファイルを読み込めます。
 

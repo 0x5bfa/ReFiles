@@ -86,6 +86,6 @@ public static class WindowsFilesCoreBuilderExtensions
 
 		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1);
 		builder.Own(previewScheduler);
-		builder.SetWindowsShellPreviewSessionFactory(dataRoot => new WindowsShellPreviewSessionFactory(dataRoot, previewScheduler));
+		builder.SetWindowsShellPreviewSessionFactory(workspace => new WindowsShellPreviewSessionFactory(workspace, previewScheduler));
 	}
 }

@@ -3,7 +3,6 @@
 
 using Files.Core.ItemFeatures;
 using Files.Core.Storage;
-using OwlCore.Storage;
 
 namespace Files.Core.Models;
 
@@ -12,10 +11,13 @@ namespace Files.Core.Models;
 /// </summary>
 public interface IStorableModel : IHasItemFeatures, IDisposable, IAsyncDisposable
 {
-	IStorable CoreModel { get; }
-
+	/// <summary>
+	/// Gets the stable Files reference for the item.
+	/// </summary>
 	StorableReference Reference { get; }
 
+	/// <summary>
+	/// Gets the item name captured when the model was created.
+	/// </summary>
 	string Name { get; }
-
 }

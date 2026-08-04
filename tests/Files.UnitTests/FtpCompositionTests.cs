@@ -27,10 +27,10 @@ public sealed class FtpCompositionTests
 		try
 		{
 			var source = (FtpStorageSource)runtime
-				.DataRoot
+				.Workspace
 				.Sources
 				.Single();
-			await using var model = await runtime.DataRoot.ResolveAsync(source.SourceId, source.CreateAddress(FtpPath.Parse("/notes.txt")));
+			await using var model = await runtime.Workspace.ResolveAsync(source.SourceId, source.CreateAddress(FtpPath.Parse("/notes.txt")));
 			var properties = model.Get<IPropertySource>();
 			var preview = model.Get<IPreviewSource>();
 			Assert.IsNotNull(properties);

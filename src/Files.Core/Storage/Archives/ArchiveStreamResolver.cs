@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
+using Files.Core.Models;
 using OwlCore.Storage;
 
 namespace Files.Core.Storage.Archives;
@@ -14,13 +15,20 @@ internal static class ArchiveStreamResolver
 		cancellationToken.ThrowIfCancellationRequested();
 
 		Stream? input = null;
-		if (request.ArchiveModel.CoreModel is IFile file)
+		var archiveItem = request.ArchiveModel.GetCoreModel();
+		if (archiveItem is IFile file)
 		{
 			input = await file.OpenStreamAsync(FileAccess.Read, cancellationToken).ConfigureAwait(false);
 		}
-		else if (request.ArchiveModel.CoreModel is IStorageAddressSource { Address: { Scheme: var scheme, Value: var path, }, } && scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
+		else if (archiveItem is IStorageAddressSource { Address: { Scheme: var scheme, Value: var path, }, } && scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
 		{
-			input = new FileStream(path, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.ReadWrite | FileShare.Delete, Options = FileOptions.Asynchronous | FileOptions.SequentialScan, });
+			input = new FileStream(path, new FileStreamOptions
+			{
+				Mode = FileMode.Open,
+				Access = FileAccess.Read,
+				Share = FileShare.ReadWrite | FileShare.Delete,
+				Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+			});
 		}
 
 		if (input is null)

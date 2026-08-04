@@ -7,6 +7,7 @@ using Files.Core.Storage.Windows;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Creates Windows Shell preview sessions on a dedicated scheduler.</summary>
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSessionFactory
 {
@@ -14,6 +15,10 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 	private readonly IWindowsShellScheduler _scheduler;
 	private readonly IWindowsPreviewHandlerControllerFactory _controllerFactory;
 
+	/// <summary>Initializes a Windows Shell preview session factory.</summary>
+	/// <param name="targetResolver">The preview target resolver.</param>
+	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
+	/// <param name="controllerFactory">The native preview controller factory.</param>
 	public WindowsShellPreviewSessionFactory(IWindowsPreviewTargetResolver targetResolver, IWindowsShellScheduler dedicatedScheduler, IWindowsPreviewHandlerControllerFactory controllerFactory)
 	{
 		ArgumentNullException.ThrowIfNull(targetResolver);
@@ -25,11 +30,15 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 		_controllerFactory = controllerFactory;
 	}
 
-	public WindowsShellPreviewSessionFactory(IFilesDataRoot dataRoot, IWindowsShellScheduler dedicatedScheduler)
-		: this(new WindowsPreviewTargetResolver(dataRoot), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory())
+	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
+	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler)
+		: this(new WindowsPreviewTargetResolver(workspace), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory())
 	{
 	}
 
+	/// <inheritdoc />
 	public async ValueTask<IWindowsShellPreviewSession> CreateAsync(WindowsShellPreviewResult result, WindowsPreviewHost host, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(result);

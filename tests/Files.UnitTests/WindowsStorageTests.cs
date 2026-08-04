@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using Files.Core.Browsing;
 using Files.Core.Composition;
+using Files.Core.Sessions;
 using Files.Core.Storage;
 
 namespace Files.UnitTests;
@@ -61,17 +62,19 @@ public sealed class WindowsStorageTests
 			.Build();
 		var runtimeMilliseconds = Stopwatch.GetElapsedTime(totalStart).TotalMilliseconds;
 		var resolveStart = Stopwatch.GetTimestamp();
-		var folderModel = await runtime.DataRoot.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+		var folderModel = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
 		var reference = folderModel.Reference;
 		await folderModel.DisposeAsync();
 		var resolveMilliseconds = Stopwatch.GetElapsedTime(resolveStart).TotalMilliseconds;
 		var navigationStart = Stopwatch.GetTimestamp();
-		var window = await runtime.Application.CreateWindowAsync(new FolderLocation(reference));
+		var window = await runtime.ShellSession.CreateWindowAsync(new FolderLocation(reference));
 		var navigationMilliseconds = Stopwatch.GetElapsedTime(navigationStart).TotalMilliseconds;
 		var totalMilliseconds = Stopwatch.GetElapsedTime(totalStart).TotalMilliseconds;
 		var pane = window.ActiveTab?.ActivePane;
 		Assert.IsNotNull(pane);
-		var itemCount = pane!.BrowseSession.Items.Count;
+		var browsePane = pane.Content as BrowsePaneSession;
+		Assert.IsNotNull(browsePane);
+		var itemCount = browsePane.BrowseSession.Items.Count;
 		var measurement = $"System32 AppModel: path={directoryPath}, items={itemCount}, runtime={runtimeMilliseconds:F1} ms, resolve={resolveMilliseconds:F1} ms, " +
 			$"navigation={navigationMilliseconds:F1} ms, total={totalMilliseconds:F1} ms";
 		TestContext.WriteLine(measurement);

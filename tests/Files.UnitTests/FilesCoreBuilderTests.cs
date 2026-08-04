@@ -3,6 +3,9 @@
 
 using Files.Core.Browsing;
 using Files.Core.Composition;
+using Files.Core.Data;
+using Files.Core.Models;
+using Files.Core.Sessions;
 
 namespace Files.UnitTests;
 
@@ -17,16 +20,43 @@ public sealed class FilesCoreBuilderTests
 			.AddStorageSource(source)
 			.Build();
 
-		var window = await runtime.Application.CreateWindowAsync(HomeLocation.Instance);
+		var window = await runtime.ShellSession.CreateWindowAsync(HomeLocation.Instance);
+		var pane = window.ActiveTab!.ActivePane!;
+		var browsePane = pane.Content as BrowsePaneSession;
 
-		Assert.AreEqual(HomeLocation.Instance, window.ActiveTab!.ActivePane!.Location);
-		Assert.IsEmpty(window.ActiveTab.ActivePane.BrowseSession.Items);
-		Assert.AreSame(source, runtime.DataRoot.GetSource(source.SourceId));
+		Assert.IsNotNull(browsePane);
+		Assert.AreEqual(HomeLocation.Instance, browsePane.Location);
+		Assert.IsEmpty(browsePane.BrowseSession.Items);
+		Assert.AreSame(source, runtime.Workspace.Sources.Single());
 
 		await runtime.DisposeAsync();
 
 		Assert.IsTrue(source.IsDisposed);
-		Assert.IsEmpty(runtime.Application.Windows);
+		Assert.IsEmpty(runtime.ShellSession.Windows);
+	}
+
+	[TestMethod]
+	public async Task StorageWorkspaceCanBeUsedWithoutCreatingWindow()
+	{
+		var source = new TestStorageSource();
+		var runtime = new FilesCoreBuilder()
+			.AddStorageSource(source)
+			.Build();
+		IStorageWorkspace workspace = runtime.Workspace;
+		var roots = new List<IFolderModel>();
+
+		await foreach (var root in workspace.GetRootsAsync(source.SourceId))
+		{
+			roots.Add(root);
+		}
+
+		Assert.IsEmpty(roots);
+		Assert.IsEmpty(runtime.ShellSession.Windows);
+		Assert.AreSame(workspace, runtime.Workspace);
+
+		await runtime.DisposeAsync();
+
+		Assert.IsTrue(source.IsDisposed);
 	}
 
 	[TestMethod]

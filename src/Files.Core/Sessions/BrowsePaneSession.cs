@@ -4,18 +4,22 @@
 using Files.Core.Browsing;
 using Files.Core.Models;
 
-namespace Files.Core.AppModels;
+namespace Files.Core.Sessions;
 
+/// <summary>Specifies how navigation updates pane history.</summary>
 public enum PaneNavigationMode
 {
+	/// <summary>Adds the target after the current history entry.</summary>
 	Push,
+
+	/// <summary>Replaces the current history entry.</summary>
 	Replace,
 }
 
 /// <summary>
-/// Owns browsing, history, preview, and viewport work for one pane.
+/// Owns browsing, history, and preview state for browse pane content.
 /// </summary>
-public sealed class PaneModel : IAsyncDisposable
+public sealed class BrowsePaneSession : IPaneContentSession
 {
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
 
@@ -29,45 +33,45 @@ public sealed class PaneModel : IAsyncDisposable
 
 	private volatile bool _isDisposed;
 
-	public Guid Id { get; }
+	/// <summary>Gets the browse state owned by this content session.</summary>
+	public IBrowseSession BrowseSession { get; }
 
-	public IBrowseSessionModel BrowseSession { get; }
-
+	/// <summary>Gets the preview state owned by this content session.</summary>
 	public IBrowsePreviewModel Preview { get; }
 
-	public IBrowsePrefetchCoordinator Prefetch { get; }
-
+	/// <summary>Gets the navigation history.</summary>
 	public BrowseNavigationHistory History { get; }
 
+	/// <summary>Gets the current browse location.</summary>
 	public BrowseLocation? Location => BrowseSession.Location;
 
+	/// <summary>Gets a value indicating whether backward navigation is available.</summary>
 	public bool CanGoBack => History.CanGoBack;
 
+	/// <summary>Gets a value indicating whether forward navigation is available.</summary>
 	public bool CanGoForward => History.CanGoForward;
 
+	/// <summary>Gets a value indicating whether parent navigation is available.</summary>
 	public bool CanGoUp =>
 		BrowseSession.Context is IBrowseLocationParentResolver parentResolver
 			? parentResolver.CanGetParent
 			: BrowseSession.Context?.LocationModel
 				is IFolderModel;
 
-	public event EventHandler? StateChanged;
+	/// <summary>Occurs when navigation, history, or preview state changes.</summary>
+	public event EventHandler? NavigationStateChanged;
 
-	public PaneModel(IBrowseSessionModel browseSession, IBrowsePreviewModel preview, IBrowsePrefetchCoordinator prefetch, int historyCapacity = 50, Guid? id = null)
+	/// <summary>Initializes browse pane content and takes ownership of its collaborators.</summary>
+	/// <param name="browseSession">The browse session to own.</param>
+	/// <param name="preview">The preview model to own.</param>
+	/// <param name="historyCapacity">The maximum navigation history length.</param>
+	public BrowsePaneSession(IBrowseSession browseSession, IBrowsePreviewModel preview, int historyCapacity = 50)
 	{
 		ArgumentNullException.ThrowIfNull(browseSession);
 		ArgumentNullException.ThrowIfNull(preview);
-		ArgumentNullException.ThrowIfNull(prefetch);
-
-		Id = id ?? Guid.NewGuid();
-		if (Id == Guid.Empty)
-		{
-			throw new ArgumentException("A pane ID cannot be empty.", nameof(id));
-		}
 
 		BrowseSession = browseSession;
 		Preview = preview;
-		Prefetch = prefetch;
 		History = new BrowseNavigationHistory(historyCapacity);
 
 		BrowseSession.StateChanged += OnChildStateChanged;
@@ -75,6 +79,11 @@ public sealed class PaneModel : IAsyncDisposable
 		History.Changed += OnChildStateChanged;
 	}
 
+	/// <summary>Navigates to a location and commits it to history.</summary>
+	/// <param name="location">The target location.</param>
+	/// <param name="mode">The history update mode.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the navigation.</returns>
 	public async ValueTask NavigateAsync(BrowseLocation location, PaneNavigationMode mode = PaneNavigationMode.Push, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
@@ -98,6 +107,9 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Navigates to the previous history entry.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when navigation completed.</returns>
 	public async ValueTask<bool> GoBackAsync(CancellationToken cancellationToken = default)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
@@ -121,6 +133,9 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Navigates to the following history entry.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when navigation completed.</returns>
 	public async ValueTask<bool> GoForwardAsync(CancellationToken cancellationToken = default)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
@@ -144,6 +159,9 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Navigates to the current location's parent.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when a parent was available and navigation completed.</returns>
 	public async ValueTask<bool> GoUpAsync(CancellationToken cancellationToken = default)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
@@ -190,6 +208,10 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Restores a navigation history snapshot and its current location.</summary>
+	/// <param name="restoredHistory">The snapshot to restore.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the restore operation.</returns>
 	public async ValueTask RestoreAsync(BrowseNavigationHistorySnapshot restoredHistory, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(restoredHistory);
@@ -220,6 +242,9 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Refreshes the current location.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the refresh.</returns>
 	public async ValueTask RefreshAsync(CancellationToken cancellationToken = default)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
@@ -236,15 +261,7 @@ public sealed class PaneModel : IAsyncDisposable
 		}
 	}
 
-	public void UpdateViewport(BrowseViewport viewport)
-	{
-		EnsureActive();
-
-		ArgumentNullException.ThrowIfNull(viewport);
-
-		Prefetch.UpdateViewport(viewport, BrowseSession.ViewSettings, BrowseSession.Generation);
-	}
-
+	/// <inheritdoc />
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)
@@ -293,7 +310,6 @@ public sealed class PaneModel : IAsyncDisposable
 
 		try
 		{
-			await TryDisposeAsync(Prefetch, errors).ConfigureAwait(false);
 			await TryDisposeAsync(Preview, errors).ConfigureAwait(false);
 			await TryDisposeAsync(BrowseSession, errors).ConfigureAwait(false);
 		}
@@ -372,18 +388,18 @@ public sealed class PaneModel : IAsyncDisposable
 
 	private void OnChildStateChanged(object? sender, EventArgs args)
 	{
-		ModelEvent.Raise(this, StateChanged);
+		SessionEvent.Raise(this, NavigationStateChanged);
 	}
 
 	private sealed class NavigationOperation : IDisposable
 	{
-		private readonly PaneModel _owner;
+		private readonly BrowsePaneSession _owner;
 		private readonly CancellationTokenSource _cancellation;
 		private int _isDisposed;
 
 		public CancellationToken Token => _cancellation.Token;
 
-		public NavigationOperation(PaneModel owner, CancellationTokenSource cancellation)
+		public NavigationOperation(BrowsePaneSession owner, CancellationTokenSource cancellation)
 		{
 			_owner = owner;
 			_cancellation = cancellation;

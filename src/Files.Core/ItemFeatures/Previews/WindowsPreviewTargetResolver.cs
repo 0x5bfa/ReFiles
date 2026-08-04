@@ -10,22 +10,26 @@ using OwlCore.Storage;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Resolves Files item references to owned Windows Shell preview targets.</summary>
 public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 {
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly IStorageWorkspace _workspace;
 
-	public WindowsPreviewTargetResolver(IFilesDataRoot dataRoot)
+	/// <summary>Initializes a Windows preview target resolver.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	public WindowsPreviewTargetResolver(IStorageWorkspace workspace)
 	{
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
 
-		_dataRoot = dataRoot;
+		_workspace = workspace;
 	}
 
+	/// <inheritdoc />
 	public async ValueTask<WindowsPreviewTarget> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 
-		var model = await _dataRoot.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+		var model = await _workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 
 		try
 		{
@@ -34,12 +38,13 @@ public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 				throw new InvalidDataException("The resolved preview target does not match the requested identity.");
 			}
 
-			if (model.CoreModel is not IWindowsStorable || model.CoreModel is not IFile)
+			var coreModel = model.GetCoreModel();
+			if (coreModel is not IWindowsStorable windowsItem || coreModel is not IFile)
 			{
 				throw new NotSupportedException("The resolved preview target is not a Windows Shell-backed file.");
 			}
 
-			return new WindowsPreviewTarget(model, (IWindowsStorable)model.CoreModel);
+			return new WindowsPreviewTarget(model, windowsItem);
 		}
 		catch (Exception resolutionError)
 		{

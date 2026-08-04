@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 
 namespace Files.Commands.Handlers;
 

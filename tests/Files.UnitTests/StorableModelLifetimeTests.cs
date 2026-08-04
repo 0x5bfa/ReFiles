@@ -37,7 +37,7 @@ public sealed class StorableModelLifetimeTests
 		var firstModel = factory.Create(source, firstCore);
 		var secondModel = factory.Create(source, secondCore);
 		var resolver = new TestBrowseLocationResolver([firstModel]);
-		var session = new BrowseSessionModel(resolver);
+		var session = new BrowseSession(resolver);
 
 		try
 		{

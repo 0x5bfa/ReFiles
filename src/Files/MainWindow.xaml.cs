@@ -3,8 +3,10 @@
 
 using Files.Views;
 using Files.Commands;
-using Files.Core.AppModels;
+using Files.Core.Sessions;
 using Files.Core.Data;
+using Files.Infrastructure;
+using Files.Presentation;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
@@ -13,52 +15,66 @@ namespace Files;
 
 public sealed partial class MainWindow : Window
 {
-	private readonly RootView rootView;
-	private readonly AppWindow appWindow;
-	private readonly Func<Task> shutdownAsync;
-	private int closeStarted;
-	private int isDisposed;
+	private readonly RootView _rootView;
+	private readonly AppWindow _appWindow;
+	private readonly Action _activateSession;
+	private readonly Func<Task> _shutdownAsync;
+	private int _closeStarted;
+	private int _isDisposed;
 
-	public MainWindow(WindowModel coreWindow, IFilesDataRoot dataRoot, CommandRegistry commandRegistry, Func<Task> shutdownAsync)
+	public MainWindow(WindowSession coreWindow, IStorageWorkspace workspace, CommandRegistry commandRegistry, Action activateSession, Func<Task> shutdownAsync)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
 		ArgumentNullException.ThrowIfNull(commandRegistry);
+		ArgumentNullException.ThrowIfNull(activateSession);
 		ArgumentNullException.ThrowIfNull(shutdownAsync);
 
 		InitializeComponent();
-		this.shutdownAsync = shutdownAsync;
-		rootView = new RootView(coreWindow, dataRoot, DispatcherQueue, commandRegistry);
-		RootFrame.Content = rootView;
-		rootView.AttachWindow(this);
+		_activateSession = activateSession;
+		_shutdownAsync = shutdownAsync;
+		var presentationFactory = new WindowPresentationFactory(workspace, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
+		_rootView = new RootView(presentationFactory.Create(coreWindow));
+		RootContent.Content = _rootView;
+		_rootView.AttachWindow(this);
 
-		appWindow = AppWindow;
-		appWindow.Closing += AppWindow_Closing;
+		_appWindow = AppWindow;
+		_appWindow.Closing += AppWindow_Closing;
+		Activated += MainWindow_Activated;
 	}
 
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
 
-		appWindow.Closing -= AppWindow_Closing;
-		rootView.Dispose();
+		_appWindow.Closing -= AppWindow_Closing;
+		Activated -= MainWindow_Activated;
+		_rootView.Dispose();
+	}
+
+	private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)
+	{
+		if (args.WindowActivationState is not WindowActivationState.Deactivated)
+		{
+			_activateSession();
+		}
 	}
 
 	private async void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
 	{
 		args.Cancel = true;
-		if (Interlocked.Exchange(ref closeStarted, 1) is not 0)
+		if (Interlocked.Exchange(ref _closeStarted, 1) is not 0)
 		{
 			return;
 		}
 
-		rootView.Dispose();
+		_rootView.Dispose();
 		try
 		{
-			await shutdownAsync().ConfigureAwait(true);
+			await _shutdownAsync().ConfigureAwait(true);
 		}
 		catch (Exception exception)
 		{

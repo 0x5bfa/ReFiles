@@ -192,7 +192,7 @@ public sealed class StreamPreviewLoaderTests
 			LocationModelFactory = _ => folder,
 		};
 
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(folder.Reference));
 		await using var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
 

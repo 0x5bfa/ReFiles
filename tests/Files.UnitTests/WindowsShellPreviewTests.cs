@@ -169,7 +169,7 @@ public sealed class WindowsShellPreviewTests
 		await session.DisposeAsync();
 		Assert.AreEqual(WindowsShellPreviewSessionState.Disposed, concreteSession.State);
 		Assert.AreEqual(1, controller.DisposeCount);
-		Assert.IsTrue(((FakeWindowsFile)target.Model.CoreModel).IsDisposed);
+		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
 }
 
 	[TestMethod]
@@ -206,7 +206,7 @@ public sealed class WindowsShellPreviewTests
 		await Assert.ThrowsAsync<InvalidOperationException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
 
 		Assert.AreEqual(1, controller.DisposeCount);
-		Assert.IsTrue(((FakeWindowsFile)target.Model.CoreModel).IsDisposed);
+		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
 }
 
 	[TestMethod]

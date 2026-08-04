@@ -9,6 +9,7 @@ using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
+using Files.Infrastructure;
 using Files.Localization;
 using OwlCore.Storage;
 using Windows.Win32;
@@ -18,8 +19,6 @@ namespace Files.ViewModels;
 internal sealed class NavigationItemLoader
 {
 	private const string PinnedParsingName = "shell:::{3936E9E4-D92C-4EEE-A85A-BC16D5EA0819}";
-
-	private const string NetworkParsingName = "shell:::{208D2C60-3AEA-1069-A2D7-08002B30309D}";
 
 	private const string WslParsingName = "shell:::{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}";
 
@@ -31,20 +30,21 @@ internal sealed class NavigationItemLoader
 
 	private static readonly string _myComputerParsingName = $"shell:::{CLSID.CLSID_MyComputer:B}";
 
-	private readonly IFilesDataRoot _dataRoot;
+	private readonly IStorageWorkspace _workspace;
 
-	public NavigationItemLoader(IFilesDataRoot dataRoot)
+	public NavigationItemLoader(IStorageWorkspace workspace)
 	{
-		ArgumentNullException.ThrowIfNull(dataRoot);
+		ArgumentNullException.ThrowIfNull(workspace);
 
-		_dataRoot = dataRoot;
+		_workspace = workspace;
 	}
 
 	public async IAsyncEnumerable<NavigationSectionData> LoadSectionsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		var windowsSource = _dataRoot.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
+		var windowsSource = _workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
 		if (windowsSource is null)
 		{
+
 			yield break;
 		}
 
@@ -52,8 +52,7 @@ internal sealed class NavigationItemLoader
 		{
 			TryLoadAddressSectionAsync(0, windowsSource, Strings.Pinned.GetLocalized(), PinnedParsingName, IsPinnedHomeItemAsync, cancellationToken),
 			TryLoadAddressSectionAsync(1, windowsSource, Strings.Drives.GetLocalized(), _myComputerParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
-			TryLoadAddressSectionAsync(2, windowsSource, Strings.Network.GetLocalized(), NetworkParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
-			TryLoadAddressSectionAsync(3, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
+			TryLoadAddressSectionAsync(2, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
 		};
 
 		while (pendingSections.Length > 0)
@@ -66,11 +65,12 @@ internal sealed class NavigationItemLoader
 				yield return section;
 			}
 		}
+
 	}
 
 	public async ValueTask<byte[]?> LoadThumbnailAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		var model = await _dataRoot.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+		var model = await _workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 		try
 		{
 			if (model.Get<IThumbnailSource>() is not { } source)
@@ -96,11 +96,17 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(int order, WindowsStorageSource source, string name, string parsingName, Func<IStorableModel, CancellationToken, ValueTask<bool>> include, CancellationToken cancellationToken)
+	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(
+		int order,
+		WindowsStorageSource source,
+		string name,
+		string parsingName,
+		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
+		CancellationToken cancellationToken)
 	{
 		try
 		{
-			var model = await _dataRoot.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
+			var model = await _workspace.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
 			if (model is not IFolderModel folder)
 			{
 				await model.DisposeAsync().ConfigureAwait(false);
@@ -146,6 +152,7 @@ internal sealed class NavigationItemLoader
 
 					pendingItems.Clear();
 				}
+
 
 				return new NavigationSectionData(order, name, folder.Reference, children);
 			}

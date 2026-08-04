@@ -44,7 +44,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 
 		var settings = new BrowseViewSettings(
@@ -100,7 +100,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)], sortPropertyId: "System.Size");
 		await session.UpdateViewSettingsAsync(settings);
@@ -151,7 +151,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		{
 			LocationModelFactory = _ => locationModel,
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
 		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
@@ -197,7 +197,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		{
 			LocationModelFactory = _ => locationModels.Dequeue(),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
 		coordinator.UpdateViewport(new BrowseViewport(0, 1), new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]), session.Generation);
@@ -246,7 +246,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 			LocationModelFactory = _ => locationModel,
 			ItemResolver = (_, _) => ValueTask.FromResult<IStorableModel>(replacement),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
 		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
@@ -293,7 +293,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 			LocationModelFactory = _ => locationModel,
 			ItemResolver = (_, _) => ValueTask.FromResult<IStorableModel>(replacement),
 		};
-		using var session = new BrowseSessionModel(resolver);
+		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
 		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);

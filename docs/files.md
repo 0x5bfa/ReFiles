@@ -9,6 +9,7 @@
 flowchart TB
     App["Files App"]
     Window["MainWindow / RootView"]
+    Factory["WindowPresentationFactory"]
     ViewModel["RootViewModel"]
     Commands["CommandRegistry / WindowCommandManager"]
     Tabs["TabView"]
@@ -18,15 +19,16 @@ flowchart TB
     Panes["PaneHost"]
     Pane["PaneView / PaneContentView"]
     Browser["FolderBrowser"]
-    Adapter["CoreBrowseAdapter"]
+    Adapter["BrowsePresentationAdapter"]
     Runtime["FilesCoreRuntime"]
-    Models["FilesApplicationModel / Window / Tab / Pane"]
-    Session["BrowseSessionModel"]
+    Models["ShellSession / Window / Tab / Pane"]
+    Session["BrowseSession"]
     Source["Windows storage source"]
 
     App --> Runtime
     App --> Window
-    Window --> ViewModel
+    Window --> Factory
+    Factory --> ViewModel
     ViewModel --> Tabs
     ViewModel --> Navigation
     ViewModel --> Commands
@@ -46,8 +48,8 @@ flowchart TB
     Session --> Source
 ```
 
-`App`はprocess scopeの`FilesCoreRuntime`を所有します。`MainWindow`はCoreの`WindowModel`を
-`RootView`/`RootViewModel`へ渡し、`CoreBrowseAdapter`が`PaneModel`の状態をUI向けsnapshotへ変換します。
+`App`はprocess scopeの`FilesCoreRuntime`を所有します。`MainWindow`は`WindowPresentationFactory`でCoreの`WindowSession`とWorkspaceをUIへ合成し、
+`RootView`へ完成済みの`RootViewModel`を渡します。`BrowsePresentationAdapter`が`BrowsePaneSession`の状態をUI向けsnapshotへ変換します。
 window終了時は`RootView`の購読を先に解除し、その後runtimeを非同期破棄します。
 
 ## UIコントロール階層
@@ -67,8 +69,6 @@ flowchart TB
     Details["DetailsFolderView"]
     Grid["GridFolderView"]
     List["ListFolderView"]
-    Settings["SettingsView"]
-    Web["WebView"]
     Terminal["TerminalView"]
     Info["InfoPane"]
 
@@ -81,8 +81,6 @@ flowchart TB
     Sidebar --> Info
     Panes --> Pane
     Pane --> Browser
-    Pane --> Settings
-    Pane --> Web
     Browser --> Details
     Browser --> Grid
     Browser --> List
@@ -94,10 +92,10 @@ flowchart TB
 - `RootView`は`NavigationView`を直接宣言します。NavigationViewのContentに`ToolbarView`、`PaneHost`、
   `TerminalView`、`InfoPane`、status surfaceを配置します。
 - `PaneHost`は`LeftPane`/`RightPane`の固定プロパティを持たず、`TabViewModel.Panes`を`ItemsRepeater`で描画します。
-  Core `TabModel`は1..2 paneを所有し、UI側はterminalなどの複数paneレイアウトへ置き換えられる境界を維持します。
+  Core `TabSession`は1..2 paneを所有し、UI側はterminalなどの複数paneレイアウトへ置き換えられる境界を維持します。
 - `PaneHost` は `ScrollViewer` で `ItemsRepeater` を包みません。分割方向に応じて `ItemsRepeater` の layout を切り替え、各 `PaneView` を利用可能な幅または高さへ stretch します。
-- `PaneView` は pane ごとの `ScrollViewer` を所有します。`PaneContentView` は content kind の `ContentPresenter` 選択だけを行い、スクロールや Core navigation を持ちません。
-- `PaneContentView`はpaneのcontent kindに応じて`FolderBrowser`、`SettingsView`、`WebView`を選択します。
+- `PaneView` は pane ごとの表示 surface を所有します。`PaneContentView` は `PaneSession.Content` に対応する表示モデルを `ContentPresenter` へ渡し、スクロールや Core navigation を持ちません。
+- 現在の factory は `BrowsePaneSession` を `FolderBrowserViewModel` へ写像します。Settings や Web を追加する場合は enum だけを増やさず、対応する `IPaneContentSession` と所有ライフタイムを先に実装します。
 - `FolderBrowser`は表示モードのhostです。現在は`DetailsFolderView`を既定にし、`GridFolderView`と`ListFolderView`を
   同じ`ContentPresenter`へ差し替え、Card/Columns viewを同じ境界へ追加できます。
 - controlはCore modelを直接XAMLへ公開せず、`RootViewModel`/`TabViewModel`/`PaneViewModel`/
@@ -110,9 +108,8 @@ flowchart TB
 
 `src/Files/Commands/` は、`Files` 専用の最初のコマンド境界です。
 
-- `App2CommandRegistration.Build()`（改名前の残存型名）は`App`のcomposition rootで一度だけ呼び出され、stable `CommandId`を
+- `AppCommandRegistration.Build()`は`App`のcomposition rootで一度だけ呼び出され、stable `CommandId`を
   `CommandRegistryBuilder`へ明示登録します。
-- `App2CommandRegistration` という型名はプロジェクト改名前の残存名です。新しい境界の名前として再利用せず、互換性を確認した移行単位で `FilesCommandRegistration` などへ改名します。
 - `CommandRegistry`はimmutableなprocess-level catalogです。各`MainWindow`はそれから独立した
   `WindowCommandManager`を作成します。
 - `RootViewModel`はwindow managerとcommand bindingを所有し、`NavigationToolbar`、`ToolbarView`、`TabView`、
@@ -124,7 +121,7 @@ flowchart TB
 ## 基本 browsing 垂直スライス
 
 - `FilesCoreBuilder.AddWindowsStorage()`でWindows sourceを合成する。
-- Homeと`file:` rooted folderを`PaneModel`へnavigateする。
+- Homeと`file:` rooted folderを`BrowsePaneSession`へnavigateする。
 - Coreのgeneration/items version付き状態をUI dispatcherへsnapshotする。
 - `StorableReference`/`StorableKey`を保持した表示項目を作る。
 - command registryを通してback/forward/up、refresh、path navigation、複数選択、folder double-clickをCoreへroutingする。
