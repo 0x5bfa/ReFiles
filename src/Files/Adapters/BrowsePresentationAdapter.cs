@@ -20,6 +20,7 @@ namespace Files.Adapters;
 internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 {
 	private const int MaxItemsPerDrain = 128;
+	private const int MaxThumbnailsPerDrain = 8;
 
 	private readonly BrowsePaneSession _pane;
 	private readonly IStorageWorkspace _workspace;
@@ -31,6 +32,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly Dictionary<StorableKey, ThumbnailResult?> _pendingThumbnails = [];
 	private readonly Dictionary<StorableKey, IReadOnlyDictionary<string, object?>> _pendingProperties = [];
 	private readonly List<BrowseItemViewModel> _items = [];
+	private readonly Dictionary<StorableKey, BrowseItemViewModel> _itemsByKey = [];
 	private PendingState? _pendingState;
 	private PendingColumns? _pendingColumns;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
@@ -477,6 +479,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		IReadOnlyList<StorableKey>? selection;
 		KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] properties;
 		KeyValuePair<StorableKey, ThumbnailResult?>[] thumbnails;
+		bool hasPendingThumbnails;
 		lock (_pendingLock)
 		{
 			if (Volatile.Read(ref _isDisposed) is not 0)
@@ -493,8 +496,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingSelection = null;
 			properties = _pendingProperties.ToArray();
 			_pendingProperties.Clear();
-			thumbnails = _pendingThumbnails.ToArray();
-			_pendingThumbnails.Clear();
+			thumbnails = TakePendingThumbnailsLocked(out hasPendingThumbnails);
 			_drainQueued = false;
 		}
 		var pendingItemCount = itemBatches.Sum(batch => GetItemCount(batch.Changes));
@@ -557,7 +559,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges, selection is not null));
 			UiDiagnosticLog.Write(
 				"BrowsePresentationAdapter",
-				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} selectionChanged={selection is not null} callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
+				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} selectionChanged={selection is not null} " +
+				$"callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
 
 		foreach (var thumbnail in thumbnails)
@@ -565,7 +568,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_ = ApplyThumbnailAsync(thumbnail.Key, thumbnail.Value);
 		}
 
-		if (hasPendingItemBatches)
+		if (hasPendingItemBatches || hasPendingThumbnails || HasPendingThumbnails())
 		{
 			ScheduleDrain();
 		}
@@ -613,12 +616,32 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		return count;
 	}
 
+	private KeyValuePair<StorableKey, ThumbnailResult?>[] TakePendingThumbnailsLocked(out bool hasPendingThumbnails)
+	{
+		var thumbnails = _pendingThumbnails.Take(MaxThumbnailsPerDrain).ToArray();
+		foreach (var thumbnail in thumbnails)
+		{
+			_pendingThumbnails.Remove(thumbnail.Key);
+		}
+
+		hasPendingThumbnails = _pendingThumbnails.Count is not 0;
+
+		return thumbnails;
+	}
+
+	private bool HasPendingThumbnails()
+	{
+		lock (_pendingLock)
+		{
+			return _pendingThumbnails.Count is not 0;
+		}
+	}
+
 	private async Task ApplyThumbnailAsync(StorableKey key, ThumbnailResult? thumbnail)
 	{
 		try
 		{
-			var item = _items.FirstOrDefault(item => item.Reference.GetKey() == key);
-			if (item is null)
+			if (!_itemsByKey.TryGetValue(key, out var item))
 			{
 				RequeueThumbnailIfCurrent(key, thumbnail);
 
@@ -635,8 +658,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return;
 			}
 
-			item = _items.FirstOrDefault(item => item.Reference.GetKey() == key);
-			if (item is not null)
+			if (_itemsByKey.TryGetValue(key, out item))
 			{
 				item.SetThumbnail(image);
 
@@ -653,7 +675,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void RequeueThumbnailIfCurrent(StorableKey key, ThumbnailResult? thumbnail)
 	{
-		if (!_pane.BrowseSession.Items.Any(item => item.Reference.GetKey() == key))
+		if (!_pane.BrowseSession.Contains(key))
 		{
 			return;
 		}
@@ -671,10 +693,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void ApplyProperties(StorableKey key, IReadOnlyDictionary<string, object?> properties)
 	{
-		var item = _items.FirstOrDefault(item => item.Reference.GetKey() == key);
-		if (item is null)
+		if (!_itemsByKey.TryGetValue(key, out var item))
 		{
-			if (!_pane.BrowseSession.Items.Any(item => item.Reference.GetKey() == key))
+			if (!_pane.BrowseSession.Contains(key))
 			{
 				return;
 			}
@@ -922,6 +943,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				if (addedItems.Count > 1)
 				{
 					_items.InsertRange(firstAdded.Index, addedItems);
+					foreach (var addedItem in addedItems)
+					{
+						_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
+					}
+
 					for (var index = changeIndex; index < nextChangeIndex; index++)
 					{
 						appliedChanges.Add(changes[index]);
@@ -939,14 +965,20 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				case BrowseItemViewModelAdded added
 					when added.Index >= 0 && added.Index <= _items.Count:
 					_items.Insert(added.Index, added.Item);
+					_itemsByKey.Add(added.Item.Reference.GetKey(), added.Item);
 					break;
 				case BrowseItemViewModelRemoved removed
 					when removed.Index >= 0 && removed.Index < _items.Count:
+					var removedItem = _items[removed.Index];
 					_items.RemoveAt(removed.Index);
+					_itemsByKey.Remove(removedItem.Reference.GetKey());
 					break;
 				case BrowseItemViewModelReplaced replaced
 					when replaced.Index >= 0 && replaced.Index < _items.Count:
+					var previousItem = _items[replaced.Index];
 					_items[replaced.Index] = replaced.Item;
+					_itemsByKey.Remove(previousItem.Reference.GetKey());
+					_itemsByKey.Add(replaced.Item.Reference.GetKey(), replaced.Item);
 					break;
 				case BrowseItemViewModelMoved moved
 					when moved.PreviousIndex >= 0
@@ -959,7 +991,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 					break;
 				case BrowseItemViewModelsReset reset:
 					_items.Clear();
+					_itemsByKey.Clear();
 					_items.AddRange(reset.Items);
+					foreach (var resetItem in reset.Items)
+					{
+						_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
+					}
 					break;
 				default:
 
@@ -978,7 +1015,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var session = _pane.BrowseSession;
 		var reset = new BrowseItemViewModelsReset(session.Items.Select(CreateItemViewModel).ToArray());
 		_items.Clear();
+		_itemsByKey.Clear();
 		_items.AddRange(reset.Items);
+		foreach (var resetItem in reset.Items)
+		{
+			_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
+		}
 		_appliedItemsVersion = session.ItemsVersion;
 		appliedChanges.Clear();
 		appliedChanges.Add(reset);
@@ -999,8 +1041,31 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference);
 		viewModel.SetDetailsColumns(_detailsColumns);
+		if (_pane.BrowseSession.TryGetPresentation(item.Reference.GetKey(), out var presentation))
+		{
+			if (presentation.Properties.Count is not 0)
+			{
+				viewModel.SetProperties(presentation.Properties);
+			}
+
+			if (presentation.Thumbnail is { } thumbnail)
+			{
+				QueuePendingThumbnail(item.Reference.GetKey(), thumbnail);
+			}
+		}
 
 		return viewModel;
+	}
+
+	private void QueuePendingThumbnail(StorableKey key, ThumbnailResult thumbnail)
+	{
+		lock (_pendingLock)
+		{
+			if (Volatile.Read(ref _isDisposed) is 0)
+			{
+				_pendingThumbnails[key] = thumbnail;
+			}
+		}
 	}
 
 	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>

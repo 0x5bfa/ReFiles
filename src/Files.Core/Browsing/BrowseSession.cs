@@ -51,6 +51,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _itemProjection).Items;
 
 	/// <inheritdoc />
+	public bool Contains(StorableKey key) => Volatile.Read(ref _itemProjection).Contains(key);
+
+	/// <inheritdoc />
 	public long ItemsVersion => Volatile.Read(ref _itemsVersion);
 
 	long IBrowsePrefetchTarget.ContentVersion => Volatile.Read(ref _contentVersion);

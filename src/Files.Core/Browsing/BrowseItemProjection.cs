@@ -27,6 +27,8 @@ internal sealed class BrowseItemProjection
 		_comparer = CreateComparer(settings, propertyValueGetter);
 	}
 
+	public bool Contains(StorableKey key) => _modelsByKey.ContainsKey(key);
+
 	public bool TryGet(StorableKey key, out IStorableModel model, out int index)
 	{
 		if (!_modelsByKey.TryGetValue(key, out var foundModel))
