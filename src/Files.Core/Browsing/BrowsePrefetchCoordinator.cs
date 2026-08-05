@@ -159,60 +159,60 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		long contentVersion,
 		CancellationToken cancellationToken)
 	{
-		if (propertyIds.Count is not 0 && item.Get<IPropertySource>() is { } propertySource)
-		{
-			try
-			{
-				var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(propertyIds), cancellationToken).ConfigureAwait(false);
-				if (!IsCurrent(workId, generation, contentVersion, cancellationToken))
-				{
-					return;
-				}
+		//if (propertyIds.Count is not 0 && item.Get<IPropertySource>() is { } propertySource)
+		//{
+		//	try
+		//	{
+		//		var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(propertyIds), cancellationToken).ConfigureAwait(false);
+		//		if (!IsCurrent(workId, generation, contentVersion, cancellationToken))
+		//		{
+		//			return;
+		//		}
 
-				if (_target is not null && !await _target.PublishPropertiesAsync(generation, contentVersion, item, properties, cancellationToken).ConfigureAwait(false))
-				{
-					return;
-				}
-			}
-			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-			{
-				throw;
-			}
-			catch
-			{
-				// Prefetch is best effort; the foreground consumer can retry.
-			}
-		}
+		//		if (_target is not null && !await _target.PublishPropertiesAsync(generation, contentVersion, item, properties, cancellationToken).ConfigureAwait(false))
+		//		{
+		//			return;
+		//		}
+		//	}
+		//	catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		//	{
+		//		throw;
+		//	}
+		//	catch
+		//	{
+		//		// Prefetch is best effort; the foreground consumer can retry.
+		//	}
+		//}
 
 		if (!IsCurrent(workId, generation, contentVersion, cancellationToken))
 		{
 			return;
 		}
 
-		if (item.Get<IThumbnailSource>() is { } thumbnailSource)
-		{
-			try
-			{
-				var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, thumbnailMode, dpi), cancellationToken).ConfigureAwait(false);
-				if (thumbnail is null || !IsCurrent(workId, generation, contentVersion, cancellationToken))
-				{
-					return;
-				}
+		//if (item.Get<IThumbnailSource>() is { } thumbnailSource)
+		//{
+		//	try
+		//	{
+		//		var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, thumbnailMode, dpi), cancellationToken).ConfigureAwait(false);
+		//		if (thumbnail is null || !IsCurrent(workId, generation, contentVersion, cancellationToken))
+		//		{
+		//			return;
+		//		}
 
-				if (_target is not null)
-				{
-					await _target.PublishThumbnailAsync(generation, contentVersion, item, thumbnail, cancellationToken).ConfigureAwait(false);
-				}
-			}
-			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-			{
-				throw;
-			}
-			catch
-			{
-				// Prefetch is best effort; the foreground consumer can retry.
-			}
-		}
+		//		if (_target is not null)
+		//		{
+		//			await _target.PublishThumbnailAsync(generation, contentVersion, item, thumbnail, cancellationToken).ConfigureAwait(false);
+		//		}
+		//	}
+		//	catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		//	{
+		//		throw;
+		//	}
+		//	catch
+		//	{
+		//		// Prefetch is best effort; the foreground consumer can retry.
+		//	}
+		//}
 	}
 
 	private bool IsCurrent(long workId, long generation, long contentVersion, CancellationToken cancellationToken)

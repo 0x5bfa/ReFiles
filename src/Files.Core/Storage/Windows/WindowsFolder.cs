@@ -13,6 +13,16 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 	{
 	}
 
+	/// <summary>
+	/// Gets the column metadata exposed by this Shell folder.
+	/// </summary>
+	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
+	/// <returns>The Shell columns and the columns enabled by default.</returns>
+	public Task<WindowsShellColumnSet> GetColumnsAsync(CancellationToken cancellationToken = default)
+	{
+		return Factory.GetColumnsAsync(Descriptor, cancellationToken);
+	}
+
 	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();

@@ -145,7 +145,7 @@ internal sealed class FolderViewInteraction : IDisposable
 		synchronizingSelection = true;
 		try
 		{
-			var selectedKeys = viewModel.SelectedKeys;
+			var selectedKeys = viewModel.SelectedKeys.ToHashSet();
 			listView.SelectedItems.Clear();
 			foreach (var item in viewModel.Items)
 			{

@@ -174,6 +174,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
 			}
 
+			var finalSortChanges = nextProjection!.Sort();
+			PublishItemsChanged(finalSortChanges);
+
 			var nextSelection = Equals(previousState!.Location, location)
 				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection.Items)
 				: BrowseSelectionState.Empty;
@@ -254,7 +257,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		ref BrowseNavigationSnapshot? previousState,
 		ref bool activated)
 	{
-		var changes = projection.AddRange(batch);
+		var changes = projection.AddRange(batch, preserveInputOrder: true);
 		var navigationStartTimestamp = Volatile.Read(ref _diagnosticNavigationStartTimestamp);
 		CoreDiagnosticLog.Write(
 			"BrowseSession",

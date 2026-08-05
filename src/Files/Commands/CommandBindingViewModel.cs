@@ -25,6 +25,10 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 
 	public string Label => Descriptor.LabelResourceKey.GetLocalized();
 
+	public string IconKey => Descriptor.IconKey;
+
+	public string? Glyph => Descriptor.Glyph;
+
 	public string ToolTip => Label;
 
 	public string AutomationName => Label;

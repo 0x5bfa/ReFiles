@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 
 namespace Files.Core.Browsing;
 
@@ -26,6 +27,23 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 
 	/// <inheritdoc />
 	public IStorableModel LocationModel => _folderModel;
+
+	/// <summary>
+	/// Gets the Windows Shell columns exposed by this folder when the folder is backed by Windows Shell.
+	/// </summary>
+	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
+	/// <returns>The Shell column metadata, or <see langword="null"/> for non-Windows storage.</returns>
+	public async ValueTask<WindowsShellColumnSet?> GetColumnsAsync(CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
+		{
+			return null;
+		}
+
+		return await folder.GetColumnsAsync(cancellationToken).ConfigureAwait(false);
+	}
 
 	/// <summary>Initializes a folder browse context and takes ownership of the folder model.</summary>
 	/// <param name="location">The folder location.</param>

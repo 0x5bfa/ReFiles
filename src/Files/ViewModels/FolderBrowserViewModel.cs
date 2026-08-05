@@ -44,6 +44,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
 
+	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _browseAdapter.DetailsColumns;
+
 	public FolderViewMode ViewMode
 	{
 		get => _viewMode;
@@ -193,7 +195,12 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 			}
 
 			_operationError = null;
-			OnPropertyChanged(nameof(SelectedKeys));
+			OnPropertyChanged(nameof(DetailsColumns));
+			if (ShouldSynchronizeSelection(args))
+			{
+				OnPropertyChanged(nameof(SelectedKeys));
+			}
+
 			OnPropertyChanged(nameof(LocationText));
 			OnPropertyChanged(nameof(IsLoading));
 			OnPropertyChanged(nameof(CanGoBack));
@@ -209,6 +216,35 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				"FolderBrowserViewModel",
 				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
+	}
+
+	private bool ShouldSynchronizeSelection(CoreBrowseUpdatedEventArgs args)
+	{
+		if (args.SelectionChanged)
+		{
+			return true;
+		}
+
+		var selectedKeys = _browseAdapter.SelectedKeys;
+		if (selectedKeys.Count is 0)
+		{
+			return false;
+		}
+
+		var selectedKeySet = selectedKeys.ToHashSet();
+		foreach (var change in args.ItemChanges)
+		{
+			switch (change)
+			{
+				case BrowseItemViewModelsReset:
+					return true;
+				case BrowseItemViewModelAdded added when selectedKeySet.Contains(added.Item.Reference.GetKey()):
+				case BrowseItemViewModelReplaced replaced when selectedKeySet.Contains(replaced.Item.Reference.GetKey()):
+					return true;
+			}
+		}
+
+		return false;
 	}
 
 	private void ApplyItemChanges(IReadOnlyList<BrowseItemViewModelChange> changes)

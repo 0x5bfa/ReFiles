@@ -12,6 +12,7 @@ using Files.Core.Data;
 using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
 
 namespace Files.Adapters;
@@ -28,12 +29,17 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly Lock _pendingLock = new();
 	private readonly Queue<PendingItemBatch> _pendingItemBatches = new();
 	private readonly Dictionary<StorableKey, ThumbnailResult?> _pendingThumbnails = [];
+	private readonly Dictionary<StorableKey, IReadOnlyDictionary<string, object?>> _pendingProperties = [];
 	private readonly List<BrowseItemViewModel> _items = [];
 	private PendingState? _pendingState;
+	private PendingColumns? _pendingColumns;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
+	private CancellationTokenSource? _columnsCancellation;
+	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
 	private long _appliedItemsVersion = -1;
 	private int _diagnosticDrainSequence;
 	private bool _drainQueued;
+	private int _isApplyingDefaultColumns;
 	private int _isDisposed;
 
 	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher)
@@ -82,6 +88,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 
 	public IReadOnlyList<BrowseItemViewModel> Items => _items;
+
+	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _detailsColumns;
 
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
@@ -318,13 +326,16 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_pane.BrowseSession.ItemPresentationChanged -=
 			BrowseSession_ItemPresentationChanged;
 		_pane.BrowseSession.SelectionChanged -= BrowseSession_SelectionChanged;
+		_columnsCancellation?.Cancel();
 		_lifetime.Cancel();
 		_lifetime.Dispose();
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.Clear();
 			_pendingThumbnails.Clear();
+			_pendingProperties.Clear();
 			_pendingState = null;
+			_pendingColumns = null;
 			_pendingSelection = null;
 		}
 
@@ -343,6 +354,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location));
 		}
 
+		StartColumnsLoad();
 		ScheduleDrain();
 	}
 
@@ -375,9 +387,17 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void BrowseSession_ItemPresentationChanged(object? sender, BrowseItemPresentationChangedEventArgs args)
 	{
-		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"ItemPresentationChanged key={args.Key} hasThumbnail={args.Presentation.Thumbnail is not null}");
+		UiDiagnosticLog.Write(
+			"BrowsePresentationAdapter",
+			$"ItemPresentationChanged key={args.Key} hasProperties={args.Presentation.Properties.Count is not 0} " +
+			$"hasThumbnail={args.Presentation.Thumbnail is not null}");
 		lock (_pendingLock)
 		{
+			if (args.Presentation.Properties.Count is not 0)
+			{
+				_pendingProperties[args.Key] = args.Presentation.Properties;
+			}
+
 			_pendingThumbnails[args.Key] = args.Presentation.Thumbnail;
 		}
 
@@ -399,6 +419,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				var key = item.Reference.GetKey();
 				if (session.TryGetPresentation(key, out var presentation))
 				{
+					if (presentation.Properties.Count is not 0)
+					{
+						_pendingProperties[key] = presentation.Properties;
+					}
+
 					_pendingThumbnails[key] = presentation.Thumbnail;
 				}
 			}
@@ -448,7 +473,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		PendingItemBatch[] itemBatches;
 		bool hasPendingItemBatches;
 		PendingState? state;
+		PendingColumns? columns;
 		IReadOnlyList<StorableKey>? selection;
+		KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] properties;
 		KeyValuePair<StorableKey, ThumbnailResult?>[] thumbnails;
 		lock (_pendingLock)
 		{
@@ -460,8 +487,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			itemBatches = TakePendingItemBatchesLocked(out hasPendingItemBatches);
 			state = _pendingState;
 			_pendingState = null;
+			columns = _pendingColumns;
+			_pendingColumns = null;
 			selection = _pendingSelection;
 			_pendingSelection = null;
+			properties = _pendingProperties.ToArray();
+			_pendingProperties.Clear();
 			thumbnails = _pendingThumbnails.ToArray();
 			_pendingThumbnails.Clear();
 			_drainQueued = false;
@@ -494,6 +525,20 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_appliedItemsVersion = batch.Version;
 		}
 
+		foreach (var property in properties)
+		{
+			ApplyProperties(property.Key, property.Value);
+		}
+
+		if (columns is { } pendingColumns && _pane.BrowseSession.Generation == pendingColumns.Generation)
+		{
+			_detailsColumns = pendingColumns.Columns;
+			foreach (var item in _items)
+			{
+				item.SetDetailsColumns(_detailsColumns);
+			}
+		}
+
 		if (state is not null)
 		{
 			IsLoading = state.IsLoading;
@@ -506,13 +551,13 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			SelectedKeys = selection;
 		}
 
-		if (appliedChanges.Count > 0 || state is not null || selection is not null)
+		if (appliedChanges.Count > 0 || state is not null || columns is not null || selection is not null)
 		{
 			var updateStartTimestamp = Stopwatch.GetTimestamp();
-			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges));
+			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges, selection is not null));
 			UiDiagnosticLog.Write(
 				"BrowsePresentationAdapter",
-				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
+				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} selectionChanged={selection is not null} callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
 
 		foreach (var thumbnail in thumbnails)
@@ -624,10 +669,271 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		ScheduleDrain();
 	}
 
+	private void ApplyProperties(StorableKey key, IReadOnlyDictionary<string, object?> properties)
+	{
+		var item = _items.FirstOrDefault(item => item.Reference.GetKey() == key);
+		if (item is null)
+		{
+			if (!_pane.BrowseSession.Items.Any(item => item.Reference.GetKey() == key))
+			{
+				return;
+			}
+
+			lock (_pendingLock)
+			{
+				if (Volatile.Read(ref _isDisposed) is 0)
+				{
+					_pendingProperties[key] = properties;
+				}
+			}
+
+			ScheduleDrain();
+
+			return;
+		}
+
+		item.SetProperties(properties);
+	}
+
+	private void StartColumnsLoad()
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0 || Volatile.Read(ref _isApplyingDefaultColumns) is not 0)
+		{
+			return;
+		}
+
+		var session = _pane.BrowseSession;
+		if (session.Context is not FolderBrowseLocationContext context || session.Generation is 0)
+		{
+			QueueColumns(session.Generation, CreateFallbackColumns());
+
+			return;
+		}
+
+		CancellationTokenSource cancellation;
+		lock (_pendingLock)
+		{
+			_columnsCancellation?.Cancel();
+			cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+			_columnsCancellation = cancellation;
+		}
+
+		_ = LoadColumnsAsync(context, session.Generation, cancellation);
+	}
+
+	private async Task LoadColumnsAsync(FolderBrowseLocationContext context, long generation, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			var columnSet = await context.GetColumnsAsync(cancellation.Token).ConfigureAwait(false);
+			if (columnSet is null || !IsCurrentColumnsContext(context, generation, cancellation.Token))
+			{
+				if (columnSet is null && IsCurrentColumnsContext(context, generation, cancellation.Token))
+				{
+					QueueColumns(generation, CreateFallbackColumns());
+				}
+
+				return;
+			}
+
+			var session = _pane.BrowseSession;
+			var settings = session.ViewSettings;
+			if (settings.Columns.Count is 0)
+			{
+				var defaultColumns = CreateDefaultViewColumnSettings(columnSet);
+				if (defaultColumns.Count is not 0)
+				{
+					Interlocked.Exchange(ref _isApplyingDefaultColumns, 1);
+					try
+					{
+						var nextSettings = new BrowseViewSettings(settings.LayoutMode, defaultColumns, settings.SortPropertyId, settings.SortDirection, settings.ItemSize);
+						await session.UpdateViewSettingsAsync(nextSettings, cancellation.Token).ConfigureAwait(false);
+					}
+					finally
+					{
+						Interlocked.Exchange(ref _isApplyingDefaultColumns, 0);
+					}
+
+					if (!IsCurrentColumnsContext(context, generation, cancellation.Token))
+					{
+						return;
+					}
+
+					settings = session.ViewSettings;
+				}
+			}
+
+			QueueColumns(generation, CreateDetailsColumns(columnSet, settings));
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch
+		{
+			if (IsCurrentColumnsContext(context, generation, CancellationToken.None))
+			{
+				QueueColumns(generation, CreateFallbackColumns());
+			}
+		}
+		finally
+		{
+			lock (_pendingLock)
+			{
+				if (ReferenceEquals(_columnsCancellation, cancellation))
+				{
+					_columnsCancellation = null;
+				}
+			}
+
+			cancellation.Dispose();
+		}
+	}
+
+	private bool IsCurrentColumnsContext(FolderBrowseLocationContext context, long generation, CancellationToken cancellationToken)
+	{
+		return !cancellationToken.IsCancellationRequested &&
+			_pane.BrowseSession.Generation == generation &&
+			ReferenceEquals(_pane.BrowseSession.Context, context) &&
+			Volatile.Read(ref _isDisposed) is 0;
+	}
+
+	private void QueueColumns(long generation, IReadOnlyList<DetailsColumnViewModel> columns)
+	{
+		lock (_pendingLock)
+		{
+			if (Volatile.Read(ref _isDisposed) is not 0)
+			{
+				return;
+			}
+
+			_pendingColumns = new PendingColumns(generation, columns);
+		}
+
+		ScheduleDrain();
+	}
+
+	private static IReadOnlyList<ViewColumnSettings> CreateDefaultViewColumnSettings(WindowsShellColumnSet columnSet)
+	{
+		var settings = new List<ViewColumnSettings>();
+		var seen = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var column in columnSet.DefaultVisible)
+		{
+			if (seen.Add(column.PropertyId))
+			{
+				settings.Add(new ViewColumnSettings(column.PropertyId, GetDefaultColumnWidth(column), settings.Count));
+			}
+		}
+
+		return Array.AsReadOnly(settings.ToArray());
+	}
+
+	private static IReadOnlyList<DetailsColumnViewModel> CreateDetailsColumns(WindowsShellColumnSet columnSet, BrowseViewSettings settings)
+	{
+		var availableColumns = columnSet.All
+			.Where(static column => !column.IsHidden && !column.IsSecondaryUi)
+			.GroupBy(static column => column.PropertyId, StringComparer.Ordinal)
+			.ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+		var selectedColumns = new List<WindowsShellColumn>();
+		var selectedPropertyIds = new HashSet<string>(StringComparer.Ordinal);
+
+		foreach (var configuredColumn in settings.Columns.Where(static column => column.IsVisible).OrderBy(static column => column.Order))
+		{
+			if (availableColumns.TryGetValue(configuredColumn.PropertyId, out var column) && selectedPropertyIds.Add(column.PropertyId))
+			{
+				selectedColumns.Add(column);
+			}
+		}
+
+		if (selectedColumns.Count is 0)
+		{
+			foreach (var column in columnSet.DefaultVisible)
+			{
+				if (availableColumns.ContainsKey(column.PropertyId) && selectedPropertyIds.Add(column.PropertyId))
+				{
+					selectedColumns.Add(column);
+				}
+			}
+		}
+
+		if (selectedColumns.Count is 0)
+		{
+			foreach (var column in availableColumns.Values.OrderBy(static column => column.Index))
+			{
+				if (selectedPropertyIds.Add(column.PropertyId))
+				{
+					selectedColumns.Add(column);
+				}
+			}
+		}
+
+		if (selectedColumns.Count is 0)
+		{
+			return CreateFallbackColumns();
+		}
+
+		var result = new List<DetailsColumnViewModel>(selectedColumns.Count);
+		foreach (var column in selectedColumns)
+		{
+			var configuredColumn = settings.Columns.FirstOrDefault(setting => setting.PropertyId.Equals(column.PropertyId, StringComparison.Ordinal));
+			var width = configuredColumn?.Width ?? GetDefaultColumnWidth(column);
+			var isNameColumn = column.PropertyId.Equals("System.ItemNameDisplay", StringComparison.Ordinal) || column.PropertyId.Equals("name", StringComparison.OrdinalIgnoreCase);
+			result.Add(new DetailsColumnViewModel(column.PropertyId, column.DisplayName, width, column.Alignment, isNameColumn));
+		}
+
+		return Array.AsReadOnly(result.ToArray());
+	}
+
+	private static double GetDefaultColumnWidth(WindowsShellColumn column)
+	{
+		var width = column.HeaderWidthCharacters is > 0
+			? column.HeaderWidthCharacters * 8d
+			: 120d;
+
+		return Math.Clamp(width, 72d, 320d);
+	}
+
+	private static IReadOnlyList<DetailsColumnViewModel> CreateFallbackColumns()
+	{
+		return Array.AsReadOnly(new[]
+		{
+			new DetailsColumnViewModel("System.ItemNameDisplay", "System.ItemNameDisplay", 180, WindowsShellColumnAlignment.Left, isStretch: true),
+			new DetailsColumnViewModel("System.ItemTypeText", "System.ItemTypeText", 100, WindowsShellColumnAlignment.Left),
+			new DetailsColumnViewModel("reference", "reference", 220, WindowsShellColumnAlignment.Left),
+		});
+	}
+
 	private bool TryApplyChanges(IReadOnlyList<BrowseItemViewModelChange> changes, ICollection<BrowseItemViewModelChange> appliedChanges)
 	{
-		foreach (var change in changes)
+		var changeIndex = 0;
+		while (changeIndex < changes.Count)
 		{
+			if (changes[changeIndex] is BrowseItemViewModelAdded firstAdded && firstAdded.Index >= 0 && firstAdded.Index <= _items.Count)
+			{
+				var addedItems = new List<BrowseItemViewModel> { firstAdded.Item };
+				var nextChangeIndex = changeIndex + 1;
+				var expectedIndex = firstAdded.Index + 1;
+				while (nextChangeIndex < changes.Count && changes[nextChangeIndex] is BrowseItemViewModelAdded nextAdded && nextAdded.Index == expectedIndex)
+				{
+					addedItems.Add(nextAdded.Item);
+					nextChangeIndex++;
+					expectedIndex++;
+				}
+
+				if (addedItems.Count > 1)
+				{
+					_items.InsertRange(firstAdded.Index, addedItems);
+					for (var index = changeIndex; index < nextChangeIndex; index++)
+					{
+						appliedChanges.Add(changes[index]);
+					}
+
+					changeIndex = nextChangeIndex;
+
+					continue;
+				}
+			}
+
+			var change = changes[changeIndex];
 			switch (change)
 			{
 				case BrowseItemViewModelAdded added
@@ -661,6 +967,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			appliedChanges.Add(change);
+			changeIndex++;
 		}
 
 		return true;
@@ -677,7 +984,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		appliedChanges.Add(reset);
 	}
 
-	private static BrowseItemViewModelChange ProjectChange(BrowseItemChange change) =>
+	private BrowseItemViewModelChange ProjectChange(BrowseItemChange change) =>
 		change switch
 		{
 			BrowseItemAdded added => new BrowseItemViewModelAdded(added.Index, CreateItemViewModel(added.Item)),
@@ -688,8 +995,13 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_ => throw new InvalidOperationException($"Unsupported Core browse item change '{change.GetType().Name}'."),
 		};
 
-	private static BrowseItemViewModel CreateItemViewModel(IStorableModel item) =>
-		new(item.Name, item is IFolderModel, item.Reference);
+	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
+	{
+		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference);
+		viewModel.SetDetailsColumns(_detailsColumns);
+
+		return viewModel;
+	}
 
 	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
 		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
@@ -713,6 +1025,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 
 	private sealed record PendingItemBatch(long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes);
+
+	private sealed record PendingColumns(long Generation, IReadOnlyList<DetailsColumnViewModel> Columns);
 
 	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText);
 }

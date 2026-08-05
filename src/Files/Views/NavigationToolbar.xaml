@@ -16,32 +16,48 @@
 		</Grid.ColumnDefinitions>
 
 		<Button
+			Height="32"
 			AutomationProperties.Name="{x:Bind ViewModel.BackCommand.AutomationName, Mode=OneWay}"
+			Background="Transparent"
+			BorderBrush="Transparent"
 			Command="{x:Bind ViewModel.BackCommand.Command}"
-			Content="{x:Bind ViewModel.BackCommand.Label, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.BackCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.BackCommand.ToolTip, Mode=OneWay}" />
+			ToolTipService.ToolTip="{x:Bind ViewModel.BackCommand.ToolTip, Mode=OneWay}">
+			<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.BackCommand.Glyph, Mode=OneWay}" />
+		</Button>
 		<Button
 			Grid.Column="1"
+			Height="32"
 			AutomationProperties.Name="{x:Bind ViewModel.ForwardCommand.AutomationName, Mode=OneWay}"
+			Background="Transparent"
+			BorderBrush="Transparent"
 			Command="{x:Bind ViewModel.ForwardCommand.Command}"
-			Content="{x:Bind ViewModel.ForwardCommand.Label, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.ForwardCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.ForwardCommand.ToolTip, Mode=OneWay}" />
+			ToolTipService.ToolTip="{x:Bind ViewModel.ForwardCommand.ToolTip, Mode=OneWay}">
+			<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.ForwardCommand.Glyph, Mode=OneWay}" />
+		</Button>
 		<Button
 			Grid.Column="2"
+			Height="32"
 			AutomationProperties.Name="{x:Bind ViewModel.UpCommand.AutomationName, Mode=OneWay}"
+			Background="Transparent"
+			BorderBrush="Transparent"
 			Command="{x:Bind ViewModel.UpCommand.Command}"
-			Content="{x:Bind ViewModel.UpCommand.Label, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.UpCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.UpCommand.ToolTip, Mode=OneWay}" />
+			ToolTipService.ToolTip="{x:Bind ViewModel.UpCommand.ToolTip, Mode=OneWay}">
+			<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.UpCommand.Glyph, Mode=OneWay}" />
+		</Button>
 		<Button
 			Grid.Column="3"
+			Height="32"
 			AutomationProperties.Name="{x:Bind ViewModel.HomeCommand.AutomationName, Mode=OneWay}"
+			Background="Transparent"
+			BorderBrush="Transparent"
 			Command="{x:Bind ViewModel.HomeCommand.Command}"
-			Content="{x:Bind ViewModel.HomeCommand.Label, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.HomeCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.HomeCommand.ToolTip, Mode=OneWay}" />
+			ToolTipService.ToolTip="{x:Bind ViewModel.HomeCommand.ToolTip, Mode=OneWay}">
+			<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.HomeCommand.Glyph, Mode=OneWay}" />
+		</Button>
 
 		<TextBox
 			x:Name="PathTextBox"
@@ -58,5 +74,6 @@
 			Content="{x:Bind ViewModel.RefreshCommand.Label, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}"
 			ToolTipService.ToolTip="{x:Bind ViewModel.RefreshCommand.ToolTip, Mode=OneWay}" />
+
 	</Grid>
 </UserControl>

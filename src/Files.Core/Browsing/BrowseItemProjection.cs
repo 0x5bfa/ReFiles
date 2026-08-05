@@ -65,7 +65,7 @@ internal sealed class BrowseItemProjection
 		return new BrowseItemChangeSet([ new BrowseItemAdded(index, model)]);
 	}
 
-	public BrowseItemChangeSet AddRange(IReadOnlyList<IStorableModel> models)
+	public BrowseItemChangeSet AddRange(IReadOnlyList<IStorableModel> models, bool preserveInputOrder = false)
 	{
 		ArgumentNullException.ThrowIfNull(models);
 
@@ -84,6 +84,23 @@ internal sealed class BrowseItemProjection
 			{
 				throw new InvalidOperationException("The item projection contains duplicate keys.");
 			}
+		}
+
+		if (preserveInputOrder)
+		{
+			var startingIndex = _orderedItems.Count;
+			var appendChanges = new BrowseItemChange[models.Count];
+			for (var index = 0; index < models.Count; index++)
+			{
+				var model = models[index];
+				_modelsByKey.Add(model.Reference.GetKey(), model);
+				_orderedItems.Add(model);
+				appendChanges[index] = new BrowseItemAdded(startingIndex + index, model);
+			}
+
+			UpdateSnapshot();
+
+			return new BrowseItemChangeSet(appendChanges);
 		}
 
 		var incomingItems = models.ToList();
@@ -127,6 +144,20 @@ internal sealed class BrowseItemProjection
 		UpdateSnapshot();
 
 		return new BrowseItemChangeSet(changes);
+	}
+
+	public BrowseItemChangeSet Sort()
+	{
+		var previousKeys = _orderedItems.Select(static item => item.Reference.GetKey()).ToArray();
+		_orderedItems.Sort(_comparer);
+		if (previousKeys.SequenceEqual(_orderedItems.Select(static item => item.Reference.GetKey())))
+		{
+			return BrowseItemChangeSet.Empty;
+		}
+
+		UpdateSnapshot();
+
+		return new BrowseItemChangeSet([ new BrowseItemsReset(Items)]);
 	}
 
 	public BrowseItemChangeSet Remove(StorableKey key)
@@ -231,17 +262,9 @@ internal sealed class BrowseItemProjection
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 
-		var previousKeys = _orderedItems.Select(static item => item.Reference.GetKey()).ToArray();
 		_comparer = CreateComparer(settings, _propertyValueGetter);
-		_orderedItems.Sort(_comparer);
-		if (previousKeys.SequenceEqual(_orderedItems.Select(static item => item.Reference.GetKey())))
-		{
-			return BrowseItemChangeSet.Empty;
-		}
 
-		UpdateSnapshot();
-
-		return new BrowseItemChangeSet([ new BrowseItemsReset(Items)]);
+		return Sort();
 	}
 
 	private int FindInsertionIndex(IStorableModel model)

@@ -224,6 +224,11 @@ E_POINTER
 E_NOINTERFACE
 E_FAIL
 IShellFolder
+IShellFolder2
+SHELLDETAILS
+SHCOLSTATE
+StrRetToBuf
+PSGetNameFromPropertyKey
 FILE_FLAGS_AND_ATTRIBUTES
 GetLogicalDrives
 IShellItemImageFactory

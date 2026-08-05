@@ -49,4 +49,37 @@ public sealed class WindowsPropertyTests
 			Directory.Delete(directoryPath, recursive: true);
 		}
 	}
+
+	[TestMethod]
+	public async Task WindowsPropertyReaderReadsShellDetailsProperty()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		var filePath = Path.Combine(directoryPath, "properties.bin");
+		File.WriteAllBytes(filePath, new byte[1]);
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
+
+			var featureRegistry = new ItemFeatureBuilder()
+				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
+				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
+				.Build();
+
+			using var model = new StorableModelFactory(featureRegistry).Create(source, coreModel);
+			var propertySource = model.Get<IPropertySource>();
+			Assert.IsNotNull(propertySource);
+
+			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(["System.ItemNameDisplay"]));
+
+			Assert.AreEqual("properties.bin", properties["System.ItemNameDisplay"]);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
 }

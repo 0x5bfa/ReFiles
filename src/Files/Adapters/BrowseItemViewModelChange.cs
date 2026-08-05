@@ -17,8 +17,10 @@ internal sealed record BrowseItemViewModelMoved(int PreviousIndex, int CurrentIn
 
 internal sealed record BrowseItemViewModelsReset(IReadOnlyList<BrowseItemViewModel> Items) : BrowseItemViewModelChange;
 
-internal sealed class CoreBrowseUpdatedEventArgs(IReadOnlyList<BrowseItemViewModelChange> itemChanges) : EventArgs
+internal sealed class CoreBrowseUpdatedEventArgs(IReadOnlyList<BrowseItemViewModelChange> itemChanges, bool selectionChanged) : EventArgs
 {
 	public IReadOnlyList<BrowseItemViewModelChange> ItemChanges { get; } =
 		itemChanges;
+
+	public bool SelectionChanged { get; } = selectionChanged;
 }

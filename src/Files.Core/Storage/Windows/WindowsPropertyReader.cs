@@ -15,7 +15,7 @@ using Windows.Win32.UI.Shell;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
-/// Reads the initial set of typed Windows Shell properties for filesystem items.
+/// Reads Windows Shell properties for filesystem items.
 /// </summary>
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsPropertyReader : IPropertyReader
@@ -81,11 +81,11 @@ public sealed class WindowsPropertyReader : IPropertyReader
 
 		return source.ShellItemResolver.InvokeConcurrentAsync(
 			((WindowsStorable)item).Locator,
-			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)),
+			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, item.ParsingName, request, cancellationToken)),
 			cancellationToken);
 	}
 
-	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, PropertyRequest request, CancellationToken cancellationToken)
+	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, string parsingName, PropertyRequest request, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -95,6 +95,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		}
 
 		var properties = new Dictionary<string, object?>(StringComparer.Ordinal);
+		var detailsPropertyIds = new List<string>();
 
 		foreach (var propertyId in request.PropertyIds)
 		{
@@ -117,6 +118,18 @@ public sealed class WindowsPropertyReader : IPropertyReader
 				case HomeIsPinned:
 					AddBool(shellItem2, _homeIsPinnedKey, HomeIsPinned, properties);
 					break;
+				default:
+					detailsPropertyIds.Add(propertyId);
+					break;
+			}
+		}
+
+		if (detailsPropertyIds.Count is not 0)
+		{
+			var detailsProperties = WindowsShellColumnReader.ReadValues(parsingName, detailsPropertyIds, cancellationToken);
+			foreach (var property in detailsProperties)
+			{
+				properties[property.Key] = property.Value;
 			}
 		}
 

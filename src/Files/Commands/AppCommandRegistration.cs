@@ -21,10 +21,10 @@ public static class AppCommandRegistration
 
 	private static void RegisterNavigation(CommandRegistryBuilder builder)
 	{
-		builder.Register(new(CommandIds.NavigateBack, Strings.Back, "Navigation.Back", Strings.Navigation, 10), static _ => new NavigationCommandHandler(CommandIds.NavigateBack));
-		builder.Register(new(CommandIds.NavigateForward, Strings.Forward, "Navigation.Forward", Strings.Navigation, 20), static _ => new NavigationCommandHandler(CommandIds.NavigateForward));
-		builder.Register(new(CommandIds.NavigateUp, Strings.Up, "Navigation.Up", Strings.Navigation, 30), static _ => new NavigationCommandHandler(CommandIds.NavigateUp));
-		builder.Register(new(CommandIds.NavigateHome, Strings.Home, "Navigation.Home", Strings.Navigation, 40), static _ => new NavigationCommandHandler(CommandIds.NavigateHome));
+		builder.Register(new(CommandIds.NavigateBack, Strings.Back, "Navigation.Back", Strings.Navigation, 10, "\uE72B"), static _ => new NavigationCommandHandler(CommandIds.NavigateBack));
+		builder.Register(new(CommandIds.NavigateForward, Strings.Forward, "Navigation.Forward", Strings.Navigation, 20, "\uE72A"), static _ => new NavigationCommandHandler(CommandIds.NavigateForward));
+		builder.Register(new(CommandIds.NavigateUp, Strings.Up, "Navigation.Up", Strings.Navigation, 30, "\uE74A"), static _ => new NavigationCommandHandler(CommandIds.NavigateUp));
+		builder.Register(new(CommandIds.NavigateHome, Strings.Home, "Navigation.Home", Strings.Navigation, 40, "\uE80F"), static _ => new NavigationCommandHandler(CommandIds.NavigateHome));
 		builder.Register(new(CommandIds.NavigatePath, Strings.Address, "Navigation.Path", Strings.Navigation, 50), static _ => new NavigationCommandHandler(CommandIds.NavigatePath));
 		builder.Register(new(CommandIds.Refresh, Strings.Refresh, "Navigation.Refresh", Strings.Navigation, 60), static _ => new NavigationCommandHandler(CommandIds.Refresh));
 		builder.Register(new(CommandIds.OpenItem, Strings.Open, "Item.Open", Strings.Item, 10), static _ => new NavigationCommandHandler(CommandIds.OpenItem));

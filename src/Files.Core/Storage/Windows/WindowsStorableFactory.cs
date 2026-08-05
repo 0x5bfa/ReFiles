@@ -115,6 +115,16 @@ internal sealed class WindowsStorableFactory
 			cancellationToken);
 	}
 
+	internal Task<WindowsShellColumnSet> GetColumnsAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(descriptor);
+
+		return _resolver.InvokeAsync(
+			descriptor.Locator,
+			shellItem => WindowsShellColumnReader.Read(shellItem, descriptor.Locator.ParsingName),
+			cancellationToken);
+	}
+
 	internal async IAsyncEnumerable<WindowsStorableDescriptor> EnumerateChildrenAsync(WindowsStorableDescriptor descriptor, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);

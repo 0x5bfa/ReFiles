@@ -20,7 +20,7 @@ public sealed class BrowseSessionTests
 		var factory = new TestModelFactory();
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
 		var items = Enumerable.Range(0, 600)
-			.Select(index => factory.CreateModel($"item-{index:D2}", $"Item {index:D2}", out _))
+			.Select(index => factory.CreateModel($"item-{index:D3}", $"Item {index:D3}", out _))
 			.Cast<IStorableModel>()
 			.ToArray();
 		var resolver = new TestBrowseLocationResolver(items)
@@ -45,6 +45,33 @@ public sealed class BrowseSessionTests
 		await navigation;
 		Assert.AreEqual(600, session.Items.Count);
 		Assert.AreEqual(4, publishedBatchCount);
+	}
+
+	[TestMethod]
+	public async Task SortsEnumerationAfterPublishingBatches()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var first = factory.CreateModel("first", "Zulu", out _);
+		var second = factory.CreateModel("second", "Alpha", out _);
+		var resolver = new TestBrowseLocationResolver([first, second])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		var itemChanges = new List<BrowseItemsChangedEventArgs>();
+		session.ItemsChanged += (_, args) => itemChanges.Add(args);
+
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+
+		Assert.AreEqual(2, itemChanges.Count);
+		var initialReset = itemChanges[0].Changes.Single() as BrowseItemsReset;
+		var finalReset = itemChanges[1].Changes.Single() as BrowseItemsReset;
+		Assert.IsNotNull(initialReset);
+		Assert.IsNotNull(finalReset);
+		Assert.AreSame(first, initialReset.Items[0]);
+		Assert.AreSame(second, finalReset.Items[0]);
+		Assert.AreSame(second, session.Items[0]);
 	}
 
 	[TestMethod]
