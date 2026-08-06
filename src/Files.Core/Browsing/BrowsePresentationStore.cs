@@ -106,7 +106,7 @@ internal sealed class BrowsePresentationStore
 
 				var presentation = new BrowseItemPresentation(pair.Value.Presentation.Properties);
 				_entries[pair.Key] = new Entry(pair.Value.Item, presentation);
-				changes.Add(new BrowseItemPresentationChangedEventArgs(pair.Key, presentation));
+				changes.Add(new BrowseItemPresentationChangedEventArgs(pair.Key, presentation, BrowseItemPresentationChangeFlags.Thumbnail));
 			}
 		}
 

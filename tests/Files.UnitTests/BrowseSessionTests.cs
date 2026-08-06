@@ -15,7 +15,7 @@ namespace Files.UnitTests;
 public sealed class BrowseSessionTests
 {
 	[TestMethod]
-	public async Task PublishesEnumerationBatchesBeforeEnumerationCompletes()
+	public async Task PublishesSortedEnumerationInRanges()
 	{
 		var factory = new TestModelFactory();
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
@@ -28,27 +28,19 @@ public sealed class BrowseSessionTests
 			LocationModelFactory = _ => locationModel,
 		};
 		using var session = new BrowseSession(resolver);
-		var firstBatch = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		var publishedBatchCount = 0;
 		session.ItemsChanged += (_, _) =>
 		{
 			publishedBatchCount++;
-			if (session.IsLoading && session.Items.Count is 32)
-			{
-				firstBatch.TrySetResult(true);
-			}
 		};
 
-		var navigation = session.NavigateAsync(new FolderLocation(locationModel.Reference)).AsTask();
-		await firstBatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
-		await navigation;
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		Assert.AreEqual(600, session.Items.Count);
-		Assert.AreEqual(4, publishedBatchCount);
+		Assert.AreEqual(6, publishedBatchCount);
 	}
 
 	[TestMethod]
-	public async Task SortsEnumerationAfterPublishingBatches()
+	public async Task SortsEnumerationBeforePublishingBatches()
 	{
 		var factory = new TestModelFactory();
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
@@ -64,13 +56,11 @@ public sealed class BrowseSessionTests
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 
-		Assert.AreEqual(2, itemChanges.Count);
-		var initialReset = itemChanges[0].Changes.Single() as BrowseItemsReset;
-		var finalReset = itemChanges[1].Changes.Single() as BrowseItemsReset;
-		Assert.IsNotNull(initialReset);
-		Assert.IsNotNull(finalReset);
-		Assert.AreSame(first, initialReset.Items[0]);
-		Assert.AreSame(second, finalReset.Items[0]);
+		Assert.AreEqual(1, itemChanges.Count);
+		var reset = itemChanges[0].Changes.Single() as BrowseItemsReset;
+		Assert.IsNotNull(reset);
+		Assert.AreSame(second, reset.Items[0]);
+		Assert.AreSame(first, reset.Items[1]);
 		Assert.AreSame(second, session.Items[0]);
 	}
 

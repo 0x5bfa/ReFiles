@@ -29,6 +29,21 @@ internal sealed class BrowseItemProjection
 
 	public bool Contains(StorableKey key) => _modelsByKey.ContainsKey(key);
 
+	public bool TryGet(StorableKey key, out IStorableModel model)
+	{
+		return _modelsByKey.TryGetValue(key, out model!);
+	}
+
+	public IReadOnlyList<IStorableModel> SortItems(IReadOnlyList<IStorableModel> models)
+	{
+		ArgumentNullException.ThrowIfNull(models);
+
+		var sortedItems = models.ToArray();
+		Array.Sort(sortedItems, _comparer);
+
+		return sortedItems;
+	}
+
 	public bool TryGet(StorableKey key, out IStorableModel model, out int index)
 	{
 		if (!_modelsByKey.TryGetValue(key, out var foundModel))
@@ -91,18 +106,16 @@ internal sealed class BrowseItemProjection
 		if (preserveInputOrder)
 		{
 			var startingIndex = _orderedItems.Count;
-			var appendChanges = new BrowseItemChange[models.Count];
-			for (var index = 0; index < models.Count; index++)
+			var addedItems = Array.AsReadOnly(models.ToArray());
+			foreach (var model in addedItems)
 			{
-				var model = models[index];
 				_modelsByKey.Add(model.Reference.GetKey(), model);
 				_orderedItems.Add(model);
-				appendChanges[index] = new BrowseItemAdded(startingIndex + index, model);
 			}
 
 			UpdateSnapshot();
 
-			return new BrowseItemChangeSet(appendChanges);
+			return new BrowseItemChangeSet([new BrowseItemsAdded(startingIndex, addedItems)]);
 		}
 
 		var incomingItems = models.ToList();

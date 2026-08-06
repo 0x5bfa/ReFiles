@@ -24,17 +24,45 @@ public sealed record BrowseItemPresentation
 	}
 }
 
+/// <summary>Identifies the presentation fields changed for a browse item.</summary>
+[Flags]
+public enum BrowseItemPresentationChangeFlags
+{
+	/// <summary>No presentation field changed.</summary>
+	None = 0,
+
+	/// <summary>The property values changed.</summary>
+	Properties = 1 << 0,
+
+	/// <summary>The thumbnail changed.</summary>
+	Thumbnail = 1 << 1,
+}
+
+/// <summary>Describes a presentation update for one browse item.</summary>
 public sealed class BrowseItemPresentationChangedEventArgs : EventArgs
 {
+	/// <summary>Gets the updated item key.</summary>
 	public StorableKey Key { get; }
 
+	/// <summary>Gets the current presentation snapshot.</summary>
 	public BrowseItemPresentation Presentation { get; }
 
-	public BrowseItemPresentationChangedEventArgs(StorableKey key, BrowseItemPresentation presentation)
+	/// <summary>Gets the fields changed by this update.</summary>
+	public BrowseItemPresentationChangeFlags Changed { get; }
+
+	/// <summary>Initializes a presentation update event.</summary>
+	/// <param name="key">The updated item key.</param>
+	/// <param name="presentation">The current presentation snapshot.</param>
+	/// <param name="changed">The fields changed by the update.</param>
+	public BrowseItemPresentationChangedEventArgs(
+		StorableKey key,
+		BrowseItemPresentation presentation,
+		BrowseItemPresentationChangeFlags changed = BrowseItemPresentationChangeFlags.Properties | BrowseItemPresentationChangeFlags.Thumbnail)
 	{
 		ArgumentNullException.ThrowIfNull(presentation);
 
 		Key = key;
 		Presentation = presentation;
+		Changed = changed;
 	}
 }

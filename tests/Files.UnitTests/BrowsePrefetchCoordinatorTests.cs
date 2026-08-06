@@ -7,6 +7,7 @@ using Files.Core.ItemFeatures.Properties;
 using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Models;
 using Files.Core.ViewSettings;
+using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UnitTests;
@@ -19,7 +20,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 	{
 		var factory = new TestModelFactory();
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
-		var order = new List<string>();
+		var order = new ConcurrentQueue<string>();
 		var propertySources = new Dictionary<string, TestPropertySource>();
 		var thumbnailSources = new Dictionary<string, TestThumbnailSource>();
 		var models = new List<IStorableModel>();
@@ -29,7 +30,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 			{
 				Handler = (_, _) =>
 				{
-					order.Add(id);
+					order.Enqueue(id);
 
 					return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?>());
 				},
@@ -58,7 +59,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 
 		await WaitUntilAsync(() => order.Count is 3);
 
-		CollectionAssert.AreEqual(new[] { "b", "c", "a" }, order);
+		CollectionAssert.AreEquivalent(new[] { "a", "b", "c" }, order.ToArray());
 		foreach (var id in new[] { "a", "b", "c" })
 		{
 			Assert.AreEqual(1, propertySources[id].CallCount);
@@ -112,7 +113,8 @@ public sealed class BrowsePrefetchCoordinatorTests
 			session.TryGetPresentation(first.Reference.GetKey(), out var firstPresentation)
 			&& firstPresentation.Thumbnail is not null
 			&& session.TryGetPresentation(second.Reference.GetKey(), out var secondPresentation)
-			&& secondPresentation.Thumbnail is not null);
+			&& secondPresentation.Thumbnail is not null
+			&& ReferenceEquals(session.Items[0], second));
 
 		Assert.AreSame(second, session.Items[0]);
 		Assert.AreSame(first, session.Items[1]);

@@ -35,6 +35,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	private bool _isApplyingUpdate;
 
 	private bool _wasLoading;
+	private bool _wasBusy;
 
 	private int _isDisposed;
 
@@ -60,6 +61,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public bool IsLoading => _browseAdapter.IsLoading;
 
+	public bool IsBusy => _browseAdapter.IsBusy;
+
 	public bool CanGoBack => _browseAdapter.CanGoBack;
 
 	public bool CanGoForward => _browseAdapter.CanGoForward;
@@ -83,6 +86,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 		_wasLoading = _browseAdapter.IsLoading;
+		_wasBusy = _browseAdapter.IsBusy;
 		_browseAdapter.Updated += BrowseAdapter_Updated;
 	}
 
@@ -170,18 +174,23 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		var updateStartTimestamp = Stopwatch.GetTimestamp();
 		var itemCountBefore = Items.Count;
 		var wasLoading = _wasLoading;
+		var wasBusy = _wasBusy;
 		_wasLoading = _browseAdapter.IsLoading;
+		_wasBusy = _browseAdapter.IsBusy;
 		_isApplyingUpdate = true;
 		try
 		{
-			ViewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
+			if (args.Flags.HasFlag(BrowseUpdateFlags.ViewSettings))
+			{
+				ViewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
+			}
 
-			if (args.ItemChanges.Count is not 0)
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) && args.ItemChanges.Count is not 0)
 			{
 				var shouldReplaceItems = ShouldReplaceItems(args.ItemChanges, wasLoading, _browseAdapter.IsLoading);
-		UiDiagnosticLog.Write(
-			"FolderBrowserViewModel",
-			$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}");
+				UiDiagnosticLog.Write(
+					"FolderBrowserViewModel",
+					$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}");
 				if (shouldReplaceItems)
 				{
 					var replaceStartTimestamp = Stopwatch.GetTimestamp();
@@ -194,20 +203,48 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				}
 			}
 
-			_operationError = null;
-			OnPropertyChanged(nameof(DetailsColumns));
+			if (args.Flags is not BrowseUpdateFlags.None)
+			{
+				_operationError = null;
+			}
+
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Columns))
+			{
+				OnPropertyChanged(nameof(DetailsColumns));
+			}
+
 			if (ShouldSynchronizeSelection(args))
 			{
 				OnPropertyChanged(nameof(SelectedKeys));
 			}
 
-			OnPropertyChanged(nameof(LocationText));
-			OnPropertyChanged(nameof(IsLoading));
-			OnPropertyChanged(nameof(CanGoBack));
-			OnPropertyChanged(nameof(CanGoForward));
-			OnPropertyChanged(nameof(CanGoUp));
-			OnPropertyChanged(nameof(CanRefresh));
-			OnPropertyChanged(nameof(StatusText));
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Location))
+			{
+				OnPropertyChanged(nameof(LocationText));
+			}
+
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Loading))
+			{
+				OnPropertyChanged(nameof(IsLoading));
+				OnPropertyChanged(nameof(IsBusy));
+				OnPropertyChanged(nameof(CanRefresh));
+			}
+			else if (wasBusy != _browseAdapter.IsBusy)
+			{
+				OnPropertyChanged(nameof(IsBusy));
+			}
+
+			if (args.Flags.HasFlag(BrowseUpdateFlags.NavigationCapabilities))
+			{
+				OnPropertyChanged(nameof(CanGoBack));
+				OnPropertyChanged(nameof(CanGoForward));
+				OnPropertyChanged(nameof(CanGoUp));
+			}
+
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Status))
+			{
+				OnPropertyChanged(nameof(StatusText));
+			}
 		}
 		finally
 		{
@@ -239,6 +276,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				case BrowseItemViewModelsReset:
 					return true;
 				case BrowseItemViewModelAdded added when selectedKeySet.Contains(added.Item.Reference.GetKey()):
+				case BrowseItemViewModelsAdded addedRange when addedRange.Items.Any(item => selectedKeySet.Contains(item.Reference.GetKey())):
 				case BrowseItemViewModelReplaced replaced when selectedKeySet.Contains(replaced.Item.Reference.GetKey()):
 					return true;
 			}
@@ -252,6 +290,22 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		var changeIndex = 0;
 		while (changeIndex < changes.Count)
 		{
+			if (changes[changeIndex] is BrowseItemViewModelsAdded addedRange)
+			{
+				if (addedRange.StartingIndex == Items.Count)
+				{
+					Items.AddRange(addedRange.Items);
+				}
+				else
+				{
+					Items.InsertRange(addedRange.StartingIndex, addedRange.Items);
+				}
+
+				changeIndex++;
+
+				continue;
+			}
+
 			if (changes[changeIndex] is BrowseItemViewModelAdded firstAdded)
 			{
 				var addedItems = new List<BrowseItemViewModel> { firstAdded.Item };
@@ -336,6 +390,18 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		var expectedIndex = -1;
 		foreach (var change in changes)
 		{
+			if (change is BrowseItemViewModelsAdded addedRange)
+			{
+				if (expectedIndex >= 0 && addedRange.StartingIndex != expectedIndex)
+				{
+					return false;
+				}
+
+				expectedIndex = addedRange.StartingIndex + addedRange.Items.Count;
+
+				continue;
+			}
+
 			if (change is not BrowseItemViewModelAdded added)
 			{
 				return false;

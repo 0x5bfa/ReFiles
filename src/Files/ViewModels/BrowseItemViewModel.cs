@@ -16,7 +16,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject
 	private const string ReferencePropertyId = "reference";
 
 	private IReadOnlyDictionary<string, object?> _properties = new Dictionary<string, object?>(StringComparer.Ordinal);
-	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = Array.Empty<DetailsColumnViewModel>();
 
 	public string Name { get; }
 
@@ -32,8 +31,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject
 	public string ReferenceText => Reference.LastKnownAddress?.Value ?? Reference.ItemId;
 
 	public IReadOnlyDictionary<string, object?> Properties => _properties;
-
-	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _detailsColumns;
 
 	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference)
 	{
@@ -56,14 +53,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject
 
 		_properties = value;
 		OnPropertyChanged(nameof(Properties));
-	}
-
-	internal void SetDetailsColumns(IReadOnlyList<DetailsColumnViewModel> value)
-	{
-		ArgumentNullException.ThrowIfNull(value);
-
-		_detailsColumns = value;
-		OnPropertyChanged(nameof(DetailsColumns));
 	}
 
 	internal string GetDisplayText(string propertyId)

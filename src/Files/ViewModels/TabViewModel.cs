@@ -41,6 +41,16 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	public string StatusText => _operationError ?? ActivePane?.FolderBrowser.StatusText ?? Strings.NoPane.GetLocalized();
 
+	public bool IsLoading => ActivePane?.IsLoading ?? false;
+
+	public bool CanGoBack => ActivePane?.CanGoBack ?? false;
+
+	public bool CanGoForward => ActivePane?.CanGoForward ?? false;
+
+	public bool CanGoUp => ActivePane?.CanGoUp ?? false;
+
+	public bool CanRefresh => ActivePane?.CanRefresh ?? false;
+
 	public bool CanClosePane => Panes.Count > 1;
 
 	internal TabViewModel(TabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
@@ -183,6 +193,11 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			OnPropertyChanged(nameof(Title));
 			OnPropertyChanged(nameof(StatusText));
 			OnPropertyChanged(nameof(CanClosePane));
+			OnPropertyChanged(nameof(IsLoading));
+			OnPropertyChanged(nameof(CanGoBack));
+			OnPropertyChanged(nameof(CanGoForward));
+			OnPropertyChanged(nameof(CanGoUp));
+			OnPropertyChanged(nameof(CanRefresh));
 		}
 		finally
 		{
@@ -192,10 +207,34 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	private void PaneViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is nameof(PaneViewModel.StatusText) or nameof(PaneViewModel.Title))
+		if (sender is not PaneViewModel pane || !ReferenceEquals(pane, ActivePane))
 		{
-			OnPropertyChanged(nameof(Title));
-			OnPropertyChanged(nameof(StatusText));
+			return;
+		}
+
+		switch (e.PropertyName)
+		{
+			case nameof(PaneViewModel.Title):
+				OnPropertyChanged(nameof(Title));
+				break;
+			case nameof(PaneViewModel.StatusText):
+				OnPropertyChanged(nameof(StatusText));
+				break;
+			case nameof(PaneViewModel.IsLoading):
+				OnPropertyChanged(nameof(IsLoading));
+				break;
+			case nameof(PaneViewModel.CanGoBack):
+				OnPropertyChanged(nameof(CanGoBack));
+				break;
+			case nameof(PaneViewModel.CanGoForward):
+				OnPropertyChanged(nameof(CanGoForward));
+				break;
+			case nameof(PaneViewModel.CanGoUp):
+				OnPropertyChanged(nameof(CanGoUp));
+				break;
+			case nameof(PaneViewModel.CanRefresh):
+				OnPropertyChanged(nameof(CanRefresh));
+				break;
 		}
 	}
 

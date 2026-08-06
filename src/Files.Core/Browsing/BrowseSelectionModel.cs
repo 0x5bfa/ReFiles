@@ -83,9 +83,23 @@ internal sealed class BrowseSelectionModel
 
 		var existingKeys = items.Select(static item => item.Reference.GetKey()).ToHashSet();
 
+		return Normalize(state, existingKeys.Contains);
+	}
+
+	internal static BrowseSelectionState Normalize(BrowseSelectionState state, BrowseItemProjection projection)
+	{
+		ArgumentNullException.ThrowIfNull(state);
+		ArgumentNullException.ThrowIfNull(projection);
+
+		return Normalize(state, projection.Contains);
+	}
+
+	private static BrowseSelectionState Normalize(BrowseSelectionState state, Func<StorableKey, bool> contains)
+	{
+
 		return new BrowseSelectionState(
-			Array.AsReadOnly(state.SelectedKeys.Where(existingKeys.Contains).Distinct().ToArray()),
-			state.FocusedKey is { } focusedKey && existingKeys.Contains(focusedKey) ? focusedKey : null,
-			state.AnchorKey is { } anchorKey && existingKeys.Contains(anchorKey) ? anchorKey : null);
+			Array.AsReadOnly(state.SelectedKeys.Where(contains).Distinct().ToArray()),
+			state.FocusedKey is { } focusedKey && contains(focusedKey) ? focusedKey : null,
+			state.AnchorKey is { } anchorKey && contains(anchorKey) ? anchorKey : null);
 	}
 }

@@ -9,6 +9,8 @@ internal abstract record BrowseItemViewModelChange;
 
 internal sealed record BrowseItemViewModelAdded(int Index, BrowseItemViewModel Item) : BrowseItemViewModelChange;
 
+internal sealed record BrowseItemViewModelsAdded(int StartingIndex, IReadOnlyList<BrowseItemViewModel> Items) : BrowseItemViewModelChange;
+
 internal sealed record BrowseItemViewModelRemoved(int Index) : BrowseItemViewModelChange;
 
 internal sealed record BrowseItemViewModelReplaced(int Index, BrowseItemViewModel Item) : BrowseItemViewModelChange;
@@ -17,10 +19,26 @@ internal sealed record BrowseItemViewModelMoved(int PreviousIndex, int CurrentIn
 
 internal sealed record BrowseItemViewModelsReset(IReadOnlyList<BrowseItemViewModel> Items) : BrowseItemViewModelChange;
 
-internal sealed class CoreBrowseUpdatedEventArgs(IReadOnlyList<BrowseItemViewModelChange> itemChanges, bool selectionChanged) : EventArgs
+[Flags]
+internal enum BrowseUpdateFlags
+{
+	None = 0,
+	Items = 1 << 0,
+	Location = 1 << 1,
+	Loading = 1 << 2,
+	NavigationCapabilities = 1 << 3,
+	Columns = 1 << 4,
+	Selection = 1 << 5,
+	Status = 1 << 6,
+	ViewSettings = 1 << 7,
+}
+
+internal sealed class CoreBrowseUpdatedEventArgs(IReadOnlyList<BrowseItemViewModelChange> itemChanges, BrowseUpdateFlags flags) : EventArgs
 {
 	public IReadOnlyList<BrowseItemViewModelChange> ItemChanges { get; } =
 		itemChanges;
 
-	public bool SelectionChanged { get; } = selectionChanged;
+	public BrowseUpdateFlags Flags { get; } = flags;
+
+	public bool SelectionChanged => Flags.HasFlag(BrowseUpdateFlags.Selection);
 }

@@ -15,7 +15,8 @@ namespace Files.Core.Browsing;
 public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 {
 	private const int InitialEnumerationBatchSize = 32;
-	private const int EnumerationBatchSize = 256;
+	private const int EnumerationBatchSize = 128;
+	private static readonly TimeSpan PropertySortDebounce = TimeSpan.FromMilliseconds(150);
 
 	private readonly IBrowseLocationResolver _locationResolver;
 	private readonly IViewSettingsStore? _viewSettingsStore;
@@ -26,12 +27,15 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	private readonly BrowseChangeCoordinator _changeCoordinator;
 	private readonly Lock _disposalLock = new();
 	private readonly Lock _navigationCancellationLock = new();
+	private readonly Lock _propertySortLock = new();
 	private readonly BrowsePresentationStore _presentationStore = new();
 	private readonly BrowseSelectionModel _selectionModel = new();
 	private BrowseContextState? _activeContext;
 	private BrowseContextState? _preparingContext;
 	private Task? _disposeTask;
 	private CancellationTokenSource? _activeNavigationCancellation;
+	private CancellationTokenSource? _propertySortCancellation;
+	private Task? _propertySortTask;
 	private long _generationCounter;
 	private long _contentVersion;
 	private long _itemsVersion;
@@ -119,6 +123,12 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 	private async ValueTask NavigateCoreAsync(BrowseLocation location, CancellationToken cancellationToken)
 	{
+		var propertySortTask = CancelPendingPropertySort();
+		if (propertySortTask is not null)
+		{
+			await propertySortTask.ConfigureAwait(false);
+		}
+
 		var navigationStartTimestamp = Stopwatch.GetTimestamp();
 		Volatile.Write(ref _diagnosticNavigationStartTimestamp, navigationStartTimestamp);
 		CoreDiagnosticLog.Write("BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
@@ -132,6 +142,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		BrowseNavigationSnapshot? previousState = null;
 		var nextProjection = (BrowseItemProjection?)null;
 		var enumerationActivated = false;
+		var presentationClearedForEnumeration = false;
 		var committed = false;
 
 		try
@@ -151,25 +162,27 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
 			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
-			var pendingBatch = new List<IStorableModel>(EnumerationBatchSize);
-
 			await foreach (var item in nextLocationContext.GetItemsAsync(cancellationToken).ConfigureAwait(false))
 			{
 				nextItems.Add(item);
-				pendingBatch.Add(item);
-				var targetBatchSize = enumerationActivated ? EnumerationBatchSize : InitialEnumerationBatchSize;
-				if (pendingBatch.Count < targetBatchSize)
-				{
-					continue;
-				}
-
-				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, pendingBatch, ref previousState, ref enumerationActivated);
-				pendingBatch.Clear();
 			}
 
-			if (pendingBatch.Count is not 0)
+			previousState = CaptureNavigationState();
+			_presentationStore.Clear();
+			presentationClearedForEnumeration = true;
+			var sortedItems = nextProjection!.SortItems(nextItems);
+			for (var startingIndex = 0; startingIndex < sortedItems.Count;)
 			{
-				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, pendingBatch, ref previousState, ref enumerationActivated);
+				var targetBatchSize = enumerationActivated ? EnumerationBatchSize : InitialEnumerationBatchSize;
+				var batchSize = Math.Min(targetBatchSize, sortedItems.Count - startingIndex);
+				var batch = new IStorableModel[batchSize];
+				for (var index = 0; index < batchSize; index++)
+				{
+					batch[index] = sortedItems[startingIndex + index];
+				}
+
+				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, batch, ref previousState, ref enumerationActivated);
+				startingIndex += batchSize;
 			}
 
 			if (!enumerationActivated)
@@ -177,11 +190,8 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
 			}
 
-			var finalSortChanges = nextProjection!.Sort();
-			PublishItemsChanged(finalSortChanges);
-
 			var nextSelection = Equals(previousState!.Location, location)
-				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection.Items)
+				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection)
 				: BrowseSelectionState.Empty;
 			Volatile.Write(ref _preparingContext, null);
 			Error = null;
@@ -217,6 +227,10 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 				if (enumerationActivated && previousState is not null)
 				{
 					RestoreNavigationState(previousState);
+				}
+				else if (presentationClearedForEnumeration && previousState is not null)
+				{
+					_presentationStore.Restore(previousState.Presentations);
 				}
 
 				if (nextContext is not null)
@@ -268,9 +282,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 		if (!activated)
 		{
-			previousState = CaptureNavigationState();
+			previousState ??= CaptureNavigationState();
 			var provisionalSelection = Equals(previousState.Location, location)
-				? BrowseSelectionModel.Normalize(previousState.Selection, projection.Items)
+				? BrowseSelectionModel.Normalize(previousState.Selection, projection)
 				: BrowseSelectionState.Empty;
 			Location = location;
 			Volatile.Write(ref _activeContext, context);
@@ -288,7 +302,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 		if (Equals(previousState!.Location, location))
 		{
-			SetSelectionState(BrowseSelectionModel.Normalize(previousState.Selection, projection.Items));
+			SetSelectionState(BrowseSelectionModel.Normalize(previousState.Selection, projection));
 		}
 
 		PublishItemsChanged(changes);
@@ -950,6 +964,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
 		ArgumentNullException.ThrowIfNull(settings);
+		var propertySortTask = CancelPendingPropertySort();
+		if (propertySortTask is not null)
+		{
+			await propertySortTask.ConfigureAwait(false);
+		}
 
 		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = [];
 		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -1018,12 +1037,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			}
 
 			var presentation = _presentationStore.Update(key, item, properties, thumbnail: null, updateProperties: true, updateThumbnail: false);
-			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation);
+			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation, BrowseItemPresentationChangeFlags.Properties);
 
 			if (!string.IsNullOrWhiteSpace(ViewSettings.SortPropertyId) && properties.ContainsKey(ViewSettings.SortPropertyId))
 			{
-				var changes = Volatile.Read(ref _itemProjection).UpdateSort(ViewSettings);
-				PublishItemsChanged(changes, contentChanged: false);
+				SchedulePropertySort(generation, expectedContentVersion);
 			}
 		}
 		finally
@@ -1052,7 +1070,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			}
 
 			var presentation = _presentationStore.Update(key, item, properties: null, thumbnail: thumbnail, updateProperties: false, updateThumbnail: true);
-			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation);
+			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation, BrowseItemPresentationChangeFlags.Thumbnail);
 		}
 		finally
 		{
@@ -1072,7 +1090,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			return false;
 		}
 
-		return Volatile.Read(ref _itemProjection).TryGet(key, out var current, out _)
+		return Volatile.Read(ref _itemProjection).TryGet(key, out var current)
 			&& ReferenceEquals(current, item);
 	}
 
@@ -1086,7 +1104,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		while (true)
 		{
 			var version = ItemsVersion;
-			var normalized = BrowseSelectionModel.Normalize(requestedSelection, Items);
+			var normalized = BrowseSelectionModel.Normalize(requestedSelection, Volatile.Read(ref _itemProjection));
 			if (version != ItemsVersion)
 			{
 				continue;
@@ -1124,6 +1142,12 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	private async Task DisposeCoreAsync()
 	{
 		await _changeCoordinator.DisposeAsync().ConfigureAwait(false);
+		var propertySortTask = CancelPendingPropertySort();
+		if (propertySortTask is not null)
+		{
+			await propertySortTask.ConfigureAwait(false);
+		}
+
 		try
 		{
 			await _navigationLock.WaitAsync().ConfigureAwait(false);
@@ -1161,6 +1185,87 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			_navigationLock.Dispose();
 			GC.SuppressFinalize(this);
 		}
+	}
+
+	private void SchedulePropertySort(long generation, long contentVersion)
+	{
+		CancellationTokenSource? previousCancellation;
+		CancellationTokenSource cancellation;
+		lock (_propertySortLock)
+		{
+			previousCancellation = _propertySortCancellation;
+			cancellation = new CancellationTokenSource();
+			_propertySortCancellation = cancellation;
+			_propertySortTask = ApplyPropertySortAsync(generation, contentVersion, cancellation);
+		}
+
+		try
+		{
+			previousCancellation?.Cancel();
+		}
+		catch (ObjectDisposedException)
+		{
+		}
+	}
+
+	private async Task ApplyPropertySortAsync(long generation, long contentVersion, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			await Task.Delay(PropertySortDebounce, cancellation.Token).ConfigureAwait(false);
+			await _navigationLock.WaitAsync(cancellation.Token).ConfigureAwait(false);
+			try
+			{
+				if (Volatile.Read(ref _isDisposed) || Generation != generation || Volatile.Read(ref _contentVersion) != contentVersion)
+				{
+					return;
+				}
+
+				var changes = Volatile.Read(ref _itemProjection).UpdateSort(ViewSettings);
+				PublishItemsChanged(changes, contentChanged: false);
+			}
+			finally
+			{
+				_navigationLock.Release();
+			}
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		finally
+		{
+			lock (_propertySortLock)
+			{
+				if (ReferenceEquals(_propertySortCancellation, cancellation))
+				{
+					_propertySortCancellation = null;
+					_propertySortTask = null;
+				}
+			}
+
+			cancellation.Dispose();
+		}
+	}
+
+	private Task? CancelPendingPropertySort()
+	{
+		CancellationTokenSource? cancellation;
+		Task? task;
+		lock (_propertySortLock)
+		{
+			cancellation = _propertySortCancellation;
+			task = _propertySortTask;
+		}
+
+		try
+		{
+			cancellation?.Cancel();
+		}
+		catch (ObjectDisposedException)
+		{
+		}
+
+		return task;
 	}
 
 	private void PublishItemsChanged(BrowseItemChangeSet changeSet, bool contentChanged = true)

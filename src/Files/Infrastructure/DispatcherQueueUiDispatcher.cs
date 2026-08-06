@@ -20,8 +20,13 @@ public sealed class DispatcherQueueUIDispatcher : IUIDispatcher
 
 	public bool TryEnqueue(Action callback)
 	{
+		return TryEnqueue(DispatcherQueuePriority.Normal, callback);
+	}
+
+	public bool TryEnqueue(DispatcherQueuePriority priority, Action callback)
+	{
 		ArgumentNullException.ThrowIfNull(callback);
 
-		return dispatcherQueue.TryEnqueue(() => callback());
+		return dispatcherQueue.TryEnqueue(priority, () => callback());
 	}
 }

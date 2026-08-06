@@ -3,6 +3,7 @@
 	x:Class="Files.Views.TabView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:controls="using:Files.Controls"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
@@ -23,6 +24,7 @@
 				<DataTemplate x:DataType="vm:TabViewModel">
 					<TabViewItem
 						Header="{x:Bind Title, Mode=OneWay}"
+						controls:TabViewItemLoading.IsLoading="{x:Bind IsLoading, Mode=OneWay}"
 						Style="{StaticResource RoundedTabViewItemStyle}"
 						ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}" />
 				</DataTemplate>

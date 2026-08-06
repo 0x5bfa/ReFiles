@@ -14,6 +14,7 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
+using Microsoft.UI.Dispatching;
 
 namespace Files.Adapters;
 
@@ -21,14 +22,18 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 {
 	private const int MaxItemsPerDrain = 128;
 	private const int MaxThumbnailsPerDrain = 8;
+	private static readonly TimeSpan UiDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly BrowsePaneSession _pane;
 	private readonly IStorageWorkspace _workspace;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly IBrowsePrefetchCoordinator _prefetch;
 	private readonly CancellationTokenSource _lifetime = new();
+	private readonly SemaphoreSlim _thumbnailDecodeGate = new(2);
+	private readonly Lock _thumbnailTaskLock = new();
+	private readonly HashSet<Task> _thumbnailTasks = [];
 	private readonly Lock _pendingLock = new();
-	private readonly Queue<PendingItemBatch> _pendingItemBatches = new();
+	private readonly LinkedList<PendingItemBatch> _pendingItemBatches = new();
 	private readonly Dictionary<StorableKey, ThumbnailResult?> _pendingThumbnails = [];
 	private readonly Dictionary<StorableKey, IReadOnlyDictionary<string, object?>> _pendingProperties = [];
 	private readonly List<BrowseItemViewModel> _items = [];
@@ -38,9 +43,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private IReadOnlyList<StorableKey>? _pendingSelection;
 	private CancellationTokenSource? _columnsCancellation;
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
+	private ViewLayoutMode _layoutMode;
 	private long _appliedItemsVersion = -1;
 	private int _diagnosticDrainSequence;
 	private bool _drainQueued;
+	private int _isApplyingItemBatch;
 	private int _isApplyingDefaultColumns;
 	private int _isDisposed;
 
@@ -54,6 +61,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_workspace = workspace;
 		_dispatcher = dispatcher;
 		_prefetch = new BrowsePrefetchCoordinator(_pane.BrowseSession);
+		_layoutMode = _pane.BrowseSession.ViewSettings.LayoutMode;
 
 		SelectedKeys = Array.Empty<StorableKey>();
 		_pane.NavigationStateChanged += Pane_StateChanged;
@@ -73,13 +81,15 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	public bool IsLoading { get; private set; }
 
+	public bool IsBusy => IsLoading || HasPendingItemUiWork();
+
 	public bool CanGoBack => _pane.CanGoBack;
 
 	public bool CanGoForward => _pane.CanGoForward;
 
 	public bool CanGoUp => _pane.CanGoUp;
 
-	public ViewLayoutMode LayoutMode => _pane.BrowseSession.ViewSettings.LayoutMode;
+	public ViewLayoutMode LayoutMode => _layoutMode;
 
 	public string StatusText =>
 		ErrorMessage
@@ -330,7 +340,19 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_pane.BrowseSession.SelectionChanged -= BrowseSession_SelectionChanged;
 		_columnsCancellation?.Cancel();
 		_lifetime.Cancel();
+		Task[] thumbnailTasks;
+		lock (_thumbnailTaskLock)
+		{
+			thumbnailTasks = _thumbnailTasks.ToArray();
+		}
+
+		if (thumbnailTasks.Length is not 0)
+		{
+			await Task.WhenAll(thumbnailTasks).ConfigureAwait(false);
+		}
+
 		_lifetime.Dispose();
+		_thumbnailDecodeGate.Dispose();
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.Clear();
@@ -353,7 +375,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var session = _pane.BrowseSession;
 		lock (_pendingLock)
 		{
-			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location));
+			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings.LayoutMode);
 		}
 
 		StartColumnsLoad();
@@ -363,14 +385,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void BrowseSession_ItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
 		var projectionStartTimestamp = Stopwatch.GetTimestamp();
-		var changes = args.Changes.Select(ProjectChange).ToArray();
+		var changes = ProjectChanges(args.Changes);
 		UiDiagnosticLog.Write(
 			"BrowsePresentationAdapter",
-			$"ItemsChanged version={args.Version} previous={args.PreviousVersion} changes={args.Changes.Count} projected={changes.Length} " +
+			$"ItemsChanged version={args.Version} previous={args.PreviousVersion} changes={args.Changes.Count} projected={changes.Count} " +
 			$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.Items.Count}");
 		lock (_pendingLock)
 		{
-			_pendingItemBatches.Enqueue(new PendingItemBatch(args.PreviousVersion, args.Version, changes));
+			_pendingItemBatches.AddLast(new PendingItemBatch(args.PreviousVersion, args.Version, changes));
 		}
 
 		ScheduleDrain();
@@ -391,16 +413,19 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		UiDiagnosticLog.Write(
 			"BrowsePresentationAdapter",
-			$"ItemPresentationChanged key={args.Key} hasProperties={args.Presentation.Properties.Count is not 0} " +
+			$"ItemPresentationChanged key={args.Key} changes={args.Changed} hasProperties={args.Presentation.Properties.Count is not 0} " +
 			$"hasThumbnail={args.Presentation.Thumbnail is not null}");
 		lock (_pendingLock)
 		{
-			if (args.Presentation.Properties.Count is not 0)
+			if (args.Changed.HasFlag(BrowseItemPresentationChangeFlags.Properties) && args.Presentation.Properties.Count is not 0)
 			{
 				_pendingProperties[args.Key] = args.Presentation.Properties;
 			}
 
-			_pendingThumbnails[args.Key] = args.Presentation.Thumbnail;
+			if (args.Changed.HasFlag(BrowseItemPresentationChangeFlags.Thumbnail))
+			{
+				_pendingThumbnails[args.Key] = args.Presentation.Thumbnail;
+			}
 		}
 
 		ScheduleDrain();
@@ -409,12 +434,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void QueueInitialSnapshot()
 	{
 		var session = _pane.BrowseSession;
-		var reset = new BrowseItemViewModelsReset(session.Items.Select(CreateItemViewModel).ToArray());
-		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"QueueInitialSnapshot items={reset.Items.Count} version={session.ItemsVersion}");
+		var resetChanges = ProjectReset(session.Items);
+		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"QueueInitialSnapshot items={session.Items.Count} version={session.ItemsVersion}");
 		lock (_pendingLock)
 		{
-			_pendingItemBatches.Enqueue(new PendingItemBatch(-1, session.ItemsVersion, [reset]));
-			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location));
+			_pendingItemBatches.AddLast(new PendingItemBatch(-1, session.ItemsVersion, resetChanges));
+			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings.LayoutMode);
 			_pendingSelection = session.Selection.SelectedKeys.ToArray();
 			foreach (var item in session.Items)
 			{
@@ -426,7 +451,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 						_pendingProperties[key] = presentation.Properties;
 					}
 
-					_pendingThumbnails[key] = presentation.Thumbnail;
+					if (presentation.Thumbnail is not null)
+					{
+						_pendingThumbnails[key] = presentation.Thumbnail;
+					}
 				}
 			}
 		}
@@ -434,7 +462,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		ScheduleDrain();
 	}
 
-	private void ScheduleDrain()
+	private void ScheduleDrain(DispatcherQueuePriority priority = DispatcherQueuePriority.Normal)
 	{
 		int pendingBatchCount;
 		int pendingThumbnailCount;
@@ -450,7 +478,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			pendingThumbnailCount = _pendingThumbnails.Count;
 		}
 
-		if (!_dispatcher.TryEnqueue(DrainPendingUpdates))
+		if (!_dispatcher.TryEnqueue(priority, DrainPendingUpdates))
 		{
 			lock (_pendingLock)
 			{
@@ -472,14 +500,13 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		var drainStartTimestamp = Stopwatch.GetTimestamp();
 		var drainSequence = Interlocked.Increment(ref _diagnosticDrainSequence);
-		PendingItemBatch[] itemBatches;
-		bool hasPendingItemBatches;
+		var drainDeadline = drainStartTimestamp + Math.Max(1L, (long)(Stopwatch.Frequency * UiDrainBudget.TotalSeconds));
+		var wasBusy = IsBusy;
 		PendingState? state;
 		PendingColumns? columns;
 		IReadOnlyList<StorableKey>? selection;
 		KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] properties;
 		KeyValuePair<StorableKey, ThumbnailResult?>[] thumbnails;
-		bool hasPendingThumbnails;
 		lock (_pendingLock)
 		{
 			if (Volatile.Read(ref _isDisposed) is not 0)
@@ -487,58 +514,91 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return;
 			}
 
-			itemBatches = TakePendingItemBatchesLocked(out hasPendingItemBatches);
 			state = _pendingState;
 			_pendingState = null;
 			columns = _pendingColumns;
 			_pendingColumns = null;
 			selection = _pendingSelection;
 			_pendingSelection = null;
-			properties = _pendingProperties.ToArray();
-			_pendingProperties.Clear();
-			thumbnails = TakePendingThumbnailsLocked(out hasPendingThumbnails);
+			properties = TakePendingPropertiesLocked();
+			thumbnails = TakePendingThumbnailsLocked();
 			_drainQueued = false;
 		}
-		var pendingItemCount = itemBatches.Sum(batch => GetItemCount(batch.Changes));
-		UiDiagnosticLog.Write(
-			"BrowsePresentationAdapter",
-			$"Drain START sequence={drainSequence} batches={itemBatches.Length} items={pendingItemCount} thumbnails={thumbnails.Length} hasPending={hasPendingItemBatches}");
 
 		var appliedChanges = new List<BrowseItemViewModelChange>();
-		foreach (var batch in itemBatches)
+		var drainedItemCount = 0;
+		var hasPendingItemBatches = false;
+		while (drainedItemCount < MaxItemsPerDrain && Stopwatch.GetTimestamp() < drainDeadline)
 		{
-			if (batch.Version <= _appliedItemsVersion)
+			PendingItemBatch? batch;
+			lock (_pendingLock)
 			{
-				continue;
+				batch = TakeNextPendingItemBatchLocked(MaxItemsPerDrain - drainedItemCount, out hasPendingItemBatches);
 			}
 
-			if (_appliedItemsVersion >= 0 && batch.PreviousVersion != _appliedItemsVersion)
+			if (batch is null)
 			{
-				ResetFromCurrentSession(appliedChanges);
 				break;
 			}
 
-			if (!TryApplyChanges(batch.Changes, appliedChanges))
+			drainedItemCount += GetItemCount(batch.Changes);
+			Interlocked.Exchange(ref _isApplyingItemBatch, 1);
+			try
 			{
-				ResetFromCurrentSession(appliedChanges);
-				break;
-			}
+				if (batch.Version <= _appliedItemsVersion)
+				{
+					continue;
+				}
 
-			_appliedItemsVersion = batch.Version;
+				if (_appliedItemsVersion >= 0 && batch.PreviousVersion != _appliedItemsVersion)
+				{
+					ResetFromCurrentSession(appliedChanges);
+					break;
+				}
+
+				if (!TryApplyChanges(batch.Changes, appliedChanges))
+				{
+					ResetFromCurrentSession(appliedChanges);
+					break;
+				}
+
+				if (batch.IsComplete)
+				{
+					_appliedItemsVersion = batch.Version;
+				}
+			}
+			finally
+			{
+				Interlocked.Exchange(ref _isApplyingItemBatch, 0);
+			}
 		}
+
+		lock (_pendingLock)
+		{
+			hasPendingItemBatches = _pendingItemBatches.Count is not 0;
+		}
+
+		UiDiagnosticLog.Write(
+			"BrowsePresentationAdapter",
+			$"Drain START sequence={drainSequence} items={drainedItemCount} thumbnails={thumbnails.Length} hasPending={hasPendingItemBatches}");
 
 		foreach (var property in properties)
 		{
 			ApplyProperties(property.Key, property.Value);
 		}
 
+		var previousIsLoading = IsLoading;
+		var previousLocationText = LocationText;
+		var previousErrorMessage = ErrorMessage;
+		var previousLayoutMode = LayoutMode;
+		var previousCanGoBack = CanGoBack;
+		var previousCanGoForward = CanGoForward;
+		var previousCanGoUp = CanGoUp;
+		var columnsApplied = false;
 		if (columns is { } pendingColumns && _pane.BrowseSession.Generation == pendingColumns.Generation)
 		{
 			_detailsColumns = pendingColumns.Columns;
-			foreach (var item in _items)
-			{
-				item.SetDetailsColumns(_detailsColumns);
-			}
+			columnsApplied = true;
 		}
 
 		if (state is not null)
@@ -546,6 +606,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			IsLoading = state.IsLoading;
 			ErrorMessage = state.ErrorMessage;
 			LocationText = state.LocationText;
+			_layoutMode = state.LayoutMode;
 		}
 
 		if (selection is not null)
@@ -553,24 +614,73 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			SelectedKeys = selection;
 		}
 
-		if (appliedChanges.Count > 0 || state is not null || columns is not null || selection is not null)
+		var flags = BrowseUpdateFlags.None;
+		if (appliedChanges.Count is not 0)
+		{
+			flags |= BrowseUpdateFlags.Items | BrowseUpdateFlags.Status;
+		}
+
+		if (columnsApplied)
+		{
+			flags |= BrowseUpdateFlags.Columns;
+		}
+
+		if (previousLayoutMode != LayoutMode)
+		{
+			flags |= BrowseUpdateFlags.ViewSettings;
+		}
+
+		if (selection is not null)
+		{
+			flags |= BrowseUpdateFlags.Selection;
+		}
+
+		if (state is not null)
+		{
+			if (!string.Equals(previousLocationText, LocationText, StringComparison.Ordinal))
+			{
+				flags |= BrowseUpdateFlags.Location;
+			}
+
+			if (previousIsLoading != IsLoading)
+			{
+				flags |= BrowseUpdateFlags.Loading;
+			}
+
+			if (previousCanGoBack != CanGoBack || previousCanGoForward != CanGoForward || previousCanGoUp != CanGoUp)
+			{
+				flags |= BrowseUpdateFlags.NavigationCapabilities;
+			}
+
+			if (!string.Equals(previousErrorMessage, ErrorMessage, StringComparison.Ordinal))
+			{
+				flags |= BrowseUpdateFlags.Status;
+			}
+		}
+
+		if (wasBusy != IsBusy)
+		{
+			flags |= BrowseUpdateFlags.Loading;
+		}
+
+		if (flags is not BrowseUpdateFlags.None)
 		{
 			var updateStartTimestamp = Stopwatch.GetTimestamp();
-			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges, selection is not null));
+			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges, flags));
 			UiDiagnosticLog.Write(
 				"BrowsePresentationAdapter",
-				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} selectionChanged={selection is not null} " +
+				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} flags={flags} " +
 				$"callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
 
 		foreach (var thumbnail in thumbnails)
 		{
-			_ = ApplyThumbnailAsync(thumbnail.Key, thumbnail.Value);
+			QueueThumbnailApply(thumbnail.Key, thumbnail.Value);
 		}
 
-		if (hasPendingItemBatches || hasPendingThumbnails || HasPendingThumbnails())
+		if (hasPendingItemBatches || HasPendingPresentationUpdates())
 		{
-			ScheduleDrain();
+			ScheduleDrain(DispatcherQueuePriority.Low);
 		}
 
 		UiDiagnosticLog.Write(
@@ -578,45 +688,106 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			$"Drain END sequence={drainSequence} adapterItems={_items.Count} loading={IsLoading} elapsedMs={Stopwatch.GetElapsedTime(drainStartTimestamp).TotalMilliseconds:F1}");
 	}
 
-	private PendingItemBatch[] TakePendingItemBatchesLocked(out bool hasPendingItemBatches)
+	private PendingItemBatch? TakeNextPendingItemBatchLocked(int maximumItemCount, out bool hasPendingItemBatches)
 	{
-		var batches = new List<PendingItemBatch>();
-		var itemCount = 0;
-		while (_pendingItemBatches.Count is not 0)
+		if (_pendingItemBatches.First is not { } node)
 		{
-			var batch = _pendingItemBatches.Peek();
-			var batchItemCount = GetItemCount(batch.Changes);
-			if (batches.Count is not 0 && itemCount + batchItemCount > MaxItemsPerDrain)
-			{
-				break;
-			}
+			hasPendingItemBatches = false;
 
-			_pendingItemBatches.Dequeue();
-			batches.Add(batch);
-			itemCount += batchItemCount;
+			return null;
+		}
+
+		_pendingItemBatches.RemoveFirst();
+		var changes = TakeChanges(node.Value.Changes, maximumItemCount, out var remainingChanges);
+		if (remainingChanges.Count is not 0)
+		{
+			_pendingItemBatches.AddFirst(new PendingItemBatch(node.Value.PreviousVersion, node.Value.Version, remainingChanges));
 		}
 
 		hasPendingItemBatches = _pendingItemBatches.Count is not 0;
 
-		return batches.ToArray();
+		return new PendingItemBatch(node.Value.PreviousVersion, node.Value.Version, changes, remainingChanges.Count is 0);
 	}
+
+	private static IReadOnlyList<BrowseItemViewModelChange> TakeChanges(
+		IReadOnlyList<BrowseItemViewModelChange> changes,
+		int maximumItemCount,
+		out IReadOnlyList<BrowseItemViewModelChange> remainingChanges)
+	{
+		var selected = new List<BrowseItemViewModelChange>();
+		var remaining = new List<BrowseItemViewModelChange>();
+		var itemCount = 0;
+		for (var index = 0; index < changes.Count; index++)
+		{
+			var change = changes[index];
+			var changeItemCount = GetItemCount(change);
+			if (itemCount is not 0 && itemCount + changeItemCount > maximumItemCount)
+			{
+				remaining.AddRange(changes.Skip(index));
+
+				break;
+			}
+
+			if (change is BrowseItemViewModelsAdded added && itemCount + changeItemCount > maximumItemCount)
+			{
+				var takeCount = maximumItemCount - itemCount;
+				selected.Add(new BrowseItemViewModelsAdded(added.StartingIndex, added.Items.Take(takeCount).ToArray()));
+				remaining.Add(new BrowseItemViewModelsAdded(added.StartingIndex + takeCount, added.Items.Skip(takeCount).ToArray()));
+				remaining.AddRange(changes.Skip(index + 1));
+
+				break;
+			}
+
+			if (change is BrowseItemViewModelsReset reset && itemCount + changeItemCount > maximumItemCount)
+			{
+				var takeCount = maximumItemCount - itemCount;
+				selected.Add(new BrowseItemViewModelsReset(reset.Items.Take(takeCount).ToArray()));
+				remaining.Add(new BrowseItemViewModelsAdded(takeCount, reset.Items.Skip(takeCount).ToArray()));
+				remaining.AddRange(changes.Skip(index + 1));
+
+				break;
+			}
+
+			selected.Add(change);
+			itemCount += changeItemCount;
+		}
+
+		remainingChanges = remaining.ToArray();
+
+		return selected.ToArray();
+	}
+
+	private static int GetItemCount(BrowseItemViewModelChange change) =>
+		change switch
+		{
+			BrowseItemViewModelsAdded added => added.Items.Count,
+			BrowseItemViewModelsReset reset => reset.Items.Count,
+			_ => 1,
+		};
 
 	private static int GetItemCount(IReadOnlyList<BrowseItemViewModelChange> changes)
 	{
 		var count = 0;
 		foreach (var change in changes)
 		{
-			count += change switch
-			{
-				BrowseItemViewModelsReset reset => reset.Items.Count,
-				_ => 1,
-			};
+			count += GetItemCount(change);
 		}
 
 		return count;
 	}
 
-	private KeyValuePair<StorableKey, ThumbnailResult?>[] TakePendingThumbnailsLocked(out bool hasPendingThumbnails)
+	private KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] TakePendingPropertiesLocked()
+	{
+		var properties = _pendingProperties.Take(MaxItemsPerDrain).ToArray();
+		foreach (var property in properties)
+		{
+			_pendingProperties.Remove(property.Key);
+		}
+
+		return properties;
+	}
+
+	private KeyValuePair<StorableKey, ThumbnailResult?>[] TakePendingThumbnailsLocked()
 	{
 		var thumbnails = _pendingThumbnails.Take(MaxThumbnailsPerDrain).ToArray();
 		foreach (var thumbnail in thumbnails)
@@ -624,16 +795,22 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingThumbnails.Remove(thumbnail.Key);
 		}
 
-		hasPendingThumbnails = _pendingThumbnails.Count is not 0;
-
 		return thumbnails;
 	}
 
-	private bool HasPendingThumbnails()
+	private bool HasPendingItemUiWork()
 	{
 		lock (_pendingLock)
 		{
-			return _pendingThumbnails.Count is not 0;
+			return _pendingItemBatches.Count is not 0 || Volatile.Read(ref _isApplyingItemBatch) is not 0;
+		}
+	}
+
+	private bool HasPendingPresentationUpdates()
+	{
+		lock (_pendingLock)
+		{
+			return _pendingProperties.Count is not 0 || _pendingThumbnails.Count is not 0;
 		}
 	}
 
@@ -648,11 +825,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return;
 			}
 
-			var image = thumbnail is null
-				? null
-				: await ThumbnailImageFactory
-					.CreateAsync(thumbnail.Content)
-					.ConfigureAwait(true);
+			var image = thumbnail is null ? null : await DecodeThumbnailAsync(thumbnail).ConfigureAwait(true);
 			if (Volatile.Read(ref _isDisposed) is not 0)
 			{
 				return;
@@ -670,6 +843,60 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		catch
 		{
 			// Thumbnail decoding is best effort.
+		}
+	}
+
+	private void QueueThumbnailApply(StorableKey key, ThumbnailResult? thumbnail)
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
+		Task task;
+		lock (_thumbnailTaskLock)
+		{
+			if (Volatile.Read(ref _isDisposed) is not 0)
+			{
+				return;
+			}
+
+			task = ApplyThumbnailAsync(key, thumbnail);
+			_thumbnailTasks.Add(task);
+		}
+
+		_ = TrackThumbnailTaskAsync(task);
+	}
+
+	private async Task TrackThumbnailTaskAsync(Task task)
+	{
+		try
+		{
+			await task.ConfigureAwait(false);
+		}
+		catch
+		{
+			// Thumbnail updates are best effort.
+		}
+		finally
+		{
+			lock (_thumbnailTaskLock)
+			{
+				_thumbnailTasks.Remove(task);
+			}
+		}
+	}
+
+	private async Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage> DecodeThumbnailAsync(ThumbnailResult thumbnail)
+	{
+		await _thumbnailDecodeGate.WaitAsync(_lifetime.Token).ConfigureAwait(true);
+		try
+		{
+			return await ThumbnailImageFactory.CreateAsync(thumbnail.Content).ConfigureAwait(true);
+		}
+		finally
+		{
+			_thumbnailDecodeGate.Release();
 		}
 	}
 
@@ -962,6 +1189,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			var change = changes[changeIndex];
 			switch (change)
 			{
+				case BrowseItemViewModelsAdded addedRange
+					when addedRange.StartingIndex >= 0 && addedRange.StartingIndex <= _items.Count:
+					_items.InsertRange(addedRange.StartingIndex, addedRange.Items);
+					foreach (var addedItem in addedRange.Items)
+					{
+						_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
+					}
+					break;
 				case BrowseItemViewModelAdded added
 					when added.Index >= 0 && added.Index <= _items.Count:
 					_items.Insert(added.Index, added.Item);
@@ -1013,7 +1248,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void ResetFromCurrentSession(ICollection<BrowseItemViewModelChange> appliedChanges)
 	{
 		var session = _pane.BrowseSession;
-		var reset = new BrowseItemViewModelsReset(session.Items.Select(CreateItemViewModel).ToArray());
+		var resetChanges = ProjectReset(session.Items);
+		var reset = resetChanges[0] as BrowseItemViewModelsReset
+			?? throw new InvalidOperationException("A projected session reset must start with a reset change.");
 		_items.Clear();
 		_itemsByKey.Clear();
 		_items.AddRange(reset.Items);
@@ -1021,26 +1258,76 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		{
 			_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
 		}
-		_appliedItemsVersion = session.ItemsVersion;
+		_appliedItemsVersion = -1;
 		appliedChanges.Clear();
 		appliedChanges.Add(reset);
+		var remainingChanges = resetChanges.Skip(1).ToArray();
+		lock (_pendingLock)
+		{
+			_pendingItemBatches.Clear();
+			if (remainingChanges.Length is not 0)
+			{
+				_pendingItemBatches.AddFirst(new PendingItemBatch(-1, session.ItemsVersion, remainingChanges));
+			}
+			else
+			{
+				_appliedItemsVersion = session.ItemsVersion;
+			}
+		}
+	}
+
+	private IReadOnlyList<BrowseItemViewModelChange> ProjectChanges(IReadOnlyList<BrowseItemChange> changes)
+	{
+		var projectedChanges = new List<BrowseItemViewModelChange>();
+		foreach (var change in changes)
+		{
+			if (change is BrowseItemsReset reset)
+			{
+				projectedChanges.AddRange(ProjectReset(reset.Items));
+			}
+			else
+			{
+				projectedChanges.Add(ProjectChange(change));
+			}
+		}
+
+		return projectedChanges;
+	}
+
+	private IReadOnlyList<BrowseItemViewModelChange> ProjectReset(IReadOnlyList<IStorableModel> items)
+	{
+		var viewModels = items.Select(CreateItemViewModel).ToArray();
+		if (viewModels.Length <= MaxItemsPerDrain)
+		{
+			return [new BrowseItemViewModelsReset(viewModels)];
+		}
+
+		var projectedChanges = new List<BrowseItemViewModelChange>
+		{
+			new BrowseItemViewModelsReset(viewModels.Take(MaxItemsPerDrain).ToArray()),
+		};
+		for (var startingIndex = MaxItemsPerDrain; startingIndex < viewModels.Length; startingIndex += MaxItemsPerDrain)
+		{
+			projectedChanges.Add(new BrowseItemViewModelsAdded(startingIndex, viewModels.Skip(startingIndex).Take(MaxItemsPerDrain).ToArray()));
+		}
+
+		return projectedChanges;
 	}
 
 	private BrowseItemViewModelChange ProjectChange(BrowseItemChange change) =>
 		change switch
 		{
 			BrowseItemAdded added => new BrowseItemViewModelAdded(added.Index, CreateItemViewModel(added.Item)),
+			BrowseItemsAdded added => new BrowseItemViewModelsAdded(added.StartingIndex, added.Items.Select(CreateItemViewModel).ToArray()),
 			BrowseItemRemoved removed => new BrowseItemViewModelRemoved(removed.Index),
 			BrowseItemReplaced replaced => new BrowseItemViewModelReplaced(replaced.Index, CreateItemViewModel(replaced.NewItem)),
 			BrowseItemMoved moved => new BrowseItemViewModelMoved(moved.PreviousIndex, moved.CurrentIndex),
-			BrowseItemsReset reset => new BrowseItemViewModelsReset(reset.Items.Select(CreateItemViewModel).ToArray()),
 			_ => throw new InvalidOperationException($"Unsupported Core browse item change '{change.GetType().Name}'."),
 		};
 
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
 	{
 		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference);
-		viewModel.SetDetailsColumns(_detailsColumns);
 		if (_pane.BrowseSession.TryGetPresentation(item.Reference.GetKey(), out var presentation))
 		{
 			if (presentation.Properties.Count is not 0)
@@ -1089,9 +1376,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void EnsureActive() =>
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 
-	private sealed record PendingItemBatch(long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes);
+	private sealed record PendingItemBatch(long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes, bool IsComplete = true);
 
 	private sealed record PendingColumns(long Generation, IReadOnlyList<DetailsColumnViewModel> Columns);
 
-	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText);
+	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText, ViewLayoutMode LayoutMode);
 }

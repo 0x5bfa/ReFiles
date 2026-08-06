@@ -461,13 +461,26 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	private void TabViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is nameof(TabViewModel.StatusText) or nameof(TabViewModel.ActivePane) or nameof(TabViewModel.Title) or nameof(TabViewModel.CanClosePane))
+		switch (e.PropertyName)
 		{
-			OnPropertyChanged(nameof(StatusText));
-			OnPropertyChanged(nameof(ActiveFolderBrowser));
-			NavigationToolbar.SetActiveFolderBrowser(ActiveFolderBrowser);
-			Toolbar.SetActiveTab(ActiveTab);
-			_commandManager.RefreshStates();
+			case nameof(TabViewModel.StatusText):
+				OnPropertyChanged(nameof(StatusText));
+				break;
+			case nameof(TabViewModel.ActivePane):
+				OnPropertyChanged(nameof(StatusText));
+				OnPropertyChanged(nameof(ActiveFolderBrowser));
+				NavigationToolbar.SetActiveFolderBrowser(ActiveFolderBrowser);
+				Toolbar.SetActiveTab(ActiveTab);
+				_commandManager.RefreshStates();
+				break;
+			case nameof(TabViewModel.CanClosePane):
+			case nameof(TabViewModel.IsLoading):
+			case nameof(TabViewModel.CanGoBack):
+			case nameof(TabViewModel.CanGoForward):
+			case nameof(TabViewModel.CanGoUp):
+			case nameof(TabViewModel.CanRefresh):
+				_commandManager.RefreshStates();
+				break;
 		}
 	}
 

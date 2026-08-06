@@ -24,7 +24,7 @@
 		<ListView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">
 				<local:DetailsRow
-					Columns="{x:Bind DetailsColumns, Mode=OneWay}"
+					Columns="{Binding ViewModel.DetailsColumns, ElementName=Root, Mode=OneWay}"
 					Item="{x:Bind}" />
 			</DataTemplate>
 		</ListView.ItemTemplate>
