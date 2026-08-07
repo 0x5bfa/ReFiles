@@ -1240,7 +1240,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return;
 				}
 
-				var changes = Volatile.Read(ref _itemProjection).UpdateSort(ViewSettings);
+				var changes = Volatile.Read(ref _itemProjection).RefreshSort();
 				PublishItemsChanged(changes, contentChanged: false);
 			}
 			finally

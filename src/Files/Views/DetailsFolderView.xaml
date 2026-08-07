@@ -10,7 +10,7 @@
 	<ListView
 		x:Name="ItemList"
 		IsMultiSelectCheckBoxEnabled="False"
-		ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+		ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
 		SelectionMode="Extended"
 		ShowsScrollingPlaceholders="False">
 		<ListView.ItemContainerTransitions>
@@ -23,9 +23,21 @@
 		</ListView.ItemContainerStyle>
 		<ListView.ItemsPanel>
 			<ItemsPanelTemplate>
-				<ItemsStackPanel AreStickyGroupHeadersEnabled="False" Orientation="Vertical" />
+				<ItemsStackPanel AreStickyGroupHeadersEnabled="True" Orientation="Vertical" />
 			</ItemsPanelTemplate>
 		</ListView.ItemsPanel>
+		<ListView.GroupStyle>
+			<GroupStyle>
+				<GroupStyle.HeaderTemplate>
+					<DataTemplate x:DataType="vm:BrowseItemGroupViewModel">
+						<StackPanel Padding="12,10,12,6" Orientation="Horizontal" Spacing="8">
+							<TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+							<TextBlock Opacity="0.65" Text="{x:Bind CountText}" />
+						</StackPanel>
+					</DataTemplate>
+				</GroupStyle.HeaderTemplate>
+			</GroupStyle>
+		</ListView.GroupStyle>
 
 		<ListView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">

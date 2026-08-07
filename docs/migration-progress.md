@@ -32,6 +32,7 @@
 - back/forward/up、path navigation、refreshを `PaneSession` へroutingする。
 - `AppCommandRegistration`でstable command IDをprocess-level registryへ登録し、window単位の
   `WindowCommandManager`からnavigation、tab、pane、Home、folder double-clickを実行する。
+- `CollectionViewSource`をDetails/List/Gridの共通表示ソースにし、folder-first sortと名前、日付、サイズ、種類のgroupingをtoolbarから変更する。
 
 ## 基本 browsing の完了条件
 
@@ -49,7 +50,7 @@ Core の `TabSession` は現在 1..2 pane を所有します。`Files` の `Pane
 
 ## 次の移行単位
 
-1. Details viewをList/Grid/Card/Columnsへ拡張し、view settingsとviewport reportingを接続する。
+1. Card/Columns layoutとview settingsの永続storeを接続し、既存のDetails/List/Grid表示境界を拡張する。
 2. `Files`へ preview UIをCore `PaneSession.Preview` とWindows Shell preview sessionへ接続する。
 3. delete/copy/move/createをCore operation requestへ移し、既存dialog、進行状況、elevation、server継続をadapter化する。
 4. Search/Library/Tag/FTPを型付き `BrowseLocation` とCore sourceへ移す。

@@ -8,7 +8,7 @@
 
 	<GridView
 		x:Name="ItemGrid"
-		ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+		ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
 		SelectionMode="Extended">
 		<GridView.ItemContainerTransitions>
 			<TransitionCollection />
@@ -19,6 +19,18 @@
 				<Setter Property="VerticalContentAlignment" Value="Stretch" />
 			</Style>
 		</GridView.ItemContainerStyle>
+		<GridView.GroupStyle>
+			<GroupStyle>
+				<GroupStyle.HeaderTemplate>
+					<DataTemplate x:DataType="vm:BrowseItemGroupViewModel">
+						<StackPanel Padding="12,10,12,6" Orientation="Horizontal" Spacing="8">
+							<TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+							<TextBlock Opacity="0.65" Text="{x:Bind CountText}" />
+						</StackPanel>
+					</DataTemplate>
+				</GroupStyle.HeaderTemplate>
+			</GroupStyle>
+		</GridView.GroupStyle>
 
 		<GridView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">

@@ -41,5 +41,7 @@ public sealed class ContractValidationTests
 		Assert.Throws<ArgumentException>(() => new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 100, 0), new ViewColumnSettings("System.Size", 120, 1),]));
 		Assert.Throws<ArgumentException>(() => new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 100, 0), new ViewColumnSettings("System.DateModified", 120, 0),]));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new BrowseViewSettings(itemSize: double.PositiveInfinity));
+		Assert.Throws<ArgumentException>(() => new BrowseViewSettings(groupPropertyId: " "));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new BrowseViewSettings(groupDirection: (ViewSortDirection)int.MaxValue));
 	}
 }

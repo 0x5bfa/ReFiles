@@ -43,7 +43,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private IReadOnlyList<StorableKey>? _pendingSelection;
 	private CancellationTokenSource? _columnsCancellation;
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
-	private ViewLayoutMode _layoutMode;
+	private BrowseViewSettings _viewSettings;
 	private long _appliedItemsVersion = -1;
 	private long _diagnosticLongestDrainTicks;
 	private int _diagnosticDrainSequence;
@@ -67,7 +67,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_dispatcher = dispatcher;
 		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
 		_text = text ?? BrowsePresentationText.CreateLocalized();
-		_layoutMode = _pane.BrowseSession.ViewSettings.LayoutMode;
+		_viewSettings = _pane.BrowseSession.ViewSettings;
 
 		SelectedKeys = Array.Empty<StorableKey>();
 		LocationText = _text.Home;
@@ -96,7 +96,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	public bool CanGoUp => _pane.CanGoUp;
 
-	public ViewLayoutMode LayoutMode => _layoutMode;
+	public BrowseViewSettings ViewSettings => _viewSettings;
+
+	public ViewLayoutMode LayoutMode => ViewSettings.LayoutMode;
 
 	public string StatusText =>
 		ErrorMessage
@@ -300,8 +302,68 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.Columns,
 			currentSettings.SortPropertyId,
 			currentSettings.SortDirection,
-			currentSettings.ItemSize);
+			currentSettings.ItemSize,
+			currentSettings.GroupPropertyId,
+			currentSettings.GroupDirection);
 
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+	}
+
+	public async ValueTask UpdateSortAsync(string propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
+		if (!Enum.IsDefined(direction))
+		{
+			throw new ArgumentOutOfRangeException(nameof(direction));
+		}
+
+		var currentSettings = _pane.BrowseSession.ViewSettings;
+		if (string.Equals(currentSettings.SortPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.SortDirection == direction)
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			currentSettings.LayoutMode,
+			currentSettings.Columns,
+			propertyId,
+			direction,
+			currentSettings.ItemSize,
+			currentSettings.GroupPropertyId,
+			currentSettings.GroupDirection);
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+	}
+
+	public async ValueTask UpdateGroupingAsync(string? propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+		if (propertyId is not null)
+		{
+			ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
+		}
+
+		if (!Enum.IsDefined(direction))
+		{
+			throw new ArgumentOutOfRangeException(nameof(direction));
+		}
+
+		var currentSettings = _pane.BrowseSession.ViewSettings;
+		if (string.Equals(currentSettings.GroupPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.GroupDirection == direction)
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			currentSettings.LayoutMode,
+			currentSettings.Columns,
+			currentSettings.SortPropertyId,
+			currentSettings.SortDirection,
+			currentSettings.ItemSize,
+			propertyId,
+			direction);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -387,7 +449,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var session = _pane.BrowseSession;
 		lock (_pendingLock)
 		{
-			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings.LayoutMode);
+			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 		}
 
 		StartColumnsLoad();
@@ -451,7 +513,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.AddLast(new PendingItemBatch(-1, session.ItemsVersion, resetChanges));
-			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings.LayoutMode);
+			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 			_pendingSelection = session.Selection.SelectedKeys.ToArray();
 			foreach (var item in session.Items)
 			{
@@ -603,7 +665,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var previousIsLoading = IsLoading;
 		var previousLocationText = LocationText;
 		var previousErrorMessage = ErrorMessage;
-		var previousLayoutMode = LayoutMode;
+		var previousViewSettings = ViewSettings;
 		var previousCanGoBack = CanGoBack;
 		var previousCanGoForward = CanGoForward;
 		var previousCanGoUp = CanGoUp;
@@ -619,7 +681,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			IsLoading = state.IsLoading;
 			ErrorMessage = state.ErrorMessage;
 			LocationText = state.LocationText;
-			_layoutMode = state.LayoutMode;
+			_viewSettings = state.ViewSettings;
 		}
 
 		if (selection is not null)
@@ -638,9 +700,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			flags |= BrowseUpdateFlags.Columns;
 		}
 
-		if (previousLayoutMode != LayoutMode)
+		if (!Equals(previousViewSettings, ViewSettings))
 		{
 			flags |= BrowseUpdateFlags.ViewSettings;
+		}
+
+		if (properties.Length is not 0)
+		{
+			flags |= BrowseUpdateFlags.Presentation;
 		}
 
 		if (selection is not null)
@@ -1019,7 +1086,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 					Interlocked.Exchange(ref _isApplyingDefaultColumns, 1);
 					try
 					{
-						var nextSettings = new BrowseViewSettings(settings.LayoutMode, defaultColumns, settings.SortPropertyId, settings.SortDirection, settings.ItemSize);
+						var nextSettings = new BrowseViewSettings(
+							settings.LayoutMode,
+							defaultColumns,
+							settings.SortPropertyId,
+							settings.SortDirection,
+							settings.ItemSize,
+							settings.GroupPropertyId,
+							settings.GroupDirection);
 						await session.UpdateViewSettingsAsync(nextSettings, cancellation.Token).ConfigureAwait(false);
 					}
 					finally
@@ -1425,5 +1499,5 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private sealed record PendingColumns(long Generation, IReadOnlyList<DetailsColumnViewModel> Columns);
 
-	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText, ViewLayoutMode LayoutMode);
+	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText, BrowseViewSettings ViewSettings);
 }

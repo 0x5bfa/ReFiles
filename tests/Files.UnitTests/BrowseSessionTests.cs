@@ -8,6 +8,7 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Runtime.CompilerServices;
 
 namespace Files.UnitTests;
 
@@ -955,6 +956,53 @@ public sealed class BrowseSessionTests
 	}
 
 	[TestMethod]
+	public async Task SortingKeepsFoldersBeforeFilesInBothDirections()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var modelFactory = new StorableModelFactory();
+		var firstFolder = modelFactory.Create(factory.Source, new TestFolder("folder-a", "Alpha folder"));
+		var secondFolder = modelFactory.Create(factory.Source, new TestFolder("folder-z", "Zulu folder"));
+		var firstFile = factory.CreateModel("file-a", "Alpha file", out _);
+		var secondFile = factory.CreateModel("file-z", "Zulu file", out _);
+		var resolver = new TestBrowseLocationResolver([secondFile, secondFolder, firstFile, firstFolder])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		Assert.IsTrue(session.Items.Take(2).All(static item => item is IFolderModel));
+		Assert.IsTrue(session.Items.Skip(2).All(static item => item is not IFolderModel));
+
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(sortPropertyId: "name", sortDirection: ViewSortDirection.Descending));
+		Assert.IsTrue(session.Items.Take(2).All(static item => item is IFolderModel));
+		Assert.IsTrue(session.Items.Skip(2).All(static item => item is not IFolderModel));
+	}
+
+	[TestMethod]
+	public async Task GroupingChangeDoesNotResetTheCoreItemProjection()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var item = factory.CreateModel("item", "Item", out _);
+		var resolver = new TestBrowseLocationResolver([item])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		var projection = session.Items;
+		var changes = new List<BrowseItemChange>();
+		session.ItemsChanged += (_, args) => changes.AddRange(args.Changes);
+
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(groupPropertyId: "System.ItemTypeText"));
+
+		Assert.AreSame(projection, session.Items);
+		Assert.IsEmpty(changes);
+	}
+
+	[TestMethod]
 	public async Task SubscriberFailureDoesNotCorruptCommittedNavigation()
 	{
 		var factory = new TestModelFactory();
@@ -1054,5 +1102,26 @@ public sealed class BrowseSessionTests
 		}
 
 		Assert.IsTrue(condition());
+	}
+
+	private sealed class TestFolder : IFolder
+	{
+		public string Id { get; }
+
+		public string Name { get; }
+
+		public TestFolder(string id, string name)
+		{
+			Id = id;
+			Name = name;
+		}
+
+		public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			await Task.CompletedTask.ConfigureAwait(false);
+			yield break;
+		}
 	}
 }

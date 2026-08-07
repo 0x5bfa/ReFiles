@@ -156,4 +156,4 @@ BenchmarkDotNet の `BrowsePipelineBenchmarks` は同じ 4 サイズについて
 - provider の列挙順が requested sort と異なる場合、最初の行は早く安定して表示されますが、列挙完了時の 1 回の sort で位置が変わります。
 - cancel token を無視して停止しない外部 provider 呼び出しは強制終了できません。bounded lane により増殖は防ぎますが、その lane の次の処理は呼び出しが戻るまで待ちます。
 - 44,000 項目の synthetic total time は変更前より約 3% 長いため、今後は final projection snapshot と model disposal の CPU profile を継続します。
-- grouping は現在の `BrowseViewSettings` に実装されていないため、本テストは sort と列だけを対象にします。
+- グループ化プロパティがまだ到着していない表示項目は、一時的に `Unspecified` グループへ入り、bounded prefetch の結果が届くと低優先度で正しいグループへ移ります。

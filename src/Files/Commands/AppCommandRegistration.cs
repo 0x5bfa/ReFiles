@@ -13,6 +13,7 @@ public static class AppCommandRegistration
 		var builder = new CommandRegistryBuilder();
 		RegisterNavigation(builder);
 		RegisterLayout(builder);
+		RegisterDisplay(builder);
 		RegisterWindow(builder);
 		RegisterPane(builder);
 
@@ -35,6 +36,12 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.LayoutDetails, Strings.Details, "Layout.Details", Strings.Layout, 10), static _ => new LayoutCommandHandler(CommandIds.LayoutDetails));
 		builder.Register(new(CommandIds.LayoutList, Strings.List, "Layout.List", Strings.Layout, 20), static _ => new LayoutCommandHandler(CommandIds.LayoutList));
 		builder.Register(new(CommandIds.LayoutGrid, Strings.Grid, "Layout.Grid", Strings.Layout, 30), static _ => new LayoutCommandHandler(CommandIds.LayoutGrid));
+	}
+
+	private static void RegisterDisplay(CommandRegistryBuilder builder)
+	{
+		builder.Register(new(CommandIds.SortItems, Strings.Sort, "Display.Sort", Strings.Layout, 40, "\uE8CB"), static _ => new DisplayCommandHandler(CommandIds.SortItems));
+		builder.Register(new(CommandIds.GroupItems, Strings.GroupBy, "Display.Group", Strings.Layout, 50, "\uE902"), static _ => new DisplayCommandHandler(CommandIds.GroupItems));
 	}
 
 	private static void RegisterWindow(CommandRegistryBuilder builder)

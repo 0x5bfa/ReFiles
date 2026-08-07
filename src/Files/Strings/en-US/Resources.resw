@@ -37,4 +37,24 @@
 	<data name="Details" xml:space="preserve"><value>Details</value></data>
 	<data name="List" xml:space="preserve"><value>List</value></data>
 	<data name="Grid" xml:space="preserve"><value>Grid</value></data>
+	<data name="Sort" xml:space="preserve"><value>Sort</value></data>
+	<data name="SortBy" xml:space="preserve"><value>Sort by</value></data>
+	<data name="GroupBy" xml:space="preserve"><value>Group by</value></data>
+	<data name="Name" xml:space="preserve"><value>Name</value></data>
+	<data name="DateModified" xml:space="preserve"><value>Date modified</value></data>
+	<data name="DateCreated" xml:space="preserve"><value>Date created</value></data>
+	<data name="Size" xml:space="preserve"><value>Size</value></data>
+	<data name="Type" xml:space="preserve"><value>Type</value></data>
+	<data name="None" xml:space="preserve"><value>None</value></data>
+	<data name="Ascending" xml:space="preserve"><value>Ascending</value></data>
+	<data name="Descending" xml:space="preserve"><value>Descending</value></data>
+	<data name="Folders" xml:space="preserve"><value>Folders</value></data>
+	<data name="Files" xml:space="preserve"><value>files</value></data>
+	<data name="Unspecified" xml:space="preserve"><value>Unspecified</value></data>
+	<data name="SizeGroupTiny" xml:space="preserve"><value>Tiny (0 - 16 KB)</value></data>
+	<data name="SizeGroupSmall" xml:space="preserve"><value>Small (16 KB - 1 MB)</value></data>
+	<data name="SizeGroupMedium" xml:space="preserve"><value>Medium (1 MB - 128 MB)</value></data>
+	<data name="SizeGroupLarge" xml:space="preserve"><value>Large (128 MB - 1 GB)</value></data>
+	<data name="SizeGroupVeryLarge" xml:space="preserve"><value>Very large (1 - 4 GB)</value></data>
+	<data name="SizeGroupHuge" xml:space="preserve"><value>Huge (&gt; 4 GB)</value></data>
 </root>

@@ -31,6 +31,7 @@ internal enum BrowseUpdateFlags
 	Selection = 1 << 5,
 	Status = 1 << 6,
 	ViewSettings = 1 << 7,
+	Presentation = 1 << 8,
 }
 
 internal sealed class CoreBrowseUpdatedEventArgs(IReadOnlyList<BrowseItemViewModelChange> itemChanges, BrowseUpdateFlags flags) : EventArgs

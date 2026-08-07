@@ -35,7 +35,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private CancellationTokenSource? _propertyCancellation;
 	private CancellationTokenSource? _thumbnailCancellation;
 	private BrowseViewport? _lastViewport;
-	private ViewLayoutMode _lastLayoutMode;
+	private BrowseViewSettings _lastSettings;
 	private long _workIdCounter;
 	private long _latestWorkId;
 	private long _lastRequestedContentVersion;
@@ -55,7 +55,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		_session = session;
 		_target = session as IBrowsePrefetchTarget;
 		_thumbnailSize = thumbnailSize;
-		_lastLayoutMode = session.ViewSettings.LayoutMode;
+		_lastSettings = session.ViewSettings;
 		_lastRequestedContentVersion = GetContentVersion();
 		_propertyRequests = CreateRequestChannel();
 		_thumbnailRequests = CreateRequestChannel();
@@ -82,7 +82,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 
 			_restartTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 			_lastViewport = viewport;
-			_lastLayoutMode = settings.LayoutMode;
+			_lastSettings = settings;
 			var workId = checked(++_workIdCounter);
 			var contentVersion = GetContentVersion();
 			_latestWorkId = workId;
@@ -359,7 +359,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		BrowseViewSettings settings;
 		lock (_syncRoot)
 		{
-			if (_isDisposed || _lastViewport is not { } currentViewport || _lastLayoutMode == _session.ViewSettings.LayoutMode)
+			if (_isDisposed || _lastViewport is not { } currentViewport || Equals(_lastSettings, _session.ViewSettings))
 			{
 				return;
 			}
@@ -468,6 +468,11 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		if (!string.IsNullOrWhiteSpace(settings.SortPropertyId) && !IsModelProperty(settings.SortPropertyId) && seen.Add(settings.SortPropertyId))
 		{
 			propertyIds.Add(settings.SortPropertyId);
+		}
+
+		if (!string.IsNullOrWhiteSpace(settings.GroupPropertyId) && !IsModelProperty(settings.GroupPropertyId) && seen.Add(settings.GroupPropertyId))
+		{
+			propertyIds.Add(settings.GroupPropertyId);
 		}
 
 		return Array.AsReadOnly(propertyIds.ToArray());

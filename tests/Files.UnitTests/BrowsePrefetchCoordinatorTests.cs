@@ -53,7 +53,8 @@ public sealed class BrowsePrefetchCoordinatorTests
 			columns: [
 				new ViewColumnSettings("System.Size", 120, 0),
 				new ViewColumnSettings("System.Hidden", 120, 1, isVisible: false)],
-			sortPropertyId: "System.DateModified");
+			sortPropertyId: "System.DateModified",
+			groupPropertyId: "System.ItemTypeText");
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
 		coordinator.UpdateViewport(new BrowseViewport(1, 1, 1, dpi: 144), settings, session.Generation);
 
@@ -63,7 +64,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		foreach (var id in new[] { "a", "b", "c" })
 		{
 			Assert.AreEqual(1, propertySources[id].CallCount);
-			CollectionAssert.AreEqual(new[] {"System.Size", "System.DateModified"}, propertySources[id].Requests.Single().ToArray());
+			CollectionAssert.AreEqual(new[] {"System.Size", "System.DateModified", "System.ItemTypeText"}, propertySources[id].Requests.Single().ToArray());
 			Assert.AreEqual(1, thumbnailSources[id].CallCount);
 			Assert.AreEqual(16, thumbnailSources[id].Requests.Single().RequestedSize);
 			Assert.AreEqual(24, thumbnailSources[id].Requests.Single().RequestedPixelSize);
@@ -72,6 +73,28 @@ public sealed class BrowsePrefetchCoordinatorTests
 
 		Assert.AreEqual(0, propertySources["d"].CallCount);
 		Assert.AreEqual(0, thumbnailSources["d"].CallCount);
+	}
+
+	[TestMethod]
+	public async Task GroupingChangeRestartsPrefetchWithTheGroupProperty()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var propertySource = new TestPropertySource();
+		var item = factory.CreateModel("item", "Item", out _, propertySource: propertySource);
+		var resolver = new TestBrowseLocationResolver([item])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), session.ViewSettings, session.Generation);
+
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(groupPropertyId: "System.ItemTypeText"));
+
+		await WaitUntilAsync(() => propertySource.CallCount is 1);
+		CollectionAssert.AreEqual(new[] {"System.ItemTypeText"}, propertySource.Requests.Single().ToArray());
 	}
 
 	[TestMethod]

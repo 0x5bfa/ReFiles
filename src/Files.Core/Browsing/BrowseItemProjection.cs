@@ -9,13 +9,15 @@ namespace Files.Core.Browsing;
 
 internal sealed class BrowseItemProjection
 {
-	private const string _itemNamePropertyId = "System.ItemNameDisplay";
+	private const string ItemNamePropertyId = "System.ItemNameDisplay";
 
 	private readonly Dictionary<StorableKey, IStorableModel> _modelsByKey = [];
 	private readonly List<IStorableModel> _orderedItems = [];
 	private readonly Func<IStorableModel, string, object?>? _propertyValueGetter;
 	private IReadOnlyList<IStorableModel> _orderedItemsSnapshot = [];
 	private IComparer<IStorableModel> _comparer;
+	private string? _sortPropertyId;
+	private ViewSortDirection _sortDirection;
 	private bool _isSorted = true;
 
 	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _orderedItemsSnapshot);
@@ -25,6 +27,8 @@ internal sealed class BrowseItemProjection
 		ArgumentNullException.ThrowIfNull(settings);
 
 		_propertyValueGetter = propertyValueGetter;
+		_sortPropertyId = settings.SortPropertyId;
+		_sortDirection = settings.SortDirection;
 		_comparer = CreateComparer(settings, propertyValueGetter);
 	}
 
@@ -294,7 +298,21 @@ internal sealed class BrowseItemProjection
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 
+		if (string.Equals(_sortPropertyId, settings.SortPropertyId, StringComparison.Ordinal) && _sortDirection == settings.SortDirection)
+		{
+			return BrowseItemChangeSet.Empty;
+		}
+
+		_sortPropertyId = settings.SortPropertyId;
+		_sortDirection = settings.SortDirection;
 		_comparer = CreateComparer(settings, _propertyValueGetter);
+		_isSorted = _orderedItems.Count < 2;
+
+		return Sort();
+	}
+
+	public BrowseItemChangeSet RefreshSort()
+	{
 		_isSorted = _orderedItems.Count < 2;
 
 		return Sort();
@@ -373,6 +391,13 @@ internal sealed class BrowseItemProjection
 				return 1;
 			}
 
+			var xIsFolder = x is IFolderModel;
+			var yIsFolder = y is IFolderModel;
+			if (xIsFolder != yIsFolder)
+			{
+				return xIsFolder ? -1 : 1;
+			}
+
 			var result = IsNameProperty(_propertyId) ? CompareNames(x, y) : ComparePropertyValues(x, y);
 			if (result is not 0)
 			{
@@ -449,7 +474,7 @@ internal sealed class BrowseItemProjection
 		{
 			return string.IsNullOrWhiteSpace(candidate) ||
 				candidate.Equals("name", StringComparison.OrdinalIgnoreCase) ||
-				candidate.Equals(_itemNamePropertyId, StringComparison.Ordinal);
+				candidate.Equals(ItemNamePropertyId, StringComparison.Ordinal);
 		}
 
 		private static bool IsNumber(object value)

@@ -12,6 +12,8 @@ using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml.Data;
 
 namespace Files.ViewModels;
 
@@ -30,6 +32,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	private readonly IUIDispatcher _dispatcher;
 
+	private readonly CancellationTokenSource _lifetime = new();
+
+	private CollectionViewSource _itemsViewSource;
+
 	private string? _operationError;
 
 	private bool _isApplyingUpdate;
@@ -38,6 +44,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	private bool _wasBusy;
 
 	private int _isDisposed;
+	private int _groupRefreshQueued;
 
 	private FolderViewMode _viewMode = FolderViewMode.Details;
 
@@ -45,7 +52,13 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
 
+	public BulkObservableCollection<BrowseItemGroupViewModel> ItemGroups { get; } = [];
+
+	public CollectionViewSource ItemsViewSource => _itemsViewSource;
+
 	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _browseAdapter.DetailsColumns;
+
+	public BrowseViewSettings ViewSettings => _browseAdapter.ViewSettings;
 
 	public FolderViewMode ViewMode
 	{
@@ -84,6 +97,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		CommandManager = commandManager;
 		_dispatcher = dispatcher;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
+		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 		_wasLoading = _browseAdapter.IsLoading;
 		_wasBusy = _browseAdapter.IsBusy;
@@ -144,6 +158,16 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 	}
 
+	public ValueTask SetSortAsync(string propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.UpdateSortAsync(propertyId, direction, cancellationToken);
+	}
+
+	public ValueTask SetGroupingAsync(string? propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.UpdateGroupingAsync(propertyId, direction, cancellationToken);
+	}
+
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
@@ -166,7 +190,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 
 		_browseAdapter.Updated -= BrowseAdapter_Updated;
+		_lifetime.Cancel();
 		_browseAdapter.Dispose();
+		_lifetime.Dispose();
 	}
 
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
@@ -178,11 +204,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		_wasLoading = _browseAdapter.IsLoading;
 		_wasBusy = _browseAdapter.IsBusy;
 		_isApplyingUpdate = true;
+		var refreshItemsViewSource = false;
 		try
 		{
 			if (args.Flags.HasFlag(BrowseUpdateFlags.ViewSettings))
 			{
 				ViewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
+				OnPropertyChanged(nameof(ViewSettings));
+				refreshItemsViewSource = true;
 			}
 
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) && args.ItemChanges.Count is not 0)
@@ -201,6 +230,17 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				{
 					ApplyItemChanges(args.ItemChanges);
 				}
+
+				refreshItemsViewSource = true;
+			}
+
+			if (refreshItemsViewSource)
+			{
+				RefreshItemsViewSource();
+			}
+			else if (args.Flags.HasFlag(BrowseUpdateFlags.Presentation))
+			{
+				QueueGroupRefresh();
 			}
 
 			if (args.Flags is not BrowseUpdateFlags.None)
@@ -283,6 +323,61 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 
 		return false;
+	}
+
+	private void RefreshItemsViewSource()
+	{
+		var propertyId = ViewSettings.GroupPropertyId;
+		if (propertyId is null)
+		{
+			ItemGroups.Clear();
+			if (ReferenceEquals(_itemsViewSource.Source, Items))
+			{
+				return;
+			}
+
+			_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
+			OnPropertyChanged(nameof(ItemsViewSource));
+
+			return;
+		}
+
+		ItemGroups.ReplaceAll(BrowseItemGrouping.Create(Items, propertyId, ViewSettings.GroupDirection));
+		_itemsViewSource = CreateItemsViewSource(ItemGroups, isGrouped: true);
+		OnPropertyChanged(nameof(ItemsViewSource));
+	}
+
+	private void QueueGroupRefresh()
+	{
+		if (ViewSettings.GroupPropertyId is null || Interlocked.Exchange(ref _groupRefreshQueued, 1) is not 0)
+		{
+			return;
+		}
+
+		_ = QueueGroupRefreshAsync();
+	}
+
+	private async Task QueueGroupRefreshAsync()
+	{
+		try
+		{
+			await Task.Delay(TimeSpan.FromMilliseconds(50), _lifetime.Token).ConfigureAwait(false);
+			if (!_dispatcher.TryEnqueue(DispatcherQueuePriority.Low, () =>
+			{
+				Interlocked.Exchange(ref _groupRefreshQueued, 0);
+				if (Volatile.Read(ref _isDisposed) is 0)
+				{
+					RefreshItemsViewSource();
+				}
+			}))
+			{
+				Interlocked.Exchange(ref _groupRefreshQueued, 0);
+			}
+		}
+		catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+		{
+			Interlocked.Exchange(ref _groupRefreshQueued, 0);
+		}
 	}
 
 	private void ApplyItemChanges(IReadOnlyList<BrowseItemViewModelChange> changes)
@@ -416,6 +511,15 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 
 		return true;
+	}
+
+	private static CollectionViewSource CreateItemsViewSource(object source, bool isGrouped)
+	{
+		return new CollectionViewSource
+		{
+			IsSourceGrouped = isGrouped,
+			Source = source,
+		};
 	}
 
 	private Task SetViewModeOnUiAsync(FolderViewMode mode)
