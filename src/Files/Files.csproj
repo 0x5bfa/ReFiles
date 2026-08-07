@@ -35,4 +35,8 @@
 		<AdditionalFiles Include="Strings\en-US\Resources.resw" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Files.PresentationTests" />
+	</ItemGroup>
+
 </Project>

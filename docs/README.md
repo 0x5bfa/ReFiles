@@ -120,6 +120,7 @@ Storage Workspace と Shell Session は runtime が持つ別々のルートで�
 - [`Files.Operations` によるクラッシュ耐性のある操作](server-operations.md)
 - [Windows ストレージソース](windows-storage.md)
 - [Windows Shell のスレッド処理](threading.md)
+- [Browse 読み込み性能と実行経路](browse-loading-performance.md)
 - [移行原則と物理プロジェクト統合](migration.md)
 
 ## 文書の役割

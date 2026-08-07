@@ -28,15 +28,124 @@ public sealed class BrowseSessionTests
 			LocationModelFactory = _ => locationModel,
 		};
 		using var session = new BrowseSession(resolver);
-		var publishedBatchCount = 0;
+		var publishedBatchSizes = new List<int>();
 		session.ItemsChanged += (_, _) =>
 		{
-			publishedBatchCount++;
+			publishedBatchSizes.Add(session.Items.Count - publishedBatchSizes.Sum());
 		};
 
 		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
 		Assert.AreEqual(600, session.Items.Count);
-		Assert.AreEqual(6, publishedBatchCount);
+		CollectionAssert.AreEqual(new[] { 32, 256, 312 }, publishedBatchSizes);
+	}
+
+	[TestMethod]
+	public async Task PublishesFirstBatchBeforeEnumerationCompletes()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var items = Enumerable.Range(0, 600)
+			.Select(index => factory.CreateModel($"item-{index:D3}", $"Item {index:D3}", out _))
+			.Cast<IStorableModel>()
+			.ToArray();
+		var providerPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var providerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+			BeforeYieldAsync = async (index, cancellationToken) =>
+			{
+				if (index is 32)
+				{
+					providerPaused.TrySetResult(true);
+					await providerRelease.Task.WaitAsync(cancellationToken);
+				}
+			},
+		};
+		using var session = new BrowseSession(resolver);
+		var navigation = session.NavigateAsync(new FolderLocation(locationModel.Reference)).AsTask();
+
+		await providerPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+		Assert.IsTrue(session.IsLoading);
+		Assert.AreEqual(32, session.Items.Count);
+		Assert.IsFalse(navigation.IsCompleted);
+		providerRelease.TrySetResult(true);
+		await navigation;
+		Assert.AreEqual(600, session.Items.Count);
+	}
+
+	[TestMethod]
+	public async Task AppliesRequestedSortAfterProgressiveEnumeration()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var items = Enumerable.Range(0, 600)
+			.Reverse()
+			.Select(index => factory.CreateModel($"item-{index:D3}", $"Item {index:D3}", out _))
+			.Cast<IStorableModel>()
+			.ToArray();
+		var providerPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var providerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+			BeforeYieldAsync = async (index, cancellationToken) =>
+			{
+				if (index is 32)
+				{
+					providerPaused.TrySetResult(true);
+					await providerRelease.Task.WaitAsync(cancellationToken);
+				}
+			},
+		};
+		using var session = new BrowseSession(resolver);
+		var resetCount = 0;
+		session.ItemsChanged += (_, args) => resetCount += args.Changes.Count(static change => change is BrowseItemsReset);
+		var navigation = session.NavigateAsync(new FolderLocation(locationModel.Reference)).AsTask();
+
+		await providerPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		Assert.AreEqual("Item 599", session.Items[0].Name);
+		Assert.AreEqual("Item 568", session.Items[^1].Name);
+		providerRelease.TrySetResult(true);
+		await navigation;
+
+		Assert.AreEqual("Item 000", session.Items[0].Name);
+		Assert.AreEqual("Item 599", session.Items[^1].Name);
+		Assert.AreEqual(2, resetCount);
+	}
+
+	[TestMethod]
+	[DataRow(100, 2)]
+	[DataRow(1_000, 4)]
+	[DataRow(10_000, 12)]
+	[DataRow(44_000, 46)]
+	public async Task LargeEnumerationsUseBoundedAdaptiveBatches(int itemCount, int expectedNotificationCount)
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var items = Enumerable.Range(0, itemCount)
+			.Select(index => factory.CreateModel($"item-{index:D5}", $"Item {index:D5}", out _))
+			.Cast<IStorableModel>()
+			.ToArray();
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		var notificationCount = 0;
+		var firstPublishedCount = 0;
+		session.ItemsChanged += (_, _) =>
+		{
+			Interlocked.CompareExchange(ref firstPublishedCount, session.Items.Count, 0);
+			Interlocked.Increment(ref notificationCount);
+		};
+
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+
+		Assert.AreEqual(itemCount, session.Items.Count);
+		Assert.AreEqual(32, firstPublishedCount);
+		Assert.AreEqual(expectedNotificationCount, notificationCount);
 	}
 
 	[TestMethod]
@@ -140,6 +249,43 @@ public sealed class BrowseSessionTests
 	}
 
 	[TestMethod]
+	public async Task FailureAfterPublishedBatchRollsBackToPreviousItems()
+	{
+		var factory = new TestModelFactory();
+		var firstLocation = factory.CreateModel("first-folder", "First Folder", out _);
+		var secondLocation = factory.CreateModel("second-folder", "Second Folder", out _);
+		var current = factory.CreateModel("current", "Current", out var currentCore);
+		var locationModels = new Queue<IStorableModel>([firstLocation, secondLocation]);
+		var resolver = new TestBrowseLocationResolver([current])
+		{
+			LocationModelFactory = _ => locationModels.Dequeue(),
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
+		var partialModels = new List<IStorableModel>();
+		var partialCores = new List<DisposableStorable>();
+		for (var index = 0; index < 40; index++)
+		{
+			partialModels.Add(factory.CreateModel($"partial-{index}", $"Partial {index}", out var partialCore));
+			partialCores.Add(partialCore);
+		}
+		resolver.Items.Clear();
+		foreach (var partialModel in partialModels)
+		{
+			resolver.Items.Add(partialModel);
+		}
+
+		resolver.Exception = new InvalidOperationException("failure after batch");
+
+		await Assert.ThrowsAsync<InvalidOperationException>(async () => await session.NavigateAsync(new FolderLocation(secondLocation.Reference)));
+
+		Assert.AreSame(current, session.Items.Single());
+		Assert.IsFalse(currentCore.IsDisposed);
+		Assert.IsTrue(partialCores.All(static core => core.IsDisposed));
+		Assert.IsNotNull(session.Error);
+	}
+
+	[TestMethod]
 	public async Task CancelledNavigationDisposesNewContextAndPreservesCurrentState()
 	{
 		var factory = new TestModelFactory();
@@ -166,6 +312,62 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(current, session.Items.Single());
 		Assert.AreSame(resolver.OpenedContexts[0], session.Context);
 		Assert.IsTrue(resolver.OpenedContexts[1].IsDisposed);
+	}
+
+	[TestMethod]
+	public async Task CancellationAfterPublishedBatchRestoresPreviousItems()
+	{
+		var factory = new TestModelFactory();
+		var firstLocation = factory.CreateModel("first-folder", "First Folder", out _);
+		var secondLocation = factory.CreateModel("second-folder", "Second Folder", out _);
+		var current = factory.CreateModel("current", "Current", out var currentCore);
+		var locationModels = new Queue<IStorableModel>([firstLocation, secondLocation]);
+		var providerPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var providerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new TestBrowseLocationResolver([current])
+		{
+			LocationModelFactory = _ => locationModels.Dequeue(),
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
+		var nextModels = new List<IStorableModel>();
+		var nextCores = new List<DisposableStorable>();
+		for (var index = 0; index < 40; index++)
+		{
+			nextModels.Add(factory.CreateModel($"next-{index}", $"Next {index}", out var nextCore));
+			nextCores.Add(nextCore);
+		}
+		resolver.Items.Clear();
+		foreach (var nextModel in nextModels)
+		{
+			resolver.Items.Add(nextModel);
+		}
+
+		resolver.BeforeYieldAsync = async (index, cancellationToken) =>
+		{
+			if (index is 32)
+			{
+				providerPaused.TrySetResult(true);
+				await providerRelease.Task.WaitAsync(cancellationToken);
+			}
+		};
+		using var cancellation = new CancellationTokenSource();
+		var navigation = session.NavigateAsync(new FolderLocation(secondLocation.Reference), cancellation.Token).AsTask();
+		await providerPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		Assert.AreEqual(32, session.Items.Count);
+
+		cancellation.Cancel();
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await navigation);
+
+		Assert.AreSame(current, session.Items.Single());
+		Assert.IsFalse(currentCore.IsDisposed);
+		Assert.IsTrue(nextCores.Take(32).All(static core => core.IsDisposed));
+		Assert.IsTrue(nextCores.Skip(32).All(static core => !core.IsDisposed));
+		Assert.IsTrue(resolver.OpenedContexts[1].IsDisposed);
+		foreach (var unyieldedModel in nextModels.Skip(32))
+		{
+			await unyieldedModel.DisposeAsync();
+		}
 	}
 
 	[TestMethod]

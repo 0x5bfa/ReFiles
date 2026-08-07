@@ -52,6 +52,11 @@ FTP パスワードをテスト出力、アドレス、スナップショット�
 
 - ファクトリ数を変えた項目機能解決の cold/cached 動作。
 - サムネイルキャッシュのヒット、ミス、挿入、追い出し。
+- 100、1,000、10,000、44,000 項目の browse enumeration、AppModel 作成、adaptive projection batch、通知、allocation。
+
+`tests/Files.PresentationTests` は packaged app を起動せず、実際の `BrowseSession`、`BrowsePresentationAdapter`、手動 UI dispatcher を接続します。
+最初の binding-ready 行、dispatcher / UI batch 数、1 callback の最大時間、Details 列の realization、stable row への progressive property 更新を検証します。
+WindowsAppSDK の bootstrap と deployment manager 初期化はこの in-process test host では無効にし、WinUI object の実描画は Control / Axe test 境界に残します。
 
 実行方法:
 

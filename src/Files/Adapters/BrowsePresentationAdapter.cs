@@ -4,7 +4,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using Files.Infrastructure;
-using Files.Localization;
 using Files.ViewModels;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
@@ -28,6 +27,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly IStorageWorkspace _workspace;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly IBrowsePrefetchCoordinator _prefetch;
+	private readonly BrowsePresentationText _text;
 	private readonly CancellationTokenSource _lifetime = new();
 	private readonly SemaphoreSlim _thumbnailDecodeGate = new(2);
 	private readonly Lock _thumbnailTaskLock = new();
@@ -45,13 +45,18 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
 	private ViewLayoutMode _layoutMode;
 	private long _appliedItemsVersion = -1;
+	private long _diagnosticLongestDrainTicks;
 	private int _diagnosticDrainSequence;
+	private int _diagnosticDispatcherEnqueueCount;
+	private int _diagnosticItemViewModelCount;
+	private int _diagnosticPropertyChangeCount;
+	private int _diagnosticThumbnailDisplayCount;
 	private bool _drainQueued;
 	private int _isApplyingItemBatch;
 	private int _isApplyingDefaultColumns;
 	private int _isDisposed;
 
-	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher)
+	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 		ArgumentNullException.ThrowIfNull(workspace);
@@ -60,10 +65,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_pane = pane;
 		_workspace = workspace;
 		_dispatcher = dispatcher;
-		_prefetch = new BrowsePrefetchCoordinator(_pane.BrowseSession);
+		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
+		_text = text ?? BrowsePresentationText.CreateLocalized();
 		_layoutMode = _pane.BrowseSession.ViewSettings.LayoutMode;
 
 		SelectedKeys = Array.Empty<StorableKey>();
+		LocationText = _text.Home;
 		_pane.NavigationStateChanged += Pane_StateChanged;
 		_pane.BrowseSession.ItemsChanged += BrowseSession_ItemsChanged;
 		_pane.BrowseSession.ItemPresentationChanged +=
@@ -75,7 +82,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	public IReadOnlyList<StorableKey> SelectedKeys { get; private set; }
 
-	public string LocationText { get; private set; } = Strings.Home.GetLocalized();
+	public string LocationText { get; private set; }
 
 	public string? ErrorMessage { get; private set; }
 
@@ -94,8 +101,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	public string StatusText =>
 		ErrorMessage
 		?? (IsLoading
-			? Strings.Loading.GetLocalized()
-			: string.Format(CultureInfo.CurrentCulture, _items.Count is 1 ? Strings.ItemCountSingle.GetLocalized() : Strings.ItemCountPlural.GetLocalized(), _items.Count));
+			? _text.Loading
+			: string.Format(CultureInfo.CurrentCulture, _items.Count is 1 ? _text.ItemCountSingle : _text.ItemCountPlural, _items.Count));
 
 	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 
@@ -131,7 +138,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath START path={path}");
 
-		if (string.Equals(path, Strings.Home.GetLocalized(), StringComparison.OrdinalIgnoreCase) || string.Equals(path, "Home", StringComparison.OrdinalIgnoreCase))
+		if (string.Equals(path, _text.Home, StringComparison.OrdinalIgnoreCase) || string.Equals(path, "Home", StringComparison.OrdinalIgnoreCase))
 		{
 			await InitializeAsync(cancellationToken).ConfigureAwait(false);
 
@@ -148,7 +155,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			{
 				if (model is not IFolderModel)
 				{
-					throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, Strings.NotFolderFormat.GetLocalized(), path));
+					throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, _text.NotFolderFormat, path));
 				}
 
 				await _pane.NavigateAsync(new FolderLocation(model.Reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
@@ -364,6 +371,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		Updated = null;
+		UiDiagnosticLog.Write(
+			"BrowsePresentationAdapter",
+			$"disposed itemViewModels={_diagnosticItemViewModelCount} dispatcherEnqueues={_diagnosticDispatcherEnqueueCount} " +
+			$"propertyNotifications={_diagnosticPropertyChangeCount} thumbnailsDisplayed={_diagnosticThumbnailDisplayCount} " +
+			$"longestUiMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}");
 		if (prefetchError is not null)
 		{
 			throw prefetchError;
@@ -492,7 +504,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 		else
 		{
-			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"Drain queued pendingBatches={pendingBatchCount} _pendingThumbnails={pendingThumbnailCount}");
+			var enqueueCount = Interlocked.Increment(ref _diagnosticDispatcherEnqueueCount);
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"Drain queued enqueueCount={enqueueCount} pendingBatches={pendingBatchCount} pendingThumbnails={pendingThumbnailCount}");
 		}
 	}
 
@@ -683,9 +696,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			ScheduleDrain(DispatcherQueuePriority.Low);
 		}
 
+		var drainElapsed = Stopwatch.GetElapsedTime(drainStartTimestamp);
+		UpdateMaximum(ref _diagnosticLongestDrainTicks, drainElapsed.Ticks);
 		UiDiagnosticLog.Write(
 			"BrowsePresentationAdapter",
-			$"Drain END sequence={drainSequence} adapterItems={_items.Count} loading={IsLoading} elapsedMs={Stopwatch.GetElapsedTime(drainStartTimestamp).TotalMilliseconds:F1}");
+			$"Drain END sequence={drainSequence} adapterItems={_items.Count} loading={IsLoading} elapsedMs={drainElapsed.TotalMilliseconds:F1} " +
+			$"longestUiMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}");
 	}
 
 	private PendingItemBatch? TakeNextPendingItemBatchLocked(int maximumItemCount, out bool hasPendingItemBatches)
@@ -834,6 +850,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			if (_itemsByKey.TryGetValue(key, out item))
 			{
 				item.SetThumbnail(image);
+				if (image is not null)
+				{
+					var displayCount = Interlocked.Increment(ref _diagnosticThumbnailDisplayCount);
+					if (displayCount is 1)
+					{
+						UiDiagnosticLog.Write("BrowsePresentationAdapter", $"First thumbnail displayed key={key}");
+					}
+				}
 
 				return;
 			}
@@ -941,6 +965,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		item.SetProperties(properties);
+		Interlocked.Increment(ref _diagnosticPropertyChangeCount);
 	}
 
 	private void StartColumnsLoad()
@@ -1328,6 +1353,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
 	{
 		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference);
+		var itemViewModelCount = Interlocked.Increment(ref _diagnosticItemViewModelCount);
+		if (itemViewModelCount is 1)
+		{
+			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"First item view model created key={item.Reference.GetKey()}");
+		}
 		if (_pane.BrowseSession.TryGetPresentation(item.Reference.GetKey(), out var presentation))
 		{
 			if (presentation.Properties.Count is not 0)
@@ -1358,23 +1388,38 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
 		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 
-	private static string GetLocationText(BrowseLocation? location)
+	private string GetLocationText(BrowseLocation? location)
 	{
 		return location switch
 		{
-			HomeLocation => Strings.Home.GetLocalized(),
+			HomeLocation => _text.Home,
 			FolderLocation folder when folder.Folder.LastKnownAddress is
 				{ Scheme: var scheme, Value: var value }
 				&& string.Equals(scheme, "file", StringComparison.OrdinalIgnoreCase)
 				=> value,
 			FolderLocation folder => folder.Folder.LastKnownAddress?.ToString()
 				?? folder.Folder.ItemId,
-			_ => location?.GetType().Name ?? Strings.Home.GetLocalized(),
+			_ => location?.GetType().Name ?? _text.Home,
 		};
 	}
 
 	private void EnsureActive() =>
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
+
+	private static void UpdateMaximum(ref long target, long candidate)
+	{
+		var current = Volatile.Read(ref target);
+		while (candidate > current)
+		{
+			var previous = Interlocked.CompareExchange(ref target, candidate, current);
+			if (previous == current)
+			{
+				return;
+			}
+
+			current = previous;
+		}
+	}
 
 	private sealed record PendingItemBatch(long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes, bool IsComplete = true);
 

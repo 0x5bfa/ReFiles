@@ -11,7 +11,8 @@
 		x:Name="ItemList"
 		IsMultiSelectCheckBoxEnabled="False"
 		ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
-		SelectionMode="Extended">
+		SelectionMode="Extended"
+		ShowsScrollingPlaceholders="False">
 		<ListView.ItemContainerTransitions>
 			<TransitionCollection />
 		</ListView.ItemContainerTransitions>
@@ -20,12 +21,15 @@
 				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 			</Style>
 		</ListView.ItemContainerStyle>
+		<ListView.ItemsPanel>
+			<ItemsPanelTemplate>
+				<ItemsStackPanel AreStickyGroupHeadersEnabled="False" Orientation="Vertical" />
+			</ItemsPanelTemplate>
+		</ListView.ItemsPanel>
 
 		<ListView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">
-				<local:DetailsRow
-					Columns="{Binding ViewModel.DetailsColumns, ElementName=Root, Mode=OneWay}"
-					Item="{x:Bind}" />
+				<local:DetailsRow Item="{x:Bind}" />
 			</DataTemplate>
 		</ListView.ItemTemplate>
 

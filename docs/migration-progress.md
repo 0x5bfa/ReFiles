@@ -12,7 +12,7 @@
 | Shell Session | application、window、tab、1..2 pane、typed pane content、history、preview、browse sessionを実装済み |
 | Windows storage | resolve、enumeration、stable reference、property、thumbnail、change sourceを実装済み |
 | FTP storage | FTP/FTPS source、stream、property、operationを実装済み |
-| browse | context ownership、atomic navigation/refresh、incremental reconciliation、selection、projectionを実装済み |
+| browse | context ownership、rollback可能なprogressive navigation/refresh、incremental reconciliation、selection、projectionを実装済み |
 | operation | create、rename、copy、move、deleteとcollision policyを実装済み |
 | preview | stream previewとWindows Shell Preview Handler sessionを実装済み |
 | threading | ordered/concurrent/operation用message-pumped Shell STAを実装済み |

@@ -60,8 +60,8 @@ flowchart TD
 | `ShellViewModel` | `CoreBrowseSessionAdapter` | pane pageと同時に購読解除・破棄 |
 | 表示中folder | `IBrowseLocationContext` | `BrowseSession` がnavigation/refresh成功まで所有 |
 
-Core側では新しいcontextとitemsの列挙が成功してからactive contextを交換します。失敗またはcancel時は
-新しいcontextだけを破棄するため、現在表示中の一覧は維持されます。
+Core側では新しいcontextの最初のbounded batchを暫定的にactiveとして公開し、以前のcontextと一覧はnavigation確定まで
+rollback snapshotとして保持します。失敗またはcancel時は新しいcontextと公開済み項目を破棄し、以前の一覧をresetで復元します。
 
 ## ローカルフォルダーのナビゲーション
 

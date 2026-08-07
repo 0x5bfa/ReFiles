@@ -16,6 +16,7 @@ internal sealed class BrowseItemProjection
 	private readonly Func<IStorableModel, string, object?>? _propertyValueGetter;
 	private IReadOnlyList<IStorableModel> _orderedItemsSnapshot = [];
 	private IComparer<IStorableModel> _comparer;
+	private bool _isSorted = true;
 
 	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _orderedItemsSnapshot);
 
@@ -107,10 +108,17 @@ internal sealed class BrowseItemProjection
 		{
 			var startingIndex = _orderedItems.Count;
 			var addedItems = Array.AsReadOnly(models.ToArray());
+			var previousItem = _orderedItems.LastOrDefault();
 			foreach (var model in addedItems)
 			{
+				if (_isSorted && previousItem is not null && _comparer.Compare(previousItem, model) > 0)
+				{
+					_isSorted = false;
+				}
+
 				_modelsByKey.Add(model.Reference.GetKey(), model);
 				_orderedItems.Add(model);
+				previousItem = model;
 			}
 
 			UpdateSnapshot();
@@ -156,6 +164,7 @@ internal sealed class BrowseItemProjection
 
 		_orderedItems.Clear();
 		_orderedItems.AddRange(mergedItems);
+		_isSorted = true;
 		UpdateSnapshot();
 
 		return new BrowseItemChangeSet(changes);
@@ -163,8 +172,14 @@ internal sealed class BrowseItemProjection
 
 	public BrowseItemChangeSet Sort()
 	{
+		if (_isSorted)
+		{
+			return BrowseItemChangeSet.Empty;
+		}
+
 		var previousKeys = _orderedItems.Select(static item => item.Reference.GetKey()).ToArray();
 		_orderedItems.Sort(_comparer);
+		_isSorted = true;
 		if (previousKeys.SequenceEqual(_orderedItems.Select(static item => item.Reference.GetKey())))
 		{
 			return BrowseItemChangeSet.Empty;
@@ -227,6 +242,7 @@ internal sealed class BrowseItemProjection
 
 		_orderedItems[previousIndex] = replacement;
 		_orderedItems.Sort(_comparer);
+		_isSorted = true;
 		var currentIndex = FindItemIndex(replacementKey);
 		UpdateSnapshot();
 
@@ -262,6 +278,7 @@ internal sealed class BrowseItemProjection
 		_orderedItems.Clear();
 		_orderedItems.AddRange(nextModels);
 		_orderedItems.Sort(_comparer);
+		_isSorted = true;
 		_modelsByKey.Clear();
 		foreach (var pair in nextByKey)
 		{
@@ -278,6 +295,7 @@ internal sealed class BrowseItemProjection
 		ArgumentNullException.ThrowIfNull(settings);
 
 		_comparer = CreateComparer(settings, _propertyValueGetter);
+		_isSorted = _orderedItems.Count < 2;
 
 		return Sort();
 	}

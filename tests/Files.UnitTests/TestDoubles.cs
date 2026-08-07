@@ -228,6 +228,8 @@ internal sealed class TestBrowseLocationResolver : IBrowseLocationResolver
 
 	public Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? ItemResolver { get; set; }
 
+	public Func<int, CancellationToken, ValueTask>? BeforeYieldAsync { get; set; }
+
 	public TestBrowseLocationResolver(IEnumerable<IStorableModel> items, Exception? exception = null)
 	{
 		Items = items.ToList();
@@ -239,7 +241,18 @@ internal sealed class TestBrowseLocationResolver : IBrowseLocationResolver
 		ArgumentNullException.ThrowIfNull(location);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var context = new TestBrowseLocationContext(location, Items.ToArray(), Exception, EnumerationStarted, BlockEnumeration, EnumerationRelease, LocationModelFactory?.Invoke(location), EnumerationGuard, EnumerationAction, ItemResolver);
+		var context = new TestBrowseLocationContext(
+			location,
+			Items.ToArray(),
+			Exception,
+			EnumerationStarted,
+			BlockEnumeration,
+			EnumerationRelease,
+			LocationModelFactory?.Invoke(location),
+			EnumerationGuard,
+			EnumerationAction,
+			ItemResolver,
+			BeforeYieldAsync);
 		OpenedContexts.Add(context);
 		ContextOpened?.Invoke(context);
 
@@ -251,31 +264,33 @@ internal sealed class TestBrowseLocationContext :
 	IBrowseLocationContext,
 	IBrowseLocationItemResolver
 {
-	private readonly IReadOnlyList<IStorableModel> items;
+	private readonly IReadOnlyList<IStorableModel> _items;
 
-	private readonly Exception? exception;
+	private readonly Exception? _exception;
 
-	private readonly TaskCompletionSource<bool>? enumerationStarted;
+	private readonly TaskCompletionSource<bool>? _enumerationStarted;
 
-	private readonly bool blockEnumeration;
+	private readonly bool _blockEnumeration;
 
-	private readonly TaskCompletionSource<bool>? enumerationRelease;
+	private readonly TaskCompletionSource<bool>? _enumerationRelease;
 
-	private readonly IStorableModel? locationModel;
+	private readonly IStorableModel? _locationModel;
 
-	private readonly Func<bool>? enumerationGuard;
+	private readonly Func<bool>? _enumerationGuard;
 
-	private readonly Action? enumerationAction;
+	private readonly Action? _enumerationAction;
 
-	private readonly Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? itemResolver;
+	private readonly Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? _itemResolver;
 
-	private int isDisposed;
+	private readonly Func<int, CancellationToken, ValueTask>? _beforeYieldAsync;
+
+	private int _isDisposed;
 
 	public BrowseLocation Location { get; }
 
-	public IStorableModel? LocationModel => locationModel;
+	public IStorableModel? LocationModel => _locationModel;
 
-	public bool IsDisposed => Volatile.Read(ref isDisposed) != 0;
+	public bool IsDisposed => Volatile.Read(ref _isDisposed) != 0;
 
 	public TestBrowseLocationContext(
 		BrowseLocation location,
@@ -287,44 +302,46 @@ internal sealed class TestBrowseLocationContext :
 		IStorableModel? locationModel,
 		Func<bool>? enumerationGuard,
 		Action? enumerationAction,
-		Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? itemResolver)
+		Func<StorableReference, CancellationToken, ValueTask<IStorableModel>>? itemResolver,
+		Func<int, CancellationToken, ValueTask>? beforeYieldAsync)
 	{
 		Location = location;
-		this.items = items;
-		this.exception = exception;
-		this.enumerationStarted = enumerationStarted;
-		this.blockEnumeration = blockEnumeration;
-		this.enumerationRelease = enumerationRelease;
-		this.locationModel = locationModel;
-		this.enumerationGuard = enumerationGuard;
-		this.enumerationAction = enumerationAction;
-		this.itemResolver = itemResolver;
+		_items = items;
+		_exception = exception;
+		_enumerationStarted = enumerationStarted;
+		_blockEnumeration = blockEnumeration;
+		_enumerationRelease = enumerationRelease;
+		_locationModel = locationModel;
+		_enumerationGuard = enumerationGuard;
+		_enumerationAction = enumerationAction;
+		_itemResolver = itemResolver;
+		_beforeYieldAsync = beforeYieldAsync;
 	}
 
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 
-		return itemResolver is null
+		return _itemResolver is null
 			? throw new NotSupportedException()
-			: itemResolver(reference, cancellationToken);
+			: _itemResolver(reference, cancellationToken);
 	}
 
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-		enumerationStarted?.TrySetResult(true);
-		if (enumerationGuard is not null && !enumerationGuard())
+		_enumerationStarted?.TrySetResult(true);
+		if (_enumerationGuard is not null && !_enumerationGuard())
 		{
 			throw new InvalidOperationException("The enumeration started before the watcher.");
 		}
 
-		enumerationAction?.Invoke();
+		_enumerationAction?.Invoke();
 
-		if (blockEnumeration)
+		if (_blockEnumeration)
 		{
-			if (enumerationRelease is null)
+			if (_enumerationRelease is null)
 			{
 				await Task
 					.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
@@ -332,31 +349,35 @@ internal sealed class TestBrowseLocationContext :
 			}
 			else
 			{
-				await enumerationRelease.Task
+				await _enumerationRelease.Task
 					.WaitAsync(cancellationToken)
 					.ConfigureAwait(false);
 			}
 		}
 
-		foreach (var item in items)
+		for (var index = 0; index < _items.Count; index++)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+			if (_beforeYieldAsync is not null)
+			{
+				await _beforeYieldAsync(index, cancellationToken).ConfigureAwait(false);
+			}
 
-			yield return item;
+			yield return _items[index];
 			await Task.Yield();
 		}
 
-		if (exception is not null)
+		if (_exception is not null)
 		{
-			throw exception;
+			throw _exception;
 		}
 	}
 
 	public ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) == 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
 		{
-			locationModel?.Dispose();
+			_locationModel?.Dispose();
 		}
 
 		return ValueTask.CompletedTask;

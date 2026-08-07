@@ -12,29 +12,36 @@ namespace Files.Views;
 /// <summary>
 /// Builds one details view row from the active Shell column definitions.
 /// </summary>
-public sealed class DetailsRow : Grid
+public sealed class DetailsRow : Grid, IDetailsRowContent
 {
+	/// <summary>Identifies the <see cref="Item"/> dependency property.</summary>
 	public static readonly DependencyProperty ItemProperty =
 		DependencyProperty.Register(nameof(Item), typeof(BrowseItemViewModel), typeof(DetailsRow), new PropertyMetadata(null, ItemChanged));
 
+	/// <summary>Identifies the <see cref="Columns"/> dependency property.</summary>
 	public static readonly DependencyProperty ColumnsProperty =
 		DependencyProperty.Register(nameof(Columns), typeof(IReadOnlyList<DetailsColumnViewModel>), typeof(DetailsRow), new PropertyMetadata(null, ColumnsChanged));
 
 	private Image? _thumbnailImage;
 	private readonly Dictionary<string, TextBlock> _cells = [];
 
+	/// <summary>Gets or sets the item displayed by this row.</summary>
 	public BrowseItemViewModel? Item
 	{
 		get => (BrowseItemViewModel?)GetValue(ItemProperty);
 		set => SetValue(ItemProperty, value);
 	}
 
+	/// <summary>Gets or sets the active details columns.</summary>
 	public IReadOnlyList<DetailsColumnViewModel>? Columns
 	{
 		get => (IReadOnlyList<DetailsColumnViewModel>?)GetValue(ColumnsProperty);
 		set => SetValue(ColumnsProperty, value);
 	}
 
+	bool IDetailsRowContent.HasMeaningfulContent => Item is not null && _cells.Count is not 0;
+
+	/// <summary>Initializes a details row.</summary>
 	public DetailsRow()
 	{
 		ColumnSpacing = 12;
@@ -138,5 +145,30 @@ public sealed class DetailsRow : Grid
 		{
 			cell.Value.Text = item.GetDisplayText(cell.Key);
 		}
+	}
+}
+
+internal interface IDetailsRowContent
+{
+	IReadOnlyList<DetailsColumnViewModel>? Columns { get; set; }
+
+	bool HasMeaningfulContent { get; }
+}
+
+internal static class DetailsRowRealization
+{
+	public static bool TryBind(object? templateRoot, IReadOnlyList<DetailsColumnViewModel> columns, out IDetailsRowContent? row)
+	{
+		ArgumentNullException.ThrowIfNull(columns);
+
+		row = templateRoot as IDetailsRowContent;
+		if (row is null)
+		{
+			return false;
+		}
+
+		row.Columns = columns;
+
+		return true;
 	}
 }

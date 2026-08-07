@@ -15,7 +15,8 @@ namespace Files.Core.Browsing;
 public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 {
 	private const int InitialEnumerationBatchSize = 32;
-	private const int EnumerationBatchSize = 128;
+	private const int EnumerationBatchSize = 256;
+	private const int MaximumEnumerationBatchSize = 1024;
 	private static readonly TimeSpan PropertySortDebounce = TimeSpan.FromMilliseconds(150);
 
 	private readonly IBrowseLocationResolver _locationResolver;
@@ -142,13 +143,13 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		BrowseNavigationSnapshot? previousState = null;
 		var nextProjection = (BrowseItemProjection?)null;
 		var enumerationActivated = false;
-		var presentationClearedForEnumeration = false;
 		var committed = false;
 
 		try
 		{
 			nextLocationContext = await _locationResolver.OpenAsync(location, cancellationToken).ConfigureAwait(false);
 			ArgumentNullException.ThrowIfNull(nextLocationContext);
+			CoreDiagnosticLog.Write("BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 
 			var changes = nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
 			var generation = Interlocked.Increment(ref _generationCounter);
@@ -162,33 +163,51 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
 			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
+			var pendingBatch = new List<IStorableModel>(InitialEnumerationBatchSize);
+			var targetBatchSize = InitialEnumerationBatchSize;
+			var firstItemReturned = false;
+			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 			await foreach (var item in nextLocationContext.GetItemsAsync(cancellationToken).ConfigureAwait(false))
 			{
 				nextItems.Add(item);
-			}
-
-			previousState = CaptureNavigationState();
-			_presentationStore.Clear();
-			presentationClearedForEnumeration = true;
-			var sortedItems = nextProjection!.SortItems(nextItems);
-			for (var startingIndex = 0; startingIndex < sortedItems.Count;)
-			{
-				var targetBatchSize = enumerationActivated ? EnumerationBatchSize : InitialEnumerationBatchSize;
-				var batchSize = Math.Min(targetBatchSize, sortedItems.Count - startingIndex);
-				var batch = new IStorableModel[batchSize];
-				for (var index = 0; index < batchSize; index++)
+				pendingBatch.Add(item);
+				if (!firstItemReturned)
 				{
-					batch[index] = sortedItems[startingIndex + index];
+					firstItemReturned = true;
+					var firstItemElapsedMilliseconds = Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds;
+					CoreDiagnosticLog.Write("BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					CoreDiagnosticLog.Write("BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
 				}
 
-				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, batch, ref previousState, ref enumerationActivated);
-				startingIndex += batchSize;
-			}
+				if (pendingBatch.Count < targetBatchSize)
+				{
+					continue;
+				}
 
-			if (!enumerationActivated)
+				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, pendingBatch, ref previousState, ref enumerationActivated);
+				pendingBatch.Clear();
+				targetBatchSize = Math.Min(MaximumEnumerationBatchSize, enumerationActivated && targetBatchSize is InitialEnumerationBatchSize ? EnumerationBatchSize : checked(targetBatchSize * 2));
+				await Task.Yield();
+			}
+			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+
+			if (pendingBatch.Count is not 0)
+			{
+				IReadOnlyList<IStorableModel> finalBatch = enumerationActivated ? pendingBatch : nextProjection.SortItems(pendingBatch);
+				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, finalBatch, ref previousState, ref enumerationActivated);
+			}
+			else if (!enumerationActivated)
 			{
 				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
 			}
+
+			var sortStartTimestamp = Stopwatch.GetTimestamp();
+			var finalSortChanges = nextProjection.Sort();
+			PublishItemsChanged(finalSortChanges);
+			CoreDiagnosticLog.Write(
+				"BrowseSession",
+				$"Initial sort completed generation={generation} changed={!finalSortChanges.IsEmpty} " +
+				$"elapsedMs={Stopwatch.GetElapsedTime(sortStartTimestamp).TotalMilliseconds:F1}");
 
 			var nextSelection = Equals(previousState!.Location, location)
 				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection)
@@ -228,11 +247,6 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 				{
 					RestoreNavigationState(previousState);
 				}
-				else if (presentationClearedForEnumeration && previousState is not null)
-				{
-					_presentationStore.Restore(previousState.Presentations);
-				}
-
 				if (nextContext is not null)
 				{
 					Volatile.Write(ref _preparingContext, null);
@@ -1201,6 +1215,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 		try
 		{
+			if (previousCancellation is not null)
+			{
+				CoreDiagnosticLog.Write("BrowseSession", "Previous navigation cancelled");
+			}
+
 			previousCancellation?.Cancel();
 		}
 		catch (ObjectDisposedException)

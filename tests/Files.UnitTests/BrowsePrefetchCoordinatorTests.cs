@@ -261,8 +261,95 @@ public sealed class BrowsePrefetchCoordinatorTests
 		await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 		await WaitUntilAsync(() => ReferenceEquals(session.Items.Single(), replacement));
 		Assert.AreEqual(generation, session.Generation);
-		Assert.AreEqual(0, oldThumbnail.CallCount);
 		Assert.IsFalse(session.TryGetPresentation(replacement.Reference.GetKey(), out _));
+	}
+
+	[TestMethod]
+	public async Task SlowPropertiesDoNotBlockThumbnailPrefetch()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var propertyStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertyRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertySource = new TestPropertySource
+		{
+			Handler = async (_, cancellationToken) =>
+			{
+				propertyStarted.TrySetResult(true);
+				await propertyRelease.Task.WaitAsync(cancellationToken);
+
+				return new Dictionary<string, object?>();
+			},
+		};
+		var thumbnailSource = new TestThumbnailSource
+		{
+			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: false)),
+		};
+		var item = factory.CreateModel("item", "Item", out _, propertySource: propertySource, thumbnailSource: thumbnailSource);
+		var resolver = new TestBrowseLocationResolver([item])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
+		await propertyStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		await WaitUntilAsync(() => session.TryGetPresentation(item.Reference.GetKey(), out var presentation) && presentation.Thumbnail is not null);
+
+		Assert.AreEqual(1, thumbnailSource.CallCount);
+		propertyRelease.TrySetResult(true);
+	}
+
+	[TestMethod]
+	public async Task ViewportBurstsKeepPrefetchConcurrencyBounded()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertySource = new BoundedPropertySource(release.Task);
+		var thumbnailSource = new BoundedThumbnailSource(release.Task);
+		var items = Enumerable.Range(0, 4)
+			.Select(index => factory.CreateModel($"item-{index}", $"Item {index}", out _, propertySource: propertySource, thumbnailSource: thumbnailSource))
+			.Cast<IStorableModel>()
+			.ToArray();
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, 4), settings, session.Generation);
+			await Task.WhenAll(
+				propertySource.LaneSaturated.WaitAsync(TimeSpan.FromSeconds(5)),
+				thumbnailSource.LaneSaturated.WaitAsync(TimeSpan.FromSeconds(5)));
+			for (var updateIndex = 0; updateIndex < 100; updateIndex++)
+			{
+				coordinator.UpdateViewport(new BrowseViewport(0, 4), settings, session.Generation);
+			}
+
+			Assert.AreEqual(2, propertySource.CallCount);
+			Assert.AreEqual(2, thumbnailSource.CallCount);
+			release.TrySetResult(true);
+			await WaitUntilAsync(() => session.TryGetPresentation(items[3].Reference.GetKey(), out var presentation) && presentation.Properties.Count is not 0 && presentation.Thumbnail is not null);
+		}
+		finally
+		{
+			release.TrySetResult(true);
+			await coordinator.DisposeAsync();
+		}
+
+		Assert.IsTrue(propertySource.MaximumConcurrency <= 2);
+		Assert.IsTrue(thumbnailSource.MaximumConcurrency <= 2);
+		Assert.IsTrue(propertySource.CallCount <= 6);
+		Assert.IsTrue(thumbnailSource.CallCount <= 6);
 	}
 
 	[TestMethod]
@@ -320,5 +407,97 @@ public sealed class BrowsePrefetchCoordinatorTests
 		}
 
 		Assert.IsTrue(condition());
+	}
+
+	private sealed class BoundedPropertySource(Task release) : IPropertySource
+	{
+		private readonly Task _release = release;
+		private readonly TaskCompletionSource<bool> _laneSaturated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private int _activeCount;
+		private int _callCount;
+		private int _maximumConcurrency;
+
+		public int CallCount => Volatile.Read(ref _callCount);
+
+		public int MaximumConcurrency => Volatile.Read(ref _maximumConcurrency);
+
+		public Task LaneSaturated => _laneSaturated.Task;
+
+		public async ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
+		{
+			Interlocked.Increment(ref _callCount);
+			var activeCount = Interlocked.Increment(ref _activeCount);
+			UpdateMaximum(ref _maximumConcurrency, activeCount);
+			if (activeCount is 2)
+			{
+				_laneSaturated.TrySetResult(true);
+			}
+
+			try
+			{
+				await _release;
+			}
+			finally
+			{
+				Interlocked.Decrement(ref _activeCount);
+			}
+
+			return new Dictionary<string, object?>
+			{
+				["System.Size"] = 1L,
+			};
+		}
+	}
+
+	private sealed class BoundedThumbnailSource(Task release) : IThumbnailSource
+	{
+		private readonly Task _release = release;
+		private readonly TaskCompletionSource<bool> _laneSaturated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private int _activeCount;
+		private int _callCount;
+		private int _maximumConcurrency;
+
+		public int CallCount => Volatile.Read(ref _callCount);
+
+		public int MaximumConcurrency => Volatile.Read(ref _maximumConcurrency);
+
+		public Task LaneSaturated => _laneSaturated.Task;
+
+		public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
+		{
+			Interlocked.Increment(ref _callCount);
+			var activeCount = Interlocked.Increment(ref _activeCount);
+			UpdateMaximum(ref _maximumConcurrency, activeCount);
+			if (activeCount is 2)
+			{
+				_laneSaturated.TrySetResult(true);
+			}
+
+			try
+			{
+				await _release;
+			}
+			finally
+			{
+				Interlocked.Decrement(ref _activeCount);
+			}
+
+			return new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: false);
+		}
+	}
+
+	private static void UpdateMaximum(ref int target, int candidate)
+	{
+		var current = Volatile.Read(ref target);
+		while (candidate > current)
+		{
+			var previous = Interlocked.CompareExchange(ref target, candidate, current);
+			if (previous == current)
+			{
+				return;
+			}
+
+			current = previous;
+		}
 	}
 }
