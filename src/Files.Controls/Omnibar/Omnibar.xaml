@@ -148,18 +148,18 @@
 							</Button.Resources>
 
 							<Grid>
-								<ContentPresenter
+								<IconSourceElement
 									x:Name="PART_ModeButtonInactiveIconPresenter"
 									HorizontalAlignment="Center"
 									VerticalAlignment="Center"
-									Content="{TemplateBinding IconOnInactive}"
+									IconSource="{TemplateBinding IconOnInactive}"
 									Visibility="Visible" />
 
-								<ContentPresenter
+								<IconSourceElement
 									x:Name="PART_ModeButtonActiveIconPresenter"
 									HorizontalAlignment="Center"
 									VerticalAlignment="Center"
-									Content="{TemplateBinding IconOnActive}"
+									IconSource="{TemplateBinding IconOnActive}"
 									Visibility="Collapsed" />
 							</Grid>
 						</Button>

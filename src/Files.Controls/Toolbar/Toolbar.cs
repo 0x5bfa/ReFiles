@@ -195,9 +195,9 @@ namespace Files.Controls
 			/// Reads in the ToolbarItem in the Toolbar.Items list
 			/// when iterating through them, we ignore any that do not
 			/// match the correct object of ToolbarItem
-			/// 
+			///
 			/// Then we read the porperties of each item and assign
-			/// each item to the correct lists which we will use to 
+			/// each item to the correct lists which we will use to
 			/// manage the Buttons and the Menu items
 			///
 
@@ -265,7 +265,8 @@ namespace Files.Controls
 			double largeMinWidth = (double)Application.Current.Resources[LargeMinWidthResourceKey];
 			double largeMinHeight = (double)Application.Current.Resources[LargeMinHeightResourceKey];
 
-			if (!double.IsNaN(smallMinWidth) || !double.IsNaN(smallMinHeight) || !double.IsNaN(mediumMinWidth) || !double.IsNaN(mediumMinHeight) || !double.IsNaN(largeMinWidth) || !double.IsNaN(largeMinHeight))
+			if (!double.IsNaN(smallMinWidth) || !double.IsNaN(smallMinHeight) || !double.IsNaN(mediumMinWidth) || !double.IsNaN(mediumMinHeight) ||
+				!double.IsNaN(largeMinWidth) || !double.IsNaN(largeMinHeight))
 			{
 				SetSmallMinWidth(smallMinWidth);
 				SetSmallMinHeight(smallMinHeight);
@@ -387,7 +388,7 @@ namespace Files.Controls
 			/// we have the OverflowBehavior to give us a hint.
 			/// Then we pass that item through additional sorting and
 			/// then add the relevant control to the lists.
-			/// 
+			///
 			if (item != null)
 			{
 				if (item.OverflowBehavior == OverflowBehaviors.Always)
@@ -398,13 +399,13 @@ namespace Files.Controls
 				{
 					/// Not sure if we check for space at this point, or
 					/// When we are adding items to the Private ItemList
-					/// 
+					///
 					if (item.OverflowBehavior == OverflowBehaviors.Never)
 					{
 						/// Not sure if we need to behave differently at
 						/// this stage for the items, but we can do if
 						/// it is needed.
-						/// 
+						///
 						//AddItemToItemList( SortByItemTypeForItemList( item ) );
 					}
 					else
@@ -517,7 +518,7 @@ namespace Files.Controls
 		/// is too small to display all the ToolbarItemList
 		/// items, so we can remove from the list and add to
 		/// the ToolbarItemOverflowList.
-		/// 
+		///
 		/// If the availableSize is increased, then we can move
 		/// an item that is not set with OverflowBehavior.Always
 		/// out of the ToolbarItemOverflowList, and back into
@@ -530,7 +531,7 @@ namespace Files.Controls
 			/// we check the availableSize to see if there is room
 			/// If there is room, we place it into the ItemsSource and
 			/// remove that value from the availableSize + Spacing value
-			/// 
+			///
 
 			var itemsRepeater = GetItemsRepeater();
 			if (itemsRepeater is null)
@@ -541,14 +542,14 @@ namespace Files.Controls
 			foreach (ToolbarItem item in GetToolbarItemsList())
 			{
 				/// We can get the AvailableSize
-				/// 
+				///
 				double availableSize = GetAvailableSize();
 
 				ObservableCollection<object> itemsSource = new ObservableCollection<object>();
 
 				/// Then we create the ToolbarButton, ToolbarSeparator, ToolbarToggleButton etc
 				/// for each item
-				/// 
+				///
 				if (item.ItemType == ToolbarItemTypes.Button)
 				{
 					//Add a ToolbarButton to the ItemsSource for the ItemsRepeaterPartName
@@ -592,7 +593,7 @@ namespace Files.Controls
 			/// After the sorting for the ItemsRepeater ItemsSource
 			/// whatever was put into the ToolbarItemOverflowList
 			/// is what we need to add to the Overflow Menu
-			/// 
+			///
 
 			foreach (ToolbarItem item in GetToolbarItemsOverflowList())
 			{
@@ -612,9 +613,9 @@ namespace Files.Controls
 						//menuFlyoutSubItem.IconSize = item.IconSize ;
 						//menuFlyoutSubItem.Items.Add ;
 
-						/// We will need to make child menu items for the 
+						/// We will need to make child menu items for the
 						/// ToolbarItem's flyout items.
-						/// 
+						///
 
 						/// OverflowMenuFlyout.AddMenuItem( menuFlyoutSubItem );
 					}
@@ -655,12 +656,12 @@ namespace Files.Controls
 
 		#region Create Elements
 
-		private ToolbarButton CreateToolbarButton(string label, Style iconStyle, double minWidth, double minHeight, double iconSize)
+		private ToolbarButton CreateToolbarButton(string label, ThemedIconData iconData, double minWidth, double minHeight, double iconSize)
 		{
 			ToolbarButton createdButton = new ToolbarButton
 			{
 				Label = label,
-				ThemedIcon = iconStyle,
+				ThemedIcon = iconData,
 				MinWidth = minWidth,
 				MinHeight = minHeight,
 				IconSize = iconSize,
@@ -671,12 +672,12 @@ namespace Files.Controls
 
 
 
-		private ToolbarToggleButton CreateToolbarToggleButton(string label, Style iconStyle, double minWidth, double minHeight, double iconSize, bool isChecked)
+		private ToolbarToggleButton CreateToolbarToggleButton(string label, ThemedIconData iconData, double minWidth, double minHeight, double iconSize, bool isChecked)
 		{
 			ToolbarToggleButton createdToggleButton = new ToolbarToggleButton
 			{
 				Label = label,
-				ThemedIcon = iconStyle,
+				ThemedIcon = iconData,
 				MinWidth = minWidth,
 				MinHeight = minHeight,
 				IconSize = iconSize,

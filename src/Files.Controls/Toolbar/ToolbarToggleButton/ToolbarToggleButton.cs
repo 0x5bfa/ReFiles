@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 namespace Files.Controls
@@ -92,10 +92,10 @@ namespace Files.Controls
 
 
 		/// <summary>
-		/// Updates the ToolbarButton's ThemedIcon TemplatePart's Style value
+		/// Updates the ToolbarButton's ThemedIcon data.
 		/// </summary>
-		/// <param name="newStyle"></param>
-		private void UpdateThemedIcon(Style newStyle)
+		/// <param name="newData"></param>
+		private void UpdateThemedIcon(ThemedIconData newData)
 		{
 			///
 			/// Updates the internal item's ThemedIcon
@@ -133,12 +133,12 @@ namespace Files.Controls
 
 
 		/// <summary>
-		/// Invoked when the ThemedIcon Style property has changed.
+		/// Invoked when the ThemedIcon data has changed.
 		/// </summary>
-		/// <param name="newStyle"></param>
-		private void ThemedIconChanged(Style newStyle)
+		/// <param name="newData"></param>
+		private void ThemedIconChanged(ThemedIconData newData)
 		{
-			UpdateThemedIcon(newStyle);
+			UpdateThemedIcon(newData);
 		}
 
 

@@ -69,11 +69,9 @@
 								Width="{TemplateBinding IconSize}"
 								Height="{TemplateBinding IconSize}"
 								IconSize="{TemplateBinding IconSize}"
-								IsFocusEngagementEnabled="False"
-								IsTabStop="False"
 								IsToggled="False"
 								Opacity="1"
-								Style="{TemplateBinding ThemedIcon}" />
+								Data="{TemplateBinding ThemedIcon}" />
 						</Grid>
 
 						<VisualStateManager.VisualStateGroups>

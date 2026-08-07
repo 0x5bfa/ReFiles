@@ -42,7 +42,7 @@
 				IconColorType="Custom"
 				IconSize="16"
 				IsFilled="True"
-				Style="{StaticResource App.ThemedIcons.Settings.General.FilesDefault}">
+				Data="{StaticResource App.ThemedIcons.Settings.General.FilesDefault}">
 				<controls:ThemedIcon.Color>
 					<LinearGradientBrush StartPoint="0.3,0.3" EndPoint="1,1">
 						<GradientStop Offset="0.0" Color="#9F75D3" />

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 namespace Files.Controls
@@ -11,7 +11,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="Label"/> property.
 		/// </summary>
 		public static readonly DependencyProperty LabelProperty =
-			DependencyProperty.Register(nameof(Label), typeof(string), typeof(ToolbarToggleButton), new PropertyMetadata(string.Empty, (d, e) => ((ToolbarToggleButton)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
+			DependencyProperty.Register(nameof(Label), typeof(string), typeof(ToolbarToggleButton),
+				new PropertyMetadata(string.Empty, (d, e) => ((ToolbarToggleButton)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
 
 
 
@@ -36,28 +37,30 @@ namespace Files.Controls
 
 		#endregion
 
-		#region ThemedIcon (Style)
+		#region ThemedIcon (ThemedIconData)
 
 		/// <summary>
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="ThemedIcon"/> property.
 		/// </summary>
 		public static readonly DependencyProperty ThemedIconProperty =
-			DependencyProperty.Register(nameof(ThemedIcon), typeof(Style), typeof(ToolbarToggleButton), new PropertyMetadata(null, (d, e) => ((ToolbarToggleButton)d).OnThemedIconPropertyChanged((Style)e.OldValue, (Style)e.NewValue)));
+			DependencyProperty.Register(
+				nameof(ThemedIcon), typeof(ThemedIconData), typeof(ToolbarToggleButton),
+				new PropertyMetadata(null, (d, e) => ((ToolbarToggleButton)d).OnThemedIconPropertyChanged((ThemedIconData)e.OldValue, (ThemedIconData)e.NewValue)));
 
 
 
 		/// <summary>
-		/// Gets or sets the Style value for the item's ThemedIcon
+		/// Gets or sets the data displayed by the item's ThemedIcon.
 		/// </summary>
-		public Style ThemedIcon
+		public ThemedIconData ThemedIcon
 		{
-			get => (Style)GetValue(ThemedIconProperty);
+			get => (ThemedIconData)GetValue(ThemedIconProperty);
 			set => SetValue(ThemedIconProperty, value);
 		}
 
 
 
-		protected virtual void OnThemedIconPropertyChanged(Style oldValue, Style newValue)
+		protected virtual void OnThemedIconPropertyChanged(ThemedIconData oldValue, ThemedIconData newValue)
 		{
 			if (newValue != oldValue)
 			{
@@ -70,13 +73,14 @@ namespace Files.Controls
 		#region IconSize (double)
 
 		public static readonly DependencyProperty IconSizeProperty =
-			DependencyProperty.Register(nameof(IconSize), typeof(double), typeof(ToolbarToggleButton), new PropertyMetadata((double)16, (d, e) => ((ToolbarToggleButton)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
+			DependencyProperty.Register(nameof(IconSize), typeof(double), typeof(ToolbarToggleButton),
+				new PropertyMetadata((double)16, (d, e) => ((ToolbarToggleButton)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
 
 
 
 		/// <summary>
 		/// Gets or sets a value indicating the Icon's design size.
-		/// </summary>        
+		/// </summary>
 		public double IconSize
 		{
 			get => (double)GetValue(IconSizeProperty);

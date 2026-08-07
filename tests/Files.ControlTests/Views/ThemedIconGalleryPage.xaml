@@ -59,7 +59,7 @@
 									Width="24"
 									Height="24"
 									HorizontalAlignment="Center"
-									Style="{x:Bind IconStyle}" />
+									Data="{x:Bind IconData}" />
 								<TextBlock
 									MaxLines="2"
 									Text="{x:Bind ShortName}"

@@ -23,7 +23,6 @@
 
 		<!--#region ThemedIcon-->
 		<ResourceDictionary Source="ms-appx:///Files.Controls/ThemedIcon/ThemedIcon.xaml" />
-		<ResourceDictionary Source="ms-appx:///Files.Controls/ThemedIcon/ThemedIconLayer/ThemedIconLayer.xaml" />
 		<!--#endregion-->
 
 		<!--#region ToolbarButtons-->
@@ -33,7 +32,7 @@
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarToggleButton/ToolbarToggleButton.xaml" />
 		<!--#endregion-->
 
-		<!--#region  ThemedIcon Styles-->
+		<!--#region  ThemedIcon Data-->
 		<ResourceDictionary Source="ms-appx:///Files.Controls/ThemedIcon/Styles/Icons.Common.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/ThemedIcon/Styles/Icons.New.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/ThemedIcon/Styles/Icons.Open.xaml" />

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 using CommunityToolkit.WinUI;
@@ -6,106 +6,96 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Files.Controls
 {
-	public partial class ThemedIcon : Control
+	public partial class ThemedIcon
 	{
+		/// <summary>Gets or sets the geometry displayed by the icon.</summary>
 		[GeneratedDependencyProperty]
-		public partial string? FilledIconData { get; set; }
+		public partial ThemedIconData? Data { get; set; }
 
-		[GeneratedDependencyProperty]
-		public partial string? OutlineIconData { get; set; }
-
+		/// <summary>Gets or sets the brush used when <see cref="IconColorType"/> is <see cref="ThemedIconColorType.Custom"/>.</summary>
 		[GeneratedDependencyProperty]
 		public partial Brush? Color { get; set; }
 
+		/// <summary>Gets or sets the preferred icon variant.</summary>
 		[GeneratedDependencyProperty(DefaultValue = ThemedIconTypes.Layered)]
 		public partial ThemedIconTypes IconType { get; set; }
 
+		/// <summary>Gets or sets the semantic color applied to accent layers.</summary>
 		[GeneratedDependencyProperty(DefaultValue = ThemedIconColorType.None)]
 		public partial ThemedIconColorType IconColorType { get; set; }
 
-		[GeneratedDependencyProperty(DefaultValue = 16.0d)]
+		/// <summary>Gets or sets the rendered size, or <see cref="double.NaN"/> to use <see cref="ThemedIconData.Size"/>.</summary>
+		[GeneratedDependencyProperty(DefaultValue = double.NaN)]
 		public partial double IconSize { get; set; }
 
+		/// <summary>Gets or sets whether the icon is in its toggled state.</summary>
 		[GeneratedDependencyProperty]
 		public partial bool IsToggled { get; set; }
 
+		/// <summary>Gets or sets whether the filled geometry is displayed.</summary>
 		[GeneratedDependencyProperty]
 		public partial bool IsFilled { get; set; }
 
+		/// <summary>Gets or sets whether the outline geometry is preferred for high contrast.</summary>
 		[GeneratedDependencyProperty]
 		public partial bool IsHighContrast { get; set; }
 
-		[GeneratedDependencyProperty]
-		public partial object? Layers { get; set; }
+		/// <summary>Gets or sets whether this icon is rendered in its enabled state.</summary>
+		[GeneratedDependencyProperty(DefaultValue = true)]
+		public partial bool IsEnabled { get; set; }
 
+		/// <summary>Gets or sets how an owning toggle control affects the icon variant.</summary>
 		[GeneratedDependencyProperty(DefaultValue = ToggleBehaviors.Auto)]
 		public partial ToggleBehaviors ToggleBehavior { get; set; }
 
-		partial void OnFilledIconDataChanged(string? newValue)
+		partial void OnDataChanged(ThemedIconData? newValue)
 		{
-			OnFilledIconChanged();
-		}
-
-		partial void OnOutlineIconDataChanged(string? newValue)
-		{
-			OnOutlineIconChanged();
+			UpdateDataSource();
 		}
 
 		partial void OnColorChanged(Brush? newValue)
 		{
-			OnIconTypeChanged();
-			OnIconColorChanged();
+			UpdateAppearance();
 		}
 
 		partial void OnIconTypeChanged(ThemedIconTypes newValue)
 		{
-			OnIconTypeChanged();
+			UpdateAppearance();
 		}
 
 		partial void OnIconColorTypeChanged(ThemedIconColorType newValue)
 		{
-			OnIconColorTypeChanged();
+			UpdateAppearance();
 		}
 
 		partial void OnIconSizeChanged(double newValue)
 		{
-			UpdateVisualStates();
-			OnIconSizeChanged();
+			UpdateAppearance();
 		}
 
 		partial void OnIsToggledChanged(bool newValue)
 		{
-			UpdateVisualStates();
+			UpdateAppearance();
 		}
 
 		partial void OnIsFilledChanged(bool newValue)
 		{
-			UpdateVisualStates();
+			UpdateAppearance();
 		}
 
 		partial void OnIsHighContrastChanged(bool newValue)
 		{
-			UpdateVisualStates();
+			UpdateAppearance();
 		}
 
-		partial void OnLayersChanged(object? newValue)
+		partial void OnIsEnabledChanged(bool newValue)
 		{
-			UpdateVisualStates();
+			UpdateAppearance();
 		}
 
 		partial void OnToggleBehaviorChanged(ToggleBehaviors newValue)
 		{
-			UpdateVisualStates();
-		}
-
-		private void OnStylePropertyChanged(DependencyObject sender, DependencyProperty dp)
-		{
-			if (dp != StyleProperty)
-			{
-				return;
-			}
-
-			DispatcherQueue.TryEnqueue(() => { GetTemplateParts(); OnFilledIconChanged(); OnOutlineIconChanged(); OnLayeredIconChanged(); OnIconTypeChanged(); OnIconColorTypeChanged(); OnIconSizeChanged(); });
+			UpdateAppearance();
 		}
 	}
 }

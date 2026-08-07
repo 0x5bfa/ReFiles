@@ -3,6 +3,7 @@
 
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Files.Controls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -15,7 +16,7 @@ namespace Files.ControlTests.Views
 	{
 		public string Key { get; set; } = string.Empty;
 		public string ShortName { get; set; } = string.Empty;
-		public Style? IconStyle { get; set; }
+		public ThemedIconData? IconData { get; set; }
 	}
 
 	public sealed partial class ThemedIconGalleryPage : Page
@@ -34,37 +35,40 @@ namespace Files.ControlTests.Views
 
 		private static IReadOnlyList<IconGalleryEntry> BuildEntries()
 		{
-			var iconStyles = new Dictionary<string, Style>(StringComparer.Ordinal);
-			CollectIconStyles(Application.Current.Resources, iconStyles);
+			var iconData = new Dictionary<string, ThemedIconData>(StringComparer.Ordinal);
+			CollectIconData(Application.Current.Resources, iconData);
 
-			return iconStyles
+			return iconData
 				.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
-				.Select(x => new IconGalleryEntry { Key = x.Key, ShortName = x.Key[IconKeyPrefix.Length..], IconStyle = x.Value, })
+				.Select(x => new IconGalleryEntry { Key = x.Key, ShortName = x.Key[IconKeyPrefix.Length..], IconData = x.Value, })
 				.ToList();
 		}
 
-		private static void CollectIconStyles(ResourceDictionary dictionary, IDictionary<string, Style> iconStyles)
+		private static void CollectIconData(ResourceDictionary dictionary, IDictionary<string, ThemedIconData> iconData)
 		{
 			foreach (var key in dictionary.Keys)
 			{
-				if (key is not string resourceKey || !resourceKey.StartsWith(IconKeyPrefix, StringComparison.Ordinal) || !dictionary.TryGetValue(key, out var resourceValue) || resourceValue is not Style style)
+				if (key is not string resourceKey ||
+					!resourceKey.StartsWith(IconKeyPrefix, StringComparison.Ordinal) ||
+					!dictionary.TryGetValue(key, out var resourceValue) ||
+					resourceValue is not ThemedIconData data)
 				{
 					continue;
 				}
 
-				iconStyles[resourceKey] = style;
+				iconData[resourceKey] = data;
 			}
 
 			foreach (var mergedDictionary in dictionary.MergedDictionaries)
 			{
-				CollectIconStyles(mergedDictionary, iconStyles);
+				CollectIconData(mergedDictionary, iconData);
 			}
 
 			foreach (var themeDictionary in dictionary.ThemeDictionaries)
 			{
 				if (themeDictionary.Value is ResourceDictionary themedResourceDictionary)
 				{
-					CollectIconStyles(themedResourceDictionary, iconStyles);
+					CollectIconData(themedResourceDictionary, iconData);
 				}
 			}
 		}

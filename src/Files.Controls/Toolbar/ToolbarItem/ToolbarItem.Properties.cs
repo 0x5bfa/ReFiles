@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 using Microsoft.UI.Xaml.Input;
@@ -83,7 +83,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="Label"/> property.
 		/// </summary>
 		public static readonly DependencyProperty LabelProperty =
-			DependencyProperty.Register(nameof(Label), typeof(string), typeof(ToolbarItem), new PropertyMetadata(string.Empty, (d, e) => ((ToolbarItem)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
+			DependencyProperty.Register(nameof(Label), typeof(string), typeof(ToolbarItem),
+				new PropertyMetadata(string.Empty, (d, e) => ((ToolbarItem)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
 
 
 
@@ -143,7 +144,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="Content"/> property.
 		/// </summary>
 		public static readonly DependencyProperty ContentProperty =
-			DependencyProperty.Register(nameof(Content), typeof(object), typeof(ToolbarItem), new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnContentPropertyChanged((object)e.OldValue, (object)e.NewValue)));
+			DependencyProperty.Register(nameof(Content), typeof(object), typeof(ToolbarItem),
+				new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnContentPropertyChanged((object)e.OldValue, (object)e.NewValue)));
 
 
 
@@ -168,28 +170,30 @@ namespace Files.Controls
 
 		#endregion
 
-		#region ThemedIcon (style)
+		#region ThemedIcon (ThemedIconData)
 
 		/// <summary>
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="ThemedIcon"/> property.
 		/// </summary>
 		public static readonly DependencyProperty ThemedIconProperty =
-			DependencyProperty.Register(nameof(ThemedIcon), typeof(Style), typeof(ToolbarItem), new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnThemedIconPropertyChanged((Style)e.OldValue, (Style)e.NewValue)));
+			DependencyProperty.Register(
+				nameof(ThemedIcon), typeof(ThemedIconData), typeof(ToolbarItem),
+				new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnThemedIconPropertyChanged((ThemedIconData)e.OldValue, (ThemedIconData)e.NewValue)));
 
 
 
 		/// <summary>
-		/// Gets or sets the Style value for the item's ThemedIcon
+		/// Gets or sets the data displayed by the item's ThemedIcon.
 		/// </summary>
-		public Style ThemedIcon
+		public ThemedIconData ThemedIcon
 		{
-			get => (Style)GetValue(ThemedIconProperty);
+			get => (ThemedIconData)GetValue(ThemedIconProperty);
 			set => SetValue(ThemedIconProperty, value);
 		}
 
 
 
-		protected virtual void OnThemedIconPropertyChanged(Style oldValue, Style newValue)
+		protected virtual void OnThemedIconPropertyChanged(ThemedIconData oldValue, ThemedIconData newValue)
 		{
 			if (newValue != oldValue)
 			{
@@ -202,13 +206,14 @@ namespace Files.Controls
 		#region IconSize (double)
 
 		public static readonly DependencyProperty IconSizeProperty =
-			DependencyProperty.Register(nameof(IconSize), typeof(double), typeof(ToolbarItem), new PropertyMetadata((double)16, (d, e) => ((ToolbarItem)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
+			DependencyProperty.Register(nameof(IconSize), typeof(double), typeof(ToolbarItem),
+				new PropertyMetadata((double)16, (d, e) => ((ToolbarItem)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
 
 
 
 		/// <summary>
 		/// Gets or sets a value indicating the Icon's design size.
-		/// </summary>        
+		/// </summary>
 		public double IconSize
 		{
 			get => (double)GetValue(IconSizeProperty);
@@ -233,7 +238,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="IsChecked"/> property.
 		/// </summary>
 		public static readonly DependencyProperty IsCheckedProperty =
-			DependencyProperty.Register(nameof(IsChecked), typeof(bool), typeof(ToolbarItem), new PropertyMetadata(false, (d, e) => ((ToolbarItem)d).OnIsCheckedPropertyChanged((bool)e.OldValue, (bool)e.NewValue)));
+			DependencyProperty.Register(nameof(IsChecked), typeof(bool), typeof(ToolbarItem),
+				new PropertyMetadata(false, (d, e) => ((ToolbarItem)d).OnIsCheckedPropertyChanged((bool)e.OldValue, (bool)e.NewValue)));
 
 
 
@@ -299,7 +305,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="GroupName"/> property.
 		/// </summary>
 		public static readonly DependencyProperty GroupNameProperty =
-			DependencyProperty.Register(nameof(GroupName), typeof(string), typeof(ToolbarItem), new PropertyMetadata(string.Empty, (d, e) => ((ToolbarItem)d).OnGroupNamePropertyChanged((string)e.OldValue, (string)e.NewValue)));
+			DependencyProperty.Register(nameof(GroupName), typeof(string), typeof(ToolbarItem),
+				new PropertyMetadata(string.Empty, (d, e) => ((ToolbarItem)d).OnGroupNamePropertyChanged((string)e.OldValue, (string)e.NewValue)));
 
 
 
@@ -330,7 +337,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="Command"/> property.
 		/// </summary>
 		public static readonly DependencyProperty CommandProperty =
-			DependencyProperty.Register(nameof(Command), typeof(XamlUICommand), typeof(ToolbarItem), new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnCommandPropertyChanged((XamlUICommand)e.OldValue, (XamlUICommand)e.NewValue)));
+			DependencyProperty.Register(nameof(Command), typeof(XamlUICommand), typeof(ToolbarItem),
+				new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnCommandPropertyChanged((XamlUICommand)e.OldValue, (XamlUICommand)e.NewValue)));
 
 
 
@@ -361,7 +369,8 @@ namespace Files.Controls
 		/// The backing <see cref="DependencyProperty"/> for the <see cref="CommandParameter"/> property.
 		/// </summary>
 		public static readonly DependencyProperty CommandParameterProperty =
-			DependencyProperty.Register(nameof(CommandParameter), typeof(object), typeof(ToolbarItem), new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnCommandParameterPropertyChanged((object)e.OldValue, (object)e.NewValue)));
+			DependencyProperty.Register(nameof(CommandParameter), typeof(object), typeof(ToolbarItem),
+				new PropertyMetadata(null, (d, e) => ((ToolbarItem)d).OnCommandParameterPropertyChanged((object)e.OldValue, (object)e.NewValue)));
 
 
 

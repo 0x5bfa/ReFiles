@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 using Microsoft.UI.Xaml.Input;
@@ -20,34 +20,34 @@ namespace Files.Controls
 			/// We want to intercept the Item Type that is set
 			/// and then ensure we choose the correct control to
 			/// map it to internally.
-			/// 
+			///
 			/// ToolbarItemTypes.Content
 			/// => ContentPresenter
-			/// 
+			///
 			/// ToolbarItemTypes.Button
 			/// => ToolbarButton
 			/// => FlyoutMenuItemEx
-			/// 
+			///
 			/// ToolbarItemTypes.Flyout
 			/// => ToolbarFlyoutButton
 			/// => MenuFlyoutSubItemEx
-			/// 
+			///
 			/// ToolbarItemTypes.Radio
 			/// => ToolbarRadioButton
 			/// => MenuFlyoutRadioItemEx
-			/// 
+			///
 			/// ToolbarItemTypes.Separator
 			/// => ToolbarSeparator
 			/// => MenuFlyoutSeparator
-			/// 
+			///
 			/// ToolbarItemTypes.Split
 			/// => ToolbarSplitButton
 			/// => MenuFlyoutSubItem => MenuFlyoutItem (for the split buttons main command)
-			/// 
+			///
 			/// ToolbarItemTypes.Toggle
 			/// => ToolbarToggleButton
 			/// => MenuFlyoutToggleItemEx
-			/// 
+			///
 		}
 
 
@@ -82,7 +82,7 @@ namespace Files.Controls
 
 
 
-		private void UpdateThemedIcon(Style newStyle)
+		private void UpdateThemedIcon(ThemedIconData newData)
 		{
 			///
 			/// Updates the internal item's ThemedIcon
@@ -117,7 +117,7 @@ namespace Files.Controls
 			///
 			/// Updates the internal item's
 			/// Command as it changes.
-			/// 
+			///
 			/// If the internal item is a Button, this will
 			/// set the Click event handler, otherwise we pass
 			/// it onto the overflow menu item's Command property.
@@ -131,9 +131,9 @@ namespace Files.Controls
 			///
 			/// Updates the internal item's
 			/// CommandParameter as it changes.
-			/// 
+			///
 			/// Not sure if this is relevent to the buttons,
-			/// but we pass this onto the MenuFlyoutItemEx's 
+			/// but we pass this onto the MenuFlyoutItemEx's
 			/// CommandParameter property.
 			///
 		}
@@ -146,15 +146,15 @@ namespace Files.Controls
 			/// When we get our ToolbarItem collection, we need to read their
 			/// OverflowBehavior value and decide if that item belongs in the
 			/// ToolbarItemList list, or in the ToolbarItemOverflowList list.
-			/// 
+			///
 			/// OverflowBehaviours.Auto
 			/// The ToolbarItem only moves to Overflow if
 			/// there is not enough space in the Toolbar.
-			/// 
+			///
 			/// OverflowBehaviours.Always
 			/// The ToolbarItem is placed in the Overflow
 			/// menu even if there is enough room in the Toolbar.
-			/// 
+			///
 			/// OverflowBehaviours.Never
 			/// The ToolbarItem is never placed in the Overflow
 			/// menu, even when there is insufficiant room, and so
@@ -235,9 +235,9 @@ namespace Files.Controls
 
 
 
-		private void ThemedIconChanged(Style newStyle)
+		private void ThemedIconChanged(ThemedIconData newData)
 		{
-			UpdateThemedIcon(newStyle);
+			UpdateThemedIcon(newData);
 		}
 
 
@@ -295,29 +295,29 @@ namespace Files.Controls
 		///
 		/// Properties on this ToolbarItem control will be mapped
 		/// onto the other controls we use to handle these items
-		/// 
+		///
 		/// Label
 		/// => MenuItemEx.Text
 		/// => ToolbarButton.Label
-		///		  
-		/// ThemedIcon 
+		///
+		/// ThemedIcon
 		/// => MenuItemEx.ThemedIcon(Style)
 		/// => ToolbarButton.ThemedIcon(Style)
 		///
 		/// GroupName
 		/// => RadioMenuFlyoutItemEx.GroupName
 		/// => ToolbarRadioButton.GroupName
-		/// 
-		/// KeyboardAcceleratorTextOverride 
+		///
+		/// KeyboardAcceleratorTextOverride
 		/// => MenuItemEx.KeyboardAcceleratorTextOverride
 		/// => ToolbarButton => Tooltip = Label + KeyboardAcceleratorTextOverride
-		/// 
+		///
 		/// Command
 		/// => MenuItemEx.Command
 		/// => ToolbarButton.Click event
 		/// => ToolbarSplitButton.Click event
 		/// => ToolbarToggleButton.OnToggle event
-		/// 
+		///
 
 		#endregion
 	}

@@ -59,10 +59,8 @@
 							Width="{TemplateBinding IconSize}"
 							Height="{TemplateBinding IconSize}"
 							IconSize="{TemplateBinding IconSize}"
-							IsFocusEngagementEnabled="False"
-							IsTabStop="False"
 							Opacity="1"
-							Style="{TemplateBinding ThemedIcon}" />
+							Data="{TemplateBinding ThemedIcon}" />
 
 						<VisualStateManager.VisualStateGroups>
 

@@ -1,284 +1,134 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
-using Microsoft.UI.Xaml.Markup;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Shapes;
+using CommunityToolkit.WinUI;
+using Microsoft.UI.Xaml.Controls.Primitives;
 
 namespace Files.Controls
 {
 	/// <summary>
-	/// A control for a State and Color aware Icon
+	/// Displays a state-aware, color-aware icon that can be used in <see cref="IconElement"/> properties.
 	/// </summary>
-	public partial class ThemedIcon : Control
+	public partial class ThemedIcon : AnimatedIcon
 	{
-		private Viewbox? _filledViewBox;
+		private Control? _ownerControl;
+		private ToggleButton? _ownerToggleButton;
+		private ThemedIconVisualSource? _visualSource;
 
-		private Viewbox? _outlineViewBox;
-
-		private Viewbox? _layeredViewBox;
-
-		private Canvas? _layeredCanvas;
-
-		private long _stylePropertyChangedToken;
-
+		/// <summary>Initializes a themed icon.</summary>
 		public ThemedIcon()
 		{
-			DefaultStyleKey = typeof(ThemedIcon);
-			_stylePropertyChangedToken = RegisterPropertyChangedCallback(StyleProperty, OnStylePropertyChanged);
-
+			Loaded += OnLoaded;
 			Unloaded += OnUnloaded;
+			ActualThemeChanged += OnActualThemeChanged;
+			_ = RegisterPropertyChangedCallback(ForegroundProperty, OnForegroundPropertyChanged);
 		}
 
-		protected override void OnApplyTemplate()
+		private void OnLoaded(object sender, RoutedEventArgs args)
 		{
-			base.OnApplyTemplate();
-
-			IsEnabledChanged += OnIsEnabledChanged;
-
-			_isOwnerEnabled = IsEnabled;
-
-			GetTemplateParts();
-
-			FindOwnerControlStates();
-			OnFilledIconChanged();
-			OnOutlineIconChanged();
-			OnLayeredIconChanged();
-
-			OnIconTypeChanged();
-			OnIconColorTypeChanged();
-			OnIconSizeChanged();
+			AttachOwner();
+			UpdateDataSource();
 		}
 
-		private void OnUnloaded(object sender, RoutedEventArgs e)
+		private void OnUnloaded(object sender, RoutedEventArgs args)
 		{
-			UnregisterPropertyChangedCallback(StyleProperty, _stylePropertyChangedToken);
-			IsEnabledChanged -= OnIsEnabledChanged;
-			Unloaded -= OnUnloaded;
+			DetachOwner();
 		}
 
-		private void GetTemplateParts()
+		private void OnActualThemeChanged(FrameworkElement sender, object args)
 		{
-			// Gets the template parts and sets the private fields
-			_outlineViewBox = GetTemplateChild(OutlinePathIconViewBox) as Viewbox;
-			_filledViewBox = GetTemplateChild(FilledPathIconViewBox) as Viewbox;
-			_layeredViewBox = GetTemplateChild(LayeredPathIconViewBox) as Viewbox;
-
-			_layeredCanvas = GetTemplateChild(LayeredPathCanvas) as Canvas;
+			UpdateAppearance();
 		}
 
-		// Updates paths and layers
-
-		private void OnFilledIconChanged()
+		private void OnForegroundPropertyChanged(DependencyObject sender, DependencyProperty property)
 		{
-			// Updates Filled Icon from Path Data
-			if (_filledViewBox == null)
+			UpdateAppearance();
+		}
+
+		private void AttachOwner()
+		{
+			var ownerControl = this.FindAscendant<Control>();
+			var ownerToggleButton = this.FindAscendant<ToggleButton>();
+			if (ReferenceEquals(_ownerControl, ownerControl) && ReferenceEquals(_ownerToggleButton, ownerToggleButton))
 			{
 				return;
 			}
 
-			SetPathData(FilledIconPath, FilledIconData ?? string.Empty, _filledViewBox);
+			DetachOwner();
+			_ownerControl = ownerControl;
+			_ownerToggleButton = ownerToggleButton;
+			_ownerControl?.IsEnabledChanged += OnOwnerEnabledChanged;
+			_ownerToggleButton?.Checked += OnOwnerToggleChanged;
+			_ownerToggleButton?.Unchecked += OnOwnerToggleChanged;
 		}
 
-		private void OnOutlineIconChanged()
+		private void DetachOwner()
 		{
-			// Updates Outline Icon from Path Data
-			if (_outlineViewBox == null)
+			_ownerControl?.IsEnabledChanged -= OnOwnerEnabledChanged;
+			_ownerControl = null;
+			_ownerToggleButton?.Checked -= OnOwnerToggleChanged;
+			_ownerToggleButton?.Unchecked -= OnOwnerToggleChanged;
+			_ownerToggleButton = null;
+		}
+
+		private void OnOwnerEnabledChanged(object sender, DependencyPropertyChangedEventArgs args)
+		{
+			UpdateAppearance();
+		}
+
+		private void OnOwnerToggleChanged(object sender, RoutedEventArgs args)
+		{
+			UpdateAppearance();
+		}
+
+		private void UpdateAppearance()
+		{
+			if (!IsLoaded)
 			{
 				return;
 			}
 
-			SetPathData(OutlineIconPath, OutlineIconData ?? string.Empty, _outlineViewBox);
+			var isToggled = ToggleBehavior is ToggleBehaviors.On || (ToggleBehavior is ToggleBehaviors.Auto && (IsToggled || _ownerToggleButton?.IsChecked is true));
+			var isEnabled = IsEnabled && _ownerControl?.IsEnabled is not false;
+			var effectiveSize = GetEffectiveSize();
+			var isHighContrast = IsHighContrast || GetHighContrastResource();
+			var data = Data ?? ThemedIconData.Default;
+			if (_visualSource is null || !_visualSource.UpdateAppearance(IconType, IconColorType, IsFilled, isToggled, isEnabled, isHighContrast, Foreground, Color, true))
+			{
+				_visualSource = new ThemedIconVisualSource(data, IconType, IconColorType, IsFilled, isToggled, isEnabled, isHighContrast, Foreground, Color, true);
+				Source = _visualSource;
+			}
+
+			Width = effectiveSize;
+			Height = effectiveSize;
 		}
 
-		private void OnLayeredIconChanged()
+		private void UpdateDataSource()
 		{
-			// Updates Layered Icon from it's Layers
-			if (_layeredViewBox == null || _layeredCanvas == null || Layers is not ICollection<ThemedIconLayer> layers)
+			if (!IsLoaded)
 			{
 				return;
 			}
 
-			_layeredCanvas.Children.Clear();
-
-			foreach (var layer in layers)
-			{
-				_layeredCanvas.Children.Add(
-					new ThemedIconLayer()
-					{
-						LayerType = layer.LayerType,
-						IconColorType = layer.IconColorType,
-						PathData = layer.PathData,
-						Opacity = layer.Opacity,
-						LayerColor = Color,
-						Foreground = Foreground,
-						HorizontalAlignment = HorizontalAlignment.Stretch,
-						VerticalAlignment = VerticalAlignment.Stretch,
-						LayerSize = IconSize,
-						Width = layer.LayerSize,
-						Height = layer.LayerSize
-
-					});
-			}
+			_visualSource = null;
+			UpdateAppearance();
 		}
 
-		// Updates visual states
-
-		private void OnIconTypeChanged()
+		private double GetEffectiveSize()
 		{
-			switch (ToggleBehavior)
+			if (!double.IsNaN(IconSize))
 			{
-				case ToggleBehaviors.Auto:
-					{
-						if (_isOwnerToggled is true || IsFilled is true)
-						{
-							VisualStateManager.GoToState(this, FilledTypeStateName, true);
-
-							return;
-						}
-						else if (IsHighContrast is true || _isOwnerEnabled is false || IsEnabled is false)
-						{
-							VisualStateManager.GoToState(this, OutlineTypeStateName, true);
-							VisualStateManager.GoToState(this, DisabledStateName, true);
-
-							return;
-						}
-						else
-						{
-							VisualStateManager.GoToState(this, IconType is ThemedIconTypes.Layered ? LayeredTypeStateName : OutlineTypeStateName, true);
-						}
-					}
-					break;
-				case ToggleBehaviors.Off:
-					{
-						if (IsFilled is true)
-						{
-							VisualStateManager.GoToState(this, FilledTypeStateName, true);
-
-							return;
-						}
-						else if (IsHighContrast is true || _isOwnerEnabled is false || IsEnabled is false)
-						{
-							VisualStateManager.GoToState(this, OutlineTypeStateName, true);
-							VisualStateManager.GoToState(this, DisabledStateName, true);
-
-							return;
-						}
-						else
-						{
-							VisualStateManager.GoToState(this, IconType is ThemedIconTypes.Layered ? LayeredTypeStateName : OutlineTypeStateName, true);
-						}
-					}
-					break;
-				case ToggleBehaviors.On:
-					{
-						VisualStateManager.GoToState(this, FilledTypeStateName, true);
-					}
-					break;
+				return double.IsFinite(IconSize) && IconSize > 0 ? IconSize : 16;
 			}
 
-			VisualStateManager.GoToState(this, EnabledStateName, true);
+			var dataSize = Data?.Size ?? ThemedIconData.Default.Size;
+
+			return double.IsFinite(dataSize) && dataSize > 0 ? dataSize : 16;
 		}
 
-		private void OnIconColorTypeChanged()
+		private static bool GetHighContrastResource()
 		{
-			if (_isOwnerEnabled && IsEnabled)
-			{
-				if ((ToggleBehavior is ToggleBehaviors.Auto && _isOwnerToggled) || ToggleBehavior is ToggleBehaviors.On)
-				{
-					// Toggle
-					VisualStateManager.GoToState(this, ToggleStateName, true);
-				}
-				else
-				{
-					// Use colorful ones
-					VisualStateManager.GoToState(
-						this,
-						IconColorType switch
-						{
-							ThemedIconColorType.Critical => CriticalStateName,
-							ThemedIconColorType.Caution => CautionStateName,
-							ThemedIconColorType.Success => SuccessStateName,
-							ThemedIconColorType.Neutral => NeutralStateName,
-							ThemedIconColorType.Accent => AccentStateName,
-							ThemedIconColorType.Custom => CustomColorStateName,
-							_ => NormalStateName,
-						},
-						true);
-				}
-
-				// Update layered icon color
-				if (_layeredCanvas != null)
-				{
-					foreach (var layer in _layeredCanvas.Children.Cast<ThemedIconLayer>())
-					{
-						layer.IconColorType = IconColorType;
-					}
-				}
-			}
-			else
-			{
-				// Disable + toggle
-				if ((ToggleBehavior is ToggleBehaviors.Auto && _isOwnerToggled is true) || ToggleBehavior is ToggleBehaviors.On)
-				{
-					VisualStateManager.GoToState(this, DisabledToggleColorStateName, true);
-				}
-				// Disable
-				else
-				{
-					VisualStateManager.GoToState(this, DisabledColorStateName, true);
-				}
-			}
-		}
-
-		// Misc
-
-		private void UpdateVisualStates()
-		{
-			OnIconTypeChanged();
-			OnIconColorTypeChanged();
-		}
-
-		private void SetPathData(string partName, string pathData, FrameworkElement element)
-		{
-			// Updates PathData
-			if (string.IsNullOrEmpty(pathData))
-			{
-				return;
-			}
-
-			var geometry = (Geometry)XamlReader.Load(
-				$"<Geometry xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'>{pathData}</Geometry>");
-
-			if (GetTemplateChild(partName) is Path path)
-			{
-				path.Data = geometry;
-				path.Width = IconSize;
-				path.Height = IconSize;
-			}
-		}
-
-		private void OnIsEnabledChanged(object sender, DependencyPropertyChangedEventArgs e)
-		{
-			UpdateVisualStates();
-		}
-
-		private void OnIconColorChanged()
-		{
-			if (GetTemplateChild(OutlineIconPath) is Path outlinePath)
-			{
-				outlinePath.Fill = (Brush)this.GetValue(ColorProperty);
-			}
-
-			if (GetTemplateChild(FilledIconPath) is Path fillPath)
-			{
-				fillPath.Fill = (Brush)this.GetValue(ColorProperty);
-			}
-		}
-
-		private void OnIconSizeChanged()
-		{
-			Height = Width = IconSize;
+			return Application.Current?.Resources.TryGetValue("ThemedIconHighContrast", out var value) is true && value is true;
 		}
 	}
 }

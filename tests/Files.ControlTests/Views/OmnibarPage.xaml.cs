@@ -11,7 +11,7 @@ namespace Files.ControlTests.Views
 {
 	public sealed partial class OmnibarPage : Page
 	{
-		private readonly string Omnibar1_TextMemberPathForPaletteMode = nameof(OmnibarPaletteSuggestionItem.Title);
+		private string Omnibar1_TextMemberPathForPaletteMode => nameof(OmnibarPaletteSuggestionItem.Title);
 
 		private readonly ObservableCollection<OmnibarPaletteSuggestionItem> Omnibar1_PaletteSuggestions;
 		private readonly ObservableCollection<BreadcrumbBarItemModel> Omnibar1_BreadcrumbBarItems;

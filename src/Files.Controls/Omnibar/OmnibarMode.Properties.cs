@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.WinUI;
@@ -23,10 +23,10 @@ namespace Files.Controls
 		public partial FrameworkElement? ContentOnInactive { get; set; }
 
 		[GeneratedDependencyProperty]
-		public partial FrameworkElement? IconOnActive { get; set; }
+		public partial IconSource? IconOnActive { get; set; }
 
 		[GeneratedDependencyProperty]
-		public partial FrameworkElement? IconOnInactive { get; set; }
+		public partial IconSource? IconOnInactive { get; set; }
 
 		[GeneratedDependencyProperty]
 		/// <remark>

@@ -11,14 +11,43 @@
 
 	<Page.Resources>
 		<ResourceDictionary>
-			<Style
-				x:Key="IconTest"
-				BasedOn="{StaticResource App.ThemedIcons.SetSlideshow.16}"
-				TargetType="controls:ThemedIcon" />
+			<StaticResource x:Key="IconTest" ResourceKey="App.ThemedIcons.SetSlideshow.16" />
 		</ResourceDictionary>
 	</Page.Resources>
 
 	<StackPanel Spacing="24">
+		<controls:SamplePanel Header="IconElement properties">
+			<controls:SamplePanel.MainContent>
+				<StackPanel Spacing="12">
+					<StackPanel Orientation="Horizontal" Spacing="12">
+						<AppBarButton Label="Direct element">
+							<AppBarButton.Icon>
+								<controls:ThemedIcon Data="{StaticResource IconTest}" />
+							</AppBarButton.Icon>
+						</AppBarButton>
+						<AppBarToggleButton Label="Direct toggle element">
+							<AppBarToggleButton.Icon>
+								<controls:ThemedIcon Data="{StaticResource IconTest}" />
+							</AppBarToggleButton.Icon>
+						</AppBarToggleButton>
+						<Button Content="MenuFlyoutItem.Icon">
+							<Button.Flyout>
+								<MenuFlyout>
+									<MenuFlyoutItem Text="Themed icon element">
+										<MenuFlyoutItem.Icon>
+											<controls:ThemedIcon
+												IconColorType="Critical"
+												IconType="Layered"
+												Data="{StaticResource IconTest}" />
+										</MenuFlyoutItem.Icon>
+									</MenuFlyoutItem>
+								</MenuFlyout>
+							</Button.Flyout>
+						</Button>
+					</StackPanel>
+				</StackPanel>
+			</controls:SamplePanel.MainContent>
+		</controls:SamplePanel>
 
 		<!--  Icon Types and Colors  -->
 		<controls:SamplePanel Header="Icon Types and Colors">
@@ -109,21 +138,21 @@
 						Grid.Column="1"
 						IconColorType="Normal"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="1"
 						Grid.Column="2"
 						IconColorType="Normal"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="1"
 						Grid.Column="3"
 						IconColorType="Normal"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Disabled Icons Row 2  -->
 					<controls:ThemedIcon
@@ -131,19 +160,19 @@
 						Grid.Column="1"
 						IconType="Layered"
 						IsEnabled="False"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 					<controls:ThemedIcon
 						Grid.Row="2"
 						Grid.Column="2"
 						IsEnabled="False"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 					<controls:ThemedIcon
 						Grid.Row="2"
 						Grid.Column="3"
 						IconType="Outline"
 						IsEnabled="False"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Success Icons Row 3  -->
 					<controls:ThemedIcon
@@ -151,19 +180,19 @@
 						Grid.Column="1"
 						IconColorType="Success"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 					<controls:ThemedIcon
 						Grid.Row="3"
 						Grid.Column="2"
 						IconColorType="Success"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 					<controls:ThemedIcon
 						Grid.Row="3"
 						Grid.Column="3"
 						IconColorType="Success"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Caution Icons Row 4  -->
 					<controls:ThemedIcon
@@ -171,21 +200,21 @@
 						Grid.Column="1"
 						IconColorType="Caution"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="4"
 						Grid.Column="2"
 						IconColorType="Caution"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="4"
 						Grid.Column="3"
 						IconColorType="Caution"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Critical Icons Row 5  -->
 					<controls:ThemedIcon
@@ -193,21 +222,21 @@
 						Grid.Column="1"
 						IconColorType="Critical"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="5"
 						Grid.Column="2"
 						IconColorType="Critical"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="5"
 						Grid.Column="3"
 						IconColorType="Critical"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Accent Icons Row 6  -->
 					<controls:ThemedIcon
@@ -215,21 +244,21 @@
 						Grid.Column="1"
 						IconColorType="Accent"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="6"
 						Grid.Column="2"
 						IconColorType="Accent"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="6"
 						Grid.Column="3"
 						IconColorType="Accent"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Neutral Icons Row 7  -->
 					<controls:ThemedIcon
@@ -237,21 +266,21 @@
 						Grid.Column="1"
 						IconColorType="Neutral"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="7"
 						Grid.Column="2"
 						IconColorType="Neutral"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="7"
 						Grid.Column="3"
 						IconColorType="Neutral"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Custom Icons Row 8  -->
 					<controls:ThemedIcon
@@ -260,7 +289,7 @@
 						Foreground="Cyan"
 						IconColorType="Custom"
 						IconType="Layered"
-						Style="{StaticResource IconTest}">
+						Data="{StaticResource IconTest}">
 						<controls:ThemedIcon.Color>
 							<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
 								<GradientStop Offset="0.0" Color="PaleVioletRed" />
@@ -274,7 +303,7 @@
 						Grid.Column="2"
 						IconColorType="Custom"
 						IsFilled="True"
-						Style="{StaticResource IconTest}">
+						Data="{StaticResource IconTest}">
 						<controls:ThemedIcon.Color>
 							<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
 								<GradientStop Offset="0.0" Color="PaleGoldenrod" />
@@ -288,7 +317,7 @@
 						Grid.Column="3"
 						IconColorType="Custom"
 						IconType="Outline"
-						Style="{StaticResource IconTest}">
+						Data="{StaticResource IconTest}">
 						<controls:ThemedIcon.Color>
 							<LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
 								<GradientStop Offset="0.0" Color="PaleTurquoise" />
@@ -315,15 +344,15 @@
 						<controls:ThemedIcon
 							IconType="Layered"
 							IsHighContrast="{x:Bind ContrastToggle.IsOn, Mode=TwoWay}"
-							Style="{StaticResource IconTest}" />
+							Data="{StaticResource IconTest}" />
 						<controls:ThemedIcon
 							IsFilled="True"
 							IsHighContrast="{x:Bind ContrastToggle.IsOn, Mode=TwoWay}"
-							Style="{StaticResource IconTest}" />
+							Data="{StaticResource IconTest}" />
 						<controls:ThemedIcon
 							IconType="Outline"
 							IsHighContrast="{x:Bind ContrastToggle.IsOn, Mode=TwoWay}"
-							Style="{StaticResource IconTest}" />
+							Data="{StaticResource IconTest}" />
 					</StackPanel>
 
 					<TextBlock Text="ToggleBehavior On:" />
@@ -337,15 +366,15 @@
 						Spacing="16">
 						<controls:ThemedIcon
 							IconType="Layered"
-							Style="{StaticResource IconTest}"
+							Data="{StaticResource IconTest}"
 							ToggleBehavior="On" />
 						<controls:ThemedIcon
 							IsFilled="True"
-							Style="{StaticResource IconTest}"
+							Data="{StaticResource IconTest}"
 							ToggleBehavior="On" />
 						<controls:ThemedIcon
 							IconType="Outline"
-							Style="{StaticResource IconTest}"
+							Data="{StaticResource IconTest}"
 							ToggleBehavior="On" />
 					</StackPanel>
 
@@ -361,17 +390,17 @@
 						<controls:ThemedIcon
 							IconType="Layered"
 							IsEnabled="False"
-							Style="{StaticResource IconTest}"
+							Data="{StaticResource IconTest}"
 							ToggleBehavior="On" />
 						<controls:ThemedIcon
 							IsEnabled="False"
 							IsFilled="True"
-							Style="{StaticResource IconTest}"
+							Data="{StaticResource IconTest}"
 							ToggleBehavior="On" />
 						<controls:ThemedIcon
 							IconType="Outline"
 							IsEnabled="False"
-							Style="{StaticResource IconTest}"
+							Data="{StaticResource IconTest}"
 							ToggleBehavior="On" />
 					</StackPanel>
 
@@ -384,11 +413,11 @@
 						<controls:ThemedIcon
 							IconType="Layered"
 							IsFilled="{x:Bind FilledToggle.IsOn, Mode=TwoWay}"
-							Style="{StaticResource IconTest}" />
+							Data="{StaticResource IconTest}" />
 						<controls:ThemedIcon
 							IconType="Outline"
 							IsFilled="{x:Bind FilledToggle.IsOn, Mode=TwoWay}"
-							Style="{StaticResource IconTest}" />
+							Data="{StaticResource IconTest}" />
 					</StackPanel>
 
 				</StackPanel>
@@ -428,7 +457,7 @@
 							IsChecked="{x:Bind TestToggleSwitch.IsOn, Mode=OneWay}">
 							<controls:ThemedIcon
 								IconType="Layered"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Auto" />
 						</ToggleButton>
 						<ToggleButton
@@ -437,7 +466,7 @@
 							IsChecked="{x:Bind TestToggleSwitch.IsOn, Mode=OneWay}">
 							<controls:ThemedIcon
 								IsFilled="True"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Auto" />
 						</ToggleButton>
 						<ToggleButton
@@ -446,7 +475,7 @@
 							IsChecked="{x:Bind TestToggleSwitch.IsOn, Mode=OneWay}">
 							<controls:ThemedIcon
 								IconType="Outline"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Auto" />
 						</ToggleButton>
 						<ToggleButton
@@ -456,7 +485,7 @@
 							IsEnabled="False">
 							<controls:ThemedIcon
 								IconType="Outline"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Auto" />
 						</ToggleButton>
 					</StackPanel>
@@ -470,7 +499,7 @@
 							Label="Layered"
 							LabelPosition="Default">
 							<AppBarButton.Content>
-								<controls:ThemedIcon IconType="Layered" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Layered" Data="{StaticResource IconTest}" />
 							</AppBarButton.Content>
 						</AppBarButton>
 
@@ -481,7 +510,7 @@
 							Label="Layered Toggle"
 							LabelPosition="Default">
 							<AppBarToggleButton.Content>
-								<controls:ThemedIcon IconType="Layered" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Layered" Data="{StaticResource IconTest}" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
 
@@ -493,7 +522,7 @@
 							Label="Disabled"
 							LabelPosition="Default">
 							<AppBarButton.Content>
-								<controls:ThemedIcon IconType="Layered" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Layered" Data="{StaticResource IconTest}" />
 							</AppBarButton.Content>
 						</AppBarButton>
 
@@ -505,7 +534,7 @@
 							Label="Layered Toggled Disabled"
 							LabelPosition="Default">
 							<AppBarToggleButton.Content>
-								<controls:ThemedIcon IconType="Layered" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Layered" Data="{StaticResource IconTest}" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
 					</StackPanel>
@@ -517,7 +546,7 @@
 							Label="Outline"
 							LabelPosition="Default">
 							<AppBarButton.Content>
-								<controls:ThemedIcon IconType="Outline" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Outline" Data="{StaticResource IconTest}" />
 							</AppBarButton.Content>
 						</AppBarButton>
 
@@ -528,7 +557,7 @@
 							Label="Outline Toggle"
 							LabelPosition="Default">
 							<AppBarToggleButton.Content>
-								<controls:ThemedIcon IconType="Outline" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Outline" Data="{StaticResource IconTest}" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
 
@@ -539,7 +568,7 @@
 							Label="Outline Disabled"
 							LabelPosition="Default">
 							<AppBarButton.Content>
-								<controls:ThemedIcon IconType="Outline" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Outline" Data="{StaticResource IconTest}" />
 							</AppBarButton.Content>
 						</AppBarButton>
 
@@ -551,7 +580,7 @@
 							Label="Outline Toggled Disabled"
 							LabelPosition="Default">
 							<AppBarToggleButton.Content>
-								<controls:ThemedIcon IconType="Outline" Style="{StaticResource IconTest}" />
+								<controls:ThemedIcon IconType="Outline" Data="{StaticResource IconTest}" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
 					</StackPanel>
@@ -591,7 +620,7 @@
 							IsChecked="{x:Bind OffTestToggleSwitch.IsOn, Mode=OneWay}">
 							<controls:ThemedIcon
 								IconType="Layered"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Off" />
 						</ToggleButton>
 						<ToggleButton
@@ -600,7 +629,7 @@
 							IsChecked="{x:Bind OffTestToggleSwitch.IsOn, Mode=OneWay}">
 							<controls:ThemedIcon
 								IsFilled="True"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Off" />
 						</ToggleButton>
 						<ToggleButton
@@ -609,7 +638,7 @@
 							IsChecked="{x:Bind OffTestToggleSwitch.IsOn, Mode=OneWay}">
 							<controls:ThemedIcon
 								IconType="Outline"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Off" />
 						</ToggleButton>
 						<ToggleButton
@@ -619,7 +648,7 @@
 							IsEnabled="False">
 							<controls:ThemedIcon
 								IconType="Outline"
-								Style="{StaticResource IconTest}"
+								Data="{StaticResource IconTest}"
 								ToggleBehavior="Off" />
 						</ToggleButton>
 					</StackPanel>
@@ -635,7 +664,7 @@
 							<AppBarButton.Content>
 								<controls:ThemedIcon
 									IconType="Layered"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarButton.Content>
 						</AppBarButton>
@@ -649,7 +678,7 @@
 							<AppBarToggleButton.Content>
 								<controls:ThemedIcon
 									IconType="Layered"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
@@ -663,7 +692,7 @@
 							<AppBarButton.Content>
 								<controls:ThemedIcon
 									IconType="Layered"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarButton.Content>
 						</AppBarButton>
@@ -678,7 +707,7 @@
 							<AppBarToggleButton.Content>
 								<controls:ThemedIcon
 									IconType="Layered"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
@@ -697,7 +726,7 @@
 							<AppBarButton.Content>
 								<controls:ThemedIcon
 									IconType="Outline"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarButton.Content>
 						</AppBarButton>
@@ -711,7 +740,7 @@
 							<AppBarToggleButton.Content>
 								<controls:ThemedIcon
 									IconType="Outline"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
@@ -725,7 +754,7 @@
 							<AppBarButton.Content>
 								<controls:ThemedIcon
 									IconType="Outline"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarButton.Content>
 						</AppBarButton>
@@ -740,7 +769,7 @@
 							<AppBarToggleButton.Content>
 								<controls:ThemedIcon
 									IconType="Outline"
-									Style="{StaticResource IconTest}"
+									Data="{StaticResource IconTest}"
 									ToggleBehavior="Off" />
 							</AppBarToggleButton.Content>
 						</AppBarToggleButton>
@@ -790,7 +819,7 @@
 						Width="{x:Bind TestSize.Value, Mode=TwoWay}"
 						Height="{x:Bind TestSize.Value, Mode=TwoWay}"
 						IconType="Layered"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="0"
@@ -798,7 +827,7 @@
 						Width="{x:Bind TestSize.Value, Mode=TwoWay}"
 						Height="{x:Bind TestSize.Value, Mode=TwoWay}"
 						IsFilled="True"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="0"
@@ -806,7 +835,7 @@
 						Width="{x:Bind TestSize.Value, Mode=TwoWay}"
 						Height="{x:Bind TestSize.Value, Mode=TwoWay}"
 						IconType="Outline"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<!--  Row 1  -->
 					<controls:ThemedIcon
@@ -815,7 +844,7 @@
 						Width="{x:Bind TestSize.Value, Mode=TwoWay}"
 						Height="{x:Bind TestSize.Value, Mode=TwoWay}"
 						IsEnabled="False"
-						Style="{StaticResource IconTest}" />
+						Data="{StaticResource IconTest}" />
 
 					<controls:ThemedIcon
 						Grid.Row="1"
@@ -825,7 +854,7 @@
 						Foreground="Yellow"
 						IconColorType="Custom"
 						IconType="Layered"
-						Style="{StaticResource IconTest}">
+						Data="{StaticResource IconTest}">
 						<controls:ThemedIcon.Color>
 							<LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
 								<GradientStop Offset="0.0" Color="Cyan" />
