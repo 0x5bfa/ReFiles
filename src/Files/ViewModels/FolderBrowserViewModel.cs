@@ -10,10 +10,13 @@ using Files.Localization;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Data;
+using Files.Core.ItemFeatures;
+using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
@@ -29,8 +32,10 @@ public enum FolderViewMode
 public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 {
 	private const int BulkNotificationThreshold = 32;
+	private const int LocationIconSize = 16;
 
 	private readonly BrowsePresentationAdapter _browseAdapter;
+	private readonly BrowsePaneSession _pane;
 
 	private readonly IUIDispatcher _dispatcher;
 
@@ -39,6 +44,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	private CollectionViewSource _itemsViewSource;
 
 	private string? _operationError;
+	private BitmapImage? _locationIcon;
+	private CancellationTokenSource? _locationIconCancellation;
 
 	private bool _isApplyingUpdate;
 
@@ -92,6 +99,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public string LocationText => _browseAdapter.LocationText;
 
+	public BitmapImage? LocationIcon => _locationIcon;
+
 	public bool IsLoading => _browseAdapter.IsLoading;
 
 	public bool IsBusy => _browseAdapter.IsBusy;
@@ -111,10 +120,16 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
+		ArgumentNullException.ThrowIfNull(pane);
+
+		ArgumentNullException.ThrowIfNull(workspace);
+
 		ArgumentNullException.ThrowIfNull(commandManager);
+
 		ArgumentNullException.ThrowIfNull(dispatcher);
 
 		CommandManager = commandManager;
+		_pane = pane;
 		_dispatcher = dispatcher;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
 		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
@@ -215,6 +230,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 
 		_browseAdapter.Updated -= BrowseAdapter_Updated;
+		Interlocked.Exchange(ref _locationIconCancellation, null)?.Cancel();
 		_lifetime.Cancel();
 		_browseAdapter.Dispose();
 		_lifetime.Dispose();
@@ -295,6 +311,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Location))
 			{
 				OnPropertyChanged(nameof(LocationText));
+				RefreshLocationIcon();
 			}
 
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Loading))
@@ -327,6 +344,100 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				"FolderBrowserViewModel",
 				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
+	}
+
+	private void RefreshLocationIcon()
+	{
+		Interlocked.Exchange(ref _locationIconCancellation, null)?.Cancel();
+		SetProperty(ref _locationIcon, null, nameof(LocationIcon));
+
+		var browseSession = _pane.BrowseSession;
+		var source = browseSession.Context?.LocationModel?.Get<IThumbnailSource>();
+		if (source is null || Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
+		var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+		_locationIconCancellation = cancellation;
+		_ = LoadLocationIconAsync(source, browseSession.Generation, cancellation);
+	}
+
+	private async Task LoadLocationIconAsync(IThumbnailSource source, long generation, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			var result = await source.GetThumbnailAsync(new ThumbnailRequest(LocationIconSize, ThumbnailMode.Icon), cancellation.Token).ConfigureAwait(false);
+			if (result is null || !IsCurrentLocationIcon(generation, cancellation))
+			{
+				return;
+			}
+
+			await SetLocationIconOnUiAsync(result.Content.ToArray(), generation, cancellation).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			UiDiagnosticLog.Write("FolderBrowserViewModel", $"Location icon ERROR type={exception.GetType().Name}");
+		}
+		finally
+		{
+			Interlocked.CompareExchange(ref _locationIconCancellation, null, cancellation);
+			cancellation.Dispose();
+		}
+	}
+
+	private Task SetLocationIconOnUiAsync(byte[] encodedImage, long generation, CancellationTokenSource cancellation)
+	{
+		if (_dispatcher.HasThreadAccess)
+		{
+			return SetLocationIconAsync(encodedImage, generation, cancellation);
+		}
+
+		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!_dispatcher.TryEnqueue(async () =>
+		{
+			try
+			{
+				await SetLocationIconAsync(encodedImage, generation, cancellation);
+				completion.SetResult(true);
+			}
+			catch (Exception exception)
+			{
+				completion.SetException(exception);
+			}
+		}))
+		{
+			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected a location icon update."));
+		}
+
+		return completion.Task;
+	}
+
+	private async Task SetLocationIconAsync(byte[] encodedImage, long generation, CancellationTokenSource cancellation)
+	{
+		if (!IsCurrentLocationIcon(generation, cancellation))
+		{
+			return;
+		}
+
+		var image = await ThumbnailImageFactory.CreateAsync(encodedImage).ConfigureAwait(true);
+		if (!IsCurrentLocationIcon(generation, cancellation))
+		{
+			return;
+		}
+
+		SetProperty(ref _locationIcon, image, nameof(LocationIcon));
+	}
+
+	private bool IsCurrentLocationIcon(long generation, CancellationTokenSource cancellation)
+	{
+		return Volatile.Read(ref _isDisposed) is 0 &&
+			!cancellation.IsCancellationRequested &&
+			ReferenceEquals(Volatile.Read(ref _locationIconCancellation), cancellation) &&
+			_pane.BrowseSession.Generation == generation;
 	}
 
 	private bool ShouldSynchronizeSelection(CoreBrowseUpdatedEventArgs args)

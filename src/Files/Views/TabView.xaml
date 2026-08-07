@@ -7,7 +7,7 @@
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
-	<Grid x:Name="TitleBarDragRegion" Background="Transparent">
+	<Grid Background="Transparent">
 		<TabView
 			x:Name="NativeTabView"
 			Padding="0"
@@ -26,7 +26,11 @@
 						Header="{x:Bind Title, Mode=OneWay}"
 						controls:TabViewItemLoading.IsLoading="{x:Bind IsLoading, Mode=OneWay}"
 						Style="{StaticResource RoundedTabViewItemStyle}"
-						ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}" />
+						ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
+						<TabViewItem.IconSource>
+							<ImageIconSource ImageSource="{x:Bind Icon, Mode=OneWay}" />
+						</TabViewItem.IconSource>
+					</TabViewItem>
 				</DataTemplate>
 			</TabView.TabItemTemplate>
 
@@ -59,7 +63,6 @@
 
 					<!--  Left Side Drag Area  -->
 					<Rectangle
-						x:Name="DragAreaRectangle"
 						Grid.Column="1"
 						Grid.ColumnSpan="2"
 						HorizontalAlignment="Stretch"

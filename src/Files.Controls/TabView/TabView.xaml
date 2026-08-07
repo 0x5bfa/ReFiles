@@ -77,7 +77,7 @@
 			<Thickness x:Key="TabViewItemHeaderCloseButtonBorderThickness">0</Thickness>
 			<StaticResource x:Key="TabViewSelectedItemBorderBrush" ResourceKey="ControlStrokeColorDefaultBrush" />
 		</ResourceDictionary>
-		<ResourceDictionary x:Key="Default">
+		<ResourceDictionary x:Key="Dark">
 			<StaticResource x:Key="TabViewBackground" ResourceKey="SubtleFillColorTransparentBrush" />
 			<StaticResource x:Key="TabViewItemHeaderBackground" ResourceKey="SubtleFillColorTransparentBrush" />
 			<StaticResource x:Key="TabViewItemHeaderBackgroundSelected" ResourceKey="ControlFillColorDefaultBrush" />

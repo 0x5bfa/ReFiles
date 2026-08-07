@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Core.Sessions;
 using Files.Presentation;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
@@ -24,6 +25,8 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 	public partial bool IsActive { get; private set; }
 
 	public string Title => FolderBrowser.LocationText;
+
+	public BitmapImage? Icon => FolderBrowser.LocationIcon;
 
 	public string StatusText => FolderBrowser.StatusText;
 
@@ -76,6 +79,9 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 		{
 			case nameof(FolderBrowserViewModel.LocationText):
 				OnPropertyChanged(nameof(Title));
+				break;
+			case nameof(FolderBrowserViewModel.LocationIcon):
+				OnPropertyChanged(nameof(Icon));
 				break;
 			case nameof(FolderBrowserViewModel.StatusText):
 				OnPropertyChanged(nameof(StatusText));

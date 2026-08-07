@@ -38,6 +38,7 @@ public sealed partial class RootView : UserControl, IDisposable
 		}
 
 		Loaded -= RootView_Loaded;
+		TabStrip.Dispose();
 		_viewModel.Dispose();
 	}
 
