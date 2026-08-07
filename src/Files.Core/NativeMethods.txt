@@ -200,7 +200,7 @@ CoTaskMemFree
 SHGetIDListFromObject
 ILIsParent
 SHCreateItemFromIDList
-BHID_SFUIObject
+BHID_SFObject
 IContextMenu
 CMF_NORMAL
 CMF_OPTIMIZEFORINVOKE

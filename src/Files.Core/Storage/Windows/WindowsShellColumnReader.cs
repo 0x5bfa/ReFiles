@@ -114,9 +114,14 @@ internal static unsafe class WindowsShellColumnReader
 
 		try
 		{
-			var shellFolderId = typeof(IShellFolder2).GUID;
+			var shellFolderId = typeof(IShellFolder).GUID;
 			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
-			if (parentBindResult.Failed || parentObject is not IShellFolder2 parentFolder || childPidl is null)
+			if (parentBindResult.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
+			{
+				return new ReadOnlyDictionary<string, object?>(values);
+			}
+
+			if (parentFolder is not IShellFolder2 parentFolder2)
 			{
 				return new ReadOnlyDictionary<string, object?>(values);
 			}
@@ -133,7 +138,7 @@ internal static unsafe class WindowsShellColumnReader
 				ComVariant variant = default;
 				try
 				{
-					var result = parentFolder.GetDetailsEx(in *childPidl, in propertyKey, out variant);
+					var result = parentFolder2.GetDetailsEx(in *childPidl, in propertyKey, out variant);
 					if (result.Failed)
 					{
 						continue;
@@ -157,10 +162,10 @@ internal static unsafe class WindowsShellColumnReader
 
 	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName)
 	{
-		var directBindResult = shellItem.BindToHandler(null, PInvoke.BHID_SFUIObject, out IShellFolder2? directFolder);
-		if (directBindResult.Succeeded && directFolder is not null)
+		var directBindResult = shellItem.BindToHandler(null, PInvoke.BHID_SFObject, out IShellFolder? directFolder);
+		if (directBindResult.Succeeded && directFolder is IShellFolder2 directFolder2)
 		{
-			return directFolder;
+			return directFolder2;
 		}
 
 		ITEMIDLIST* absolutePidl = null;
@@ -184,13 +189,13 @@ internal static unsafe class WindowsShellColumnReader
 				return null;
 			}
 
-			var folderBindResult = parentFolder.BindToObject(in *childPidl, null, out IShellFolder2? folder);
-			if (folderBindResult.Failed || folder is null)
+			var folderBindResult = parentFolder.BindToObject(in *childPidl, null, out IShellFolder? folder);
+			if (folderBindResult.Failed || folder is not IShellFolder2 folder2)
 			{
 				return null;
 			}
 
-			return folder;
+			return folder2;
 		}
 		finally
 		{
