@@ -34,8 +34,6 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel LayoutColumnsCommand { get; }
 
-	public string ActiveTabTitle => _activeTab?.Title ?? Strings.NoTabs.GetLocalized();
-
 	public string SortLabel => Strings.Sort.GetLocalized();
 
 	public string SortByLabel => Strings.SortBy.GetLocalized();
@@ -179,19 +177,13 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		_activeTab = value;
 		_activeTab?.PropertyChanged += ActiveTab_PropertyChanged;
 		SetActiveFolderBrowser(_activeTab?.ActivePane?.FolderBrowser);
-
-		OnPropertyChanged(nameof(ActiveTabTitle));
 	}
 
 	private void ActiveTab_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is null or nameof(TabViewModel.Title) or nameof(TabViewModel.ActivePane))
+		if (e.PropertyName is null or nameof(TabViewModel.ActivePane))
 		{
-			OnPropertyChanged(nameof(ActiveTabTitle));
-			if (e.PropertyName is null or nameof(TabViewModel.ActivePane))
-			{
-				SetActiveFolderBrowser(_activeTab?.ActivePane?.FolderBrowser);
-			}
+			SetActiveFolderBrowser(_activeTab?.ActivePane?.FolderBrowser);
 		}
 	}
 

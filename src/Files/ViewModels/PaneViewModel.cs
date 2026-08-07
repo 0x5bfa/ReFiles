@@ -24,7 +24,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 	[ObservableProperty]
 	public partial bool IsActive { get; private set; }
 
-	public string Title => FolderBrowser.LocationText;
+	public string Title => FolderBrowser.LocationDisplayName;
 
 	public BitmapImage? Icon => FolderBrowser.LocationIcon;
 
@@ -77,7 +77,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 	{
 		switch (e.PropertyName)
 		{
-			case nameof(FolderBrowserViewModel.LocationText):
+			case nameof(FolderBrowserViewModel.LocationDisplayName):
 				OnPropertyChanged(nameof(Title));
 				break;
 			case nameof(FolderBrowserViewModel.LocationIcon):

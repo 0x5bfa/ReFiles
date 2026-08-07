@@ -99,6 +99,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public string LocationText => _browseAdapter.LocationText;
 
+	public string LocationDisplayName => _pane.BrowseSession.Context?.LocationModel?.Name ?? LocationText;
+
 	public BitmapImage? LocationIcon => _locationIcon;
 
 	public bool IsLoading => _browseAdapter.IsLoading;
@@ -311,6 +313,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Location))
 			{
 				OnPropertyChanged(nameof(LocationText));
+				OnPropertyChanged(nameof(LocationDisplayName));
 				RefreshLocationIcon();
 			}
 

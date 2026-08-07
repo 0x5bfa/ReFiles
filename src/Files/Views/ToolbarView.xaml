@@ -34,10 +34,6 @@
 			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
-		<TextBlock
-			VerticalAlignment="Center"
-			FontWeight="SemiBold"
-			Text="{x:Bind ViewModel.ActiveTabTitle, Mode=OneWay}" />
 		<Button
 			Grid.Column="1"
 			ToolTipService.ToolTip="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
