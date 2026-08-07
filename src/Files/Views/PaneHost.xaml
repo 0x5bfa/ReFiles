@@ -3,32 +3,13 @@
 	x:Class="Files.Views.PaneHost"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:controls="using:Microsoft.UI.Xaml.Controls"
-	xmlns:local="using:Files.Views"
-	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
-	<controls:ItemsRepeater
-		x:Name="PaneRepeater"
+	<Grid
+		x:Name="PaneGrid"
+		Margin="4"
 		HorizontalAlignment="Stretch"
-		VerticalAlignment="Stretch"
-		ElementPrepared="PaneRepeater_ElementPrepared"
-		ItemsSource="{x:Bind ViewModel.Panes, Mode=OneWay}">
-		<controls:ItemsRepeater.Layout>
-			<controls:StackLayout
-				x:Name="PaneLayout"
-				Orientation="Horizontal"
-				Spacing="4" />
-		</controls:ItemsRepeater.Layout>
-		<controls:ItemsRepeater.ItemTemplate>
-			<DataTemplate x:DataType="vm:PaneViewModel">
-				<local:PaneView
-					HorizontalAlignment="Stretch"
-					VerticalAlignment="Stretch"
-					Activated="PaneView_Activated"
-					ViewModel="{x:Bind}" />
-			</DataTemplate>
-		</controls:ItemsRepeater.ItemTemplate>
-	</controls:ItemsRepeater>
+		TabFocusNavigation="Once"
+		VerticalAlignment="Stretch" />
 
 </UserControl>

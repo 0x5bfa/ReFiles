@@ -1,6 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Collections.Specialized;
+using Files.Controls;
 using Files.ViewModels;
 using Files.Core.Sessions;
 using Microsoft.UI.Xaml;
@@ -10,7 +12,11 @@ namespace Files.Views;
 
 public sealed partial class PaneHost : UserControl
 {
-	private TabViewModel? subscribedViewModel;
+	private const double MinimumPaneSize = 100;
+	private const double SplitterSize = 4;
+
+	private readonly Dictionary<Guid, PaneView> _paneViews = [];
+	private TabViewModel? _subscribedViewModel;
 
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(TabViewModel), typeof(PaneHost), new PropertyMetadata(null, ViewModelChanged));
@@ -26,7 +32,6 @@ public sealed partial class PaneHost : UserControl
 		InitializeComponent();
 		Loaded += PaneHost_Loaded;
 		Unloaded += PaneHost_Unloaded;
-		SizeChanged += PaneHost_SizeChanged;
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -37,13 +42,13 @@ public sealed partial class PaneHost : UserControl
 		}
 
 		paneHost.SetSubscribedViewModel(paneHost.IsLoaded ? args.NewValue as TabViewModel : null);
-		paneHost.UpdateLayoutOrientation();
+		paneHost.UpdatePaneLayout();
 	}
 
 	private void PaneHost_Loaded(object sender, RoutedEventArgs e)
 	{
 		SetSubscribedViewModel(ViewModel);
-		UpdateLayoutOrientation();
+		UpdatePaneLayout();
 	}
 
 	private void PaneHost_Unloaded(object sender, RoutedEventArgs e) =>
@@ -51,20 +56,22 @@ public sealed partial class PaneHost : UserControl
 
 	private void SetSubscribedViewModel(TabViewModel? value)
 	{
-		if (ReferenceEquals(subscribedViewModel, value))
+		if (ReferenceEquals(_subscribedViewModel, value))
 		{
 			return;
 		}
 
-		if (subscribedViewModel is not null)
+		if (_subscribedViewModel is not null)
 		{
-			subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+			_subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+			_subscribedViewModel.Panes.CollectionChanged -= Panes_CollectionChanged;
 		}
 
-		subscribedViewModel = value;
-		if (subscribedViewModel is not null)
+		_subscribedViewModel = value;
+		if (_subscribedViewModel is not null)
 		{
-			subscribedViewModel.PropertyChanged += ViewModel_PropertyChanged;
+			_subscribedViewModel.PropertyChanged += ViewModel_PropertyChanged;
+			_subscribedViewModel.Panes.CollectionChanged += Panes_CollectionChanged;
 		}
 	}
 
@@ -72,7 +79,7 @@ public sealed partial class PaneHost : UserControl
 	{
 		if (e.PropertyName is nameof(TabViewModel.SplitOrientation))
 		{
-			UpdateLayoutOrientation();
+			UpdatePaneLayout();
 		}
 		else if (e.PropertyName is nameof(TabViewModel.ActivePane))
 		{
@@ -80,52 +87,65 @@ public sealed partial class PaneHost : UserControl
 		}
 	}
 
-	private void UpdateLayoutOrientation()
+	private void Panes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdatePaneLayout();
+
+	private void UpdatePaneLayout()
 	{
-		if (ViewModel is { } viewModel)
+		if (ViewModel is not { } viewModel)
 		{
-			PaneLayout.Orientation =
-				viewModel.SplitOrientation is PaneSplitOrientation.Vertical
-					? Orientation.Horizontal
-					: Orientation.Vertical;
-			UpdatePaneSizes();
-			UpdatePaneShadows();
-		}
-	}
+			ClearPaneViews();
+			PaneGrid.Children.Clear();
+			PaneGrid.ColumnDefinitions.Clear();
+			PaneGrid.RowDefinitions.Clear();
 
-	private void PaneHost_SizeChanged(object sender, SizeChangedEventArgs e) => UpdatePaneSizes();
-
-	private void PaneRepeater_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
-	{
-		UpdatePaneSizes();
-		UpdatePaneShadows();
-	}
-
-	private void UpdatePaneSizes()
-	{
-		if (ViewModel is not { } viewModel || viewModel.Panes.Count is 0)
-		{
 			return;
 		}
 
-		var isSideBySide = viewModel.SplitOrientation is
-			PaneSplitOrientation.Vertical;
-		var spacing = viewModel.Panes.Count - 1;
-		var paneWidth = isSideBySide
-			? Math.Max(0, (ActualWidth - spacing) / viewModel.Panes.Count)
-			: ActualWidth;
-		var paneHeight = isSideBySide
-			? ActualHeight
-			: Math.Max(0, (ActualHeight - spacing) / viewModel.Panes.Count);
+		var currentPaneIds = viewModel.Panes.Select(static pane => pane.Id).ToHashSet();
+		foreach (var removedPaneId in _paneViews.Keys.Where(paneId => !currentPaneIds.Contains(paneId)).ToArray())
+		{
+			_paneViews[removedPaneId].Activated -= PaneView_Activated;
+			_paneViews.Remove(removedPaneId);
+		}
 
+		PaneGrid.Children.Clear();
+		PaneGrid.ColumnDefinitions.Clear();
+		PaneGrid.RowDefinitions.Clear();
+
+		var isSideBySide = viewModel.SplitOrientation is PaneSplitOrientation.Vertical;
 		for (var index = 0; index < viewModel.Panes.Count; index++)
 		{
-			if (PaneRepeater.TryGetElement(index) is FrameworkElement pane)
+			if (index > 0)
 			{
-				pane.Width = paneWidth;
-				pane.Height = paneHeight;
+				AddSplitter(isSideBySide, (index * 2) - 1);
 			}
+
+			AddPaneDefinition(isSideBySide);
+			var paneViewModel = viewModel.Panes[index];
+			if (!_paneViews.TryGetValue(paneViewModel.Id, out var paneView) || !ReferenceEquals(paneView.ViewModel, paneViewModel))
+			{
+				if (paneView is not null)
+				{
+					paneView.Activated -= PaneView_Activated;
+				}
+
+				paneView = new PaneView
+				{
+					HorizontalAlignment = HorizontalAlignment.Stretch,
+					VerticalAlignment = VerticalAlignment.Stretch,
+					ViewModel = paneViewModel,
+				};
+				paneView.Activated += PaneView_Activated;
+				_paneViews[paneViewModel.Id] = paneView;
+			}
+
+			var gridIndex = index * 2;
+			Grid.SetColumn(paneView, isSideBySide ? gridIndex : 0);
+			Grid.SetRow(paneView, isSideBySide ? 0 : gridIndex);
+			PaneGrid.Children.Add(paneView);
 		}
+
+		UpdatePaneShadows();
 	}
 
 	private void UpdatePaneShadows()
@@ -137,20 +157,67 @@ public sealed partial class PaneHost : UserControl
 
 		var activePane = viewModel.ActivePane;
 		var isMultiPane = viewModel.Panes.Count > 1;
-		for (var index = 0; index < viewModel.Panes.Count; index++)
+		foreach (var pane in _paneViews.Values)
 		{
-			if (PaneRepeater.TryGetElement(index) is PaneView pane)
-			{
-				pane.SetShadow(ReferenceEquals(pane.ViewModel, activePane), isMultiPane);
-			}
+			pane.SetShadow(ReferenceEquals(pane.ViewModel, activePane), isMultiPane);
 		}
 	}
 
-	private void PaneView_Activated(object sender, EventArgs e)
+	private void PaneView_Activated(object? sender, EventArgs e)
 	{
 		if (ViewModel is { } viewModel && sender is PaneView { ViewModel: { } pane })
 		{
 			viewModel.SetActivePane(pane.Id);
 		}
+	}
+
+	private void AddPaneDefinition(bool isSideBySide)
+	{
+		if (isSideBySide)
+		{
+			PaneGrid.ColumnDefinitions.Add(new ColumnDefinition { MinWidth = MinimumPaneSize, Width = new GridLength(1, GridUnitType.Star) });
+		}
+		else
+		{
+			PaneGrid.RowDefinitions.Add(new RowDefinition { MinHeight = MinimumPaneSize, Height = new GridLength(1, GridUnitType.Star) });
+		}
+	}
+
+	private void AddSplitter(bool isSideBySide, int gridIndex)
+	{
+		var splitter = new GridSplitter
+		{
+			HorizontalAlignment = HorizontalAlignment.Stretch,
+			VerticalAlignment = VerticalAlignment.Stretch,
+			IsTabStop = false,
+			MinHeight = 0,
+			MinWidth = 0,
+			Opacity = 0,
+			ResizeBehavior = GridResizeBehavior.PreviousAndNext,
+			ResizeDirection = isSideBySide ? GridResizeDirection.Columns : GridResizeDirection.Rows,
+		};
+
+		if (isSideBySide)
+		{
+			PaneGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(SplitterSize) });
+			Grid.SetColumn(splitter, gridIndex);
+		}
+		else
+		{
+			PaneGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(SplitterSize) });
+			Grid.SetRow(splitter, gridIndex);
+		}
+
+		PaneGrid.Children.Add(splitter);
+	}
+
+	private void ClearPaneViews()
+	{
+		foreach (var pane in _paneViews.Values)
+		{
+			pane.Activated -= PaneView_Activated;
+		}
+
+		_paneViews.Clear();
 	}
 }
