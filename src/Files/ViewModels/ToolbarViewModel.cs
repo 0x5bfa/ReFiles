@@ -3,6 +3,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
+using Files.Controls;
 using Files.Core.ViewSettings;
 using Files.Localization;
 
@@ -12,6 +13,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 {
 	private TabViewModel? _activeTab;
 	private FolderBrowserViewModel? _activeFolderBrowser;
+	private CancellationTokenSource? _layoutSizeCancellation;
 	private int _isDisposed;
 
 	public CommandBindingViewModel NewPaneCommand { get; }
@@ -26,7 +28,11 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel LayoutListCommand { get; }
 
+	public CommandBindingViewModel LayoutCardsCommand { get; }
+
 	public CommandBindingViewModel LayoutGridCommand { get; }
+
+	public CommandBindingViewModel LayoutColumnsCommand { get; }
 
 	public string ActiveTabTitle => _activeTab?.Title ?? Strings.NoTabs.GetLocalized();
 
@@ -54,12 +60,26 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public string LayoutLabel => Strings.Layout.GetLocalized();
 
-	public string LayoutGlyph => _activeFolderBrowser?.ViewMode switch
+	public ThemedIconData? LayoutIconData => _activeFolderBrowser?.ViewMode switch
 	{
-		FolderViewMode.List => "\uE8FD",
-		FolderViewMode.Grid => "\uECA5",
-		_ => "\uE8A9",
+		FolderViewMode.List => LayoutListCommand.IconData,
+		FolderViewMode.Cards => LayoutCardsCommand.IconData,
+		FolderViewMode.Grid => LayoutGridCommand.IconData,
+		FolderViewMode.Columns => LayoutColumnsCommand.IconData,
+		_ => LayoutDetailsCommand.IconData,
 	};
+
+	public double LayoutSize => _activeFolderBrowser?.LayoutSize ?? 3;
+
+	public bool IsLayoutSizeCompact => LayoutSize is 1;
+
+	public bool IsLayoutSizeSmall => LayoutSize is 2;
+
+	public bool IsLayoutSizeMedium => LayoutSize is 3;
+
+	public bool IsLayoutSizeLarge => LayoutSize is 4;
+
+	public bool IsLayoutSizeExtraLarge => LayoutSize is 5;
 
 	public bool IsSortByName => IsPropertySelected(_activeFolderBrowser?.ViewSettings.SortPropertyId, BrowseDisplayPropertyIds.Name, useNameAsDefault: true);
 
@@ -98,7 +118,9 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel groupItemsCommand,
 		CommandBindingViewModel layoutDetailsCommand,
 		CommandBindingViewModel layoutListCommand,
-		CommandBindingViewModel layoutGridCommand)
+		CommandBindingViewModel layoutCardsCommand,
+		CommandBindingViewModel layoutGridCommand,
+		CommandBindingViewModel layoutColumnsCommand)
 	{
 		ArgumentNullException.ThrowIfNull(newPaneCommand);
 		ArgumentNullException.ThrowIfNull(closePaneCommand);
@@ -106,7 +128,9 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(groupItemsCommand);
 		ArgumentNullException.ThrowIfNull(layoutDetailsCommand);
 		ArgumentNullException.ThrowIfNull(layoutListCommand);
+		ArgumentNullException.ThrowIfNull(layoutCardsCommand);
 		ArgumentNullException.ThrowIfNull(layoutGridCommand);
+		ArgumentNullException.ThrowIfNull(layoutColumnsCommand);
 
 		NewPaneCommand = newPaneCommand;
 		ClosePaneCommand = closePaneCommand;
@@ -114,7 +138,21 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		GroupItemsCommand = groupItemsCommand;
 		LayoutDetailsCommand = layoutDetailsCommand;
 		LayoutListCommand = layoutListCommand;
+		LayoutCardsCommand = layoutCardsCommand;
 		LayoutGridCommand = layoutGridCommand;
+		LayoutColumnsCommand = layoutColumnsCommand;
+	}
+
+	public void SetLayoutSize(double value)
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0 || _activeFolderBrowser is not { } browser)
+		{
+			return;
+		}
+
+		var cancellation = new CancellationTokenSource();
+		Interlocked.Exchange(ref _layoutSizeCancellation, cancellation)?.Cancel();
+		_ = SetLayoutSizeAsync(browser, Math.Clamp(Math.Round(value), 1, 5), cancellation);
 	}
 
 	public void Dispose()
@@ -125,6 +163,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		}
 
 		_activeTab?.PropertyChanged -= ActiveTab_PropertyChanged;
+		Interlocked.Exchange(ref _layoutSizeCancellation, null)?.Cancel();
 		SetActiveFolderBrowser(null);
 		_activeTab = null;
 	}
@@ -160,12 +199,13 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	{
 		if (e.PropertyName is null or nameof(FolderBrowserViewModel.ViewMode))
 		{
-			OnPropertyChanged(nameof(LayoutGlyph));
+			OnPropertyChanged(nameof(LayoutIconData));
 		}
 
 		if (e.PropertyName is null or nameof(FolderBrowserViewModel.ViewSettings))
 		{
 			RaiseDisplayStateProperties();
+			RaiseLayoutSizeProperties();
 		}
 	}
 
@@ -187,8 +227,42 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 			_activeFolderBrowser.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
 		}
 
-		OnPropertyChanged(nameof(LayoutGlyph));
+		OnPropertyChanged(nameof(LayoutIconData));
+		RaiseLayoutSizeProperties();
 		RaiseDisplayStateProperties();
+	}
+
+	private async Task SetLayoutSizeAsync(FolderBrowserViewModel browser, double value, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			await browser.SetItemSizeAsync(value, cancellation.Token).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			if (Volatile.Read(ref _isDisposed) is 0 && ReferenceEquals(_activeFolderBrowser, browser))
+			{
+				browser.ReportOperationError(exception);
+			}
+		}
+		finally
+		{
+			Interlocked.CompareExchange(ref _layoutSizeCancellation, null, cancellation);
+			cancellation.Dispose();
+		}
+	}
+
+	private void RaiseLayoutSizeProperties()
+	{
+		OnPropertyChanged(nameof(LayoutSize));
+		OnPropertyChanged(nameof(IsLayoutSizeCompact));
+		OnPropertyChanged(nameof(IsLayoutSizeSmall));
+		OnPropertyChanged(nameof(IsLayoutSizeMedium));
+		OnPropertyChanged(nameof(IsLayoutSizeLarge));
+		OnPropertyChanged(nameof(IsLayoutSizeExtraLarge));
 	}
 
 	private void RaiseDisplayStateProperties()

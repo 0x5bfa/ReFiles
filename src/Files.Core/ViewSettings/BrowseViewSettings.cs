@@ -49,7 +49,7 @@ public sealed record BrowseViewSettings
 		string? groupPropertyId = null,
 		ViewSortDirection groupDirection = ViewSortDirection.Ascending)
 	{
-		if (layoutMode is not ViewLayoutMode.Details and not ViewLayoutMode.List and not ViewLayoutMode.Grid and not ViewLayoutMode.Columns)
+		if (!Enum.IsDefined(layoutMode))
 		{
 			throw new ArgumentOutOfRangeException(nameof(layoutMode));
 		}

@@ -310,6 +310,34 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
 
+	public async ValueTask UpdateItemSizeAsync(double itemSize, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		if (!double.IsFinite(itemSize) || itemSize < 1 || itemSize > 5)
+		{
+			throw new ArgumentOutOfRangeException(nameof(itemSize));
+		}
+
+		var currentSettings = _pane.BrowseSession.ViewSettings;
+		if (currentSettings.ItemSize == itemSize)
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			currentSettings.LayoutMode,
+			currentSettings.Columns,
+			currentSettings.SortPropertyId,
+			currentSettings.SortDirection,
+			itemSize,
+			currentSettings.GroupPropertyId,
+			currentSettings.GroupDirection);
+
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+	}
+
 	public async ValueTask UpdateSortAsync(string propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();

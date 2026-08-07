@@ -8,10 +8,10 @@ namespace Files.Views;
 
 public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserControl
 {
-	private FolderBrowserViewModel? subscribedViewModel;
-
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(FolderBrowser), new PropertyMetadata(null, ViewModelChanged));
+
+	private FolderBrowserViewModel? _subscribedViewModel;
 
 	public FolderBrowserViewModel? ViewModel
 	{
@@ -45,20 +45,20 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 
 	private void SetSubscribedViewModel(FolderBrowserViewModel? value)
 	{
-		if (ReferenceEquals(subscribedViewModel, value))
+		if (ReferenceEquals(_subscribedViewModel, value))
 		{
 			return;
 		}
 
-		if (subscribedViewModel is not null)
+		if (_subscribedViewModel is not null)
 		{
-			subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
+			_subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		}
 
-		subscribedViewModel = value;
-		if (subscribedViewModel is not null)
+		_subscribedViewModel = value;
+		if (_subscribedViewModel is not null)
 		{
-			subscribedViewModel.PropertyChanged += ViewModel_PropertyChanged;
+			_subscribedViewModel.PropertyChanged += ViewModel_PropertyChanged;
 		}
 	}
 
@@ -85,10 +85,14 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		{
 			FolderViewMode.Details =>
 				(DataTemplate)FolderViewPresenter.Resources["DetailsTemplate"],
+			FolderViewMode.Cards =>
+				(DataTemplate)FolderViewPresenter.Resources["CardsTemplate"],
 			FolderViewMode.Grid =>
 				(DataTemplate)FolderViewPresenter.Resources["GridTemplate"],
 			FolderViewMode.List =>
 				(DataTemplate)FolderViewPresenter.Resources["ListTemplate"],
+			FolderViewMode.Columns =>
+				(DataTemplate)FolderViewPresenter.Resources["ColumnsTemplate"],
 			_ => throw new InvalidOperationException($"Unsupported folder view mode: {viewModel.ViewMode}."),
 		};
 	}

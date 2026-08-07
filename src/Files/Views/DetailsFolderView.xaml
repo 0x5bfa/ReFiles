@@ -41,7 +41,7 @@
 
 		<ListView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">
-				<local:DetailsRow Item="{x:Bind}" />
+				<local:DetailsRow Item="{x:Bind}" MinHeight="{Binding ViewModel.DetailsRowHeight, ElementName=Root}" />
 			</DataTemplate>
 		</ListView.ItemTemplate>
 

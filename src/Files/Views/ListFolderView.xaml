@@ -34,21 +34,21 @@
 
 		<ListView.ItemTemplate>
 			<DataTemplate x:DataType="vm:BrowseItemViewModel">
-				<Grid Padding="12,6" ColumnSpacing="12">
+				<Grid MinHeight="{Binding ViewModel.ListItemHeight, ElementName=Root}" Padding="12,6" ColumnSpacing="12">
 					<Grid.ColumnDefinitions>
-						<ColumnDefinition Width="40" />
+						<ColumnDefinition Width="Auto" />
 						<ColumnDefinition Width="*" />
 						<ColumnDefinition Width="120" />
 					</Grid.ColumnDefinitions>
 					<Grid
-						Width="32"
-						Height="32"
+						Width="{Binding ViewModel.ListThumbnailSize, ElementName=Root}"
+						Height="{Binding ViewModel.ListThumbnailSize, ElementName=Root}"
 						HorizontalAlignment="Center"
 						VerticalAlignment="Center">
 						<FontIcon
 							HorizontalAlignment="Center"
 							VerticalAlignment="Center"
-							FontSize="24"
+							FontSize="{Binding ViewModel.ListThumbnailSize, ElementName=Root}"
 							Glyph="&#xE8B7;"
 							Opacity="0.45"
 							Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />

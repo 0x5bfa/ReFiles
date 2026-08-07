@@ -33,9 +33,11 @@ public static class AppCommandRegistration
 
 	private static void RegisterLayout(CommandRegistryBuilder builder)
 	{
-		builder.Register(new(CommandIds.LayoutDetails, Strings.Details, "Layout.Details", Strings.Layout, 10), static _ => new LayoutCommandHandler(CommandIds.LayoutDetails));
-		builder.Register(new(CommandIds.LayoutList, Strings.List, "Layout.List", Strings.Layout, 20), static _ => new LayoutCommandHandler(CommandIds.LayoutList));
-		builder.Register(new(CommandIds.LayoutGrid, Strings.Grid, "Layout.Grid", Strings.Layout, 30), static _ => new LayoutCommandHandler(CommandIds.LayoutGrid));
+		builder.Register(new(CommandIds.LayoutDetails, Strings.Details, "App.ThemedIcons.IconLayout.Details.28", Strings.Layout, 10), static _ => new LayoutCommandHandler(CommandIds.LayoutDetails));
+		builder.Register(new(CommandIds.LayoutList, Strings.List, "App.ThemedIcons.IconLayout.List.28", Strings.Layout, 20), static _ => new LayoutCommandHandler(CommandIds.LayoutList));
+		builder.Register(new(CommandIds.LayoutCards, Strings.Cards, "App.ThemedIcons.IconLayout.Tiles.28", Strings.Layout, 30), static _ => new LayoutCommandHandler(CommandIds.LayoutCards));
+		builder.Register(new(CommandIds.LayoutGrid, Strings.Grid, "App.ThemedIcons.IconLayout.Grid.28", Strings.Layout, 40), static _ => new LayoutCommandHandler(CommandIds.LayoutGrid));
+		builder.Register(new(CommandIds.LayoutColumns, Strings.Columns, "App.ThemedIcons.IconLayout.Columns.28", Strings.Layout, 50), static _ => new LayoutCommandHandler(CommandIds.LayoutColumns));
 	}
 
 	private static void RegisterDisplay(CommandRegistryBuilder builder)

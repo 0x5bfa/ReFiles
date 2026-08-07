@@ -36,7 +36,9 @@
 	<data name="Layout" xml:space="preserve"><value>Layout</value></data>
 	<data name="Details" xml:space="preserve"><value>Details</value></data>
 	<data name="List" xml:space="preserve"><value>List</value></data>
+	<data name="Cards" xml:space="preserve"><value>Cards</value></data>
 	<data name="Grid" xml:space="preserve"><value>Grid</value></data>
+	<data name="Columns" xml:space="preserve"><value>Columns</value></data>
 	<data name="Sort" xml:space="preserve"><value>Sort</value></data>
 	<data name="SortBy" xml:space="preserve"><value>Sort by</value></data>
 	<data name="GroupBy" xml:space="preserve"><value>Group by</value></data>

@@ -3,21 +3,17 @@
 
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Files.Controls;
 using Files.Localization;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace Files.Commands;
 
 public sealed partial class CommandBindingViewModel : ObservableObject
 {
-	private readonly WindowCommandManager manager;
-	private CommandState state = new(false, false);
-
-	internal CommandBindingViewModel(WindowCommandManager manager, CommandDescriptor descriptor)
-	{
-		this.manager = manager;
-		Descriptor = descriptor;
-		Command = new BindingCommand(this);
-	}
+	private readonly WindowCommandManager _manager;
+	private CommandState _state = new(false, false);
 
 	public CommandId Id => Descriptor.Id;
 
@@ -25,7 +21,9 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 
 	public string Label => Descriptor.LabelResourceKey.GetLocalized();
 
-	public string IconKey => Descriptor.IconKey;
+	public ThemedIconData? IconData { get; }
+
+	public IconSource? IconSource { get; }
 
 	public string? Glyph => Descriptor.Glyph;
 
@@ -35,23 +33,32 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 
 	public ICommand Command { get; }
 
-	public bool IsVisible => state.IsVisible;
+	public bool IsVisible => _state.IsVisible;
 
-	public bool IsEnabled => state.IsEnabled;
+	public bool IsEnabled => _state.IsEnabled;
 
-	public bool IsChecked => state.IsChecked;
+	public bool IsChecked => _state.IsChecked;
 
 	public string? DisabledReasonResourceKey =>
-		state.DisabledReasonResourceKey;
+		_state.DisabledReasonResourceKey;
+
+	internal CommandBindingViewModel(WindowCommandManager manager, CommandDescriptor descriptor)
+	{
+		_manager = manager;
+		Descriptor = descriptor;
+		IconData = ResolveIconData(descriptor.IconResourceKey);
+		IconSource = IconData is null ? null : new ThemedIconSource { Data = IconData, IconSize = 16 };
+		Command = new BindingCommand(this);
+	}
 
 	public Task<CommandExecutionResult> ExecuteAsync(object? parameter = null, CancellationToken cancellationToken = default) =>
-		manager.ExecuteAsync(Id, parameter, cancellationToken);
+		_manager.ExecuteAsync(Id, parameter, cancellationToken);
 
 	internal void UpdateState(CommandState newState)
 	{
 		ArgumentNullException.ThrowIfNull(newState);
 
-		if (Equals(state, newState))
+		if (Equals(_state, newState))
 		{
 			return;
 		}
@@ -59,7 +66,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 		var visibleChanged = IsVisible != newState.IsVisible;
 		var enabledChanged = IsEnabled != newState.IsEnabled;
 		var checkedChanged = IsChecked != newState.IsChecked;
-		state = newState;
+		_state = newState;
 
 		if (visibleChanged)
 		{
@@ -86,6 +93,16 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	private async Task ExecuteFromBindingAsync(object? parameter)
 	{
 		await ExecuteAsync(parameter).ConfigureAwait(false);
+	}
+
+	private static ThemedIconData? ResolveIconData(string? resourceKey)
+	{
+		if (resourceKey is null || Application.Current?.Resources.TryGetValue(resourceKey, out var value) is not true)
+		{
+			return null;
+		}
+
+		return value as ThemedIconData;
 	}
 
 	private sealed partial class BindingCommand(CommandBindingViewModel owner) : ICommand

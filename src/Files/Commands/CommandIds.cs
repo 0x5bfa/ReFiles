@@ -44,8 +44,14 @@ public static class CommandIds
 	public static readonly CommandId LayoutList =
 		new("files.layout.list");
 
+	public static readonly CommandId LayoutCards =
+		new("files.layout.cards");
+
 	public static readonly CommandId LayoutGrid =
 		new("files.layout.grid");
+
+	public static readonly CommandId LayoutColumns =
+		new("files.layout.columns");
 
 	public static readonly CommandId SortItems =
 		new("files.display.sort");

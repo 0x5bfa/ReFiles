@@ -81,7 +81,11 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel LayoutListCommand => _commandManager.GetBinding(CommandIds.LayoutList);
 
+	public CommandBindingViewModel LayoutCardsCommand => _commandManager.GetBinding(CommandIds.LayoutCards);
+
 	public CommandBindingViewModel LayoutGridCommand => _commandManager.GetBinding(CommandIds.LayoutGrid);
+
+	public CommandBindingViewModel LayoutColumnsCommand => _commandManager.GetBinding(CommandIds.LayoutColumns);
 
 	public CommandBindingViewModel SortItemsCommand => _commandManager.GetBinding(CommandIds.SortItems);
 
@@ -111,7 +115,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		_commandManager = presentationFactory.CreateCommandManager(this);
 		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
 		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
-		Toolbar = new(NewPaneCommand, ClosePaneCommand, SortItemsCommand, GroupItemsCommand, LayoutDetailsCommand, LayoutListCommand, LayoutGridCommand);
+		Toolbar = new(NewPaneCommand, ClosePaneCommand, SortItemsCommand, GroupItemsCommand, LayoutDetailsCommand, LayoutListCommand, LayoutCardsCommand, LayoutGridCommand, LayoutColumnsCommand);
 
 		window.TabsChanged += Window_StateChanged;
 		window.ActiveTabChanged += Window_StateChanged;

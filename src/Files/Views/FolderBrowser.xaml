@@ -14,6 +14,11 @@
 				<local:DetailsFolderView ViewModel="{x:Bind}" />
 			</DataTemplate>
 			<DataTemplate
+				x:Key="CardsTemplate"
+				x:DataType="vm:FolderBrowserViewModel">
+				<local:CardsFolderView ViewModel="{x:Bind}" />
+			</DataTemplate>
+			<DataTemplate
 				x:Key="GridTemplate"
 				x:DataType="vm:FolderBrowserViewModel">
 				<local:GridFolderView ViewModel="{x:Bind}" />
@@ -22,6 +27,11 @@
 				x:Key="ListTemplate"
 				x:DataType="vm:FolderBrowserViewModel">
 				<local:ListFolderView ViewModel="{x:Bind}" />
+			</DataTemplate>
+			<DataTemplate
+				x:Key="ColumnsTemplate"
+				x:DataType="vm:FolderBrowserViewModel">
+				<local:DetailsFolderView ViewModel="{x:Bind}" />
 			</DataTemplate>
 		</ContentPresenter.Resources>
 	</ContentPresenter>

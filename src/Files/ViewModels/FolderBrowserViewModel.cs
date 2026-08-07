@@ -20,8 +20,10 @@ namespace Files.ViewModels;
 public enum FolderViewMode
 {
 	Details,
-	Grid,
 	List,
+	Cards,
+	Grid,
+	Columns,
 }
 
 public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
@@ -59,6 +61,24 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _browseAdapter.DetailsColumns;
 
 	public BrowseViewSettings ViewSettings => _browseAdapter.ViewSettings;
+
+	public double LayoutSize => Math.Clamp(Math.Round(ViewSettings.ItemSize ?? 3), 1, 5);
+
+	public double DetailsRowHeight => 28 + ((LayoutSize - 1) * 8);
+
+	public double ListThumbnailSize => 24 + ((LayoutSize - 1) * 8);
+
+	public double ListItemHeight => ListThumbnailSize + 12;
+
+	public double CardsThumbnailSize => 48 + ((LayoutSize - 1) * 12);
+
+	public double CardsItemHeight => CardsThumbnailSize + 24;
+
+	public double GridItemSize => 104 + ((LayoutSize - 1) * 28);
+
+	public double GridThumbnailSize => GridItemSize - 44;
+
+	public double GridDefaultIconSize => GridThumbnailSize * 0.57;
 
 	public FolderViewMode ViewMode
 	{
@@ -168,6 +188,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		return _browseAdapter.UpdateGroupingAsync(propertyId, direction, cancellationToken);
 	}
 
+	public ValueTask SetItemSizeAsync(double itemSize, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.UpdateItemSizeAsync(Math.Clamp(Math.Round(itemSize), 1, 5), cancellationToken);
+	}
+
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
@@ -211,6 +236,15 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 			{
 				ViewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 				OnPropertyChanged(nameof(ViewSettings));
+				OnPropertyChanged(nameof(LayoutSize));
+				OnPropertyChanged(nameof(DetailsRowHeight));
+				OnPropertyChanged(nameof(ListThumbnailSize));
+				OnPropertyChanged(nameof(ListItemHeight));
+				OnPropertyChanged(nameof(CardsThumbnailSize));
+				OnPropertyChanged(nameof(CardsItemHeight));
+				OnPropertyChanged(nameof(GridItemSize));
+				OnPropertyChanged(nameof(GridThumbnailSize));
+				OnPropertyChanged(nameof(GridDefaultIconSize));
 				refreshItemsViewSource = true;
 			}
 
@@ -556,8 +590,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		{
 			ViewLayoutMode.Details => FolderViewMode.Details,
 			ViewLayoutMode.List => FolderViewMode.List,
+			ViewLayoutMode.Cards => FolderViewMode.Cards,
 			ViewLayoutMode.Grid => FolderViewMode.Grid,
-			ViewLayoutMode.Columns => FolderViewMode.Details,
+			ViewLayoutMode.Columns => FolderViewMode.Columns,
 			_ => throw new InvalidOperationException($"Unsupported folder layout mode '{mode}'."),
 		};
 
@@ -566,7 +601,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		{
 			FolderViewMode.Details => ViewLayoutMode.Details,
 			FolderViewMode.List => ViewLayoutMode.List,
+			FolderViewMode.Cards => ViewLayoutMode.Cards,
 			FolderViewMode.Grid => ViewLayoutMode.Grid,
+			FolderViewMode.Columns => ViewLayoutMode.Columns,
 			_ => throw new InvalidOperationException($"Unsupported folder view mode '{mode}'."),
 		};
 
