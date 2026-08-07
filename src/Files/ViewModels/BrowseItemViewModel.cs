@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Localization;
 using Files.Core.Storage;
 using System.Globalization;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
@@ -28,6 +29,8 @@ public sealed partial class BrowseItemViewModel : ObservableObject
 
 	public string Kind => (IsFolder ? Strings.Folder : Strings.File).GetLocalized();
 
+	public Visibility DefaultIconVisibility => Thumbnail is null ? Visibility.Visible : Visibility.Collapsed;
+
 	public string ReferenceText => Reference.LastKnownAddress?.Value ?? Reference.ItemId;
 
 	public IReadOnlyDictionary<string, object?> Properties => _properties;
@@ -45,6 +48,11 @@ public sealed partial class BrowseItemViewModel : ObservableObject
 	internal void SetThumbnail(BitmapImage? value)
 	{
 		Thumbnail = value;
+	}
+
+	partial void OnThumbnailChanged(BitmapImage? value)
+	{
+		OnPropertyChanged(nameof(DefaultIconVisibility));
 	}
 
 	internal void SetProperties(IReadOnlyDictionary<string, object?> value)

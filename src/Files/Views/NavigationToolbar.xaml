@@ -58,6 +58,15 @@
 			ToolTipService.ToolTip="{x:Bind ViewModel.HomeCommand.ToolTip, Mode=OneWay}">
 			<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.HomeCommand.Glyph, Mode=OneWay}" />
 		</Button>
+		<Button
+			Grid.Column="5"
+			Height="32"
+			AutomationProperties.Name="{x:Bind ViewModel.RefreshCommand.AutomationName, Mode=OneWay}"
+			Command="{x:Bind ViewModel.RefreshCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.RefreshCommand.ToolTip, Mode=OneWay}">
+			<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.RefreshCommand.Glyph, Mode=OneWay}" />
+		</Button>
 
 		<TextBox
 			x:Name="PathTextBox"
@@ -67,13 +76,6 @@
 			KeyDown="PathTextBox_KeyDown"
 			PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
 			Text="{x:Bind ViewModel.LocationText, Mode=OneWay}" />
-		<Button
-			Grid.Column="5"
-			AutomationProperties.Name="{x:Bind ViewModel.RefreshCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.RefreshCommand.Command}"
-			Content="{x:Bind ViewModel.RefreshCommand.Label, Mode=OneWay}"
-			IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.RefreshCommand.ToolTip, Mode=OneWay}" />
 
 	</Grid>
 </UserControl>

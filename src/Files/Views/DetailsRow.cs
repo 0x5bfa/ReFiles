@@ -23,6 +23,7 @@ public sealed class DetailsRow : Grid, IDetailsRowContent
 		DependencyProperty.Register(nameof(Columns), typeof(IReadOnlyList<DetailsColumnViewModel>), typeof(DetailsRow), new PropertyMetadata(null, ColumnsChanged));
 
 	private Image? _thumbnailImage;
+	private FontIcon? _defaultIcon;
 	private readonly Dictionary<string, TextBlock> _cells = [];
 
 	/// <summary>Gets or sets the item displayed by this row.</summary>
@@ -86,6 +87,11 @@ public sealed class DetailsRow : Grid, IDetailsRowContent
 					_thumbnailImage.Source = Item?.Thumbnail;
 				}
 
+				if (_defaultIcon is not null)
+				{
+					_defaultIcon.Visibility = Item?.Thumbnail is null ? Visibility.Visible : Visibility.Collapsed;
+				}
+
 				break;
 			case nameof(BrowseItemViewModel.Properties):
 				UpdateCellTexts();
@@ -98,6 +104,7 @@ public sealed class DetailsRow : Grid, IDetailsRowContent
 		ColumnDefinitions.Clear();
 		Children.Clear();
 		_thumbnailImage = null;
+		_defaultIcon = null;
 		_cells.Clear();
 
 		if (Item is not { } item || Columns is not { Count: > 0 } columns)
@@ -107,7 +114,16 @@ public sealed class DetailsRow : Grid, IDetailsRowContent
 
 		ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
 		var iconContainer = new Grid { Width = 16, Height = 16, VerticalAlignment = VerticalAlignment.Center };
-		iconContainer.Children.Add(new FontIcon { FontSize = 16, Glyph = "\uE8B7", Opacity = 0.45, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+		_defaultIcon = new FontIcon
+		{
+			FontSize = 16,
+			Glyph = "\uE8B7",
+			Opacity = 0.45,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			Visibility = item.Thumbnail is null ? Visibility.Visible : Visibility.Collapsed,
+		};
+		iconContainer.Children.Add(_defaultIcon);
 		_thumbnailImage = new Image { Source = item.Thumbnail, Stretch = Stretch.Uniform };
 		iconContainer.Children.Add(_thumbnailImage);
 		Children.Add(iconContainer);

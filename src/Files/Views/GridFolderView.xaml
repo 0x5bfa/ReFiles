@@ -37,7 +37,8 @@
 							VerticalAlignment="Center"
 							FontSize="64"
 							Glyph="&#xE8B7;"
-							Opacity="0.45" />
+							Opacity="0.45"
+							Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />
 						<Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
 					</Grid>
 					<TextBlock
