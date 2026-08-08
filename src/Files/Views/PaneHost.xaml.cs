@@ -41,7 +41,12 @@ public sealed partial class PaneHost : UserControl
 			return;
 		}
 
-		paneHost.SetSubscribedViewModel(paneHost.IsLoaded ? args.NewValue as TabViewModel : null);
+		if (!paneHost.IsLoaded)
+		{
+			return;
+		}
+
+		paneHost.SetSubscribedViewModel(args.NewValue as TabViewModel);
 		paneHost.UpdatePaneLayout();
 	}
 

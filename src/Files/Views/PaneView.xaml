@@ -26,7 +26,7 @@
 				Grid.Row="0"
 				HorizontalAlignment="Stretch"
 				VerticalAlignment="Stretch"
-				ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
+				ViewModel="{Binding ViewModel, ElementName=Root, Mode=OneWay}" />
 
 			<Border
 				Grid.Row="1"
@@ -34,7 +34,7 @@
 				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
 				<TextBlock
 					Opacity="0.7"
-					Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+					Text="{Binding ViewModel.StatusText, ElementName=Root, Mode=OneWay}"
 					TextTrimming="CharacterEllipsis" />
 			</Border>
 		</Grid>
