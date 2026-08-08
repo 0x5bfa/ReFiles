@@ -338,6 +338,30 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
 
+	public async ValueTask UpdateColumnsAsync(IEnumerable<ViewColumnSettings> columns, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+		ArgumentNullException.ThrowIfNull(columns);
+
+		var currentSettings = _pane.BrowseSession.ViewSettings;
+		var columnArray = columns.ToArray();
+		if (currentSettings.Columns.SequenceEqual(columnArray))
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			currentSettings.LayoutMode,
+			columnArray,
+			currentSettings.SortPropertyId,
+			currentSettings.SortDirection,
+			currentSettings.ItemSize,
+			currentSettings.GroupPropertyId,
+			currentSettings.GroupDirection);
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+	}
+
 	public async ValueTask UpdateSortAsync(string propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
@@ -1252,7 +1276,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			var configuredColumn = settings.Columns.FirstOrDefault(setting => setting.PropertyId.Equals(column.PropertyId, StringComparison.Ordinal));
 			var width = configuredColumn?.Width ?? GetDefaultColumnWidth(column);
 			var isNameColumn = column.PropertyId.Equals("System.ItemNameDisplay", StringComparison.Ordinal) || column.PropertyId.Equals("name", StringComparison.OrdinalIgnoreCase);
-			result.Add(new DetailsColumnViewModel(column.PropertyId, column.DisplayName, width, column.Alignment, isNameColumn));
+			result.Add(new DetailsColumnViewModel(column.PropertyId, column.DisplayName, width, column.Alignment, isNameColumn, !column.IsFixedWidth, canGroup: column.CanGroup));
 		}
 
 		return Array.AsReadOnly(result.ToArray());
@@ -1271,7 +1295,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		return Array.AsReadOnly(new[]
 		{
-			new DetailsColumnViewModel("System.ItemNameDisplay", "System.ItemNameDisplay", 180, WindowsShellColumnAlignment.Left, isStretch: true),
+			new DetailsColumnViewModel("System.ItemNameDisplay", "System.ItemNameDisplay", 180, WindowsShellColumnAlignment.Left, isPrimary: true),
 			new DetailsColumnViewModel("System.ItemTypeText", "System.ItemTypeText", 100, WindowsShellColumnAlignment.Left),
 			new DetailsColumnViewModel("reference", "reference", 220, WindowsShellColumnAlignment.Left),
 		});

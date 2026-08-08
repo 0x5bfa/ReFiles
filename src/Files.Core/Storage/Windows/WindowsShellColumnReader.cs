@@ -72,7 +72,8 @@ internal static unsafe class WindowsShellColumnReader
 				HasState(state, SHCOLSTATE.SHCOLSTATE_SECONDARYUI),
 				!HasState(state, SHCOLSTATE.SHCOLSTATE_NO_GROUPBY),
 				HasState(state, SHCOLSTATE.SHCOLSTATE_FIXED_WIDTH),
-				HasState(state, SHCOLSTATE.SHCOLSTATE_PREFER_VARCMP)));
+				HasState(state, SHCOLSTATE.SHCOLSTATE_PREFER_VARCMP),
+				GetColumnType(state)));
 		}
 
 		var defaultSortColumnIndex = default(int?);
@@ -314,6 +315,17 @@ internal static unsafe class WindowsShellColumnReader
 			1 => WindowsShellColumnAlignment.Right,
 			2 => WindowsShellColumnAlignment.Center,
 			_ => WindowsShellColumnAlignment.Left,
+		};
+	}
+
+	private static WindowsShellColumnType GetColumnType(SHCOLSTATE state)
+	{
+		return ((uint)state & (uint)SHCOLSTATE.SHCOLSTATE_TYPEMASK) switch
+		{
+			(uint)SHCOLSTATE.SHCOLSTATE_TYPE_STR => WindowsShellColumnType.String,
+			(uint)SHCOLSTATE.SHCOLSTATE_TYPE_INT => WindowsShellColumnType.Integer,
+			(uint)SHCOLSTATE.SHCOLSTATE_TYPE_DATE => WindowsShellColumnType.DateTime,
+			_ => WindowsShellColumnType.Default,
 		};
 	}
 

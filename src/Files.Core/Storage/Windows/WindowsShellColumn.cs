@@ -19,6 +19,24 @@ public enum WindowsShellColumnAlignment
 }
 
 /// <summary>
+/// Describes the display type suggested by a Windows Shell column.
+/// </summary>
+public enum WindowsShellColumnType
+{
+	/// <summary>The Shell did not specify a display type.</summary>
+	Default,
+
+	/// <summary>The value is displayed as text.</summary>
+	String,
+
+	/// <summary>The value is displayed as an integer.</summary>
+	Integer,
+
+	/// <summary>The value is displayed as a date and time.</summary>
+	DateTime,
+}
+
+/// <summary>
 /// Describes one column exposed by a Windows Shell folder.
 /// </summary>
 public sealed record WindowsShellColumn
@@ -37,6 +55,9 @@ public sealed record WindowsShellColumn
 
 	/// <summary>Gets the value alignment suggested by the Shell.</summary>
 	public WindowsShellColumnAlignment Alignment { get; }
+
+	/// <summary>Gets the display type suggested by the Shell.</summary>
+	public WindowsShellColumnType Type { get; }
 
 	/// <summary>Gets a value indicating whether the column is enabled in the Shell's default Details view.</summary>
 	public bool IsVisibleByDefault { get; }
@@ -76,6 +97,7 @@ public sealed record WindowsShellColumn
 	/// <param name="canGroup">Whether grouping is supported.</param>
 	/// <param name="isFixedWidth">Whether the Shell fixes the column width.</param>
 	/// <param name="preferVariantCompare">Whether variant comparison is preferred for sorting.</param>
+	/// <param name="type">The display type suggested by the Shell.</param>
 	public WindowsShellColumn(
 		int index,
 		string propertyId,
@@ -89,7 +111,8 @@ public sealed record WindowsShellColumn
 		bool isSecondaryUi,
 		bool canGroup,
 		bool isFixedWidth,
-		bool preferVariantCompare)
+		bool preferVariantCompare,
+		WindowsShellColumnType type = WindowsShellColumnType.Default)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(index);
 
@@ -104,6 +127,7 @@ public sealed record WindowsShellColumn
 		DisplayName = displayName;
 		HeaderWidthCharacters = headerWidthCharacters;
 		Alignment = alignment;
+		Type = type;
 		IsVisibleByDefault = isVisibleByDefault;
 		IsHidden = isHidden;
 		IsSlow = isSlow;

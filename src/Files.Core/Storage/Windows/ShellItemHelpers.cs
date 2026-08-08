@@ -41,7 +41,7 @@ internal static unsafe class ShellItemHelpers
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
 
-		var absolutePidl = isFolder ? CopyAbsolutePidl(shellItem) : ReadOnlyMemory<byte>.Empty;
+		var absolutePidl = CopyAbsolutePidl(shellItem);
 
 		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName), snapshot);
 	}

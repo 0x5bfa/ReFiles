@@ -1,11 +1,15 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Browsing;
+using Files.Core.Composition;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Properties;
 using Files.Core.Models;
+using Files.Core.Sessions;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
+using Files.Core.ViewSettings;
 using OwlCore.Storage;
 
 namespace Files.UnitTests;
@@ -80,6 +84,65 @@ public sealed class WindowsPropertyTests
 		finally
 		{
 			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public async Task BrowsePrefetchLoadsPropertiesForEveryVisibleWindowsItem()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		for (var index = 0; index < 32; index++)
+		{
+			File.WriteAllBytes(Path.Combine(directoryPath, $"item-{index:D2}.bin"), new byte[index + 1]);
+		}
+
+		try
+		{
+			await using var runtime = new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false, enableArchives: false).Build();
+			var folderModel = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+			var reference = folderModel.Reference;
+			await folderModel.DisposeAsync();
+			var window = await runtime.ShellSession.CreateWindowAsync(new FolderLocation(reference));
+			var pane = window.ActiveTab?.ActivePane?.Content as BrowsePaneSession;
+			Assert.IsNotNull(pane);
+			var session = pane.BrowseSession;
+			Assert.AreEqual(32, session.Items.Count);
+			ViewColumnSettings[] columns =
+			[
+				new ViewColumnSettings("System.Size", 120, 0),
+				new ViewColumnSettings("System.ItemTypeText", 120, 1),
+				new ViewColumnSettings("System.DateModified", 120, 2),
+			];
+			var settings = new BrowseViewSettings(layoutMode: ViewLayoutMode.Details, columns: columns);
+			await session.UpdateViewSettingsAsync(settings);
+			await using var coordinator = new BrowsePrefetchCoordinator(session);
+
+			coordinator.UpdateViewport(new BrowseViewport(0, session.Items.Count, lookAheadCount: 0), settings, session.Generation);
+
+			await WaitUntilAsync(() => session.Items.All(item => HasRequestedProperties(session, item)));
+			Assert.IsTrue(session.Items.All(item => HasRequestedProperties(session, item)));
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	private static bool HasRequestedProperties(IBrowseSession session, IStorableModel item)
+	{
+		return session.TryGetPresentation(item.Reference.GetKey(), out var presentation)
+			&& presentation.Properties.ContainsKey("System.Size")
+			&& presentation.Properties.ContainsKey("System.ItemTypeText")
+			&& presentation.Properties.ContainsKey("System.DateModified");
+	}
+
+	private static async Task WaitUntilAsync(Func<bool> condition)
+	{
+		var timeout = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+		while (!condition() && DateTime.UtcNow < timeout)
+		{
+			await Task.Delay(20);
 		}
 	}
 }

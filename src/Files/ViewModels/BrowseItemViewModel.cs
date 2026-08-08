@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using Files.Controls;
 using Files.Localization;
 using Files.Core.Storage;
 using System.Globalization;
@@ -10,7 +11,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
-public sealed partial class BrowseItemViewModel : ObservableObject
+public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCellValueProvider
 {
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
 	private const string ItemTypeTextPropertyId = "System.ItemTypeText";
@@ -63,7 +64,8 @@ public sealed partial class BrowseItemViewModel : ObservableObject
 		OnPropertyChanged(nameof(Properties));
 	}
 
-	internal string GetDisplayText(string propertyId)
+	/// <inheritdoc />
+	public string GetDisplayText(string propertyId)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
 

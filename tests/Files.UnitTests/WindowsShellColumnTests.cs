@@ -27,6 +27,8 @@ public sealed class WindowsShellColumnTests
 			Assert.IsTrue(columnSet.All.Count > 0);
 			Assert.IsTrue(columnSet.DefaultVisible.Count > 0);
 			Assert.IsTrue(columnSet.All.All(static column => column.PropertyId.Length > 0 && column.DisplayName.Length > 0));
+			Assert.IsTrue(columnSet.All.All(static column => Enum.IsDefined(column.Type)));
+			Assert.IsTrue(columnSet.All.Any(static column => column.Type is not WindowsShellColumnType.Default));
 		}
 		finally
 		{

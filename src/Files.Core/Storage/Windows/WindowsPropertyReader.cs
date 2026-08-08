@@ -3,6 +3,7 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Files.Core.Diagnostics;
 using Files.Core.ItemFeatures;
@@ -10,6 +11,7 @@ using Files.Core.ItemFeatures.Properties;
 using Files.Core.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com.StructuredStorage;
 using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
@@ -119,7 +121,11 @@ public sealed class WindowsPropertyReader : IPropertyReader
 					AddBool(shellItem2, _homeIsPinnedKey, HomeIsPinned, properties);
 					break;
 				default:
-					detailsPropertyIds.Add(propertyId);
+					if (!AddProperty(shellItem2, propertyId, properties))
+					{
+						detailsPropertyIds.Add(propertyId);
+					}
+
 					break;
 			}
 		}
@@ -184,9 +190,103 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			return;
 		}
 
-		var fileTime = ((long)value.dwHighDateTime << 32)
-			| (long)value.dwLowDateTime;
-		properties[propertyId] = DateTimeOffset.FromFileTime(fileTime);
+		if (TryConvertFileTime(value, out var converted))
+		{
+			properties[propertyId] = converted;
+		}
+	}
+
+	private static bool AddProperty(IShellItem2 item, string propertyId, Dictionary<string, object?> properties)
+	{
+		var keyResult = PInvoke.PSGetPropertyKeyFromName(propertyId, out var key);
+		if (keyResult.Failed)
+		{
+			return false;
+		}
+
+		PROPVARIANT value = default;
+		try
+		{
+			var result = item.GetProperty(in key, out value);
+			if (result.Failed)
+			{
+				return false;
+			}
+
+			properties[propertyId] = ReadPropertyValue(in value);
+
+			return true;
+		}
+		finally
+		{
+			PInvoke.PropVariantClear(ref value);
+		}
+	}
+
+	private static unsafe object? ReadPropertyValue(in PROPVARIANT value)
+	{
+		return (VarEnum)value.vt switch
+		{
+			VarEnum.VT_EMPTY or VarEnum.VT_NULL => null,
+			VarEnum.VT_I1 => (sbyte)value.cVal,
+			VarEnum.VT_UI1 => value.bVal,
+			VarEnum.VT_I2 => value.iVal,
+			VarEnum.VT_UI2 => value.uiVal,
+			VarEnum.VT_I4 or VarEnum.VT_INT => value.lVal,
+			VarEnum.VT_UI4 or VarEnum.VT_UINT => value.ulVal,
+			VarEnum.VT_I8 => value.hVal,
+			VarEnum.VT_UI8 => value.uhVal,
+			VarEnum.VT_R4 => value.fltVal,
+			VarEnum.VT_R8 => value.dblVal,
+			VarEnum.VT_BOOL => (bool)value.boolVal,
+			VarEnum.VT_DATE => TryConvertOaDate(value.date, out var dateValue) ? dateValue : null,
+			VarEnum.VT_BSTR => value.bstrVal.ToString(),
+			VarEnum.VT_LPSTR => value.pszVal.ToString(),
+			VarEnum.VT_LPWSTR => value.pwszVal.ToString(),
+			VarEnum.VT_FILETIME => TryConvertFileTime(value.filetime, out var converted) ? converted : null,
+			VarEnum.VT_CLSID => value.puuid is null ? null : *value.puuid,
+			_ => null,
+		};
+	}
+
+	private static bool TryConvertOaDate(double value, out DateTime converted)
+	{
+		try
+		{
+			converted = DateTime.FromOADate(value);
+
+			return true;
+		}
+		catch (ArgumentException)
+		{
+			converted = default;
+
+			return false;
+		}
+	}
+
+	private static bool TryConvertFileTime(System.Runtime.InteropServices.ComTypes.FILETIME value, out DateTimeOffset converted)
+	{
+		var fileTime = ((ulong)(uint)value.dwHighDateTime << 32) | (uint)value.dwLowDateTime;
+		if (fileTime > long.MaxValue)
+		{
+			converted = default;
+
+			return false;
+		}
+
+		try
+		{
+			converted = DateTimeOffset.FromFileTime((long)fileTime);
+
+			return true;
+		}
+		catch (ArgumentOutOfRangeException)
+		{
+			converted = default;
+
+			return false;
+		}
 	}
 
 	private static PROPERTYKEY ResolvePropertyKey(string propertyId)

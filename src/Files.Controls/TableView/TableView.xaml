@@ -1,0 +1,62 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<ResourceDictionary
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.Controls">
+
+	<DataTemplate x:Key="DefaultTableViewRowTemplate">
+		<local:TableViewRow />
+	</DataTemplate>
+
+	<Style BasedOn="{StaticResource DefaultTableViewStyle}" TargetType="local:TableView" />
+
+	<Style x:Key="DefaultTableViewStyle" TargetType="local:TableView">
+		<Setter Property="Background" Value="{ThemeResource ControlFillColorTransparentBrush}" />
+		<Setter Property="CellPadding" Value="12,0" />
+		<Setter Property="HorizontalAlignment" Value="Stretch" />
+		<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+		<Setter Property="ItemTemplate" Value="{StaticResource DefaultTableViewRowTemplate}" />
+		<Setter Property="VerticalAlignment" Value="Stretch" />
+		<Setter Property="VerticalContentAlignment" Value="Stretch" />
+		<Setter Property="Template">
+			<Setter.Value>
+				<ControlTemplate TargetType="local:TableView">
+					<Grid Background="{TemplateBinding Background}">
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto" />
+							<RowDefinition Height="*" />
+						</Grid.RowDefinitions>
+
+						<Border
+							Grid.Row="0"
+							Background="{ThemeResource LayerFillColorDefaultBrush}"
+							BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+							BorderThickness="0,0,0,1">
+							<ScrollViewer
+								x:Name="PART_HeaderScrollViewer"
+								HorizontalScrollBarVisibility="Hidden"
+								HorizontalScrollMode="Disabled"
+								IsTabStop="False"
+								VerticalScrollBarVisibility="Hidden"
+								VerticalScrollMode="Disabled">
+								<local:TableViewColumnHeadersPresenter
+									x:Name="PART_ColumnHeadersPresenter"
+									Height="{TemplateBinding ColumnHeaderHeight}"
+									HorizontalAlignment="Left" />
+							</ScrollViewer>
+						</Border>
+
+						<ContentPresenter
+							x:Name="PART_RowsHostPresenter"
+							Grid.Row="1"
+							HorizontalAlignment="Stretch"
+							HorizontalContentAlignment="Stretch"
+							VerticalAlignment="Stretch"
+							VerticalContentAlignment="Stretch" />
+					</Grid>
+				</ControlTemplate>
+			</Setter.Value>
+		</Setter>
+	</Style>
+
+</ResourceDictionary>

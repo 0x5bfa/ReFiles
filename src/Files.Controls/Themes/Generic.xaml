@@ -70,6 +70,10 @@
 		<ResourceDictionary Source="ms-appx:///Files.Controls/SamplePanel/SamplePanel.xaml" />
 		<!--#endregion-->
 
+		<!--#region TableView-->
+		<ResourceDictionary Source="ms-appx:///Files.Controls/TableView/TableView.xaml" />
+		<!--#endregion-->
+
 		<!--#region Breadcrumb-->
 		<ResourceDictionary Source="ms-appx:///Files.Controls/BreadcrumbBar/BreadcrumbBar.xaml" />
 		<!--#endregion-->

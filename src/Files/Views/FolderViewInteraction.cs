@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Commands;
+using Files.Controls;
 using Files.Infrastructure;
 using Files.ViewModels;
 using Files.Core.Browsing;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 
@@ -12,32 +14,58 @@ namespace Files.Views;
 
 internal sealed class FolderViewInteraction : IDisposable
 {
-	private readonly ListViewBase _listView;
+	private readonly FrameworkElement _element;
+	private readonly IList<object> _selectedItems;
 	private readonly FolderBrowserViewModel _viewModel;
 	private readonly HashSet<int> _realizedIndices = [];
-	private readonly HashSet<IDetailsRowContent> _realizedDetailsRows = [];
+	private readonly ListViewBase? _listView;
+	private readonly ITableViewRowsHost? _rowsHost;
+	private readonly ITableViewSelectionHost? _selectionHost;
 	private int _containerContentChangeCount;
-	private int _detailsRowBindingCount;
-	private int _detailsRowRealizationCount;
 	private int _viewportUpdateCount;
 	private bool _firstContainerLogged;
 	private bool _firstViewportLogged;
 	private bool _synchronizingSelection;
-	private bool _meaningfulRowDisplayPending;
-	private bool _meaningfulRowDisplayed;
 	private bool _viewportUpdateQueued;
 	private bool _isDisposed;
 
 	public FolderViewInteraction(ListViewBase listView, FolderBrowserViewModel viewModel)
 	{
+		ArgumentNullException.ThrowIfNull(listView);
+
+		ArgumentNullException.ThrowIfNull(viewModel);
+
 		_listView = listView;
+		_element = listView;
+		_selectedItems = listView.SelectedItems;
 		_viewModel = viewModel;
 		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
 
 		listView.DoubleTapped += ListView_DoubleTapped;
 		listView.SelectionChanged += ListView_SelectionChanged;
 		listView.ContainerContentChanging += ListView_ContainerContentChanging;
-		listView.LayoutUpdated += ListView_LayoutUpdated;
+		viewModel.PropertyChanged += ViewModel_PropertyChanged;
+		SynchronizeSelection();
+	}
+
+	public FolderViewInteraction(ITableViewRowsHost rowsHost, ITableViewSelectionHost selectionHost, FolderBrowserViewModel viewModel)
+	{
+		ArgumentNullException.ThrowIfNull(rowsHost);
+
+		ArgumentNullException.ThrowIfNull(selectionHost);
+
+		ArgumentNullException.ThrowIfNull(viewModel);
+
+		_rowsHost = rowsHost;
+		_selectionHost = selectionHost;
+		_element = rowsHost.Element;
+		_selectedItems = selectionHost.SelectedItems;
+		_viewModel = viewModel;
+		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={rowsHost.Element.GetType().Name} items={viewModel.Items.Count}");
+
+		rowsHost.RowChanging += RowsHost_RowChanging;
+		selectionHost.ItemInvoked += SelectionHost_ItemInvoked;
+		selectionHost.SelectionChanged += SelectionHost_SelectionChanged;
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		SynchronizeSelection();
 	}
@@ -50,22 +78,32 @@ internal sealed class FolderViewInteraction : IDisposable
 		}
 
 		_isDisposed = true;
-		_listView.DoubleTapped -= ListView_DoubleTapped;
-		_listView.SelectionChanged -= ListView_SelectionChanged;
-		_listView.ContainerContentChanging -= ListView_ContainerContentChanging;
-		_listView.LayoutUpdated -= ListView_LayoutUpdated;
+		if (_listView is not null)
+		{
+			_listView.DoubleTapped -= ListView_DoubleTapped;
+			_listView.SelectionChanged -= ListView_SelectionChanged;
+			_listView.ContainerContentChanging -= ListView_ContainerContentChanging;
+		}
+
+		if (_rowsHost is not null)
+		{
+			_rowsHost.RowChanging -= RowsHost_RowChanging;
+		}
+
+		if (_selectionHost is not null)
+		{
+			_selectionHost.ItemInvoked -= SelectionHost_ItemInvoked;
+			_selectionHost.SelectionChanged -= SelectionHost_SelectionChanged;
+		}
+
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		_realizedIndices.Clear();
-		_realizedDetailsRows.Clear();
-		UiDiagnosticLog.Write(
-			"FolderViewInteraction",
-			$"disposed containers={_containerContentChangeCount} rowBindings={_detailsRowBindingCount} " +
-			$"rowTemplates={_detailsRowRealizationCount} viewportUpdates={_viewportUpdateCount}");
+		UiDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
 	}
 
 	private async void ListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
 	{
-		if (_listView.SelectedItem is not BrowseItemViewModel item)
+		if (_listView?.SelectedItem is not BrowseItemViewModel item)
 		{
 			return;
 		}
@@ -75,67 +113,64 @@ internal sealed class FolderViewInteraction : IDisposable
 
 	private void ListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
-		if (!_synchronizingSelection && !_viewModel.IsApplyingUpdate)
-		{
-			_viewModel.SetSelection(_listView.SelectedItems.OfType<BrowseItemViewModel>());
-		}
+		UpdateViewModelSelection();
 	}
 
 	private void ListView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
 	{
+		TrackRealizedRow(args.ItemIndex, args.InRecycleQueue);
+	}
+
+	private async void SelectionHost_ItemInvoked(object? sender, TableViewItemInvokedEventArgs e)
+	{
+		if (e.Item is BrowseItemViewModel item)
+		{
+			await _viewModel.CommandManager.ExecuteAsync(CommandIds.OpenItem, item);
+		}
+	}
+
+	private void SelectionHost_SelectionChanged(object? sender, EventArgs e)
+	{
+		UpdateViewModelSelection();
+	}
+
+	private void RowsHost_RowChanging(object? sender, TableViewRowChangingEventArgs e)
+	{
+		TrackRealizedRow(e.Index, e.InRecycleQueue);
+	}
+
+	private void UpdateViewModelSelection()
+	{
+		if (!_synchronizingSelection && !_viewModel.IsApplyingUpdate)
+		{
+			_viewModel.SetSelection(_selectedItems.OfType<BrowseItemViewModel>());
+		}
+	}
+
+	private void TrackRealizedRow(int index, bool inRecycleQueue)
+	{
 		var eventCount = Interlocked.Increment(ref _containerContentChangeCount);
 		if (eventCount <= 10 || eventCount % 100 is 0)
 		{
-			UiDiagnosticLog.Write("FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={args.ItemIndex} recycled={args.InRecycleQueue} realizedBefore={_realizedIndices.Count}");
-		}
-		if (!_firstContainerLogged && !args.InRecycleQueue)
-		{
-			_firstContainerLogged = true;
-			UiDiagnosticLog.Write("FolderViewInteraction", $"First container realized index={args.ItemIndex}");
+			UiDiagnosticLog.Write("FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={index} recycled={inRecycleQueue} realizedBefore={_realizedIndices.Count}");
 		}
 
-		if (args.InRecycleQueue)
+		if (!_firstContainerLogged && !inRecycleQueue)
 		{
-			_realizedIndices.Remove(args.ItemIndex);
-			if (args.ItemContainer.ContentTemplateRoot is IDetailsRowContent recycledRow)
-			{
-				_realizedDetailsRows.Remove(recycledRow);
-			}
+			_firstContainerLogged = true;
+			UiDiagnosticLog.Write("FolderViewInteraction", $"First container realized index={index}");
+		}
+
+		if (inRecycleQueue)
+		{
+			_realizedIndices.Remove(index);
 		}
 		else
 		{
-			_realizedIndices.Add(args.ItemIndex);
-			if (DetailsRowRealization.TryBind(args.ItemContainer.ContentTemplateRoot, _viewModel.DetailsColumns, out var row))
-			{
-				if (_realizedDetailsRows.Add(row!))
-				{
-					Interlocked.Increment(ref _detailsRowRealizationCount);
-				}
-				if (row!.HasMeaningfulContent)
-				{
-					var bindingCount = Interlocked.Increment(ref _detailsRowBindingCount);
-					if (bindingCount is 1)
-					{
-						UiDiagnosticLog.Write("FolderViewInteraction", $"First meaningful row bound index={args.ItemIndex} items={_viewModel.Items.Count}");
-						_meaningfulRowDisplayPending = true;
-					}
-				}
-			}
+			_realizedIndices.Add(index);
 		}
 
 		QueueViewportUpdate();
-	}
-
-	private void ListView_LayoutUpdated(object? sender, object args)
-	{
-		if (!_meaningfulRowDisplayPending || _meaningfulRowDisplayed)
-		{
-			return;
-		}
-
-		_meaningfulRowDisplayPending = false;
-		_meaningfulRowDisplayed = true;
-		UiDiagnosticLog.Write("FolderViewInteraction", "First meaningful row displayed after layout");
 	}
 
 	private void QueueViewportUpdate()
@@ -146,7 +181,7 @@ internal sealed class FolderViewInteraction : IDisposable
 		}
 
 		_viewportUpdateQueued = true;
-		if (!_listView.DispatcherQueue.TryEnqueue(UpdateViewport))
+		if (!_element.DispatcherQueue.TryEnqueue(UpdateViewport))
 		{
 			_viewportUpdateQueued = false;
 		}
@@ -182,7 +217,7 @@ internal sealed class FolderViewInteraction : IDisposable
 
 	private int GetDpi()
 	{
-		var scale = _listView.XamlRoot?.RasterizationScale ?? 1.0;
+		var scale = _element.XamlRoot?.RasterizationScale ?? 1.0;
 
 		return Math.Max(1, (int)Math.Round(scale * 96.0));
 	}
@@ -193,13 +228,6 @@ internal sealed class FolderViewInteraction : IDisposable
 		{
 			SynchronizeSelection();
 		}
-		else if (e.PropertyName is nameof(FolderBrowserViewModel.DetailsColumns))
-		{
-			foreach (var row in _realizedDetailsRows)
-			{
-				row.Columns = _viewModel.DetailsColumns;
-			}
-		}
 	}
 
 	private void SynchronizeSelection()
@@ -208,12 +236,12 @@ internal sealed class FolderViewInteraction : IDisposable
 		try
 		{
 			var selectedKeys = _viewModel.SelectedKeys.ToHashSet();
-			_listView.SelectedItems.Clear();
+			_selectedItems.Clear();
 			foreach (var item in _viewModel.Items)
 			{
 				if (selectedKeys.Contains(item.Reference.GetKey()))
 				{
-					_listView.SelectedItems.Add(item);
+					_selectedItems.Add(item);
 				}
 			}
 		}

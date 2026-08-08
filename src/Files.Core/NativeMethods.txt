@@ -177,6 +177,7 @@ FileOperation
 IFileOperation
 IShellItem2
 PSGetPropertyKeyFromName
+PropVariantClear
 ShellExecuteEx
 CoTaskMemFree
 QueryDosDevice

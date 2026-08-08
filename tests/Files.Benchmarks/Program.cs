@@ -51,10 +51,11 @@ var config = ManualConfig
 	.AddJob(benchmarkJob)
 	.WithArtifactsPath(artifactsPath);
 
-if (smoke)
+if (smoke && benchmarkArgs.Length is 0)
 {
 	BenchmarkRunner.Run<ItemFeatureResolutionBenchmarks>(config);
 	BenchmarkRunner.Run<BrowsePipelineBenchmarks>(config);
+	BenchmarkRunner.Run<TableViewColumnLayoutBenchmarks>(config);
 }
 else
 {

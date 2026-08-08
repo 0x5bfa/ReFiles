@@ -205,6 +205,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		return _browseAdapter.UpdateGroupingAsync(propertyId, direction, cancellationToken);
 	}
 
+	public ValueTask SetColumnsAsync(IEnumerable<ViewColumnSettings> columns, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.UpdateColumnsAsync(columns, cancellationToken);
+	}
+
 	public ValueTask SetItemSizeAsync(double itemSize, CancellationToken cancellationToken = default)
 	{
 		return _browseAdapter.UpdateItemSizeAsync(Math.Clamp(Math.Round(itemSize), 1, 5), cancellationToken);
