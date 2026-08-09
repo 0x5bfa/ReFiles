@@ -24,6 +24,7 @@
 				<DataTemplate x:DataType="vm:TabViewModel">
 					<TabViewItem
 						Header="{x:Bind Title, Mode=OneWay}"
+						IconSource="{x:Bind IconSource, Mode=OneWay}"
 						controls:TabViewItemLoading.IsLoading="{x:Bind IsLoading, Mode=OneWay}"
 						Style="{StaticResource RoundedTabViewItemStyle}"
 						ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
@@ -66,9 +67,6 @@
 									Text="{x:Bind ReopenTabCommand.Label, Mode=OneWay}" />
 							</MenuFlyout>
 						</TabViewItem.ContextFlyout>
-						<TabViewItem.IconSource>
-							<ImageIconSource ImageSource="{x:Bind Icon, Mode=OneWay}" />
-						</TabViewItem.IconSource>
 					</TabViewItem>
 				</DataTemplate>
 			</TabView.TabItemTemplate>

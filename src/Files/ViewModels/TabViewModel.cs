@@ -8,6 +8,7 @@ using Files.Localization;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Presentation;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
@@ -42,6 +43,8 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 	public string Title => ActivePane?.Title ?? Strings.NewTab.GetLocalized();
 
 	public BitmapImage? Icon => ActivePane?.Icon;
+
+	public IconSource? IconSource => Icon is { } icon ? new ImageIconSource { ImageSource = icon } : null;
 
 	public string StatusText => _operationError ?? ActivePane?.FolderBrowser.StatusText ?? Strings.NoPane.GetLocalized();
 
@@ -212,6 +215,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			OnPropertyChanged(nameof(SplitOrientation));
 			OnPropertyChanged(nameof(Title));
 			OnPropertyChanged(nameof(Icon));
+			OnPropertyChanged(nameof(IconSource));
 			OnPropertyChanged(nameof(StatusText));
 			OnPropertyChanged(nameof(CanClosePane));
 			OnPropertyChanged(nameof(IsLoading));
@@ -240,6 +244,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 				break;
 			case nameof(PaneViewModel.Icon):
 				OnPropertyChanged(nameof(Icon));
+				OnPropertyChanged(nameof(IconSource));
 				break;
 			case nameof(PaneViewModel.StatusText):
 				OnPropertyChanged(nameof(StatusText));

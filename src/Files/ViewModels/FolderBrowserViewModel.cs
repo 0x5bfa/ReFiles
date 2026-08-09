@@ -141,6 +141,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		_wasLoading = _browseAdapter.IsLoading;
 		_wasBusy = _browseAdapter.IsBusy;
 		_browseAdapter.Updated += BrowseAdapter_Updated;
+		RefreshLocationIcon();
 	}
 
 	public Task InitializeAsync(CancellationToken cancellationToken = default) =>
