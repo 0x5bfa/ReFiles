@@ -1,11 +1,12 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Globalization;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Controls;
-using Files.Localization;
 using Files.Core.Storage;
-using System.Globalization;
+using Files.Localization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Imaging;
 
@@ -20,6 +21,8 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	private IReadOnlyDictionary<string, object?> _properties = new Dictionary<string, object?>(StringComparer.Ordinal);
 
 	public string Name { get; }
+
+	public string DisplayName { get; }
 
 	public bool IsFolder { get; }
 
@@ -42,12 +45,13 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 	public IReadOnlyDictionary<string, object?> Properties => _properties;
 
-	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference, bool isHidden = false)
+	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference, bool isHidden = false, bool showFileExtensions = true)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		ArgumentNullException.ThrowIfNull(reference);
 
 		Name = name;
+		DisplayName = GetDisplayName(name, isFolder, showFileExtensions);
 		IsFolder = isFolder;
 		IsHidden = isHidden;
 		Reference = reference;
@@ -78,7 +82,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 		if (propertyId.Equals("name", StringComparison.OrdinalIgnoreCase) || propertyId.Equals(ItemNamePropertyId, StringComparison.Ordinal))
 		{
-			return Name;
+			return DisplayName;
 		}
 
 		if (propertyId.Equals(ReferencePropertyId, StringComparison.OrdinalIgnoreCase))
@@ -131,5 +135,21 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		}
 
 		return value.ToString();
+	}
+
+	private static string GetDisplayName(string name, bool isFolder, bool showFileExtensions)
+	{
+		if (isFolder || showFileExtensions)
+		{
+			return name;
+		}
+
+		var extension = Path.GetExtension(name);
+		if (extension.Length is 0)
+		{
+			return name;
+		}
+
+		return name[..^extension.Length];
 	}
 }

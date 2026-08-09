@@ -45,6 +45,7 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.SortItems, Strings.Sort, "Display.Sort", Strings.Layout, 40, "\uE8CB"), static _ => new DisplayCommandHandler(CommandIds.SortItems));
 		builder.Register(new(CommandIds.GroupItems, Strings.GroupBy, "Display.Group", Strings.Layout, 50, "\uE902"), static _ => new DisplayCommandHandler(CommandIds.GroupItems));
 		builder.Register(new(CommandIds.ShowHiddenItems, Strings.ShowHiddenItems, null, Strings.Layout, 60), static _ => new DisplayCommandHandler(CommandIds.ShowHiddenItems));
+		builder.Register(new(CommandIds.ShowFileExtensions, Strings.ShowFileExtensions, null, Strings.Layout, 70), static _ => new DisplayCommandHandler(CommandIds.ShowFileExtensions));
 	}
 
 	private static void RegisterWindow(CommandRegistryBuilder builder)

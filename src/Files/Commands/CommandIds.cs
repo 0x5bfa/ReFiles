@@ -61,4 +61,7 @@ public static class CommandIds
 
 	public static readonly CommandId ShowHiddenItems =
 		new("files.display.show-hidden-items");
+
+	public static readonly CommandId ShowFileExtensions =
+		new("files.display.show-file-extensions");
 }

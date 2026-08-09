@@ -220,6 +220,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		return _browseAdapter.UpdateShowHiddenItemsAsync(showHiddenItems, cancellationToken);
 	}
 
+	public ValueTask SetShowFileExtensionsAsync(bool showFileExtensions, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.UpdateShowFileExtensionsAsync(showFileExtensions, cancellationToken);
+	}
+
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);

@@ -23,9 +23,16 @@ internal sealed class DisplayCommandHandler(CommandId id) : ICommandHandler
 
 	public CommandState GetState(CommandContext context)
 	{
-		return context.ActiveFolderBrowser is { } browser
-			? new(true, !browser.IsLoading, id == CommandIds.ShowHiddenItems && browser.ViewSettings.ShowHiddenItems)
-			: new(false, false);
+		if (context.ActiveFolderBrowser is not { } browser)
+		{
+			return new(false, false);
+		}
+
+		var isChecked = id == CommandIds.ShowHiddenItems
+			? browser.ViewSettings.ShowHiddenItems
+			: id == CommandIds.ShowFileExtensions && browser.ViewSettings.ShowFileExtensions;
+
+		return new(true, !browser.IsLoading, isChecked);
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
@@ -38,6 +45,10 @@ internal sealed class DisplayCommandHandler(CommandId id) : ICommandHandler
 		if (id == CommandIds.ShowHiddenItems)
 		{
 			await browser.SetShowHiddenItemsAsync(!browser.ViewSettings.ShowHiddenItems, cancellationToken).ConfigureAwait(false);
+		}
+		else if (id == CommandIds.ShowFileExtensions)
+		{
+			await browser.SetShowFileExtensionsAsync(!browser.ViewSettings.ShowFileExtensions, cancellationToken).ConfigureAwait(false);
 		}
 		else if (context.Parameter is not string parameter)
 		{

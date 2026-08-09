@@ -26,6 +26,8 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel ShowHiddenItemsCommand { get; }
 
+	public CommandBindingViewModel ShowFileExtensionsCommand { get; }
+
 	public CommandBindingViewModel LayoutDetailsCommand { get; }
 
 	public CommandBindingViewModel LayoutListCommand { get; }
@@ -117,6 +119,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel sortItemsCommand,
 		CommandBindingViewModel groupItemsCommand,
 		CommandBindingViewModel showHiddenItemsCommand,
+		CommandBindingViewModel showFileExtensionsCommand,
 		CommandBindingViewModel layoutDetailsCommand,
 		CommandBindingViewModel layoutListCommand,
 		CommandBindingViewModel layoutCardsCommand,
@@ -128,6 +131,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(sortItemsCommand);
 		ArgumentNullException.ThrowIfNull(groupItemsCommand);
 		ArgumentNullException.ThrowIfNull(showHiddenItemsCommand);
+		ArgumentNullException.ThrowIfNull(showFileExtensionsCommand);
 		ArgumentNullException.ThrowIfNull(layoutDetailsCommand);
 		ArgumentNullException.ThrowIfNull(layoutListCommand);
 		ArgumentNullException.ThrowIfNull(layoutCardsCommand);
@@ -139,6 +143,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		SortItemsCommand = sortItemsCommand;
 		GroupItemsCommand = groupItemsCommand;
 		ShowHiddenItemsCommand = showHiddenItemsCommand;
+		ShowFileExtensionsCommand = showFileExtensionsCommand;
 		LayoutDetailsCommand = layoutDetailsCommand;
 		LayoutListCommand = layoutListCommand;
 		LayoutCardsCommand = layoutCardsCommand;

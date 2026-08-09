@@ -36,9 +36,9 @@
 
 		<Button
 			Grid.Column="1"
-			ToolTipService.ToolTip="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
-			IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}">
+			IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.SortLabel, Mode=OneWay}">
 			<FontIcon FontSize="18" Glyph="&#xE8CB;" />
 			<Button.Flyout>
 				<MenuFlyout Placement="Bottom">
@@ -128,9 +128,9 @@
 		</Button>
 		<Button
 			Grid.Column="2"
-			ToolTipService.ToolTip="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
-			IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}">
+			IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}">
 			<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutIconData, Mode=OneWay}" IconSize="18" />
 			<Button.Flyout>
 				<Flyout x:Name="LayoutFlyout" Placement="Bottom">
@@ -248,8 +248,8 @@
 								SnapsTo="Ticks"
 								TickFrequency="1"
 								TickPlacement="BottomRight"
-								Value="{x:Bind ViewModel.LayoutSize, Mode=OneWay}"
-								ValueChanged="LayoutSizeSlider_ValueChanged" />
+								ValueChanged="LayoutSizeSlider_ValueChanged"
+								Value="{x:Bind ViewModel.LayoutSize, Mode=OneWay}" />
 							<Grid HorizontalAlignment="Stretch">
 								<Grid.ColumnDefinitions>
 									<ColumnDefinition Width="Auto" />
@@ -297,24 +297,32 @@
 							IsEnabled="{x:Bind ViewModel.ShowHiddenItemsCommand.IsEnabled, Mode=OneWay}"
 							IsOn="{x:Bind ViewModel.ShowHiddenItemsCommand.IsChecked, Mode=OneWay}"
 							Toggled="ShowHiddenItemsToggleSwitch_Toggled" />
+						<ToggleSwitch
+							Padding="8,4"
+							HorizontalAlignment="Stretch"
+							AutomationProperties.Name="{x:Bind ViewModel.ShowFileExtensionsCommand.AutomationName, Mode=OneWay}"
+							Header="{x:Bind ViewModel.ShowFileExtensionsCommand.Label, Mode=OneWay}"
+							IsEnabled="{x:Bind ViewModel.ShowFileExtensionsCommand.IsEnabled, Mode=OneWay}"
+							IsOn="{x:Bind ViewModel.ShowFileExtensionsCommand.IsChecked, Mode=OneWay}"
+							Toggled="ShowFileExtensionsToggleSwitch_Toggled" />
 					</StackPanel>
 				</Flyout>
 			</Button.Flyout>
 		</Button>
 		<Button
 			Grid.Column="3"
-			ToolTipService.ToolTip="{x:Bind ViewModel.NewPaneCommand.ToolTip, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.NewPaneCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.NewPaneCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}">
+			IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.NewPaneCommand.ToolTip, Mode=OneWay}">
 			<SymbolIcon Symbol="Add" />
 		</Button>
 		<Button
 			Grid.Column="4"
-			ToolTipService.ToolTip="{x:Bind ViewModel.ClosePaneCommand.ToolTip, Mode=OneWay}"
 			AutomationProperties.Name="{x:Bind ViewModel.ClosePaneCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}">
+			IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.ClosePaneCommand.ToolTip, Mode=OneWay}">
 			<SymbolIcon Symbol="Cancel" />
 		</Button>
 	</Grid>

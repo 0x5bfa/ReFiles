@@ -35,6 +35,9 @@ public sealed record BrowseViewSettings
 	/// <summary>Gets a value indicating whether hidden items are shown.</summary>
 	public bool ShowHiddenItems { get; }
 
+	/// <summary>Gets a value indicating whether file extensions are shown.</summary>
+	public bool ShowFileExtensions { get; }
+
 	/// <summary>Initializes browse view settings.</summary>
 	/// <param name="layoutMode">The layout mode.</param>
 	/// <param name="columns">The configured columns.</param>
@@ -44,6 +47,7 @@ public sealed record BrowseViewSettings
 	/// <param name="groupPropertyId">The property ID used to group items.</param>
 	/// <param name="groupDirection">The group direction.</param>
 	/// <param name="showHiddenItems">Whether hidden items are shown.</param>
+	/// <param name="showFileExtensions">Whether file extensions are shown.</param>
 	public BrowseViewSettings(
 		ViewLayoutMode layoutMode = ViewLayoutMode.Details,
 		IEnumerable<ViewColumnSettings>? columns = null,
@@ -52,7 +56,8 @@ public sealed record BrowseViewSettings
 		double? itemSize = null,
 		string? groupPropertyId = null,
 		ViewSortDirection groupDirection = ViewSortDirection.Ascending,
-		bool showHiddenItems = false)
+		bool showHiddenItems = false,
+		bool showFileExtensions = true)
 	{
 		if (!Enum.IsDefined(layoutMode))
 		{
@@ -108,5 +113,6 @@ public sealed record BrowseViewSettings
 		GroupPropertyId = groupPropertyId;
 		GroupDirection = groupDirection;
 		ShowHiddenItems = showHiddenItems;
+		ShowFileExtensions = showFileExtensions;
 	}
 }

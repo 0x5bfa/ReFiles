@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Commands;
 using Files.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -32,23 +33,29 @@ public sealed partial class ToolbarView : UserControl
 		ViewModel?.SetLayoutSize(e.NewValue);
 	}
 
-	private void ShowHiddenItemsToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+	private void ShowHiddenItemsToggleSwitch_Toggled(object sender, RoutedEventArgs e) =>
+		ExecuteToggleCommand(sender, ViewModel?.ShowHiddenItemsCommand);
+
+	private void ShowFileExtensionsToggleSwitch_Toggled(object sender, RoutedEventArgs e) =>
+		ExecuteToggleCommand(sender, ViewModel?.ShowFileExtensionsCommand);
+
+	private static void ExecuteToggleCommand(object sender, CommandBindingViewModel? command)
 	{
 		if (sender is not ToggleSwitch toggleSwitch)
 		{
 			return;
 		}
 
-		if (ViewModel is not { } viewModel)
+		if (command is null)
 		{
 			return;
 		}
 
-		if (toggleSwitch.IsOn == viewModel.ShowHiddenItemsCommand.IsChecked)
+		if (toggleSwitch.IsOn == command.IsChecked)
 		{
 			return;
 		}
 
-		viewModel.ShowHiddenItemsCommand.Command.Execute(null);
+		command.Command.Execute(null);
 	}
 }

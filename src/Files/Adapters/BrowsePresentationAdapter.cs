@@ -305,7 +305,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection,
-			currentSettings.ShowHiddenItems);
+			currentSettings.ShowHiddenItems,
+			currentSettings.ShowFileExtensions);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
@@ -334,7 +335,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			itemSize,
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection,
-			currentSettings.ShowHiddenItems);
+			currentSettings.ShowHiddenItems,
+			currentSettings.ShowFileExtensions);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
@@ -358,7 +360,33 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection,
-			showHiddenItems);
+			showHiddenItems,
+			currentSettings.ShowFileExtensions);
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
+	}
+
+	public async ValueTask UpdateShowFileExtensionsAsync(bool showFileExtensions, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		var currentSettings = _pane.BrowseSession.ViewSettings;
+		if (currentSettings.ShowFileExtensions == showFileExtensions)
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			currentSettings.LayoutMode,
+			currentSettings.Columns,
+			currentSettings.SortPropertyId,
+			currentSettings.SortDirection,
+			currentSettings.ItemSize,
+			currentSettings.GroupPropertyId,
+			currentSettings.GroupDirection,
+			currentSettings.ShowHiddenItems,
+			showFileExtensions);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 		await _pane.BrowseSession.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
@@ -384,7 +412,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection,
-			currentSettings.ShowHiddenItems);
+			currentSettings.ShowHiddenItems,
+			currentSettings.ShowFileExtensions);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -412,7 +441,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection,
-			currentSettings.ShowHiddenItems);
+			currentSettings.ShowHiddenItems,
+			currentSettings.ShowFileExtensions);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -444,7 +474,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.ItemSize,
 			propertyId,
 			direction,
-			currentSettings.ShowHiddenItems);
+			currentSettings.ShowHiddenItems,
+			currentSettings.ShowFileExtensions);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -1175,7 +1206,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 							settings.ItemSize,
 							settings.GroupPropertyId,
 							settings.GroupDirection,
-							settings.ShowHiddenItems);
+							settings.ShowHiddenItems,
+							settings.ShowFileExtensions);
 						await session.UpdateViewSettingsAsync(nextSettings, cancellation.Token).ConfigureAwait(false);
 					}
 					finally
@@ -1508,7 +1540,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
 	{
-		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference, item.IsHidden);
+		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference, item.IsHidden, _pane.BrowseSession.ViewSettings.ShowFileExtensions);
 		var itemViewModelCount = Interlocked.Increment(ref _diagnosticItemViewModelCount);
 		if (itemViewModelCount is 1)
 		{

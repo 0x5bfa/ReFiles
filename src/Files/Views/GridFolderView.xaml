@@ -38,7 +38,7 @@
 					Width="{Binding ViewModel.GridItemSize, ElementName=Root}"
 					MinHeight="{Binding ViewModel.GridItemSize, ElementName=Root}"
 					Padding="10"
-					AutomationProperties.Name="{x:Bind Name}"
+					AutomationProperties.Name="{x:Bind DisplayName}"
 					Spacing="8">
 					<Grid
 						Width="{Binding ViewModel.GridThumbnailSize, ElementName=Root}"
@@ -58,7 +58,7 @@
 					</Grid>
 					<TextBlock
 						HorizontalAlignment="Center"
-						Text="{x:Bind Name}"
+						Text="{x:Bind DisplayName}"
 						TextAlignment="Center"
 						TextTrimming="CharacterEllipsis"
 						TextWrapping="Wrap" />

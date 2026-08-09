@@ -38,7 +38,7 @@
 					Width="288"
 					MinHeight="{Binding ViewModel.CardsItemHeight, ElementName=Root}"
 					Padding="10"
-					AutomationProperties.Name="{x:Bind Name}"
+					AutomationProperties.Name="{x:Bind DisplayName}"
 					ColumnSpacing="12">
 					<Grid.ColumnDefinitions>
 						<ColumnDefinition Width="Auto" />
@@ -65,7 +65,7 @@
 						Grid.Column="1"
 						VerticalAlignment="Center"
 						Spacing="4">
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+						<TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" />
 						<TextBlock Opacity="0.7" Text="{x:Bind Kind}" TextTrimming="CharacterEllipsis" />
 						<TextBlock Opacity="0.7" Text="{x:Bind ReferenceText}" TextTrimming="CharacterEllipsis" />
 					</StackPanel>

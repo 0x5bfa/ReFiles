@@ -37,7 +37,7 @@
 				<TextBlock
 					Grid.Column="1"
 					VerticalAlignment="Center"
-					Text="{x:Bind Name}"
+					Text="{x:Bind DisplayName}"
 					TextTrimming="CharacterEllipsis" />
 			</Grid>
 		</DataTemplate>

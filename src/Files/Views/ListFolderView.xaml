@@ -58,7 +58,7 @@
 							Stretch="Uniform" />
 					</Grid>
 					<StackPanel Grid.Column="1" Spacing="2">
-						<TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+						<TextBlock Text="{x:Bind DisplayName}" TextTrimming="CharacterEllipsis" />
 						<TextBlock Opacity="0.7" Text="{x:Bind Kind}" />
 					</StackPanel>
 					<TextBlock
