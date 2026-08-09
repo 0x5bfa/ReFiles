@@ -13,8 +13,11 @@ public interface ITableViewColumn : INotifyPropertyChanged
 	/// <summary>Gets the stable column identifier.</summary>
 	string Id { get; }
 
-	/// <summary>Gets the column header text.</summary>
-	string Header { get; }
+	/// <summary>Gets the column header content.</summary>
+	object? Header { get; }
+
+	/// <summary>Gets the optional template used to display the column header.</summary>
+	DataTemplate? HeaderTemplate { get; }
 
 	/// <summary>Gets or sets the column width in device-independent pixels.</summary>
 	double Width { get; set; }
@@ -33,6 +36,9 @@ public interface ITableViewColumn : INotifyPropertyChanged
 
 	/// <summary>Gets a value indicating whether the user can resize the column.</summary>
 	bool CanResize { get; }
+
+	/// <summary>Gets a value indicating whether the user can reorder the column.</summary>
+	bool CanReorder { get; }
 
 	/// <summary>Gets a value indicating whether the user can sort by the column.</summary>
 	bool CanSort { get; }
@@ -214,9 +220,6 @@ public readonly struct TableViewRowBinding
 	/// <summary>Gets the resolved column layout.</summary>
 	public TableViewColumnLayout Layout { get; }
 
-	/// <summary>Gets the optional primary-cell template.</summary>
-	public DataTemplate? PrimaryCellTemplate { get; }
-
 	/// <summary>Gets the minimum row height.</summary>
 	public double RowHeight { get; }
 
@@ -234,7 +237,6 @@ public readonly struct TableViewRowBinding
 		int depth,
 		IReadOnlyList<ITableViewColumn> columns,
 		TableViewColumnLayout layout,
-		DataTemplate? primaryCellTemplate,
 		double rowHeight,
 		double indentation,
 		Thickness cellPadding)
@@ -249,7 +251,6 @@ public readonly struct TableViewRowBinding
 		Depth = depth;
 		Columns = columns;
 		Layout = layout;
-		PrimaryCellTemplate = primaryCellTemplate;
 		RowHeight = rowHeight;
 		Indentation = indentation;
 		CellPadding = cellPadding;

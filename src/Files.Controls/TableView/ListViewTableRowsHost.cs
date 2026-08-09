@@ -93,6 +93,7 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 
 		View = view;
 		View.IsMultiSelectCheckBoxEnabled = false;
+		View.ItemContainerTransitions = null;
 		View.SelectionMode = ListViewSelectionMode.Extended;
 		View.ShowsScrollingPlaceholders = false;
 		ScrollViewer.SetHorizontalScrollMode(View, ScrollMode.Enabled);
@@ -169,6 +170,7 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 		{
 			container.HorizontalAlignment = HorizontalAlignment.Stretch;
 			container.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+			container.Padding = new(0);
 			container.VerticalContentAlignment = VerticalAlignment.Stretch;
 		}
 

@@ -105,6 +105,7 @@ internal sealed class TableViewColumnHeader : Grid
 	private readonly ITableViewColumn _column;
 	private readonly Button _button;
 	private readonly TextBlock _headerText;
+	private readonly ContentPresenter _headerPresenter;
 	private readonly FontIcon _sortGlyph;
 	private readonly Microsoft.UI.Xaml.Media.RotateTransform _sortTransform;
 	private readonly Thumb _resizeThumb;
@@ -122,6 +123,12 @@ internal sealed class TableViewColumnHeader : Grid
 			TextTrimming = TextTrimming.CharacterEllipsis,
 			VerticalAlignment = VerticalAlignment.Center,
 		};
+		_headerPresenter = new ContentPresenter
+		{
+			HorizontalContentAlignment = HorizontalAlignment.Stretch,
+			VerticalContentAlignment = VerticalAlignment.Center,
+			Visibility = Visibility.Collapsed,
+		};
 		_sortTransform = new();
 		_sortGlyph = new FontIcon
 		{
@@ -136,6 +143,7 @@ internal sealed class TableViewColumnHeader : Grid
 		content.ColumnDefinitions.Add(new() { Width = new(1, GridUnitType.Star) });
 		content.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
 		content.Children.Add(_headerText);
+		content.Children.Add(_headerPresenter);
 		Grid.SetColumn(_sortGlyph, 1);
 		content.Children.Add(_sortGlyph);
 
@@ -175,8 +183,12 @@ internal sealed class TableViewColumnHeader : Grid
 
 	internal void Refresh()
 	{
-		_headerText.Text = _column.Header;
-		_button.CanDrag = _owner.CanUserReorderColumns;
+		_headerText.Text = _column.Header?.ToString() ?? string.Empty;
+		_headerText.Visibility = _column.HeaderTemplate is null ? Visibility.Visible : Visibility.Collapsed;
+		_headerPresenter.Content = _column.Header;
+		_headerPresenter.ContentTemplate = _column.HeaderTemplate;
+		_headerPresenter.Visibility = _column.HeaderTemplate is null ? Visibility.Collapsed : Visibility.Visible;
+		_button.CanDrag = _owner.CanUserReorderColumns && _column.CanReorder;
 		_resizeThumb.IsEnabled = _owner.CanUserResizeColumns && _column.CanResize;
 		_resizeThumb.IsHitTestVisible = _resizeThumb.IsEnabled;
 

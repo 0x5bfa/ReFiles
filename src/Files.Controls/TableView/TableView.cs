@@ -16,6 +16,7 @@ public sealed partial class TableView : Control
 	private const string PartRowsHostPresenter = "PART_RowsHostPresenter";
 
 	private readonly List<ITableViewColumn> _activeColumns = [];
+	private readonly Dictionary<object, ITableViewColumn> _columnsBySourceItem = new(ReferenceEqualityComparer.Instance);
 	private readonly Dictionary<ITableViewRow, RealizedRowState> _realizedRows = new(ReferenceEqualityComparer.Instance);
 	private TableViewColumnHeadersPresenter? _columnHeadersPresenter;
 	private ScrollViewer? _headerScrollViewer;
@@ -38,6 +39,7 @@ public sealed partial class TableView : Control
 	{
 		DefaultStyleKey = typeof(TableView);
 		RowsHost = new ListViewTableRowsHost();
+		Columns.CollectionChanged += Columns_CollectionChanged;
 		Loaded += TableView_Loaded;
 		Unloaded += TableView_Unloaded;
 	}
@@ -130,7 +132,7 @@ public sealed partial class TableView : Control
 
 	internal bool BeginColumnDrag(ITableViewColumn column)
 	{
-		if (!CanUserReorderColumns || !_activeColumns.Contains(column))
+		if (!CanUserReorderColumns || !column.CanReorder || !_activeColumns.Contains(column))
 		{
 			return false;
 		}
@@ -154,17 +156,29 @@ public sealed partial class TableView : Control
 
 		var oldIndex = _activeColumns.IndexOf(draggedColumn);
 		var targetIndex = _activeColumns.IndexOf(target) + (insertAfter ? 1 : 0);
-		_activeColumns.RemoveAt(oldIndex);
 		if (oldIndex < targetIndex)
 		{
 			targetIndex--;
 		}
 
-		targetIndex = Math.Clamp(targetIndex, 0, _activeColumns.Count);
-		_activeColumns.Insert(targetIndex, draggedColumn);
-		_columnHeadersPresenter?.RebuildHeaders();
-		RefreshColumnLayout();
-		RebindRealizedRows();
+		targetIndex = Math.Clamp(targetIndex, 0, _activeColumns.Count - 1);
+		if (ColumnsSource is null && draggedColumn is TableViewColumn declaredColumn)
+		{
+			var declaredIndex = Columns.IndexOf(declaredColumn);
+			if (declaredIndex >= 0)
+			{
+				Columns.Move(declaredIndex, targetIndex);
+			}
+		}
+		else
+		{
+			_activeColumns.RemoveAt(oldIndex);
+			_activeColumns.Insert(targetIndex, draggedColumn);
+			_columnHeadersPresenter?.RebuildHeaders();
+			RefreshColumnLayout();
+			RebindRealizedRows();
+		}
+
 		ColumnReordered?.Invoke(this, new(draggedColumn, oldIndex, targetIndex, Array.AsReadOnly(_activeColumns.ToArray())));
 	}
 
@@ -326,22 +340,38 @@ public sealed partial class TableView : Control
 	{
 		UnsubscribeColumns();
 		_activeColumns.Clear();
-		if (ColumnsSource is IEnumerable source)
+		var columnInstances = new HashSet<ITableViewColumn>(ReferenceEqualityComparer.Instance);
+		var identifiers = new HashSet<string>(StringComparer.Ordinal);
+		if (ColumnsSource is not null)
 		{
-			var identifiers = new HashSet<string>(StringComparer.Ordinal);
+			if (ColumnsSource is not IEnumerable source)
+			{
+				throw new InvalidOperationException($"{nameof(ColumnsSource)} must implement {nameof(IEnumerable)}.");
+			}
+
+			var sourceItems = new HashSet<object>(ReferenceEqualityComparer.Instance);
 			foreach (var item in source)
 			{
-				if (item is not ITableViewColumn column)
+				if (item is null)
 				{
-					throw new InvalidOperationException($"{nameof(ColumnsSource)} must contain only {nameof(ITableViewColumn)} instances.");
+					throw new InvalidOperationException($"{nameof(ColumnsSource)} cannot contain null values.");
 				}
 
-				if (!identifiers.Add(column.Id))
-				{
-					throw new InvalidOperationException($"Column identifiers must be unique. Duplicate identifier: {column.Id}");
-				}
+				sourceItems.Add(item);
+				AddActiveColumn(ResolveSourceColumn(item), columnInstances, identifiers);
+			}
 
-				_activeColumns.Add(column);
+			foreach (var staleItem in _columnsBySourceItem.Keys.Where(item => !sourceItems.Contains(item)).ToArray())
+			{
+				ReleaseGeneratedColumn(staleItem);
+			}
+		}
+		else
+		{
+			ClearGeneratedColumns();
+			foreach (var column in Columns)
+			{
+				AddActiveColumn(column, columnInstances, identifiers);
 			}
 		}
 
@@ -349,6 +379,11 @@ public sealed partial class TableView : Control
 		{
 			foreach (var column in _activeColumns)
 			{
+				if (column is TableViewColumn tableColumn)
+				{
+					tableColumn.AttachOwner(this);
+				}
+
 				column.PropertyChanged += Column_PropertyChanged;
 			}
 		}
@@ -356,6 +391,65 @@ public sealed partial class TableView : Control
 		_columnHeadersPresenter?.RebuildHeaders();
 		RefreshColumnLayout();
 		RebindRealizedRows();
+	}
+
+	private void AddActiveColumn(ITableViewColumn column, HashSet<ITableViewColumn> columnInstances, HashSet<string> identifiers)
+	{
+		if (!columnInstances.Add(column))
+		{
+			throw new InvalidOperationException("A column instance cannot appear more than once in a table.");
+		}
+
+		if (!string.IsNullOrWhiteSpace(column.Id) && !identifiers.Add(column.Id))
+		{
+			throw new InvalidOperationException($"Column identifiers must be unique. Duplicate identifier: {column.Id}");
+		}
+
+		_activeColumns.Add(column);
+	}
+
+	private ITableViewColumn ResolveSourceColumn(object sourceItem)
+	{
+		if (sourceItem is ITableViewColumn column)
+		{
+			return column;
+		}
+
+		if (!sourceItem.GetType().IsValueType && _columnsBySourceItem.TryGetValue(sourceItem, out var cachedColumn))
+		{
+			return cachedColumn;
+		}
+
+		var template = ColumnTemplateSelector?.SelectTemplate(sourceItem, this) ?? ColumnTemplate;
+		if (template is null)
+		{
+			throw new InvalidOperationException($"{nameof(ColumnTemplate)} or {nameof(ColumnTemplateSelector)} must produce a template when {nameof(ColumnsSource)} does not contain columns.");
+		}
+
+		if (template.LoadContent() is not ITableViewColumn generatedColumn)
+		{
+			throw new InvalidOperationException($"A column template must create an {nameof(ITableViewColumn)} instance.");
+		}
+
+		if (generatedColumn is FrameworkElement element)
+		{
+			element.DataContext = sourceItem;
+		}
+
+		if (!sourceItem.GetType().IsValueType)
+		{
+			_columnsBySourceItem.Add(sourceItem, generatedColumn);
+		}
+
+		return generatedColumn;
+	}
+
+	private void Columns_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+	{
+		if (IsLoaded && ColumnsSource is null)
+		{
+			SynchronizeColumns();
+		}
 	}
 
 	private void ColumnsSource_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -368,6 +462,26 @@ public sealed partial class TableView : Control
 		foreach (var column in _activeColumns)
 		{
 			column.PropertyChanged -= Column_PropertyChanged;
+			if (column is TableViewColumn tableColumn)
+			{
+				tableColumn.DetachOwner(this);
+			}
+		}
+	}
+
+	private void ClearGeneratedColumns()
+	{
+		foreach (var sourceItem in _columnsBySourceItem.Keys.ToArray())
+		{
+			ReleaseGeneratedColumn(sourceItem);
+		}
+	}
+
+	private void ReleaseGeneratedColumn(object sourceItem)
+	{
+		if (_columnsBySourceItem.Remove(sourceItem, out var column) && column is FrameworkElement element)
+		{
+			element.DataContext = null;
 		}
 	}
 
@@ -424,7 +538,7 @@ public sealed partial class TableView : Control
 
 	private void BindRow(ITableViewRow row, object item, int depth)
 	{
-		row.Bind(new(item, depth, _activeColumns, _columnLayout, PrimaryCellTemplate, Math.Max(0, RowHeight), Math.Max(0, Indentation), CellPadding));
+		row.Bind(new(item, depth, _activeColumns, _columnLayout, Math.Max(0, RowHeight), Math.Max(0, Indentation), CellPadding));
 	}
 
 	private MenuFlyoutSubItem CreateOperationSubMenu(string header, Action<TableViewSortDirection> invoke)

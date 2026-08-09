@@ -32,7 +32,9 @@ public class TableViewColumnLayoutBenchmarks
 	{
 		public string Id { get; } = id;
 
-		public string Header => Id;
+		public object Header => Id;
+
+		public DataTemplate? HeaderTemplate => null;
 
 		public double Width { get; set; } = width;
 
@@ -45,6 +47,8 @@ public class TableViewColumnLayoutBenchmarks
 		public bool IsPrimary => false;
 
 		public bool CanResize => true;
+
+		public bool CanReorder => true;
 
 		public bool CanSort => true;
 

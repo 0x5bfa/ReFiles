@@ -8,13 +8,24 @@ namespace Files.Controls;
 
 public sealed partial class TableView
 {
+	/// <summary>Gets the columns declared directly on the table.</summary>
+	public ObservableCollection<TableViewColumn> Columns { get; } = [];
+
 	/// <summary>Gets or sets the items displayed by the table.</summary>
 	[GeneratedDependencyProperty]
 	public partial object? ItemsSource { get; set; }
 
-	/// <summary>Gets or sets an enumerable source of <see cref="ITableViewColumn"/> objects.</summary>
+	/// <summary>Gets or sets an enumerable source used to produce columns.</summary>
 	[GeneratedDependencyProperty]
 	public partial object? ColumnsSource { get; set; }
+
+	/// <summary>Gets or sets the template used to produce columns from <see cref="ColumnsSource"/>.</summary>
+	[GeneratedDependencyProperty]
+	public partial DataTemplate? ColumnTemplate { get; set; }
+
+	/// <summary>Gets or sets the selector used to choose a column template.</summary>
+	[GeneratedDependencyProperty]
+	public partial DataTemplateSelector? ColumnTemplateSelector { get; set; }
 
 	/// <summary>Gets or sets the rows host.</summary>
 	[GeneratedDependencyProperty]
@@ -27,10 +38,6 @@ public sealed partial class TableView
 	/// <summary>Gets or sets the group header template.</summary>
 	[GeneratedDependencyProperty]
 	public partial DataTemplate? GroupHeaderTemplate { get; set; }
-
-	/// <summary>Gets or sets the template used by cells in the primary column.</summary>
-	[GeneratedDependencyProperty]
-	public partial DataTemplate? PrimaryCellTemplate { get; set; }
 
 	/// <summary>Gets or sets the minimum row height.</summary>
 	[GeneratedDependencyProperty(DefaultValue = 28d)]
@@ -101,7 +108,28 @@ public sealed partial class TableView
 			newSource.CollectionChanged += ColumnsSource_CollectionChanged;
 		}
 
-		SynchronizeColumns();
+		if (IsLoaded)
+		{
+			SynchronizeColumns();
+		}
+	}
+
+	partial void OnColumnTemplateChanged(DataTemplate? newValue)
+	{
+		ClearGeneratedColumns();
+		if (IsLoaded)
+		{
+			SynchronizeColumns();
+		}
+	}
+
+	partial void OnColumnTemplateSelectorChanged(DataTemplateSelector? newValue)
+	{
+		ClearGeneratedColumns();
+		if (IsLoaded)
+		{
+			SynchronizeColumns();
+		}
 	}
 
 	partial void OnRowsHostPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -117,11 +145,6 @@ public sealed partial class TableView
 	partial void OnGroupHeaderTemplateChanged(DataTemplate? newValue)
 	{
 		UpdateRowsHostProperties();
-	}
-
-	partial void OnPrimaryCellTemplateChanged(DataTemplate? newValue)
-	{
-		RebindRealizedRows();
 	}
 
 	partial void OnRowHeightChanged(double newValue)

@@ -15,7 +15,6 @@ public sealed class TableViewRow : Panel, ITableViewRow
 	private TableViewColumnLayout _layout = TableViewColumnLayout.Empty;
 	private object? _item;
 	private INotifyPropertyChanged? _observableItem;
-	private DataTemplate? _primaryCellTemplate;
 	private Thickness _cellPadding;
 	private double _rowHeight;
 	private double _indentation;
@@ -37,7 +36,6 @@ public sealed class TableViewRow : Panel, ITableViewRow
 		SetItem(binding.Item);
 		_columns = binding.Columns;
 		_layout = binding.Layout;
-		_primaryCellTemplate = binding.PrimaryCellTemplate;
 		_cellPadding = binding.CellPadding;
 		_rowHeight = binding.RowHeight;
 		_indentation = binding.Indentation;
@@ -66,9 +64,10 @@ public sealed class TableViewRow : Panel, ITableViewRow
 		SetItem(null);
 		foreach (var cell in _cells.Values)
 		{
+			cell.DataContext = null;
 			if (cell is TextBlock textBlock)
 			{
-				textBlock.Text = string.Empty;
+				textBlock.ClearValue(TextBlock.TextProperty);
 			}
 			else if (cell is ContentPresenter presenter)
 			{
@@ -156,8 +155,8 @@ public sealed class TableViewRow : Panel, ITableViewRow
 		for (var index = 0; index < _columns.Count; index++)
 		{
 			var column = _columns[index];
-			var template = column.CellTemplate ?? (column.IsPrimary ? _primaryCellTemplate : null);
-			if (_cells.TryGetValue(column, out var existingCell) && CellUsesTemplate(existingCell, template))
+			var template = column.CellTemplate;
+			if (_cells.TryGetValue(column, out var existingCell) && (column is TableViewColumn || CellUsesTemplate(existingCell, template)))
 			{
 				MoveCell(existingCell, index);
 				continue;
@@ -183,22 +182,38 @@ public sealed class TableViewRow : Panel, ITableViewRow
 				continue;
 			}
 
-			if (cell is ContentPresenter presenter)
+			if (_item is not null && column is TableViewColumn tableColumn)
+			{
+				if (!tableColumn.TryUpdateElement(cell, _item))
+				{
+					var index = Children.IndexOf(cell);
+					Children.RemoveAt(index);
+					cell = tableColumn.CreateElement(_item);
+					Children.Insert(index, cell);
+					_cells[column] = cell;
+				}
+			}
+			else if (cell is ContentPresenter presenter)
 			{
 				presenter.Content = _item;
-				presenter.Padding = _cellPadding;
 			}
 			else if (cell is TextBlock textBlock)
 			{
 				textBlock.Text = _item is ITableViewCellValueProvider provider ? provider.GetDisplayText(column.Id) : _item?.ToString() ?? string.Empty;
 				textBlock.TextAlignment = column.TextAlignment;
-				textBlock.Margin = _cellPadding;
 			}
+
+			ApplyCellPadding(cell);
 		}
 	}
 
-	private static FrameworkElement CreateCell(ITableViewColumn column, DataTemplate? template)
+	private FrameworkElement CreateCell(ITableViewColumn column, DataTemplate? template)
 	{
+		if (_item is not null && column is TableViewColumn tableColumn)
+		{
+			return tableColumn.CreateElement(_item);
+		}
+
 		if (template is not null)
 		{
 			return new ContentPresenter
@@ -216,6 +231,18 @@ public sealed class TableViewRow : Panel, ITableViewRow
 			TextAlignment = column.TextAlignment,
 			TextTrimming = TextTrimming.CharacterEllipsis,
 		};
+	}
+
+	private void ApplyCellPadding(FrameworkElement cell)
+	{
+		if (cell is ContentPresenter presenter)
+		{
+			presenter.Padding = _cellPadding;
+
+			return;
+		}
+
+		cell.Margin = _cellPadding;
 	}
 
 	private void MoveCell(FrameworkElement cell, int targetIndex)

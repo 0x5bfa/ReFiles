@@ -67,7 +67,9 @@ public sealed class TableViewColumnLayoutTests
 	{
 		public string Id { get; } = id;
 
-		public string Header => Id;
+		public object Header => Id;
+
+		public DataTemplate? HeaderTemplate => null;
 
 		public double Width { get; set; } = width;
 
@@ -80,6 +82,8 @@ public sealed class TableViewColumnLayoutTests
 		public bool IsPrimary => false;
 
 		public bool CanResize => true;
+
+		public bool CanReorder => true;
 
 		public bool CanSort => true;
 

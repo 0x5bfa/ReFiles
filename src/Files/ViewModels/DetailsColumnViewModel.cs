@@ -3,7 +3,6 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Storage.Windows;
-using Files.Controls;
 using Microsoft.UI.Xaml;
 
 namespace Files.ViewModels;
@@ -11,7 +10,7 @@ namespace Files.ViewModels;
 /// <summary>
 /// Describes one column rendered by the details folder view.
 /// </summary>
-public sealed partial class DetailsColumnViewModel : ObservableObject, ITableViewColumn
+public sealed partial class DetailsColumnViewModel : ObservableObject
 {
 	/// <summary>Gets the stable property identifier.</summary>
 	public string PropertyId { get; }
@@ -38,12 +37,6 @@ public sealed partial class DetailsColumnViewModel : ObservableObject, ITableVie
 	/// <summary>Gets a value indicating whether the user can group by the column.</summary>
 	public bool CanGroup { get; }
 
-	/// <summary>Gets the stable table column identifier.</summary>
-	public string Id => PropertyId;
-
-	/// <summary>Gets the table column header.</summary>
-	public string Header => DisplayName;
-
 	/// <summary>Gets the minimum column width.</summary>
 	public double MinWidth => 48;
 
@@ -57,9 +50,6 @@ public sealed partial class DetailsColumnViewModel : ObservableObject, ITableVie
 		WindowsShellColumnAlignment.Center => Microsoft.UI.Xaml.TextAlignment.Center,
 		_ => Microsoft.UI.Xaml.TextAlignment.Left,
 	};
-
-	/// <summary>Gets the optional custom cell template.</summary>
-	public DataTemplate? CellTemplate => null;
 
 	/// <summary>
 	/// Initializes a details view column.
