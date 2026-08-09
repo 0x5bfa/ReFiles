@@ -48,6 +48,7 @@ namespace Files.ControlTests
 				tag switch
 				{
 					nameof(ThemedIconPage) => typeof(ThemedIconPage),
+					nameof(ThemedIconPerformancePage) => typeof(ThemedIconPerformancePage),
 					nameof(ToolbarPage) => typeof(ToolbarPage),
 					nameof(ThemedIconGalleryPage) => typeof(ThemedIconGalleryPage),
 					nameof(StorageControlsPage) => typeof(StorageControlsPage),
