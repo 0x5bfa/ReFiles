@@ -1,8 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using CommunityToolkit.Mvvm.ComponentModel;
 using System.Diagnostics;
+using System.IO;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
@@ -13,6 +14,7 @@ using Files.Core.Data;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Thumbnails;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
@@ -36,6 +38,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	private readonly BrowsePresentationAdapter _browseAdapter;
 	private readonly BrowsePaneSession _pane;
+	private readonly IStorageWorkspace _workspace;
+	private readonly IStorageOperationService _storageOperations;
+	private readonly WindowsStorageSource? _windowsSource;
+	private readonly WindowsShellNewMenu? _shellNewMenu;
 
 	private readonly IUIDispatcher _dispatcher;
 
@@ -97,6 +103,26 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public IReadOnlyList<StorableKey> SelectedKeys => _browseAdapter.SelectedKeys;
 
+	public IReadOnlyList<BrowseItemViewModel> SelectedItems
+	{
+		get
+		{
+			var selectedKeys = SelectedKeys.ToHashSet();
+
+			return Items.Where(item => selectedKeys.Contains(item.Reference.GetKey())).ToArray();
+		}
+	}
+
+	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedFilePaths().Count is not 0;
+
+	public bool CanCut => CanCopy;
+
+	public bool CanPaste => !IsLoading && !IsBusy && TryGetCurrentFileSystemFolder(out _) && FileClipboard.HasStorageItems;
+
+	public bool CanDelete => !IsLoading && !IsBusy && SelectedItems.Count is not 0 && SelectedItems.All(item => _storageOperations.CanHandle(CreateDeleteRequest(item.Reference)));
+
+	public bool CanShowNew => !IsLoading && !IsBusy && _shellNewMenu is not null && TryGetCurrentFileSystemFolder(out _);
+
 	public string LocationText => _browseAdapter.LocationText;
 
 	public BrowseLocation? Location => _pane.Location;
@@ -122,11 +148,13 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		?? _browseAdapter.ErrorMessage
 		?? _browseAdapter.StatusText;
 
-	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 
 		ArgumentNullException.ThrowIfNull(workspace);
+
+		ArgumentNullException.ThrowIfNull(storageOperations);
 
 		ArgumentNullException.ThrowIfNull(commandManager);
 
@@ -134,8 +162,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 		CommandManager = commandManager;
 		_pane = pane;
+		_workspace = workspace;
+		_storageOperations = storageOperations;
 		_dispatcher = dispatcher;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
+		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
+		_shellNewMenu = _windowsSource is { } windowsSource
+			? new WindowsShellNewMenu(windowsSource.Scheduler)
+			: null;
 		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 		_wasLoading = _browseAdapter.IsLoading;
@@ -175,7 +209,96 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		_browseAdapter.UpdateViewport(viewport);
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems) =>
-		_browseAdapter.SetSelection(selectedItems);
+		SetSelectionCore(selectedItems);
+
+	public async Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
+	{
+		var paths = GetSelectedFilePaths();
+		if (paths.Count is 0)
+		{
+			throw new NotSupportedException("Only local file-system items can be copied to the Windows clipboard.");
+		}
+
+		await FileClipboard.SetStorageItemsAsync(paths, move, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task PasteFromClipboardAsync(CancellationToken cancellationToken = default)
+	{
+		if (!TryGetCurrentFileSystemFolder(out var destinationFolder))
+		{
+			throw new NotSupportedException("The current location cannot receive file-system clipboard items.");
+		}
+
+		var content = await FileClipboard.GetStorageItemsAsync(cancellationToken).ConfigureAwait(false);
+		if (content is null)
+		{
+			return;
+		}
+
+		var move = content.RequestedOperation.HasFlag(Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move);
+		foreach (var path in content.Paths)
+		{
+			await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false);
+			StorageOperationRequest request = move
+				? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName)
+				: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName);
+
+			await ExecuteStorageOperationAsync(request, cancellationToken).ConfigureAwait(false);
+		}
+
+		if (move)
+		{
+			Windows.ApplicationModel.DataTransfer.Clipboard.Clear();
+		}
+
+		await RefreshAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task DeleteSelectionAsync(CancellationToken cancellationToken = default)
+	{
+		var selectedItems = SelectedItems;
+		if (selectedItems.Count is 0)
+		{
+			return;
+		}
+
+		foreach (var item in selectedItems)
+		{
+			await ExecuteStorageOperationAsync(CreateDeleteRequest(item.Reference), cancellationToken).ConfigureAwait(false);
+		}
+
+		await RefreshAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task<IReadOnlyList<WindowsShellNewItem>> GetNewItemsAsync(CancellationToken cancellationToken = default)
+	{
+		if (_shellNewMenu is null || !TryGetCurrentFileSystemFolder(out var folder))
+		{
+			return [];
+		}
+
+		var path = folder.LastKnownAddress!.Value;
+
+		return await _shellNewMenu.GetItemsAsync(path, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task InvokeNewItemAsync(WindowsShellNewItem item, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(item);
+
+		if (_shellNewMenu is null || !TryGetCurrentFileSystemFolder(out var folder))
+		{
+			throw new NotSupportedException("The current location does not expose a Windows Shell New menu.");
+		}
+
+		var path = folder.LastKnownAddress!.Value;
+		if (!await _shellNewMenu.InvokeAsync(path, item.CommandOffset, cancellationToken).ConfigureAwait(false))
+		{
+			throw new InvalidOperationException($"The Windows Shell could not invoke the New menu item '{item.Name}'.");
+		}
+
+		await RefreshAsync(cancellationToken).ConfigureAwait(false);
+	}
 
 	public async Task SetViewModeAsync(FolderViewMode mode, CancellationToken cancellationToken = default)
 	{
@@ -330,8 +453,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Location))
 			{
+				OnPropertyChanged(nameof(Location));
 				OnPropertyChanged(nameof(LocationText));
 				OnPropertyChanged(nameof(LocationDisplayName));
+				OnPropertyChanged(nameof(CanShowNew));
 				RefreshLocationIcon();
 			}
 
@@ -340,10 +465,12 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				OnPropertyChanged(nameof(IsLoading));
 				OnPropertyChanged(nameof(IsBusy));
 				OnPropertyChanged(nameof(CanRefresh));
+				OnPropertyChanged(nameof(CanShowNew));
 			}
 			else if (wasBusy != _browseAdapter.IsBusy)
 			{
 				OnPropertyChanged(nameof(IsBusy));
+				OnPropertyChanged(nameof(CanShowNew));
 			}
 
 			if (args.Flags.HasFlag(BrowseUpdateFlags.NavigationCapabilities))
@@ -365,6 +492,81 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				"FolderBrowserViewModel",
 				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
+
+		CommandManager.RefreshStates();
+	}
+
+	private void SetSelectionCore(IEnumerable<BrowseItemViewModel> selectedItems)
+	{
+		ArgumentNullException.ThrowIfNull(selectedItems);
+
+		_browseAdapter.SetSelection(selectedItems);
+		CommandManager.RefreshStates();
+	}
+
+	private IReadOnlyList<string> GetSelectedFilePaths()
+	{
+		var paths = new List<string>(SelectedItems.Count);
+		foreach (var item in SelectedItems)
+		{
+			if (!TryGetFileSystemPath(item.Reference, out var path))
+			{
+				return [];
+			}
+
+			paths.Add(path);
+		}
+
+		return paths;
+	}
+
+	private bool TryGetCurrentFileSystemFolder(out StorableReference folder)
+	{
+		if (Location is FolderLocation { Folder: { LastKnownAddress: { } address } } && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Directory.Exists(address.Value))
+		{
+			folder = ((FolderLocation)Location).Folder;
+
+			return true;
+		}
+
+		folder = null!;
+
+		return false;
+	}
+
+	private static bool TryGetFileSystemPath(StorableReference reference, out string path)
+	{
+		if (reference.LastKnownAddress is { } address && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(address.Value) && (File.Exists(address.Value) || Directory.Exists(address.Value)))
+		{
+			path = address.Value;
+
+			return true;
+		}
+
+		path = string.Empty;
+
+		return false;
+	}
+
+	private async Task ExecuteStorageOperationAsync(StorageOperationRequest request, CancellationToken cancellationToken)
+	{
+		if (!_storageOperations.CanHandle(request))
+		{
+			throw new NotSupportedException($"No storage operation handler can handle '{request.GetType().Name}'.");
+		}
+
+		var result = await _storageOperations.ExecuteAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+		if (!result.Succeeded)
+		{
+			throw result.Error ?? new IOException($"The storage operation '{request.GetType().Name}' failed.");
+		}
+	}
+
+	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)
+	{
+		var permanently = _windowsSource is null || reference.SourceId != _windowsSource.SourceId;
+
+		return new DeleteOperationRequest(reference, permanently);
 	}
 
 	private void RefreshLocationIcon()

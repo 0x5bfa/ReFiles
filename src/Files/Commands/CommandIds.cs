@@ -26,6 +26,18 @@ public static class CommandIds
 	public static readonly CommandId OpenItem =
 		new("files.item.open");
 
+	public static readonly CommandId Copy =
+		new("files.item.copy");
+
+	public static readonly CommandId Cut =
+		new("files.item.cut");
+
+	public static readonly CommandId Paste =
+		new("files.item.paste");
+
+	public static readonly CommandId Delete =
+		new("files.item.delete");
+
 	public static readonly CommandId NewTab =
 		new("files.tab.new");
 

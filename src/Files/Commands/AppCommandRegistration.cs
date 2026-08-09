@@ -12,6 +12,7 @@ public static class AppCommandRegistration
 	{
 		var builder = new CommandRegistryBuilder();
 		RegisterNavigation(builder);
+		RegisterFileOperations(builder);
 		RegisterLayout(builder);
 		RegisterDisplay(builder);
 		RegisterWindow(builder);
@@ -38,6 +39,14 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.LayoutCards, Strings.Cards, "App.ThemedIcons.IconLayout.Tiles.28", Strings.Layout, 30), static _ => new LayoutCommandHandler(CommandIds.LayoutCards));
 		builder.Register(new(CommandIds.LayoutGrid, Strings.Grid, "App.ThemedIcons.IconLayout.Grid.28", Strings.Layout, 40), static _ => new LayoutCommandHandler(CommandIds.LayoutGrid));
 		builder.Register(new(CommandIds.LayoutColumns, Strings.Columns, "App.ThemedIcons.IconLayout.Columns.28", Strings.Layout, 50), static _ => new LayoutCommandHandler(CommandIds.LayoutColumns));
+	}
+
+	private static void RegisterFileOperations(CommandRegistryBuilder builder)
+	{
+		builder.Register(new(CommandIds.Copy, Strings.Copy, "App.ThemedIcons.Copy", Strings.Item, 20), static _ => new FileCommandHandler(CommandIds.Copy));
+		builder.Register(new(CommandIds.Cut, Strings.Cut, "App.ThemedIcons.Cut", Strings.Item, 30), static _ => new FileCommandHandler(CommandIds.Cut));
+		builder.Register(new(CommandIds.Paste, Strings.Paste, "App.ThemedIcons.Paste", Strings.Item, 40), static _ => new FileCommandHandler(CommandIds.Paste));
+		builder.Register(new(CommandIds.Delete, Strings.Delete, "App.ThemedIcons.Delete", Strings.Item, 50), static _ => new FileCommandHandler(CommandIds.Delete));
 	}
 
 	private static void RegisterDisplay(CommandRegistryBuilder builder)

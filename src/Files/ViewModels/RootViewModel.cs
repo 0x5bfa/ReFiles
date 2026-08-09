@@ -73,6 +73,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel RefreshCommand => _commandManager.GetBinding(CommandIds.Refresh);
 
+	public CommandBindingViewModel CopyCommand => _commandManager.GetBinding(CommandIds.Copy);
+
+	public CommandBindingViewModel CutCommand => _commandManager.GetBinding(CommandIds.Cut);
+
+	public CommandBindingViewModel PasteCommand => _commandManager.GetBinding(CommandIds.Paste);
+
+	public CommandBindingViewModel DeleteCommand => _commandManager.GetBinding(CommandIds.Delete);
+
 	public CommandBindingViewModel NewTabCommand => _commandManager.GetBinding(CommandIds.NewTab);
 
 	public CommandBindingViewModel CloseTabCommand => _commandManager.GetBinding(CommandIds.CloseTab);
@@ -134,7 +142,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		_commandManager = presentationFactory.CreateCommandManager(this);
 		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
 		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
-		Toolbar = new(NewPaneCommand, ClosePaneCommand, SortItemsCommand, GroupItemsCommand, ShowHiddenItemsCommand, ShowFileExtensionsCommand, LayoutDetailsCommand, LayoutListCommand, LayoutCardsCommand, LayoutGridCommand, LayoutColumnsCommand);
+		Toolbar = new(NewPaneCommand, ClosePaneCommand, CopyCommand, CutCommand, PasteCommand, DeleteCommand, SortItemsCommand, GroupItemsCommand, ShowHiddenItemsCommand, ShowFileExtensionsCommand, LayoutDetailsCommand, LayoutListCommand, LayoutCardsCommand, LayoutGridCommand, LayoutColumnsCommand);
 
 		window.TabsChanged += Window_StateChanged;
 		window.ActiveTabChanged += Window_StateChanged;

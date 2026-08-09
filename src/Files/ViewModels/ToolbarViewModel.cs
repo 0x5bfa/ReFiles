@@ -4,6 +4,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Controls;
+using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
 using Files.Localization;
 
@@ -19,6 +20,14 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	public CommandBindingViewModel NewPaneCommand { get; }
 
 	public CommandBindingViewModel ClosePaneCommand { get; }
+
+	public CommandBindingViewModel CopyCommand { get; }
+
+	public CommandBindingViewModel CutCommand { get; }
+
+	public CommandBindingViewModel PasteCommand { get; }
+
+	public CommandBindingViewModel DeleteCommand { get; }
 
 	public CommandBindingViewModel SortItemsCommand { get; }
 
@@ -61,6 +70,10 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	public string DescendingLabel => Strings.Descending.GetLocalized();
 
 	public string LayoutLabel => Strings.Layout.GetLocalized();
+
+	public string NewLabel => Strings.New.GetLocalized();
+
+	public bool CanShowNew => _activeFolderBrowser?.CanShowNew is true;
 
 	public ThemedIconData? LayoutIconData => _activeFolderBrowser?.ViewMode switch
 	{
@@ -116,6 +129,10 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	internal ToolbarViewModel(
 		CommandBindingViewModel newPaneCommand,
 		CommandBindingViewModel closePaneCommand,
+		CommandBindingViewModel copyCommand,
+		CommandBindingViewModel cutCommand,
+		CommandBindingViewModel pasteCommand,
+		CommandBindingViewModel deleteCommand,
 		CommandBindingViewModel sortItemsCommand,
 		CommandBindingViewModel groupItemsCommand,
 		CommandBindingViewModel showHiddenItemsCommand,
@@ -128,6 +145,10 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	{
 		ArgumentNullException.ThrowIfNull(newPaneCommand);
 		ArgumentNullException.ThrowIfNull(closePaneCommand);
+		ArgumentNullException.ThrowIfNull(copyCommand);
+		ArgumentNullException.ThrowIfNull(cutCommand);
+		ArgumentNullException.ThrowIfNull(pasteCommand);
+		ArgumentNullException.ThrowIfNull(deleteCommand);
 		ArgumentNullException.ThrowIfNull(sortItemsCommand);
 		ArgumentNullException.ThrowIfNull(groupItemsCommand);
 		ArgumentNullException.ThrowIfNull(showHiddenItemsCommand);
@@ -140,6 +161,10 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 		NewPaneCommand = newPaneCommand;
 		ClosePaneCommand = closePaneCommand;
+		CopyCommand = copyCommand;
+		CutCommand = cutCommand;
+		PasteCommand = pasteCommand;
+		DeleteCommand = deleteCommand;
 		SortItemsCommand = sortItemsCommand;
 		GroupItemsCommand = groupItemsCommand;
 		ShowHiddenItemsCommand = showHiddenItemsCommand;
@@ -161,6 +186,46 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		var cancellation = new CancellationTokenSource();
 		Interlocked.Exchange(ref _layoutSizeCancellation, cancellation)?.Cancel();
 		_ = SetLayoutSizeAsync(browser, Math.Clamp(Math.Round(value), 1, 5), cancellation);
+	}
+
+	public Task<IReadOnlyList<WindowsShellNewItem>> GetNewItemsAsync(CancellationToken cancellationToken = default)
+	{
+		if (_activeFolderBrowser is not { } browser)
+		{
+			return Task.FromResult<IReadOnlyList<WindowsShellNewItem>>([]);
+		}
+
+		return browser.GetNewItemsAsync(cancellationToken);
+	}
+
+	public async Task InvokeNewItemAsync(WindowsShellNewItem item, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(item);
+
+		if (_activeFolderBrowser is not { } browser)
+		{
+			return;
+		}
+
+		try
+		{
+			await browser.InvokeNewItemAsync(item, cancellationToken).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			browser.ReportOperationCanceled();
+		}
+		catch (Exception exception)
+		{
+			browser.ReportOperationError(exception);
+		}
+	}
+
+	public void ReportNewMenuError(Exception exception)
+	{
+		ArgumentNullException.ThrowIfNull(exception);
+
+		_activeFolderBrowser?.ReportOperationError(exception);
 	}
 
 	public void Dispose()
@@ -199,6 +264,11 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	private void ActiveFolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
+		if (e.PropertyName is null or nameof(FolderBrowserViewModel.Location))
+		{
+			OnPropertyChanged(nameof(CanShowNew));
+		}
+
 		if (e.PropertyName is null or nameof(FolderBrowserViewModel.ViewMode))
 		{
 			OnPropertyChanged(nameof(LayoutIconData));
@@ -229,6 +299,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 			_activeFolderBrowser.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
 		}
 
+		OnPropertyChanged(nameof(CanShowNew));
 		OnPropertyChanged(nameof(LayoutIconData));
 		RaiseLayoutSizeProperties();
 		RaiseDisplayStateProperties();

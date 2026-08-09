@@ -3,6 +3,7 @@
 
 using Files.ViewModels;
 using Files.Infrastructure;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Files.Commands;
 
@@ -30,6 +31,8 @@ public sealed class WindowCommandManager : IDisposable
 		{
 			bindings.Add(descriptor.Id, new CommandBindingViewModel(this, descriptor));
 		}
+
+		Clipboard.ContentChanged += Clipboard_ContentChanged;
 	}
 
 	public CommandBindingViewModel GetBinding(CommandId id)
@@ -172,8 +175,12 @@ public sealed class WindowCommandManager : IDisposable
 
 		bindings.Clear();
 		handlers.Clear();
+		Clipboard.ContentChanged -= Clipboard_ContentChanged;
 		lifetime.Dispose();
 	}
+
+	private void Clipboard_ContentChanged(object? sender, object args) =>
+		RefreshStates();
 
 	private void ReportError(Exception exception)
 	{

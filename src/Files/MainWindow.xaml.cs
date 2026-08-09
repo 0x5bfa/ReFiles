@@ -5,6 +5,7 @@ using Files.Views;
 using Files.Commands;
 using Files.Core.Sessions;
 using Files.Core.Data;
+using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.Presentation;
 using Microsoft.UI.Windowing;
@@ -22,10 +23,11 @@ public sealed partial class MainWindow : Window
 	private int _closeStarted;
 	private int _isDisposed;
 
-	public MainWindow(WindowSession coreWindow, IStorageWorkspace workspace, CommandRegistry commandRegistry, Action activateSession, Func<Task> shutdownAsync)
+	public MainWindow(WindowSession coreWindow, IStorageWorkspace workspace, IStorageOperationService storageOperations, CommandRegistry commandRegistry, Action activateSession, Func<Task> shutdownAsync)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
 		ArgumentNullException.ThrowIfNull(workspace);
+		ArgumentNullException.ThrowIfNull(storageOperations);
 		ArgumentNullException.ThrowIfNull(commandRegistry);
 		ArgumentNullException.ThrowIfNull(activateSession);
 		ArgumentNullException.ThrowIfNull(shutdownAsync);
@@ -33,7 +35,7 @@ public sealed partial class MainWindow : Window
 		InitializeComponent();
 		_activateSession = activateSession;
 		_shutdownAsync = shutdownAsync;
-		var presentationFactory = new WindowPresentationFactory(workspace, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
+		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
 		_rootView = new RootView(presentationFactory.Create(coreWindow));
 		RootContent.Content = _rootView;
 		_rootView.AttachWindow(this);

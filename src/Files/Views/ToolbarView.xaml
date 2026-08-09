@@ -32,10 +32,72 @@
 			<ColumnDefinition Width="Auto" />
 			<ColumnDefinition Width="Auto" />
 			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
 		<Button
 			Grid.Column="1"
+			AutomationProperties.Name="{x:Bind ViewModel.NewLabel, Mode=OneWay}"
+			IsEnabled="{x:Bind ViewModel.CanShowNew, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.NewLabel, Mode=OneWay}">
+			<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.New.Item}" IconSize="18" />
+			<Button.Flyout>
+				<MenuFlyout
+					x:Name="NewMenuFlyout"
+					Opening="NewMenuFlyout_Opening"
+					Placement="Bottom" />
+			</Button.Flyout>
+		</Button>
+		<Button
+			Grid.Column="2"
+			AutomationProperties.Name="{x:Bind ViewModel.CopyCommand.AutomationName, Mode=OneWay}"
+			Command="{x:Bind ViewModel.CopyCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.CopyCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.CopyCommand.ToolTip, Mode=OneWay}">
+			<controls:ThemedIcon Data="{x:Bind ViewModel.CopyCommand.IconData, Mode=OneWay}" IconSize="18" />
+			<Button.KeyboardAccelerators>
+				<KeyboardAccelerator Key="C" Modifiers="Control" />
+			</Button.KeyboardAccelerators>
+		</Button>
+		<Button
+			Grid.Column="3"
+			AutomationProperties.Name="{x:Bind ViewModel.CutCommand.AutomationName, Mode=OneWay}"
+			Command="{x:Bind ViewModel.CutCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.CutCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.CutCommand.ToolTip, Mode=OneWay}">
+			<controls:ThemedIcon Data="{x:Bind ViewModel.CutCommand.IconData, Mode=OneWay}" IconSize="18" />
+			<Button.KeyboardAccelerators>
+				<KeyboardAccelerator Key="X" Modifiers="Control" />
+			</Button.KeyboardAccelerators>
+		</Button>
+		<Button
+			Grid.Column="4"
+			AutomationProperties.Name="{x:Bind ViewModel.PasteCommand.AutomationName, Mode=OneWay}"
+			Command="{x:Bind ViewModel.PasteCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.PasteCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.PasteCommand.ToolTip, Mode=OneWay}">
+			<controls:ThemedIcon Data="{x:Bind ViewModel.PasteCommand.IconData, Mode=OneWay}" IconSize="18" />
+			<Button.KeyboardAccelerators>
+				<KeyboardAccelerator Key="V" Modifiers="Control" />
+			</Button.KeyboardAccelerators>
+		</Button>
+		<Button
+			Grid.Column="5"
+			AutomationProperties.Name="{x:Bind ViewModel.DeleteCommand.AutomationName, Mode=OneWay}"
+			Command="{x:Bind ViewModel.DeleteCommand.Command}"
+			IsEnabled="{x:Bind ViewModel.DeleteCommand.IsEnabled, Mode=OneWay}"
+			ToolTipService.ToolTip="{x:Bind ViewModel.DeleteCommand.ToolTip, Mode=OneWay}">
+			<controls:ThemedIcon Data="{x:Bind ViewModel.DeleteCommand.IconData, Mode=OneWay}" IconSize="18" />
+			<Button.KeyboardAccelerators>
+				<KeyboardAccelerator Key="Delete" />
+			</Button.KeyboardAccelerators>
+		</Button>
+		<Button
+			Grid.Column="6"
 			AutomationProperties.Name="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
 			ToolTipService.ToolTip="{x:Bind ViewModel.SortLabel, Mode=OneWay}">
@@ -127,7 +189,7 @@
 			</Button.Flyout>
 		</Button>
 		<Button
-			Grid.Column="2"
+			Grid.Column="7"
 			AutomationProperties.Name="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
 			IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
 			ToolTipService.ToolTip="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}">
@@ -310,7 +372,7 @@
 			</Button.Flyout>
 		</Button>
 		<Button
-			Grid.Column="3"
+			Grid.Column="8"
 			AutomationProperties.Name="{x:Bind ViewModel.NewPaneCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.NewPaneCommand.Command}"
 			IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}"
@@ -318,7 +380,7 @@
 			<SymbolIcon Symbol="Add" />
 		</Button>
 		<Button
-			Grid.Column="4"
+			Grid.Column="9"
 			AutomationProperties.Name="{x:Bind ViewModel.ClosePaneCommand.AutomationName, Mode=OneWay}"
 			Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
 			IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}"

@@ -57,7 +57,7 @@ public partial class App : Application
 			throw new InvalidOperationException("Files.Core did not create an active pane.");
 		}
 
-		_mainWindow = new MainWindow(coreWindow, currentRuntime.Workspace, _commandRegistry, () => currentRuntime.ShellSession.SetActiveWindow(coreWindow.Id), ShutdownAsync);
+		_mainWindow = new MainWindow(coreWindow, currentRuntime.Workspace, currentRuntime.StorageOperations, _commandRegistry, () => currentRuntime.ShellSession.SetActiveWindow(coreWindow.Id), ShutdownAsync);
 		_mainWindow.Activate();
 		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
