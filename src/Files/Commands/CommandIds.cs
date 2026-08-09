@@ -29,6 +29,24 @@ public static class CommandIds
 	public static readonly CommandId NewTab =
 		new("files.tab.new");
 
+	public static readonly CommandId DuplicateTab =
+		new("files.tab.duplicate");
+
+	public static readonly CommandId MoveTabToNewWindow =
+		new("files.tab.move-to-new-window");
+
+	public static readonly CommandId CloseTabsToLeft =
+		new("files.tab.close-to-left");
+
+	public static readonly CommandId CloseTabsToRight =
+		new("files.tab.close-to-right");
+
+	public static readonly CommandId CloseOtherTabs =
+		new("files.tab.close-other");
+
+	public static readonly CommandId ReopenTab =
+		new("files.tab.reopen");
+
 	public static readonly CommandId CloseTab =
 		new("files.tab.close");
 

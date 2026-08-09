@@ -51,7 +51,15 @@ public static class AppCommandRegistration
 	private static void RegisterWindow(CommandRegistryBuilder builder)
 	{
 		builder.Register(new(CommandIds.NewTab, Strings.NewTab, "Tab.New", Strings.Tabs, 10), static _ => new WindowCommandHandler(CommandIds.NewTab));
-		builder.Register(new(CommandIds.CloseTab, Strings.Close, "Tab.Close", Strings.Tabs, 20), static _ => new WindowCommandHandler(CommandIds.CloseTab));
+		builder.Register(new(CommandIds.DuplicateTab, Strings.DuplicateTab, "Tab.Duplicate", Strings.Tabs, 20), static _ => new WindowCommandHandler(CommandIds.DuplicateTab));
+		builder.Register(
+			new(CommandIds.MoveTabToNewWindow, Strings.MoveTabToNewWindow, "App.ThemedIcons.OpenInWindow", Strings.Tabs, 30),
+			static _ => new WindowCommandHandler(CommandIds.MoveTabToNewWindow));
+		builder.Register(new(CommandIds.CloseTabsToLeft, Strings.CloseTabsToLeft, null, Strings.Tabs, 40), static _ => new WindowCommandHandler(CommandIds.CloseTabsToLeft));
+		builder.Register(new(CommandIds.CloseTabsToRight, Strings.CloseTabsToRight, null, Strings.Tabs, 50), static _ => new WindowCommandHandler(CommandIds.CloseTabsToRight));
+		builder.Register(new(CommandIds.CloseOtherTabs, Strings.CloseOtherTabs, null, Strings.Tabs, 60), static _ => new WindowCommandHandler(CommandIds.CloseOtherTabs));
+		builder.Register(new(CommandIds.ReopenTab, Strings.ReopenTab, null, Strings.Tabs, 70), static _ => new WindowCommandHandler(CommandIds.ReopenTab));
+		builder.Register(new(CommandIds.CloseTab, Strings.Close, "Tab.Close", Strings.Tabs, 80), static _ => new WindowCommandHandler(CommandIds.CloseTab));
 	}
 
 	private static void RegisterPane(CommandRegistryBuilder builder)

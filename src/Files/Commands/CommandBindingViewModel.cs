@@ -60,6 +60,8 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 
 		if (Equals(_state, newState))
 		{
+			((BindingCommand)Command).RaiseCanExecuteChanged();
+
 			return;
 		}
 
@@ -84,10 +86,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 		}
 
 		OnPropertyChanged(nameof(DisabledReasonResourceKey));
-		if (enabledChanged)
-		{
-			((BindingCommand)Command).RaiseCanExecuteChanged();
-		}
+		((BindingCommand)Command).RaiseCanExecuteChanged();
 	}
 
 	private async Task ExecuteFromBindingAsync(object? parameter)
@@ -109,7 +108,7 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	{
 		public event EventHandler? CanExecuteChanged;
 
-		public bool CanExecute(object? parameter) => owner.IsEnabled;
+		public bool CanExecute(object? parameter) => owner._manager.CanExecute(owner.Id, parameter);
 
 		public void Execute(object? parameter) =>
 			_ = owner.ExecuteFromBindingAsync(parameter);

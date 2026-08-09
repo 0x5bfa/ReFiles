@@ -29,6 +29,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	private readonly Dictionary<Guid, TabViewModel> _tabViewModels = [];
 
+	private readonly Stack<BrowseLocation> _closedTabLocations = [];
+
+	private readonly Lock _closedTabsLock = new();
+
 	private readonly Dictionary<int, NavigationItemViewModel> _navigationSectionViewModels = [];
 
 	private readonly SemaphoreSlim _navigationThumbnailGate = new(4);
@@ -102,6 +106,17 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;
 
 	public string StatusText => _operationError ?? ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
+
+	internal bool CanReopenTab
+	{
+		get
+		{
+			lock (_closedTabsLock)
+			{
+				return _closedTabLocations.Count > 0;
+			}
+		}
+	}
 
 	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory)
 	{
@@ -186,7 +201,106 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false);
+		if (Tabs.FirstOrDefault(tab => tab.Id == tabId) is not { } tab)
+		{
+			return;
+		}
+
+		var location = tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance;
+		if (await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false))
+		{
+			RememberClosedTab(location);
+		}
+	}
+
+	internal async Task DuplicateTabAsync(Guid tabId, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		if (GetTabIndex(tabId) < 0)
+		{
+			return;
+		}
+
+		var tab = Tabs.First(tab => tab.Id == tabId);
+		var location = tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance;
+		await _window.OpenTabAsync(location, cancellationToken).ConfigureAwait(false);
+	}
+
+	internal async Task CloseTabsToLeftAsync(Guid tabId, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		var tabIndex = GetTabIndex(tabId);
+		if (tabIndex <= 0)
+		{
+			return;
+		}
+
+		var tabsToClose = Tabs
+			.Take(tabIndex)
+			.Select(static tab => (tab.Id, Location: tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance))
+			.ToArray();
+		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
+	}
+
+	internal async Task CloseTabsToRightAsync(Guid tabId, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		var tabIndex = GetTabIndex(tabId);
+		if (tabIndex < 0 || tabIndex >= Tabs.Count - 1)
+		{
+			return;
+		}
+
+		var tabsToClose = Tabs
+			.Skip(tabIndex + 1)
+			.Select(static tab => (tab.Id, Location: tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance))
+			.ToArray();
+		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
+	}
+
+	internal async Task CloseOtherTabsAsync(Guid tabId, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		if (GetTabIndex(tabId) < 0)
+		{
+			return;
+		}
+
+		var tabsToClose = Tabs
+			.Where(tab => tab.Id != tabId)
+			.Select(static tab => (tab.Id, Location: tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance))
+			.ToArray();
+		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
+	}
+
+	internal async Task ReopenTabAsync(CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		BrowseLocation location;
+		lock (_closedTabsLock)
+		{
+			if (_closedTabLocations.Count is 0)
+			{
+				return;
+			}
+
+			location = _closedTabLocations.Pop();
+		}
+
+		try
+		{
+			await _window.OpenTabAsync(location, cancellationToken).ConfigureAwait(false);
+		}
+		catch
+		{
+			RememberClosedTab(location);
+			throw;
+		}
 	}
 
 	public bool SetActiveTab(Guid tabId)
@@ -202,6 +316,19 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		{
 			SetActiveTab(Tabs[index].Id);
 		}
+	}
+
+	internal int GetTabIndex(Guid tabId)
+	{
+		for (var index = 0; index < Tabs.Count; index++)
+		{
+			if (Tabs[index].Id == tabId)
+			{
+				return index;
+			}
+		}
+
+		return -1;
 	}
 
 	public void ReportOperationError(Exception exception)
@@ -234,6 +361,11 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 		_tabViewModels.Clear();
 		Tabs.Clear();
+		lock (_closedTabsLock)
+		{
+			_closedTabLocations.Clear();
+		}
+
 		_navigationSectionViewModels.Clear();
 		NavigationItems.Clear();
 		_navigationThumbnailGate.Dispose();
@@ -548,6 +680,25 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		finally
 		{
 			_isRefreshing = false;
+		}
+	}
+
+	private async Task CloseTabsAsync((Guid Id, BrowseLocation Location)[] tabs, CancellationToken cancellationToken)
+	{
+		foreach (var tab in tabs)
+		{
+			if (await _window.CloseTabAsync(tab.Id, cancellationToken).ConfigureAwait(false))
+			{
+				RememberClosedTab(tab.Location);
+			}
+		}
+	}
+
+	private void RememberClosedTab(BrowseLocation location)
+	{
+		lock (_closedTabsLock)
+		{
+			_closedTabLocations.Push(location);
 		}
 	}
 

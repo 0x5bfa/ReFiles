@@ -139,6 +139,18 @@ public sealed class WindowCommandManager : IDisposable
 		}
 	}
 
+	internal bool CanExecute(CommandId id, object? parameter)
+	{
+		if (Volatile.Read(ref isDisposed) is not 0 || !handlers.TryGetValue(id, out var handler))
+		{
+			return false;
+		}
+
+		var state = handler.GetState(new CommandContext(root, parameter));
+
+		return state.IsVisible && state.IsEnabled;
+	}
+
 	public void Dispose()
 	{
 		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)

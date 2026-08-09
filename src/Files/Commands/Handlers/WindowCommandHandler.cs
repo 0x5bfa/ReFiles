@@ -12,8 +12,21 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 
 	public CommandState GetState(CommandContext context)
 	{
-		var isEnabled = id == CommandIds.NewTab
-			|| (id == CommandIds.CloseTab && context.InvokedTab is not null && context.Root.Tabs.Count > 1);
+		var invokedTabIndex = context.InvokedTab is { } invokedTab
+			? context.Root.GetTabIndex(invokedTab.Id)
+			: -1;
+		var hasInvokedTab = invokedTabIndex >= 0;
+		var isEnabled = id switch
+		{
+			var commandId when commandId == CommandIds.NewTab => true,
+			var commandId when commandId == CommandIds.DuplicateTab => hasInvokedTab,
+			var commandId when commandId == CommandIds.CloseTab => hasInvokedTab && context.Root.Tabs.Count > 1,
+			var commandId when commandId == CommandIds.CloseTabsToLeft => invokedTabIndex > 0,
+			var commandId when commandId == CommandIds.CloseTabsToRight => hasInvokedTab && invokedTabIndex < context.Root.Tabs.Count - 1,
+			var commandId when commandId == CommandIds.CloseOtherTabs => hasInvokedTab && context.Root.Tabs.Count > 1,
+			var commandId when commandId == CommandIds.ReopenTab => hasInvokedTab && context.Root.CanReopenTab,
+			_ => false,
+		};
 
 		return new(true, isEnabled);
 	}
@@ -26,6 +39,43 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 				await context.Root.OpenTabAsync(cancellationToken)
 					.ConfigureAwait(false);
 				break;
+			case var commandId when commandId == CommandIds.DuplicateTab:
+				if (context.InvokedTab is not { } duplicateTab)
+				{
+					return CommandExecutionResult.Unsupported();
+				}
+
+				await context.Root.DuplicateTabAsync(duplicateTab.Id, cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.CloseTabsToLeft:
+				if (context.InvokedTab is not { } leftTab)
+				{
+					return CommandExecutionResult.Unsupported();
+				}
+
+				await context.Root.CloseTabsToLeftAsync(leftTab.Id, cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.CloseTabsToRight:
+				if (context.InvokedTab is not { } rightTab)
+				{
+					return CommandExecutionResult.Unsupported();
+				}
+
+				await context.Root.CloseTabsToRightAsync(rightTab.Id, cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.CloseOtherTabs:
+				if (context.InvokedTab is not { } otherTabsTab)
+				{
+					return CommandExecutionResult.Unsupported();
+				}
+
+				await context.Root.CloseOtherTabsAsync(otherTabsTab.Id, cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.ReopenTab:
+				await context.Root.ReopenTabAsync(cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.MoveTabToNewWindow:
+				return CommandExecutionResult.Unsupported();
 			case var commandId when commandId == CommandIds.CloseTab:
 				if (context.InvokedTab is not { } tab)
 				{

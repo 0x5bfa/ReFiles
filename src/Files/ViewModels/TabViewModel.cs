@@ -6,6 +6,7 @@ using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.Core.Sessions;
+using Files.Core.Browsing;
 using Files.Presentation;
 using Microsoft.UI.Xaml.Media.Imaging;
 
@@ -55,6 +56,22 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 	public bool CanRefresh => ActivePane?.CanRefresh ?? false;
 
 	public bool CanClosePane => Panes.Count > 1;
+
+	public CommandBindingViewModel NewTabCommand => _commandManager.GetBinding(CommandIds.NewTab);
+
+	public CommandBindingViewModel DuplicateTabCommand => _commandManager.GetBinding(CommandIds.DuplicateTab);
+
+	public CommandBindingViewModel MoveTabToNewWindowCommand => _commandManager.GetBinding(CommandIds.MoveTabToNewWindow);
+
+	public CommandBindingViewModel CloseTabsToLeftCommand => _commandManager.GetBinding(CommandIds.CloseTabsToLeft);
+
+	public CommandBindingViewModel CloseTabsToRightCommand => _commandManager.GetBinding(CommandIds.CloseTabsToRight);
+
+	public CommandBindingViewModel CloseOtherTabsCommand => _commandManager.GetBinding(CommandIds.CloseOtherTabs);
+
+	public CommandBindingViewModel ReopenTabCommand => _commandManager.GetBinding(CommandIds.ReopenTab);
+
+	public BrowseLocation? Location => ActivePane?.FolderBrowser.Location;
 
 	internal TabViewModel(TabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{

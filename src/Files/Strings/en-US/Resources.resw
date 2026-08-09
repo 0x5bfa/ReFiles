@@ -8,6 +8,12 @@
 	<data name="Loading" xml:space="preserve"><value>Loading...</value></data>
 	<data name="NoTabs" xml:space="preserve"><value>No tabs</value></data>
 	<data name="NewTab" xml:space="preserve"><value>New tab</value></data>
+	<data name="DuplicateTab" xml:space="preserve"><value>Duplicate tab</value></data>
+	<data name="MoveTabToNewWindow" xml:space="preserve"><value>Move tab to new window</value></data>
+	<data name="CloseTabsToLeft" xml:space="preserve"><value>Close tabs to the left</value></data>
+	<data name="CloseTabsToRight" xml:space="preserve"><value>Close tabs to the right</value></data>
+	<data name="CloseOtherTabs" xml:space="preserve"><value>Close other tabs</value></data>
+	<data name="ReopenTab" xml:space="preserve"><value>Reopen tab</value></data>
 	<data name="NewPane" xml:space="preserve"><value>New pane</value></data>
 	<data name="ClosePane" xml:space="preserve"><value>Close pane</value></data>
 	<data name="NoPane" xml:space="preserve"><value>No pane</value></data>

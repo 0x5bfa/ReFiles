@@ -27,6 +27,45 @@
 						controls:TabViewItemLoading.IsLoading="{x:Bind IsLoading, Mode=OneWay}"
 						Style="{StaticResource RoundedTabViewItemStyle}"
 						ToolTipService.ToolTip="{x:Bind Title, Mode=OneWay}">
+						<TabViewItem.ContextFlyout>
+							<MenuFlyout>
+								<MenuFlyoutItem
+									Command="{x:Bind NewTabCommand.Command}"
+									CommandParameter="{x:Bind}"
+									KeyboardAcceleratorTextOverride="Ctrl+T"
+									Text="{x:Bind NewTabCommand.Label, Mode=OneWay}" />
+								<MenuFlyoutItem
+									Command="{x:Bind DuplicateTabCommand.Command}"
+									CommandParameter="{x:Bind}"
+									KeyboardAcceleratorTextOverride="Ctrl+Shift+K"
+									Text="{x:Bind DuplicateTabCommand.Label, Mode=OneWay}" />
+								<MenuFlyoutItem
+									Command="{x:Bind MoveTabToNewWindowCommand.Command}"
+									CommandParameter="{x:Bind}"
+									Text="{x:Bind MoveTabToNewWindowCommand.Label, Mode=OneWay}">
+									<MenuFlyoutItem.Icon>
+										<controls:ThemedIcon Data="{x:Bind MoveTabToNewWindowCommand.IconData}" IconSize="16" />
+									</MenuFlyoutItem.Icon>
+								</MenuFlyoutItem>
+								<MenuFlyoutItem
+									Command="{x:Bind CloseTabsToLeftCommand.Command}"
+									CommandParameter="{x:Bind}"
+									Text="{x:Bind CloseTabsToLeftCommand.Label, Mode=OneWay}" />
+								<MenuFlyoutItem
+									Command="{x:Bind CloseTabsToRightCommand.Command}"
+									CommandParameter="{x:Bind}"
+									Text="{x:Bind CloseTabsToRightCommand.Label, Mode=OneWay}" />
+								<MenuFlyoutItem
+									Command="{x:Bind CloseOtherTabsCommand.Command}"
+									CommandParameter="{x:Bind}"
+									Text="{x:Bind CloseOtherTabsCommand.Label, Mode=OneWay}" />
+								<MenuFlyoutItem
+									Command="{x:Bind ReopenTabCommand.Command}"
+									CommandParameter="{x:Bind}"
+									KeyboardAcceleratorTextOverride="Ctrl+Shift+T"
+									Text="{x:Bind ReopenTabCommand.Label, Mode=OneWay}" />
+							</MenuFlyout>
+						</TabViewItem.ContextFlyout>
 						<TabViewItem.IconSource>
 							<ImageIconSource ImageSource="{x:Bind Icon, Mode=OneWay}" />
 						</TabViewItem.IconSource>

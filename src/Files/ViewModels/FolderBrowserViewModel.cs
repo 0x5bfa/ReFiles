@@ -99,6 +99,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public string LocationText => _browseAdapter.LocationText;
 
+	public BrowseLocation? Location => _pane.Location;
+
 	public string LocationDisplayName => _pane.BrowseSession.Context?.LocationModel?.Name ?? LocationText;
 
 	public BitmapImage? LocationIcon => _locationIcon;
