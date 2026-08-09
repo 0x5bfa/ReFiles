@@ -3,6 +3,7 @@
 
 using Files.Core.ItemFeatures;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using OwlCore.Storage;
 
 namespace Files.Core.Models;
@@ -29,6 +30,11 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	/// Gets the item name captured when the model was created.
 	/// </summary>
 	public string Name { get; }
+
+	/// <summary>
+	/// Gets a value indicating whether the storage item is marked as hidden.
+	/// </summary>
+	public bool IsHidden => _coreModel is IWindowsStorable { IsHidden: true };
 
 	/// <summary>
 	/// Gets the composed optional item features.

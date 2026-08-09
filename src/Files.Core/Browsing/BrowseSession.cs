@@ -169,6 +169,13 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 			await foreach (var item in nextLocationContext.GetItemsAsync(cancellationToken).ConfigureAwait(false))
 			{
+				if (ShouldHideItem(nextViewSettings, item))
+				{
+					await item.DisposeAsync().ConfigureAwait(false);
+
+					continue;
+				}
+
 				nextItems.Add(item);
 				pendingBatch.Add(item);
 				if (!firstItemReturned)
@@ -557,6 +564,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return IncrementalApplyResult.Stale;
 				}
 
+				if (ShouldHideItem(ViewSettings, replacement))
+				{
+					return IncrementalApplyResult.Applied;
+				}
+
 				var projection = Volatile.Read(ref _itemProjection);
 				lookup = FindItemIndex(projection, key, out _);
 				if (lookup is ItemLookupResult.Found)
@@ -728,6 +740,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return IncrementalApplyResult.RequiresFullRefresh;
 				}
 
+				if (ShouldHideItem(ViewSettings, replacement))
+				{
+					return IncrementalApplyResult.RequiresFullRefresh;
+				}
+
 				var previous = projection.Items[index];
 				if (ReferenceEquals(previous, replacement))
 				{
@@ -825,6 +842,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return IncrementalApplyResult.RequiresFullRefresh;
 				}
 
+				if (ShouldHideItem(ViewSettings, replacement))
+				{
+					return IncrementalApplyResult.RequiresFullRefresh;
+				}
+
 				var previous = projection.Items[index];
 				if (ReferenceEquals(previous, replacement))
 				{
@@ -908,6 +930,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	private static bool HasKey(IStorableModel model, StorableKey key)
 	{
 		return ToKey(model.Reference) == key;
+	}
+
+	private static bool ShouldHideItem(BrowseViewSettings settings, IStorableModel item)
+	{
+		return !settings.ShowHiddenItems && item.IsHidden;
 	}
 
 	private static ItemLookupResult FindItemIndex(BrowseItemProjection projection, StorableKey key, out int index)

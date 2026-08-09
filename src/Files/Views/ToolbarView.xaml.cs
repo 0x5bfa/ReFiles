@@ -31,4 +31,24 @@ public sealed partial class ToolbarView : UserControl
 	{
 		ViewModel?.SetLayoutSize(e.NewValue);
 	}
+
+	private void ShowHiddenItemsToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+	{
+		if (sender is not ToggleSwitch toggleSwitch)
+		{
+			return;
+		}
+
+		if (ViewModel is not { } viewModel)
+		{
+			return;
+		}
+
+		if (toggleSwitch.IsOn == viewModel.ShowHiddenItemsCommand.IsChecked)
+		{
+			return;
+		}
+
+		viewModel.ShowHiddenItemsCommand.Command.Execute(null);
+	}
 }

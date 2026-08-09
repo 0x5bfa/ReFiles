@@ -23,6 +23,8 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 	public bool IsFolder { get; }
 
+	public bool IsHidden { get; }
+
 	public StorableReference Reference { get; }
 
 	[ObservableProperty]
@@ -30,19 +32,24 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 	public string Kind => (IsFolder ? Strings.Folder : Strings.File).GetLocalized();
 
+	public double IconOpacity => IsHidden ? 0.4 : 1;
+
+	public double DefaultIconOpacity => IsHidden ? 0.4 : 0.45;
+
 	public Visibility DefaultIconVisibility => Thumbnail is null ? Visibility.Visible : Visibility.Collapsed;
 
 	public string ReferenceText => Reference.LastKnownAddress?.Value ?? Reference.ItemId;
 
 	public IReadOnlyDictionary<string, object?> Properties => _properties;
 
-	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference)
+	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference, bool isHidden = false)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		ArgumentNullException.ThrowIfNull(reference);
 
 		Name = name;
 		IsFolder = isFolder;
+		IsHidden = isHidden;
 		Reference = reference;
 	}
 

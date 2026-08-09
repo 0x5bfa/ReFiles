@@ -304,7 +304,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.SortDirection,
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
+			currentSettings.GroupDirection,
+			currentSettings.ShowHiddenItems);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
@@ -332,10 +333,35 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.SortDirection,
 			itemSize,
 			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
+			currentSettings.GroupDirection,
+			currentSettings.ShowHiddenItems);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+	}
+
+	public async ValueTask UpdateShowHiddenItemsAsync(bool showHiddenItems, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		var currentSettings = _pane.BrowseSession.ViewSettings;
+		if (currentSettings.ShowHiddenItems == showHiddenItems)
+		{
+			return;
+		}
+
+		var settings = new BrowseViewSettings(
+			currentSettings.LayoutMode,
+			currentSettings.Columns,
+			currentSettings.SortPropertyId,
+			currentSettings.SortDirection,
+			currentSettings.ItemSize,
+			currentSettings.GroupPropertyId,
+			currentSettings.GroupDirection,
+			showHiddenItems);
+		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public async ValueTask UpdateColumnsAsync(IEnumerable<ViewColumnSettings> columns, CancellationToken cancellationToken = default)
@@ -357,7 +383,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.SortDirection,
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
+			currentSettings.GroupDirection,
+			currentSettings.ShowHiddenItems);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -384,7 +411,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			direction,
 			currentSettings.ItemSize,
 			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
+			currentSettings.GroupDirection,
+			currentSettings.ShowHiddenItems);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -415,7 +443,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.SortDirection,
 			currentSettings.ItemSize,
 			propertyId,
-			direction);
+			direction,
+			currentSettings.ShowHiddenItems);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
@@ -1145,7 +1174,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 							settings.SortDirection,
 							settings.ItemSize,
 							settings.GroupPropertyId,
-							settings.GroupDirection);
+							settings.GroupDirection,
+							settings.ShowHiddenItems);
 						await session.UpdateViewSettingsAsync(nextSettings, cancellation.Token).ConfigureAwait(false);
 					}
 					finally
@@ -1478,7 +1508,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
 	{
-		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference);
+		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference, item.IsHidden);
 		var itemViewModelCount = Interlocked.Increment(ref _diagnosticItemViewModelCount);
 		if (itemViewModelCount is 1)
 		{

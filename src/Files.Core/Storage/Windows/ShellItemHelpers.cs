@@ -25,7 +25,8 @@ internal static unsafe class ShellItemHelpers
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 
-		var result = shellItem.GetAttributes(SFGAO_FLAGS.SFGAO_FOLDER | SFGAO_FLAGS.SFGAO_FILESYSTEM | SFGAO_FLAGS.SFGAO_STREAM, out var attributes);
+		var attributeMask = SFGAO_FLAGS.SFGAO_FOLDER | SFGAO_FLAGS.SFGAO_FILESYSTEM | SFGAO_FLAGS.SFGAO_STREAM | SFGAO_FLAGS.SFGAO_HIDDEN;
+		var result = shellItem.GetAttributes(attributeMask, out var attributes);
 		result.ThrowOnFailure();
 
 		var parsingName = GetRequiredDisplayName(shellItem, SIGDN.SIGDN_DESKTOPABSOLUTEPARSING);
@@ -36,7 +37,7 @@ internal static unsafe class ShellItemHelpers
 			? TryGetDisplayName(shellItem, SIGDN.SIGDN_FILESYSPATH)
 			: null;
 		var isFolder = (attributes & SFGAO_FLAGS.SFGAO_FOLDER) != 0;
-		var snapshot = new WindowsStorableSnapshot(name, fileSystemPath, isFolder, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0);
+		var snapshot = new WindowsStorableSnapshot(name, fileSystemPath, isFolder, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0, (attributes & SFGAO_FLAGS.SFGAO_HIDDEN) != 0);
 		var address = fileSystemPath is null
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);

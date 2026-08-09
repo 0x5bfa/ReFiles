@@ -20,4 +20,9 @@ public interface IStorableModel : IHasItemFeatures, IDisposable, IAsyncDisposabl
 	/// Gets the item name captured when the model was created.
 	/// </summary>
 	string Name { get; }
+
+	/// <summary>
+	/// Gets a value indicating whether the storage item is marked as hidden.
+	/// </summary>
+	bool IsHidden => false;
 }

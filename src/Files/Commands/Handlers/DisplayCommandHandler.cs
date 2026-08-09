@@ -23,17 +23,27 @@ internal sealed class DisplayCommandHandler(CommandId id) : ICommandHandler
 
 	public CommandState GetState(CommandContext context)
 	{
-		return context.ActiveFolderBrowser is { } browser ? new(true, !browser.IsLoading) : new(false, false);
+		return context.ActiveFolderBrowser is { } browser
+			? new(true, !browser.IsLoading, id == CommandIds.ShowHiddenItems && browser.ViewSettings.ShowHiddenItems)
+			: new(false, false);
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 	{
-		if (context.ActiveFolderBrowser is not { } browser || context.Parameter is not string parameter)
+		if (context.ActiveFolderBrowser is not { } browser)
 		{
 			return CommandExecutionResult.Unsupported();
 		}
 
-		if (id == CommandIds.SortItems)
+		if (id == CommandIds.ShowHiddenItems)
+		{
+			await browser.SetShowHiddenItemsAsync(!browser.ViewSettings.ShowHiddenItems, cancellationToken).ConfigureAwait(false);
+		}
+		else if (context.Parameter is not string parameter)
+		{
+			return CommandExecutionResult.Unsupported();
+		}
+		else if (id == CommandIds.SortItems)
 		{
 			await ApplySortAsync(browser, parameter, cancellationToken).ConfigureAwait(false);
 		}

@@ -58,4 +58,7 @@ public static class CommandIds
 
 	public static readonly CommandId GroupItems =
 		new("files.display.group");
+
+	public static readonly CommandId ShowHiddenItems =
+		new("files.display.show-hidden-items");
 }

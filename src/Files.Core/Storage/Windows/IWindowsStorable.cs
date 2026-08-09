@@ -17,4 +17,9 @@ public interface IWindowsStorable : IStorableChild, IStorageAddressSource
 	bool IsFileSystem { get; }
 
 	bool IsStream { get; }
+
+	/// <summary>
+	/// Gets a value indicating whether the Shell marks the item as hidden.
+	/// </summary>
+	bool IsHidden => false;
 }

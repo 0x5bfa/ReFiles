@@ -32,6 +32,9 @@ public sealed record BrowseViewSettings
 	/// <summary>Gets the group direction.</summary>
 	public ViewSortDirection GroupDirection { get; }
 
+	/// <summary>Gets a value indicating whether hidden items are shown.</summary>
+	public bool ShowHiddenItems { get; }
+
 	/// <summary>Initializes browse view settings.</summary>
 	/// <param name="layoutMode">The layout mode.</param>
 	/// <param name="columns">The configured columns.</param>
@@ -40,6 +43,7 @@ public sealed record BrowseViewSettings
 	/// <param name="itemSize">The preferred item size.</param>
 	/// <param name="groupPropertyId">The property ID used to group items.</param>
 	/// <param name="groupDirection">The group direction.</param>
+	/// <param name="showHiddenItems">Whether hidden items are shown.</param>
 	public BrowseViewSettings(
 		ViewLayoutMode layoutMode = ViewLayoutMode.Details,
 		IEnumerable<ViewColumnSettings>? columns = null,
@@ -47,7 +51,8 @@ public sealed record BrowseViewSettings
 		ViewSortDirection sortDirection = ViewSortDirection.Ascending,
 		double? itemSize = null,
 		string? groupPropertyId = null,
-		ViewSortDirection groupDirection = ViewSortDirection.Ascending)
+		ViewSortDirection groupDirection = ViewSortDirection.Ascending,
+		bool showHiddenItems = false)
 	{
 		if (!Enum.IsDefined(layoutMode))
 		{
@@ -102,5 +107,6 @@ public sealed record BrowseViewSettings
 		ItemSize = itemSize;
 		GroupPropertyId = groupPropertyId;
 		GroupDirection = groupDirection;
+		ShowHiddenItems = showHiddenItems;
 	}
 }

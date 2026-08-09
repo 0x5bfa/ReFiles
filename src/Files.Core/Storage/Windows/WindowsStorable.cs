@@ -34,6 +34,11 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 
 	public bool IsStream => _descriptor.Snapshot.IsStream;
 
+	/// <summary>
+	/// Gets a value indicating whether the Shell marks the item as hidden.
+	/// </summary>
+	public bool IsHidden => _descriptor.Snapshot.IsHidden;
+
 	internal WindowsStorable(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);

@@ -215,6 +215,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		return _browseAdapter.UpdateItemSizeAsync(Math.Clamp(Math.Round(itemSize), 1, 5), cancellationToken);
 	}
 
+	public ValueTask SetShowHiddenItemsAsync(bool showHiddenItems, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.UpdateShowHiddenItemsAsync(showHiddenItems, cancellationToken);
+	}
+
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
