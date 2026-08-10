@@ -119,6 +119,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;
 
+	public PreviewPaneViewModel? ActivePreview => ActiveTab?.ActivePane?.Preview;
+
 	public string StatusText => _operationError ?? ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
 
 	internal bool CanReopenTab
@@ -653,6 +655,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 			case nameof(TabViewModel.ActivePane):
 				OnPropertyChanged(nameof(StatusText));
 				OnPropertyChanged(nameof(ActiveFolderBrowser));
+				OnPropertyChanged(nameof(ActivePreview));
 				NavigationToolbar.SetActiveFolderBrowser(ActiveFolderBrowser);
 				Toolbar.SetActiveTab(ActiveTab);
 				_commandManager.RefreshStates();
@@ -714,6 +717,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 			_operationError = null;
 			OnPropertyChanged(nameof(ActiveTab));
 			OnPropertyChanged(nameof(ActiveFolderBrowser));
+			OnPropertyChanged(nameof(ActivePreview));
 			NavigationToolbar.SetActiveFolderBrowser(ActiveFolderBrowser);
 			Toolbar.SetActiveTab(ActiveTab);
 			OnPropertyChanged(nameof(StatusText));

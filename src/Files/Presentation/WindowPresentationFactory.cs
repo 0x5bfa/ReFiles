@@ -63,4 +63,9 @@ internal sealed class WindowPresentationFactory
 	{
 		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _dispatcher, commandManager);
 	}
+
+	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)
+	{
+		return new PreviewPaneViewModel(pane, _dispatcher);
+	}
 }

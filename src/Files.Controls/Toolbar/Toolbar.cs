@@ -18,6 +18,8 @@ namespace Files.Controls
 		private readonly List<MaterializedToolbarItem> _materializedItems = [];
 		private readonly List<ToolbarItem> _subscribedItems = [];
 		private readonly Dictionary<ToolbarItem, MaterializedToolbarItem> _itemOwners = [];
+		private readonly Dictionary<FrameworkElement, ToggleEventHandlers> _toggleEventHandlers = [];
+		private readonly Dictionary<FrameworkElement, MenuFlyout> _generatedFlyouts = [];
 		private List<IToolbarItemSet> _visibleItems = [];
 		private List<ToolbarItem> _overflowItems = [];
 
@@ -54,10 +56,16 @@ namespace Files.Controls
 
 		protected override void OnApplyTemplate()
 		{
+			_overflowFlyout?.Hide();
+			_overflowFlyout?.Items.Clear();
 			if (_itemsRepeater is not null)
 			{
 				_itemsRepeater.ItemsSource = null;
 			}
+
+			ReleaseMaterializedItems();
+			_materializedItems.Clear();
+			_generatedFlyouts.Clear();
 
 			_templateApplied = false;
 			base.OnApplyTemplate();
@@ -91,6 +99,17 @@ namespace Files.Controls
 		private void OnUnloaded(object sender, RoutedEventArgs args)
 		{
 			_layoutUpdateQueued = false;
+			if (_itemsRepeater is not null)
+			{
+				_itemsRepeater.ItemsSource = null;
+			}
+
+			ReleaseMaterializedItems();
+			_materializedItems.Clear();
+			_visibleItems = [];
+			_overflowItems = [];
+			_overflowFlyout?.Hide();
+			_overflowFlyout?.Items.Clear();
 			ClearItemSubscriptions();
 			if (_itemsCollection is not null)
 			{
@@ -135,6 +154,11 @@ namespace Files.Controls
 
 		private void RebuildMaterializedItems()
 		{
+			if (_itemsRepeater is not null)
+			{
+				_itemsRepeater.ItemsSource = null;
+			}
+
 			ReleaseMaterializedItems();
 			ClearItemSubscriptions();
 			_materializedItems.Clear();
@@ -167,6 +191,39 @@ namespace Files.Controls
 		{
 			foreach (var materializedItem in _materializedItems)
 			{
+				if (_toggleEventHandlers.Remove(materializedItem.Element, out var handlers))
+				{
+					if (materializedItem.Element is ToolbarToggleButton toggleButton)
+					{
+						toggleButton.Checked -= handlers.Checked;
+						if (handlers.Unchecked is not null)
+						{
+							toggleButton.Unchecked -= handlers.Unchecked;
+						}
+					}
+					else if (materializedItem.Element is ToolbarRadioButton radioButton)
+					{
+						radioButton.Checked -= handlers.Checked;
+					}
+				}
+
+				if (_generatedFlyouts.Remove(materializedItem.Element, out var generatedFlyout))
+				{
+					generatedFlyout.Hide();
+					generatedFlyout.Items.Clear();
+				}
+
+				if (materializedItem.Element is ToolbarButton toolbarButton)
+				{
+					toolbarButton.Flyout?.Hide();
+					toolbarButton.Flyout = null;
+				}
+				else if (materializedItem.Element is ToolbarSplitButton splitButton)
+				{
+					splitButton.Flyout?.Hide();
+					splitButton.Flyout = null;
+				}
+
 				if (materializedItem.Element is ContentControl contentControl)
 				{
 					contentControl.Content = null;
@@ -244,12 +301,17 @@ namespace Files.Controls
 			ApplyToolbarItem(element, item);
 			if (element is ToolbarToggleButton toggleButton)
 			{
-				toggleButton.Checked += (_, _) => item.IsChecked = true;
-				toggleButton.Unchecked += (_, _) => item.IsChecked = false;
+				RoutedEventHandler checkedHandler = (_, _) => item.IsChecked = true;
+				RoutedEventHandler uncheckedHandler = (_, _) => item.IsChecked = false;
+				toggleButton.Checked += checkedHandler;
+				toggleButton.Unchecked += uncheckedHandler;
+				_toggleEventHandlers[element] = new ToggleEventHandlers(checkedHandler, uncheckedHandler);
 			}
 			else if (element is ToolbarRadioButton radioButton)
 			{
-				radioButton.Checked += (_, _) => item.IsChecked = true;
+				RoutedEventHandler checkedHandler = (_, _) => item.IsChecked = true;
+				radioButton.Checked += checkedHandler;
+				_toggleEventHandlers[element] = new ToggleEventHandlers(checkedHandler, null);
 			}
 
 			return element;
@@ -263,7 +325,12 @@ namespace Files.Controls
 			{
 				case ToolbarFlyoutButton flyoutButton:
 					flyoutButton.Content = CreateToolbarContent(item);
-					flyoutButton.Flyout = item.Flyout ?? CreateFlyout(item.SubItems);
+					if (item.Flyout is not null)
+					{
+						RemoveGeneratedFlyout(element);
+					}
+
+					flyoutButton.Flyout = item.Flyout ?? GetGeneratedFlyout(element, item);
 					flyoutButton.Command = item.Command;
 					flyoutButton.CommandParameter = item.CommandParameter;
 					break;
@@ -293,7 +360,12 @@ namespace Files.Controls
 					break;
 				case ToolbarSplitButton splitButton:
 					splitButton.Content = CreateToolbarContent(item);
-					splitButton.Flyout = item.Flyout ?? CreateFlyout(item.SubItems);
+					if (item.Flyout is not null)
+					{
+						RemoveGeneratedFlyout(element);
+					}
+
+					splitButton.Flyout = item.Flyout ?? GetGeneratedFlyout(element, item);
 					splitButton.Command = item.Command;
 					splitButton.CommandParameter = item.CommandParameter;
 					break;
@@ -362,6 +434,39 @@ namespace Files.Controls
 			}
 
 			return new ThemedIcon { Data = item.ThemedIcon, IconSize = item.IconSize };
+		}
+
+		private MenuFlyout? GetGeneratedFlyout(FrameworkElement element, ToolbarItem item)
+		{
+			if (item.SubItems is not { Count: > 0 })
+			{
+				RemoveGeneratedFlyout(element);
+
+				return null;
+			}
+
+			if (!_generatedFlyouts.TryGetValue(element, out var flyout))
+			{
+				flyout = CreateFlyout(item.SubItems);
+				_generatedFlyouts[element] = flyout;
+
+				return flyout;
+			}
+
+			flyout.Hide();
+			flyout.Items.Clear();
+			AddMenuItems(item.SubItems, flyout.Items);
+
+			return flyout;
+		}
+
+		private void RemoveGeneratedFlyout(FrameworkElement element)
+		{
+			if (_generatedFlyouts.Remove(element, out var flyout))
+			{
+				flyout.Hide();
+				flyout.Items.Clear();
+			}
 		}
 
 		private static MenuFlyout CreateFlyout(IList<ToolbarItem>? items)
@@ -641,6 +746,7 @@ namespace Files.Controls
 				return;
 			}
 
+			_overflowFlyout.Hide();
 			_overflowFlyout.Items.Clear();
 			AddMenuItems(items, _overflowFlyout.Items);
 			_overflowMenuDirty = false;
@@ -715,6 +821,19 @@ namespace Files.Controls
 			public FrameworkElement Element { get; }
 
 			public double Width { get; set; }
+		}
+
+		private sealed class ToggleEventHandlers
+		{
+			public ToggleEventHandlers(RoutedEventHandler checkedHandler, RoutedEventHandler? uncheckedHandler)
+			{
+				Checked = checkedHandler;
+				Unchecked = uncheckedHandler;
+			}
+
+			public RoutedEventHandler Checked { get; }
+
+			public RoutedEventHandler? Unchecked { get; }
 		}
 
 		private sealed class ToolbarContentHost : ContentControl, IToolbarItemSet

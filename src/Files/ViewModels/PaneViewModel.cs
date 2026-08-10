@@ -19,6 +19,8 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 
 	public FolderBrowserViewModel FolderBrowser { get; }
 
+	public PreviewPaneViewModel Preview { get; }
+
 	public object Content => FolderBrowser;
 
 	[ObservableProperty]
@@ -47,9 +49,13 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(commandManager);
 
 		_pane = pane;
-		FolderBrowser = pane.Content is BrowsePaneSession browsePane
-			? presentationFactory.CreateFolderBrowser(browsePane, commandManager)
-			: throw new NotSupportedException($"Pane content '{pane.Content.GetType().Name}' has no presentation mapping.");
+		if (pane.Content is not BrowsePaneSession browsePane)
+		{
+			throw new NotSupportedException($"Pane content '{pane.Content.GetType().Name}' has no presentation mapping.");
+		}
+
+		FolderBrowser = presentationFactory.CreateFolderBrowser(browsePane, commandManager);
+		Preview = presentationFactory.CreatePreviewPane(browsePane);
 		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
 	}
 
@@ -70,6 +76,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 		}
 
 		FolderBrowser.PropertyChanged -= FolderBrowser_PropertyChanged;
+		Preview.Dispose();
 		FolderBrowser.Dispose();
 	}
 

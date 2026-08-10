@@ -49,6 +49,12 @@
 	<data name="Panes" xml:space="preserve"><value>Panes</value></data>
 	<data name="EnterFolderPath" xml:space="preserve"><value>Enter a folder path</value></data>
 	<data name="InfoPane" xml:space="preserve"><value>Info pane</value></data>
+	<data name="Preview" xml:space="preserve"><value>Preview</value></data>
+	<data name="PreviewEmpty" xml:space="preserve"><value>Select a file to preview</value></data>
+	<data name="PreviewUnavailable" xml:space="preserve"><value>Preview is unavailable</value></data>
+	<data name="PreviewBlocked" xml:space="preserve"><value>Preview is blocked</value></data>
+	<data name="PreviewFailed" xml:space="preserve"><value>Preview failed</value></data>
+	<data name="PreviewUnsupported" xml:space="preserve"><value>This preview format is not supported</value></data>
 	<data name="WebView" xml:space="preserve"><value>Web view</value></data>
 	<data name="Layout" xml:space="preserve"><value>Layout</value></data>
 	<data name="Details" xml:space="preserve"><value>Details</value></data>

@@ -59,7 +59,19 @@
 
 					<views:ToolbarView ViewModel="{x:Bind ViewModel.Toolbar, Mode=OneWay}" />
 
-					<views:PaneHost Grid.Row="1" ViewModel="{x:Bind ViewModel.ActiveTab, Mode=OneWay}" />
+					<Grid Grid.Row="1" ColumnSpacing="1">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*" />
+							<ColumnDefinition Width="320" />
+						</Grid.ColumnDefinitions>
+
+						<views:PaneHost ViewModel="{x:Bind ViewModel.ActiveTab, Mode=OneWay}" />
+
+						<views:PreviewPane
+							x:Name="PreviewPaneView"
+							Grid.Column="1"
+							ViewModel="{x:Bind ViewModel.ActivePreview, Mode=OneWay}" />
+					</Grid>
 
 					<views:TerminalView Grid.Row="2" Visibility="Collapsed" />
 

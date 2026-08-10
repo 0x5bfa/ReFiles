@@ -5,6 +5,7 @@ using Files.Views;
 using Files.Commands;
 using Files.Core.Sessions;
 using Files.Core.Data;
+using Files.Core.ItemFeatures.Previews;
 using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.Presentation;
@@ -28,6 +29,7 @@ public sealed partial class MainWindow : Window
 		WindowSession coreWindow,
 		IStorageWorkspace workspace,
 		IStorageOperationService storageOperations,
+		IWindowsShellPreviewSessionFactory? windowsShellPreviewSessions,
 		CommandRegistry commandRegistry,
 		Action activateSession,
 		Func<Task> closeAsync,
@@ -46,7 +48,7 @@ public sealed partial class MainWindow : Window
 		_closeAsync = closeAsync;
 		_createWindowAsync = createWindowAsync;
 		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
-		_rootView = new RootView(presentationFactory.Create(coreWindow));
+		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;
 		_rootView.AttachWindow(this);
@@ -113,7 +115,7 @@ public sealed partial class MainWindow : Window
 
 	private async Task CompleteCloseAsync()
 	{
-		_rootView.Dispose();
+		await _rootView.DisposeAsync().ConfigureAwait(true);
 		try
 		{
 			await _closeAsync().ConfigureAwait(true);

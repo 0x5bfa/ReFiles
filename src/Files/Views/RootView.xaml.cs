@@ -3,13 +3,14 @@
 
 using Files.ViewModels;
 using Files.Infrastructure;
+using Files.Core.ItemFeatures.Previews;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Files.Views;
 
-public sealed partial class RootView : UserControl, IDisposable
+public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposable
 {
 	private readonly RootViewModel _viewModel;
 
@@ -21,17 +22,24 @@ public sealed partial class RootView : UserControl, IDisposable
 
 	public event EventHandler? NewWindowRequested;
 
-	public RootView(RootViewModel viewModel)
+	public RootView(RootViewModel viewModel, IWindowsShellPreviewSessionFactory? previewSessionFactory)
 	{
 		ArgumentNullException.ThrowIfNull(viewModel);
 
 		InitializeComponent();
 		_viewModel = viewModel;
+		PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		Loaded += RootView_Loaded;
 	}
 
-	public void AttachWindow(Window window) => TabStrip.AttachWindow(window);
+	public void AttachWindow(Window window)
+	{
+		ArgumentNullException.ThrowIfNull(window);
+
+		TabStrip.AttachWindow(window);
+		PreviewPaneView.AttachWindow(window);
+	}
 
 	public void ReportOperationError(Exception exception)
 	{
@@ -42,6 +50,11 @@ public sealed partial class RootView : UserControl, IDisposable
 
 	public void Dispose()
 	{
+		_ = DisposeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
@@ -49,6 +62,7 @@ public sealed partial class RootView : UserControl, IDisposable
 
 		Loaded -= RootView_Loaded;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
+		await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
 		_viewModel.Dispose();
 	}
