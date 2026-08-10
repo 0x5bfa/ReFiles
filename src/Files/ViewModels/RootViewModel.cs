@@ -214,12 +214,17 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		ArgumentNullException.ThrowIfNull(item);
 
-		if (!item.SelectsOnInvoked || item.Reference is not { } reference || ActiveFolderBrowser is not { } browser)
+		if (!item.SelectsOnInvoked || ActiveFolderBrowser is not { } browser)
 		{
 			return Task.CompletedTask;
 		}
 
-		return browser.NavigateToReferenceAsync(reference, cancellationToken);
+		if (item.IsHome)
+		{
+			return browser.NavigateHomeAsync(cancellationToken);
+		}
+
+		return item.Reference is { } reference ? browser.NavigateToReferenceAsync(reference, cancellationToken) : Task.CompletedTask;
 	}
 
 	public async Task OpenTabAsync(CancellationToken cancellationToken = default)

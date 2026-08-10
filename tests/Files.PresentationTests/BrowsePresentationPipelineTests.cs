@@ -86,6 +86,74 @@ public sealed class BrowsePresentationPipelineTests
 	}
 
 	[TestMethod]
+	public async Task NavigationDiscardsPendingItemsFromCanceledGeneration()
+	{
+		var interruptedNavigationPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new NavigationPresentationBrowseLocationResolver(interruptedNavigationPaused);
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+
+		var interruptedNavigation = adapter.NavigateToReferenceAsync(CreateReference("interrupted"));
+		await interruptedNavigationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		var destinationNavigation = adapter.NavigateToReferenceAsync(CreateReference("destination"));
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await interruptedNavigation);
+		await destinationNavigation;
+
+		var staleItemsPublished = false;
+		adapter.Updated += (_, args) =>
+		{
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) && adapter.Items.Any(static item => !item.Name.StartsWith("Destination ", StringComparison.Ordinal)))
+			{
+				staleItemsPublished = true;
+			}
+		};
+		dispatcher.DrainAll();
+
+		Assert.IsFalse(staleItemsPublished);
+		Assert.AreEqual(300, adapter.Items.Count);
+		Assert.IsTrue(adapter.Items.All(static item => item.Name.StartsWith("Destination ", StringComparison.Ordinal)));
+	}
+
+	[TestMethod]
+	public async Task RepeatedNavigationToSameLocationUsesSingleOperation()
+	{
+		var navigationPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var navigationRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new RepeatedNavigationBrowseLocationResolver(navigationPaused, navigationRelease);
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+
+		var reference = CreateReference("repeated");
+		using var firstCallerCancellation = new CancellationTokenSource();
+		var firstNavigation = adapter.NavigateToReferenceAsync(reference, firstCallerCancellation.Token);
+		await navigationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		firstCallerCancellation.Cancel();
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await firstNavigation);
+		var repeatedNavigations = Enumerable.Range(0, 64).Select(_ => adapter.NavigateToReferenceAsync(reference)).ToArray();
+		navigationRelease.TrySetResult(true);
+
+		await Task.WhenAll(repeatedNavigations);
+		await adapter.NavigateToReferenceAsync(reference);
+		dispatcher.DrainAll();
+
+		Assert.AreEqual(1, resolver.RepeatedLocationOpenCount);
+		Assert.AreEqual(300, adapter.Items.Count);
+		Assert.IsTrue(adapter.Items.All(static item => item.Name.StartsWith("Repeated ", StringComparison.Ordinal)));
+	}
+
+	[TestMethod]
 	public void BulkCollectionPublishesOneNotificationForOneUiBatch()
 	{
 		var collection = new BulkObservableCollection<int>();
@@ -225,6 +293,11 @@ public sealed class BrowsePresentationPipelineTests
 	private static BrowsePresentationText CreateText()
 	{
 		return new BrowsePresentationText("Home", "Loading", "{0} item", "{0} items", "{0} is not a folder");
+	}
+
+	private static StorableReference CreateReference(string itemId)
+	{
+		return new StorableReference(new StorageSourceId("presentation"), itemId, new StorageAddress("presentation", itemId));
 	}
 
 	private static CommandRegistry CreateCountingCommandRegistry(CountingStateCalls stateCalls)
@@ -391,17 +464,97 @@ public sealed class BrowsePresentationPipelineTests
 		}
 	}
 
+	private sealed class NavigationPresentationBrowseLocationResolver(TaskCompletionSource<bool> interruptedNavigationPaused) : IBrowseLocationResolver
+	{
+		private readonly TaskCompletionSource<bool> _interruptedNavigationPaused = interruptedNavigationPaused;
+		private readonly PresentationStorageSource _source = new();
+
+		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(location);
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var context = location switch
+			{
+				HomeLocation => new PresentationBrowseLocationContext(location, 64, _source, static (_, _) => ValueTask.CompletedTask, null, "home", "Home"),
+				FolderLocation { Folder.ItemId: "interrupted" } => new PresentationBrowseLocationContext(location, 512, _source, PauseInterruptedNavigationAsync, null, "interrupted-item", "Interrupted"),
+				FolderLocation { Folder.ItemId: "destination" } => new PresentationBrowseLocationContext(location, 300, _source, static (_, _) => ValueTask.CompletedTask, null, "destination-item", "Destination"),
+				_ => throw new InvalidOperationException("Unexpected presentation test location."),
+			};
+
+			return ValueTask.FromResult<IBrowseLocationContext>(context);
+		}
+
+		private async ValueTask PauseInterruptedNavigationAsync(int index, CancellationToken cancellationToken)
+		{
+			if (index is not 288)
+			{
+				return;
+			}
+
+			_interruptedNavigationPaused.TrySetResult(true);
+			await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+		}
+	}
+
+	private sealed class RepeatedNavigationBrowseLocationResolver(TaskCompletionSource<bool> navigationPaused, TaskCompletionSource<bool> navigationRelease) : IBrowseLocationResolver
+	{
+		private readonly TaskCompletionSource<bool> _navigationPaused = navigationPaused;
+		private readonly TaskCompletionSource<bool> _navigationRelease = navigationRelease;
+		private readonly PresentationStorageSource _source = new();
+		private int _repeatedLocationOpenCount;
+
+		public int RepeatedLocationOpenCount => Volatile.Read(ref _repeatedLocationOpenCount);
+
+		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(location);
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var context = location switch
+			{
+				HomeLocation => new PresentationBrowseLocationContext(location, 64, _source, static (_, _) => ValueTask.CompletedTask, null, "home", "Home"),
+				FolderLocation { Folder.ItemId: "repeated" } => CreateRepeatedContext(location),
+				_ => throw new InvalidOperationException("Unexpected repeated navigation test location."),
+			};
+
+			return ValueTask.FromResult<IBrowseLocationContext>(context);
+		}
+
+		private PresentationBrowseLocationContext CreateRepeatedContext(BrowseLocation location)
+		{
+			Interlocked.Increment(ref _repeatedLocationOpenCount);
+
+			return new PresentationBrowseLocationContext(location, 300, _source, PauseNavigationAsync, null, "repeated-item", "Repeated");
+		}
+
+		private async ValueTask PauseNavigationAsync(int index, CancellationToken cancellationToken)
+		{
+			if (index is not 32)
+			{
+				return;
+			}
+
+			_navigationPaused.TrySetResult(true);
+			await _navigationRelease.Task.WaitAsync(cancellationToken);
+		}
+	}
+
 	private sealed class PresentationBrowseLocationContext(
 		BrowseLocation location,
 		int itemCount,
 		PresentationStorageSource source,
 		Func<int, CancellationToken, ValueTask> beforeYieldAsync,
-		Func<int, PropertyRequest, CancellationToken, ValueTask<IReadOnlyDictionary<string, object?>>>? getPropertiesAsync) : IBrowseLocationContext
+		Func<int, PropertyRequest, CancellationToken, ValueTask<IReadOnlyDictionary<string, object?>>>? getPropertiesAsync,
+		string itemIdPrefix = "item",
+		string itemNamePrefix = "Item") : IBrowseLocationContext
 	{
 		private readonly int _itemCount = itemCount;
 		private readonly PresentationStorageSource _source = source;
 		private readonly Func<int, CancellationToken, ValueTask> _beforeYieldAsync = beforeYieldAsync;
 		private readonly Func<int, PropertyRequest, CancellationToken, ValueTask<IReadOnlyDictionary<string, object?>>>? _getPropertiesAsync = getPropertiesAsync;
+		private readonly string _itemIdPrefix = itemIdPrefix;
+		private readonly string _itemNamePrefix = itemNamePrefix;
 
 		public BrowseLocation Location { get; } = location;
 
@@ -413,7 +566,7 @@ public sealed class BrowsePresentationPipelineTests
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				await _beforeYieldAsync(index, cancellationToken);
-				var coreModel = new PresentationStorable($"item-{index:D5}", $"Item {index:D5}", index, _getPropertiesAsync);
+				var coreModel = new PresentationStorable($"{_itemIdPrefix}-{index:D5}", $"{_itemNamePrefix} {index:D5}", index, _getPropertiesAsync);
 				var reference = new StorableReference(_source.SourceId, coreModel.Id, new StorageAddress("presentation", coreModel.Id));
 				var context = new ItemContext(_source, coreModel, reference);
 

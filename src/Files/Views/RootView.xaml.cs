@@ -119,14 +119,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		try
 		{
-			if (item.IsHome)
-			{
-				await _viewModel.HomeCommand.ExecuteAsync();
-			}
-			else
-			{
-				await _viewModel.NavigateToNavigationItemAsync(item);
-			}
+			await _viewModel.NavigateToNavigationItemAsync(item);
 		}
 		catch (OperationCanceledException)
 		{

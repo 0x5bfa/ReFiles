@@ -22,12 +22,15 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsPropertyReader : IPropertyReader
 {
+	private const double MinimumOaDate = -657435d;
+	private const double MaximumOaDate = 2958466d;
 	private const string ItemTypeText = "System.ItemTypeText";
 	private const string Size = "System.Size";
 	private const string DateModified = "System.DateModified";
 	private const string DateCreated = "System.DateCreated";
 	private const string HomeIsPinned = "System.Home.IsPinned";
 
+	private static readonly ulong _maximumFileTime = checked((ulong)DateTime.MaxValue.ToFileTime());
 	private static readonly PROPERTYKEY _itemTypeTextKey = ResolvePropertyKey(ItemTypeText);
 	private static readonly PROPERTYKEY _sizeKey = ResolvePropertyKey(Size);
 	private static readonly PROPERTYKEY _dateModifiedKey = ResolvePropertyKey(DateModified);
@@ -251,42 +254,31 @@ public sealed class WindowsPropertyReader : IPropertyReader
 
 	private static bool TryConvertOaDate(double value, out DateTime converted)
 	{
-		try
-		{
-			converted = DateTime.FromOADate(value);
-
-			return true;
-		}
-		catch (ArgumentException)
+		if (!double.IsFinite(value) || value <= MinimumOaDate || value >= MaximumOaDate)
 		{
 			converted = default;
 
 			return false;
 		}
+
+		converted = DateTime.FromOADate(value);
+
+		return true;
 	}
 
 	private static bool TryConvertFileTime(System.Runtime.InteropServices.ComTypes.FILETIME value, out DateTimeOffset converted)
 	{
 		var fileTime = ((ulong)(uint)value.dwHighDateTime << 32) | (uint)value.dwLowDateTime;
-		if (fileTime > long.MaxValue)
+		if (fileTime > _maximumFileTime)
 		{
 			converted = default;
 
 			return false;
 		}
 
-		try
-		{
-			converted = DateTimeOffset.FromFileTime((long)fileTime);
+		converted = DateTimeOffset.FromFileTime((long)fileTime);
 
-			return true;
-		}
-		catch (ArgumentOutOfRangeException)
-		{
-			converted = default;
-
-			return false;
-		}
+		return true;
 	}
 
 	private static PROPERTYKEY ResolvePropertyKey(string propertyId)

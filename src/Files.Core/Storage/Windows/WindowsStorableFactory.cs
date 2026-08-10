@@ -169,6 +169,7 @@ internal sealed class WindowsStorableFactory
 			}
 
 			await producer.ConfigureAwait(false);
+			cancellationToken.ThrowIfCancellationRequested();
 		}
 		finally
 		{
@@ -322,6 +323,7 @@ internal sealed class WindowsStorableFactory
 		var descriptorDuration = TimeSpan.Zero;
 		var channelWriteDuration = TimeSpan.Zero;
 		CoreDiagnosticLog.Write("WindowsStorableFactory", "EnumerateOnSTA START");
+		using var cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>>)state!).TryComplete(), writer);
 		try
 		{
 			var bindResult = shellItem.BindToHandler(null, PInvoke.BHID_EnumItems, out IEnumShellItems? enumerator);
@@ -337,7 +339,14 @@ internal sealed class WindowsStorableFactory
 
 			while (true)
 			{
-				cancellationToken.ThrowIfCancellationRequested();
+				if (cancellationToken.IsCancellationRequested)
+				{
+					CoreDiagnosticLog.Write(
+						"WindowsStorableFactory",
+						$"EnumerateOnSTA CANCELLED batches={batchCount} items={itemCount} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+
+					return false;
+				}
 
 				var nextStartTimestamp = Stopwatch.GetTimestamp();
 				uint fetched = 0;
@@ -370,7 +379,11 @@ internal sealed class WindowsStorableFactory
 					{
 						batchCount++;
 						var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
-						WriteBatch(writer, batch, cancellationToken);
+						if (!WriteBatch(writer, batch, cancellationToken))
+						{
+							return false;
+						}
+
 						channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
 						batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
 					}
@@ -386,7 +399,11 @@ internal sealed class WindowsStorableFactory
 			{
 				batchCount++;
 				var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
-				WriteBatch(writer, batch, cancellationToken);
+				if (!WriteBatch(writer, batch, cancellationToken))
+				{
+					return false;
+				}
+
 				channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
 			}
 
@@ -405,9 +422,22 @@ internal sealed class WindowsStorableFactory
 		}
 	}
 
-	private static void WriteBatch(ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer, IReadOnlyList<WindowsStorableDescriptorData> batch, CancellationToken cancellationToken)
+	private static bool WriteBatch(ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer, IReadOnlyList<WindowsStorableDescriptorData> batch, CancellationToken cancellationToken)
 	{
-		writer.WriteAsync(batch, cancellationToken).AsTask().GetAwaiter().GetResult();
+		while (!writer.TryWrite(batch))
+		{
+			if (cancellationToken.IsCancellationRequested)
+			{
+				return false;
+			}
+
+			if (!writer.WaitToWriteAsync().AsTask().GetAwaiter().GetResult())
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private static async Task CompleteChannelWhenFinishedAsync(Task<bool> producer, ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer)

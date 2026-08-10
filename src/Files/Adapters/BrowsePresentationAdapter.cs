@@ -39,9 +39,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly List<BrowseItemViewModel> _items = [];
 	private readonly Lock _itemsLock = new();
 	private readonly Dictionary<StorableKey, BrowseItemViewModel> _itemsByKey = [];
+	private readonly Lock _locationNavigationLock = new();
 	private PendingState? _pendingState;
 	private PendingColumns? _pendingColumns;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
+	private LocationNavigation? _locationNavigation;
 	private CancellationTokenSource? _columnsCancellation;
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
 	private BrowseViewSettings _viewSettings;
@@ -143,7 +145,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			await _pane.NavigateAsync(HomeLocation.Instance, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateToLocationAsync(HomeLocation.Instance, linkedCancellation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -182,7 +184,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 					throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, _text.NotFolderFormat, path));
 				}
 
-				await _pane.NavigateAsync(new FolderLocation(model.Reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+				await NavigateToLocationAsync(new FolderLocation(model.Reference), linkedCancellation.Token).ConfigureAwait(false);
 			}
 			finally
 			{
@@ -220,7 +222,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			await _pane.NavigateAsync(new FolderLocation(reference), cancellationToken: linkedCancellation.Token).ConfigureAwait(false);
+			await NavigateToLocationAsync(new FolderLocation(reference), linkedCancellation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -583,7 +585,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var session = _pane.BrowseSession;
 		lock (_pendingLock)
 		{
-			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
+			_pendingState = new PendingState(session.Generation, session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 		}
 
 		StartColumnsLoad();
@@ -592,6 +594,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void BrowseSession_ItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
+		var generation = _pane.BrowseSession.Generation;
 		var projectionStartTimestamp = Stopwatch.GetTimestamp();
 		var changes = ProjectChanges(args.Changes);
 		UiDiagnosticLog.Write(
@@ -600,7 +603,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.Items.Count}");
 		lock (_pendingLock)
 		{
-			_pendingItemBatches.AddLast(new PendingItemBatch(args.PreviousVersion, args.Version, changes));
+			_pendingItemBatches.AddLast(new PendingItemBatch(generation, args.PreviousVersion, args.Version, changes));
 		}
 
 		ScheduleDrain();
@@ -646,8 +649,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"QueueInitialSnapshot items={session.Items.Count} version={session.ItemsVersion}");
 		lock (_pendingLock)
 		{
-			_pendingItemBatches.AddLast(new PendingItemBatch(-1, session.ItemsVersion, resetChanges));
-			_pendingState = new PendingState(session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
+			_pendingItemBatches.AddLast(new PendingItemBatch(session.Generation, -1, session.ItemsVersion, resetChanges));
+			_pendingState = new PendingState(session.Generation, session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 			_pendingSelection = session.Selection.SelectedKeys.ToArray();
 			foreach (var item in session.Items)
 			{
@@ -742,7 +745,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			PendingItemBatch? batch;
 			lock (_pendingLock)
 			{
-				batch = TakeNextPendingItemBatchLocked(MaxItemsPerDrain - drainedItemCount, out hasPendingItemBatches);
+				batch = TakeNextPendingItemBatchLocked(MaxItemsPerDrain - drainedItemCount, _pane.BrowseSession.Generation, out hasPendingItemBatches);
 			}
 
 			if (batch is null)
@@ -754,6 +757,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			Interlocked.Exchange(ref _isApplyingItemBatch, 1);
 			try
 			{
+				if (batch.Generation != _pane.BrowseSession.Generation)
+				{
+					continue;
+				}
+
 				if (batch.Version <= _appliedItemsVersion)
 				{
 					continue;
@@ -768,6 +776,13 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				if (!TryApplyChanges(batch.Changes, appliedChanges))
 				{
 					ResetFromCurrentSession(appliedChanges);
+					break;
+				}
+
+				if (batch.Generation != _pane.BrowseSession.Generation)
+				{
+					_appliedItemsVersion = -1;
+					appliedChanges.Clear();
 					break;
 				}
 
@@ -808,6 +823,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		{
 			_detailsColumns = pendingColumns.Columns;
 			columnsApplied = true;
+		}
+
+		if (state is not null && state.Generation != _pane.BrowseSession.Generation)
+		{
+			state = null;
 		}
 
 		if (state is not null)
@@ -905,8 +925,13 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			$"longestUiMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}");
 	}
 
-	private PendingItemBatch? TakeNextPendingItemBatchLocked(int maximumItemCount, out bool hasPendingItemBatches)
+	private PendingItemBatch? TakeNextPendingItemBatchLocked(int maximumItemCount, long currentGeneration, out bool hasPendingItemBatches)
 	{
+		while (_pendingItemBatches.First is { } staleNode && staleNode.Value.Generation != currentGeneration)
+		{
+			_pendingItemBatches.RemoveFirst();
+		}
+
 		if (_pendingItemBatches.First is not { } node)
 		{
 			hasPendingItemBatches = false;
@@ -918,12 +943,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var changes = TakeChanges(node.Value.Changes, maximumItemCount, out var remainingChanges);
 		if (remainingChanges.Count is not 0)
 		{
-			_pendingItemBatches.AddFirst(new PendingItemBatch(node.Value.PreviousVersion, node.Value.Version, remainingChanges));
+			_pendingItemBatches.AddFirst(new PendingItemBatch(node.Value.Generation, node.Value.PreviousVersion, node.Value.Version, remainingChanges));
 		}
 
 		hasPendingItemBatches = _pendingItemBatches.Count is not 0;
 
-		return new PendingItemBatch(node.Value.PreviousVersion, node.Value.Version, changes, remainingChanges.Count is 0);
+		return new PendingItemBatch(node.Value.Generation, node.Value.PreviousVersion, node.Value.Version, changes, remainingChanges.Count is 0);
 	}
 
 	private static IReadOnlyList<BrowseItemViewModelChange> TakeChanges(
@@ -1495,15 +1520,36 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void ResetFromCurrentSession(ICollection<BrowseItemViewModelChange> appliedChanges)
 	{
 		var session = _pane.BrowseSession;
-		var resetChanges = ProjectReset(session.Items);
+		long generation;
+		long itemsVersion;
+		IReadOnlyList<IStorableModel> items;
+		do
+		{
+			generation = session.Generation;
+			itemsVersion = session.ItemsVersion;
+			items = session.Items;
+		}
+		while (generation != session.Generation || itemsVersion != session.ItemsVersion);
+
+		var resetChanges = ProjectReset(items);
+		if (generation != session.Generation)
+		{
+			_appliedItemsVersion = -1;
+			appliedChanges.Clear();
+
+			return;
+		}
+
 		var reset = resetChanges[0] as BrowseItemViewModelsReset
 			?? throw new InvalidOperationException("A projected session reset must start with a reset change.");
 		lock (_itemsLock)
 		{
 			_items.Clear();
 			_itemsByKey.Clear();
+			_items.AddRange(reset.Items);
 			foreach (var resetItem in reset.Items)
 			{
+				UpdateMaterializedItem(resetItem);
 				_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
 			}
 		}
@@ -1513,14 +1559,25 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var remainingChanges = resetChanges.Skip(1).ToArray();
 		lock (_pendingLock)
 		{
-			_pendingItemBatches.Clear();
+			var node = _pendingItemBatches.First;
+			while (node is not null)
+			{
+				var next = node.Next;
+				if (node.Value.Generation < generation || (node.Value.Generation == generation && node.Value.Version <= itemsVersion))
+				{
+					_pendingItemBatches.Remove(node);
+				}
+
+				node = next;
+			}
+
 			if (remainingChanges.Length is not 0)
 			{
-				_pendingItemBatches.AddFirst(new PendingItemBatch(-1, session.ItemsVersion, remainingChanges));
+				_pendingItemBatches.AddFirst(new PendingItemBatch(generation, -1, itemsVersion, remainingChanges));
 			}
 			else
 			{
-				_appliedItemsVersion = session.ItemsVersion;
+				_appliedItemsVersion = itemsVersion;
 			}
 		}
 	}
@@ -1652,6 +1709,60 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
 		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 
+	private Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		LocationNavigation navigation;
+		lock (_locationNavigationLock)
+		{
+			if (_locationNavigation is { } activeNavigation && Equals(activeNavigation.Location, location))
+			{
+				return WaitForLocationNavigationAsync(activeNavigation, cancellationToken);
+			}
+
+			if (_locationNavigation is null && _pane.BrowseSession.Error is null && Equals(_pane.BrowseSession.Location, location))
+			{
+				return Task.CompletedTask;
+			}
+
+			var task = _pane.NavigateAsync(location, cancellationToken: _lifetime.Token).AsTask();
+			navigation = new LocationNavigation(location, task);
+			_locationNavigation = navigation;
+		}
+
+		_ = TrackLocationNavigationAsync(navigation);
+
+		return WaitForLocationNavigationAsync(navigation, cancellationToken);
+	}
+
+	private static Task WaitForLocationNavigationAsync(LocationNavigation navigation, CancellationToken cancellationToken)
+	{
+		return cancellationToken.CanBeCanceled ? navigation.Task.WaitAsync(cancellationToken) : navigation.Task;
+	}
+
+	private async Task TrackLocationNavigationAsync(LocationNavigation navigation)
+	{
+		try
+		{
+			await navigation.Task.ConfigureAwait(false);
+		}
+		catch
+		{
+			// Callers observe the shared navigation task.
+		}
+		finally
+		{
+			lock (_locationNavigationLock)
+			{
+				if (ReferenceEquals(_locationNavigation, navigation))
+				{
+					_locationNavigation = null;
+				}
+			}
+		}
+	}
+
 	private string GetLocationText(BrowseLocation? location)
 	{
 		return location switch
@@ -1685,9 +1796,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private sealed record PendingItemBatch(long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes, bool IsComplete = true);
+	private sealed record PendingItemBatch(long Generation, long PreviousVersion, long Version, IReadOnlyList<BrowseItemViewModelChange> Changes, bool IsComplete = true);
 
 	private sealed record PendingColumns(long Generation, IReadOnlyList<DetailsColumnViewModel> Columns);
 
-	private sealed record PendingState(bool IsLoading, string? ErrorMessage, string LocationText, BrowseViewSettings ViewSettings);
+	private sealed record PendingState(long Generation, bool IsLoading, string? ErrorMessage, string LocationText, BrowseViewSettings ViewSettings);
+
+	private sealed record LocationNavigation(BrowseLocation Location, Task Task);
 }

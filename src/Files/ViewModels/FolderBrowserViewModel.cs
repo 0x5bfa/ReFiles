@@ -426,9 +426,13 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 					Items.ReplaceAll(_browseAdapter.Items);
 					UiDiagnosticLog.Write("FolderBrowserViewModel", $"ReplaceAll completed items={Items.Count} elapsedMs={Stopwatch.GetElapsedTime(replaceStartTimestamp).TotalMilliseconds:F1}");
 				}
-				else
+				else if (CanApplyItemChanges(args.ItemChanges))
 				{
 					ApplyItemChanges(args.ItemChanges);
+				}
+				else
+				{
+					Items.ReplaceAll(_browseAdapter.Items);
 				}
 
 				refreshItemsViewSource = true;
@@ -861,6 +865,38 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			ApplyItemChange(changes[changeIndex]);
 			changeIndex++;
 		}
+	}
+
+	private bool CanApplyItemChanges(IReadOnlyList<BrowseItemViewModelChange> changes)
+	{
+		var itemCount = Items.Count;
+		foreach (var change in changes)
+		{
+			switch (change)
+			{
+				case BrowseItemViewModelsAdded added when added.StartingIndex >= 0 && added.StartingIndex <= itemCount:
+					itemCount += added.Items.Count;
+					break;
+				case BrowseItemViewModelAdded added when added.Index >= 0 && added.Index <= itemCount:
+					itemCount++;
+					break;
+				case BrowseItemViewModelRemoved removed when removed.Index >= 0 && removed.Index < itemCount:
+					itemCount--;
+					break;
+				case BrowseItemViewModelReplaced replaced when replaced.Index >= 0 && replaced.Index < itemCount:
+					break;
+				case BrowseItemViewModelMoved moved when moved.PreviousIndex >= 0 && moved.PreviousIndex < itemCount && moved.CurrentIndex >= 0 && moved.CurrentIndex < itemCount:
+					break;
+				case BrowseItemViewModelsReset reset:
+					itemCount = reset.Items.Count;
+					break;
+				default:
+
+					return false;
+			}
+		}
+
+		return itemCount == _browseAdapter.Items.Count;
 	}
 
 	private void ApplyItemChange(BrowseItemViewModelChange change)
