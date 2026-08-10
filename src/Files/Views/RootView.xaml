@@ -19,6 +19,7 @@
 
 		<NavigationView
 			x:Name="Sidebar"
+			AutomationProperties.AutomationId="Sidebar"
 			Grid.Row="2"
 			IsBackButtonVisible="Collapsed"
 			IsSettingsVisible="False"

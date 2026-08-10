@@ -11,6 +11,7 @@
 			<ColumnDefinition Width="Auto" />
 			<ColumnDefinition Width="*" />
 			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
 		<controls:Toolbar
@@ -72,6 +73,7 @@
 
 		<TextBox
 			x:Name="PathTextBox"
+			AutomationProperties.AutomationId="PathTextBox"
 			Grid.Column="1"
 			MinWidth="260"
 			HorizontalAlignment="Stretch"
@@ -79,8 +81,21 @@
 			PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
 			Text="{x:Bind ViewModel.LocationText, Mode=OneWay}" />
 
-		<controls:Toolbar
+		<Button
+			x:Name="NavigatePathButton"
+			AutomationProperties.AutomationId="NavigatePathButton"
+			AutomationProperties.Name="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}"
 			Grid.Column="2"
+			Width="32"
+			Height="32"
+			Padding="0"
+			Click="NavigatePathButton_Click"
+			ToolTipService.ToolTip="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}">
+			<FontIcon FontSize="16" Glyph="&#xE8AD;" />
+		</Button>
+
+		<controls:Toolbar
+			Grid.Column="3"
 			Padding="0"
 			Background="Transparent"
 			BorderBrush="Transparent"

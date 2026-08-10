@@ -58,20 +58,79 @@ jobs:
         msbuild $env:SOLUTION_PATH `
           -t:Restore -p:Platform=$env:ARCHITECTURE -p:Configuration=$env:CONFIGURATION -p:PublishReadyToRun=true -v:quiet
 
-    # - name: Build Files.Core tests
-    #   run: >
-    #     dotnet build tests/Files.UnitTests/Files.UnitTests.csproj --configuration ${{ matrix.configuration }} --no-restore -p:Platform=${{ matrix.platform }}
-
-    # - name: Run Files.Core tests
-    #   run: >
-    #     dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration ${{ matrix.configuration }} --no-build -p:Platform=${{ matrix.platform }}
-
-    # - name: Run benchmark smoke test
-    #   run: >
-    #     dotnet run --project tests/Files.Benchmarks/Files.Benchmarks.csproj --configuration ${{ matrix.configuration }} -p:Platform=${{ matrix.platform }} -- --smoke
-
     - name: Build
       shell: pwsh
       run: |
         msbuild $env:APP_PROJECT_PATH `
           -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -v:quiet
+
+    - name: Build automated tests
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      run: |
+        $testProjects = @(
+          'tests/Files.UnitTests/Files.UnitTests.csproj',
+          'tests/Files.PresentationTests/Files.PresentationTests.csproj',
+          'tests/Files.AxeTests/Files.AxeTests.csproj'
+        )
+        foreach ($testProject in $testProjects) {
+          msbuild $testProject `
+            -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:UseSharedCompilation=false -m:1 -nr:false -v:quiet -clp:ErrorsOnly
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+        }
+
+    - name: Run Files.Core tests
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      run: dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity quiet
+
+    - name: Run presentation tests
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      run: dotnet test tests/Files.PresentationTests/Files.PresentationTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity quiet
+
+    - name: Register UI test application
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      run: |
+        $developerModePath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+        New-Item -Path $developerModePath -Force | Out-Null
+        Set-ItemProperty -Path $developerModePath -Name AllowDevelopmentWithoutDevLicense -Type DWord -Value 1
+
+        $runtimeRoot = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windowsappsdk.runtime" -Directory | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+        if ($null -eq $runtimeRoot) {
+          throw 'The restored Microsoft.WindowsAppSDK runtime package was not found.'
+        }
+
+        Get-ChildItem (Join-Path $runtimeRoot.FullName 'tools\MSIX\win10-x64') -Filter '*.msix' | Sort-Object Name | ForEach-Object {
+          try {
+            Add-AppxPackage -Path $_.FullName -ForceApplicationShutdown
+          }
+          catch {
+            if ($_.Exception.Message -notmatch '0x80073D06') {
+              throw
+            }
+          }
+        }
+
+        $appManifest = Get-ChildItem "$env:WORKING_DIR\src\Files\bin\x64\Debug" -Filter AppxManifest.xml -Recurse | Where-Object { Test-Path (Join-Path $_.DirectoryName 'Files.exe') } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($null -eq $appManifest) {
+          throw 'The Files AppX manifest was not produced by the build.'
+        }
+
+        Add-AppxPackage -Register $appManifest.FullName -ForceApplicationShutdown
+        $filesPackage = Get-AppxPackage -Name FilesDev | Select-Object -First 1
+        if ($null -eq $filesPackage) {
+          throw 'The FilesDev package was not registered.'
+        }
+
+        "FILES_AXE_TEST_APP_ID=$($filesPackage.PackageFamilyName)!App" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Run navigation UI tests
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      env:
+        FILES_NAVIGATION_STRESS_ITERATIONS: 100
+      run: dotnet test tests/Files.AxeTests/Files.AxeTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity normal

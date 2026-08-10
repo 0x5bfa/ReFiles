@@ -1,9 +1,13 @@
-﻿<!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
+<!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>$(TargetFrameworkVersion)</TargetFramework>
+        <TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+        <TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+        <IsTestProject>true</IsTestProject>
         <IsPackable>false</IsPackable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
         <Configurations>Debug;Release</Configurations>
         <Platforms>x86;x64;arm64</Platforms>
         <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -11,11 +15,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Appium.WebDriver" />
-        <PackageReference Include="Axe.Windows" />
         <PackageReference Include="MSTest.TestAdapter" />
         <PackageReference Include="MSTest.TestFramework" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="UIAutomationClient" />
+        <Reference Include="UIAutomationTypes" />
     </ItemGroup>
 
 </Project>

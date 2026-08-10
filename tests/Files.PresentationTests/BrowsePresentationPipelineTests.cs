@@ -290,6 +290,35 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(stateCalls.Count > callsBeforeNavigation);
 	}
 
+	[TestMethod]
+	public async Task CancelPreviousCommandWaitsForCanceledCallToFinish()
+	{
+		var dispatcher = new ManualDispatcher();
+		var handler = new SerializingCommandHandler(CommandIds.NavigatePath);
+		var root = (RootViewModel)RuntimeHelpers.GetUninitializedObject(typeof(RootViewModel));
+		using var manager = new WindowCommandManager(root, CreateSerializingCommandRegistry(handler), dispatcher);
+		var firstCall = manager.ExecuteAsync(CommandIds.NavigatePath, "first");
+		await handler.FirstCallStarted.WaitAsync(TimeSpan.FromSeconds(5));
+		var secondCall = manager.ExecuteAsync(CommandIds.NavigatePath, "second");
+		await handler.FirstCallCancellationObserved.WaitAsync(TimeSpan.FromSeconds(5));
+		try
+		{
+			Assert.AreEqual(1, handler.InvocationCount);
+			Assert.AreEqual(1, handler.MaximumConcurrency);
+		}
+		finally
+		{
+			handler.AllowFirstCallToFinish();
+		}
+
+		var results = await Task.WhenAll(firstCall, secondCall).WaitAsync(TimeSpan.FromSeconds(5));
+
+		Assert.AreEqual(CommandExecutionStatus.Canceled, results[0].Status);
+		Assert.AreEqual(CommandExecutionStatus.Succeeded, results[1].Status);
+		Assert.AreEqual(2, handler.InvocationCount);
+		Assert.AreEqual(1, handler.MaximumConcurrency);
+	}
+
 	private static BrowsePresentationText CreateText()
 	{
 		return new BrowsePresentationText("Home", "Loading", "{0} item", "{0} items", "{0} is not a folder");
@@ -312,6 +341,23 @@ public sealed class BrowsePresentationPipelineTests
 		{
 			var commandId = commandIds[index];
 			builder.Register(new CommandDescriptor(commandId, commandId.Value, null, "Test", index), _ => new CountingCommandHandler(commandId, stateCalls));
+		}
+
+		return builder.Build();
+	}
+
+	private static CommandRegistry CreateSerializingCommandRegistry(SerializingCommandHandler serializingHandler)
+	{
+		var builder = new CommandRegistryBuilder();
+		var commandIds = typeof(CommandIds)
+			.GetFields(BindingFlags.Public | BindingFlags.Static)
+			.Where(static field => field.FieldType == typeof(CommandId))
+			.Select(static field => (CommandId)field.GetValue(null)!)
+			.ToArray();
+		for (var index = 0; index < commandIds.Length; index++)
+		{
+			var commandId = commandIds[index];
+			builder.Register(new CommandDescriptor(commandId, commandId.Value, null, "Test", index), _ => commandId == serializingHandler.Id ? serializingHandler : new NoOpCommandHandler(commandId));
 		}
 
 		return builder.Build();
@@ -435,6 +481,98 @@ public sealed class BrowsePresentationPipelineTests
 
 		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default) =>
 			ValueTask.FromResult(CommandExecutionResult.Succeeded());
+	}
+
+	private sealed class NoOpCommandHandler(CommandId id) : ICommandHandler
+	{
+		public CommandId Id { get; } = id;
+
+		public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.AllowParallel;
+
+		public CommandStateInvalidation StateDependencies => CommandStateInvalidation.None;
+
+		public CommandState GetState(CommandContext context) => new(IsVisible: true, IsEnabled: true);
+
+		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default) => ValueTask.FromResult(CommandExecutionResult.Succeeded());
+	}
+
+	private sealed class SerializingCommandHandler : ICommandHandler
+	{
+		private readonly TaskCompletionSource<bool> _firstCallStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource<bool> _firstCallCancellationObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource<bool> _firstCallRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private int _activeCount;
+		private int _invocationCount;
+		private int _maximumConcurrency;
+
+		public CommandId Id { get; }
+
+		public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.CancelPrevious;
+
+		public CommandStateInvalidation StateDependencies => CommandStateInvalidation.None;
+
+		public Task FirstCallStarted => _firstCallStarted.Task;
+
+		public Task FirstCallCancellationObserved => _firstCallCancellationObserved.Task;
+
+		public int InvocationCount => Volatile.Read(ref _invocationCount);
+
+		public int MaximumConcurrency => Volatile.Read(ref _maximumConcurrency);
+
+		public SerializingCommandHandler(CommandId id)
+		{
+			Id = id;
+		}
+
+		public CommandState GetState(CommandContext context) => new(IsVisible: true, IsEnabled: true);
+
+		public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
+		{
+			var invocation = Interlocked.Increment(ref _invocationCount);
+			var activeCount = Interlocked.Increment(ref _activeCount);
+			UpdateMaximum(ref _maximumConcurrency, activeCount);
+			try
+			{
+				if (invocation is 1)
+				{
+					_firstCallStarted.TrySetResult(true);
+					try
+					{
+						await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+					}
+					catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+					{
+						_firstCallCancellationObserved.TrySetResult(true);
+						await _firstCallRelease.Task;
+
+						throw;
+					}
+				}
+
+				return CommandExecutionResult.Succeeded();
+			}
+			finally
+			{
+				Interlocked.Decrement(ref _activeCount);
+			}
+		}
+
+		public void AllowFirstCallToFinish() => _firstCallRelease.TrySetResult(true);
+
+		private static void UpdateMaximum(ref int target, int candidate)
+		{
+			var current = Volatile.Read(ref target);
+			while (candidate > current)
+			{
+				var previous = Interlocked.CompareExchange(ref target, candidate, current);
+				if (previous == current)
+				{
+					return;
+				}
+
+				current = previous;
+			}
+		}
 	}
 
 	private sealed class NoOpStorageOperationService : IStorageOperationService

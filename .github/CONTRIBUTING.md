@@ -42,9 +42,9 @@ When completing a pull request, we will generally squash your changes into a sin
 let us know if your pull request needs to be merged as separate commits.
 
 ## Running interaction tests (optional)
-First, you will need to install WinAppDriver. You can download the latest version from [here](https://github.com/microsoft/WinAppDriver/releases).
-After installing WinAppDriver, you will need to run the Files.Package at least once to have the debug version be registered on your machine.
-Once you have the debug version registered, you can run the tests from the test explorer in Visual Studio.
+Build the Files project for Debug x64 and register the generated `AppxManifest.xml` beside `Files.exe` with `Add-AppxPackage -Register`.
+The interaction tests use Windows UI Automation directly and do not require WinAppDriver.
+Run them from Test Explorer or with `dotnet test tests/Files.AxeTests/Files.AxeTests.csproj --configuration Debug -p:Platform=x64`.
 
 ## Review Process
 After submitting a pull request, members of the Files team will review your code. Any member of the community may

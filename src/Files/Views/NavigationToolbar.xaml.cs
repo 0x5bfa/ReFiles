@@ -33,6 +33,13 @@ public sealed partial class NavigationToolbar : UserControl
 		}
 
 		e.Handled = true;
+		await NavigatePathAsync();
+	}
+
+	private async void NavigatePathButton_Click(object sender, RoutedEventArgs e) => await NavigatePathAsync();
+
+	private async Task NavigatePathAsync()
+	{
 		if (ViewModel is not { } viewModel)
 		{
 			return;

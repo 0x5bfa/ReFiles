@@ -9,27 +9,29 @@ namespace Files.Commands;
 
 public sealed class WindowCommandManager : IDisposable
 {
-	private readonly RootViewModel root;
-	private readonly IUIDispatcher dispatcher;
-	private readonly Dictionary<CommandId, ICommandHandler> handlers;
-	private readonly Dictionary<CommandId, CommandBindingViewModel> bindings = [];
-	private readonly Dictionary<CommandId, CancellationTokenSource> activeCalls = [];
-	private readonly CancellationTokenSource lifetime = new();
-	private readonly Lock syncRoot = new();
-	private int isDisposed;
+	private readonly RootViewModel _root;
+	private readonly IUIDispatcher _dispatcher;
+	private readonly Dictionary<CommandId, ICommandHandler> _handlers;
+	private readonly Dictionary<CommandId, CommandBindingViewModel> _bindings = [];
+	private readonly Dictionary<CommandId, CommandCall> _activeCalls = [];
+	private readonly CancellationTokenSource _lifetime = new();
+	private readonly Lock _syncRoot = new();
+	private int _isDisposed;
 
 	public WindowCommandManager(RootViewModel root, CommandRegistry registry, IUIDispatcher dispatcher)
 	{
 		ArgumentNullException.ThrowIfNull(root);
+
 		ArgumentNullException.ThrowIfNull(registry);
+
 		ArgumentNullException.ThrowIfNull(dispatcher);
 
-		this.root = root;
-		this.dispatcher = dispatcher;
-		handlers = new(registry.CreateHandlers(root));
+		_root = root;
+		_dispatcher = dispatcher;
+		_handlers = new(registry.CreateHandlers(root));
 		foreach (var descriptor in registry.Descriptors)
 		{
-			bindings.Add(descriptor.Id, new CommandBindingViewModel(this, descriptor));
+			_bindings.Add(descriptor.Id, new CommandBindingViewModel(this, descriptor));
 		}
 
 		Clipboard.ContentChanged += Clipboard_ContentChanged;
@@ -38,7 +40,8 @@ public sealed class WindowCommandManager : IDisposable
 	public CommandBindingViewModel GetBinding(CommandId id)
 	{
 		EnsureActive();
-		if (!bindings.TryGetValue(id, out var binding))
+
+		if (!_bindings.TryGetValue(id, out var binding))
 		{
 			throw new KeyNotFoundException($"The command ID '{id}' is not registered.");
 		}
@@ -48,16 +51,16 @@ public sealed class WindowCommandManager : IDisposable
 
 	public void RefreshStates(CommandStateInvalidation reasons = CommandStateInvalidation.All)
 	{
-		if (Volatile.Read(ref isDisposed) is not 0 || reasons is CommandStateInvalidation.None)
+		if (Volatile.Read(ref _isDisposed) is not 0 || reasons is CommandStateInvalidation.None)
 		{
 			return;
 		}
 
-		if (!dispatcher.HasThreadAccess)
+		if (!_dispatcher.HasThreadAccess)
 		{
-			if (!dispatcher.TryEnqueue(() =>
+			if (!_dispatcher.TryEnqueue(() =>
 			{
-				if (Volatile.Read(ref isDisposed) is 0)
+				if (Volatile.Read(ref _isDisposed) is 0)
 				{
 					RefreshStates(reasons);
 				}
@@ -69,12 +72,12 @@ public sealed class WindowCommandManager : IDisposable
 			return;
 		}
 
-		var context = new CommandContext(root);
-		foreach (var pair in handlers)
+		var context = new CommandContext(_root);
+		foreach (var pair in _handlers)
 		{
 			if ((pair.Value.StateDependencies & reasons) is not 0)
 			{
-				bindings[pair.Key].UpdateState(pair.Value.GetState(context));
+				_bindings[pair.Key].UpdateState(pair.Value.GetState(context));
 			}
 		}
 	}
@@ -82,39 +85,49 @@ public sealed class WindowCommandManager : IDisposable
 	public async Task<CommandExecutionResult> ExecuteAsync(CommandId id, object? parameter = null, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
-		if (!handlers.TryGetValue(id, out var handler))
+
+		if (!_handlers.TryGetValue(id, out var handler))
 		{
 			throw new KeyNotFoundException($"The command ID '{id}' is not registered.");
 		}
 
-		var context = new CommandContext(root, parameter);
+		var context = new CommandContext(_root, parameter);
 		var state = handler.GetState(context);
 		if (!state.IsVisible || !state.IsEnabled)
 		{
 			return CommandExecutionResult.Unsupported();
 		}
 
-		CancellationTokenSource callCancellation;
-		lock (syncRoot)
+		CommandCall call;
+		CommandCall? previousCall = null;
+		lock (_syncRoot)
 		{
-			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.RejectWhileRunning && activeCalls.ContainsKey(id))
+			EnsureActive();
+
+			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.RejectWhileRunning && _activeCalls.ContainsKey(id))
 			{
 				return CommandExecutionResult.Unsupported();
 			}
 
-			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.CancelPrevious && activeCalls.TryGetValue(id, out var previous))
+			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.CancelPrevious && _activeCalls.TryGetValue(id, out previousCall))
 			{
-				previous.Cancel();
+				previousCall.Cancel();
 			}
 
-			callCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Token);
-			activeCalls[id] = callCancellation;
+			call = new CommandCall(cancellationToken, _lifetime.Token);
+			_activeCalls[id] = call;
 		}
 
 		try
 		{
+			if (previousCall is not null)
+			{
+				await previousCall.Completion.ConfigureAwait(false);
+				call.Token.ThrowIfCancellationRequested();
+			}
+
 			var result = await handler
-				.ExecuteAsync(context, callCancellation.Token)
+				.ExecuteAsync(context, call.Token)
 				.ConfigureAwait(false);
 			if (result.Status is CommandExecutionStatus.Failed && result.Error is { } error)
 			{
@@ -135,57 +148,56 @@ public sealed class WindowCommandManager : IDisposable
 		}
 		finally
 		{
-			lock (syncRoot)
+			lock (_syncRoot)
 			{
-				if (activeCalls.TryGetValue(id, out var active) && ReferenceEquals(active, callCancellation))
+				if (_activeCalls.TryGetValue(id, out var active) && ReferenceEquals(active, call))
 				{
-					activeCalls.Remove(id);
+					_activeCalls.Remove(id);
 				}
 			}
 
-			callCancellation.Dispose();
-			if (Volatile.Read(ref isDisposed) is 0)
+			call.Dispose();
+			if (Volatile.Read(ref _isDisposed) is 0)
 			{
 				RefreshStates(handler.StateDependencies);
 			}
 		}
 	}
 
-	internal bool CanExecute(CommandId id, object? parameter)
-	{
-		if (Volatile.Read(ref isDisposed) is not 0 || !handlers.TryGetValue(id, out var handler))
-		{
-			return false;
-		}
-
-		var state = handler.GetState(new CommandContext(root, parameter));
-
-		return state.IsVisible && state.IsEnabled;
-	}
-
 	public void Dispose()
 	{
-		if (Interlocked.Exchange(ref isDisposed, 1) is not 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
 		}
 
-		lifetime.Cancel();
-		lock (syncRoot)
+		_lifetime.Cancel();
+		lock (_syncRoot)
 		{
-			foreach (var call in activeCalls.Values)
+			foreach (var call in _activeCalls.Values)
 			{
 				call.Cancel();
-				call.Dispose();
 			}
 
-			activeCalls.Clear();
+			_activeCalls.Clear();
 		}
 
-		bindings.Clear();
-		handlers.Clear();
+		_bindings.Clear();
+		_handlers.Clear();
 		Clipboard.ContentChanged -= Clipboard_ContentChanged;
-		lifetime.Dispose();
+		_lifetime.Dispose();
+	}
+
+	internal bool CanExecute(CommandId id, object? parameter)
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0 || !_handlers.TryGetValue(id, out var handler))
+		{
+			return false;
+		}
+
+		var state = handler.GetState(new CommandContext(_root, parameter));
+
+		return state.IsVisible && state.IsEnabled;
 	}
 
 	private void Clipboard_ContentChanged(object? sender, object args) =>
@@ -193,25 +205,57 @@ public sealed class WindowCommandManager : IDisposable
 
 	private void ReportError(Exception exception)
 	{
-		if (Volatile.Read(ref isDisposed) is not 0)
+		if (Volatile.Read(ref _isDisposed) is not 0)
 		{
 			return;
 		}
 
-		if (dispatcher.HasThreadAccess)
+		if (_dispatcher.HasThreadAccess)
 		{
-			root.ReportOperationError(exception);
+			_root.ReportOperationError(exception);
 
 			return;
 		}
 
-		if (!dispatcher.TryEnqueue(() => root.ReportOperationError(exception)))
+		if (!_dispatcher.TryEnqueue(() => _root.ReportOperationError(exception)))
 		{
 			throw new InvalidOperationException("The Files UI dispatcher rejected a command error.", exception);
 		}
 	}
 
 	private void EnsureActive() =>
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref isDisposed) is not 0, this);
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 
+	private sealed class CommandCall : IDisposable
+	{
+		private readonly CancellationTokenSource _cancellation;
+		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		public CancellationToken Token { get; }
+
+		public Task Completion => _completion.Task;
+
+		public CommandCall(CancellationToken cancellationToken, CancellationToken lifetimeToken)
+		{
+			_cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetimeToken);
+			Token = _cancellation.Token;
+		}
+
+		public void Cancel()
+		{
+			try
+			{
+				_cancellation.Cancel();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+		}
+
+		public void Dispose()
+		{
+			_cancellation.Dispose();
+			_completion.TrySetResult(true);
+		}
+	}
 }

@@ -1,136 +1,126 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
-using OpenQA.Selenium.Appium;
-using OpenQA.Selenium.Appium.Windows;
-using System;
 using System.Diagnostics;
-using System.IO;
-using System.Threading;
+using System.Windows.Automation;
 
-namespace Files.AxeTests
+namespace Files.AxeTests;
+
+[TestClass]
+public sealed class SessionManager
 {
-	[TestClass]
-	public sealed class SessionManager
+	private const string DefaultFilesAppId = "FilesDev_ykqwq8d6ps0ag!App";
+	private static readonly TimeSpan _launchTimeout = TimeSpan.FromSeconds(45);
+	private static Process? _applicationProcess;
+	private static AutomationElement? _rootElement;
+
+	public static bool HasSession => _applicationProcess is not null && !_applicationProcess.HasExited && _rootElement is not null;
+
+	public static Process ApplicationProcess => _applicationProcess ?? throw new InvalidOperationException("The Files application process has not been initialized.");
+
+	public static AutomationElement RootElement => _rootElement ?? throw new InvalidOperationException("The Files automation root has not been initialized.");
+
+	[AssemblyInitialize]
+	public static void CreateSession(TestContext _)
 	{
-		private const string WindowsApplicationDriverUrl = "http://127.0.0.1:4723";
-
-		private static string[] FilesAppIDs = [
-			"FilesDev_ykqwq8d6ps0ag!App", // Needed to run on the local end and/or the CI
-			"FilesDev_9bhem8es8z4gp!App", // Needed to run on the local end and/or the CI
-			"FilesDev_dwm5abbcs5pn0!App", // Needed to run on the CI
-		];
-
-		private static uint appIdIndex = 0;
-
-		private static WindowsDriver<WindowsElement> _session;
-
-		public static WindowsDriver<WindowsElement> Session
+		if (HasSession)
 		{
-			get
-			{
-				if (_session is null)
-				{
-					CreateSession(null);
-				}
+			return;
+		}
 
-				return _session;
+		var existingProcessIds = Process.GetProcessesByName("Files").Select(static process => process.Id).ToHashSet();
+		foreach (var appId in GetFilesAppIds())
+		{
+			using var launcher = Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{appId}") { UseShellExecute = true });
+			_applicationProcess = WaitForApplicationProcess(existingProcessIds, _launchTimeout);
+			if (_applicationProcess is not null)
+			{
+				break;
 			}
 		}
 
-		[AssemblyInitialize]
-		public static void CreateSession(TestContext _)
+		if (_applicationProcess is null)
 		{
-			if (_session is null)
-			{
-
-				int timeoutCount = 50;
-
-				tryInitializeSession();
-				if (_session is null)
-				{
-					// WinAppDriver is probably not running, so lets start it!
-					if (File.Exists($@"{Environment.GetEnvironmentVariable("ProgramFiles(x86)")}\Windows Application Driver\WinAppDriver.exe"))
-					{
-						Process.Start($@"{Environment.GetEnvironmentVariable("ProgramFiles(x86)")}\Windows Application Driver\WinAppDriver.exe");
-					}
-					else if (File.Exists($@"{Environment.GetEnvironmentVariable("ProgramFiles")}\Windows Application Driver\WinAppDriver.exe"))
-					{
-						Process.Start($@"{Environment.GetEnvironmentVariable("ProgramFiles")}\Windows Application Driver\WinAppDriver.exe");
-					}
-					else
-					{
-						throw new Exception("Unable to start WinAppDriver since no suitable location was found.");
-					}
-
-					Thread.Sleep(10000);
-					tryInitializeSession();
-				}
-
-				while (_session is null && timeoutCount < 1000 * 4)
-				{
-					tryInitializeSession();
-					Thread.Sleep(timeoutCount);
-					timeoutCount *= 2;
-				}
-
-				Thread.Sleep(3000);
-				Assert.IsNotNull(_session);
-				Assert.IsNotNull(_session.SessionId);
-
-				// Dismiss the disclaimer window that may pop up on the very first application launch
-				// If the disclaimer is not found, this throws an exception, so lets catch that
-				try
-				{
-					_session.FindElementByName("Disclaimer").FindElementByName("Accept").Click();
-				}
-				catch (OpenQA.Selenium.WebDriverException) { }
-
-				// Wait if something is still animating in the visual tree
-				_session.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(3);
-				_session.Manage().Window.Maximize();
-
-				AxeHelper.InitializeAxe();
-			}
+			throw new AssertFailedException($"Files did not launch within {_launchTimeout}. Registered app IDs tried: {string.Join(", ", GetFilesAppIds())}.");
 		}
 
-		[AssemblyCleanup()]
-		public static void TestRunTearDown()
+		_rootElement = AutomationElement.FromHandle(_applicationProcess.MainWindowHandle);
+		if (_rootElement.TryGetCurrentPattern(WindowPattern.Pattern, out var pattern) && pattern is WindowPattern windowPattern)
 		{
-			TearDown();
-		}
-
-		public static void TearDown()
-		{
-			if (_session is not null)
-			{
-				_session.CloseApp();
-				_session.Quit();
-				_session = null;
-			}
-		}
-
-		private static void tryInitializeSession()
-		{
-			AppiumOptions appiumOptions = new AppiumOptions();
-			appiumOptions.AddAdditionalCapability("app", FilesAppIDs[appIdIndex]);
-			appiumOptions.AddAdditionalCapability("deviceName", "WindowsPC");
 			try
 			{
-				_session = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appiumOptions);
+				windowPattern.SetWindowVisualState(WindowVisualState.Maximized);
 			}
-			catch (OpenQA.Selenium.WebDriverException exc)
+			catch (InvalidOperationException)
 			{
-				// Use next app ID since the current one was failing
-				if (exc.Message.Contains("Package was not found"))
+				// The CI desktop can reject window resizing while it is still settling.
+			}
+		}
+
+		TestHelper.WaitForElementByAutomationId("PathTextBox", _launchTimeout);
+	}
+
+	[AssemblyCleanup]
+	public static void TestRunTearDown()
+	{
+		TearDown();
+	}
+
+	public static void TearDown()
+	{
+		_rootElement = null;
+		if (_applicationProcess is null)
+		{
+			return;
+		}
+
+		try
+		{
+			if (!_applicationProcess.HasExited)
+			{
+				_applicationProcess.CloseMainWindow();
+				if (!_applicationProcess.WaitForExit(10_000))
 				{
-					appIdIndex++;
-				}
-				else
-				{
-					Console.WriteLine("Failed to update start driver, got exception:" + exc.Message);
+					_applicationProcess.Kill(entireProcessTree: true);
+					_applicationProcess.WaitForExit(5_000);
 				}
 			}
 		}
+		catch (InvalidOperationException)
+		{
+		}
+		finally
+		{
+			_applicationProcess.Dispose();
+			_applicationProcess = null;
+		}
+	}
+
+	private static Process? WaitForApplicationProcess(IReadOnlySet<int> existingProcessIds, TimeSpan timeout)
+	{
+		var stopwatch = Stopwatch.StartNew();
+		while (stopwatch.Elapsed < timeout)
+		{
+			var process = Process.GetProcessesByName("Files").FirstOrDefault(candidate => !existingProcessIds.Contains(candidate.Id) && !candidate.HasExited && candidate.MainWindowHandle != IntPtr.Zero);
+			if (process is not null)
+			{
+				return process;
+			}
+
+			Thread.Sleep(100);
+		}
+
+		return null;
+	}
+
+	private static IReadOnlyList<string> GetFilesAppIds()
+	{
+		var configuredAppIds = Environment.GetEnvironmentVariable("FILES_AXE_TEST_APP_ID");
+		if (string.IsNullOrWhiteSpace(configuredAppIds))
+		{
+			return [DefaultFilesAppId];
+		}
+
+		return configuredAppIds.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 	}
 }
