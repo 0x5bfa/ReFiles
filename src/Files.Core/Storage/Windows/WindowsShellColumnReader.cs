@@ -85,7 +85,161 @@ internal static unsafe class WindowsShellColumnReader
 			defaultDisplayColumnIndex = ToColumnIndex(displayColumnIndex);
 		}
 
-		return new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
+		var shellColumnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
+		if (TryReadViewColumns(folder, shellColumnSet, out var viewColumnSet))
+		{
+			return viewColumnSet;
+		}
+
+		return shellColumnSet;
+	}
+
+	private static bool TryReadViewColumns(IShellFolder folder, WindowsShellColumnSet shellColumnSet, out WindowsShellColumnSet columnSet)
+	{
+		columnSet = shellColumnSet;
+		var createViewResult = folder.CreateViewObject(HWND.Null, out IShellView? shellView);
+		if (createViewResult.Failed || shellView is not IColumnManager columnManager)
+		{
+			return false;
+		}
+
+		if (!TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_ALL, out var allKeys))
+		{
+			return false;
+		}
+
+		var visibleKeys = TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_VISIBLE, out var keys)
+			? keys
+			: [];
+		var visiblePropertyIds = new HashSet<string>(visibleKeys.Select(GetPropertyId), StringComparer.Ordinal);
+		var allEntries = new List<(PROPERTYKEY Key, string PropertyId)>(allKeys.Length);
+		var entriesByPropertyId = new Dictionary<string, (PROPERTYKEY Key, string PropertyId)>(StringComparer.Ordinal);
+		foreach (var key in allKeys)
+		{
+			var propertyId = GetPropertyId(key);
+			if (entriesByPropertyId.ContainsKey(propertyId))
+			{
+				continue;
+			}
+
+			var entry = (key, propertyId);
+			allEntries.Add(entry);
+			entriesByPropertyId.Add(propertyId, entry);
+		}
+
+		var orderedEntries = new List<(PROPERTYKEY Key, string PropertyId)>(allEntries.Count);
+		var orderedPropertyIds = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var key in visibleKeys)
+		{
+			var propertyId = GetPropertyId(key);
+			if (entriesByPropertyId.TryGetValue(propertyId, out var entry) && orderedPropertyIds.Add(propertyId))
+			{
+				orderedEntries.Add(entry);
+			}
+		}
+
+		foreach (var entry in allEntries)
+		{
+			if (orderedPropertyIds.Add(entry.PropertyId))
+			{
+				orderedEntries.Add(entry);
+			}
+		}
+
+		var legacyColumns = shellColumnSet.All.ToDictionary(static column => column.PropertyId, StringComparer.Ordinal);
+		var columns = new List<WindowsShellColumn>(orderedEntries.Count);
+		for (var index = 0; index < orderedEntries.Count; index++)
+		{
+			var entry = orderedEntries[index];
+			var columnInfo = new CM_COLUMNINFO
+			{
+				cbSize = checked((uint)Marshal.SizeOf<CM_COLUMNINFO>()),
+				dwMask = (uint)(CM_MASK.CM_MASK_WIDTH | CM_MASK.CM_MASK_DEFAULTWIDTH | CM_MASK.CM_MASK_IDEALWIDTH | CM_MASK.CM_MASK_NAME | CM_MASK.CM_MASK_STATE),
+			};
+			var infoResult = columnManager.GetColumnInfo(in entry.Key, ref columnInfo);
+			legacyColumns.TryGetValue(entry.PropertyId, out var legacyColumn);
+			var displayName = infoResult.Succeeded ? columnInfo.wszName.ToString() : string.Empty;
+			if (string.IsNullOrWhiteSpace(displayName))
+			{
+				displayName = legacyColumn?.DisplayName ?? entry.PropertyId;
+			}
+
+			var headerWidthCharacters = GetColumnWidthCharacters(columnInfo, infoResult.Succeeded, legacyColumn);
+			var isVisible = infoResult.Succeeded
+				? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_VISIBLE)
+				: visiblePropertyIds.Contains(entry.PropertyId);
+			columns.Add(new WindowsShellColumn(
+				index,
+				entry.PropertyId,
+				displayName,
+				headerWidthCharacters,
+				legacyColumn?.Alignment ?? WindowsShellColumnAlignment.Left,
+				isVisible,
+				legacyColumn?.IsHidden is true,
+				legacyColumn?.IsSlow is true,
+				legacyColumn?.IsExtended is true,
+				legacyColumn?.IsSecondaryUi is true,
+				legacyColumn?.CanGroup is not false,
+				infoResult.Succeeded ? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_FIXEDWIDTH) : legacyColumn?.IsFixedWidth is true,
+				legacyColumn?.PreferVariantCompare is true,
+				legacyColumn?.Type ?? WindowsShellColumnType.Default));
+		}
+
+		var defaultSortColumnIndex = MapColumnIndex(shellColumnSet.DefaultSortColumnIndex, shellColumnSet.All, columns);
+		var defaultDisplayColumnIndex = MapColumnIndex(shellColumnSet.DefaultDisplayColumnIndex, shellColumnSet.All, columns);
+		columnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
+
+		return true;
+	}
+
+	private static bool TryGetColumnKeys(IColumnManager columnManager, CM_ENUM_FLAGS flags, out PROPERTYKEY[] keys)
+	{
+		keys = [];
+		var countResult = columnManager.GetColumnCount(flags, out var count);
+		if (countResult.Failed || count is 0 || count > MaximumColumnCount)
+		{
+			return false;
+		}
+
+		var length = checked((int)count);
+		keys = new PROPERTYKEY[length];
+		var columnsResult = columnManager.GetColumns(flags, keys);
+		if (columnsResult.Succeeded)
+		{
+			return true;
+		}
+
+		keys = [];
+		return false;
+	}
+
+	private static int GetColumnWidthCharacters(CM_COLUMNINFO columnInfo, bool hasColumnInfo, WindowsShellColumn? legacyColumn)
+	{
+		if (hasColumnInfo && columnInfo.uWidth is > 0 and < 4096)
+		{
+			return Math.Max(1, (int)Math.Round(columnInfo.uWidth / 8d));
+		}
+
+		return legacyColumn?.HeaderWidthCharacters is > 0 ? legacyColumn.HeaderWidthCharacters : 0;
+	}
+
+	private static int? MapColumnIndex(int? sourceIndex, IReadOnlyList<WindowsShellColumn> sourceColumns, IReadOnlyList<WindowsShellColumn> targetColumns)
+	{
+		if (sourceIndex is null || sourceIndex.Value < 0 || sourceIndex.Value >= sourceColumns.Count)
+		{
+			return null;
+		}
+
+		var propertyId = sourceColumns[sourceIndex.Value].PropertyId;
+		for (var index = 0; index < targetColumns.Count; index++)
+		{
+			if (targetColumns[index].PropertyId.Equals(propertyId, StringComparison.Ordinal))
+			{
+				return index;
+			}
+		}
+
+		return null;
 	}
 
 	internal static unsafe IReadOnlyDictionary<string, object?> ReadValues(string parsingName, IReadOnlyList<string> propertyIds, CancellationToken cancellationToken)
@@ -332,6 +486,11 @@ internal static unsafe class WindowsShellColumnReader
 	private static bool HasState(SHCOLSTATE state, SHCOLSTATE flag)
 	{
 		return ((uint)state & (uint)flag) != 0;
+	}
+
+	private static bool HasColumnState(uint state, CM_STATE flag)
+	{
+		return (state & (uint)flag) != 0;
 	}
 
 	private static int? ToColumnIndex(uint index)
