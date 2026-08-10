@@ -1,11 +1,11 @@
 // Copyright (c) Files Community
-// Licensed under the MIT License.
+// SPDX-License-Identifier: MPL-2.0
 
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Automation;
 
-namespace Files.AxeTests.Helper;
+namespace Files.AxeTests;
 
 public static class TestHelper
 {
@@ -15,7 +15,7 @@ public static class TestHelper
 
 		var condition = new PropertyCondition(AutomationElement.AutomationIdProperty, automationId);
 
-		return WaitForElement(SessionManager.RootElement, condition, automationId, timeout);
+		return WaitForElement(AssemblyInitializer.RootElement, condition, automationId, timeout);
 	}
 
 	public static void EnterPath(ref AutomationElement pathTextBox, ref AutomationElement navigatePathButton, string path)
@@ -69,7 +69,7 @@ public static class TestHelper
 
 	public static void AssertApplicationResponsive()
 	{
-		var process = SessionManager.ApplicationProcess;
+		var process = AssemblyInitializer.ApplicationProcess;
 		process.Refresh();
 		Assert.IsFalse(process.HasExited, "The Files application process exited during navigation.");
 		Assert.IsTrue(process.Responding, "The Files application process is not responding.");

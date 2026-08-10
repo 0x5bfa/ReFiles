@@ -13,6 +13,7 @@
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
+		<!--<PublishAot>true</PublishAot>-->
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -1,28 +1,23 @@
-<!--  Copyright (c) Files Community. Licensed under the MIT License.  -->
+﻿<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>$(WindowsTargetFramework)</TargetFramework>
-        <TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
-        <IsTestProject>true</IsTestProject>
-        <IsPackable>false</IsPackable>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <UseWPF>true</UseWPF>
-        <Configurations>Debug;Release</Configurations>
-        <Platforms>x86;x64;arm64</Platforms>
-        <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-        <OutputType>Exe</OutputType>
-    </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+		<IsTestProject>true</IsTestProject>
+		<IsPackable>false</IsPackable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<OutputType>Exe</OutputType>
+	</PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="MSTest.TestAdapter" />
-        <PackageReference Include="MSTest.TestFramework" />
-        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Reference Include="UIAutomationClient" />
-        <Reference Include="UIAutomationTypes" />
-    </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="MSTest.TestAdapter" />
+		<PackageReference Include="MSTest.TestFramework" />
+		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+	</ItemGroup>
 
 </Project>

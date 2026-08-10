@@ -4,7 +4,7 @@
 using System.IO;
 using System.Windows.Automation;
 
-namespace Files.AxeTests.Tests;
+namespace Files.AxeTests;
 
 [TestClass]
 [DoNotParallelize]

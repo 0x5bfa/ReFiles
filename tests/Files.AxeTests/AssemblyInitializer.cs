@@ -1,5 +1,5 @@
 // Copyright (c) Files Community
-// Licensed under the MIT License.
+// SPDX-License-Identifier: MPL-2.0
 
 using System.Diagnostics;
 using System.Windows.Automation;
@@ -7,7 +7,7 @@ using System.Windows.Automation;
 namespace Files.AxeTests;
 
 [TestClass]
-public sealed class SessionManager
+public sealed class AssemblyInitializer
 {
 	private const string DefaultFilesAppId = "FilesDev_ykqwq8d6ps0ag!App";
 	private static readonly TimeSpan _launchTimeout = TimeSpan.FromSeconds(45);
