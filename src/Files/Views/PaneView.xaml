@@ -6,6 +6,7 @@
 	xmlns:local="using:Files.Views"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
+
 	<Border
 		x:Name="PaneBorder"
 		Background="{ThemeResource CardBackgroundFillColorDefault}"
@@ -39,4 +40,5 @@
 			</Border>
 		</Grid>
 	</Border>
+
 </UserControl>

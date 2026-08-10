@@ -1,11 +1,11 @@
 <!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
 <UserControl
 	x:Class="Files.Views.PaneContentView"
-	x:Name="Root"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:local="using:Files.Views"
-	xmlns:vm="using:Files.ViewModels">
+	xmlns:vm="using:Files.ViewModels"
+	x:Name="Root">
 	<ContentPresenter x:Name="PaneContentPresenter">
 		<ContentPresenter.ContentTemplate>
 			<DataTemplate x:DataType="vm:FolderBrowserViewModel">

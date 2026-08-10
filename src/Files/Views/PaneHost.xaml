@@ -7,9 +7,9 @@
 
 	<Grid
 		x:Name="PaneGrid"
-		Margin="4"
+		Margin="8,4,8,8"
 		HorizontalAlignment="Stretch"
-		TabFocusNavigation="Once"
-		VerticalAlignment="Stretch" />
+		VerticalAlignment="Stretch"
+		TabFocusNavigation="Once" />
 
 </UserControl>

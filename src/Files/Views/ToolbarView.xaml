@@ -5,6 +5,7 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:controls="using:Files.Controls"
 	x:Name="Root">
+
 	<UserControl.Resources>
 		<Style
 			x:Key="LayoutRadioButtonStyle"
@@ -18,7 +19,9 @@
 			<Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
 		</Style>
 	</UserControl.Resources>
+
 	<Grid
+		Margin="8,0"
 		Padding="8,4"
 		Background="{ThemeResource CardBackgroundFillColorSecondary}"
 		BackgroundSizing="InnerBorderEdge"
@@ -33,85 +36,85 @@
 
 		<controls:Toolbar
 			Grid.Column="0"
+			Padding="0"
 			HorizontalAlignment="Stretch"
 			Background="Transparent"
 			BorderBrush="Transparent"
 			BorderThickness="0"
 			CornerRadius="0"
-			Padding="0"
 			ToolbarSize="Small">
 			<controls:Toolbar.Items>
 				<controls:ToolbarItem
+					IsEnabled="{x:Bind ViewModel.CanShowNew, Mode=OneWay}"
 					ItemType="FlyoutButton"
 					Label="{x:Bind ViewModel.NewLabel, Mode=OneWay}"
-					IsEnabled="{x:Bind ViewModel.CanShowNew, Mode=OneWay}"
 					OverflowBehavior="Never"
 					ThemedIcon="{StaticResource App.ThemedIcons.New.Item}">
 					<controls:ToolbarItem.Flyout>
-				<MenuFlyout
-					x:Name="NewMenuFlyout"
-					Opening="NewMenuFlyout_Opening"
-					Placement="Bottom" />
+						<MenuFlyout
+							x:Name="NewMenuFlyout"
+							Opening="NewMenuFlyout_Opening"
+							Placement="Bottom" />
 					</controls:ToolbarItem.Flyout>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
-					ItemType="Button"
-					Label="{x:Bind ViewModel.CopyCommand.Label, Mode=OneWay}"
 					Command="{x:Bind ViewModel.CopyCommand.Command}"
 					IsEnabled="{x:Bind ViewModel.CopyCommand.IsEnabled, Mode=OneWay}"
+					ItemType="Button"
 					KeyboardAcceleratorTextOverride="Ctrl+C"
+					Label="{x:Bind ViewModel.CopyCommand.Label, Mode=OneWay}"
 					ThemedIcon="{x:Bind ViewModel.CopyCommand.IconData, Mode=OneWay}">
 					<controls:ToolbarItem.KeyboardAccelerators>
 						<KeyboardAccelerator Key="C" Modifiers="Control" />
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
-					ItemType="Button"
-					Label="{x:Bind ViewModel.CutCommand.Label, Mode=OneWay}"
 					Command="{x:Bind ViewModel.CutCommand.Command}"
 					IsEnabled="{x:Bind ViewModel.CutCommand.IsEnabled, Mode=OneWay}"
+					ItemType="Button"
 					KeyboardAcceleratorTextOverride="Ctrl+X"
+					Label="{x:Bind ViewModel.CutCommand.Label, Mode=OneWay}"
 					ThemedIcon="{x:Bind ViewModel.CutCommand.IconData, Mode=OneWay}">
 					<controls:ToolbarItem.KeyboardAccelerators>
 						<KeyboardAccelerator Key="X" Modifiers="Control" />
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
-					ItemType="Button"
-					Label="{x:Bind ViewModel.PasteCommand.Label, Mode=OneWay}"
 					Command="{x:Bind ViewModel.PasteCommand.Command}"
 					IsEnabled="{x:Bind ViewModel.PasteCommand.IsEnabled, Mode=OneWay}"
+					ItemType="Button"
 					KeyboardAcceleratorTextOverride="Ctrl+V"
+					Label="{x:Bind ViewModel.PasteCommand.Label, Mode=OneWay}"
 					ThemedIcon="{x:Bind ViewModel.PasteCommand.IconData, Mode=OneWay}">
 					<controls:ToolbarItem.KeyboardAccelerators>
 						<KeyboardAccelerator Key="V" Modifiers="Control" />
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
-					ItemType="Button"
-					Label="{x:Bind ViewModel.DeleteCommand.Label, Mode=OneWay}"
 					Command="{x:Bind ViewModel.DeleteCommand.Command}"
 					IsEnabled="{x:Bind ViewModel.DeleteCommand.IsEnabled, Mode=OneWay}"
+					ItemType="Button"
 					KeyboardAcceleratorTextOverride="Delete"
+					Label="{x:Bind ViewModel.DeleteCommand.Label, Mode=OneWay}"
 					ThemedIcon="{x:Bind ViewModel.DeleteCommand.IconData, Mode=OneWay}">
 					<controls:ToolbarItem.KeyboardAccelerators>
 						<KeyboardAccelerator Key="Delete" />
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
-					ItemType="Button"
-					Label="{x:Bind ViewModel.NewPaneCommand.Label, Mode=OneWay}"
 					Command="{x:Bind ViewModel.NewPaneCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}">
+					IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.NewPaneCommand.Label, Mode=OneWay}">
 					<controls:ToolbarItem.Content>
 						<SymbolIcon Symbol="Add" />
 					</controls:ToolbarItem.Content>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
-					ItemType="Button"
-					Label="{x:Bind ViewModel.ClosePaneCommand.Label, Mode=OneWay}"
 					Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}">
+					IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.ClosePaneCommand.Label, Mode=OneWay}">
 					<controls:ToolbarItem.Content>
 						<SymbolIcon Symbol="Cancel" />
 					</controls:ToolbarItem.Content>
@@ -126,291 +129,291 @@
 
 		<controls:Toolbar
 			Grid.Column="1"
+			Padding="0"
 			HorizontalAlignment="Right"
 			Background="Transparent"
 			BorderBrush="Transparent"
 			BorderThickness="0"
 			CornerRadius="0"
-			Padding="0"
 			ToolbarSize="Small">
 			<controls:Toolbar.Items>
 				<controls:ToolbarItem
+					IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
 					ItemType="FlyoutButton"
 					Label="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
-					IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
 					OverflowBehavior="Never">
 					<controls:ToolbarItem.Content>
 						<FontIcon FontSize="18" Glyph="&#xE8CB;" />
 					</controls:ToolbarItem.Content>
 					<controls:ToolbarItem.Flyout>
-				<MenuFlyout Placement="Bottom">
-					<MenuFlyoutSubItem Text="{x:Bind ViewModel.SortByLabel, Mode=OneWay}">
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="name"
-							IsChecked="{x:Bind ViewModel.IsSortByName, Mode=OneWay}"
-							Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="dateModified"
-							IsChecked="{x:Bind ViewModel.IsSortByDateModified, Mode=OneWay}"
-							Text="{x:Bind ViewModel.DateModifiedLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="dateCreated"
-							IsChecked="{x:Bind ViewModel.IsSortByDateCreated, Mode=OneWay}"
-							Text="{x:Bind ViewModel.DateCreatedLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="size"
-							IsChecked="{x:Bind ViewModel.IsSortBySize, Mode=OneWay}"
-							Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="type"
-							IsChecked="{x:Bind ViewModel.IsSortByType, Mode=OneWay}"
-							Text="{x:Bind ViewModel.TypeLabel, Mode=OneWay}" />
-						<MenuFlyoutSeparator />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="ascending"
-							IsChecked="{x:Bind ViewModel.IsSortAscending, Mode=OneWay}"
-							Text="{x:Bind ViewModel.AscendingLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.SortItemsCommand.Command}"
-							CommandParameter="descending"
-							IsChecked="{x:Bind ViewModel.IsSortDescending, Mode=OneWay}"
-							Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
-					</MenuFlyoutSubItem>
-					<MenuFlyoutSubItem Text="{x:Bind ViewModel.GroupByLabel, Mode=OneWay}">
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="none"
-							IsChecked="{x:Bind ViewModel.IsGroupByNone, Mode=OneWay}"
-							Text="{x:Bind ViewModel.NoneLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="name"
-							IsChecked="{x:Bind ViewModel.IsGroupByName, Mode=OneWay}"
-							Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="dateModified"
-							IsChecked="{x:Bind ViewModel.IsGroupByDateModified, Mode=OneWay}"
-							Text="{x:Bind ViewModel.DateModifiedLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="dateCreated"
-							IsChecked="{x:Bind ViewModel.IsGroupByDateCreated, Mode=OneWay}"
-							Text="{x:Bind ViewModel.DateCreatedLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="size"
-							IsChecked="{x:Bind ViewModel.IsGroupBySize, Mode=OneWay}"
-							Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="type"
-							IsChecked="{x:Bind ViewModel.IsGroupByType, Mode=OneWay}"
-							Text="{x:Bind ViewModel.TypeLabel, Mode=OneWay}" />
-						<MenuFlyoutSeparator />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="ascending"
-							IsChecked="{x:Bind ViewModel.IsGroupAscending, Mode=OneWay}"
-							Text="{x:Bind ViewModel.AscendingLabel, Mode=OneWay}" />
-						<ToggleMenuFlyoutItem
-							Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
-							CommandParameter="descending"
-							IsChecked="{x:Bind ViewModel.IsGroupDescending, Mode=OneWay}"
-							Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
-					</MenuFlyoutSubItem>
-				</MenuFlyout>
-			</controls:ToolbarItem.Flyout>
-			</controls:ToolbarItem>
-			<controls:ToolbarItem
-				ItemType="FlyoutButton"
-				Label="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
-				IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
-				OverflowBehavior="Never"
-				ThemedIcon="{x:Bind ViewModel.LayoutIconData, Mode=OneWay}">
-				<controls:ToolbarItem.Flyout>
-				<Flyout x:Name="LayoutFlyout" Placement="Bottom">
-					<StackPanel Spacing="12">
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}" />
-						<StackPanel Orientation="Horizontal" Spacing="8">
-							<RadioButton
-								AutomationProperties.Name="{x:Bind ViewModel.LayoutDetailsCommand.AutomationName, Mode=OneWay}"
-								Click="LayoutButton_Click"
-								Command="{x:Bind ViewModel.LayoutDetailsCommand.Command}"
-								GroupName="LayoutRadio"
-								IsChecked="{x:Bind ViewModel.LayoutDetailsCommand.IsChecked, Mode=OneWay}"
-								IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
-								Style="{StaticResource LayoutRadioButtonStyle}"
-								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutDetailsCommand.ToolTip, Mode=OneWay}">
-								<StackPanel Spacing="4">
-									<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutDetailsCommand.IconData, Mode=OneWay}" IconSize="28" />
-									<TextBlock
-										HorizontalAlignment="Center"
-										FontSize="12"
-										Text="{x:Bind ViewModel.LayoutDetailsCommand.Label, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis"
-										TextWrapping="NoWrap" />
+						<MenuFlyout Placement="Bottom">
+							<MenuFlyoutSubItem Text="{x:Bind ViewModel.SortByLabel, Mode=OneWay}">
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="name"
+									IsChecked="{x:Bind ViewModel.IsSortByName, Mode=OneWay}"
+									Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="dateModified"
+									IsChecked="{x:Bind ViewModel.IsSortByDateModified, Mode=OneWay}"
+									Text="{x:Bind ViewModel.DateModifiedLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="dateCreated"
+									IsChecked="{x:Bind ViewModel.IsSortByDateCreated, Mode=OneWay}"
+									Text="{x:Bind ViewModel.DateCreatedLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="size"
+									IsChecked="{x:Bind ViewModel.IsSortBySize, Mode=OneWay}"
+									Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="type"
+									IsChecked="{x:Bind ViewModel.IsSortByType, Mode=OneWay}"
+									Text="{x:Bind ViewModel.TypeLabel, Mode=OneWay}" />
+								<MenuFlyoutSeparator />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="ascending"
+									IsChecked="{x:Bind ViewModel.IsSortAscending, Mode=OneWay}"
+									Text="{x:Bind ViewModel.AscendingLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
+									CommandParameter="descending"
+									IsChecked="{x:Bind ViewModel.IsSortDescending, Mode=OneWay}"
+									Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
+							</MenuFlyoutSubItem>
+							<MenuFlyoutSubItem Text="{x:Bind ViewModel.GroupByLabel, Mode=OneWay}">
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="none"
+									IsChecked="{x:Bind ViewModel.IsGroupByNone, Mode=OneWay}"
+									Text="{x:Bind ViewModel.NoneLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="name"
+									IsChecked="{x:Bind ViewModel.IsGroupByName, Mode=OneWay}"
+									Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="dateModified"
+									IsChecked="{x:Bind ViewModel.IsGroupByDateModified, Mode=OneWay}"
+									Text="{x:Bind ViewModel.DateModifiedLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="dateCreated"
+									IsChecked="{x:Bind ViewModel.IsGroupByDateCreated, Mode=OneWay}"
+									Text="{x:Bind ViewModel.DateCreatedLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="size"
+									IsChecked="{x:Bind ViewModel.IsGroupBySize, Mode=OneWay}"
+									Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="type"
+									IsChecked="{x:Bind ViewModel.IsGroupByType, Mode=OneWay}"
+									Text="{x:Bind ViewModel.TypeLabel, Mode=OneWay}" />
+								<MenuFlyoutSeparator />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="ascending"
+									IsChecked="{x:Bind ViewModel.IsGroupAscending, Mode=OneWay}"
+									Text="{x:Bind ViewModel.AscendingLabel, Mode=OneWay}" />
+								<ToggleMenuFlyoutItem
+									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
+									CommandParameter="descending"
+									IsChecked="{x:Bind ViewModel.IsGroupDescending, Mode=OneWay}"
+									Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
+							</MenuFlyoutSubItem>
+						</MenuFlyout>
+					</controls:ToolbarItem.Flyout>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
+					ItemType="FlyoutButton"
+					Label="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
+					OverflowBehavior="Never"
+					ThemedIcon="{x:Bind ViewModel.LayoutIconData, Mode=OneWay}">
+					<controls:ToolbarItem.Flyout>
+						<Flyout x:Name="LayoutFlyout" Placement="Bottom">
+							<StackPanel Spacing="12">
+								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}" />
+								<StackPanel Orientation="Horizontal" Spacing="8">
+									<RadioButton
+										AutomationProperties.Name="{x:Bind ViewModel.LayoutDetailsCommand.AutomationName, Mode=OneWay}"
+										Click="LayoutButton_Click"
+										Command="{x:Bind ViewModel.LayoutDetailsCommand.Command}"
+										GroupName="LayoutRadio"
+										IsChecked="{x:Bind ViewModel.LayoutDetailsCommand.IsChecked, Mode=OneWay}"
+										IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
+										Style="{StaticResource LayoutRadioButtonStyle}"
+										ToolTipService.ToolTip="{x:Bind ViewModel.LayoutDetailsCommand.ToolTip, Mode=OneWay}">
+										<StackPanel Spacing="4">
+											<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutDetailsCommand.IconData, Mode=OneWay}" IconSize="28" />
+											<TextBlock
+												HorizontalAlignment="Center"
+												FontSize="12"
+												Text="{x:Bind ViewModel.LayoutDetailsCommand.Label, Mode=OneWay}"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap" />
+										</StackPanel>
+									</RadioButton>
+									<RadioButton
+										AutomationProperties.Name="{x:Bind ViewModel.LayoutListCommand.AutomationName, Mode=OneWay}"
+										Click="LayoutButton_Click"
+										Command="{x:Bind ViewModel.LayoutListCommand.Command}"
+										GroupName="LayoutRadio"
+										IsChecked="{x:Bind ViewModel.LayoutListCommand.IsChecked, Mode=OneWay}"
+										IsEnabled="{x:Bind ViewModel.LayoutListCommand.IsEnabled, Mode=OneWay}"
+										Style="{StaticResource LayoutRadioButtonStyle}"
+										ToolTipService.ToolTip="{x:Bind ViewModel.LayoutListCommand.ToolTip, Mode=OneWay}">
+										<StackPanel Spacing="4">
+											<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutListCommand.IconData, Mode=OneWay}" IconSize="28" />
+											<TextBlock
+												HorizontalAlignment="Center"
+												FontSize="12"
+												Text="{x:Bind ViewModel.LayoutListCommand.Label, Mode=OneWay}"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap" />
+										</StackPanel>
+									</RadioButton>
+									<RadioButton
+										AutomationProperties.Name="{x:Bind ViewModel.LayoutCardsCommand.AutomationName, Mode=OneWay}"
+										Click="LayoutButton_Click"
+										Command="{x:Bind ViewModel.LayoutCardsCommand.Command}"
+										GroupName="LayoutRadio"
+										IsChecked="{x:Bind ViewModel.LayoutCardsCommand.IsChecked, Mode=OneWay}"
+										IsEnabled="{x:Bind ViewModel.LayoutCardsCommand.IsEnabled, Mode=OneWay}"
+										Style="{StaticResource LayoutRadioButtonStyle}"
+										ToolTipService.ToolTip="{x:Bind ViewModel.LayoutCardsCommand.ToolTip, Mode=OneWay}">
+										<StackPanel Spacing="4">
+											<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutCardsCommand.IconData, Mode=OneWay}" IconSize="28" />
+											<TextBlock
+												HorizontalAlignment="Center"
+												FontSize="12"
+												Text="{x:Bind ViewModel.LayoutCardsCommand.Label, Mode=OneWay}"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap" />
+										</StackPanel>
+									</RadioButton>
+									<RadioButton
+										AutomationProperties.Name="{x:Bind ViewModel.LayoutGridCommand.AutomationName, Mode=OneWay}"
+										Click="LayoutButton_Click"
+										Command="{x:Bind ViewModel.LayoutGridCommand.Command}"
+										GroupName="LayoutRadio"
+										IsChecked="{x:Bind ViewModel.LayoutGridCommand.IsChecked, Mode=OneWay}"
+										IsEnabled="{x:Bind ViewModel.LayoutGridCommand.IsEnabled, Mode=OneWay}"
+										Style="{StaticResource LayoutRadioButtonStyle}"
+										ToolTipService.ToolTip="{x:Bind ViewModel.LayoutGridCommand.ToolTip, Mode=OneWay}">
+										<StackPanel Spacing="4">
+											<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutGridCommand.IconData, Mode=OneWay}" IconSize="28" />
+											<TextBlock
+												HorizontalAlignment="Center"
+												FontSize="12"
+												Text="{x:Bind ViewModel.LayoutGridCommand.Label, Mode=OneWay}"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap" />
+										</StackPanel>
+									</RadioButton>
+									<RadioButton
+										AutomationProperties.Name="{x:Bind ViewModel.LayoutColumnsCommand.AutomationName, Mode=OneWay}"
+										Click="LayoutButton_Click"
+										Command="{x:Bind ViewModel.LayoutColumnsCommand.Command}"
+										GroupName="LayoutRadio"
+										IsChecked="{x:Bind ViewModel.LayoutColumnsCommand.IsChecked, Mode=OneWay}"
+										IsEnabled="{x:Bind ViewModel.LayoutColumnsCommand.IsEnabled, Mode=OneWay}"
+										Style="{StaticResource LayoutRadioButtonStyle}"
+										ToolTipService.ToolTip="{x:Bind ViewModel.LayoutColumnsCommand.ToolTip, Mode=OneWay}">
+										<StackPanel Spacing="4">
+											<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutColumnsCommand.IconData, Mode=OneWay}" IconSize="28" />
+											<TextBlock
+												HorizontalAlignment="Center"
+												FontSize="12"
+												Text="{x:Bind ViewModel.LayoutColumnsCommand.Label, Mode=OneWay}"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap" />
+										</StackPanel>
+									</RadioButton>
 								</StackPanel>
-							</RadioButton>
-							<RadioButton
-								AutomationProperties.Name="{x:Bind ViewModel.LayoutListCommand.AutomationName, Mode=OneWay}"
-								Click="LayoutButton_Click"
-								Command="{x:Bind ViewModel.LayoutListCommand.Command}"
-								GroupName="LayoutRadio"
-								IsChecked="{x:Bind ViewModel.LayoutListCommand.IsChecked, Mode=OneWay}"
-								IsEnabled="{x:Bind ViewModel.LayoutListCommand.IsEnabled, Mode=OneWay}"
-								Style="{StaticResource LayoutRadioButtonStyle}"
-								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutListCommand.ToolTip, Mode=OneWay}">
+								<Border
+									Margin="-20,0"
+									HorizontalAlignment="Stretch"
+									BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+									BorderThickness="0.5" />
+								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
 								<StackPanel Spacing="4">
-									<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutListCommand.IconData, Mode=OneWay}" IconSize="28" />
-									<TextBlock
-										HorizontalAlignment="Center"
-										FontSize="12"
-										Text="{x:Bind ViewModel.LayoutListCommand.Label, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis"
-										TextWrapping="NoWrap" />
+									<Slider
+										x:Name="LayoutSizeSlider"
+										Padding="4,0"
+										Maximum="5"
+										Minimum="1"
+										SnapsTo="Ticks"
+										TickFrequency="1"
+										TickPlacement="BottomRight"
+										ValueChanged="LayoutSizeSlider_ValueChanged"
+										Value="{x:Bind ViewModel.LayoutSize, Mode=OneWay}" />
+									<Grid HorizontalAlignment="Stretch">
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition Width="Auto" />
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<controls:ThemedIcon
+											Grid.Column="0"
+											Data="{StaticResource App.ThemedIcons.IconSize.Compact.28}"
+											IsFilled="{x:Bind ViewModel.IsLayoutSizeCompact, Mode=OneWay}" />
+										<controls:ThemedIcon
+											Grid.Column="2"
+											Data="{StaticResource App.ThemedIcons.IconSize.Small.28}"
+											IsFilled="{x:Bind ViewModel.IsLayoutSizeSmall, Mode=OneWay}" />
+										<controls:ThemedIcon
+											Grid.Column="4"
+											Data="{StaticResource App.ThemedIcons.IconSize.Medium.28}"
+											IsFilled="{x:Bind ViewModel.IsLayoutSizeMedium, Mode=OneWay}" />
+										<controls:ThemedIcon
+											Grid.Column="6"
+											Data="{StaticResource App.ThemedIcons.IconSize.Large.28}"
+											IsFilled="{x:Bind ViewModel.IsLayoutSizeLarge, Mode=OneWay}" />
+										<controls:ThemedIcon
+											Grid.Column="8"
+											Data="{StaticResource App.ThemedIcons.IconSize.ExtraLarge.28}"
+											IsFilled="{x:Bind ViewModel.IsLayoutSizeExtraLarge, Mode=OneWay}" />
+									</Grid>
 								</StackPanel>
-							</RadioButton>
-							<RadioButton
-								AutomationProperties.Name="{x:Bind ViewModel.LayoutCardsCommand.AutomationName, Mode=OneWay}"
-								Click="LayoutButton_Click"
-								Command="{x:Bind ViewModel.LayoutCardsCommand.Command}"
-								GroupName="LayoutRadio"
-								IsChecked="{x:Bind ViewModel.LayoutCardsCommand.IsChecked, Mode=OneWay}"
-								IsEnabled="{x:Bind ViewModel.LayoutCardsCommand.IsEnabled, Mode=OneWay}"
-								Style="{StaticResource LayoutRadioButtonStyle}"
-								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutCardsCommand.ToolTip, Mode=OneWay}">
-								<StackPanel Spacing="4">
-									<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutCardsCommand.IconData, Mode=OneWay}" IconSize="28" />
-									<TextBlock
-										HorizontalAlignment="Center"
-										FontSize="12"
-										Text="{x:Bind ViewModel.LayoutCardsCommand.Label, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis"
-										TextWrapping="NoWrap" />
-								</StackPanel>
-							</RadioButton>
-							<RadioButton
-								AutomationProperties.Name="{x:Bind ViewModel.LayoutGridCommand.AutomationName, Mode=OneWay}"
-								Click="LayoutButton_Click"
-								Command="{x:Bind ViewModel.LayoutGridCommand.Command}"
-								GroupName="LayoutRadio"
-								IsChecked="{x:Bind ViewModel.LayoutGridCommand.IsChecked, Mode=OneWay}"
-								IsEnabled="{x:Bind ViewModel.LayoutGridCommand.IsEnabled, Mode=OneWay}"
-								Style="{StaticResource LayoutRadioButtonStyle}"
-								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutGridCommand.ToolTip, Mode=OneWay}">
-								<StackPanel Spacing="4">
-									<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutGridCommand.IconData, Mode=OneWay}" IconSize="28" />
-									<TextBlock
-										HorizontalAlignment="Center"
-										FontSize="12"
-										Text="{x:Bind ViewModel.LayoutGridCommand.Label, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis"
-										TextWrapping="NoWrap" />
-								</StackPanel>
-							</RadioButton>
-							<RadioButton
-								AutomationProperties.Name="{x:Bind ViewModel.LayoutColumnsCommand.AutomationName, Mode=OneWay}"
-								Click="LayoutButton_Click"
-								Command="{x:Bind ViewModel.LayoutColumnsCommand.Command}"
-								GroupName="LayoutRadio"
-								IsChecked="{x:Bind ViewModel.LayoutColumnsCommand.IsChecked, Mode=OneWay}"
-								IsEnabled="{x:Bind ViewModel.LayoutColumnsCommand.IsEnabled, Mode=OneWay}"
-								Style="{StaticResource LayoutRadioButtonStyle}"
-								ToolTipService.ToolTip="{x:Bind ViewModel.LayoutColumnsCommand.ToolTip, Mode=OneWay}">
-								<StackPanel Spacing="4">
-									<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutColumnsCommand.IconData, Mode=OneWay}" IconSize="28" />
-									<TextBlock
-										HorizontalAlignment="Center"
-										FontSize="12"
-										Text="{x:Bind ViewModel.LayoutColumnsCommand.Label, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis"
-										TextWrapping="NoWrap" />
-								</StackPanel>
-							</RadioButton>
-						</StackPanel>
-						<Border
-							Margin="-20,0"
-							HorizontalAlignment="Stretch"
-							BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-							BorderThickness="0.5" />
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
-						<StackPanel Spacing="4">
-							<Slider
-								x:Name="LayoutSizeSlider"
-								Padding="4,0"
-								Maximum="5"
-								Minimum="1"
-								SnapsTo="Ticks"
-								TickFrequency="1"
-								TickPlacement="BottomRight"
-								ValueChanged="LayoutSizeSlider_ValueChanged"
-								Value="{x:Bind ViewModel.LayoutSize, Mode=OneWay}" />
-							<Grid HorizontalAlignment="Stretch">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="Auto" />
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-								</Grid.ColumnDefinitions>
-								<controls:ThemedIcon
-									Grid.Column="0"
-									Data="{StaticResource App.ThemedIcons.IconSize.Compact.28}"
-									IsFilled="{x:Bind ViewModel.IsLayoutSizeCompact, Mode=OneWay}" />
-								<controls:ThemedIcon
-									Grid.Column="2"
-									Data="{StaticResource App.ThemedIcons.IconSize.Small.28}"
-									IsFilled="{x:Bind ViewModel.IsLayoutSizeSmall, Mode=OneWay}" />
-								<controls:ThemedIcon
-									Grid.Column="4"
-									Data="{StaticResource App.ThemedIcons.IconSize.Medium.28}"
-									IsFilled="{x:Bind ViewModel.IsLayoutSizeMedium, Mode=OneWay}" />
-								<controls:ThemedIcon
-									Grid.Column="6"
-									Data="{StaticResource App.ThemedIcons.IconSize.Large.28}"
-									IsFilled="{x:Bind ViewModel.IsLayoutSizeLarge, Mode=OneWay}" />
-								<controls:ThemedIcon
-									Grid.Column="8"
-									Data="{StaticResource App.ThemedIcons.IconSize.ExtraLarge.28}"
-									IsFilled="{x:Bind ViewModel.IsLayoutSizeExtraLarge, Mode=OneWay}" />
-							</Grid>
-						</StackPanel>
-						<Border
-							Margin="-20,0"
-							HorizontalAlignment="Stretch"
-							BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-							BorderThickness="0.5" />
-						<ToggleSwitch
-							Padding="8,4"
-							HorizontalAlignment="Stretch"
-							AutomationProperties.Name="{x:Bind ViewModel.ShowHiddenItemsCommand.AutomationName, Mode=OneWay}"
-							Header="{x:Bind ViewModel.ShowHiddenItemsCommand.Label, Mode=OneWay}"
-							IsEnabled="{x:Bind ViewModel.ShowHiddenItemsCommand.IsEnabled, Mode=OneWay}"
-							IsOn="{x:Bind ViewModel.ShowHiddenItemsCommand.IsChecked, Mode=OneWay}"
-							Toggled="ShowHiddenItemsToggleSwitch_Toggled" />
-						<ToggleSwitch
-							Padding="8,4"
-							HorizontalAlignment="Stretch"
-							AutomationProperties.Name="{x:Bind ViewModel.ShowFileExtensionsCommand.AutomationName, Mode=OneWay}"
-							Header="{x:Bind ViewModel.ShowFileExtensionsCommand.Label, Mode=OneWay}"
-							IsEnabled="{x:Bind ViewModel.ShowFileExtensionsCommand.IsEnabled, Mode=OneWay}"
-							IsOn="{x:Bind ViewModel.ShowFileExtensionsCommand.IsChecked, Mode=OneWay}"
-							Toggled="ShowFileExtensionsToggleSwitch_Toggled" />
-					</StackPanel>
-				</Flyout>
-				</controls:ToolbarItem.Flyout>
-			</controls:ToolbarItem>
+								<Border
+									Margin="-20,0"
+									HorizontalAlignment="Stretch"
+									BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+									BorderThickness="0.5" />
+								<ToggleSwitch
+									Padding="8,4"
+									HorizontalAlignment="Stretch"
+									AutomationProperties.Name="{x:Bind ViewModel.ShowHiddenItemsCommand.AutomationName, Mode=OneWay}"
+									Header="{x:Bind ViewModel.ShowHiddenItemsCommand.Label, Mode=OneWay}"
+									IsEnabled="{x:Bind ViewModel.ShowHiddenItemsCommand.IsEnabled, Mode=OneWay}"
+									IsOn="{x:Bind ViewModel.ShowHiddenItemsCommand.IsChecked, Mode=OneWay}"
+									Toggled="ShowHiddenItemsToggleSwitch_Toggled" />
+								<ToggleSwitch
+									Padding="8,4"
+									HorizontalAlignment="Stretch"
+									AutomationProperties.Name="{x:Bind ViewModel.ShowFileExtensionsCommand.AutomationName, Mode=OneWay}"
+									Header="{x:Bind ViewModel.ShowFileExtensionsCommand.Label, Mode=OneWay}"
+									IsEnabled="{x:Bind ViewModel.ShowFileExtensionsCommand.IsEnabled, Mode=OneWay}"
+									IsOn="{x:Bind ViewModel.ShowFileExtensionsCommand.IsChecked, Mode=OneWay}"
+									Toggled="ShowFileExtensionsToggleSwitch_Toggled" />
+							</StackPanel>
+						</Flyout>
+					</controls:ToolbarItem.Flyout>
+				</controls:ToolbarItem>
 			</controls:Toolbar.Items>
 			<controls:Toolbar.ItemTemplate>
 				<DataTemplate x:DataType="controls:IToolbarItemSet">

@@ -50,8 +50,8 @@
 							x:Name="PART_RowsHostPresenter"
 							Grid.Row="1"
 							HorizontalAlignment="Stretch"
-							HorizontalContentAlignment="Stretch"
 							VerticalAlignment="Stretch"
+							HorizontalContentAlignment="Stretch"
 							VerticalContentAlignment="Stretch" />
 					</Grid>
 				</ControlTemplate>

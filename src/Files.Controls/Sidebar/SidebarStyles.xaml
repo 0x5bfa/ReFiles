@@ -25,9 +25,7 @@
 		<Setter Target="Background" Value="Transparent" />
 	</Style>
 
-	<Style
-		x:Key="SidebarFavouritesPinnedIcon"
-		TargetType="controls:ThemedIcon">
+	<Style x:Key="SidebarFavouritesPinnedIcon" TargetType="controls:ThemedIcon">
 		<Setter Property="Data" Value="{StaticResource App.ThemedIcons.Actions.Pinned.12}" />
 		<Setter Target="MinWidth" Value="12" />
 		<Setter Target="Width" Value="12" />

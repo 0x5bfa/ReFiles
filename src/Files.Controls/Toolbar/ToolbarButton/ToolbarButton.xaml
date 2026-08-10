@@ -58,9 +58,9 @@
 							x:Name="PART_ThemedIcon"
 							Width="{TemplateBinding IconSize}"
 							Height="{TemplateBinding IconSize}"
+							Data="{TemplateBinding ThemedIcon}"
 							IconSize="{TemplateBinding IconSize}"
-							Opacity="1"
-							Data="{TemplateBinding ThemedIcon}" />
+							Opacity="1" />
 
 						<VisualStateManager.VisualStateGroups>
 

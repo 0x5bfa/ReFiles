@@ -44,6 +44,8 @@
 
 		<DataTemplate x:Key="DetailsPrimaryColumnTemplate" x:DataType="vm:DetailsColumnViewModel">
 			<controls:TableViewTemplateColumn
+				MinWidth="{Binding MinWidth}"
+				MaxWidth="{Binding MaxWidth}"
 				Binding="{Binding PropertyId}"
 				CanUserGroup="{Binding CanGroup}"
 				CanUserResize="{Binding CanResize}"
@@ -51,21 +53,19 @@
 				CellTemplate="{StaticResource DetailsPrimaryCellTemplate}"
 				ColumnWidth="{Binding Width, Mode=TwoWay}"
 				Header="{Binding DisplayName}"
-				IsPrimary="True"
-				MaxWidth="{Binding MaxWidth}"
-				MinWidth="{Binding MinWidth}" />
+				IsPrimary="True" />
 		</DataTemplate>
 
 		<DataTemplate x:Key="DetailsTextColumnTemplate" x:DataType="vm:DetailsColumnViewModel">
 			<controls:TableViewTextColumn
+				MinWidth="{Binding MinWidth}"
+				MaxWidth="{Binding MaxWidth}"
 				Binding="{Binding PropertyId}"
 				CanUserGroup="{Binding CanGroup}"
 				CanUserResize="{Binding CanResize}"
 				CanUserSort="{Binding CanSort}"
 				ColumnWidth="{Binding Width, Mode=TwoWay}"
 				Header="{Binding DisplayName}"
-				MaxWidth="{Binding MaxWidth}"
-				MinWidth="{Binding MinWidth}"
 				TextAlignment="{Binding TextAlignment}" />
 		</DataTemplate>
 
@@ -75,7 +75,10 @@
 			TextColumnTemplate="{StaticResource DetailsTextColumnTemplate}" />
 
 		<DataTemplate x:Key="DetailsGroupHeaderTemplate" x:DataType="vm:BrowseItemGroupViewModel">
-			<StackPanel Padding="12,10,12,6" Orientation="Horizontal" Spacing="8">
+			<StackPanel
+				Padding="12,10,12,6"
+				Orientation="Horizontal"
+				Spacing="8">
 				<TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
 				<TextBlock Opacity="0.65" Text="{x:Bind CountText}" />
 			</StackPanel>
@@ -84,8 +87,8 @@
 
 	<controls:TableView
 		x:Name="ItemTable"
-		ColumnsSource="{x:Bind ViewModel.DetailsColumns, Mode=OneWay}"
 		ColumnTemplateSelector="{StaticResource DetailsColumnTemplateSelector}"
+		ColumnsSource="{x:Bind ViewModel.DetailsColumns, Mode=OneWay}"
 		GroupHeaderTemplate="{StaticResource DetailsGroupHeaderTemplate}"
 		ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
 		RowHeight="{x:Bind ViewModel.DetailsRowHeight, Mode=OneWay}" />

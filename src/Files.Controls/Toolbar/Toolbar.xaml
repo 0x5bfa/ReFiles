@@ -61,11 +61,11 @@
 									x:Name="PART_OverflowButton"
 									MinWidth="40"
 									MinHeight="32"
+									AutomationProperties.Name="{TemplateBinding OverflowButtonLabel}"
 									IconSize="16"
 									Label="{TemplateBinding OverflowButtonLabel}"
-									AutomationProperties.Name="{TemplateBinding OverflowButtonLabel}"
-									Visibility="Collapsed"
-									ThemedIcon="{StaticResource App.ThemedIcons.More}">
+									ThemedIcon="{StaticResource App.ThemedIcons.More}"
+									Visibility="Collapsed">
 									<local:ToolbarButton.Flyout>
 										<MenuFlyout x:Name="PART_OverflowFlyout" />
 									</local:ToolbarButton.Flyout>
