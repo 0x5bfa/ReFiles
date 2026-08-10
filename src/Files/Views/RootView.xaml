@@ -19,8 +19,8 @@
 
 		<NavigationView
 			x:Name="Sidebar"
-			AutomationProperties.AutomationId="Sidebar"
 			Grid.Row="2"
+			AutomationProperties.AutomationId="Sidebar"
 			IsBackButtonVisible="Collapsed"
 			IsSettingsVisible="False"
 			ItemInvoked="NavigationView_ItemInvoked"

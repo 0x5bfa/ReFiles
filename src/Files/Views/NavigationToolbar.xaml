@@ -73,22 +73,22 @@
 
 		<TextBox
 			x:Name="PathTextBox"
-			AutomationProperties.AutomationId="PathTextBox"
 			Grid.Column="1"
 			MinWidth="260"
 			HorizontalAlignment="Stretch"
+			AutomationProperties.AutomationId="PathTextBox"
 			KeyDown="PathTextBox_KeyDown"
 			PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
 			Text="{x:Bind ViewModel.LocationText, Mode=OneWay}" />
 
 		<Button
 			x:Name="NavigatePathButton"
-			AutomationProperties.AutomationId="NavigatePathButton"
-			AutomationProperties.Name="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}"
 			Grid.Column="2"
 			Width="32"
 			Height="32"
 			Padding="0"
+			AutomationProperties.AutomationId="NavigatePathButton"
+			AutomationProperties.Name="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}"
 			Click="NavigatePathButton_Click"
 			ToolTipService.ToolTip="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}">
 			<FontIcon FontSize="16" Glyph="&#xE8AD;" />

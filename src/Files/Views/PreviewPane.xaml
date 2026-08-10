@@ -1,9 +1,9 @@
 <!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
 <UserControl
 	x:Class="Files.Views.PreviewPane"
-	x:Name="Root"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	x:Name="Root">
 	<Border
 		Background="{ThemeResource CardBackgroundFillColorDefault}"
 		BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -15,9 +15,7 @@
 				<RowDefinition Height="*" />
 			</Grid.RowDefinitions>
 
-			<Border
-				Padding="12,8"
-				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+			<Border Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
 				<TextBlock
 					x:Name="PreviewTitleBlock"
 					FontWeight="SemiBold"
