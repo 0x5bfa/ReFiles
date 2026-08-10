@@ -28,6 +28,12 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 	/// <returns><see langword="true"/> when the key exists.</returns>
 	bool Contains(StorableKey key);
 
+	/// <summary>Gets an item from the current projection by key.</summary>
+	/// <param name="key">The item key to find.</param>
+	/// <param name="item">The current item when the key exists.</param>
+	/// <returns><see langword="true"/> when the item exists.</returns>
+	bool TryGet(StorableKey key, out IStorableModel item);
+
 	/// <summary>Gets the version of the projected item collection.</summary>
 	long ItemsVersion { get; }
 

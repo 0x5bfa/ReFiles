@@ -1,6 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Collections.Concurrent;
+
 namespace Files.Core.ItemFeatures;
 
 /// <summary>
@@ -9,10 +11,12 @@ namespace Files.Core.ItemFeatures;
 public sealed class ItemFeatureRegistry
 {
 	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> _factories;
+	private readonly ConcurrentDictionary<Type, object> _typedFactories = [];
 
 	private readonly IReadOnlyDictionary<Type, object> _combiners;
 
 	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> _wrappers;
+	private readonly ConcurrentDictionary<Type, object> _typedWrappers = [];
 
 	public static ItemFeatureRegistry Empty { get; } = new ItemFeatureBuilder().Build();
 
@@ -33,6 +37,12 @@ public sealed class ItemFeatureRegistry
 	internal ItemFeatureResolution<TFeature> Resolve<TFeature>(ItemContext context)
 		where TFeature : class
 	{
+		var featureType = typeof(TFeature);
+		if (context.CoreModel is not TFeature && !_factories.ContainsKey(featureType) && !_combiners.ContainsKey(featureType) && !_wrappers.ContainsKey(featureType))
+		{
+			return ItemFeatureResolution<TFeature>.Empty;
+		}
+
 		var options = new List<ItemFeatureOption<TFeature>>();
 		var ownedInstances = new List<object>();
 
@@ -131,7 +141,15 @@ public sealed class ItemFeatureRegistry
 			return Array.Empty<ItemFeatureRegistration<TFeature>>();
 		}
 
-		return registrations.Cast<ItemFeatureRegistration<TFeature>>().ToArray();
+		if (_typedFactories.TryGetValue(typeof(TFeature), out var cached))
+		{
+			return (ItemFeatureRegistration<TFeature>[])cached;
+		}
+
+		var typedRegistrations = registrations.Cast<ItemFeatureRegistration<TFeature>>().ToArray();
+		var resolvedRegistrations = _typedFactories.GetOrAdd(typeof(TFeature), typedRegistrations);
+
+		return (ItemFeatureRegistration<TFeature>[])resolvedRegistrations;
 	}
 
 	private IReadOnlyList<IItemFeatureWrapper<TFeature>> GetWrappers<TFeature>()
@@ -142,7 +160,15 @@ public sealed class ItemFeatureRegistry
 			return Array.Empty<IItemFeatureWrapper<TFeature>>();
 		}
 
-		return registrations.Cast<IItemFeatureWrapper<TFeature>>().ToArray();
+		if (_typedWrappers.TryGetValue(typeof(TFeature), out var cached))
+		{
+			return (IItemFeatureWrapper<TFeature>[])cached;
+		}
+
+		var typedRegistrations = registrations.Cast<IItemFeatureWrapper<TFeature>>().ToArray();
+		var resolvedRegistrations = _typedWrappers.GetOrAdd(typeof(TFeature), typedRegistrations);
+
+		return (IItemFeatureWrapper<TFeature>[])resolvedRegistrations;
 	}
 
 	private static void TrackOwned(ItemContext context, object instance, List<object> ownedInstances)

@@ -64,7 +64,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
 		await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
-		_viewModel.Dispose();
+		await _viewModel.DisposeAsync();
 	}
 
 	private void TabStrip_NewWindowRequested(object? sender, EventArgs e) =>

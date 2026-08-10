@@ -13,7 +13,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
-public sealed class TabViewModel : ObservableObject, IDisposable
+public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private readonly TabSession _tab;
 
@@ -147,6 +147,11 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	public void Dispose()
 	{
+		_ = DisposeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
@@ -156,10 +161,10 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 		_tab.ActivePaneChanged -= Tab_StateChanged;
 		_tab.SplitOrientationChanged -= Tab_StateChanged;
 
-		foreach (var pane in _paneViewModels.Values)
+		foreach (var pane in _paneViewModels.Values.ToArray())
 		{
 			pane.PropertyChanged -= PaneViewModel_PropertyChanged;
-			pane.Dispose();
+			await pane.DisposeAsync();
 		}
 
 		_paneViewModels.Clear();

@@ -13,6 +13,11 @@ internal sealed class LayoutCommandHandler(CommandId id) : ICommandHandler
 	public CommandConcurrencyPolicy ConcurrencyPolicy =>
 		CommandConcurrencyPolicy.CancelPrevious;
 
+	public CommandStateInvalidation StateDependencies =>
+		CommandStateInvalidation.ActiveTab |
+		CommandStateInvalidation.Loading |
+		CommandStateInvalidation.ViewSettings;
+
 	public CommandState GetState(CommandContext context)
 	{
 		if (context.ActiveFolderBrowser is not { } browser)

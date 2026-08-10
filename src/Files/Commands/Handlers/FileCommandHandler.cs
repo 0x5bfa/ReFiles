@@ -11,6 +11,12 @@ internal sealed class FileCommandHandler(CommandId id) : ICommandHandler
 
 	public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.RejectWhileRunning;
 
+	public CommandStateInvalidation StateDependencies =>
+		CommandStateInvalidation.Selection |
+		CommandStateInvalidation.Loading |
+		CommandStateInvalidation.Location |
+		CommandStateInvalidation.Clipboard;
+
 	public CommandState GetState(CommandContext context)
 	{
 		if (context.ActiveFolderBrowser is not { } browser)

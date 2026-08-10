@@ -9,7 +9,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
-public sealed partial class PaneViewModel : ObservableObject, IDisposable
+public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private readonly PaneSession _pane;
 
@@ -70,6 +70,11 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 
 	public void Dispose()
 	{
+		_ = DisposeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
@@ -77,7 +82,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable
 
 		FolderBrowser.PropertyChanged -= FolderBrowser_PropertyChanged;
 		Preview.Dispose();
-		FolderBrowser.Dispose();
+		await FolderBrowser.DisposeAsync().ConfigureAwait(false);
 	}
 
 	private void FolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)

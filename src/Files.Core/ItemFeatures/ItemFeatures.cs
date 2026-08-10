@@ -9,11 +9,11 @@ internal sealed class ItemFeatures : IItemFeatures
 {
 	private static readonly object _missingFeature = new();
 
-	private readonly Lock _syncRoot = new();
 	private readonly ItemFeatureRegistry _registry;
 	private readonly ItemContext _context;
-	private readonly Dictionary<Type, object> _resolvedFeatures = [];
-	private readonly List<object> _ownedInstances = [];
+	private Lock? _syncRoot;
+	private Dictionary<Type, object>? _resolvedFeatures;
+	private List<object>? _ownedInstances;
 	private Task? _disposeTask;
 	private bool _isDisposed;
 
@@ -29,11 +29,11 @@ internal sealed class ItemFeatures : IItemFeatures
 	public TFeature? Get<TFeature>()
 		where TFeature : class
 	{
-		lock (_syncRoot)
+		lock (GetSyncRoot())
 		{
 			ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-			if (_resolvedFeatures.TryGetValue(typeof(TFeature), out var cached))
+			if (_resolvedFeatures?.TryGetValue(typeof(TFeature), out var cached) is true)
 			{
 				return ReferenceEquals(cached, _missingFeature)
 					? null
@@ -42,15 +42,19 @@ internal sealed class ItemFeatures : IItemFeatures
 
 			var resolution = _registry.Resolve<TFeature>(_context);
 
-			foreach (var instance in resolution.OwnedInstances)
+			if (resolution.OwnedInstances.Count is not 0)
 			{
-				if (!_ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
+				_ownedInstances ??= [];
+				foreach (var instance in resolution.OwnedInstances)
 				{
-					_ownedInstances.Add(instance);
+					if (!_ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
+					{
+						_ownedInstances.Add(instance);
+					}
 				}
 			}
 
-			_resolvedFeatures.Add(typeof(TFeature), resolution.Feature ?? _missingFeature);
+			(_resolvedFeatures ??= [])[typeof(TFeature)] = resolution.Feature ?? _missingFeature;
 
 			return resolution.Feature;
 		}
@@ -71,7 +75,7 @@ internal sealed class ItemFeatures : IItemFeatures
 
 	public ValueTask DisposeAsync()
 	{
-		lock (_syncRoot)
+		lock (GetSyncRoot())
 		{
 			if (_disposeTask is not null)
 			{
@@ -79,9 +83,9 @@ internal sealed class ItemFeatures : IItemFeatures
 			}
 
 			_isDisposed = true;
-			var instances = _ownedInstances.ToArray();
-			_ownedInstances.Clear();
-			_resolvedFeatures.Clear();
+			var instances = _ownedInstances?.ToArray() ?? [];
+			_ownedInstances?.Clear();
+			_resolvedFeatures?.Clear();
 			_disposeTask = DisposeInstancesAsync(instances);
 			GC.SuppressFinalize(this);
 
@@ -116,5 +120,19 @@ internal sealed class ItemFeatures : IItemFeatures
 		{
 			throw new AggregateException("One or more item features could not be disposed.", exceptions);
 		}
+	}
+
+	private Lock GetSyncRoot()
+	{
+		var syncRoot = Volatile.Read(ref _syncRoot);
+		if (syncRoot is not null)
+		{
+			return syncRoot;
+		}
+
+		var createdSyncRoot = new Lock();
+		var existingSyncRoot = Interlocked.CompareExchange(ref _syncRoot, createdSyncRoot, null);
+
+		return existingSyncRoot ?? createdSyncRoot;
 	}
 }

@@ -13,7 +13,7 @@ using Files.Presentation;
 
 namespace Files.ViewModels;
 
-public sealed partial class RootViewModel : ObservableObject, IDisposable
+public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private readonly WindowSession _window;
 
@@ -383,6 +383,11 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	public void Dispose()
 	{
+		_ = DisposeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
@@ -395,10 +400,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		Toolbar.Dispose();
 		_commandManager.Dispose();
 
-		foreach (var tab in _tabViewModels.Values)
+		foreach (var tab in _tabViewModels.Values.ToArray())
 		{
 			tab.PropertyChanged -= TabViewModel_PropertyChanged;
-			tab.Dispose();
+			await tab.DisposeAsync();
 		}
 
 		_tabViewModels.Clear();
@@ -647,8 +652,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	private void TabViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-			switch (e.PropertyName)
-			{
+		switch (e.PropertyName)
+		{
 			case nameof(TabViewModel.StatusText):
 				OnPropertyChanged(nameof(StatusText));
 				break;
@@ -658,17 +663,23 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 				OnPropertyChanged(nameof(ActivePreview));
 				NavigationToolbar.SetActiveFolderBrowser(ActiveFolderBrowser);
 				Toolbar.SetActiveTab(ActiveTab);
-				_commandManager.RefreshStates();
+				_commandManager.RefreshStates(CommandStateInvalidation.All);
 				break;
 			case nameof(TabViewModel.CanClosePane):
 			case nameof(TabViewModel.CanOpenPane):
 			case nameof(TabViewModel.SplitOrientation):
+				_commandManager.RefreshStates(CommandStateInvalidation.Pane);
+				break;
 			case nameof(TabViewModel.IsLoading):
+				_commandManager.RefreshStates(CommandStateInvalidation.Loading);
+				break;
 			case nameof(TabViewModel.CanGoBack):
 			case nameof(TabViewModel.CanGoForward):
 			case nameof(TabViewModel.CanGoUp):
+				_commandManager.RefreshStates(CommandStateInvalidation.Navigation);
+				break;
 			case nameof(TabViewModel.CanRefresh):
-				_commandManager.RefreshStates();
+				_commandManager.RefreshStates(CommandStateInvalidation.Loading);
 				break;
 		}
 	}

@@ -38,7 +38,8 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private BrowseViewSettings _lastSettings;
 	private long _workIdCounter;
 	private long _latestWorkId;
-	private long _lastRequestedContentVersion;
+	private long _lastRequestedGeneration;
+	private long _lastObservedItemsVersion;
 	private int _diagnosticPropertyRequestCount;
 	private int _diagnosticThumbnailRequestCount;
 	private int _diagnosticViewportUpdateCount;
@@ -56,7 +57,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		_target = session as IBrowsePrefetchTarget;
 		_thumbnailSize = thumbnailSize;
 		_lastSettings = session.ViewSettings;
-		_lastRequestedContentVersion = GetContentVersion();
+		_lastObservedItemsVersion = session.ItemsVersion;
 		_propertyRequests = CreateRequestChannel();
 		_thumbnailRequests = CreateRequestChannel();
 		_restartTimer = new Timer(RestartPrefetch, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
@@ -83,11 +84,10 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			_restartTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 			_lastViewport = viewport;
 			_lastSettings = settings;
+			_lastRequestedGeneration = browseGeneration;
 			var workId = checked(++_workIdCounter);
-			var contentVersion = GetContentVersion();
 			_latestWorkId = workId;
-			_lastRequestedContentVersion = contentVersion;
-			request = new PrefetchRequest(workId, browseGeneration, contentVersion, viewport, settings, _session.Items);
+			request = new PrefetchRequest(workId, browseGeneration, viewport, settings, _session.Items);
 			propertyCancellation = _propertyCancellation;
 			thumbnailCancellation = _thumbnailCancellation;
 		}
@@ -258,7 +258,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(propertyIds), cancellationToken).ConfigureAwait(false);
 			if (IsCurrent(request, cancellationToken) && _target is not null)
 			{
-				await _target.PublishPropertiesAsync(request.Generation, request.ContentVersion, item, properties, cancellationToken).ConfigureAwait(false);
+				await _target.PublishPropertiesAsync(request.Generation, item, properties, cancellationToken).ConfigureAwait(false);
 			}
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -289,7 +289,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, thumbnailMode, request.Viewport.Dpi), cancellationToken).ConfigureAwait(false);
 			if (thumbnail is not null && IsCurrent(request, cancellationToken) && _target is not null)
 			{
-				await _target.PublishThumbnailAsync(request.Generation, request.ContentVersion, item, thumbnail, cancellationToken).ConfigureAwait(false);
+				await _target.PublishThumbnailAsync(request.Generation, item, thumbnail, cancellationToken).ConfigureAwait(false);
 			}
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -306,7 +306,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	{
 		lock (_syncRoot)
 		{
-			if (_isDisposed || request.Id != _latestWorkId || request.Generation != _session.Generation || request.ContentVersion != GetContentVersion())
+			if (_isDisposed || request.Id != _latestWorkId || request.Generation != _session.Generation)
 			{
 				return null;
 			}
@@ -342,7 +342,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 
 	private bool IsCurrent(PrefetchRequest request, CancellationToken cancellationToken)
 	{
-		if (cancellationToken.IsCancellationRequested || _session.Generation != request.Generation || GetContentVersion() != request.ContentVersion)
+		if (cancellationToken.IsCancellationRequested || _session.Generation != request.Generation)
 		{
 			return false;
 		}
@@ -357,9 +357,11 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	{
 		BrowseViewport viewport;
 		BrowseViewSettings settings;
+		long generation;
 		lock (_syncRoot)
 		{
-			if (_isDisposed || _lastViewport is not { } currentViewport || Equals(_lastSettings, _session.ViewSettings))
+			generation = _session.Generation;
+			if (_isDisposed || _lastViewport is not { } currentViewport || (Equals(_lastSettings, _session.ViewSettings) && _lastRequestedGeneration == generation))
 			{
 				return;
 			}
@@ -368,32 +370,24 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			settings = _session.ViewSettings;
 		}
 
-		TryUpdateViewport(viewport, settings, _session.Generation);
+		TryUpdateViewport(viewport, settings, generation);
 	}
 
 	private void OnSessionItemsChanged(object? sender, BrowseItemsChangedEventArgs args)
 	{
-		CancellationTokenSource? propertyCancellation;
-		CancellationTokenSource? thumbnailCancellation;
 		lock (_syncRoot)
 		{
-			var contentVersion = GetContentVersion();
-			if (_isDisposed || contentVersion == _lastRequestedContentVersion)
+			if (_isDisposed || args.Version <= _lastObservedItemsVersion)
 			{
 				return;
 			}
 
-			_lastRequestedContentVersion = contentVersion;
-			propertyCancellation = _propertyCancellation;
-			thumbnailCancellation = _thumbnailCancellation;
+			_lastObservedItemsVersion = args.Version;
 			if (_lastViewport is not null && _session.Generation is not 0)
 			{
 				_restartTimer.Change(ItemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
 			}
 		}
-
-		Cancel(propertyCancellation);
-		Cancel(thumbnailCancellation);
 	}
 
 	private void RestartPrefetch(object? state)
@@ -405,6 +399,13 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		{
 			if (_isDisposed || _lastViewport is not { } currentViewport || _session.Generation is 0)
 			{
+				return;
+			}
+
+			if (_propertyCancellation is not null || _thumbnailCancellation is not null)
+			{
+				_restartTimer.Change(ItemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
+
 				return;
 			}
 
@@ -425,11 +426,6 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		catch (ObjectDisposedException)
 		{
 		}
-	}
-
-	private long GetContentVersion()
-	{
-		return _target?.ContentVersion ?? _session.ItemsVersion;
 	}
 
 	private static Channel<PrefetchRequest> CreateRequestChannel()
@@ -511,5 +507,5 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private sealed record PrefetchRequest(long Id, long Generation, long ContentVersion, BrowseViewport Viewport, BrowseViewSettings Settings, IReadOnlyList<IStorableModel> Items);
+	private sealed record PrefetchRequest(long Id, long Generation, BrowseViewport Viewport, BrowseViewSettings Settings, IReadOnlyList<IStorableModel> Items);
 }

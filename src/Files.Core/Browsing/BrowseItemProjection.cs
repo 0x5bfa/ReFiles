@@ -11,7 +11,9 @@ internal sealed class BrowseItemProjection
 {
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
 
+	private readonly Lock _syncRoot = new();
 	private readonly Dictionary<StorableKey, IStorableModel> _modelsByKey = [];
+	private readonly Dictionary<StorableKey, int> _indicesByKey = [];
 	private readonly List<IStorableModel> _orderedItems = [];
 	private readonly Func<IStorableModel, string, object?>? _propertyValueGetter;
 	private IReadOnlyList<IStorableModel> _orderedItemsSnapshot = [];
@@ -19,8 +21,18 @@ internal sealed class BrowseItemProjection
 	private string? _sortPropertyId;
 	private ViewSortDirection _sortDirection;
 	private bool _isSorted = true;
+	private bool _snapshotDirty;
 
-	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _orderedItemsSnapshot);
+	public IReadOnlyList<IStorableModel> Items
+	{
+		get
+		{
+			lock (_syncRoot)
+			{
+				return GetSnapshotLocked();
+			}
+		}
+	}
 
 	public BrowseItemProjection(BrowseViewSettings settings, Func<IStorableModel, string, object?>? propertyValueGetter = null)
 	{
@@ -32,59 +44,78 @@ internal sealed class BrowseItemProjection
 		_comparer = CreateComparer(settings, propertyValueGetter);
 	}
 
-	public bool Contains(StorableKey key) => _modelsByKey.ContainsKey(key);
+	public bool Contains(StorableKey key)
+	{
+		lock (_syncRoot)
+		{
+			return _modelsByKey.ContainsKey(key);
+		}
+	}
 
 	public bool TryGet(StorableKey key, out IStorableModel model)
 	{
-		return _modelsByKey.TryGetValue(key, out model!);
+		lock (_syncRoot)
+		{
+			return _modelsByKey.TryGetValue(key, out model!);
+		}
 	}
 
 	public IReadOnlyList<IStorableModel> SortItems(IReadOnlyList<IStorableModel> models)
 	{
 		ArgumentNullException.ThrowIfNull(models);
 
-		var sortedItems = models.ToArray();
-		Array.Sort(sortedItems, _comparer);
+		lock (_syncRoot)
+		{
+			var sortedItems = models.ToArray();
+			Array.Sort(sortedItems, _comparer);
 
-		return sortedItems;
+			return sortedItems;
+		}
 	}
 
 	public bool TryGet(StorableKey key, out IStorableModel model, out int index)
 	{
-		if (!_modelsByKey.TryGetValue(key, out var foundModel))
+		lock (_syncRoot)
 		{
-			model = null!;
-			index = -1;
+			if (!_modelsByKey.TryGetValue(key, out var foundModel))
+			{
+				model = null!;
+				index = -1;
 
-			return false;
+				return false;
+			}
+
+			model = foundModel;
+			index = FindItemIndex(key);
+			if (index < 0)
+			{
+				throw new InvalidOperationException("The item projection is inconsistent.");
+			}
+
+			return true;
 		}
-
-		model = foundModel;
-		index = FindItemIndex(key);
-		if (index < 0)
-		{
-			throw new InvalidOperationException("The item projection is inconsistent.");
-		}
-
-		return true;
 	}
 
 	public BrowseItemChangeSet Add(IStorableModel model)
 	{
 		ArgumentNullException.ThrowIfNull(model);
 
-		var key = model.Reference.GetKey();
-		if (_modelsByKey.ContainsKey(key))
+		lock (_syncRoot)
 		{
-			return BrowseItemChangeSet.Empty;
+			var key = model.Reference.GetKey();
+			if (_modelsByKey.ContainsKey(key))
+			{
+				return BrowseItemChangeSet.Empty;
+			}
+
+			var index = FindInsertionIndex(model);
+			_modelsByKey.Add(key, model);
+			_orderedItems.Insert(index, model);
+			RebuildIndices();
+			UpdateSnapshot();
+
+			return new BrowseItemChangeSet([ new BrowseItemAdded(index, model)]);
 		}
-
-		var index = FindInsertionIndex(model);
-		_modelsByKey.Add(key, model);
-		_orderedItems.Insert(index, model);
-		UpdateSnapshot();
-
-		return new BrowseItemChangeSet([ new BrowseItemAdded(index, model)]);
 	}
 
 	public BrowseItemChangeSet AddRange(IReadOnlyList<IStorableModel> models, bool preserveInputOrder = false)
@@ -96,226 +127,238 @@ internal sealed class BrowseItemProjection
 			return BrowseItemChangeSet.Empty;
 		}
 
-		var incomingKeys = new HashSet<StorableKey>();
-		foreach (var model in models)
+		lock (_syncRoot)
 		{
-			ArgumentNullException.ThrowIfNull(model);
-
-			var key = model.Reference.GetKey();
-			if (!incomingKeys.Add(key) || _modelsByKey.ContainsKey(key))
+			var incomingKeys = new HashSet<StorableKey>();
+			foreach (var model in models)
 			{
-				throw new InvalidOperationException("The item projection contains duplicate keys.");
-			}
-		}
+				ArgumentNullException.ThrowIfNull(model);
 
-		if (preserveInputOrder)
-		{
-			var startingIndex = _orderedItems.Count;
-			var addedItems = Array.AsReadOnly(models.ToArray());
-			var previousItem = _orderedItems.LastOrDefault();
-			foreach (var model in addedItems)
-			{
-				if (_isSorted && previousItem is not null && _comparer.Compare(previousItem, model) > 0)
+				var key = model.Reference.GetKey();
+				if (!incomingKeys.Add(key) || _modelsByKey.ContainsKey(key))
 				{
-					_isSorted = false;
+					throw new InvalidOperationException("The item projection contains duplicate keys.");
+				}
+			}
+
+			if (preserveInputOrder)
+			{
+				var startingIndex = _orderedItems.Count;
+				var addedItems = Array.AsReadOnly(models.ToArray());
+				var previousItem = _orderedItems.LastOrDefault();
+				foreach (var model in addedItems)
+				{
+					if (_isSorted && previousItem is not null && _comparer.Compare(previousItem, model) > 0)
+					{
+						_isSorted = false;
+					}
+
+					_modelsByKey.Add(model.Reference.GetKey(), model);
+					_orderedItems.Add(model);
+					previousItem = model;
 				}
 
-				_modelsByKey.Add(model.Reference.GetKey(), model);
-				_orderedItems.Add(model);
-				previousItem = model;
+				RebuildIndices();
+				UpdateSnapshot();
+
+				return new BrowseItemChangeSet([new BrowseItemsAdded(startingIndex, addedItems)]);
 			}
 
-			UpdateSnapshot();
+			var incomingItems = models.ToList();
+			incomingItems.Sort(_comparer);
+			var mergedItems = new List<IStorableModel>(_orderedItems.Count + incomingItems.Count);
+			var changes = new List<BrowseItemChange>(incomingItems.Count);
+			var existingIndex = 0;
+			var incomingIndex = 0;
+			while (existingIndex < _orderedItems.Count && incomingIndex < incomingItems.Count)
+			{
+				if (_comparer.Compare(_orderedItems[existingIndex], incomingItems[incomingIndex]) <= 0)
+				{
+					mergedItems.Add(_orderedItems[existingIndex++]);
 
-			return new BrowseItemChangeSet([new BrowseItemsAdded(startingIndex, addedItems)]);
-		}
+					continue;
+				}
 
-		var incomingItems = models.ToList();
-		incomingItems.Sort(_comparer);
-		var mergedItems = new List<IStorableModel>(_orderedItems.Count + incomingItems.Count);
-		var changes = new List<BrowseItemChange>(incomingItems.Count);
-		var existingIndex = 0;
-		var incomingIndex = 0;
-		while (existingIndex < _orderedItems.Count && incomingIndex < incomingItems.Count)
-		{
-			if (_comparer.Compare(_orderedItems[existingIndex], incomingItems[incomingIndex]) <= 0)
+				var incomingItem = incomingItems[incomingIndex++];
+				changes.Add(new BrowseItemAdded(mergedItems.Count, incomingItem));
+				mergedItems.Add(incomingItem);
+			}
+
+			while (existingIndex < _orderedItems.Count)
 			{
 				mergedItems.Add(_orderedItems[existingIndex++]);
-				continue;
 			}
 
-			var incomingItem = incomingItems[incomingIndex++];
-			changes.Add(new BrowseItemAdded(mergedItems.Count, incomingItem));
-			mergedItems.Add(incomingItem);
+			while (incomingIndex < incomingItems.Count)
+			{
+				var incomingItem = incomingItems[incomingIndex++];
+				changes.Add(new BrowseItemAdded(mergedItems.Count, incomingItem));
+				mergedItems.Add(incomingItem);
+			}
+
+			foreach (var model in incomingItems)
+			{
+				_modelsByKey.Add(model.Reference.GetKey(), model);
+			}
+
+			_orderedItems.Clear();
+			_orderedItems.AddRange(mergedItems);
+			_isSorted = true;
+			RebuildIndices();
+			UpdateSnapshot();
+
+			return new BrowseItemChangeSet(changes);
 		}
-
-		while (existingIndex < _orderedItems.Count)
-		{
-			mergedItems.Add(_orderedItems[existingIndex++]);
-		}
-
-		while (incomingIndex < incomingItems.Count)
-		{
-			var incomingItem = incomingItems[incomingIndex++];
-			changes.Add(new BrowseItemAdded(mergedItems.Count, incomingItem));
-			mergedItems.Add(incomingItem);
-		}
-
-		foreach (var model in incomingItems)
-		{
-			_modelsByKey.Add(model.Reference.GetKey(), model);
-		}
-
-		_orderedItems.Clear();
-		_orderedItems.AddRange(mergedItems);
-		_isSorted = true;
-		UpdateSnapshot();
-
-		return new BrowseItemChangeSet(changes);
 	}
 
 	public BrowseItemChangeSet Sort()
 	{
-		if (_isSorted)
+		lock (_syncRoot)
 		{
-			return BrowseItemChangeSet.Empty;
+			return SortCore();
 		}
-
-		var previousKeys = _orderedItems.Select(static item => item.Reference.GetKey()).ToArray();
-		_orderedItems.Sort(_comparer);
-		_isSorted = true;
-		if (previousKeys.SequenceEqual(_orderedItems.Select(static item => item.Reference.GetKey())))
-		{
-			return BrowseItemChangeSet.Empty;
-		}
-
-		UpdateSnapshot();
-
-		return new BrowseItemChangeSet([ new BrowseItemsReset(Items)]);
 	}
 
 	public BrowseItemChangeSet Remove(StorableKey key)
 	{
-		if (!_modelsByKey.Remove(key, out _))
+		lock (_syncRoot)
 		{
-			return BrowseItemChangeSet.Empty;
+			if (!_modelsByKey.Remove(key, out _))
+			{
+				return BrowseItemChangeSet.Empty;
+			}
+
+			var index = FindItemIndex(key);
+			if (index < 0)
+			{
+				throw new InvalidOperationException("The item projection is inconsistent.");
+			}
+
+			_orderedItems.RemoveAt(index);
+			RebuildIndices();
+			UpdateSnapshot();
+
+			return new BrowseItemChangeSet([new BrowseItemRemoved(index, key)]);
 		}
-
-		var index = FindItemIndex(key);
-		if (index < 0)
-		{
-			throw new InvalidOperationException("The item projection is inconsistent.");
-		}
-
-		_orderedItems.RemoveAt(index);
-		UpdateSnapshot();
-
-		return new BrowseItemChangeSet([ new BrowseItemRemoved(index, key)]);
 	}
 
 	public BrowseItemChangeSet Replace(StorableKey previousKey, IStorableModel replacement)
 	{
 		ArgumentNullException.ThrowIfNull(replacement);
 
-		if (!_modelsByKey.ContainsKey(previousKey))
+		lock (_syncRoot)
 		{
-			throw new InvalidOperationException("The item to replace does not exist.");
+			if (!_modelsByKey.ContainsKey(previousKey))
+			{
+				throw new InvalidOperationException("The item to replace does not exist.");
+			}
+
+			var replacementKey = replacement.Reference.GetKey();
+			if (replacementKey != previousKey && _modelsByKey.ContainsKey(replacementKey))
+			{
+				throw new InvalidOperationException("The replacement key already exists.");
+			}
+
+			var previousIndex = FindItemIndex(previousKey);
+			if (previousIndex < 0)
+			{
+				throw new InvalidOperationException("The item projection is inconsistent.");
+			}
+
+			if (replacementKey == previousKey)
+			{
+				_modelsByKey[previousKey] = replacement;
+			}
+			else
+			{
+				_modelsByKey.Remove(previousKey);
+				_modelsByKey.Add(replacementKey, replacement);
+			}
+
+			_orderedItems[previousIndex] = replacement;
+			_orderedItems.Sort(_comparer);
+			_isSorted = true;
+			RebuildIndices();
+			var currentIndex = FindItemIndex(replacementKey);
+			UpdateSnapshot();
+
+			var changes = new List<BrowseItemChange>
+			{
+				new BrowseItemReplaced(previousIndex, previousKey, replacement),
+			};
+
+			if (previousIndex != currentIndex)
+			{
+				changes.Add(new BrowseItemMoved(previousIndex, currentIndex, replacementKey));
+			}
+
+			return new BrowseItemChangeSet(changes);
 		}
-
-		var replacementKey = replacement.Reference.GetKey();
-		if (replacementKey != previousKey && _modelsByKey.ContainsKey(replacementKey))
-		{
-			throw new InvalidOperationException("The replacement key already exists.");
-		}
-
-		var previousIndex = FindItemIndex(previousKey);
-		if (previousIndex < 0)
-		{
-			throw new InvalidOperationException("The item projection is inconsistent.");
-		}
-
-		if (replacementKey == previousKey)
-		{
-			_modelsByKey[previousKey] = replacement;
-		}
-		else
-		{
-			_modelsByKey.Remove(previousKey);
-			_modelsByKey.Add(replacementKey, replacement);
-		}
-
-		_orderedItems[previousIndex] = replacement;
-		_orderedItems.Sort(_comparer);
-		_isSorted = true;
-		var currentIndex = FindItemIndex(replacementKey);
-		UpdateSnapshot();
-
-		var changes = new List<BrowseItemChange>
-		{
-			new BrowseItemReplaced(previousIndex, previousKey, replacement),
-		};
-
-		if (previousIndex != currentIndex)
-		{
-			changes.Add(new BrowseItemMoved(previousIndex, currentIndex, replacementKey));
-		}
-
-		return new BrowseItemChangeSet(changes);
 	}
 
 	public BrowseItemChangeSet Reset(IEnumerable<IStorableModel> models)
 	{
 		ArgumentNullException.ThrowIfNull(models);
 
-		var nextModels = models.ToList();
-		var nextByKey = new Dictionary<StorableKey, IStorableModel>();
-		foreach (var model in nextModels)
+		lock (_syncRoot)
 		{
-			ArgumentNullException.ThrowIfNull(model);
-
-			if (!nextByKey.TryAdd(model.Reference.GetKey(), model))
+			var nextModels = models.ToList();
+			var nextByKey = new Dictionary<StorableKey, IStorableModel>();
+			foreach (var model in nextModels)
 			{
-				throw new InvalidOperationException("The item projection contains duplicate keys.");
+				ArgumentNullException.ThrowIfNull(model);
+
+				if (!nextByKey.TryAdd(model.Reference.GetKey(), model))
+				{
+					throw new InvalidOperationException("The item projection contains duplicate keys.");
+				}
 			}
+
+			_orderedItems.Clear();
+			_orderedItems.AddRange(nextModels);
+			_orderedItems.Sort(_comparer);
+			_isSorted = true;
+			_modelsByKey.Clear();
+			foreach (var pair in nextByKey)
+			{
+				_modelsByKey.Add(pair.Key, pair.Value);
+			}
+
+			RebuildIndices();
+			UpdateSnapshot();
+
+			return new BrowseItemChangeSet([new BrowseItemsReset(GetSnapshotLocked())]);
 		}
-
-		_orderedItems.Clear();
-		_orderedItems.AddRange(nextModels);
-		_orderedItems.Sort(_comparer);
-		_isSorted = true;
-		_modelsByKey.Clear();
-		foreach (var pair in nextByKey)
-		{
-			_modelsByKey.Add(pair.Key, pair.Value);
-		}
-
-		UpdateSnapshot();
-
-		return new BrowseItemChangeSet([ new BrowseItemsReset(Items)]);
 	}
 
 	public BrowseItemChangeSet UpdateSort(BrowseViewSettings settings)
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 
-		if (string.Equals(_sortPropertyId, settings.SortPropertyId, StringComparison.Ordinal) && _sortDirection == settings.SortDirection)
+		lock (_syncRoot)
 		{
-			return BrowseItemChangeSet.Empty;
+			if (string.Equals(_sortPropertyId, settings.SortPropertyId, StringComparison.Ordinal) && _sortDirection == settings.SortDirection)
+			{
+				return BrowseItemChangeSet.Empty;
+			}
+
+			_sortPropertyId = settings.SortPropertyId;
+			_sortDirection = settings.SortDirection;
+			_comparer = CreateComparer(settings, _propertyValueGetter);
+			_isSorted = _orderedItems.Count < 2;
+
+			return SortCore();
 		}
-
-		_sortPropertyId = settings.SortPropertyId;
-		_sortDirection = settings.SortDirection;
-		_comparer = CreateComparer(settings, _propertyValueGetter);
-		_isSorted = _orderedItems.Count < 2;
-
-		return Sort();
 	}
 
 	public BrowseItemChangeSet RefreshSort()
 	{
-		_isSorted = _orderedItems.Count < 2;
+		lock (_syncRoot)
+		{
+			_isSorted = _orderedItems.Count < 2;
 
-		return Sort();
+			return SortCore();
+		}
 	}
 
 	private int FindInsertionIndex(IStorableModel model)
@@ -340,20 +383,53 @@ internal sealed class BrowseItemProjection
 
 	private int FindItemIndex(StorableKey key)
 	{
-		for (var index = 0; index < _orderedItems.Count; index++)
-		{
-			if (_orderedItems[index].Reference.GetKey() == key)
-			{
-				return index;
-			}
-		}
-
-		return -1;
+		return _indicesByKey.GetValueOrDefault(key, -1);
 	}
 
 	private void UpdateSnapshot()
 	{
-		Volatile.Write(ref _orderedItemsSnapshot, Array.AsReadOnly(_orderedItems.ToArray()));
+		_snapshotDirty = true;
+	}
+
+	private IReadOnlyList<IStorableModel> GetSnapshotLocked()
+	{
+		if (_snapshotDirty)
+		{
+			Volatile.Write(ref _orderedItemsSnapshot, Array.AsReadOnly(_orderedItems.ToArray()));
+			_snapshotDirty = false;
+		}
+
+		return _orderedItemsSnapshot;
+	}
+
+	private void RebuildIndices()
+	{
+		_indicesByKey.Clear();
+		for (var index = 0; index < _orderedItems.Count; index++)
+		{
+			_indicesByKey[_orderedItems[index].Reference.GetKey()] = index;
+		}
+	}
+
+	private BrowseItemChangeSet SortCore()
+	{
+		if (_isSorted)
+		{
+			return BrowseItemChangeSet.Empty;
+		}
+
+		var previousKeys = _orderedItems.Select(static item => item.Reference.GetKey()).ToArray();
+		_orderedItems.Sort(_comparer);
+		_isSorted = true;
+		RebuildIndices();
+		if (previousKeys.SequenceEqual(_orderedItems.Select(static item => item.Reference.GetKey())))
+		{
+			return BrowseItemChangeSet.Empty;
+		}
+
+		UpdateSnapshot();
+
+		return new BrowseItemChangeSet([new BrowseItemsReset(GetSnapshotLocked())]);
 	}
 
 	private static IComparer<IStorableModel> CreateComparer(BrowseViewSettings settings, Func<IStorableModel, string, object?>? propertyValueGetter)

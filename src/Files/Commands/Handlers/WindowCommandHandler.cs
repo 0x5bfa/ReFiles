@@ -10,6 +10,8 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 	public CommandConcurrencyPolicy ConcurrencyPolicy =>
 		CommandConcurrencyPolicy.RejectWhileRunning;
 
+	public CommandStateInvalidation StateDependencies => CommandStateInvalidation.ActiveTab;
+
 	public CommandState GetState(CommandContext context)
 	{
 		var invokedTabIndex = context.InvokedTab is { } invokedTab

@@ -189,6 +189,57 @@ public sealed class BrowsePrefetchCoordinatorTests
 	}
 
 	[TestMethod]
+	public async Task ItemAppendDoesNotCancelActivePrefetch()
+	{
+		var factory = new TestModelFactory();
+		var source = new TestFolderChangeSource();
+		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
+		var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertySource = new TestPropertySource
+		{
+			Handler = async (_, cancellationToken) =>
+			{
+				entered.TrySetResult(true);
+				try
+				{
+					await release.Task.WaitAsync(cancellationToken);
+				}
+				catch (OperationCanceledException)
+				{
+					cancelled.TrySetResult(true);
+					throw;
+				}
+
+				return new Dictionary<string, object?>();
+			},
+		};
+		var first = factory.CreateModel("first", "First", out _, propertySource: propertySource);
+		var appended = factory.CreateModel("appended", "Appended", out _);
+		var resolver = new TestBrowseLocationResolver([first])
+		{
+			LocationModelFactory = _ => locationModel,
+			ItemResolver = (_, _) => ValueTask.FromResult<IStorableModel>(appended),
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = session.ViewSettings;
+
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
+		await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		resolver.Items.Add(appended);
+		source.RaiseChange(new FolderChange(FolderChangeKind.Created, appended.Reference, null, RequiresRefresh: false));
+		await WaitUntilAsync(() => session.Items.Count is 2);
+		await Task.Delay(TimeSpan.FromMilliseconds(250));
+
+		Assert.IsFalse(cancelled.Task.IsCompleted);
+		release.TrySetResult(true);
+	}
+
+	[TestMethod]
 	public async Task NavigationCancelsOldGenerationBeforeUsingItsResult()
 	{
 		var factory = new TestModelFactory();
@@ -224,8 +275,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		};
 		using var session = new BrowseSession(resolver);
 		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+		await session.UpdateViewSettingsAsync(settings);
 		await using var coordinator = new BrowsePrefetchCoordinator(session);
-		coordinator.UpdateViewport(new BrowseViewport(0, 1), new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]), session.Generation);
+		coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
 		await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
 		resolver.Items.Clear();

@@ -46,16 +46,22 @@ public sealed class WindowCommandManager : IDisposable
 		return binding;
 	}
 
-	public void RefreshStates()
+	public void RefreshStates(CommandStateInvalidation reasons = CommandStateInvalidation.All)
 	{
-		if (Volatile.Read(ref isDisposed) is not 0)
+		if (Volatile.Read(ref isDisposed) is not 0 || reasons is CommandStateInvalidation.None)
 		{
 			return;
 		}
 
 		if (!dispatcher.HasThreadAccess)
 		{
-			if (!dispatcher.TryEnqueue(() => {if (Volatile.Read(ref isDisposed) is 0) {RefreshStates();}}))
+			if (!dispatcher.TryEnqueue(() =>
+			{
+				if (Volatile.Read(ref isDisposed) is 0)
+				{
+					RefreshStates(reasons);
+				}
+			}))
 			{
 				throw new InvalidOperationException("The Files UI dispatcher rejected command state updates.");
 			}
@@ -66,7 +72,10 @@ public sealed class WindowCommandManager : IDisposable
 		var context = new CommandContext(root);
 		foreach (var pair in handlers)
 		{
-			bindings[pair.Key].UpdateState(pair.Value.GetState(context));
+			if ((pair.Value.StateDependencies & reasons) is not 0)
+			{
+				bindings[pair.Key].UpdateState(pair.Value.GetState(context));
+			}
 		}
 	}
 
@@ -137,7 +146,7 @@ public sealed class WindowCommandManager : IDisposable
 			callCancellation.Dispose();
 			if (Volatile.Read(ref isDisposed) is 0)
 			{
-				RefreshStates();
+				RefreshStates(handler.StateDependencies);
 			}
 		}
 	}
@@ -180,7 +189,7 @@ public sealed class WindowCommandManager : IDisposable
 	}
 
 	private void Clipboard_ContentChanged(object? sender, object args) =>
-		RefreshStates();
+		RefreshStates(CommandStateInvalidation.Clipboard);
 
 	private void ReportError(Exception exception)
 	{

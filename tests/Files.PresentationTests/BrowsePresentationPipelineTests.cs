@@ -4,8 +4,11 @@
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Files.Adapters;
+using Files.Commands;
 using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.ItemFeatures;
@@ -15,6 +18,8 @@ using Files.Core.Sessions;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Files.Infrastructure;
+using Files.Presentation;
+using Files.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OwlCore.Storage;
@@ -73,6 +78,7 @@ public sealed class BrowsePresentationPipelineTests
 		dispatcher.DrainAll();
 
 		Assert.AreEqual(itemCount, adapter.Items.Count);
+		Assert.AreEqual(itemCount, adapter.CreatedItemViewModelCount);
 		Assert.IsTrue(maximumItemsPerUpdate <= 128);
 		Assert.IsTrue(itemUpdateCount < Math.Max(3, itemCount / 16));
 		Assert.IsTrue(dispatcher.EnqueueCount < Math.Max(8, itemCount / 16));
@@ -145,9 +151,97 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.AreEqual(1, propertyChangeCount);
 	}
 
+	[TestMethod]
+	public async Task SortResetReusesExistingItemViewModels()
+	{
+		var resolver = new PresentationBrowseLocationResolver(2, static (_, _) => ValueTask.CompletedTask);
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+		var firstItem = adapter.Items[0];
+		var secondItem = adapter.Items[1];
+		var settings = new BrowseViewSettings(sortPropertyId: "name", sortDirection: ViewSortDirection.Descending);
+
+		await session.UpdateViewSettingsAsync(settings);
+		dispatcher.DrainAll();
+
+		Assert.AreSame(secondItem, adapter.Items[0]);
+		Assert.AreSame(firstItem, adapter.Items[1]);
+	}
+
+	[TestMethod]
+	public async Task LargeFolderDoesNotRefreshSelectionCommandsForEachItemBatch()
+	{
+		var resolver = new PresentationBrowseLocationResolver(44_000, static (_, _) => ValueTask.CompletedTask);
+		var paneFactory = new BrowsePaneSessionFactory(
+			() => new BrowseSession(resolver),
+			static session => new BrowsePreviewModel(session));
+
+		await using var window = new WindowSession(paneFactory);
+		await using var workspace = new PresentationStorageWorkspace();
+		var storageOperations = new NoOpStorageOperationService();
+		var dispatcher = new ManualDispatcher();
+		var stateCalls = new CountingStateCalls();
+		var commandRegistry = CreateCountingCommandRegistry(stateCalls);
+		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, dispatcher, commandRegistry);
+		RootViewModel root;
+		try
+		{
+			root = new RootViewModel(window, presentationFactory);
+		}
+		catch (TypeInitializationException exception) when (exception.InnerException is COMException { HResult: unchecked((int)0x80040154) })
+		{
+			Assert.Inconclusive("The WinAppSDK resource manager is unavailable in this test host.");
+
+			return;
+		}
+
+		await using var rootLifetime = root;
+
+		await window.OpenTabAsync(HomeLocation.Instance);
+		dispatcher.DrainAll();
+		var callsBeforeNavigation = stateCalls.Count;
+
+		await root.InitializeAsync();
+		dispatcher.DrainAll();
+
+		var folder = root.ActiveFolderBrowser;
+		Assert.IsNotNull(folder);
+		Assert.AreEqual(44_000, folder.Items.Count);
+		Assert.AreSame(folder.Items, folder.ItemsViewSource.Source);
+		Assert.AreEqual(callsBeforeNavigation, stateCalls.Count);
+
+		folder.SetSelection([folder.Items[0]]);
+		dispatcher.DrainAll();
+
+		Assert.IsTrue(stateCalls.Count > callsBeforeNavigation);
+	}
+
 	private static BrowsePresentationText CreateText()
 	{
 		return new BrowsePresentationText("Home", "Loading", "{0} item", "{0} items", "{0} is not a folder");
+	}
+
+	private static CommandRegistry CreateCountingCommandRegistry(CountingStateCalls stateCalls)
+	{
+		var builder = new CommandRegistryBuilder();
+		var commandIds = typeof(CommandIds)
+			.GetFields(BindingFlags.Public | BindingFlags.Static)
+			.Where(static field => field.FieldType == typeof(CommandId))
+			.Select(static field => (CommandId)field.GetValue(null)!)
+			.ToArray();
+		for (var index = 0; index < commandIds.Length; index++)
+		{
+			var commandId = commandIds[index];
+			builder.Register(new CommandDescriptor(commandId, commandId.Value, null, "Test", index), _ => new CountingCommandHandler(commandId, stateCalls));
+		}
+
+		return builder.Build();
 	}
 
 	private static int GetItemCount(BrowseItemViewModelChange change)
@@ -238,6 +332,44 @@ public sealed class BrowsePresentationPipelineTests
 		}
 
 		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+	}
+
+	private sealed class CountingStateCalls
+	{
+		private int _count;
+
+		public int Count => Volatile.Read(ref _count);
+
+		public void Increment() => Interlocked.Increment(ref _count);
+	}
+
+	private sealed class CountingCommandHandler(CommandId id, CountingStateCalls stateCalls) : ICommandHandler
+	{
+		private readonly CountingStateCalls _stateCalls = stateCalls;
+
+		public CommandId Id { get; } = id;
+
+		public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.AllowParallel;
+
+		public CommandStateInvalidation StateDependencies => CommandStateInvalidation.Selection;
+
+		public CommandState GetState(CommandContext context)
+		{
+			_stateCalls.Increment();
+
+			return new CommandState(IsVisible: true, IsEnabled: true);
+		}
+
+		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default) =>
+			ValueTask.FromResult(CommandExecutionResult.Succeeded());
+	}
+
+	private sealed class NoOpStorageOperationService : IStorageOperationService
+	{
+		public bool CanHandle(StorageOperationRequest request) => false;
+
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default) =>
+			throw new NotSupportedException();
 	}
 
 	private sealed class PresentationBrowseLocationResolver(

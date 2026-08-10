@@ -13,6 +13,10 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 	public CommandConcurrencyPolicy ConcurrencyPolicy =>
 		CommandConcurrencyPolicy.RejectWhileRunning;
 
+	public CommandStateInvalidation StateDependencies =>
+		CommandStateInvalidation.ActiveTab |
+		CommandStateInvalidation.Pane;
+
 	public CommandState GetState(CommandContext context)
 	{
 		var tab = context.ActiveTab;

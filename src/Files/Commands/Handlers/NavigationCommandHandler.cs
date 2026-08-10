@@ -13,6 +13,12 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 	public CommandConcurrencyPolicy ConcurrencyPolicy =>
 		CommandConcurrencyPolicy.CancelPrevious;
 
+	public CommandStateInvalidation StateDependencies =>
+		CommandStateInvalidation.ActiveTab |
+		CommandStateInvalidation.Loading |
+		CommandStateInvalidation.Location |
+		CommandStateInvalidation.Navigation;
+
 	public CommandState GetState(CommandContext context)
 	{
 		var browser = context.ActiveFolderBrowser;

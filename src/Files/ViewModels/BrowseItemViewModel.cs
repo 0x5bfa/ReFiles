@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Controls;
+using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Localization;
 using Microsoft.UI.Xaml;
@@ -17,18 +18,19 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
 	private const string ItemTypeTextPropertyId = "System.ItemTypeText";
 	private const string ReferencePropertyId = "reference";
+	internal static readonly IReadOnlyDictionary<string, object?> EmptyProperties = new Dictionary<string, object?>(StringComparer.Ordinal);
 
-	private IReadOnlyDictionary<string, object?> _properties = new Dictionary<string, object?>(StringComparer.Ordinal);
+	private IReadOnlyDictionary<string, object?> _properties = EmptyProperties;
 
-	public string Name { get; }
+	public string Name { get; private set; }
 
-	public string DisplayName { get; }
+	public string DisplayName { get; private set; }
 
-	public bool IsFolder { get; }
+	public bool IsFolder { get; private set; }
 
-	public bool IsHidden { get; }
+	public bool IsHidden { get; private set; }
 
-	public StorableReference Reference { get; }
+	public StorableReference Reference { get; private set; }
 
 	[ObservableProperty]
 	public partial BitmapImage? Thumbnail { get; set; }
@@ -70,9 +72,58 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	internal void SetProperties(IReadOnlyDictionary<string, object?> value)
 	{
 		ArgumentNullException.ThrowIfNull(value);
+		if (ReferenceEquals(_properties, value))
+		{
+			return;
+		}
 
 		_properties = value;
 		OnPropertyChanged(nameof(Properties));
+	}
+
+	internal void UpdateModel(IStorableModel item, bool showFileExtensions)
+	{
+		ArgumentNullException.ThrowIfNull(item);
+
+		var nameChanged = !string.Equals(Name, item.Name, StringComparison.Ordinal);
+		var folderChanged = IsFolder != (item is IFolderModel);
+		var hiddenChanged = IsHidden != item.IsHidden;
+		var referenceChanged = !Equals(Reference, item.Reference);
+		var displayName = GetDisplayName(item.Name, item is IFolderModel, showFileExtensions);
+		var displayNameChanged = !string.Equals(DisplayName, displayName, StringComparison.Ordinal);
+		Name = item.Name;
+		DisplayName = displayName;
+		IsFolder = item is IFolderModel;
+		IsHidden = item.IsHidden;
+		Reference = item.Reference;
+		if (nameChanged)
+		{
+			OnPropertyChanged(nameof(Name));
+		}
+
+		if (displayNameChanged)
+		{
+			OnPropertyChanged(nameof(DisplayName));
+		}
+
+		if (folderChanged)
+		{
+			OnPropertyChanged(nameof(IsFolder));
+			OnPropertyChanged(nameof(Kind));
+		}
+
+		if (hiddenChanged)
+		{
+			OnPropertyChanged(nameof(IsHidden));
+			OnPropertyChanged(nameof(IconOpacity));
+			OnPropertyChanged(nameof(DefaultIconOpacity));
+		}
+
+		if (referenceChanged)
+		{
+			OnPropertyChanged(nameof(Reference));
+			OnPropertyChanged(nameof(ReferenceText));
+		}
 	}
 
 	/// <inheritdoc />

@@ -38,7 +38,6 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	private CancellationTokenSource? _propertySortCancellation;
 	private Task? _propertySortTask;
 	private long _generationCounter;
-	private long _contentVersion;
 	private long _itemsVersion;
 	private long _diagnosticNavigationStartTimestamp;
 	private bool _isDisposed;
@@ -59,9 +58,10 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	public bool Contains(StorableKey key) => Volatile.Read(ref _itemProjection).Contains(key);
 
 	/// <inheritdoc />
-	public long ItemsVersion => Volatile.Read(ref _itemsVersion);
+	public bool TryGet(StorableKey key, out IStorableModel item) => Volatile.Read(ref _itemProjection).TryGet(key, out item!);
 
-	long IBrowsePrefetchTarget.ContentVersion => Volatile.Read(ref _contentVersion);
+	/// <inheritdoc />
+	public long ItemsVersion => Volatile.Read(ref _itemsVersion);
 
 	/// <inheritdoc />
 	public BrowseSelectionState Selection => _selectionModel.State;
@@ -1038,7 +1038,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 				clearedThumbnails = _presentationStore.ClearThumbnails();
 			}
 
-			PublishItemsChanged(changes, contentChanged: false);
+			PublishItemsChanged(changes);
 			OnStateChanged();
 		}
 		finally
@@ -1060,7 +1060,6 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 	async ValueTask<bool> IBrowsePrefetchTarget.PublishPropertiesAsync(
 		long generation,
-		long expectedContentVersion,
 		IStorableModel item,
 		IReadOnlyDictionary<string, object?> properties,
 		CancellationToken cancellationToken)
@@ -1072,7 +1071,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 		try
 		{
-			if (!TryValidatePrefetchItem(generation, expectedContentVersion, item, out var key))
+			if (!TryValidatePrefetchItem(generation, item, out var key))
 			{
 				return false;
 			}
@@ -1082,7 +1081,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 			if (!string.IsNullOrWhiteSpace(ViewSettings.SortPropertyId) && properties.ContainsKey(ViewSettings.SortPropertyId))
 			{
-				SchedulePropertySort(generation, expectedContentVersion);
+				SchedulePropertySort(generation);
 			}
 		}
 		finally
@@ -1095,7 +1094,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		return true;
 	}
 
-	async ValueTask<bool> IBrowsePrefetchTarget.PublishThumbnailAsync(long generation, long expectedContentVersion, IStorableModel item, ThumbnailResult thumbnail, CancellationToken cancellationToken)
+	async ValueTask<bool> IBrowsePrefetchTarget.PublishThumbnailAsync(long generation, IStorableModel item, ThumbnailResult thumbnail, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 		ArgumentNullException.ThrowIfNull(thumbnail);
@@ -1105,7 +1104,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 		try
 		{
-			if (!TryValidatePrefetchItem(generation, expectedContentVersion, item, out var key))
+			if (!TryValidatePrefetchItem(generation, item, out var key))
 			{
 				return false;
 			}
@@ -1123,10 +1122,10 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		return true;
 	}
 
-	private bool TryValidatePrefetchItem(long generation, long expectedContentVersion, IStorableModel item, out StorableKey key)
+	private bool TryValidatePrefetchItem(long generation, IStorableModel item, out StorableKey key)
 	{
 		key = item.Reference.GetKey();
-		if (Generation != generation || Volatile.Read(ref _contentVersion) != expectedContentVersion)
+		if (Generation != generation)
 		{
 			return false;
 		}
@@ -1228,7 +1227,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		}
 	}
 
-	private void SchedulePropertySort(long generation, long contentVersion)
+	private void SchedulePropertySort(long generation)
 	{
 		CancellationTokenSource? previousCancellation;
 		CancellationTokenSource cancellation;
@@ -1237,7 +1236,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			previousCancellation = _propertySortCancellation;
 			cancellation = new CancellationTokenSource();
 			_propertySortCancellation = cancellation;
-			_propertySortTask = ApplyPropertySortAsync(generation, contentVersion, cancellation);
+			_propertySortTask = ApplyPropertySortAsync(generation, cancellation);
 		}
 
 		try
@@ -1254,7 +1253,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		}
 	}
 
-	private async Task ApplyPropertySortAsync(long generation, long contentVersion, CancellationTokenSource cancellation)
+	private async Task ApplyPropertySortAsync(long generation, CancellationTokenSource cancellation)
 	{
 		try
 		{
@@ -1262,13 +1261,13 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			await _navigationLock.WaitAsync(cancellation.Token).ConfigureAwait(false);
 			try
 			{
-				if (Volatile.Read(ref _isDisposed) || Generation != generation || Volatile.Read(ref _contentVersion) != contentVersion)
+				if (Volatile.Read(ref _isDisposed) || Generation != generation)
 				{
 					return;
 				}
 
 				var changes = Volatile.Read(ref _itemProjection).RefreshSort();
-				PublishItemsChanged(changes, contentChanged: false);
+				PublishItemsChanged(changes);
 			}
 			finally
 			{
@@ -1314,22 +1313,17 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		return task;
 	}
 
-	private void PublishItemsChanged(BrowseItemChangeSet changeSet, bool contentChanged = true)
+	private void PublishItemsChanged(BrowseItemChangeSet changeSet)
 	{
 		if (changeSet.IsEmpty)
 		{
 			return;
 		}
 
-		if (contentChanged)
-		{
-			Interlocked.Increment(ref _contentVersion);
-		}
-
 		var previousVersion = Interlocked.Read(ref _itemsVersion);
 		var version = Interlocked.Increment(ref _itemsVersion);
 		var eventStartTimestamp = Stopwatch.GetTimestamp();
-		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} contentChanged={contentChanged} items={Items.Count}");
+		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} items={Items.Count}");
 		RaiseEvent(ItemsChanged, new BrowseItemsChangedEventArgs(previousVersion, version, changeSet.Changes));
 		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged END version={version} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
 	}

@@ -31,7 +31,7 @@ public enum FolderViewMode
 	Columns,
 }
 
-public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
+public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private const int BulkNotificationThreshold = 32;
 	private const int LocationIconSize = 16;
@@ -105,12 +105,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public IReadOnlyList<BrowseItemViewModel> SelectedItems
 	{
-		get
-		{
-			var selectedKeys = SelectedKeys.ToHashSet();
-
-			return Items.Where(item => selectedKeys.Contains(item.Reference.GetKey())).ToArray();
-		}
+		get => _browseAdapter.GetItems(SelectedKeys);
 	}
 
 	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedFilePaths().Count is not 0;
@@ -367,6 +362,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 	public void Dispose()
 	{
+		_ = DisposeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
 		{
 			return;
@@ -375,8 +375,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		_browseAdapter.Updated -= BrowseAdapter_Updated;
 		Interlocked.Exchange(ref _locationIconCancellation, null)?.Cancel();
 		_lifetime.Cancel();
-		_browseAdapter.Dispose();
-		_lifetime.Dispose();
+		try
+		{
+			await _browseAdapter.DisposeAsync().ConfigureAwait(false);
+		}
+		finally
+		{
+			_lifetime.Dispose();
+		}
 	}
 
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
@@ -389,6 +395,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		_wasBusy = _browseAdapter.IsBusy;
 		_isApplyingUpdate = true;
 		var refreshItemsViewSource = false;
+		var selectionSynchronized = false;
 		try
 		{
 			if (args.Flags.HasFlag(BrowseUpdateFlags.ViewSettings))
@@ -429,7 +436,18 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 
 			if (refreshItemsViewSource)
 			{
-				RefreshItemsViewSource();
+				var deferGrouping = ViewSettings.GroupPropertyId is not null
+					&& _browseAdapter.IsLoading
+					&& args.Flags.HasFlag(BrowseUpdateFlags.Items)
+					&& !args.Flags.HasFlag(BrowseUpdateFlags.ViewSettings);
+				if (deferGrouping)
+				{
+					QueueGroupRefresh();
+				}
+				else
+				{
+					RefreshItemsViewSource();
+				}
 			}
 			else if (args.Flags.HasFlag(BrowseUpdateFlags.Presentation))
 			{
@@ -446,7 +464,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				OnPropertyChanged(nameof(DetailsColumns));
 			}
 
-			if (ShouldSynchronizeSelection(args))
+			selectionSynchronized = ShouldSynchronizeSelection(args);
+			if (selectionSynchronized)
 			{
 				OnPropertyChanged(nameof(SelectedKeys));
 			}
@@ -493,7 +512,36 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
 
-		CommandManager.RefreshStates();
+		var invalidation = CommandStateInvalidation.None;
+		if (selectionSynchronized)
+		{
+			invalidation |= CommandStateInvalidation.Selection;
+		}
+
+		if (args.Flags.HasFlag(BrowseUpdateFlags.Loading))
+		{
+			invalidation |= CommandStateInvalidation.Loading;
+		}
+
+		if (args.Flags.HasFlag(BrowseUpdateFlags.Location))
+		{
+			invalidation |= CommandStateInvalidation.Location;
+		}
+
+		if (args.Flags.HasFlag(BrowseUpdateFlags.NavigationCapabilities))
+		{
+			invalidation |= CommandStateInvalidation.Navigation;
+		}
+
+		if (args.Flags.HasFlag(BrowseUpdateFlags.ViewSettings))
+		{
+			invalidation |= CommandStateInvalidation.ViewSettings;
+		}
+
+		if (invalidation is not CommandStateInvalidation.None)
+		{
+			CommandManager.RefreshStates(invalidation);
+		}
 	}
 
 	private void SetSelectionCore(IEnumerable<BrowseItemViewModel> selectedItems)
@@ -501,13 +549,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(selectedItems);
 
 		_browseAdapter.SetSelection(selectedItems);
-		CommandManager.RefreshStates();
+		CommandManager.RefreshStates(CommandStateInvalidation.Selection);
 	}
 
 	private IReadOnlyList<string> GetSelectedFilePaths()
 	{
-		var paths = new List<string>(SelectedItems.Count);
-		foreach (var item in SelectedItems)
+		var selectedItems = SelectedItems;
+		var paths = new List<string>(selectedItems.Count);
+		foreach (var item in selectedItems)
 		{
 			if (!TryGetFileSystemPath(item.Reference, out var path))
 			{
@@ -596,7 +645,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				return;
 			}
 
-			await SetLocationIconOnUiAsync(result.Content.ToArray(), generation, cancellation).ConfigureAwait(false);
+			await SetLocationIconOnUiAsync(result.Content, generation, cancellation).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 		{
@@ -612,7 +661,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		}
 	}
 
-	private Task SetLocationIconOnUiAsync(byte[] encodedImage, long generation, CancellationTokenSource cancellation)
+	private Task SetLocationIconOnUiAsync(ReadOnlyMemory<byte> encodedImage, long generation, CancellationTokenSource cancellation)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{
@@ -639,7 +688,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		return completion.Task;
 	}
 
-	private async Task SetLocationIconAsync(byte[] encodedImage, long generation, CancellationTokenSource cancellation)
+	private async Task SetLocationIconAsync(ReadOnlyMemory<byte> encodedImage, long generation, CancellationTokenSource cancellation)
 	{
 		if (!IsCurrentLocationIcon(generation, cancellation))
 		{
@@ -698,7 +747,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 		var propertyId = ViewSettings.GroupPropertyId;
 		if (propertyId is null)
 		{
-			ItemGroups.Clear();
+			if (ItemGroups.Count is not 0)
+			{
+				ItemGroups.Clear();
+			}
 			if (ReferenceEquals(_itemsViewSource.Source, Items))
 			{
 				return;
@@ -735,7 +787,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable
 				Interlocked.Exchange(ref _groupRefreshQueued, 0);
 				if (Volatile.Read(ref _isDisposed) is 0)
 				{
-					RefreshItemsViewSource();
+					if (_browseAdapter.IsLoading)
+					{
+						QueueGroupRefresh();
+					}
+					else
+					{
+						RefreshItemsViewSource();
+					}
 				}
 			}))
 			{

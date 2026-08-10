@@ -37,6 +37,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly Dictionary<StorableKey, ThumbnailResult?> _pendingThumbnails = [];
 	private readonly Dictionary<StorableKey, IReadOnlyDictionary<string, object?>> _pendingProperties = [];
 	private readonly List<BrowseItemViewModel> _items = [];
+	private readonly Lock _itemsLock = new();
 	private readonly Dictionary<StorableKey, BrowseItemViewModel> _itemsByKey = [];
 	private PendingState? _pendingState;
 	private PendingColumns? _pendingColumns;
@@ -111,6 +112,27 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	public IReadOnlyList<BrowseItemViewModel> Items => _items;
 
 	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _detailsColumns;
+
+	internal int CreatedItemViewModelCount => Volatile.Read(ref _diagnosticItemViewModelCount);
+
+	internal IReadOnlyList<BrowseItemViewModel> GetItems(IReadOnlyList<StorableKey> keys)
+	{
+		ArgumentNullException.ThrowIfNull(keys);
+
+		lock (_itemsLock)
+		{
+			var items = new List<BrowseItemViewModel>(keys.Count);
+			foreach (var key in keys)
+			{
+				if (_itemsByKey.TryGetValue(key, out var item))
+				{
+					items.Add(item);
+				}
+			}
+
+			return items.ToArray();
+		}
+	}
 
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
@@ -494,7 +516,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	public void Dispose()
 	{
-		DisposeAsync().AsTask().GetAwaiter().GetResult();
+		_ = DisposeAsync();
 	}
 
 	public async ValueTask DisposeAsync()
@@ -1013,7 +1035,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		try
 		{
-			if (!_itemsByKey.TryGetValue(key, out var item))
+			if (!TryGetItemViewModel(key, out var item))
 			{
 				RequeueThumbnailIfCurrent(key, thumbnail);
 
@@ -1026,7 +1048,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return;
 			}
 
-			if (_itemsByKey.TryGetValue(key, out item))
+			if (TryGetItemViewModel(key, out item))
 			{
 				item.SetThumbnail(image);
 				if (image is not null)
@@ -1121,9 +1143,17 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		ScheduleDrain();
 	}
 
+	private bool TryGetItemViewModel(StorableKey key, out BrowseItemViewModel item)
+	{
+		lock (_itemsLock)
+		{
+			return _itemsByKey.TryGetValue(key, out item!);
+		}
+	}
+
 	private void ApplyProperties(StorableKey key, IReadOnlyDictionary<string, object?> properties)
 	{
-		if (!_itemsByKey.TryGetValue(key, out var item))
+		if (!TryGetItemViewModel(key, out var item))
 		{
 			if (!_pane.BrowseSession.Contains(key))
 			{
@@ -1365,97 +1395,101 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private bool TryApplyChanges(IReadOnlyList<BrowseItemViewModelChange> changes, ICollection<BrowseItemViewModelChange> appliedChanges)
 	{
-		var changeIndex = 0;
-		while (changeIndex < changes.Count)
+		lock (_itemsLock)
 		{
-			if (changes[changeIndex] is BrowseItemViewModelAdded firstAdded && firstAdded.Index >= 0 && firstAdded.Index <= _items.Count)
+			var changeIndex = 0;
+			while (changeIndex < changes.Count)
 			{
-				var addedItems = new List<BrowseItemViewModel> { firstAdded.Item };
-				var nextChangeIndex = changeIndex + 1;
-				var expectedIndex = firstAdded.Index + 1;
-				while (nextChangeIndex < changes.Count && changes[nextChangeIndex] is BrowseItemViewModelAdded nextAdded && nextAdded.Index == expectedIndex)
+				if (changes[changeIndex] is BrowseItemViewModelAdded firstAdded && firstAdded.Index >= 0 && firstAdded.Index <= _items.Count)
 				{
-					addedItems.Add(nextAdded.Item);
-					nextChangeIndex++;
-					expectedIndex++;
+					var addedItems = new List<BrowseItemViewModel> { firstAdded.Item };
+					var nextChangeIndex = changeIndex + 1;
+					var expectedIndex = firstAdded.Index + 1;
+					while (nextChangeIndex < changes.Count && changes[nextChangeIndex] is BrowseItemViewModelAdded nextAdded && nextAdded.Index == expectedIndex)
+					{
+						addedItems.Add(nextAdded.Item);
+						nextChangeIndex++;
+						expectedIndex++;
+					}
+
+					if (addedItems.Count > 1)
+					{
+						_items.InsertRange(firstAdded.Index, addedItems);
+						foreach (var addedItem in addedItems)
+						{
+							_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
+						}
+
+						for (var index = changeIndex; index < nextChangeIndex; index++)
+						{
+							appliedChanges.Add(changes[index]);
+						}
+
+						changeIndex = nextChangeIndex;
+
+						continue;
+					}
 				}
 
-				if (addedItems.Count > 1)
+				var change = changes[changeIndex];
+				switch (change)
 				{
-					_items.InsertRange(firstAdded.Index, addedItems);
-					foreach (var addedItem in addedItems)
-					{
-						_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
-					}
+					case BrowseItemViewModelsAdded addedRange
+						when addedRange.StartingIndex >= 0 && addedRange.StartingIndex <= _items.Count:
+						_items.InsertRange(addedRange.StartingIndex, addedRange.Items);
+						foreach (var addedItem in addedRange.Items)
+						{
+							_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
+						}
+						break;
+					case BrowseItemViewModelAdded added
+						when added.Index >= 0 && added.Index <= _items.Count:
+						_items.Insert(added.Index, added.Item);
+						_itemsByKey.Add(added.Item.Reference.GetKey(), added.Item);
+						break;
+					case BrowseItemViewModelRemoved removed
+						when removed.Index >= 0 && removed.Index < _items.Count:
+						var removedItem = _items[removed.Index];
+						_items.RemoveAt(removed.Index);
+						_itemsByKey.Remove(removedItem.Reference.GetKey());
+						break;
+					case BrowseItemViewModelReplaced replaced
+						when replaced.Index >= 0 && replaced.Index < _items.Count:
+						var previousItem = _items[replaced.Index];
+						_items[replaced.Index] = replaced.Item;
+						_itemsByKey.Remove(previousItem.Reference.GetKey());
+						_itemsByKey.Add(replaced.Item.Reference.GetKey(), replaced.Item);
+						break;
+					case BrowseItemViewModelMoved moved
+						when moved.PreviousIndex >= 0
+							&& moved.PreviousIndex < _items.Count
+							&& moved.CurrentIndex >= 0
+							&& moved.CurrentIndex < _items.Count:
+						var item = _items[moved.PreviousIndex];
+						_items.RemoveAt(moved.PreviousIndex);
+						_items.Insert(moved.CurrentIndex, item);
+						break;
+					case BrowseItemViewModelsReset reset:
+						_items.Clear();
+						_itemsByKey.Clear();
+						_items.AddRange(reset.Items);
+						foreach (var resetItem in reset.Items)
+						{
+							UpdateMaterializedItem(resetItem);
+							_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
+						}
+						break;
+					default:
 
-					for (var index = changeIndex; index < nextChangeIndex; index++)
-					{
-						appliedChanges.Add(changes[index]);
-					}
-
-					changeIndex = nextChangeIndex;
-
-					continue;
+						return false;
 				}
+
+				appliedChanges.Add(change);
+				changeIndex++;
 			}
 
-			var change = changes[changeIndex];
-			switch (change)
-			{
-				case BrowseItemViewModelsAdded addedRange
-					when addedRange.StartingIndex >= 0 && addedRange.StartingIndex <= _items.Count:
-					_items.InsertRange(addedRange.StartingIndex, addedRange.Items);
-					foreach (var addedItem in addedRange.Items)
-					{
-						_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
-					}
-					break;
-				case BrowseItemViewModelAdded added
-					when added.Index >= 0 && added.Index <= _items.Count:
-					_items.Insert(added.Index, added.Item);
-					_itemsByKey.Add(added.Item.Reference.GetKey(), added.Item);
-					break;
-				case BrowseItemViewModelRemoved removed
-					when removed.Index >= 0 && removed.Index < _items.Count:
-					var removedItem = _items[removed.Index];
-					_items.RemoveAt(removed.Index);
-					_itemsByKey.Remove(removedItem.Reference.GetKey());
-					break;
-				case BrowseItemViewModelReplaced replaced
-					when replaced.Index >= 0 && replaced.Index < _items.Count:
-					var previousItem = _items[replaced.Index];
-					_items[replaced.Index] = replaced.Item;
-					_itemsByKey.Remove(previousItem.Reference.GetKey());
-					_itemsByKey.Add(replaced.Item.Reference.GetKey(), replaced.Item);
-					break;
-				case BrowseItemViewModelMoved moved
-					when moved.PreviousIndex >= 0
-						&& moved.PreviousIndex < _items.Count
-						&& moved.CurrentIndex >= 0
-						&& moved.CurrentIndex < _items.Count:
-					var item = _items[moved.PreviousIndex];
-					_items.RemoveAt(moved.PreviousIndex);
-					_items.Insert(moved.CurrentIndex, item);
-					break;
-				case BrowseItemViewModelsReset reset:
-					_items.Clear();
-					_itemsByKey.Clear();
-					_items.AddRange(reset.Items);
-					foreach (var resetItem in reset.Items)
-					{
-						_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
-					}
-					break;
-				default:
-
-					return false;
-			}
-
-			appliedChanges.Add(change);
-			changeIndex++;
+			return true;
 		}
-
-		return true;
 	}
 
 	private void ResetFromCurrentSession(ICollection<BrowseItemViewModelChange> appliedChanges)
@@ -1464,12 +1498,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var resetChanges = ProjectReset(session.Items);
 		var reset = resetChanges[0] as BrowseItemViewModelsReset
 			?? throw new InvalidOperationException("A projected session reset must start with a reset change.");
-		_items.Clear();
-		_itemsByKey.Clear();
-		_items.AddRange(reset.Items);
-		foreach (var resetItem in reset.Items)
+		lock (_itemsLock)
 		{
-			_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
+			_items.Clear();
+			_itemsByKey.Clear();
+			foreach (var resetItem in reset.Items)
+			{
+				_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
+			}
 		}
 		_appliedItemsVersion = -1;
 		appliedChanges.Clear();
@@ -1509,7 +1545,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private IReadOnlyList<BrowseItemViewModelChange> ProjectReset(IReadOnlyList<IStorableModel> items)
 	{
-		var viewModels = items.Select(CreateItemViewModel).ToArray();
+		var viewModels = items.Select(GetOrCreateItemViewModel).ToArray();
 		if (viewModels.Length <= MaxItemsPerDrain)
 		{
 			return [new BrowseItemViewModelsReset(viewModels)];
@@ -1525,6 +1561,28 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		return projectedChanges;
+	}
+
+	private BrowseItemViewModel GetOrCreateItemViewModel(IStorableModel item)
+	{
+		lock (_itemsLock)
+		{
+			if (_itemsByKey.TryGetValue(item.Reference.GetKey(), out var existing))
+			{
+				return existing;
+			}
+
+			return CreateItemViewModel(item);
+		}
+	}
+
+	private void UpdateMaterializedItem(BrowseItemViewModel item)
+	{
+		if (_pane.BrowseSession.TryGet(item.Reference.GetKey(), out var model))
+		{
+			item.UpdateModel(model, _pane.BrowseSession.ViewSettings.ShowFileExtensions);
+			ApplyPresentation(item, item.Reference.GetKey());
+		}
 	}
 
 	private BrowseItemViewModelChange ProjectChange(BrowseItemChange change) =>
@@ -1546,20 +1604,38 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		{
 			UiDiagnosticLog.Write("BrowsePresentationAdapter", $"First item view model created key={item.Reference.GetKey()}");
 		}
-		if (_pane.BrowseSession.TryGetPresentation(item.Reference.GetKey(), out var presentation))
+		ApplyPresentation(viewModel, item.Reference.GetKey());
+
+		return viewModel;
+	}
+
+	private void ApplyPresentation(BrowseItemViewModel viewModel, StorableKey key)
+	{
+		if (_pane.BrowseSession.TryGetPresentation(key, out var presentation))
 		{
 			if (presentation.Properties.Count is not 0)
 			{
 				viewModel.SetProperties(presentation.Properties);
 			}
+			else
+			{
+				viewModel.SetProperties(BrowseItemViewModel.EmptyProperties);
+			}
 
 			if (presentation.Thumbnail is { } thumbnail)
 			{
-				QueuePendingThumbnail(item.Reference.GetKey(), thumbnail);
+				QueuePendingThumbnail(key, thumbnail);
+			}
+			else
+			{
+				viewModel.SetThumbnail(null);
 			}
 		}
-
-		return viewModel;
+		else
+		{
+			viewModel.SetProperties(BrowseItemViewModel.EmptyProperties);
+			viewModel.SetThumbnail(null);
+		}
 	}
 
 	private void QueuePendingThumbnail(StorableKey key, ThumbnailResult thumbnail)

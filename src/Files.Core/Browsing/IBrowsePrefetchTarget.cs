@@ -11,9 +11,7 @@ namespace Files.Core.Browsing;
 /// </summary>
 internal interface IBrowsePrefetchTarget
 {
-	long ContentVersion { get; }
+	ValueTask<bool> PublishPropertiesAsync(long generation, IStorableModel item, IReadOnlyDictionary<string, object?> properties, CancellationToken cancellationToken);
 
-	ValueTask<bool> PublishPropertiesAsync(long generation, long contentVersion, IStorableModel item, IReadOnlyDictionary<string, object?> properties, CancellationToken cancellationToken);
-
-	ValueTask<bool> PublishThumbnailAsync(long generation, long contentVersion, IStorableModel item, ThumbnailResult thumbnail, CancellationToken cancellationToken);
+	ValueTask<bool> PublishThumbnailAsync(long generation, IStorableModel item, ThumbnailResult thumbnail, CancellationToken cancellationToken);
 }
