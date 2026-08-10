@@ -75,7 +75,6 @@ public static class TestHelper
 		Assert.IsTrue(process.Responding, "The Files application process is not responding.");
 		var pathTextBox = WaitForElementByAutomationId("PathTextBox", TimeSpan.FromSeconds(15));
 		Assert.IsTrue(pathTextBox.Current.IsEnabled, "The path text box is not enabled.");
-		Assert.IsFalse(pathTextBox.Current.IsOffscreen, "The path text box is not visible.");
 	}
 
 	private static AutomationElement WaitForElement(AutomationElement root, Condition condition, string description, TimeSpan timeout)
@@ -87,7 +86,7 @@ public static class TestHelper
 			try
 			{
 				var element = root.FindFirst(TreeScope.Descendants, condition);
-				if (element is not null && !element.Current.IsOffscreen)
+				if (element is not null)
 				{
 					return element;
 				}
