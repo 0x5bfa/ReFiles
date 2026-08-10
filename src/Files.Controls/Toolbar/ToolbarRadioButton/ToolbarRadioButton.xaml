@@ -6,12 +6,9 @@
 
 	<Style BasedOn="{StaticResource DefaultToolbarRadioButtonStyle}" TargetType="local:ToolbarRadioButton" />
 
-	<Style x:Key="DefaultToolbarRadioButtonStyle" TargetType="local:ToolbarRadioButton">
-		<Setter Property="Template">
-			<Setter.Value>
-				<ControlTemplate TargetType="local:ToolbarRadioButton" />
-			</Setter.Value>
-		</Setter>
+	<Style x:Key="DefaultToolbarRadioButtonStyle" BasedOn="{StaticResource DefaultRadioButtonStyle}" TargetType="local:ToolbarRadioButton">
+		<Setter Property="MinWidth" Value="40" />
+		<Setter Property="MinHeight" Value="32" />
 	</Style>
 
 </ResourceDictionary>

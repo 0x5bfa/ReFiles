@@ -29,80 +29,120 @@
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="*" />
 			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
-		<Button
-			Grid.Column="1"
-			AutomationProperties.Name="{x:Bind ViewModel.NewLabel, Mode=OneWay}"
-			IsEnabled="{x:Bind ViewModel.CanShowNew, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.NewLabel, Mode=OneWay}">
-			<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.New.Item}" IconSize="18" />
-			<Button.Flyout>
+		<controls:Toolbar
+			Grid.Column="0"
+			HorizontalAlignment="Stretch"
+			Background="Transparent"
+			BorderBrush="Transparent"
+			BorderThickness="0"
+			CornerRadius="0"
+			Padding="0"
+			ToolbarSize="Small">
+			<controls:Toolbar.Items>
+				<controls:ToolbarItem
+					ItemType="FlyoutButton"
+					Label="{x:Bind ViewModel.NewLabel, Mode=OneWay}"
+					IsEnabled="{x:Bind ViewModel.CanShowNew, Mode=OneWay}"
+					OverflowBehavior="Never"
+					ThemedIcon="{StaticResource App.ThemedIcons.New.Item}">
+					<controls:ToolbarItem.Flyout>
 				<MenuFlyout
 					x:Name="NewMenuFlyout"
 					Opening="NewMenuFlyout_Opening"
 					Placement="Bottom" />
-			</Button.Flyout>
-		</Button>
-		<Button
-			Grid.Column="2"
-			AutomationProperties.Name="{x:Bind ViewModel.CopyCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.CopyCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.CopyCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.CopyCommand.ToolTip, Mode=OneWay}">
-			<controls:ThemedIcon Data="{x:Bind ViewModel.CopyCommand.IconData, Mode=OneWay}" IconSize="18" />
-			<Button.KeyboardAccelerators>
-				<KeyboardAccelerator Key="C" Modifiers="Control" />
-			</Button.KeyboardAccelerators>
-		</Button>
-		<Button
-			Grid.Column="3"
-			AutomationProperties.Name="{x:Bind ViewModel.CutCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.CutCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.CutCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.CutCommand.ToolTip, Mode=OneWay}">
-			<controls:ThemedIcon Data="{x:Bind ViewModel.CutCommand.IconData, Mode=OneWay}" IconSize="18" />
-			<Button.KeyboardAccelerators>
-				<KeyboardAccelerator Key="X" Modifiers="Control" />
-			</Button.KeyboardAccelerators>
-		</Button>
-		<Button
-			Grid.Column="4"
-			AutomationProperties.Name="{x:Bind ViewModel.PasteCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.PasteCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.PasteCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.PasteCommand.ToolTip, Mode=OneWay}">
-			<controls:ThemedIcon Data="{x:Bind ViewModel.PasteCommand.IconData, Mode=OneWay}" IconSize="18" />
-			<Button.KeyboardAccelerators>
-				<KeyboardAccelerator Key="V" Modifiers="Control" />
-			</Button.KeyboardAccelerators>
-		</Button>
-		<Button
-			Grid.Column="5"
-			AutomationProperties.Name="{x:Bind ViewModel.DeleteCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.DeleteCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.DeleteCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.DeleteCommand.ToolTip, Mode=OneWay}">
-			<controls:ThemedIcon Data="{x:Bind ViewModel.DeleteCommand.IconData, Mode=OneWay}" IconSize="18" />
-			<Button.KeyboardAccelerators>
-				<KeyboardAccelerator Key="Delete" />
-			</Button.KeyboardAccelerators>
-		</Button>
-		<Button
-			Grid.Column="6"
-			AutomationProperties.Name="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
-			IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.SortLabel, Mode=OneWay}">
-			<FontIcon FontSize="18" Glyph="&#xE8CB;" />
-			<Button.Flyout>
+					</controls:ToolbarItem.Flyout>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					ItemType="Button"
+					Label="{x:Bind ViewModel.CopyCommand.Label, Mode=OneWay}"
+					Command="{x:Bind ViewModel.CopyCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.CopyCommand.IsEnabled, Mode=OneWay}"
+					KeyboardAcceleratorTextOverride="Ctrl+C"
+					ThemedIcon="{x:Bind ViewModel.CopyCommand.IconData, Mode=OneWay}">
+					<controls:ToolbarItem.KeyboardAccelerators>
+						<KeyboardAccelerator Key="C" Modifiers="Control" />
+					</controls:ToolbarItem.KeyboardAccelerators>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					ItemType="Button"
+					Label="{x:Bind ViewModel.CutCommand.Label, Mode=OneWay}"
+					Command="{x:Bind ViewModel.CutCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.CutCommand.IsEnabled, Mode=OneWay}"
+					KeyboardAcceleratorTextOverride="Ctrl+X"
+					ThemedIcon="{x:Bind ViewModel.CutCommand.IconData, Mode=OneWay}">
+					<controls:ToolbarItem.KeyboardAccelerators>
+						<KeyboardAccelerator Key="X" Modifiers="Control" />
+					</controls:ToolbarItem.KeyboardAccelerators>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					ItemType="Button"
+					Label="{x:Bind ViewModel.PasteCommand.Label, Mode=OneWay}"
+					Command="{x:Bind ViewModel.PasteCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.PasteCommand.IsEnabled, Mode=OneWay}"
+					KeyboardAcceleratorTextOverride="Ctrl+V"
+					ThemedIcon="{x:Bind ViewModel.PasteCommand.IconData, Mode=OneWay}">
+					<controls:ToolbarItem.KeyboardAccelerators>
+						<KeyboardAccelerator Key="V" Modifiers="Control" />
+					</controls:ToolbarItem.KeyboardAccelerators>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					ItemType="Button"
+					Label="{x:Bind ViewModel.DeleteCommand.Label, Mode=OneWay}"
+					Command="{x:Bind ViewModel.DeleteCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.DeleteCommand.IsEnabled, Mode=OneWay}"
+					KeyboardAcceleratorTextOverride="Delete"
+					ThemedIcon="{x:Bind ViewModel.DeleteCommand.IconData, Mode=OneWay}">
+					<controls:ToolbarItem.KeyboardAccelerators>
+						<KeyboardAccelerator Key="Delete" />
+					</controls:ToolbarItem.KeyboardAccelerators>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					ItemType="Button"
+					Label="{x:Bind ViewModel.NewPaneCommand.Label, Mode=OneWay}"
+					Command="{x:Bind ViewModel.NewPaneCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}">
+					<controls:ToolbarItem.Content>
+						<SymbolIcon Symbol="Add" />
+					</controls:ToolbarItem.Content>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					ItemType="Button"
+					Label="{x:Bind ViewModel.ClosePaneCommand.Label, Mode=OneWay}"
+					Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}">
+					<controls:ToolbarItem.Content>
+						<SymbolIcon Symbol="Cancel" />
+					</controls:ToolbarItem.Content>
+				</controls:ToolbarItem>
+			</controls:Toolbar.Items>
+			<controls:Toolbar.ItemTemplate>
+				<DataTemplate x:DataType="controls:IToolbarItemSet">
+					<ContentPresenter Content="{x:Bind}" />
+				</DataTemplate>
+			</controls:Toolbar.ItemTemplate>
+		</controls:Toolbar>
+
+		<controls:Toolbar
+			Grid.Column="1"
+			HorizontalAlignment="Right"
+			Background="Transparent"
+			BorderBrush="Transparent"
+			BorderThickness="0"
+			CornerRadius="0"
+			Padding="0"
+			ToolbarSize="Small">
+			<controls:Toolbar.Items>
+				<controls:ToolbarItem
+					ItemType="FlyoutButton"
+					Label="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
+					IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
+					OverflowBehavior="Never">
+					<controls:ToolbarItem.Content>
+						<FontIcon FontSize="18" Glyph="&#xE8CB;" />
+					</controls:ToolbarItem.Content>
+					<controls:ToolbarItem.Flyout>
 				<MenuFlyout Placement="Bottom">
 					<MenuFlyoutSubItem Text="{x:Bind ViewModel.SortByLabel, Mode=OneWay}">
 						<ToggleMenuFlyoutItem
@@ -186,15 +226,15 @@
 							Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
 					</MenuFlyoutSubItem>
 				</MenuFlyout>
-			</Button.Flyout>
-		</Button>
-		<Button
-			Grid.Column="7"
-			AutomationProperties.Name="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
-			IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}">
-			<controls:ThemedIcon Data="{x:Bind ViewModel.LayoutIconData, Mode=OneWay}" IconSize="18" />
-			<Button.Flyout>
+			</controls:ToolbarItem.Flyout>
+			</controls:ToolbarItem>
+			<controls:ToolbarItem
+				ItemType="FlyoutButton"
+				Label="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
+				IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
+				OverflowBehavior="Never"
+				ThemedIcon="{x:Bind ViewModel.LayoutIconData, Mode=OneWay}">
+				<controls:ToolbarItem.Flyout>
 				<Flyout x:Name="LayoutFlyout" Placement="Bottom">
 					<StackPanel Spacing="12">
 						<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}" />
@@ -369,23 +409,14 @@
 							Toggled="ShowFileExtensionsToggleSwitch_Toggled" />
 					</StackPanel>
 				</Flyout>
-			</Button.Flyout>
-		</Button>
-		<Button
-			Grid.Column="8"
-			AutomationProperties.Name="{x:Bind ViewModel.NewPaneCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.NewPaneCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.NewPaneCommand.ToolTip, Mode=OneWay}">
-			<SymbolIcon Symbol="Add" />
-		</Button>
-		<Button
-			Grid.Column="9"
-			AutomationProperties.Name="{x:Bind ViewModel.ClosePaneCommand.AutomationName, Mode=OneWay}"
-			Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
-			IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}"
-			ToolTipService.ToolTip="{x:Bind ViewModel.ClosePaneCommand.ToolTip, Mode=OneWay}">
-			<SymbolIcon Symbol="Cancel" />
-		</Button>
+				</controls:ToolbarItem.Flyout>
+			</controls:ToolbarItem>
+			</controls:Toolbar.Items>
+			<controls:Toolbar.ItemTemplate>
+				<DataTemplate x:DataType="controls:IToolbarItemSet">
+					<ContentPresenter Content="{x:Bind}" />
+				</DataTemplate>
+			</controls:Toolbar.ItemTemplate>
+		</controls:Toolbar>
 	</Grid>
 </UserControl>

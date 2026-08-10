@@ -6,12 +6,9 @@
 
 	<Style BasedOn="{StaticResource DefaultToolbarSplitButtonStyle}" TargetType="local:ToolbarSplitButton" />
 
-	<Style x:Key="DefaultToolbarSplitButtonStyle" TargetType="local:ToolbarSplitButton">
-		<Setter Property="Template">
-			<Setter.Value>
-				<ControlTemplate TargetType="local:ToolbarSplitButton" />
-			</Setter.Value>
-		</Setter>
+	<Style x:Key="DefaultToolbarSplitButtonStyle" BasedOn="{StaticResource SplitButtonStyle}" TargetType="local:ToolbarSplitButton">
+		<Setter Property="MinWidth" Value="40" />
+		<Setter Property="MinHeight" Value="32" />
 	</Style>
 
 </ResourceDictionary>

@@ -1,10 +1,13 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 namespace Files.Controls
 {
 	// TemplateParts
 	[TemplatePart(Name = ToolbarItemsRepeaterPartName, Type = typeof(ItemsRepeater))]
+	[TemplatePart(Name = OverflowStackPanelPartName, Type = typeof(StackPanel))]
+	[TemplatePart(Name = OverflowButtonPartName, Type = typeof(ToolbarButton))]
+	[TemplatePart(Name = OverflowFlyoutPartName, Type = typeof(MenuFlyout))]
 
 	// VisualStates
 	[TemplateVisualState(Name = OverflowOnStateName, GroupName = CommonStatesGroupName)]
@@ -13,6 +16,9 @@ namespace Files.Controls
 	{
 		// TemplatePart Names
 		internal const string ToolbarItemsRepeaterPartName = "PART_ItemsRepeater";
+		internal const string OverflowStackPanelPartName = "PART_OverflowStackPanel";
+		internal const string OverflowButtonPartName = "PART_OverflowButton";
+		internal const string OverflowFlyoutPartName = "PART_OverflowFlyout";
 
 		// VisualState Group Names
 		internal const string CommonStatesGroupName = "OverflowStates";

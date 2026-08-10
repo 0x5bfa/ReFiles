@@ -34,7 +34,6 @@
 								<ColumnDefinition x:Name="OverflowColumn" Width="Auto" />
 							</Grid.ColumnDefinitions>
 
-							<!--  Stack Panel is a placeholder to be replaced with the ItemsRepeater  -->
 							<ItemsRepeater
 								x:Name="PART_ItemsRepeater"
 								Grid.Column="0"
@@ -50,20 +49,27 @@
 							</ItemsRepeater>
 
 							<StackPanel
-								x:Name="OverflowStackPanel"
+								x:Name="PART_OverflowStackPanel"
 								Grid.Column="1"
 								Orientation="Horizontal"
 								Spacing="{ThemeResource ToolbarItemSpacing}"
-								Visibility="Visible">
+								Visibility="Collapsed">
 
 								<local:ToolbarSeparator />
 
 								<local:ToolbarButton
+									x:Name="PART_OverflowButton"
 									MinWidth="40"
 									MinHeight="32"
 									IconSize="16"
-									Label="Overflow Button"
-									ThemedIcon="{StaticResource App.ThemedIcons.More}" />
+									Label="{TemplateBinding OverflowButtonLabel}"
+									AutomationProperties.Name="{TemplateBinding OverflowButtonLabel}"
+									Visibility="Collapsed"
+									ThemedIcon="{StaticResource App.ThemedIcons.More}">
+									<local:ToolbarButton.Flyout>
+										<MenuFlyout x:Name="PART_OverflowFlyout" />
+									</local:ToolbarButton.Flyout>
+								</local:ToolbarButton>
 
 							</StackPanel>
 						</Grid>

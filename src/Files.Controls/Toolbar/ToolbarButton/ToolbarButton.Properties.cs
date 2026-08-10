@@ -1,116 +1,28 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
+using CommunityToolkit.WinUI;
+
 namespace Files.Controls
 {
-	public partial class ToolbarButton : Button, IToolbarItemSet
+	public partial class ToolbarButton
 	{
-		#region Label (string)
+		/// <summary>
+		/// Gets or sets the text displayed by the button.
+		/// </summary>
+		[GeneratedDependencyProperty(DefaultValue = "")]
+		public partial string Label { get; set; }
 
 		/// <summary>
-		/// The backing <see cref="DependencyProperty"/> for the <see cref="Label"/> property.
+		/// Gets or sets the themed icon displayed by the button.
 		/// </summary>
-		public static readonly DependencyProperty LabelProperty =
-			DependencyProperty.Register(nameof(Label), typeof(string), typeof(ToolbarButton),
-				new PropertyMetadata(string.Empty, (d, e) => ((ToolbarButton)d).OnLabelPropertyChanged((string)e.OldValue, (string)e.NewValue)));
-
-
+		[GeneratedDependencyProperty]
+		public partial ThemedIconData? ThemedIcon { get; set; }
 
 		/// <summary>
-		/// Gets or sets the Label as a String
+		/// Gets or sets the rendered icon size.
 		/// </summary>
-		public string Label
-		{
-			get => (string)GetValue(LabelProperty);
-			set => SetValue(LabelProperty, value);
-		}
-
-
-
-		protected virtual void OnLabelPropertyChanged(string oldValue, string newValue)
-		{
-			if (oldValue != newValue)
-			{
-				LabelChanged(newValue);
-			}
-		}
-
-		#endregion
-
-		#region ThemedIcon (ThemedIconData)
-
-		/// <summary>
-		/// The backing <see cref="DependencyProperty"/> for the <see cref="ThemedIcon"/> property.
-		/// </summary>
-		public static readonly DependencyProperty ThemedIconProperty =
-			DependencyProperty.Register(
-				nameof(ThemedIcon), typeof(ThemedIconData), typeof(ToolbarButton),
-				new PropertyMetadata(null, (d, e) => ((ToolbarButton)d).OnThemedIconPropertyChanged((ThemedIconData)e.OldValue, (ThemedIconData)e.NewValue)));
-
-
-
-		/// <summary>
-		/// Gets or sets the data displayed by the item's ThemedIcon.
-		/// </summary>
-		public ThemedIconData ThemedIcon
-		{
-			get => (ThemedIconData)GetValue(ThemedIconProperty);
-			set => SetValue(ThemedIconProperty, value);
-		}
-
-
-
-		protected virtual void OnThemedIconPropertyChanged(ThemedIconData oldValue, ThemedIconData newValue)
-		{
-			if (newValue != oldValue)
-			{
-				ThemedIconChanged(newValue);
-			}
-		}
-
-		#endregion
-
-		#region IconSize (double)
-
-		public static readonly DependencyProperty IconSizeProperty =
-			DependencyProperty.Register(nameof(IconSize), typeof(double), typeof(ToolbarButton),
-				new PropertyMetadata((double)16, (d, e) => ((ToolbarButton)d).OnIconSizePropertyChanged((double)e.OldValue, (double)e.NewValue)));
-
-
-
-		/// <summary>
-		/// Gets or sets a value indicating the Icon's design size.
-		/// </summary>
-		public double IconSize
-		{
-			get => (double)GetValue(IconSizeProperty);
-			set => SetValue(IconSizeProperty, value);
-		}
-
-
-
-		protected virtual void OnIconSizePropertyChanged(double oldValue, double newValue)
-		{
-			if (newValue != oldValue)
-			{
-				IconSizeChanged(newValue);
-			}
-		}
-
-		#endregion
-
-		#region ButtonBase Events
-
-		/// <inheritdoc/>
-		protected override void OnContentChanged(object oldContent, object newContent)
-		{
-			if (newContent != oldContent)
-			{
-				ContentChanged(newContent);
-				base.OnContentChanged(oldContent, newContent);
-			}
-		}
-
-		#endregion
+		[GeneratedDependencyProperty(DefaultValue = 16d)]
+		public partial double IconSize { get; set; }
 	}
 }
