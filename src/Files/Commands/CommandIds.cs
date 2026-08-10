@@ -68,6 +68,12 @@ public static class CommandIds
 	public static readonly CommandId ClosePane =
 		new("files.pane.close");
 
+	public static readonly CommandId SplitPaneVertical =
+		new("files.pane.split-vertical");
+
+	public static readonly CommandId SplitPaneHorizontal =
+		new("files.pane.split-horizontal");
+
 	public static readonly CommandId LayoutDetails =
 		new("files.layout.details");
 

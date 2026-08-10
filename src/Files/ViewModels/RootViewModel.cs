@@ -89,6 +89,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel ClosePaneCommand => _commandManager.GetBinding(CommandIds.ClosePane);
 
+	public CommandBindingViewModel SplitPaneVerticalCommand => _commandManager.GetBinding(CommandIds.SplitPaneVertical);
+
+	public CommandBindingViewModel SplitPaneHorizontalCommand => _commandManager.GetBinding(CommandIds.SplitPaneHorizontal);
+
 	public CommandBindingViewModel LayoutDetailsCommand => _commandManager.GetBinding(CommandIds.LayoutDetails);
 
 	public CommandBindingViewModel LayoutListCommand => _commandManager.GetBinding(CommandIds.LayoutList);
@@ -140,9 +144,30 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 		HomeNavigationItem = NavigationItemViewModel.CreateHome(Strings.Home.GetLocalized());
 		NavigationItems.Add(HomeNavigationItem);
 		_commandManager = presentationFactory.CreateCommandManager(this);
-		TabStrip = new(Tabs, NewTabCommand, CloseTabCommand, SetActiveTabAt);
+		TabStrip = new(
+			Tabs,
+			NewTabCommand,
+			CloseTabCommand,
+			NewPaneCommand,
+			ClosePaneCommand,
+			SplitPaneVerticalCommand,
+			SplitPaneHorizontalCommand,
+			SetActiveTabAt);
 		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
-		Toolbar = new(NewPaneCommand, ClosePaneCommand, CopyCommand, CutCommand, PasteCommand, DeleteCommand, SortItemsCommand, GroupItemsCommand, ShowHiddenItemsCommand, ShowFileExtensionsCommand, LayoutDetailsCommand, LayoutListCommand, LayoutCardsCommand, LayoutGridCommand, LayoutColumnsCommand);
+		Toolbar = new(
+			CopyCommand,
+			CutCommand,
+			PasteCommand,
+			DeleteCommand,
+			SortItemsCommand,
+			GroupItemsCommand,
+			ShowHiddenItemsCommand,
+			ShowFileExtensionsCommand,
+			LayoutDetailsCommand,
+			LayoutListCommand,
+			LayoutCardsCommand,
+			LayoutGridCommand,
+			LayoutColumnsCommand);
 
 		window.TabsChanged += Window_StateChanged;
 		window.ActiveTabChanged += Window_StateChanged;
@@ -613,8 +638,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	private void TabViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		switch (e.PropertyName)
-		{
+			switch (e.PropertyName)
+			{
 			case nameof(TabViewModel.StatusText):
 				OnPropertyChanged(nameof(StatusText));
 				break;
@@ -626,6 +651,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 				_commandManager.RefreshStates();
 				break;
 			case nameof(TabViewModel.CanClosePane):
+			case nameof(TabViewModel.CanOpenPane):
+			case nameof(TabViewModel.SplitOrientation):
 			case nameof(TabViewModel.IsLoading):
 			case nameof(TabViewModel.CanGoBack):
 			case nameof(TabViewModel.CanGoForward):

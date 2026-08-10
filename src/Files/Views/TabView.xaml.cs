@@ -19,6 +19,7 @@ public sealed partial class TabView : UserControl, IDisposable
 {
 	private Window? _window;
 	private AppWindow? _appWindow;
+	private ContentPresenter? _leftContentPresenter;
 	private TabViewListView? _tabViewListView;
 	private ContentPresenter? _rightContentPresenter;
 	private XamlRoot? _xamlRoot;
@@ -32,6 +33,8 @@ public sealed partial class TabView : UserControl, IDisposable
 		get => (TabStripViewModel?)GetValue(ViewModelProperty);
 		set => SetValue(ViewModelProperty, value);
 	}
+
+	public event EventHandler? NewWindowRequested;
 
 	public TabView()
 	{
@@ -93,6 +96,11 @@ public sealed partial class TabView : UserControl, IDisposable
 		{
 			_rightContentPresenter.SizeChanged -= TitleBarElement_SizeChanged;
 		}
+
+		if (_leftContentPresenter is not null)
+		{
+			_leftContentPresenter.SizeChanged -= TitleBarElement_SizeChanged;
+		}
 	}
 
 	private void NativeTabView_SelectionChanged(object sender, SelectionChangedEventArgs args)
@@ -101,6 +109,22 @@ public sealed partial class TabView : UserControl, IDisposable
 		{
 			viewModel.SetActiveTabAt(tabView.SelectedIndex);
 		}
+	}
+
+	private void NewWindowMenuItem_Click(object sender, RoutedEventArgs e) =>
+		NewWindowRequested?.Invoke(this, EventArgs.Empty);
+
+	private void CompactOverlayMenuItem_Click(object sender, RoutedEventArgs e)
+	{
+		if (_appWindow is null)
+		{
+			return;
+		}
+
+		_appWindow.SetPresenter(_appWindow.Presenter.Kind is AppWindowPresenterKind.CompactOverlay
+			? AppWindowPresenterKind.Overlapped
+			: AppWindowPresenterKind.CompactOverlay);
+		UpdateCompactOverlayMenu();
 	}
 
 	private async void NativeTabView_TabCloseRequested(NativeTabView sender, TabViewTabCloseRequestedEventArgs args)
@@ -116,11 +140,14 @@ public sealed partial class TabView : UserControl, IDisposable
 	private void TabView_Loaded(object sender, RoutedEventArgs args)
 	{
 		EnsureTitleBarElements();
+		UpdateCompactOverlayMenu();
 		UpdateTitleBarDragRegion();
 	}
 
 	private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
 	{
+		UpdateCompactOverlayMenu();
+
 		if (DispatcherQueue.HasThreadAccess)
 		{
 			UpdateTitleBarDragRegion();
@@ -135,11 +162,29 @@ public sealed partial class TabView : UserControl, IDisposable
 
 	private void TitleBarElement_SizeChanged(object sender, SizeChangedEventArgs args) => UpdateTitleBarDragRegion();
 
+	private void UpdateCompactOverlayMenu()
+	{
+		if (_appWindow is null || ViewModel is null)
+		{
+			return;
+		}
+
+		CompactOverlayMenuItem.Text = _appWindow.Presenter.Kind is AppWindowPresenterKind.CompactOverlay
+			? ViewModel.ExitCompactOverlayLabel
+			: ViewModel.EnterCompactOverlayLabel;
+	}
+
 	private void EnsureTitleBarElements()
 	{
-		if (_tabViewListView is null || _rightContentPresenter is null)
+		if (_leftContentPresenter is null || _tabViewListView is null || _rightContentPresenter is null)
 		{
 			NativeTabView.ApplyTemplate();
+		}
+
+		if (_leftContentPresenter is null && NativeTabView.FindDescendant<ContentPresenter>(static presenter => presenter.Name is "LeftContentPresenter") is { } leftContentPresenter)
+		{
+			_leftContentPresenter = leftContentPresenter;
+			_leftContentPresenter.SizeChanged += TitleBarElement_SizeChanged;
 		}
 
 		if (_tabViewListView is null && NativeTabView.FindDescendant<TabViewListView>() is { } tabViewListView)
@@ -201,20 +246,23 @@ public sealed partial class TabView : UserControl, IDisposable
 
 	private int SetTitleBarDragRegion(InputNonClientPointerSource source, double scaleFactor)
 	{
-		if (_tabViewListView is null || _rightContentPresenter is null || ActualHeight <= 0)
+		if (_leftContentPresenter is null || _tabViewListView is null || _rightContentPresenter is null || ActualHeight <= 0)
 		{
 			return -1;
 		}
 
+		var leftContentRect = GetScaledRect(_leftContentPresenter);
 		var tabListRect = GetScaledRect(_tabViewListView);
 		var rightContentRect = GetScaledRect(_rightContentPresenter);
 		var padding = _tabViewListView.Padding;
-		var passthroughLeft = tabListRect.X + ScaleLength(padding.Left, scaleFactor);
-		var passthroughTop = tabListRect.Y + ScaleLength(padding.Top, scaleFactor);
+		var tabListLeft = tabListRect.X + ScaleLength(padding.Left, scaleFactor);
+		var tabListTop = tabListRect.Y + ScaleLength(padding.Top, scaleFactor);
 		var tabListRight = tabListRect.X + tabListRect.Width - ScaleLength(padding.Right, scaleFactor);
 		var rightContentRight = rightContentRect.X + Math.Min(rightContentRect.Width, ScaleLength(TabBarAddNewTabButton.ActualWidth, scaleFactor));
+		var passthroughLeft = Math.Min(leftContentRect.X, tabListLeft);
+		var passthroughTop = Math.Min(leftContentRect.Y, tabListTop);
 		var passthroughRight = Math.Max(tabListRight, rightContentRight);
-		var passthroughBottom = tabListRect.Y + tabListRect.Height - ScaleLength(padding.Bottom, scaleFactor);
+		var passthroughBottom = Math.Max(leftContentRect.Y + leftContentRect.Height, tabListRect.Y + tabListRect.Height - ScaleLength(padding.Bottom, scaleFactor));
 		var passthroughWidth = Math.Max(0, passthroughRight - passthroughLeft);
 		var passthroughHeight = Math.Max(0, passthroughBottom - passthroughTop);
 		if (passthroughWidth > 0 && passthroughHeight > 0)

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Sessions;
+using Files.ViewModels;
 
 namespace Files.Commands.Handlers;
 
@@ -15,9 +16,14 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 	public CommandState GetState(CommandContext context)
 	{
 		var tab = context.ActiveTab;
-		var isEnabled = id == CommandIds.NewPane
-			? tab is not null
-			: tab?.CanClosePane is true;
+		var isEnabled = id switch
+		{
+			var commandId when commandId == CommandIds.NewPane => tab?.CanOpenPane is true,
+			var commandId when commandId == CommandIds.ClosePane => tab?.CanClosePane is true,
+			var commandId when commandId == CommandIds.SplitPaneVertical => tab?.CanSplitPane(PaneSplitOrientation.Vertical) is true,
+			var commandId when commandId == CommandIds.SplitPaneHorizontal => tab?.CanSplitPane(PaneSplitOrientation.Horizontal) is true,
+			_ => false,
+		};
 
 		return new(true, isEnabled);
 	}
@@ -38,6 +44,12 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 					: PaneSplitOrientation.Horizontal;
 				await tab.OpenPaneAsync(orientation, cancellationToken).ConfigureAwait(false);
 				break;
+			case var commandId when commandId == CommandIds.SplitPaneVertical:
+				await SplitPaneAsync(tab, PaneSplitOrientation.Vertical, cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.SplitPaneHorizontal:
+				await SplitPaneAsync(tab, PaneSplitOrientation.Horizontal, cancellationToken).ConfigureAwait(false);
+				break;
 			case var commandId when commandId == CommandIds.ClosePane:
 				await tab.CloseActivePaneAsync(cancellationToken)
 					.ConfigureAwait(false);
@@ -47,5 +59,17 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 		}
 
 		return CommandExecutionResult.Succeeded();
+	}
+
+	private static async Task SplitPaneAsync(TabViewModel tab, PaneSplitOrientation orientation, CancellationToken cancellationToken)
+	{
+		if (tab.Panes.Count is 2)
+		{
+			tab.SetSplitOrientation(orientation);
+
+			return;
+		}
+
+		await tab.OpenPaneAsync(orientation, cancellationToken).ConfigureAwait(false);
 	}
 }

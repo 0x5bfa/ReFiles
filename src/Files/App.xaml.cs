@@ -5,6 +5,7 @@ using Files.Views;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Core.Composition;
+using Files.Core.Sessions;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
 
@@ -13,8 +14,9 @@ namespace Files;
 public partial class App : Application
 {
 	private FilesCoreRuntime? _runtime;
-	private MainWindow? _mainWindow;
+	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
+	private readonly Lock _windowsLock = new();
 	private readonly Lock _shutdownLock = new();
 	private Task? _shutdownTask;
 
@@ -48,18 +50,75 @@ public partial class App : Application
 		_runtime = currentRuntime;
 		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
-		var coreWindow = await currentRuntime.ShellSession
-			.CreateWindowAsync()
-			.ConfigureAwait(true);
-		UiDiagnosticLog.Write("App", $"Core window created elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		await CreateWindowAsync().ConfigureAwait(true);
+		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+	}
+
+	private async Task CreateWindowAsync()
+	{
+		if (_runtime is not { } runtime)
+		{
+			throw new InvalidOperationException("The Files runtime is not available.");
+		}
+
+		var coreWindow = await runtime.ShellSession.CreateWindowAsync().ConfigureAwait(true);
+		UiDiagnosticLog.Write("App", "Core window created");
 		if (coreWindow.ActiveTab?.ActivePane is null)
 		{
+			await runtime.ShellSession.CloseWindowAsync(coreWindow.Id).ConfigureAwait(true);
+
 			throw new InvalidOperationException("Files.Core did not create an active pane.");
 		}
 
-		_mainWindow = new MainWindow(coreWindow, currentRuntime.Workspace, currentRuntime.StorageOperations, _commandRegistry, () => currentRuntime.ShellSession.SetActiveWindow(coreWindow.Id), ShutdownAsync);
-		_mainWindow.Activate();
-		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		MainWindow? mainWindow = null;
+		try
+		{
+			mainWindow = new MainWindow(
+				coreWindow,
+				runtime.Workspace,
+				runtime.StorageOperations,
+				_commandRegistry,
+				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),
+				() => CloseWindowAsync(coreWindow.Id, mainWindow),
+				CreateWindowAsync);
+			lock (_windowsLock)
+			{
+				_mainWindows.Add(mainWindow);
+			}
+
+			mainWindow.Activate();
+		}
+		catch
+		{
+			await runtime.ShellSession.CloseWindowAsync(coreWindow.Id).ConfigureAwait(true);
+
+			throw;
+		}
+	}
+
+	private async Task CloseWindowAsync(Guid windowId, MainWindow? mainWindow)
+	{
+		if (_runtime is not { } runtime)
+		{
+			return;
+		}
+
+		bool closeRuntime;
+		lock (_windowsLock)
+		{
+			if (mainWindow is not null)
+			{
+				_mainWindows.Remove(mainWindow);
+			}
+
+			closeRuntime = _mainWindows.Count is 0;
+		}
+
+		await runtime.ShellSession.CloseWindowAsync(windowId).ConfigureAwait(true);
+		if (closeRuntime)
+		{
+			await ShutdownAsync().ConfigureAwait(true);
+		}
 	}
 
 	private Task ShutdownAsync()
@@ -72,7 +131,10 @@ public partial class App : Application
 
 	private async Task ShutdownCoreAsync()
 	{
-		_mainWindow = null;
+		lock (_windowsLock)
+		{
+			_mainWindows.Clear();
+		}
 
 		if (Interlocked.Exchange(ref _runtime, null) is { } currentRuntime)
 		{

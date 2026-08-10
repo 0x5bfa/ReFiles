@@ -75,5 +75,11 @@ public static class AppCommandRegistration
 	{
 		builder.Register(new(CommandIds.NewPane, Strings.NewPane, "Pane.New", Strings.Panes, 10), static _ => new PaneCommandHandler(CommandIds.NewPane));
 		builder.Register(new(CommandIds.ClosePane, Strings.ClosePane, "Pane.Close", Strings.Panes, 20), static _ => new PaneCommandHandler(CommandIds.ClosePane));
+		builder.Register(
+			new(CommandIds.SplitPaneVertical, Strings.SplitVertically, "App.ThemedIcons.Panes.Vertical", Strings.Panes, 30),
+			static _ => new PaneCommandHandler(CommandIds.SplitPaneVertical));
+		builder.Register(
+			new(CommandIds.SplitPaneHorizontal, Strings.SplitHorizontally, "App.ThemedIcons.Panes.Horizontal", Strings.Panes, 40),
+			static _ => new PaneCommandHandler(CommandIds.SplitPaneHorizontal));
 	}
 }

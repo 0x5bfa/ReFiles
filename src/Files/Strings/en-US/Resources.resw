@@ -16,6 +16,12 @@
 	<data name="ReopenTab" xml:space="preserve"><value>Reopen tab</value></data>
 	<data name="NewPane" xml:space="preserve"><value>New pane</value></data>
 	<data name="ClosePane" xml:space="preserve"><value>Close pane</value></data>
+	<data name="NewWindow" xml:space="preserve"><value>New window</value></data>
+	<data name="EnterCompactOverlay" xml:space="preserve"><value>Enter compact overlay</value></data>
+	<data name="ExitCompactOverlay" xml:space="preserve"><value>Exit compact overlay</value></data>
+	<data name="SplitPane" xml:space="preserve"><value>Split pane</value></data>
+	<data name="SplitVertically" xml:space="preserve"><value>Split vertically</value></data>
+	<data name="SplitHorizontally" xml:space="preserve"><value>Split horizontally</value></data>
 	<data name="NoPane" xml:space="preserve"><value>No pane</value></data>
 	<data name="OperationCanceled" xml:space="preserve"><value>The operation was canceled.</value></data>
 	<data name="Folder" xml:space="preserve"><value>Folder</value></data>

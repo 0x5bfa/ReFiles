@@ -17,10 +17,6 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	private CancellationTokenSource? _layoutSizeCancellation;
 	private int _isDisposed;
 
-	public CommandBindingViewModel NewPaneCommand { get; }
-
-	public CommandBindingViewModel ClosePaneCommand { get; }
-
 	public CommandBindingViewModel CopyCommand { get; }
 
 	public CommandBindingViewModel CutCommand { get; }
@@ -127,8 +123,6 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	public bool IsGroupDescending => _activeFolderBrowser?.ViewSettings.GroupDirection is ViewSortDirection.Descending;
 
 	internal ToolbarViewModel(
-		CommandBindingViewModel newPaneCommand,
-		CommandBindingViewModel closePaneCommand,
 		CommandBindingViewModel copyCommand,
 		CommandBindingViewModel cutCommand,
 		CommandBindingViewModel pasteCommand,
@@ -143,8 +137,6 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel layoutGridCommand,
 		CommandBindingViewModel layoutColumnsCommand)
 	{
-		ArgumentNullException.ThrowIfNull(newPaneCommand);
-		ArgumentNullException.ThrowIfNull(closePaneCommand);
 		ArgumentNullException.ThrowIfNull(copyCommand);
 		ArgumentNullException.ThrowIfNull(cutCommand);
 		ArgumentNullException.ThrowIfNull(pasteCommand);
@@ -159,8 +151,6 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(layoutGridCommand);
 		ArgumentNullException.ThrowIfNull(layoutColumnsCommand);
 
-		NewPaneCommand = newPaneCommand;
-		ClosePaneCommand = closePaneCommand;
 		CopyCommand = copyCommand;
 		CutCommand = cutCommand;
 		PasteCommand = pasteCommand;

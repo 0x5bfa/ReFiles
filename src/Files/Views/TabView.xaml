@@ -71,6 +71,67 @@
 				</DataTemplate>
 			</TabView.TabItemTemplate>
 
+			<TabView.TabStripHeader>
+				<Button
+					x:Name="TabBarPaneMenuButton"
+					Width="30"
+					Height="30"
+					Margin="8,0,0,0"
+					Padding="7"
+					HorizontalAlignment="Left"
+					VerticalAlignment="Center"
+					AutomationProperties.Name="{x:Bind ViewModel.SplitPaneLabel, Mode=OneWay}"
+					Background="Transparent"
+					BorderThickness="0"
+					ToolTipService.ToolTip="{x:Bind ViewModel.SplitPaneLabel, Mode=OneWay}">
+					<Button.Flyout>
+						<MenuFlyout Placement="Bottom">
+							<MenuFlyoutItem
+								x:Name="NewWindowMenuItem"
+								Click="NewWindowMenuItem_Click"
+								Text="{x:Bind ViewModel.NewWindowLabel, Mode=OneWay}">
+								<MenuFlyoutItem.Icon>
+									<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.OpenInWindow}" IconSize="16" />
+								</MenuFlyoutItem.Icon>
+							</MenuFlyoutItem>
+							<MenuFlyoutItem
+								x:Name="CompactOverlayMenuItem"
+								Click="CompactOverlayMenuItem_Click"
+								Text="{x:Bind ViewModel.EnterCompactOverlayLabel, Mode=OneWay}">
+								<MenuFlyoutItem.Icon>
+									<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.CompactOverlay}" IconSize="16" />
+								</MenuFlyoutItem.Icon>
+							</MenuFlyoutItem>
+							<MenuFlyoutSubItem Text="{x:Bind ViewModel.SplitPaneLabel, Mode=OneWay}">
+								<MenuFlyoutItem
+									Command="{x:Bind ViewModel.SplitPaneVerticalCommand.Command}"
+									KeyboardAcceleratorTextOverride="Alt+Shift+V"
+									Text="{x:Bind ViewModel.SplitPaneVerticalCommand.Label, Mode=OneWay}">
+									<MenuFlyoutItem.Icon>
+										<controls:ThemedIcon Data="{x:Bind ViewModel.SplitPaneVerticalCommand.IconData}" IconSize="16" />
+									</MenuFlyoutItem.Icon>
+								</MenuFlyoutItem>
+								<MenuFlyoutItem
+									Command="{x:Bind ViewModel.SplitPaneHorizontalCommand.Command}"
+									KeyboardAcceleratorTextOverride="Alt+Shift+H"
+									Text="{x:Bind ViewModel.SplitPaneHorizontalCommand.Label, Mode=OneWay}">
+									<MenuFlyoutItem.Icon>
+										<controls:ThemedIcon Data="{x:Bind ViewModel.SplitPaneHorizontalCommand.IconData}" IconSize="16" />
+									</MenuFlyoutItem.Icon>
+								</MenuFlyoutItem>
+							</MenuFlyoutSubItem>
+							<MenuFlyoutSeparator />
+							<MenuFlyoutItem Command="{x:Bind ViewModel.ClosePaneCommand.Command}" Text="{x:Bind ViewModel.ClosePaneCommand.Label, Mode=OneWay}">
+								<MenuFlyoutItem.Icon>
+									<controls:ThemedIcon Data="{x:Bind ViewModel.ClosePaneCommand.IconData}" IconSize="16" />
+								</MenuFlyoutItem.Icon>
+							</MenuFlyoutItem>
+						</MenuFlyout>
+					</Button.Flyout>
+					<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Panes.Single}" IconSize="16" />
+				</Button>
+			</TabView.TabStripHeader>
+
 			<TabView.TabStripFooter>
 				<Grid>
 					<Grid.ColumnDefinitions>

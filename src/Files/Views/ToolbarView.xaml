@@ -101,24 +101,6 @@
 						<KeyboardAccelerator Key="Delete" />
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.NewPaneCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.NewPaneCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.NewPaneCommand.Label, Mode=OneWay}">
-					<controls:ToolbarItem.Content>
-						<SymbolIcon Symbol="Add" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.ClosePaneCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.ClosePaneCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.ClosePaneCommand.Label, Mode=OneWay}">
-					<controls:ToolbarItem.Content>
-						<SymbolIcon Symbol="Cancel" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
 			</controls:Toolbar.Items>
 			<controls:Toolbar.ItemTemplate>
 				<DataTemplate x:DataType="controls:IToolbarItemSet">

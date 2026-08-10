@@ -19,26 +19,37 @@ public sealed partial class MainWindow : Window
 	private readonly RootView _rootView;
 	private readonly AppWindow _appWindow;
 	private readonly Action _activateSession;
-	private readonly Func<Task> _shutdownAsync;
+	private readonly Func<Task> _closeAsync;
+	private readonly Func<Task> _createWindowAsync;
 	private int _closeStarted;
 	private int _isDisposed;
 
-	public MainWindow(WindowSession coreWindow, IStorageWorkspace workspace, IStorageOperationService storageOperations, CommandRegistry commandRegistry, Action activateSession, Func<Task> shutdownAsync)
+	public MainWindow(
+		WindowSession coreWindow,
+		IStorageWorkspace workspace,
+		IStorageOperationService storageOperations,
+		CommandRegistry commandRegistry,
+		Action activateSession,
+		Func<Task> closeAsync,
+		Func<Task> createWindowAsync)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
 		ArgumentNullException.ThrowIfNull(workspace);
 		ArgumentNullException.ThrowIfNull(storageOperations);
 		ArgumentNullException.ThrowIfNull(commandRegistry);
 		ArgumentNullException.ThrowIfNull(activateSession);
-		ArgumentNullException.ThrowIfNull(shutdownAsync);
+		ArgumentNullException.ThrowIfNull(closeAsync);
+		ArgumentNullException.ThrowIfNull(createWindowAsync);
 
 		InitializeComponent();
 		_activateSession = activateSession;
-		_shutdownAsync = shutdownAsync;
+		_closeAsync = closeAsync;
+		_createWindowAsync = createWindowAsync;
 		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
 		_rootView = new RootView(presentationFactory.Create(coreWindow));
 		RootContent.Content = _rootView;
 		_rootView.AttachWindow(this);
+		_rootView.NewWindowRequested += RootView_NewWindowRequested;
 
 		_appWindow = AppWindow;
 		_appWindow.Closing += AppWindow_Closing;
@@ -54,6 +65,7 @@ public sealed partial class MainWindow : Window
 
 		_appWindow.Closing -= AppWindow_Closing;
 		Activated -= MainWindow_Activated;
+		_rootView.NewWindowRequested -= RootView_NewWindowRequested;
 		_rootView.Dispose();
 	}
 
@@ -62,6 +74,18 @@ public sealed partial class MainWindow : Window
 		if (args.WindowActivationState is not WindowActivationState.Deactivated)
 		{
 			_activateSession();
+		}
+	}
+
+	private async void RootView_NewWindowRequested(object? sender, EventArgs e)
+	{
+		try
+		{
+			await _createWindowAsync().ConfigureAwait(true);
+		}
+		catch (Exception exception)
+		{
+			_rootView.ReportOperationError(exception);
 		}
 	}
 
@@ -76,7 +100,7 @@ public sealed partial class MainWindow : Window
 		_rootView.Dispose();
 		try
 		{
-			await _shutdownAsync().ConfigureAwait(true);
+			await _closeAsync().ConfigureAwait(true);
 		}
 		catch (Exception exception)
 		{

@@ -60,6 +60,8 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 
 	public bool CanClosePane => Panes.Count > 1;
 
+	public bool CanOpenPane => Panes.Count < 2;
+
 	public CommandBindingViewModel NewTabCommand => _commandManager.GetBinding(CommandIds.NewTab);
 
 	public CommandBindingViewModel DuplicateTabCommand => _commandManager.GetBinding(CommandIds.DuplicateTab);
@@ -99,6 +101,21 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 		EnsureActive();
 
 		await _tab.OpenSplitAsync(orientation, cancellationToken: cancellationToken).ConfigureAwait(false);
+	}
+
+	public bool CanSplitPane(PaneSplitOrientation orientation)
+	{
+		EnsureActive();
+
+		return orientation is PaneSplitOrientation.Vertical or PaneSplitOrientation.Horizontal
+			&& (CanOpenPane || SplitOrientation != orientation);
+	}
+
+	public bool SetSplitOrientation(PaneSplitOrientation orientation)
+	{
+		EnsureActive();
+
+		return _tab.SetSplitOrientation(orientation);
 	}
 
 	public async Task CloseActivePaneAsync(CancellationToken cancellationToken = default)
@@ -218,6 +235,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable
 			OnPropertyChanged(nameof(IconSource));
 			OnPropertyChanged(nameof(StatusText));
 			OnPropertyChanged(nameof(CanClosePane));
+			OnPropertyChanged(nameof(CanOpenPane));
 			OnPropertyChanged(nameof(IsLoading));
 			OnPropertyChanged(nameof(CanGoBack));
 			OnPropertyChanged(nameof(CanGoForward));

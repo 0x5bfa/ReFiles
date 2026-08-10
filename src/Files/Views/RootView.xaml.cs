@@ -19,16 +19,26 @@ public sealed partial class RootView : UserControl, IDisposable
 
 	public RootViewModel ViewModel => _viewModel;
 
+	public event EventHandler? NewWindowRequested;
+
 	public RootView(RootViewModel viewModel)
 	{
 		ArgumentNullException.ThrowIfNull(viewModel);
 
 		InitializeComponent();
 		_viewModel = viewModel;
+		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		Loaded += RootView_Loaded;
 	}
 
 	public void AttachWindow(Window window) => TabStrip.AttachWindow(window);
+
+	public void ReportOperationError(Exception exception)
+	{
+		ArgumentNullException.ThrowIfNull(exception);
+
+		_viewModel.ReportOperationError(exception);
+	}
 
 	public void Dispose()
 	{
@@ -38,9 +48,13 @@ public sealed partial class RootView : UserControl, IDisposable
 		}
 
 		Loaded -= RootView_Loaded;
+		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
 		TabStrip.Dispose();
 		_viewModel.Dispose();
 	}
+
+	private void TabStrip_NewWindowRequested(object? sender, EventArgs e) =>
+		NewWindowRequested?.Invoke(this, e);
 
 	private async void RootView_Loaded(object sender, RoutedEventArgs e)
 	{
