@@ -21,6 +21,7 @@ public sealed partial class PaneContentView : UserControl
 	public PaneContentView()
 	{
 		InitializeComponent();
+		Loaded += PaneContentView_Loaded;
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -30,6 +31,10 @@ public sealed partial class PaneContentView : UserControl
 			return;
 		}
 
-		view.PaneContentPresenter.Content = (args.NewValue as PaneViewModel)?.Content;
+		view.UpdateContent();
 	}
+
+	private void PaneContentView_Loaded(object sender, RoutedEventArgs e) => UpdateContent();
+
+	private void UpdateContent() => PaneContentPresenter.Content = ViewModel?.Content;
 }

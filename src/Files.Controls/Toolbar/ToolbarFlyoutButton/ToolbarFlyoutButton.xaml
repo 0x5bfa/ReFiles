@@ -6,7 +6,7 @@
 
 	<Style BasedOn="{StaticResource DefaultToolbarFlyoutButtonStyle}" TargetType="local:ToolbarFlyoutButton" />
 
-	<Style x:Key="DefaultToolbarFlyoutButtonStyle" BasedOn="{StaticResource DefaultDropDownButtonStyle}" TargetType="local:ToolbarFlyoutButton">
+	<Style x:Key="DefaultToolbarFlyoutButtonStyle" BasedOn="{StaticResource DefaultToolbarButtonStyle}" TargetType="local:ToolbarFlyoutButton">
 		<Setter Property="MinWidth" Value="40" />
 		<Setter Property="MinHeight" Value="32" />
 	</Style>

@@ -13,6 +13,7 @@
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/Toolbar.ThemeResources.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarSeparator/ToolbarSeparator.ThemeResources.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarButton/ToolbarButton.ThemeResources.xaml" />
+		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarFlyoutButton/ToolbarFlyoutButton.ThemeResources.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarToggleButton/ToolbarToggleButton.ThemeResources.xaml" />
 		<!--#endregion-->
 
@@ -29,6 +30,7 @@
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/Toolbar.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarSeparator/ToolbarSeparator.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarButton/ToolbarButton.xaml" />
+		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarFlyoutButton/ToolbarFlyoutButton.xaml" />
 		<ResourceDictionary Source="ms-appx:///Files.Controls/Toolbar/ToolbarToggleButton/ToolbarToggleButton.xaml" />
 		<!--#endregion-->
 

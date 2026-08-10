@@ -20,7 +20,7 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 		{
 			var commandId when commandId == CommandIds.NewTab => true,
 			var commandId when commandId == CommandIds.DuplicateTab => hasInvokedTab,
-			var commandId when commandId == CommandIds.CloseTab => hasInvokedTab && context.Root.Tabs.Count > 1,
+			var commandId when commandId == CommandIds.CloseTab => hasInvokedTab,
 			var commandId when commandId == CommandIds.CloseTabsToLeft => invokedTabIndex > 0,
 			var commandId when commandId == CommandIds.CloseTabsToRight => hasInvokedTab && invokedTabIndex < context.Root.Tabs.Count - 1,
 			var commandId when commandId == CommandIds.CloseOtherTabs => hasInvokedTab && context.Root.Tabs.Count > 1,

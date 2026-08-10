@@ -3,7 +3,7 @@
 
 namespace Files.Controls
 {
-	public partial class ToolbarFlyoutButton : DropDownButton, IToolbarItemSet
+	public partial class ToolbarFlyoutButton : ToolbarButton, IToolbarItemSet
 	{
 		public ToolbarFlyoutButton()
 		{

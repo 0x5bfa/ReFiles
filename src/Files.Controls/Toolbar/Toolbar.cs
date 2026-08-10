@@ -261,6 +261,12 @@ namespace Files.Controls
 
 			switch (element)
 			{
+				case ToolbarFlyoutButton flyoutButton:
+					flyoutButton.Content = CreateToolbarContent(item);
+					flyoutButton.Flyout = item.Flyout ?? CreateFlyout(item.SubItems);
+					flyoutButton.Command = item.Command;
+					flyoutButton.CommandParameter = item.CommandParameter;
+					break;
 				case ToolbarButton button:
 					button.Label = item.Label;
 					button.ThemedIcon = item.ThemedIcon;
@@ -277,12 +283,6 @@ namespace Files.Controls
 					toggleButton.Command = item.Command;
 					toggleButton.CommandParameter = item.CommandParameter;
 					toggleButton.IsChecked = item.IsChecked;
-					break;
-				case ToolbarFlyoutButton flyoutButton:
-					flyoutButton.Content = CreateToolbarContent(item);
-					flyoutButton.Flyout = item.Flyout ?? CreateFlyout(item.SubItems);
-					flyoutButton.Command = item.Command;
-					flyoutButton.CommandParameter = item.CommandParameter;
 					break;
 				case ToolbarRadioButton radioButton:
 					radioButton.Content = CreateToolbarContent(item);

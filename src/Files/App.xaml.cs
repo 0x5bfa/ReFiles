@@ -118,6 +118,7 @@ public partial class App : Application
 		if (closeRuntime)
 		{
 			await ShutdownAsync().ConfigureAwait(true);
+			Exit();
 		}
 	}
 

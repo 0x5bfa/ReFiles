@@ -113,6 +113,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
+	internal Func<Task>? CloseWindowAsync { get; set; }
+
 	public TabViewModel? ActiveTab => Tabs.FirstOrDefault(tab => tab.Id == _window.ActiveTab?.Id);
 
 	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;
@@ -229,13 +231,18 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable
 	{
 		EnsureActive();
 
-		if (Tabs.Count <= 1)
+		if (Tabs.FirstOrDefault(tab => tab.Id == tabId) is not { } tab)
 		{
 			return;
 		}
 
-		if (Tabs.FirstOrDefault(tab => tab.Id == tabId) is not { } tab)
+		if (Tabs.Count is 1)
 		{
+			if (CloseWindowAsync is { } closeWindowAsync)
+			{
+				await closeWindowAsync().ConfigureAwait(false);
+			}
+
 			return;
 		}
 

@@ -37,8 +37,11 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		folderBrowser.UpdateFolderView();
 	}
 
-	private void FolderBrowser_Loaded(object sender, RoutedEventArgs e) =>
+	private void FolderBrowser_Loaded(object sender, RoutedEventArgs e)
+	{
 		SetSubscribedViewModel(ViewModel);
+		UpdateFolderView();
+	}
 
 	private void FolderBrowser_Unloaded(object sender, RoutedEventArgs e) =>
 		SetSubscribedViewModel(null);

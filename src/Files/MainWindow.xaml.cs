@@ -47,6 +47,7 @@ public sealed partial class MainWindow : Window
 		_createWindowAsync = createWindowAsync;
 		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
 		_rootView = new RootView(presentationFactory.Create(coreWindow));
+		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;
 		_rootView.AttachWindow(this);
 		_rootView.NewWindowRequested += RootView_NewWindowRequested;
@@ -97,6 +98,21 @@ public sealed partial class MainWindow : Window
 			return;
 		}
 
+		await CompleteCloseAsync().ConfigureAwait(true);
+	}
+
+	private Task CloseFromCommandAsync()
+	{
+		if (Interlocked.Exchange(ref _closeStarted, 1) is not 0)
+		{
+			return Task.CompletedTask;
+		}
+
+		return CompleteCloseAsync();
+	}
+
+	private async Task CompleteCloseAsync()
+	{
 		_rootView.Dispose();
 		try
 		{

@@ -1,9 +1,9 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 namespace Files.Controls
 {
-	public partial class ToolbarFlyoutButton : DropDownButton, IToolbarItemSet
+	public partial class ToolbarFlyoutButton : ToolbarButton, IToolbarItemSet
 	{
 	}
 }
