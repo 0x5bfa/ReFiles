@@ -231,26 +231,16 @@ public sealed class WindowsStorageTests
 	[TestMethod]
 	public async Task DirectResolutionAndEnumerationShareTheSameIdentity()
 	{
-		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.IdentityTests-{Guid.NewGuid():N}");
-		Directory.CreateDirectory(directoryPath);
-		var filePath = Path.Combine(directoryPath, "item.txt");
-		File.WriteAllText(filePath, "content");
+		var filePath = typeof(WindowsStorageTests).Assembly.Location;
+		var directoryPath = Path.GetDirectoryName(filePath)!;
+		await using var scheduler = new WindowsShellScheduler();
+		await using var source = new WindowsStorageSource(scheduler: scheduler);
+		var folder = (IFolder)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+		var enumerated = await FindItemAsync(folder, Path.GetFileName(filePath));
+		var direct = (IWindowsStorable)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
-		try
-		{
-			await using var scheduler = new WindowsShellScheduler();
-			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var folder = (IFolder)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
-			var enumerated = await FindItemAsync(folder, "item.txt");
-			var direct = (IWindowsStorable)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
-
-			Assert.IsNotNull(enumerated);
-			Assert.AreEqual(direct.Id, enumerated!.Id);
-		}
-		finally
-		{
-			Directory.Delete(directoryPath, recursive: true);
-		}
+		Assert.IsNotNull(enumerated);
+		Assert.AreEqual(direct.Id, enumerated!.Id);
 	}
 
 	[TestMethod]
