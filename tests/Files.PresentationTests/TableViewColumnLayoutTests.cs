@@ -8,9 +8,15 @@ using System.ComponentModel;
 
 namespace Files.PresentationTests;
 
+/// <summary>
+/// Verifies table column layout offsets and width constraints.
+/// </summary>
 [TestClass]
 public sealed class TableViewColumnLayoutTests
 {
+	/// <summary>
+	/// Verifies that offsets are resolved without stretching columns.
+	/// </summary>
 	[TestMethod]
 	public void ResolvesOffsetsWithoutStretchingColumns()
 	{
@@ -31,6 +37,9 @@ public sealed class TableViewColumnLayoutTests
 		Assert.AreEqual(640, layout.ContentWidth);
 	}
 
+	/// <summary>
+	/// Verifies that column widths are clamped to their constraints.
+	/// </summary>
 	[TestMethod]
 	public void ClampsWidthsToColumnConstraints()
 	{
@@ -47,6 +56,9 @@ public sealed class TableViewColumnLayoutTests
 		Assert.AreEqual(368, layout.ColumnsWidth);
 	}
 
+	/// <summary>
+	/// Verifies that repeated large layouts stay within the allocation budget.
+	/// </summary>
 	[TestMethod]
 	public void RepeatedLargeLayoutsStayWithinAllocationBudget()
 	{

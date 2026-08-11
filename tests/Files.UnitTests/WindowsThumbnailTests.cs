@@ -10,6 +10,9 @@ using OwlCore.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows thumbnail behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsThumbnailTests
@@ -28,6 +31,10 @@ public sealed class WindowsThumbnailTests
 		0x3D, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
 		0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82];
 
+	/// <summary>
+	/// Test case: windows shell thumbnail is cached as independent png streams.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task WindowsShellThumbnailIsCachedAsIndependentPngStreams()
 	{

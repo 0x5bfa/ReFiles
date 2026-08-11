@@ -8,20 +8,33 @@ using System.ComponentModel;
 
 namespace Files.Benchmarks;
 
+/// <summary>
+/// Measures table column layout resolution performance.
+/// </summary>
 [MemoryDiagnoser]
 public class TableViewColumnLayoutBenchmarks
 {
 	private ITableViewColumn[] _columns = [];
 
+	/// <summary>
+	/// Gets or sets the number of columns used by the benchmark.
+	/// </summary>
 	[Params(8, 32, 128, 512)]
 	public int ColumnCount { get; set; }
 
+	/// <summary>
+	/// Creates the columns used by the layout benchmark.
+	/// </summary>
 	[GlobalSetup]
 	public void Setup()
 	{
 		_columns = Enumerable.Range(0, ColumnCount).Select(index => (ITableViewColumn)new BenchmarkColumn($"column-{index}", 72 + index % 160)).ToArray();
 	}
 
+	/// <summary>
+	/// Measures resolving the layout for the configured columns.
+	/// </summary>
+	/// <returns>The resolved table column layout.</returns>
 	[Benchmark]
 	public TableViewColumnLayout ResolveLayout()
 	{

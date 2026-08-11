@@ -3,10 +3,17 @@
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows shell scheduler behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsShellSchedulerTests
 {
+	/// <summary>
+	/// Test case: ordered lane runs on sta and preserves fifo order.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task OrderedLaneRunsOnStaAndPreservesFifoOrder()
 	{
@@ -21,6 +28,10 @@ public sealed class WindowsShellSchedulerTests
 		CollectionAssert.AreEqual(Enumerable.Range(0, 16).ToArray(), order.ToArray());
 	}
 
+	/// <summary>
+	/// Test case: concurrent lane does not exceed configured worker count.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ConcurrentLaneDoesNotExceedConfiguredWorkerCount()
 	{
@@ -40,6 +51,10 @@ public sealed class WindowsShellSchedulerTests
 		Assert.AreEqual(2, maximumActive);
 	}
 
+	/// <summary>
+	/// Test case: concurrent delegate runs entirely on one sta.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ConcurrentDelegateRunsEntirelyOnOneSta()
 	{
@@ -64,6 +79,10 @@ public sealed class WindowsShellSchedulerTests
 		Assert.AreEqual(ApartmentState.STA, apartmentStates.Distinct().Single());
 	}
 
+	/// <summary>
+	/// Test case: nested ordered invocation runs without deadlock.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NestedOrderedInvocationRunsWithoutDeadlock()
 	{
@@ -74,6 +93,10 @@ public sealed class WindowsShellSchedulerTests
 		Assert.AreEqual(ApartmentState.STA, result.Item1);
 }
 
+	/// <summary>
+	/// Test case: cancellation before execution prevents the delegate.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CancellationBeforeExecutionPreventsTheDelegate()
 	{
@@ -87,6 +110,10 @@ public sealed class WindowsShellSchedulerTests
 		Assert.IsFalse(executed);
 }
 
+	/// <summary>
+	/// Test case: disposal waits for an active delegate.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DisposalWaitsForAnActiveDelegate()
 	{

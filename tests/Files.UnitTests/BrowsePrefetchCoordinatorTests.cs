@@ -12,9 +12,16 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for browse prefetch coordinator behavior.
+/// </summary>
 [TestClass]
 public sealed class BrowsePrefetchCoordinatorTests
 {
+	/// <summary>
+	/// Test case: prefetches visible and surrounding items only.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PrefetchesVisibleAndSurroundingItemsOnly()
 	{
@@ -75,6 +82,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		Assert.AreEqual(0, thumbnailSources["d"].CallCount);
 	}
 
+	/// <summary>
+	/// Test case: grouping change restarts prefetch with the group property.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task GroupingChangeRestartsPrefetchWithTheGroupProperty()
 	{
@@ -97,6 +108,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		CollectionAssert.AreEqual(new[] {"System.ItemTypeText"}, propertySource.Requests.Single().ToArray());
 	}
 
+	/// <summary>
+	/// Test case: publishes results and resorts by prefetched property.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PublishesResultsAndResortsByPrefetchedProperty()
 	{
@@ -146,6 +161,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		CollectionAssert.AreEqual(new byte[] {1}, presentation.Thumbnail!.Content.ToArray());
 	}
 
+	/// <summary>
+	/// Test case: viewport update cancels previous prefetch.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ViewportUpdateCancelsPreviousPrefetch()
 	{
@@ -188,6 +207,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 	}
 
+	/// <summary>
+	/// Test case: item append does not cancel active prefetch.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ItemAppendDoesNotCancelActivePrefetch()
 	{
@@ -239,6 +262,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		release.TrySetResult(true);
 	}
 
+	/// <summary>
+	/// Test case: navigation cancels old generation before using its result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NavigationCancelsOldGenerationBeforeUsingItsResult()
 	{
@@ -290,6 +317,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		Assert.AreSame(secondItem, session.Items.Single());
 	}
 
+	/// <summary>
+	/// Test case: same generation replacement cancels old snapshot.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SameGenerationReplacementCancelsOldSnapshot()
 	{
@@ -340,6 +371,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		Assert.IsFalse(session.TryGetPresentation(replacement.Reference.GetKey(), out _));
 	}
 
+	/// <summary>
+	/// Test case: slow properties do not block thumbnail prefetch.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SlowPropertiesDoNotBlockThumbnailPrefetch()
 	{
@@ -379,6 +414,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		propertyRelease.TrySetResult(true);
 	}
 
+	/// <summary>
+	/// Test case: viewport bursts keep prefetch concurrency bounded.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ViewportBurstsKeepPrefetchConcurrencyBounded()
 	{
@@ -428,6 +467,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 		Assert.IsTrue(thumbnailSource.CallCount <= 6);
 	}
 
+	/// <summary>
+	/// Test case: same generation replacement rejects result that ignores cancellation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SameGenerationReplacementRejectsResultThatIgnoresCancellation()
 	{

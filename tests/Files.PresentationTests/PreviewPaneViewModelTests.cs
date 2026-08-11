@@ -10,9 +10,15 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.PresentationTests;
 
+/// <summary>
+/// Verifies preview pane state publication and version handling.
+/// </summary>
 [TestClass]
 public sealed class PreviewPaneViewModelTests
 {
+	/// <summary>
+	/// Verifies that the latest preview state is published to the view model.
+	/// </summary>
 	[TestMethod]
 	public void PublishesTheLatestPreviewState()
 	{
@@ -27,6 +33,9 @@ public sealed class PreviewPaneViewModelTests
 		Assert.IsFalse(viewModel.HasContent);
 	}
 
+	/// <summary>
+	/// Verifies that an older preview state does not replace a newer state.
+	/// </summary>
 	[TestMethod]
 	public void IgnoresAnOlderPreviewState()
 	{

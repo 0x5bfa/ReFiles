@@ -7,9 +7,16 @@ using Files.Core.Storage.Ftp;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for ftp storage operation behavior.
+/// </summary>
 [TestClass]
 public sealed class FtpStorageOperationTests
 {
+	/// <summary>
+	/// Test case: executes create copy move and permanent delete.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ExecutesCreateCopyMoveAndPermanentDelete()
 	{
@@ -48,6 +55,10 @@ public sealed class FtpStorageOperationTests
 		Assert.IsFalse(sessions.Contains("/second/moved.txt"));
 	}
 
+	/// <summary>
+	/// Test case: generates a unique remote name.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task GeneratesAUniqueRemoteName()
 	{
@@ -64,6 +75,10 @@ public sealed class FtpStorageOperationTests
 		Assert.IsTrue(sessions.Contains("/report (2).txt"));
 	}
 
+	/// <summary>
+	/// Test case: recursively copies a folder without publishing temporary items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RecursivelyCopiesAFolderWithoutPublishingTemporaryItems()
 	{

@@ -7,8 +7,17 @@ using System.Windows.Automation;
 
 namespace Files.AxeTests;
 
+/// <summary>
+/// Provides shared UI automation helpers for Axe tests.
+/// </summary>
 public static class TestHelper
 {
+	/// <summary>
+	/// Waits for a descendant automation element with the specified automation ID.
+	/// </summary>
+	/// <param name="automationId">The automation ID to find.</param>
+	/// <param name="timeout">The maximum time to wait.</param>
+	/// <returns>The matching automation element.</returns>
 	public static AutomationElement WaitForElementByAutomationId(string automationId, TimeSpan timeout)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(automationId);
@@ -18,6 +27,12 @@ public static class TestHelper
 		return WaitForElement(AssemblyInitializer.RootElement, condition, automationId, timeout);
 	}
 
+	/// <summary>
+	/// Enters a path in the path text box and invokes navigation.
+	/// </summary>
+	/// <param name="pathTextBox">The path text box automation element, updated if it becomes unavailable.</param>
+	/// <param name="navigatePathButton">The navigation button automation element, updated if it becomes unavailable.</param>
+	/// <param name="path">The path to enter.</param>
 	public static void EnterPath(ref AutomationElement pathTextBox, ref AutomationElement navigatePathButton, string path)
 	{
 		ArgumentNullException.ThrowIfNull(pathTextBox);
@@ -38,6 +53,11 @@ public static class TestHelper
 		}
 	}
 
+	/// <summary>
+	/// Waits until the Files application displays the expected path.
+	/// </summary>
+	/// <param name="expectedPath">The path expected in the path text box.</param>
+	/// <param name="timeout">The maximum time to wait.</param>
 	public static void WaitForPath(string expectedPath, TimeSpan timeout)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(expectedPath);
@@ -67,6 +87,9 @@ public static class TestHelper
 		throw new AssertFailedException($"Path '{expectedPath}' was not reached within {timeout}. Current path: '{currentPath}'. Last automation error: {lastException?.Message}");
 	}
 
+	/// <summary>
+	/// Asserts that the Files application process and path text box are responsive.
+	/// </summary>
 	public static void AssertApplicationResponsive()
 	{
 		var process = AssemblyInitializer.ApplicationProcess;

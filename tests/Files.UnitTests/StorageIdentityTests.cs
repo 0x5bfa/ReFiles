@@ -6,9 +6,15 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for storage identity behavior.
+/// </summary>
 [TestClass]
 public sealed class StorageIdentityTests
 {
+	/// <summary>
+	/// Test case: last known address does not participate in reference identity.
+	/// </summary>
 	[TestMethod]
 	public void LastKnownAddressDoesNotParticipateInReferenceIdentity()
 	{
@@ -21,6 +27,9 @@ public sealed class StorageIdentityTests
 		Assert.AreEqual(new FolderLocation(before), new FolderLocation(after));
 	}
 
+	/// <summary>
+	/// Test case: item ids remain opaque and case sensitive.
+	/// </summary>
 	[TestMethod]
 	public void ItemIdsRemainOpaqueAndCaseSensitive()
 	{

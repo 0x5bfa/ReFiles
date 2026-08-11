@@ -6,6 +6,9 @@ using System.Windows.Automation;
 
 namespace Files.AxeTests;
 
+/// <summary>
+/// Provides assembly-level setup and cleanup for UI automation tests.
+/// </summary>
 [TestClass]
 public sealed class AssemblyInitializer
 {
@@ -14,12 +17,25 @@ public sealed class AssemblyInitializer
 	private static Process? _applicationProcess;
 	private static AutomationElement? _rootElement;
 
+	/// <summary>
+	/// Gets a value indicating whether the Files application automation session is active.
+	/// </summary>
 	public static bool HasSession => _applicationProcess is not null && !_applicationProcess.HasExited && _rootElement is not null;
 
+	/// <summary>
+	/// Gets the Files application process for the current automation session.
+	/// </summary>
 	public static Process ApplicationProcess => _applicationProcess ?? throw new InvalidOperationException("The Files application process has not been initialized.");
 
+	/// <summary>
+	/// Gets the root automation element for the Files application window.
+	/// </summary>
 	public static AutomationElement RootElement => _rootElement ?? throw new InvalidOperationException("The Files automation root has not been initialized.");
 
+	/// <summary>
+	/// Starts the Files application and prepares its automation session.
+	/// </summary>
+	/// <param name="_">The test context supplied by MSTest.</param>
 	[AssemblyInitialize]
 	public static void CreateSession(TestContext _)
 	{
@@ -60,12 +76,18 @@ public sealed class AssemblyInitializer
 		TestHelper.WaitForElementByAutomationId("PathTextBox", _launchTimeout);
 	}
 
+	/// <summary>
+	/// Cleans up the Files application after the test run completes.
+	/// </summary>
 	[AssemblyCleanup]
 	public static void TestRunTearDown()
 	{
 		TearDown();
 	}
 
+	/// <summary>
+	/// Stops the Files application and releases the automation session.
+	/// </summary>
 	public static void TearDown()
 	{
 		_rootElement = null;

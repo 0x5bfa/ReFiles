@@ -12,9 +12,16 @@ using Windows.Win32;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows shell preview behavior.
+/// </summary>
 [TestClass]
 public sealed class WindowsShellPreviewTests
 {
+	/// <summary>
+	/// Test case: handler resolver caches positive and negative associations.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task HandlerResolverCachesPositiveAndNegativeAssociations()
 	{
@@ -44,6 +51,10 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreEqual(3, association.CallCount);
 	}
 
+	/// <summary>
+	/// Test case: handler resolver uses the file system name when the display name has no extension.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task HandlerResolverUsesTheFileSystemNameWhenTheDisplayNameHasNoExtension()
 	{
@@ -62,6 +73,10 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreEqual(".PDF", association.Extensions.Single());
 	}
 
+	/// <summary>
+	/// Test case: handler resolver treats malformed guid as unavailable.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task HandlerResolverTreatsMalformedGuidAsUnavailable()
 	{
@@ -74,6 +89,10 @@ public sealed class WindowsShellPreviewTests
 		Assert.IsNull(result);
 	}
 
+	/// <summary>
+	/// Test case: shell loader returns descriptor or blocked result without activation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ShellLoaderReturnsDescriptorOrBlockedResultWithoutActivation()
 	{
@@ -101,6 +120,10 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreEqual(0, file.OpenCount);
 	}
 
+	/// <summary>
+	/// Test case: shell loader returns null when association is missing.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ShellLoaderReturnsNullWhenAssociationIsMissing()
 	{
@@ -114,6 +137,9 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreEqual(0, file.OpenCount);
 }
 
+	/// <summary>
+	/// Test case: preview host validates bounds and window handle.
+	/// </summary>
 	[TestMethod]
 	public void PreviewHostValidatesBoundsAndWindowHandle()
 	{
@@ -127,6 +153,9 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreNotEqual(0, host.WindowHandle);
 	}
 
+	/// <summary>
+	/// Test case: preview target rejects identity mismatch.
+	/// </summary>
 	[TestMethod]
 	public void PreviewTargetRejectsIdentityMismatch()
 	{
@@ -140,6 +169,10 @@ public sealed class WindowsShellPreviewTests
 		model.Dispose();
 	}
 
+	/// <summary>
+	/// Test case: session uses stream item file order and cleans up idempotently.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SessionUsesStreamItemFileOrderAndCleansUpIdempotently()
 	{
@@ -172,6 +205,10 @@ public sealed class WindowsShellPreviewTests
 		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
 }
 
+	/// <summary>
+	/// Test case: session falls back from stream to item then file.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SessionFallsBackFromStreamToItemThenFile()
 	{
@@ -191,6 +228,10 @@ public sealed class WindowsShellPreviewTests
 		CollectionAssert.AreEqual(new[] {"site", "stream", "item", "file", "window", "bounds", "preview", "dispose"}, order.ToArray());
 }
 
+	/// <summary>
+	/// Test case: session failure cleans controller and resolved target.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SessionFailureCleansControllerAndResolvedTarget()
 	{
@@ -209,6 +250,10 @@ public sealed class WindowsShellPreviewTests
 		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
 }
 
+	/// <summary>
+	/// Test case: composition prefers stream and falls back to shell descriptor.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CompositionPrefersStreamAndFallsBackToShellDescriptor()
 	{

@@ -10,9 +10,15 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for stream preview loader behavior.
+/// </summary>
 [TestClass]
 public sealed class StreamPreviewLoaderTests
 {
+	/// <summary>
+	/// Test case: resolver uses case insensitive extensions and rejects unsupported items.
+	/// </summary>
 	[TestMethod]
 	public void ResolverUsesCaseInsensitiveExtensionsAndRejectsUnsupportedItems()
 	{
@@ -32,6 +38,9 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual("text/plain", contentType.MediaType);
 	}
 
+	/// <summary>
+	/// Test case: resolver rejects invalid and duplicate extensions.
+	/// </summary>
 	[TestMethod]
 	public void ResolverRejectsInvalidAndDuplicateExtensions()
 	{
@@ -42,6 +51,10 @@ public sealed class StreamPreviewLoaderTests
 		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", ""), ]));
 }
 
+	/// <summary>
+	/// Test case: loader accepts known files and does not open unknown extensions.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task LoaderAcceptsKnownFilesAndDoesNotOpenUnknownExtensions()
 	{
@@ -59,6 +72,10 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(0, unknown.OpenCount);
 }
 
+	/// <summary>
+	/// Test case: policy blocks before opening the file and preserves hydration policy.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PolicyBlocksBeforeOpeningTheFileAndPreservesHydrationPolicy()
 	{
@@ -77,6 +94,10 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(0, stream.DisposeCount);
 }
 
+	/// <summary>
+	/// Test case: seekable streams use length and transfer ownership only on success.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SeekableStreamsUseLengthAndTransferOwnershipOnlyOnSuccess()
 	{
@@ -103,6 +124,10 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(1, overLimit.DisposeCount);
 }
 
+	/// <summary>
+	/// Test case: non seekable streams are buffered only when a byte limit is required.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NonSeekableStreamsAreBufferedOnlyWhenAByteLimitIsRequired()
 	{
@@ -139,6 +164,10 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(1, oversizedSource.DisposeCount);
 }
 
+	/// <summary>
+	/// Test case: read failure and cancellation dispose the opened stream.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ReadFailureAndCancellationDisposeTheOpenedStream()
 	{
@@ -171,6 +200,10 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(1, openedThenCancelledStream.DisposeCount);
 }
 
+	/// <summary>
+	/// Test case: registry and browse preview hydrate a file through the loader.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RegistryAndBrowsePreviewHydrateAFileThroughTheLoader()
 	{

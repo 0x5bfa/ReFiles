@@ -9,9 +9,16 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for browse preview model behavior.
+/// </summary>
 [TestClass]
 public sealed class BrowsePreviewModelTests
 {
+	/// <summary>
+	/// Test case: selection change disposes stale result and publishes latest selection.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SelectionChangeDisposesStaleResultAndPublishesLatestSelection()
 	{
@@ -48,6 +55,10 @@ public sealed class BrowsePreviewModelTests
 		Assert.AreEqual(BrowsePreviewStatus.Ready, preview.Current.Status);
 	}
 
+	/// <summary>
+	/// Test case: rejects result from replaced model with the same key.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RejectsResultFromReplacedModelWithTheSameKey()
 	{
@@ -89,6 +100,10 @@ public sealed class BrowsePreviewModelTests
 		Assert.AreSame(replacementResult, preview.Current.Result);
 	}
 
+	/// <summary>
+	/// Test case: cancellation does not publish failed state.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CancellationDoesNotPublishFailedState()
 	{
@@ -124,6 +139,10 @@ public sealed class BrowsePreviewModelTests
 		Assert.IsNull(preview.Current.Error);
 	}
 
+	/// <summary>
+	/// Test case: disposal cancels request and disposes current result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DisposalCancelsRequestAndDisposesCurrentResult()
 	{
@@ -148,6 +167,10 @@ public sealed class BrowsePreviewModelTests
 		Assert.AreEqual(BrowsePreviewStatus.Empty, preview.Current.Status);
 	}
 
+	/// <summary>
+	/// Test case: loader factory binds context to item source.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task LoaderFactoryBindsContextToItemSource()
 	{

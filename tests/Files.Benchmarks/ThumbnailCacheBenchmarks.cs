@@ -7,6 +7,9 @@ using Files.Core.ItemFeatures.Thumbnails;
 
 namespace Files.Benchmarks;
 
+/// <summary>
+/// Measures thumbnail cache hit, miss, and insertion performance.
+/// </summary>
 [MemoryDiagnoser]
 public class ThumbnailCacheBenchmarks
 {
@@ -15,6 +18,9 @@ public class ThumbnailCacheBenchmarks
 	private ThumbnailCacheKey missKey = null!;
 	private ThumbnailCacheEntry entry = null!;
 
+	/// <summary>
+	/// Creates and seeds the in-memory thumbnail cache.
+	/// </summary>
 	[GlobalSetup]
 	public async Task Setup()
 	{
@@ -26,12 +32,24 @@ public class ThumbnailCacheBenchmarks
 		await cache.SetAsync(hitKey, entry);
 	}
 
+	/// <summary>
+	/// Measures retrieving an existing thumbnail cache entry.
+	/// </summary>
+	/// <returns>A task containing the cached entry.</returns>
 	[Benchmark(Baseline = true)]
 	public ValueTask<ThumbnailCacheEntry?> CacheHit() => cache.GetAsync(hitKey);
 
+	/// <summary>
+	/// Measures retrieving a missing thumbnail cache entry.
+	/// </summary>
+	/// <returns>A task containing the missing lookup result.</returns>
 	[Benchmark]
 	public ValueTask<ThumbnailCacheEntry?> CacheMiss() => cache.GetAsync(missKey);
 
+	/// <summary>
+	/// Measures inserting a new entry while evicting when the cache is full.
+	/// </summary>
+	/// <returns>A task that represents the cache update.</returns>
 	[Benchmark]
 	public ValueTask CacheInsertAndEvict()
 	{

@@ -5,9 +5,16 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for storage operation service behavior.
+/// </summary>
 [TestClass]
 public sealed class StorageOperationServiceTests
 {
+	/// <summary>
+	/// Test case: selects first handler that can handle the request.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SelectsFirstHandlerThatCanHandleTheRequest()
 	{
@@ -24,6 +31,10 @@ public sealed class StorageOperationServiceTests
 		Assert.AreEqual(1, second.ExecuteCount);
 	}
 
+	/// <summary>
+	/// Test case: reports unsupported request as failed result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ReportsUnsupportedRequestAsFailedResult()
 	{
@@ -37,6 +48,10 @@ public sealed class StorageOperationServiceTests
 		Assert.IsNull(result.ResultItem);
 	}
 
+	/// <summary>
+	/// Test case: maps handler exception to failed result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task MapsHandlerExceptionToFailedResult()
 	{
@@ -50,6 +65,10 @@ public sealed class StorageOperationServiceTests
 		Assert.AreSame(expected, result.Error);
 	}
 
+	/// <summary>
+	/// Test case: propagates cancellation before handler execution.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PropagatesCancellationBeforeHandlerExecution()
 	{
@@ -63,6 +82,10 @@ public sealed class StorageOperationServiceTests
 		Assert.AreEqual(0, handler.ExecuteCount);
 	}
 
+	/// <summary>
+	/// Test case: maps null handler result to failed result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task MapsNullHandlerResultToFailedResult()
 	{
@@ -74,6 +97,9 @@ public sealed class StorageOperationServiceTests
 		Assert.IsInstanceOfType<InvalidOperationException>(result.Error);
 	}
 
+	/// <summary>
+	/// Test case: requests reject unknown enum values.
+	/// </summary>
 	[TestMethod]
 	public void RequestsRejectUnknownEnumValues()
 	{
@@ -83,6 +109,9 @@ public sealed class StorageOperationServiceTests
 		Assert.Throws<ArgumentOutOfRangeException>(() => new CopyOperationRequest(reference, reference, conflictBehavior: (StorageConflictBehavior)int.MaxValue));
 	}
 
+	/// <summary>
+	/// Test case: result and progress reject contradictory state.
+	/// </summary>
 	[TestMethod]
 	public void ResultAndProgressRejectContradictoryState()
 	{

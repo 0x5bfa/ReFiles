@@ -6,10 +6,17 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows files core builder behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsFilesCoreBuilderTests
 {
+	/// <summary>
+	/// Test case: default windows slice builds operations features and previews.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DefaultWindowsSliceBuildsOperationsFeaturesAndPreviews()
 	{

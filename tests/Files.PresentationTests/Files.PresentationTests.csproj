@@ -6,6 +6,7 @@
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
 		<OutputType>Exe</OutputType>
 		<IsPackable>false</IsPackable>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<IsTestProject>true</IsTestProject>
 		<Nullable>enable</Nullable>
 		<Configurations>Debug;Release</Configurations>

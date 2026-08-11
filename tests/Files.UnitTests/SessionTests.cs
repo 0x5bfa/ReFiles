@@ -6,9 +6,16 @@ using Files.Core.Browsing;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for session behavior.
+/// </summary>
 [TestClass]
 public sealed class SessionTests
 {
+	/// <summary>
+	/// Test case: pane navigation commits history and drops forward branch.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PaneNavigationCommitsHistoryAndDropsForwardBranch()
 	{
@@ -39,6 +46,10 @@ public sealed class SessionTests
 		Assert.IsFalse(pane.CanGoForward);
 	}
 
+	/// <summary>
+	/// Test case: pane restores bounded history around current entry.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PaneRestoresBoundedHistoryAroundCurrentEntry()
 	{
@@ -61,6 +72,10 @@ public sealed class SessionTests
 		Assert.IsTrue(pane.CanGoForward);
 	}
 
+	/// <summary>
+	/// Test case: equivalent navigation refreshes the stored recovery address.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task EquivalentNavigationRefreshesTheStoredRecoveryAddress()
 	{
@@ -78,6 +93,10 @@ public sealed class SessionTests
 		Assert.AreSame(after, pane.History.Current);
 	}
 
+	/// <summary>
+	/// Test case: failed equivalent navigation does not rewrite history.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FailedEquivalentNavigationDoesNotRewriteHistory()
 	{
@@ -95,6 +114,10 @@ public sealed class SessionTests
 		Assert.AreSame(before, pane.History.Current);
 	}
 
+	/// <summary>
+	/// Test case: empty history can restore only an empty pane.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task EmptyHistoryCanRestoreOnlyAnEmptyPane()
 	{
@@ -111,6 +134,10 @@ public sealed class SessionTests
 		await Assert.ThrowsAsync<InvalidOperationException>(async () => await pane.RestoreAsync(empty));
 	}
 
+	/// <summary>
+	/// Test case: application owns windows tabs and split panes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ApplicationOwnsWindowsTabsAndSplitPanes()
 	{
@@ -147,6 +174,10 @@ public sealed class SessionTests
 		Assert.IsTrue(resolver.OpenedContexts.All(static context => context.IsDisposed));
 	}
 
+	/// <summary>
+	/// Test case: session events do not bubble child state to ancestors.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SessionEventsDoNotBubbleChildStateToAncestors()
 	{
@@ -190,6 +221,10 @@ public sealed class SessionTests
 		Assert.AreEqual(0, applicationWindowsChanged);
 	}
 
+	/// <summary>
+	/// Test case: failed window creation disposes the incomplete model graph.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FailedWindowCreationDisposesTheIncompleteModelGraph()
 	{

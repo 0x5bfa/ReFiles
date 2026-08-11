@@ -7,9 +7,16 @@ using Files.Core.Storage.Ftp;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for ftp storage behavior.
+/// </summary>
 [TestClass]
 public sealed class FtpStorageTests
 {
+	/// <summary>
+	/// Test case: resolves addresses and enumerates one configured root.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ResolvesAddressesAndEnumeratesOneConfiguredRoot()
 	{
@@ -46,6 +53,10 @@ public sealed class FtpStorageTests
 		Assert.AreEqual("files-user", sessions.LastCredential!.UserName);
 	}
 
+	/// <summary>
+	/// Test case: returned stream owns session until stream disposal.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ReturnedStreamOwnsSessionUntilStreamDisposal()
 	{
@@ -69,6 +80,10 @@ public sealed class FtpStorageTests
 		Assert.AreEqual(1, session.CompletedTransferCount);
 	}
 
+	/// <summary>
+	/// Test case: stream disposal propagates final transfer failure.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task StreamDisposalPropagatesFinalTransferFailure()
 	{
@@ -90,6 +105,10 @@ public sealed class FtpStorageTests
 		Assert.AreEqual(1, session.CompletedTransferCount);
 	}
 
+	/// <summary>
+	/// Test case: references do not follow a path changing rename.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ReferencesDoNotFollowAPathChangingRename()
 	{
@@ -107,6 +126,10 @@ public sealed class FtpStorageTests
 		await Assert.ThrowsAsync<FileNotFoundException>(() => source .ResolveAsync(original) .AsTask());
 	}
 
+	/// <summary>
+	/// Test case: authentication failure requests one refreshed credential.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task AuthenticationFailureRequestsOneRefreshedCredential()
 	{

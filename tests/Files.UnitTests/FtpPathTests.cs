@@ -6,9 +6,15 @@ using Files.Core.Storage.Ftp;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for ftp path behavior.
+/// </summary>
 [TestClass]
 public sealed class FtpPathTests
 {
+	/// <summary>
+	/// Test case: normalizes separators and dot segments without changing case.
+	/// </summary>
 	[TestMethod]
 	public void NormalizesSeparatorsAndDotSegmentsWithoutChangingCase()
 	{
@@ -20,6 +26,9 @@ public sealed class FtpPathTests
 		Assert.AreEqual("/Home/Documents/Report.txt", FtpPath.ParseEscapedUriPath(path.ToEscapedUriPath()).Value);
 	}
 
+	/// <summary>
+	/// Test case: rejects paths that escape the remote root.
+	/// </summary>
 	[TestMethod]
 	public void RejectsPathsThatEscapeTheRemoteRoot()
 	{
@@ -27,6 +36,9 @@ public sealed class FtpPathTests
 		Assert.Throws<ArgumentException>(() => FtpPath.Root.Combine("../outside"));
 	}
 
+	/// <summary>
+	/// Test case: root containment honors the configured comparison.
+	/// </summary>
 	[TestMethod]
 	public void RootContainmentHonorsTheConfiguredComparison()
 	{
@@ -37,6 +49,10 @@ public sealed class FtpPathTests
 		Assert.IsTrue(candidate.IsWithin(root, StringComparer.OrdinalIgnoreCase));
 	}
 
+	/// <summary>
+	/// Test case: source rejects credentials and escaped separators in addresses.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SourceRejectsCredentialsAndEscapedSeparatorsInAddresses()
 	{

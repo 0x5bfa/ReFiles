@@ -9,9 +9,16 @@ using Files.Core.Sessions;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for files core builder behavior.
+/// </summary>
 [TestClass]
 public sealed class FilesCoreBuilderTests
 {
+	/// <summary>
+	/// Test case: runtime builds navigable home and owns storage sources.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RuntimeBuildsNavigableHomeAndOwnsStorageSources()
 	{
@@ -35,6 +42,10 @@ public sealed class FilesCoreBuilderTests
 		Assert.IsEmpty(runtime.ShellSession.Windows);
 	}
 
+	/// <summary>
+	/// Test case: storage workspace can be used without creating window.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task StorageWorkspaceCanBeUsedWithoutCreatingWindow()
 	{
@@ -59,6 +70,10 @@ public sealed class FilesCoreBuilderTests
 		Assert.IsTrue(source.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: unbuilt builder disposes accepted resources.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task UnbuiltBuilderDisposesAcceptedResources()
 	{
@@ -74,6 +89,10 @@ public sealed class FilesCoreBuilderTests
 		Assert.Throws<ObjectDisposedException>(() => builder.AddStorageSource(new TestStorageSource()));
 	}
 
+	/// <summary>
+	/// Test case: built builder transfers resources to runtime.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task BuiltBuilderTransfersResourcesToRuntime()
 	{
@@ -89,6 +108,9 @@ public sealed class FilesCoreBuilderTests
 		Assert.IsTrue(source.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: builder rejects duplicate source ids.
+	/// </summary>
 	[TestMethod]
 	public void BuilderRejectsDuplicateSourceIds()
 	{
@@ -98,6 +120,10 @@ public sealed class FilesCoreBuilderTests
 		Assert.Throws<InvalidOperationException>(() => builder.AddStorageSource(new TestStorageSource()));
 	}
 
+	/// <summary>
+	/// Test case: runtime disposal is idempotent.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RuntimeDisposalIsIdempotent()
 	{
@@ -112,6 +138,9 @@ public sealed class FilesCoreBuilderTests
 		Assert.AreEqual(1, source.DisposeCount);
 	}
 
+	/// <summary>
+	/// Test case: failed build disposes registered sources.
+	/// </summary>
 	[TestMethod]
 	public void FailedBuildDisposesRegisteredSources()
 	{

@@ -12,9 +12,16 @@ using System.Runtime.CompilerServices;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for browse session behavior.
+/// </summary>
 [TestClass]
 public sealed class BrowseSessionTests
 {
+	/// <summary>
+	/// Test case: publishes sorted enumeration in ranges.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PublishesSortedEnumerationInRanges()
 	{
@@ -40,6 +47,10 @@ public sealed class BrowseSessionTests
 		CollectionAssert.AreEqual(new[] { 32, 256, 312 }, publishedBatchSizes);
 	}
 
+	/// <summary>
+	/// Test case: publishes first batch before enumeration completes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PublishesFirstBatchBeforeEnumerationCompletes()
 	{
@@ -76,6 +87,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(600, session.Items.Count);
 	}
 
+	/// <summary>
+	/// Test case: applies requested sort after progressive enumeration.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task AppliesRequestedSortAfterProgressiveEnumeration()
 	{
@@ -116,6 +131,12 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(2, resetCount);
 	}
 
+	/// <summary>
+	/// Test case: large enumerations use bounded adaptive batches.
+	/// </summary>
+	/// <param name="itemCount">The item count value.</param>
+	/// <param name="expectedNotificationCount">The expected notification count value.</param>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	[DataRow(100, 2)]
 	[DataRow(1_000, 4)]
@@ -149,6 +170,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(expectedNotificationCount, notificationCount);
 	}
 
+	/// <summary>
+	/// Test case: sorts enumeration before publishing batches.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SortsEnumerationBeforePublishingBatches()
 	{
@@ -174,6 +199,10 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(second, session.Items[0]);
 	}
 
+	/// <summary>
+	/// Test case: new navigation cancels current enumeration.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NewNavigationCancelsCurrentEnumeration()
 	{
@@ -204,6 +233,10 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(secondItem, session.Items.Single());
 	}
 
+	/// <summary>
+	/// Test case: navigation disposes previous items after successful replacement.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NavigationDisposesPreviousItemsAfterSuccessfulReplacement()
 	{
@@ -227,6 +260,10 @@ public sealed class BrowseSessionTests
 		Assert.IsFalse(resolver.OpenedContexts.Last().IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: failed navigation keeps current items and disposes partial results.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FailedNavigationKeepsCurrentItemsAndDisposesPartialResults()
 	{
@@ -249,6 +286,10 @@ public sealed class BrowseSessionTests
 		Assert.IsNotNull(session.Error);
 	}
 
+	/// <summary>
+	/// Test case: failure after published batch rolls back to previous items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FailureAfterPublishedBatchRollsBackToPreviousItems()
 	{
@@ -286,6 +327,10 @@ public sealed class BrowseSessionTests
 		Assert.IsNotNull(session.Error);
 	}
 
+	/// <summary>
+	/// Test case: cancelled navigation disposes new context and preserves current state.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CancelledNavigationDisposesNewContextAndPreservesCurrentState()
 	{
@@ -315,6 +360,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(resolver.OpenedContexts[1].IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: cancellation after published batch restores previous items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CancellationAfterPublishedBatchRestoresPreviousItems()
 	{
@@ -371,6 +420,10 @@ public sealed class BrowseSessionTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: disposing session disposes active context and items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DisposingSessionDisposesActiveContextAndItems()
 	{
@@ -389,6 +442,10 @@ public sealed class BrowseSessionTests
 		Assert.IsNull(session.Context);
 	}
 
+	/// <summary>
+	/// Test case: starts watcher before initial enumeration.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task StartsWatcherBeforeInitialEnumeration()
 	{
@@ -407,6 +464,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(1, changeSource.StartCount);
 	}
 
+	/// <summary>
+	/// Test case: notification during enumeration triggers refresh after activation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NotificationDuringEnumerationTriggersRefreshAfterActivation()
 	{
@@ -439,6 +500,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(1, secondSource.StartCount);
 	}
 
+	/// <summary>
+	/// Test case: detailed change during next enumeration is applied after activation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DetailedChangeDuringNextEnumerationIsAppliedAfterActivation()
 	{
@@ -474,6 +539,10 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(resolver.OpenedContexts[1], session.Context);
 	}
 
+	/// <summary>
+	/// Test case: notification burst is coalesced into one refresh.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NotificationBurstIsCoalescedIntoOneRefresh()
 	{
@@ -510,6 +579,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(1, secondSource.StartCount);
 	}
 
+	/// <summary>
+	/// Test case: notifications from previous context are ignored after navigation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task NotificationsFromPreviousContextAreIgnoredAfterNavigation()
 	{
@@ -535,6 +608,10 @@ public sealed class BrowseSessionTests
 		Assert.IsFalse(secondSource.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: failed refresh preserves current items and context.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FailedRefreshPreservesCurrentItemsAndContext()
 	{
@@ -576,6 +653,10 @@ public sealed class BrowseSessionTests
 		Assert.IsNotNull(session.Error);
 	}
 
+	/// <summary>
+	/// Test case: created change adds one item.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CreatedChangeAddsOneItem()
 	{
@@ -594,6 +675,10 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(created, session.Items.Single());
 	}
 
+	/// <summary>
+	/// Test case: duplicate created change does not duplicate item.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DuplicateCreatedChangeDoesNotDuplicateItem()
 	{
@@ -617,6 +702,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(1, resolveCount);
 	}
 
+	/// <summary>
+	/// Test case: deleted change removes and disposes item once.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DeletedChangeRemovesAndDisposesItemOnce()
 	{
@@ -635,6 +724,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(1, deletedCore.DisposeCount);
 	}
 
+	/// <summary>
+	/// Test case: renamed change replaces model instance.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenamedChangeReplacesModelInstance()
 	{
@@ -656,6 +749,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(1, previousCore.DisposeCount);
 	}
 
+	/// <summary>
+	/// Test case: updated change replaces model and invalidates cache.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task UpdatedChangeReplacesModelAndInvalidatesCache()
 	{
@@ -677,6 +774,10 @@ public sealed class BrowseSessionTests
 		CollectionAssert.Contains(cache.InvalidatedReferences.ToList(), replacement.Reference);
 	}
 
+	/// <summary>
+	/// Test case: created renamed deleted changes preserve queue order.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CreatedRenamedDeletedChangesPreserveQueueOrder()
 	{
@@ -714,6 +815,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(renamedCore.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: incomplete change falls back to full refresh.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task IncompleteChangeFallsBackToFullRefresh()
 	{
@@ -742,6 +847,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(oldItemCore.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: stale resolve result is disposed after navigation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task StaleResolveResultIsDisposedAfterNavigation()
 	{
@@ -783,6 +892,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(createdCore.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: incremental apply failure keeps state until full refresh.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task IncrementalApplyFailureKeepsStateUntilFullRefresh()
 	{
@@ -810,6 +923,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(partialCore.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: renamed item replaces model and preserves selection key.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenamedItemReplacesModelAndPreservesSelectionKey()
 	{
@@ -839,6 +956,10 @@ public sealed class BrowseSessionTests
 		Assert.IsInstanceOfType<BrowseItemReplaced>(itemChanges[^1].Changes[0]);
 	}
 
+	/// <summary>
+	/// Test case: renamed item migrates selection when identity changes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenamedItemMigratesSelectionWhenIdentityChanges()
 	{
@@ -862,6 +983,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(replacementKey, session.Selection.AnchorKey);
 	}
 
+	/// <summary>
+	/// Test case: deleted item is removed from selection.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DeletedItemIsRemovedFromSelection()
 	{
@@ -887,6 +1012,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(2, selectionChanged);
 	}
 
+	/// <summary>
+	/// Test case: renamed item moves when its name changes sort position.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenamedItemMovesWhenItsNameChangesSortPosition()
 	{
@@ -912,6 +1041,10 @@ public sealed class BrowseSessionTests
 		Assert.AreEqual(replacement.Reference.GetKey(), moved.Key);
 	}
 
+	/// <summary>
+	/// Test case: same name items have stable identity order.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SameNameItemsHaveStableIdentityOrder()
 	{
@@ -931,6 +1064,10 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(later, session.Items[1]);
 	}
 
+	/// <summary>
+	/// Test case: sort change publishes one consistent reset.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SortChangePublishesOneConsistentReset()
 	{
@@ -955,6 +1092,10 @@ public sealed class BrowseSessionTests
 		CollectionAssert.AreEqual(new[] {third, second, first}, session.Items.ToArray());
 	}
 
+	/// <summary>
+	/// Test case: sorting keeps folders before files in both directions.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SortingKeepsFoldersBeforeFilesInBothDirections()
 	{
@@ -980,6 +1121,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(session.Items.Skip(2).All(static item => item is not IFolderModel));
 	}
 
+	/// <summary>
+	/// Test case: grouping change does not reset the core item projection.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task GroupingChangeDoesNotResetTheCoreItemProjection()
 	{
@@ -1002,6 +1147,10 @@ public sealed class BrowseSessionTests
 		Assert.IsEmpty(changes);
 	}
 
+	/// <summary>
+	/// Test case: subscriber failure does not corrupt committed navigation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SubscriberFailureDoesNotCorruptCommittedNavigation()
 	{
@@ -1025,6 +1174,10 @@ public sealed class BrowseSessionTests
 		Assert.IsTrue(laterHandlerCalled);
 	}
 
+	/// <summary>
+	/// Test case: full refresh keeps only selection keys still present.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FullRefreshKeepsOnlySelectionKeysStillPresent()
 	{
@@ -1060,6 +1213,10 @@ public sealed class BrowseSessionTests
 		Assert.IsNull(session.Selection.AnchorKey);
 	}
 
+	/// <summary>
+	/// Test case: view settings are persisted by browse location.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ViewSettingsArePersistedByBrowseLocation()
 	{

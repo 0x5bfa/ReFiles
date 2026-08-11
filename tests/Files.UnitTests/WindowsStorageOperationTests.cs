@@ -6,10 +6,17 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows storage operation behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsStorageOperationTests
 {
+	/// <summary>
+	/// Test case: create copy move and delete use shell operations.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CreateCopyMoveAndDeleteUseShellOperations()
 	{
@@ -67,6 +74,10 @@ public sealed class WindowsStorageOperationTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: rename uses shell operation and returns updated reference.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenameUsesShellOperationAndReturnsUpdatedReference()
 	{
@@ -114,6 +125,10 @@ public sealed class WindowsStorageOperationTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: rename preserves a requested case only name change.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenamePreservesARequestedCaseOnlyNameChange()
 	{
@@ -146,6 +161,10 @@ public sealed class WindowsStorageOperationTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: rename hard link returns the renamed directory entry.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RenameHardLinkReturnsTheRenamedDirectoryEntry()
 	{
@@ -180,6 +199,10 @@ public sealed class WindowsStorageOperationTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: rejects path traversal as failed result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RejectsPathTraversalAsFailedResult()
 	{
@@ -194,6 +217,10 @@ public sealed class WindowsStorageOperationTests
 		Assert.IsInstanceOfType<ArgumentException>(result.Error);
 	}
 
+	/// <summary>
+	/// Test case: rejects names that windows would normalize or reserve.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RejectsNamesThatWindowsWouldNormalizeOrReserve()
 	{

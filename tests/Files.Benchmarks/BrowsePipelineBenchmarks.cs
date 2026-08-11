@@ -12,12 +12,22 @@ using OwlCore.Storage;
 
 namespace Files.Benchmarks;
 
+/// <summary>
+/// Measures browse-session navigation performance across different item counts.
+/// </summary>
 [MemoryDiagnoser]
 public class BrowsePipelineBenchmarks
 {
+	/// <summary>
+	/// Gets or sets the number of items generated for the benchmark.
+	/// </summary>
 	[Params(100, 1_000, 10_000, 44_000)]
 	public int ItemCount { get; set; }
 
+	/// <summary>
+	/// Measures the time required to navigate to a generated home location.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous navigation operation.</returns>
 	[Benchmark]
 	public async Task NavigateAsync()
 	{

@@ -9,12 +9,22 @@ using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows storage behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsStorageTests
 {
+	/// <summary>
+	/// Gets the MSTest context for the current test.
+	/// </summary>
 	public TestContext TestContext { get; set; } = null!;
 
+	/// <summary>
+	/// Test case: measures system32 core enumeration.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task MeasuresSystem32CoreEnumeration()
 	{
@@ -50,6 +60,10 @@ public sealed class WindowsStorageTests
 		Assert.IsTrue(itemCount > 0, "The system directory should contain at least one item.");
 	}
 
+	/// <summary>
+	/// Test case: measures system32 app model navigation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task MeasuresSystem32AppModelNavigation()
 	{
@@ -82,6 +96,10 @@ public sealed class WindowsStorageTests
 		Assert.IsTrue(itemCount > 0, "The system directory should contain at least one item.");
 	}
 
+	/// <summary>
+	/// Test case: file system folder enumeration batches and filters items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FileSystemFolderEnumerationBatchesAndFiltersItems()
 	{
@@ -125,6 +143,10 @@ public sealed class WindowsStorageTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: large file system folder enumeration completes beyond the channel capacity.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task LargeFileSystemFolderEnumerationCompletesBeyondTheChannelCapacity()
 	{
@@ -156,6 +178,10 @@ public sealed class WindowsStorageTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: hard linked file enumeration uses distinct directory entry identities.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task HardLinkedFileEnumerationUsesDistinctDirectoryEntryIdentities()
 	{
@@ -189,6 +215,10 @@ public sealed class WindowsStorageTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: file system stream reads and seeks.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FileSystemStreamReadsAndSeeks()
 	{
@@ -217,6 +247,10 @@ public sealed class WindowsStorageTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: injected scheduler is borrowed by the source.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task InjectedSchedulerIsBorrowedByTheSource()
 	{
@@ -228,6 +262,10 @@ public sealed class WindowsStorageTests
 		Assert.IsTrue(result);
 	}
 
+	/// <summary>
+	/// Test case: rapidly canceled column reads leave scheduler usable.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task RapidlyCanceledColumnReadsLeaveSchedulerUsable()
 	{
@@ -265,6 +303,10 @@ public sealed class WindowsStorageTests
 		Assert.IsTrue(columns.All.Count > 0);
 	}
 
+	/// <summary>
+	/// Test case: direct resolution and enumeration share the same identity.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task DirectResolutionAndEnumerationShareTheSameIdentity()
 	{
@@ -280,6 +322,10 @@ public sealed class WindowsStorageTests
 		Assert.AreEqual(direct.Id, enumerated!.Id);
 	}
 
+	/// <summary>
+	/// Test case: virtual shell item uses versioned address identity.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task VirtualShellItemUsesVersionedAddressIdentity()
 	{

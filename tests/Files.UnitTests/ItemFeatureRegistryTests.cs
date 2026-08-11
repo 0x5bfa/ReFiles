@@ -6,9 +6,15 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for item feature registry behavior.
+/// </summary>
 [TestClass]
 public sealed class ItemFeatureRegistryTests
 {
+	/// <summary>
+	/// Test case: get is lazy and cached.
+	/// </summary>
 	[TestMethod]
 	public void GetIsLazyAndCached()
 	{
@@ -30,6 +36,9 @@ public sealed class ItemFeatureRegistryTests
 		Assert.AreEqual(1, createCount);
 	}
 
+	/// <summary>
+	/// Test case: item owned features are disposed in reverse creation order.
+	/// </summary>
 	[TestMethod]
 	public void ItemOwnedFeaturesAreDisposedInReverseCreationOrder()
 	{
@@ -53,6 +62,9 @@ public sealed class ItemFeatureRegistryTests
 		CollectionAssert.AreEqual(new[] { "wrapper", "inner" }, disposalOrder);
 	}
 
+	/// <summary>
+	/// Test case: shared features are not disposed by the item.
+	/// </summary>
 	[TestMethod]
 	public void SharedFeaturesAreNotDisposedByTheItem()
 	{
@@ -73,6 +85,10 @@ public sealed class ItemFeatureRegistryTests
 		Assert.IsFalse(feature.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: async features are awaited during model disposal.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task AsyncFeaturesAreAwaitedDuringModelDisposal()
 	{
@@ -93,6 +109,9 @@ public sealed class ItemFeatureRegistryTests
 		Assert.AreEqual(1, feature.DisposeCount);
 	}
 
+	/// <summary>
+	/// Test case: resolution and cleanup failures are both preserved.
+	/// </summary>
 	[TestMethod]
 	public void ResolutionAndCleanupFailuresAreBothPreserved()
 	{
@@ -115,6 +134,9 @@ public sealed class ItemFeatureRegistryTests
 		Assert.AreEqual(1, feature.DisposeCount);
 	}
 
+	/// <summary>
+	/// Test case: multiple options without a combiner fail explicitly.
+	/// </summary>
 	[TestMethod]
 	public void MultipleOptionsWithoutACombinerFailExplicitly()
 	{
@@ -131,6 +153,9 @@ public sealed class ItemFeatureRegistryTests
 		Assert.Throws<InvalidOperationException>(() => features.Get<TestItemFeature>());
 	}
 
+	/// <summary>
+	/// Test case: priority combiner rejects ties at the highest priority.
+	/// </summary>
 	[TestMethod]
 	public void PriorityCombinerRejectsTiesAtTheHighestPriority()
 	{

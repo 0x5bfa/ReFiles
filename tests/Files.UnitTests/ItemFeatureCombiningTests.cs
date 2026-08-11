@@ -11,9 +11,16 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for item feature combining behavior.
+/// </summary>
 [TestClass]
 public sealed class ItemFeatureCombiningTests
 {
+	/// <summary>
+	/// Test case: thumbnail composition uses priority and stops after success.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ThumbnailCompositionUsesPriorityAndStopsAfterSuccess()
 	{
@@ -30,6 +37,10 @@ public sealed class ItemFeatureCombiningTests
 		Assert.AreEqual(0, lower.CallCount);
 	}
 
+	/// <summary>
+	/// Test case: thumbnail composition falls back when higher priority returns null.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ThumbnailCompositionFallsBackWhenHigherPriorityReturnsNull()
 	{
@@ -45,6 +56,10 @@ public sealed class ItemFeatureCombiningTests
 		Assert.AreEqual(1, second.CallCount);
 	}
 
+	/// <summary>
+	/// Test case: preview composition routes by priority.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PreviewCompositionRoutesByPriority()
 	{
@@ -60,6 +75,10 @@ public sealed class ItemFeatureCombiningTests
 		Assert.AreEqual("preview", await ReadTextAsync(streamResult!.Content));
 	}
 
+	/// <summary>
+	/// Test case: preview composition stops fallback after blocked result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PreviewCompositionStopsFallbackAfterBlockedResult()
 	{
@@ -74,6 +93,10 @@ public sealed class ItemFeatureCombiningTests
 		Assert.AreEqual(0, fallback.CallCount);
 	}
 
+	/// <summary>
+	/// Test case: property composition merges sources with higher priority winning.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task PropertyCompositionMergesSourcesWithHigherPriorityWinning()
 	{

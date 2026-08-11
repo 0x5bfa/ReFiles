@@ -8,6 +8,9 @@ using OwlCore.Storage;
 
 namespace Files.Benchmarks;
 
+/// <summary>
+/// Measures cold and cached item-feature resolution performance.
+/// </summary>
 [MemoryDiagnoser]
 public class ItemFeatureResolutionBenchmarks
 {
@@ -17,9 +20,15 @@ public class ItemFeatureResolutionBenchmarks
 
 	private IItemFeatures cachedFeatures = null!;
 
+	/// <summary>
+	/// Gets or sets the number of feature factories registered for the benchmark.
+	/// </summary>
 	[Params(1, 4, 16)]
 	public int FactoryCount { get; set; }
 
+	/// <summary>
+	/// Creates the feature registry and warms the cached resolution path.
+	/// </summary>
 	[GlobalSetup]
 	public void Setup()
 	{
@@ -42,9 +51,16 @@ public class ItemFeatureResolutionBenchmarks
 		_ = cachedFeatures.Get<BenchmarkFeature>();
 	}
 
+	/// <summary>
+	/// Releases the cached feature set after the benchmark completes.
+	/// </summary>
 	[GlobalCleanup]
 	public void Cleanup() => cachedFeatures.Dispose();
 
+	/// <summary>
+	/// Measures resolving a feature from a newly created feature set.
+	/// </summary>
+	/// <returns>The resolved feature value.</returns>
 	[Benchmark(Baseline = true)]
 	public string ColdResolution()
 	{
@@ -53,6 +69,10 @@ public class ItemFeatureResolutionBenchmarks
 		return features.Get<BenchmarkFeature>()!.Value;
 	}
 
+	/// <summary>
+	/// Measures resolving a feature from the cached feature set.
+	/// </summary>
+	/// <returns>The resolved feature value.</returns>
 	[Benchmark]
 	public string CachedResolution() => cachedFeatures.Get<BenchmarkFeature>()!.Value;
 }

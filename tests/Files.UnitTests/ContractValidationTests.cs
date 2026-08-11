@@ -8,9 +8,15 @@ using Files.Core.ViewSettings;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for contract validation behavior.
+/// </summary>
 [TestClass]
 public sealed class ContractValidationTests
 {
+	/// <summary>
+	/// Test case: feature requests reject unknown enums and invalid ids.
+	/// </summary>
 	[TestMethod]
 	public void FeatureRequestsRejectUnknownEnumsAndInvalidIds()
 	{
@@ -22,6 +28,9 @@ public sealed class ContractValidationTests
 		Assert.Throws<ArgumentOutOfRangeException>(() => new StreamPreviewResult(new MemoryStream(), "text/plain", contentLength: -1));
 	}
 
+	/// <summary>
+	/// Test case: thumbnail requests scale logical size to display pixels.
+	/// </summary>
 	[TestMethod]
 	public void ThumbnailRequestsScaleLogicalSizeToDisplayPixels()
 	{
@@ -34,6 +43,9 @@ public sealed class ContractValidationTests
 		Assert.Throws<ArgumentOutOfRangeException>(() => new ThumbnailRequest(4097));
 	}
 
+	/// <summary>
+	/// Test case: view settings reject ambiguous or non finite values.
+	/// </summary>
 	[TestMethod]
 	public void ViewSettingsRejectAmbiguousOrNonFiniteValues()
 	{

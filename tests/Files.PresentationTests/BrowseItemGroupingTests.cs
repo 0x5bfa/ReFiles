@@ -8,11 +8,17 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.PresentationTests;
 
+/// <summary>
+/// Verifies grouping browse items by display properties.
+/// </summary>
 [TestClass]
 public sealed class BrowseItemGroupingTests
 {
 	private static readonly BrowseGroupingText Text = new("Folders", "files", "Unspecified", "Tiny", "Small", "Medium", "Large", "Very large", "Huge");
 
+	/// <summary>
+	/// Verifies that name groups follow the requested sort direction.
+	/// </summary>
 	[TestMethod]
 	public void NameGroupsFollowTheRequestedDirection()
 	{
@@ -31,6 +37,9 @@ public sealed class BrowseItemGroupingTests
 		Assert.AreEqual(2, ascending[0].Count);
 	}
 
+	/// <summary>
+	/// Verifies that folders remain first when grouping by type in descending order.
+	/// </summary>
 	[TestMethod]
 	public void TypeGroupingKeepsFoldersFirstWhenDescending()
 	{
@@ -43,6 +52,9 @@ public sealed class BrowseItemGroupingTests
 		CollectionAssert.AreEqual(new[] {"Folders", "Text", "Image"}, groups.Select(static group => group.Title).ToArray());
 	}
 
+	/// <summary>
+	/// Verifies that size grouping uses the expected Explorer-style buckets.
+	/// </summary>
 	[TestMethod]
 	public void SizeGroupingUsesExplorerStyleBuckets()
 	{

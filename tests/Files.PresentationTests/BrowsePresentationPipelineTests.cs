@@ -26,9 +26,17 @@ using OwlCore.Storage;
 
 namespace Files.PresentationTests;
 
+/// <summary>
+/// Verifies incremental browse presentation, navigation, and command behavior.
+/// </summary>
 [TestClass]
 public sealed class BrowsePresentationPipelineTests
 {
+	/// <summary>
+	/// Verifies that the first rows are presented before item enumeration completes.
+	/// </summary>
+	/// <param name="itemCount">The number of items to enumerate.</param>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	[DataRow(100)]
 	[DataRow(1_000)]
@@ -85,6 +93,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(dispatcher.MaximumCallbackDuration < TimeSpan.FromMilliseconds(100));
 	}
 
+	/// <summary>
+	/// Verifies that pending items from a canceled navigation generation are discarded.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task NavigationDiscardsPendingItemsFromCanceledGeneration()
 	{
@@ -120,6 +132,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(adapter.Items.All(static item => item.Name.StartsWith("Destination ", StringComparison.Ordinal)));
 	}
 
+	/// <summary>
+	/// Verifies that repeated navigation to the same location shares one operation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task RepeatedNavigationToSameLocationUsesSingleOperation()
 	{
@@ -153,6 +169,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(adapter.Items.All(static item => item.Name.StartsWith("Repeated ", StringComparison.Ordinal)));
 	}
 
+	/// <summary>
+	/// Verifies that disposing the adapter waits for shared navigation cleanup.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task DisposingAdapterWaitsForSharedNavigationCleanup()
 	{
@@ -194,6 +214,9 @@ public sealed class BrowsePresentationPipelineTests
 		}
 	}
 
+	/// <summary>
+	/// Verifies that one UI batch produces one bulk collection notification.
+	/// </summary>
 	[TestMethod]
 	public void BulkCollectionPublishesOneNotificationForOneUiBatch()
 	{
@@ -213,6 +236,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.AreEqual(128, lastChange?.NewItems?.Count);
 	}
 
+	/// <summary>
+	/// Verifies that progressive property enrichment updates the existing row.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task ProgressivePropertyEnrichmentUpdatesTheExistingRow()
 	{
@@ -260,6 +287,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.AreEqual(1, propertyChangeCount);
 	}
 
+	/// <summary>
+	/// Verifies that sorting reuses existing item view models.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task SortResetReusesExistingItemViewModels()
 	{
@@ -283,6 +314,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.AreSame(firstItem, adapter.Items[1]);
 	}
 
+	/// <summary>
+	/// Verifies that large folders do not refresh selection commands for every item batch.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task LargeFolderDoesNotRefreshSelectionCommandsForEachItemBatch()
 	{
@@ -331,6 +366,10 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(stateCalls.Count > callsBeforeNavigation);
 	}
 
+	/// <summary>
+	/// Verifies that canceling a previous command waits for its call to finish.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
 	public async Task CancelPreviousCommandWaitsForCanceledCallToFinish()
 	{

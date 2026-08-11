@@ -6,10 +6,17 @@ using Files.Core.Storage.Windows;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows identity behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsIdentityTests
 {
+	/// <summary>
+	/// Test case: file identity survives cold same directory rename and rejects replacement.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FileIdentitySurvivesColdSameDirectoryRenameAndRejectsReplacement()
 	{

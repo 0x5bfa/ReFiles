@@ -6,10 +6,17 @@ using Files.Core.Storage.Windows;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows shell column behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsShellColumnTests
 {
+	/// <summary>
+	/// Test case: windows folder reports shell columns.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task WindowsFolderReportsShellColumns()
 	{

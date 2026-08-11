@@ -11,9 +11,16 @@ using Files.Core.Storage.Ftp;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for ftp composition behavior.
+/// </summary>
 [TestClass]
 public sealed class FtpCompositionTests
 {
+	/// <summary>
+	/// Test case: builder adds ftp properties previews and operations.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task BuilderAddsFtpPropertiesPreviewsAndOperations()
 	{

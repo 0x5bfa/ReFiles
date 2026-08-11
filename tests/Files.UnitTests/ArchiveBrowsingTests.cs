@@ -13,9 +13,16 @@ using OwlCore.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for archive browsing behavior.
+/// </summary>
 [TestClass]
 public sealed class ArchiveBrowsingTests
 {
+	/// <summary>
+	/// Test case: selector falls back to the next backend.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SelectorFallsBackToTheNextBackend()
 	{
@@ -34,6 +41,10 @@ public sealed class ArchiveBrowsingTests
 		await mount.DisposeAsync();
 	}
 
+	/// <summary>
+	/// Test case: encrypted probe skips backends without encryption support.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task EncryptedProbeSkipsBackendsWithoutEncryptionSupport()
 	{
@@ -52,6 +63,10 @@ public sealed class ArchiveBrowsingTests
 		await mount.DisposeAsync();
 	}
 
+	/// <summary>
+	/// Test case: handler obtains credential before publishing items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task HandlerObtainsCredentialBeforePublishingItems()
 	{
@@ -89,6 +104,10 @@ public sealed class ArchiveBrowsingTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: archive context returns logical archive parent.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ArchiveContextReturnsLogicalArchiveParent()
 	{
@@ -109,6 +128,9 @@ public sealed class ArchiveBrowsingTests
 		Assert.AreEqual(new ArchiveLocation(reference, "one"), parent);
 	}
 
+	/// <summary>
+	/// Test case: archive source feature includes archive files.
+	/// </summary>
 	[TestMethod]
 	public void ArchiveSourceFeatureIncludesArchiveFiles()
 	{
@@ -126,6 +148,9 @@ public sealed class ArchiveBrowsingTests
 		Assert.AreEqual(model.Reference, archiveSource.Archive);
 	}
 
+	/// <summary>
+	/// Test case: archive source uses windows parsing identity instead of display name.
+	/// </summary>
 	[TestMethod]
 	public void ArchiveSourceUsesWindowsParsingIdentityInsteadOfDisplayName()
 	{
@@ -140,6 +165,9 @@ public sealed class ArchiveBrowsingTests
 		Assert.IsNotNull(model.Get<IArchiveSource>());
 	}
 
+	/// <summary>
+	/// Test case: archive paths reject traversal.
+	/// </summary>
 	[TestMethod]
 	public void ArchivePathsRejectTraversal()
 	{
@@ -149,6 +177,9 @@ public sealed class ArchiveBrowsingTests
 		Assert.Throws<ArgumentException>(() => ArchiveEntryPath.Normalize(@"C:\absolute.txt"));
 	}
 
+	/// <summary>
+	/// Test case: archive credential does not expose its password.
+	/// </summary>
 	[TestMethod]
 	public void ArchiveCredentialDoesNotExposeItsPassword()
 	{

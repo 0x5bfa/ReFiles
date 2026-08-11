@@ -8,9 +8,16 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for memory thumbnail cache behavior.
+/// </summary>
 [TestClass]
 public sealed class MemoryThumbnailCacheTests
 {
+	/// <summary>
+	/// Test case: evicts the least recently used entry.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task EvictsTheLeastRecentlyUsedEntry()
 	{
@@ -29,6 +36,10 @@ public sealed class MemoryThumbnailCacheTests
 		Assert.IsNotNull(await cache.GetAsync(third));
 	}
 
+	/// <summary>
+	/// Test case: invalidate removes all sizes and modes for an item.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task InvalidateRemovesAllSizesAndModesForAnItem()
 	{
@@ -47,6 +58,10 @@ public sealed class MemoryThumbnailCacheTests
 		Assert.IsNotNull(await cache.GetAsync(new ThumbnailCacheKey(new StorableReference(sourceId, "other"), 32, ThumbnailMode.Icon)));
 	}
 
+	/// <summary>
+	/// Test case: invalidation rejects an older in flight write.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task InvalidationRejectsAnOlderInFlightWrite()
 	{
@@ -62,6 +77,10 @@ public sealed class MemoryThumbnailCacheTests
 		Assert.IsNull(await cache.GetAsync(key));
 	}
 
+	/// <summary>
+	/// Test case: wrapper does not repopulate after in flight extraction is invalidated.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task WrapperDoesNotRepopulateAfterInFlightExtractionIsInvalidated()
 	{
@@ -93,6 +112,10 @@ public sealed class MemoryThumbnailCacheTests
 		Assert.IsNull(await cache.GetAsync(new ThumbnailCacheKey(reference, 64, ThumbnailMode.Content)));
 	}
 
+	/// <summary>
+	/// Test case: wrapper shares an in flight extraction.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task WrapperSharesAnInFlightExtraction()
 	{
@@ -124,6 +147,10 @@ public sealed class MemoryThumbnailCacheTests
 		Assert.IsTrue(results.All(static result => result is not null));
 	}
 
+	/// <summary>
+	/// Test case: cache entry returns an independent read only stream.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task CacheEntryReturnsAnIndependentReadOnlyStream()
 	{

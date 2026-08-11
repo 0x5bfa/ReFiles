@@ -14,10 +14,17 @@ using OwlCore.Storage;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows property behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsPropertyTests
 {
+	/// <summary>
+	/// Test case: windows property reader reads only requested properties.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task WindowsPropertyReaderReadsOnlyRequestedProperties()
 	{
@@ -54,6 +61,10 @@ public sealed class WindowsPropertyTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: windows property reader reads shell details property.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task WindowsPropertyReaderReadsShellDetailsProperty()
 	{
@@ -87,6 +98,10 @@ public sealed class WindowsPropertyTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: browse prefetch loads properties for every visible windows item.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task BrowsePrefetchLoadsPropertiesForEveryVisibleWindowsItem()
 	{

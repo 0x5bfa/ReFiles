@@ -7,9 +7,16 @@ using Files.Core.Models;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for storable model lifetime behavior.
+/// </summary>
 [TestClass]
 public sealed class StorableModelLifetimeTests
 {
+	/// <summary>
+	/// Test case: model awaits features before async core model.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task ModelAwaitsFeaturesBeforeAsyncCoreModel()
 	{
@@ -27,6 +34,10 @@ public sealed class StorableModelLifetimeTests
 		CollectionAssert.AreEqual(new[] {"feature", "core"}, order);
 	}
 
+	/// <summary>
+	/// Test case: browse session awaits item disposal during replacement and shutdown.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task BrowseSessionAwaitsItemDisposalDuringReplacementAndShutdown()
 	{
@@ -59,6 +70,9 @@ public sealed class StorableModelLifetimeTests
 		Assert.IsTrue(secondCore.IsDisposed);
 	}
 
+	/// <summary>
+	/// Test case: failed construction disposes async core model.
+	/// </summary>
 	[TestMethod]
 	public void FailedConstructionDisposesAsyncCoreModel()
 	{

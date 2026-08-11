@@ -8,10 +8,17 @@ using Files.Core.Storage.Windows;
 
 namespace Files.UnitTests;
 
+/// <summary>
+/// Contains tests for windows folder change behavior.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsFolderChangeTests
 {
+	/// <summary>
+	/// Test case: folder change source reports create rename and delete.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task FolderChangeSourceReportsCreateRenameAndDelete()
 	{
@@ -53,6 +60,10 @@ public sealed class WindowsFolderChangeTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: shared watcher does not deliver changes to another folder.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SharedWatcherDoesNotDeliverChangesToAnotherFolder()
 	{
@@ -95,6 +106,10 @@ public sealed class WindowsFolderChangeTests
 		}
 	}
 
+	/// <summary>
+	/// Test case: shared registration does not duplicate changes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
 	public async Task SharedRegistrationDoesNotDuplicateChanges()
 	{

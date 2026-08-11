@@ -6,6 +6,9 @@ using System.Windows.Automation;
 
 namespace Files.AxeTests;
 
+/// <summary>
+/// Exercises repeated navigation scenarios through the Files UI.
+/// </summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class NavigationStressTests
@@ -17,12 +20,18 @@ public sealed class NavigationStressTests
 
 	private static int IterationCount => GetIterationCount();
 
+	/// <summary>
+	/// Verifies that the Files application is ready before each navigation test.
+	/// </summary>
 	[TestInitialize]
 	public void Initialize()
 	{
 		TestHelper.AssertApplicationResponsive();
 	}
 
+	/// <summary>
+	/// Verifies that repeatedly entering the same path keeps the application responsive.
+	/// </summary>
 	[TestMethod]
 	public void RepeatedlyEnteringSamePathKeepsApplicationResponsive()
 	{
@@ -41,6 +50,9 @@ public sealed class NavigationStressTests
 		TestHelper.AssertApplicationResponsive();
 	}
 
+	/// <summary>
+	/// Verifies that rapidly entering different paths keeps the application responsive.
+	/// </summary>
 	[TestMethod]
 	public void RapidlyEnteringDifferentPathsKeepsApplicationResponsive()
 	{
