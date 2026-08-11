@@ -70,7 +70,7 @@ jobs:
       run: |
         $testProjects = @(
           'tests/Files.UnitTests/Files.UnitTests.csproj',
-          'tests/Files.PresentationTests/Files.PresentationTests.csproj',
+          'tests/Files.UITests/Files.UITests.csproj',
           'tests/Files.AxeTests/Files.AxeTests.csproj'
         )
         foreach ($testProject in $testProjects) {
@@ -86,10 +86,20 @@ jobs:
       shell: pwsh
       run: dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity quiet
 
-    - name: Run presentation tests
+    - name: Run UI tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
-      run: dotnet test tests/Files.PresentationTests/Files.PresentationTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity quiet
+      run: |
+        $testAssembly = Get-ChildItem "$env:WORKING_DIR\tests\Files.UITests\bin\$env:ARCHITECTURE\$env:CONFIGURATION" -Filter 'Files.UITests.dll' -Recurse |
+          Where-Object { $_.FullName -notmatch '\\win-[^\\]+\\Files\.UITests\.dll$' } |
+          Select-Object -First 1
+        if ($null -eq $testAssembly) {
+          throw 'The Files.UITests test assembly was not produced by the build.'
+        }
+
+        dotnet vstest $testAssembly.FullName `
+          /TestAdapterPath:$testAssembly.DirectoryName `
+          /Platform:$env:ARCHITECTURE
 
     - name: Register UI test application
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
