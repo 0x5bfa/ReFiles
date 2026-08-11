@@ -121,7 +121,7 @@ internal sealed class WindowsStorableFactory
 
 		return _resolver.InvokeAsync(
 			descriptor.Locator,
-			shellItem => WindowsShellColumnReader.Read(shellItem, descriptor.Locator.ParsingName),
+			shellItem => WindowsShellColumnReader.Read(shellItem, descriptor.Locator.ParsingName, cancellationToken),
 			cancellationToken);
 	}
 

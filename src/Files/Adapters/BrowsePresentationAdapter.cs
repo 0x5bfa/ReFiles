@@ -44,7 +44,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private PendingColumns? _pendingColumns;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
 	private LocationNavigation? _locationNavigation;
-	private CancellationTokenSource? _columnsCancellation;
+	private ColumnLoad? _columnLoad;
+	private ColumnCache? _columnCache;
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
 	private BrowseViewSettings _viewSettings;
 	private long _appliedItemsVersion = -1;
@@ -543,8 +544,22 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_pane.BrowseSession.ItemPresentationChanged -=
 			BrowseSession_ItemPresentationChanged;
 		_pane.BrowseSession.SelectionChanged -= BrowseSession_SelectionChanged;
-		_columnsCancellation?.Cancel();
+		ColumnLoad? columnLoad;
+		lock (_pendingLock)
+		{
+			columnLoad = _columnLoad;
+			_columnCache = null;
+		}
+
+		Task? locationNavigationTask;
+		lock (_locationNavigationLock)
+		{
+			locationNavigationTask = _locationNavigation?.Task;
+		}
+
+		columnLoad?.Cancel();
 		_lifetime.Cancel();
+		await Task.WhenAll(ObserveBackgroundTaskAsync(columnLoad?.Task), ObserveBackgroundTaskAsync(locationNavigationTask)).ConfigureAwait(false);
 		Task[] thumbnailTasks;
 		lock (_thumbnailTaskLock)
 		{
@@ -1212,33 +1227,74 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var session = _pane.BrowseSession;
 		if (session.Context is not FolderBrowseLocationContext context || session.Generation is 0)
 		{
+			CancelColumnsLoad();
 			QueueColumns(session.Generation, CreateFallbackColumns());
 
 			return;
 		}
 
-		CancellationTokenSource cancellation;
+		var hasCachedColumns = false;
+		WindowsShellColumnSet? cachedColumnSet = null;
+		ColumnLoad? previousLoad = null;
+		ColumnLoad? loadToStart = null;
+		Task previousTask = Task.CompletedTask;
 		lock (_pendingLock)
 		{
-			_columnsCancellation?.Cancel();
-			cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
-			_columnsCancellation = cancellation;
+			if (_columnCache is { } cache && cache.Generation == session.Generation && ReferenceEquals(cache.Context, context))
+			{
+				hasCachedColumns = true;
+				cachedColumnSet = cache.ColumnSet;
+			}
+			else if (_columnLoad is { } activeLoad && activeLoad.Generation == session.Generation && ReferenceEquals(activeLoad.Context, context))
+			{
+				return;
+			}
+			else
+			{
+				previousLoad = _columnLoad;
+				previousTask = previousLoad?.Task ?? Task.CompletedTask;
+				loadToStart = new ColumnLoad(context, session.Generation, _lifetime.Token);
+				_columnLoad = loadToStart;
+				_columnCache = null;
+			}
 		}
 
-		_ = LoadColumnsAsync(context, session.Generation, cancellation);
+		previousLoad?.Cancel();
+		if (loadToStart is { } load)
+		{
+			load.Start(() => LoadColumnsAsync(load, previousTask));
+		}
+
+		if (hasCachedColumns)
+		{
+			QueueColumns(session.Generation, cachedColumnSet is null ? CreateFallbackColumns() : CreateDetailsColumns(cachedColumnSet, session.ViewSettings));
+		}
 	}
 
-	private async Task LoadColumnsAsync(FolderBrowseLocationContext context, long generation, CancellationTokenSource cancellation)
+	private async Task LoadColumnsAsync(ColumnLoad load, Task previousTask)
 	{
 		try
 		{
-			var columnSet = await context.GetColumnsAsync(cancellation.Token).ConfigureAwait(false);
-			if (columnSet is null || !IsCurrentColumnsContext(context, generation, cancellation.Token))
+			await previousTask.ConfigureAwait(false);
+			load.Token.ThrowIfCancellationRequested();
+
+			var columnSet = await load.Context.GetColumnsAsync(load.Token).ConfigureAwait(false);
+			if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
 			{
-				if (columnSet is null && IsCurrentColumnsContext(context, generation, cancellation.Token))
+				return;
+			}
+
+			lock (_pendingLock)
+			{
+				if (IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
 				{
-					QueueColumns(generation, CreateFallbackColumns());
+					_columnCache = new ColumnCache(load.Context, load.Generation, columnSet);
 				}
+			}
+
+			if (columnSet is null)
+			{
+				QueueColumns(load.Generation, CreateFallbackColumns());
 
 				return;
 			}
@@ -1263,14 +1319,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 							settings.GroupDirection,
 							settings.ShowHiddenItems,
 							settings.ShowFileExtensions);
-						await session.UpdateViewSettingsAsync(nextSettings, cancellation.Token).ConfigureAwait(false);
+						await session.UpdateViewSettingsAsync(nextSettings, load.Token).ConfigureAwait(false);
 					}
 					finally
 					{
 						Interlocked.Exchange(ref _isApplyingDefaultColumns, 0);
 					}
 
-					if (!IsCurrentColumnsContext(context, generation, cancellation.Token))
+					if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
 					{
 						return;
 					}
@@ -1279,30 +1335,42 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				}
 			}
 
-			QueueColumns(generation, CreateDetailsColumns(columnSet, settings));
+			QueueColumns(load.Generation, CreateDetailsColumns(columnSet, settings));
 		}
-		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		catch (OperationCanceledException) when (load.IsCancellationRequested)
 		{
 		}
 		catch
 		{
-			if (IsCurrentColumnsContext(context, generation, CancellationToken.None))
+			if (IsCurrentColumnsContext(load.Context, load.Generation, CancellationToken.None))
 			{
-				QueueColumns(generation, CreateFallbackColumns());
+				QueueColumns(load.Generation, CreateFallbackColumns());
 			}
 		}
 		finally
 		{
 			lock (_pendingLock)
 			{
-				if (ReferenceEquals(_columnsCancellation, cancellation))
+				if (ReferenceEquals(_columnLoad, load))
 				{
-					_columnsCancellation = null;
+					_columnLoad = null;
 				}
 			}
 
-			cancellation.Dispose();
+			load.Dispose();
 		}
+	}
+
+	private void CancelColumnsLoad()
+	{
+		ColumnLoad? load;
+		lock (_pendingLock)
+		{
+			load = _columnLoad;
+			_columnCache = null;
+		}
+
+		load?.Cancel();
 	}
 
 	private bool IsCurrentColumnsContext(FolderBrowseLocationContext context, long generation, CancellationToken cancellationToken)
@@ -1741,6 +1809,23 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		return cancellationToken.CanBeCanceled ? navigation.Task.WaitAsync(cancellationToken) : navigation.Task;
 	}
 
+	private static async Task ObserveBackgroundTaskAsync(Task? task)
+	{
+		if (task is null)
+		{
+			return;
+		}
+
+		try
+		{
+			await task.ConfigureAwait(false);
+		}
+		catch
+		{
+			// The initiating caller observes operation failures.
+		}
+	}
+
 	private async Task TrackLocationNavigationAsync(LocationNavigation navigation)
 	{
 		try
@@ -1803,4 +1888,69 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private sealed record PendingState(long Generation, bool IsLoading, string? ErrorMessage, string LocationText, BrowseViewSettings ViewSettings);
 
 	private sealed record LocationNavigation(BrowseLocation Location, Task Task);
+
+	private sealed record ColumnCache(FolderBrowseLocationContext Context, long Generation, WindowsShellColumnSet? ColumnSet);
+
+	private sealed class ColumnLoad : IDisposable
+	{
+		private readonly CancellationTokenSource _cancellation;
+		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+		public FolderBrowseLocationContext Context { get; }
+
+		public long Generation { get; }
+
+		public CancellationToken Token => _cancellation.Token;
+
+		public bool IsCancellationRequested => _cancellation.IsCancellationRequested;
+
+		public Task Task => _completion.Task;
+
+		public ColumnLoad(FolderBrowseLocationContext context, long generation, CancellationToken lifetimeToken)
+		{
+			Context = context;
+			Generation = generation;
+			_cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
+		}
+
+		public void Start(Func<Task> action)
+		{
+			ArgumentNullException.ThrowIfNull(action);
+
+			_ = RunAsync(action);
+		}
+
+		public void Cancel()
+		{
+			try
+			{
+				_cancellation.Cancel();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+		}
+
+		public void Dispose()
+		{
+			_cancellation.Dispose();
+		}
+
+		private async Task RunAsync(Func<Task> action)
+		{
+			try
+			{
+				await action().ConfigureAwait(false);
+				_completion.TrySetResult(true);
+			}
+			catch (OperationCanceledException exception)
+			{
+				_completion.TrySetCanceled(exception.CancellationToken);
+			}
+			catch (Exception exception)
+			{
+				_completion.TrySetException(exception);
+			}
+		}
+	}
 }

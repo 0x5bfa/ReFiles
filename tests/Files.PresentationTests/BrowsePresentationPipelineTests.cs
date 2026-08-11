@@ -154,6 +154,47 @@ public sealed class BrowsePresentationPipelineTests
 	}
 
 	[TestMethod]
+	public async Task DisposingAdapterWaitsForSharedNavigationCleanup()
+	{
+		var navigationPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var cancellationObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var cleanupRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new DisposalNavigationBrowseLocationResolver(navigationPaused, cancellationObserved, cleanupRelease);
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		Task? disposal = null;
+		try
+		{
+			await adapter.InitializeAsync();
+			var navigation = adapter.NavigateToReferenceAsync(CreateReference("disposal"));
+			await navigationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			disposal = adapter.DisposeAsync().AsTask();
+			await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.IsFalse(disposal.IsCompleted);
+
+			cleanupRelease.TrySetResult(true);
+			await Assert.ThrowsAsync<OperationCanceledException>(async () => await navigation);
+			await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+		}
+		finally
+		{
+			cleanupRelease.TrySetResult(true);
+			if (disposal is not null)
+			{
+				await disposal;
+			}
+			else
+			{
+				await adapter.DisposeAsync();
+			}
+		}
+	}
+
+	[TestMethod]
 	public void BulkCollectionPublishesOneNotificationForOneUiBatch()
 	{
 		var collection = new BulkObservableCollection<int>();
@@ -675,6 +716,53 @@ public sealed class BrowsePresentationPipelineTests
 
 			_navigationPaused.TrySetResult(true);
 			await _navigationRelease.Task.WaitAsync(cancellationToken);
+		}
+	}
+
+	private sealed class DisposalNavigationBrowseLocationResolver(
+		TaskCompletionSource<bool> navigationPaused,
+		TaskCompletionSource<bool> cancellationObserved,
+		TaskCompletionSource<bool> cleanupRelease) : IBrowseLocationResolver
+	{
+		private readonly TaskCompletionSource<bool> _navigationPaused = navigationPaused;
+		private readonly TaskCompletionSource<bool> _cancellationObserved = cancellationObserved;
+		private readonly TaskCompletionSource<bool> _cleanupRelease = cleanupRelease;
+		private readonly PresentationStorageSource _source = new();
+
+		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(location);
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var context = location switch
+			{
+				HomeLocation => new PresentationBrowseLocationContext(location, 64, _source, static (_, _) => ValueTask.CompletedTask, null, "home", "Home"),
+				FolderLocation { Folder.ItemId: "disposal" } => new PresentationBrowseLocationContext(location, 300, _source, PauseNavigationAsync, null, "disposal-item", "Disposal"),
+				_ => throw new InvalidOperationException("Unexpected disposal navigation test location."),
+			};
+
+			return ValueTask.FromResult<IBrowseLocationContext>(context);
+		}
+
+		private async ValueTask PauseNavigationAsync(int index, CancellationToken cancellationToken)
+		{
+			if (index is not 32)
+			{
+				return;
+			}
+
+			_navigationPaused.TrySetResult(true);
+			try
+			{
+				await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+			}
+			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+			{
+				_cancellationObserved.TrySetResult(true);
+				await _cleanupRelease.Task;
+
+				throw;
+			}
 		}
 	}
 

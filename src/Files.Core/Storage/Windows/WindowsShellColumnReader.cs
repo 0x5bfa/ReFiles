@@ -17,13 +17,17 @@ internal static unsafe class WindowsShellColumnReader
 
 	private const uint MaximumColumnCount = 1024;
 
-	internal static WindowsShellColumnSet Read(IShellItem shellItem, string parsingName)
+	internal static WindowsShellColumnSet Read(IShellItem shellItem, string parsingName, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
-		var folder = TryGetFolder2(shellItem, parsingName);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		var folder = TryGetFolder2(shellItem, parsingName, cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+
 		if (folder is null)
 		{
 			return new WindowsShellColumnSet([], null, null);
@@ -32,6 +36,8 @@ internal static unsafe class WindowsShellColumnReader
 		var columns = new List<WindowsShellColumn>();
 		for (uint index = 0; index < MaximumColumnCount; index++)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var details = default(SHELLDETAILS);
 			var detailsResult = folder.GetDetailsOf(null, index, &details);
 			if (detailsResult.Failed)
@@ -86,36 +92,53 @@ internal static unsafe class WindowsShellColumnReader
 		}
 
 		var shellColumnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
-		if (TryReadViewColumns(folder, shellColumnSet, out var viewColumnSet))
+		cancellationToken.ThrowIfCancellationRequested();
+
+		if (TryReadViewColumns(folder, shellColumnSet, cancellationToken, out var viewColumnSet))
 		{
 			return viewColumnSet;
 		}
 
+		cancellationToken.ThrowIfCancellationRequested();
+
 		return shellColumnSet;
 	}
 
-	private static bool TryReadViewColumns(IShellFolder folder, WindowsShellColumnSet shellColumnSet, out WindowsShellColumnSet columnSet)
+	private static bool TryReadViewColumns(IShellFolder folder, WindowsShellColumnSet shellColumnSet, CancellationToken cancellationToken, out WindowsShellColumnSet columnSet)
 	{
 		columnSet = shellColumnSet;
+		cancellationToken.ThrowIfCancellationRequested();
+
 		var createViewResult = folder.CreateViewObject(HWND.Null, out IShellView? shellView);
 		if (createViewResult.Failed || shellView is not IColumnManager columnManager)
 		{
 			return false;
 		}
 
-		if (!TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_ALL, out var allKeys))
+		cancellationToken.ThrowIfCancellationRequested();
+
+		if (!TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_ALL, cancellationToken, out var allKeys))
 		{
 			return false;
 		}
 
-		var visibleKeys = TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_VISIBLE, out var keys)
+		var visibleKeys = TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_VISIBLE, cancellationToken, out var keys)
 			? keys
 			: [];
-		var visiblePropertyIds = new HashSet<string>(visibleKeys.Select(GetPropertyId), StringComparer.Ordinal);
+		var visiblePropertyIds = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var key in visibleKeys)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			visiblePropertyIds.Add(GetPropertyId(key));
+		}
+
 		var allEntries = new List<(PROPERTYKEY Key, string PropertyId)>(allKeys.Length);
 		var entriesByPropertyId = new Dictionary<string, (PROPERTYKEY Key, string PropertyId)>(StringComparer.Ordinal);
 		foreach (var key in allKeys)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var propertyId = GetPropertyId(key);
 			if (entriesByPropertyId.ContainsKey(propertyId))
 			{
@@ -131,6 +154,8 @@ internal static unsafe class WindowsShellColumnReader
 		var orderedPropertyIds = new HashSet<string>(StringComparer.Ordinal);
 		foreach (var key in visibleKeys)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var propertyId = GetPropertyId(key);
 			if (entriesByPropertyId.TryGetValue(propertyId, out var entry) && orderedPropertyIds.Add(propertyId))
 			{
@@ -140,6 +165,8 @@ internal static unsafe class WindowsShellColumnReader
 
 		foreach (var entry in allEntries)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			if (orderedPropertyIds.Add(entry.PropertyId))
 			{
 				orderedEntries.Add(entry);
@@ -150,6 +177,8 @@ internal static unsafe class WindowsShellColumnReader
 		var columns = new List<WindowsShellColumn>(orderedEntries.Count);
 		for (var index = 0; index < orderedEntries.Count; index++)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var entry = orderedEntries[index];
 			var columnInfo = new CM_COLUMNINFO
 			{
@@ -157,6 +186,8 @@ internal static unsafe class WindowsShellColumnReader
 				dwMask = (uint)(CM_MASK.CM_MASK_WIDTH | CM_MASK.CM_MASK_DEFAULTWIDTH | CM_MASK.CM_MASK_IDEALWIDTH | CM_MASK.CM_MASK_NAME | CM_MASK.CM_MASK_STATE),
 			};
 			var infoResult = columnManager.GetColumnInfo(in entry.Key, ref columnInfo);
+			cancellationToken.ThrowIfCancellationRequested();
+
 			legacyColumns.TryGetValue(entry.PropertyId, out var legacyColumn);
 			var displayName = infoResult.Succeeded ? columnInfo.wszName.ToString() : string.Empty;
 			if (string.IsNullOrWhiteSpace(displayName))
@@ -188,13 +219,16 @@ internal static unsafe class WindowsShellColumnReader
 		var defaultSortColumnIndex = MapColumnIndex(shellColumnSet.DefaultSortColumnIndex, shellColumnSet.All, columns);
 		var defaultDisplayColumnIndex = MapColumnIndex(shellColumnSet.DefaultDisplayColumnIndex, shellColumnSet.All, columns);
 		columnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
+		cancellationToken.ThrowIfCancellationRequested();
 
 		return true;
 	}
 
-	private static bool TryGetColumnKeys(IColumnManager columnManager, CM_ENUM_FLAGS flags, out PROPERTYKEY[] keys)
+	private static bool TryGetColumnKeys(IColumnManager columnManager, CM_ENUM_FLAGS flags, CancellationToken cancellationToken, out PROPERTYKEY[] keys)
 	{
 		keys = [];
+		cancellationToken.ThrowIfCancellationRequested();
+
 		var countResult = columnManager.GetColumnCount(flags, out var count);
 		if (countResult.Failed || count is 0 || count > MaximumColumnCount)
 		{
@@ -203,9 +237,13 @@ internal static unsafe class WindowsShellColumnReader
 
 		var length = checked((int)count);
 		keys = new PROPERTYKEY[length];
+		cancellationToken.ThrowIfCancellationRequested();
+
 		var columnsResult = columnManager.GetColumns(flags, keys);
 		if (columnsResult.Succeeded)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			return true;
 		}
 
@@ -315,13 +353,15 @@ internal static unsafe class WindowsShellColumnReader
 		return new ReadOnlyDictionary<string, object?>(values);
 	}
 
-	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName)
+	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName, CancellationToken cancellationToken)
 	{
 		var directBindResult = shellItem.BindToHandler(null, PInvoke.BHID_SFObject, out IShellFolder? directFolder);
 		if (directBindResult.Succeeded && directFolder is IShellFolder2 directFolder2)
 		{
 			return directFolder2;
 		}
+
+		cancellationToken.ThrowIfCancellationRequested();
 
 		ITEMIDLIST* absolutePidl = null;
 		var parseResult = PInvoke.SHParseDisplayName(parsingName, null, out absolutePidl, 0, out _);
@@ -337,8 +377,12 @@ internal static unsafe class WindowsShellColumnReader
 
 		try
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var shellFolderId = typeof(IShellFolder).GUID;
 			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
+			cancellationToken.ThrowIfCancellationRequested();
+
 			if (parentBindResult.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
 			{
 				return null;

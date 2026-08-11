@@ -229,6 +229,43 @@ public sealed class WindowsStorageTests
 	}
 
 	[TestMethod]
+	public async Task RapidlyCanceledColumnReadsLeaveSchedulerUsable()
+	{
+		var directoryPath = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+		Assert.IsTrue(Directory.Exists(directoryPath), $"The Windows directory '{directoryPath}' does not exist.");
+
+		await using var scheduler = new WindowsShellScheduler();
+		await using var source = new WindowsStorageSource(scheduler: scheduler);
+		var folder = (WindowsFolder)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+		var requests = new List<(CancellationTokenSource Cancellation, Task<WindowsShellColumnSet> Task)>();
+		for (var iteration = 0; iteration < 250; iteration++)
+		{
+			var cancellation = new CancellationTokenSource();
+			requests.Add((cancellation, folder.GetColumnsAsync(cancellation.Token)));
+			cancellation.Cancel();
+		}
+
+		foreach (var request in requests)
+		{
+			try
+			{
+				await request.Task;
+			}
+			catch (OperationCanceledException) when (request.Cancellation.IsCancellationRequested)
+			{
+			}
+			finally
+			{
+				request.Cancellation.Dispose();
+			}
+		}
+
+		var columns = await folder.GetColumnsAsync().WaitAsync(TimeSpan.FromSeconds(30));
+
+		Assert.IsTrue(columns.All.Count > 0);
+	}
+
+	[TestMethod]
 	public async Task DirectResolutionAndEnumerationShareTheSameIdentity()
 	{
 		var filePath = typeof(WindowsStorageTests).Assembly.Location;
