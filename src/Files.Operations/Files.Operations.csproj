@@ -32,5 +32,4 @@
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
 	</ItemGroup>
 
-	<Import Project="..\Satori.targets" Condition=" '$(Platform)' != 'x86' " />
 </Project>
