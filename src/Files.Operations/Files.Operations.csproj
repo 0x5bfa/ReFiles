@@ -30,7 +30,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
-		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="False" />
 	</ItemGroup>
 
 	<Import Project="..\Satori.targets" Condition=" '$(Platform)' != 'x86' " />

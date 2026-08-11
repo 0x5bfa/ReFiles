@@ -4,7 +4,6 @@
 using System.Threading;
 using static Files.SourceGenerators.Constants.DiagnosticDescriptors;
 using static Files.SourceGenerators.Constants.StringsPropertyGenerator;
-using static Files.SourceGenerators.Utilities.SourceGeneratorHelper;
 
 namespace Files.SourceGenerators.Generators
 {
@@ -59,8 +58,7 @@ namespace Files.SourceGenerators.Generators
 		{
 			var normalizedPath = path.Replace('\\', '/');
 
-			return normalizedPath.EndsWith("en-US/Resources.resw", StringComparison.OrdinalIgnoreCase)
-				|| normalizedPath.EndsWith("en-US/Resources.json", StringComparison.OrdinalIgnoreCase);
+			return normalizedPath.EndsWith("en-US/Resources.resw", StringComparison.OrdinalIgnoreCase);
 		}
 
 		/// <summary>
@@ -224,12 +222,7 @@ namespace Files.SourceGenerators.Generators
 		{
 			var text = file.GetText(cancellationToken)?.ToString() ?? string.Empty;
 
-			return SystemIO.Path.GetExtension(file.Path) switch
-			{
-				var extension when string.Equals(extension, ".resw", StringComparison.OrdinalIgnoreCase) => ReswParser.GetKeys(text),
-				var extension when string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase) => JsonParser.GetKeys(text),
-				_ => []
-			};
+			return ReswParser.GetKeys(text);
 		}
 
 		private static string KeyNameValidator(string key)
@@ -286,5 +279,7 @@ namespace Files.SourceGenerators.Generators
 				.Replace("\r", "\\r")
 				.Replace("\n", "\\n")
 				.Replace("\t", "\\t");
+
+		private static string Spacing(int count) => new(' ', count * 4);
 	}
 }
