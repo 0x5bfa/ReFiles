@@ -3,6 +3,7 @@
 
 namespace Files.Core.ItemFeatures.Thumbnails;
 
+/// <summary>Describes the requested thumbnail size, density, and selection mode.</summary>
 public sealed record ThumbnailRequest
 {
 	private const int DefaultDpi = 96;
@@ -13,6 +14,7 @@ public sealed record ThumbnailRequest
 	/// </summary>
 	public int RequestedSize { get; }
 
+	/// <summary>Gets the thumbnail selection mode.</summary>
 	public ThumbnailMode Mode { get; }
 
 	/// <summary>
@@ -25,6 +27,10 @@ public sealed record ThumbnailRequest
 	/// </summary>
 	public int RequestedPixelSize => (int)CalculatePixelSize(RequestedSize, Dpi);
 
+	/// <summary>Initializes a thumbnail request.</summary>
+	/// <param name="requestedSize">The requested logical bitmap edge.</param>
+	/// <param name="mode">The thumbnail selection mode.</param>
+	/// <param name="dpi">The display density used for pixel conversion.</param>
 	public ThumbnailRequest(int requestedSize, ThumbnailMode mode = ThumbnailMode.PreferContent, int dpi = DefaultDpi)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(requestedSize);

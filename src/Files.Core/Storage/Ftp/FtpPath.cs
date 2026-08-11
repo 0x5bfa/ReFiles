@@ -8,15 +8,20 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed record FtpPath
 {
+	/// <summary>Gets the root FTP path.</summary>
 	public static FtpPath Root { get; } = new("/");
 
+	/// <summary>Gets the normalized absolute path value.</summary>
 	public string Value { get; }
 
+	/// <summary>Gets a value indicating whether this path is the root.</summary>
 	public bool IsRoot => Value.Length is 1;
 
+	/// <summary>Gets the final path segment.</summary>
 	public string Name =>
 		IsRoot ? string.Empty : Value[(Value.LastIndexOf('/') + 1)..];
 
+	/// <summary>Gets the parent path, or <see langword="null"/> for the root.</summary>
 	public FtpPath? Parent
 	{
 		get
@@ -39,6 +44,9 @@ public sealed record FtpPath
 		Value = value;
 	}
 
+	/// <summary>Parses and normalizes an FTP path.</summary>
+	/// <param name="value">The path value.</param>
+	/// <returns>The normalized FTP path.</returns>
 	public static FtpPath Parse(string value)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(value);
@@ -77,6 +85,9 @@ public sealed record FtpPath
 			: new FtpPath($"/{string.Join('/', segments)}");
 	}
 
+	/// <summary>Parses an escaped URI path into an FTP path.</summary>
+	/// <param name="value">The escaped path value.</param>
+	/// <returns>The normalized FTP path.</returns>
 	public static FtpPath ParseEscapedUriPath(string value)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(value);
@@ -91,6 +102,9 @@ public sealed record FtpPath
 		return Parse($"/{string.Join('/', decodedSegments)}");
 	}
 
+	/// <summary>Combines this path with a child name.</summary>
+	/// <param name="childName">The child name.</param>
+	/// <returns>The combined path.</returns>
 	public FtpPath Combine(string childName)
 	{
 		ValidateName(childName);
@@ -98,6 +112,10 @@ public sealed record FtpPath
 		return new FtpPath(IsRoot ? $"/{childName}" : $"{Value}/{childName}");
 	}
 
+	/// <summary>Determines whether this path is within a root path.</summary>
+	/// <param name="root">The root path.</param>
+	/// <param name="comparer">The comparer used for path equality.</param>
+	/// <returns><see langword="true"/> when this path is within the root.</returns>
 	public bool IsWithin(FtpPath root, StringComparer comparer)
 	{
 		ArgumentNullException.ThrowIfNull(root);
@@ -118,6 +136,8 @@ public sealed record FtpPath
 			&& comparer.Equals(Value[..root.Value.Length], root.Value);
 	}
 
+	/// <summary>Converts the path to an escaped URI path.</summary>
+	/// <returns>The escaped URI path.</returns>
 	public string ToEscapedUriPath()
 	{
 		if (IsRoot)
@@ -132,6 +152,8 @@ public sealed record FtpPath
 				.Select(Uri.EscapeDataString))}";
 	}
 
+	/// <summary>Validates an FTP path segment name.</summary>
+	/// <param name="name">The segment name.</param>
 	public static void ValidateName(string name)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -142,6 +164,8 @@ public sealed record FtpPath
 		}
 	}
 
+	/// <summary>Returns the normalized path value.</summary>
+	/// <returns>The normalized path.</returns>
 	public override string ToString() => Value;
 
 	private static void ValidateSegment(string segment, string parameterName)

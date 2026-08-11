@@ -10,10 +10,15 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public sealed class WindowsShellPreviewResult : PreviewResult
 {
+	/// <summary>Gets the storage reference to preview.</summary>
 	public StorableReference Reference { get; }
 
+	/// <summary>Gets the preview handler CLSID.</summary>
 	public Guid HandlerClsid { get; }
 
+	/// <summary>Initializes a Windows Shell preview result.</summary>
+	/// <param name="reference">The storage reference to preview.</param>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
 	public WindowsShellPreviewResult(StorableReference reference, Guid handlerClsid)
 	{
 		ArgumentNullException.ThrowIfNull(reference);

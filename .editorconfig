@@ -4,6 +4,7 @@ root = true
 indent_style = tab
 indent_size = 4
 tab_width = 4
+dotnet_diagnostic.CS1591.severity = error
 
 csharp_prefer_braces = true:error
 

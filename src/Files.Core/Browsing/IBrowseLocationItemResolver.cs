@@ -11,5 +11,9 @@ namespace Files.Core.Browsing;
 /// </summary>
 public interface IBrowseLocationItemResolver
 {
+	/// <summary>Resolves an item reference in the current location.</summary>
+	/// <param name="reference">The item reference to resolve.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The resolved item model.</returns>
 	ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default);
 }

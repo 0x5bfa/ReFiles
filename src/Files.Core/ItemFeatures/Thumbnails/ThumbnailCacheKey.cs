@@ -11,8 +11,10 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 public sealed record ThumbnailCacheKey
 {
 
+	/// <summary>Gets the storage source identifier.</summary>
 	public StorageSourceId SourceId { get; }
 
+	/// <summary>Gets the source-specific item identifier.</summary>
 	public string ItemId { get; }
 
 	/// <summary>
@@ -20,7 +22,14 @@ public sealed record ThumbnailCacheKey
 	/// </summary>
 	public int RequestedSize { get; }
 
+	/// <summary>Gets the thumbnail selection mode.</summary>
 	public ThumbnailMode Mode { get; }
+
+	/// <summary>Initializes a thumbnail cache key.</summary>
+	/// <param name="sourceId">The storage source identifier.</param>
+	/// <param name="itemId">The source-specific item identifier.</param>
+	/// <param name="requestedSize">The requested bitmap edge in pixels.</param>
+	/// <param name="mode">The thumbnail selection mode.</param>
 	public ThumbnailCacheKey(StorageSourceId sourceId, string itemId, int requestedSize, ThumbnailMode mode)
 	{
 		ArgumentNullException.ThrowIfNull(sourceId);
@@ -38,6 +47,10 @@ public sealed record ThumbnailCacheKey
 		Mode = mode;
 	}
 
+	/// <summary>Initializes a thumbnail cache key from a storage reference.</summary>
+	/// <param name="reference">The storage reference.</param>
+	/// <param name="requestedSize">The requested bitmap edge in pixels.</param>
+	/// <param name="mode">The thumbnail selection mode.</param>
 	public ThumbnailCacheKey(StorableReference reference, int requestedSize, ThumbnailMode mode)
 		: this(GetReference(reference).SourceId, reference.ItemId, requestedSize, mode)
 	{

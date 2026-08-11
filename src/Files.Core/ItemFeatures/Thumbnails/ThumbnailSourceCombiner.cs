@@ -10,6 +10,10 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public sealed class ThumbnailSourceCombiner : IItemFeatureCombiner<IThumbnailSource>
 {
+	/// <summary>Combines thumbnail sources into a priority-ordered fallback chain.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="options">The registered thumbnail source options.</param>
+	/// <returns>The combined source, or <see langword="null"/> when no source is registered.</returns>
 	public IThumbnailSource? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<IThumbnailSource>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);

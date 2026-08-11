@@ -15,14 +15,22 @@ namespace Files.Core.Storage.Archives.SevenZip;
 public sealed class SevenZipArchiveBackend
 	: IArchiveBackend, IArchiveProbe
 {
+	/// <summary>Gets the stable backend identifier.</summary>
 	public const string DefaultBackendId = "sevenzip";
 
+	/// <summary>Gets the backend identifier.</summary>
 	public string Id => DefaultBackendId;
 
+	/// <summary>Gets the backend priority.</summary>
 	public int Priority => 100;
 
+	/// <summary>Gets a value indicating whether encrypted archives are supported.</summary>
 	public bool SupportsEncryptedArchives => true;
 
+	/// <summary>Probes an archive for encryption and credential requirements.</summary>
+	/// <param name="request">The mount request.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The probe result.</returns>
 	public async ValueTask<ArchiveProbeResult> ProbeAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
@@ -82,6 +90,10 @@ public sealed class SevenZipArchiveBackend
 		}
 	}
 
+	/// <summary>Attempts to mount an archive with SevenZipSharp.</summary>
+	/// <param name="request">The mount request.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The mount result.</returns>
 	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

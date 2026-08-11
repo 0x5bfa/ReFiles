@@ -10,6 +10,10 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public sealed class PreviewSourceCombiner : IItemFeatureCombiner<IPreviewSource>
 {
+	/// <summary>Combines preview sources in descending priority order.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="options">The preview source options.</param>
+	/// <returns>A routed source, or <see langword="null"/> when no source applies.</returns>
 	public IPreviewSource? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<IPreviewSource>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);

@@ -11,10 +11,15 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed record BrowseItemPresentation
 {
+	/// <summary>Gets the property values captured for the item.</summary>
 	public IReadOnlyDictionary<string, object?> Properties { get; }
 
+	/// <summary>Gets the thumbnail captured for the item, if available.</summary>
 	public ThumbnailResult? Thumbnail { get; }
 
+	/// <summary>Initializes a presentation snapshot.</summary>
+	/// <param name="properties">The property values to capture.</param>
+	/// <param name="thumbnail">The thumbnail to capture.</param>
 	public BrowseItemPresentation(IReadOnlyDictionary<string, object?>? properties = null, ThumbnailResult? thumbnail = null)
 	{
 		Properties = new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>(properties ?? new Dictionary<string, object?>(), StringComparer.Ordinal));

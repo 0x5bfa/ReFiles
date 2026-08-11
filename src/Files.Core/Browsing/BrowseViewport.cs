@@ -8,8 +8,10 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed record BrowseViewport
 {
+	/// <summary>Gets the index of the first visible item.</summary>
 	public int FirstVisibleIndex { get; }
 
+	/// <summary>Gets the number of visible items.</summary>
 	public int VisibleCount { get; }
 
 	/// <summary>
@@ -22,6 +24,11 @@ public sealed record BrowseViewport
 	/// </summary>
 	public int Dpi { get; }
 
+	/// <summary>Initializes a visible item range.</summary>
+	/// <param name="firstVisibleIndex">The index of the first visible item.</param>
+	/// <param name="visibleCount">The number of visible items.</param>
+	/// <param name="lookAheadCount">The number of items prefetched on each side.</param>
+	/// <param name="dpi">The display density used for thumbnail requests.</param>
 	public BrowseViewport(int firstVisibleIndex, int visibleCount, int lookAheadCount = 20, int dpi = 96)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(firstVisibleIndex);

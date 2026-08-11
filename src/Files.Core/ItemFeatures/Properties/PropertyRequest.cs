@@ -8,8 +8,11 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public sealed record PropertyRequest
 {
+	/// <summary>Gets the unique property identifiers requested by the consumer.</summary>
 	public IReadOnlyList<string> PropertyIds { get; }
 
+	/// <summary>Initializes a property request.</summary>
+	/// <param name="propertyIds">The unique property identifiers to request.</param>
 	public PropertyRequest(IEnumerable<string> propertyIds)
 	{
 		ArgumentNullException.ThrowIfNull(propertyIds);

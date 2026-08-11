@@ -18,6 +18,7 @@ public sealed class ItemFeatureRegistry
 	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> _wrappers;
 	private readonly ConcurrentDictionary<Type, object> _typedWrappers = [];
 
+	/// <summary>Gets an empty feature registry.</summary>
 	public static ItemFeatureRegistry Empty { get; } = new ItemFeatureBuilder().Build();
 
 	internal ItemFeatureRegistry(IReadOnlyDictionary<Type, IReadOnlyList<object>> factories, IReadOnlyDictionary<Type, object> combiners, IReadOnlyDictionary<Type, IReadOnlyList<object>> wrappers)
@@ -27,6 +28,9 @@ public sealed class ItemFeatureRegistry
 		_wrappers = wrappers;
 	}
 
+	/// <summary>Creates the feature collection for an item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns>The feature collection.</returns>
 	public IItemFeatures CreateFeatures(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);

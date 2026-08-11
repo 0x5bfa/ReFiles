@@ -11,7 +11,15 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public interface IPropertyReader
 {
+	/// <summary>Determines whether this reader can read the supplied context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns><see langword="true"/> when the reader applies.</returns>
 	bool CanRead(ItemContext context);
 
+	/// <summary>Reads properties for a batch of item contexts.</summary>
+	/// <param name="request">The requested properties.</param>
+	/// <param name="contexts">The item contexts to read.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>Properties grouped by item reference.</returns>
 	ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default);
 }

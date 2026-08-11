@@ -13,6 +13,8 @@ public sealed class PropertySourceFactory : IItemFeatureFactory<IPropertySource>
 {
 	private readonly IPropertyReader _reader;
 
+	/// <summary>Initializes a property source factory.</summary>
+	/// <param name="reader">The shared property reader.</param>
 	public PropertySourceFactory(IPropertyReader reader)
 	{
 		ArgumentNullException.ThrowIfNull(reader);
@@ -20,6 +22,9 @@ public sealed class PropertySourceFactory : IItemFeatureFactory<IPropertySource>
 		_reader = reader;
 	}
 
+	/// <summary>Creates a property source bound to the item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns>The bound source, or <see langword="null"/> when the reader does not apply.</returns>
 	public IPropertySource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);

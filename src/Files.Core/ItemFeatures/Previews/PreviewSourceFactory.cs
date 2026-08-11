@@ -13,6 +13,8 @@ public sealed class PreviewSourceFactory
 {
 	private readonly IPreviewLoader _loader;
 
+	/// <summary>Initializes a preview source factory.</summary>
+	/// <param name="loader">The shared preview loader.</param>
 	public PreviewSourceFactory(IPreviewLoader loader)
 	{
 		ArgumentNullException.ThrowIfNull(loader);
@@ -20,6 +22,9 @@ public sealed class PreviewSourceFactory
 		_loader = loader;
 	}
 
+	/// <summary>Creates a preview source bound to an item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns>The bound source, or <see langword="null"/> when the loader does not apply.</returns>
 	public IPreviewSource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);

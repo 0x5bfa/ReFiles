@@ -12,12 +12,16 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed class FtpStorageSource : IStorageSource
 {
+	/// <summary>Gets the default storage source type.</summary>
 	public const string DefaultSourceType = "ftp";
 
+	/// <summary>Gets the plain FTP address scheme.</summary>
 	public const string FtpAddressScheme = "ftp";
 
+	/// <summary>Gets the explicit TLS address scheme.</summary>
 	public const string ExplicitTlsAddressScheme = "ftpes";
 
+	/// <summary>Gets the implicit TLS address scheme.</summary>
 	public const string ImplicitTlsAddressScheme = "ftps";
 
 	private readonly FtpConnection _connection;
@@ -30,14 +34,19 @@ public sealed class FtpStorageSource : IStorageSource
 
 	private int _isDisposed;
 
+	/// <summary>Gets the stable storage source identifier.</summary>
 	public StorageSourceId SourceId { get; }
 
+	/// <summary>Gets the source type.</summary>
 	public string SourceType => DefaultSourceType;
 
+	/// <summary>Gets the configured display name.</summary>
 	public string DisplayName => Profile.DisplayName;
 
+	/// <summary>Gets the connection profile.</summary>
 	public FtpConnectionProfile Profile { get; }
 
+	/// <summary>Gets the address scheme for this connection.</summary>
 	public string AddressScheme => Profile.SecurityMode switch
 	{
 		FtpSecurityMode.Plain => FtpAddressScheme,
@@ -50,6 +59,11 @@ public sealed class FtpStorageSource : IStorageSource
 
 	internal FtpItemResolver Resolver => _resolver;
 
+	/// <summary>Initializes an FTP storage source.</summary>
+	/// <param name="profile">The connection profile.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
+	/// <param name="sessionFactory">The optional FTP session factory.</param>
+	/// <param name="sourceId">The optional stable source identifier.</param>
 	public FtpStorageSource(FtpConnectionProfile profile, IFtpCredentialResolver? credentialResolver = null, IFtpSessionFactory? sessionFactory = null, StorageSourceId? sourceId = null)
 	{
 		ArgumentNullException.ThrowIfNull(profile);
@@ -68,6 +82,9 @@ public sealed class FtpStorageSource : IStorageSource
 		return _storableFactory.Create(entry);
 	}
 
+	/// <summary>Enumerates the configured FTP root folder.</summary>
+	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
+	/// <returns>An asynchronous sequence containing the root folder.</returns>
 	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -82,6 +99,9 @@ public sealed class FtpStorageSource : IStorageSource
 		yield return folder;
 	}
 
+	/// <summary>Determines whether this source can resolve an address.</summary>
+	/// <param name="address">The address to inspect.</param>
+	/// <returns><see langword="true"/> when the address belongs to this source.</returns>
 	public bool CanResolve(StorageAddress address)
 	{
 		ArgumentNullException.ThrowIfNull(address);
@@ -89,6 +109,10 @@ public sealed class FtpStorageSource : IStorageSource
 		return TryGetPath(address, out _);
 	}
 
+	/// <summary>Resolves an FTP storage address.</summary>
+	/// <param name="address">The address to resolve.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The resolved item.</returns>
 	public async ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -102,6 +126,10 @@ public sealed class FtpStorageSource : IStorageSource
 		return await _storableFactory.ResolveAsync(path, cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Resolves a stable FTP item reference.</summary>
+	/// <param name="reference">The reference to resolve.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The resolved item.</returns>
 	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -117,6 +145,9 @@ public sealed class FtpStorageSource : IStorageSource
 		return await _storableFactory.ResolveAsync(path, cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Creates an address for an FTP path.</summary>
+	/// <param name="path">The FTP path.</param>
+	/// <returns>The storage address.</returns>
 	public StorageAddress CreateAddress(FtpPath path)
 	{
 		ArgumentNullException.ThrowIfNull(path);
@@ -135,11 +166,16 @@ public sealed class FtpStorageSource : IStorageSource
 			$"//{host}:{Profile.Port}{path.ToEscapedUriPath()}");
 	}
 
+	/// <summary>Creates a stable reference for an FTP path.</summary>
+	/// <param name="path">The FTP path.</param>
+	/// <returns>The stable item reference.</returns>
 	public StorableReference CreateReference(FtpPath path)
 	{
 		return new StorableReference(SourceId, path.Value, CreateAddress(path));
 	}
 
+	/// <summary>Disposes the FTP connection.</summary>
+	/// <returns>A value task that represents the disposal operation.</returns>
 	public async ValueTask DisposeAsync()
 	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)

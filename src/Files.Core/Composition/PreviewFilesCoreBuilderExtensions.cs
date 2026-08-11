@@ -12,6 +12,10 @@ public static class PreviewFilesCoreBuilderExtensions
 {
 	private const string DefaultStreamPreviewsModule = "Files.Core.Previews.DefaultStreams";
 
+	/// <summary>Registers the built-in stream preview loader for common text and image extensions.</summary>
+	/// <param name="builder">The composition builder.</param>
+	/// <param name="policy">The optional policy controlling stream access.</param>
+	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddDefaultStreamPreviews(this FilesCoreBuilder builder, IPreviewStreamAccessPolicy? policy = null)
 	{
 		ArgumentNullException.ThrowIfNull(builder);

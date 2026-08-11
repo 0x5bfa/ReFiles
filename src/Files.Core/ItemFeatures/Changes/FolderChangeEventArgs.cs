@@ -8,8 +8,11 @@ namespace Files.Core.ItemFeatures.Changes;
 /// </summary>
 public sealed class FolderChangeEventArgs : EventArgs
 {
+	/// <summary>Gets the folder change.</summary>
 	public FolderChange Change { get; }
 
+	/// <summary>Initializes folder change event data.</summary>
+	/// <param name="change">The folder change.</param>
 	public FolderChangeEventArgs(FolderChange change)
 	{
 		Change = change ?? throw new ArgumentNullException(nameof(change));

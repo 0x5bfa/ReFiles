@@ -8,12 +8,19 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorageOperationProgress
 {
+	/// <summary>Gets the number of items completed.</summary>
 	public int CompletedItems { get; }
 
+	/// <summary>Gets the total number of items.</summary>
 	public int TotalItems { get; }
 
+	/// <summary>Gets the item currently being processed.</summary>
 	public StorableReference? CurrentItem { get; }
 
+	/// <summary>Initializes operation progress data.</summary>
+	/// <param name="completedItems">The number of completed items.</param>
+	/// <param name="totalItems">The total item count.</param>
+	/// <param name="currentItem">The item currently being processed.</param>
 	public StorageOperationProgress(int completedItems, int totalItems, StorableReference? currentItem = null)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(completedItems);

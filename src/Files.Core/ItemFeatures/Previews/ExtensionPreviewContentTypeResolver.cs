@@ -8,10 +8,13 @@ using OwlCore.Storage;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Resolves preview content types from file extensions.</summary>
 public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeResolver
 {
 	private readonly IReadOnlyDictionary<string, PreviewContentType> _contentTypes;
 
+	/// <summary>Initializes an extension-based content type resolver.</summary>
+	/// <param name="mappings">The extension-to-media-type mappings.</param>
 	public ExtensionPreviewContentTypeResolver(IEnumerable<KeyValuePair<string, string>> mappings)
 	{
 		ArgumentNullException.ThrowIfNull(mappings);
@@ -32,6 +35,10 @@ public sealed class ExtensionPreviewContentTypeResolver : IPreviewContentTypeRes
 		_contentTypes = resolvedTypes;
 	}
 
+	/// <summary>Attempts to resolve a content type for an item.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="contentType">Receives the resolved content type.</param>
+	/// <returns><see langword="true"/> when a mapping matches.</returns>
 	public bool TryResolve(ItemContext context, out PreviewContentType contentType)
 	{
 		ArgumentNullException.ThrowIfNull(context);

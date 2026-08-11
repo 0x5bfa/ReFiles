@@ -11,6 +11,8 @@ public sealed class DelegateItemFeatureFactory<TFeature> : IItemFeatureFactory<T
 {
 	private readonly Func<ItemContext, TFeature?> _factory;
 
+	/// <summary>Initializes a delegate-backed feature factory.</summary>
+	/// <param name="factory">The delegate that creates features.</param>
 	public DelegateItemFeatureFactory(Func<ItemContext, TFeature?> factory)
 	{
 		ArgumentNullException.ThrowIfNull(factory);
@@ -18,6 +20,9 @@ public sealed class DelegateItemFeatureFactory<TFeature> : IItemFeatureFactory<T
 		_factory = factory;
 	}
 
+	/// <summary>Creates a feature through the configured delegate.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns>The created feature, or <see langword="null"/> when it does not apply.</returns>
 	public TFeature? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);

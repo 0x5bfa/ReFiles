@@ -41,6 +41,9 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		pid = 4,
 	};
 
+	/// <summary>Determines whether this reader can read the item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns><see langword="true"/> when the context belongs to Windows storage.</returns>
 	public bool CanRead(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
@@ -49,6 +52,11 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			&& context.CoreModel is WindowsStorable;
 	}
 
+	/// <summary>Reads Windows Shell properties for a batch of items.</summary>
+	/// <param name="request">The requested properties.</param>
+	/// <param name="contexts">The item contexts to read.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>Properties grouped by item reference.</returns>
 	public async ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
 		PropertyRequest request,
 		IReadOnlyList<ItemContext> contexts,

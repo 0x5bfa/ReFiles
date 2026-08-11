@@ -12,8 +12,12 @@ public sealed class ArchiveBackendSelector
 
 	private readonly IArchiveProbe? _probe;
 
+	/// <summary>Gets the backends ordered by descending priority.</summary>
 	public IReadOnlyList<IArchiveBackend> Backends => _backends;
 
+	/// <summary>Initializes an archive backend selector.</summary>
+	/// <param name="backends">The archive backends.</param>
+	/// <param name="probe">The optional archive probe.</param>
 	public ArchiveBackendSelector(IEnumerable<IArchiveBackend> backends, IArchiveProbe? probe = null)
 	{
 		ArgumentNullException.ThrowIfNull(backends);
@@ -45,6 +49,10 @@ public sealed class ArchiveBackendSelector
 		_probe = probe;
 	}
 
+	/// <summary>Attempts to mount an archive using the selected backends.</summary>
+	/// <param name="request">The mount request.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The mount result.</returns>
 	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

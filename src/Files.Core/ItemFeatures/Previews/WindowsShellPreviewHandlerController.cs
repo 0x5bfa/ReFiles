@@ -10,16 +10,20 @@ using Windows.Win32.UI.Shell;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Creates controllers for Windows Shell preview handlers.</summary>
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPreviewHandlerControllerFactory
 {
 	private readonly IWindowsPreviewHandlerActivationPolicy _activationPolicy;
 
+	/// <summary>Initializes a controller factory with the local-server policy.</summary>
 	public WindowsShellPreviewHandlerControllerFactory()
 		: this(new LocalServerWindowsPreviewHandlerActivationPolicy())
 	{
 	}
 
+	/// <summary>Initializes a controller factory.</summary>
+	/// <param name="activationPolicy">The activation policy.</param>
 	public WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(activationPolicy);
@@ -27,6 +31,9 @@ public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPrevie
 		_activationPolicy = activationPolicy;
 	}
 
+	/// <summary>Creates a controller for a preview handler CLSID.</summary>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	/// <returns>The created controller.</returns>
 	public IWindowsPreviewHandlerController Create(Guid handlerClsid)
 	{
 		if (handlerClsid == Guid.Empty)

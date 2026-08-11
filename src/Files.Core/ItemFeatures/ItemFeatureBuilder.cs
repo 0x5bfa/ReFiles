@@ -12,6 +12,13 @@ public sealed class ItemFeatureBuilder
 	private readonly Dictionary<Type, object> _combiners = [];
 	private readonly Dictionary<Type, List<object>> _wrappers = [];
 
+	/// <summary>Registers a feature factory.</summary>
+	/// <typeparam name="TFeature">The feature type.</typeparam>
+	/// <param name="factory">The factory that creates the feature.</param>
+	/// <param name="priority">The priority used by the feature combiner.</param>
+	/// <param name="lifetime">The lifetime of created feature instances.</param>
+	/// <param name="origin">The registration origin used for diagnostics.</param>
+	/// <returns>This builder.</returns>
 	public ItemFeatureBuilder Add<TFeature>(IItemFeatureFactory<TFeature> factory, int priority = 0, ItemFeatureLifetime lifetime = ItemFeatureLifetime.Item, string? origin = null)
 		where TFeature : class
 	{
@@ -24,6 +31,10 @@ public sealed class ItemFeatureBuilder
 		return this;
 	}
 
+	/// <summary>Registers the combiner for a feature type.</summary>
+	/// <typeparam name="TFeature">The feature type.</typeparam>
+	/// <param name="combiner">The combiner to use.</param>
+	/// <returns>This builder.</returns>
 	public ItemFeatureBuilder SetCombiner<TFeature>(IItemFeatureCombiner<TFeature> combiner)
 		where TFeature : class
 	{
@@ -37,6 +48,10 @@ public sealed class ItemFeatureBuilder
 		return this;
 	}
 
+	/// <summary>Registers a wrapper for a feature type.</summary>
+	/// <typeparam name="TFeature">The feature type.</typeparam>
+	/// <param name="wrapper">The wrapper to apply.</param>
+	/// <returns>This builder.</returns>
 	public ItemFeatureBuilder AddWrapper<TFeature>(IItemFeatureWrapper<TFeature> wrapper)
 		where TFeature : class
 	{
@@ -47,6 +62,8 @@ public sealed class ItemFeatureBuilder
 		return this;
 	}
 
+	/// <summary>Builds an immutable feature registry from the registrations.</summary>
+	/// <returns>The feature registry.</returns>
 	public ItemFeatureRegistry Build()
 	{
 		return new ItemFeatureRegistry(CloneLists(_factories), new Dictionary<Type, object>(_combiners), CloneLists(_wrappers));

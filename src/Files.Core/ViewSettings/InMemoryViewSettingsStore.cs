@@ -13,6 +13,10 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 	private readonly Lock _syncRoot = new();
 	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _values = [];
 
+	/// <summary>Gets the settings stored for a browse location.</summary>
+	/// <param name="location">The browse location.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The stored settings, or <see langword="null"/> when none exist.</returns>
 	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
@@ -24,6 +28,10 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		}
 	}
 
+	/// <summary>Stores settings for a browse location.</summary>
+	/// <param name="location">The browse location.</param>
+	/// <param name="settings">The settings to store.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);
@@ -38,6 +46,9 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		return ValueTask.CompletedTask;
 	}
 
+	/// <summary>Removes settings for a browse location.</summary>
+	/// <param name="location">The browse location.</param>
+	/// <returns><see langword="true"/> when settings were removed.</returns>
 	public bool Remove(BrowseLocation location)
 	{
 		ArgumentNullException.ThrowIfNull(location);
@@ -48,6 +59,7 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		}
 	}
 
+	/// <summary>Removes all stored view settings.</summary>
 	public void Clear()
 	{
 		lock (_syncRoot)

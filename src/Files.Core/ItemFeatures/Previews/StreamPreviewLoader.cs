@@ -7,6 +7,7 @@ using OwlCore.Storage;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Loads stream previews for file items.</summary>
 public sealed class StreamPreviewLoader : IPreviewLoader
 {
 	private const int CopyBufferSize = 81920;
@@ -14,6 +15,9 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 	private readonly IPreviewContentTypeResolver _contentTypeResolver;
 	private readonly IPreviewStreamAccessPolicy _accessPolicy;
 
+	/// <summary>Initializes a stream preview loader.</summary>
+	/// <param name="contentTypeResolver">The content type resolver.</param>
+	/// <param name="accessPolicy">The stream access policy.</param>
 	public StreamPreviewLoader(IPreviewContentTypeResolver contentTypeResolver, IPreviewStreamAccessPolicy accessPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(contentTypeResolver);
@@ -23,6 +27,9 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 		_accessPolicy = accessPolicy;
 	}
 
+	/// <summary>Determines whether the item can produce a stream preview.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns><see langword="true"/> when a stream preview is supported.</returns>
 	public bool CanLoad(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
@@ -31,6 +38,11 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			&& _contentTypeResolver.TryResolve(context, out _);
 	}
 
+	/// <summary>Loads a stream preview for a file item.</summary>
+	/// <param name="request">The preview request.</param>
+	/// <param name="context">The item context.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The preview result, or <see langword="null"/> when the item is unsupported.</returns>
 	public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

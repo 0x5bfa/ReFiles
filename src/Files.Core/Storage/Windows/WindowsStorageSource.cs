@@ -14,10 +14,13 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 public sealed class WindowsStorageSource : IStorageSource
 {
+	/// <summary>Gets the default Windows Shell source type.</summary>
 	public const string DefaultSourceType = "windows-shell";
 
+	/// <summary>Gets the file-system address scheme.</summary>
 	public const string FileAddressScheme = "file";
 
+	/// <summary>Gets the Shell address scheme.</summary>
 	public const string ShellAddressScheme = "shell";
 
 	private readonly IReadOnlyList<Guid> _rootFolderIds;
@@ -34,10 +37,13 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	private volatile bool _isDisposed;
 
+	/// <summary>Gets the stable source identifier.</summary>
 	public StorageSourceId SourceId { get; }
 
+	/// <summary>Gets the source type.</summary>
 	public string SourceType => DefaultSourceType;
 
+	/// <summary>Gets the source display name.</summary>
 	public string DisplayName { get; }
 
 	/// <summary>
@@ -51,6 +57,11 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	internal bool IsFileSystemIdentity(string itemId) => _storableFactory.IsFileSystemIdentity(itemId);
 
+	/// <summary>Initializes a Windows Shell storage source.</summary>
+	/// <param name="sourceId">The optional source identifier.</param>
+	/// <param name="displayName">The source display name.</param>
+	/// <param name="rootFolderIds">The known folder identifiers to expose.</param>
+	/// <param name="scheduler">The optional Shell scheduler.</param>
 	public WindowsStorageSource(StorageSourceId? sourceId = null, string displayName = "Windows", IEnumerable<Guid>? rootFolderIds = null, IWindowsShellScheduler? scheduler = null)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
@@ -69,6 +80,9 @@ public sealed class WindowsStorageSource : IStorageSource
 		return _storableFactory.TryCreateFromAbsolutePidlAsync(absolutePidl, cancellationToken);
 	}
 
+	/// <summary>Enumerates the configured Windows Shell roots.</summary>
+	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
+	/// <returns>An asynchronous sequence of root folders.</returns>
 	public async IAsyncEnumerable<IFolder> GetRootsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -89,6 +103,9 @@ public sealed class WindowsStorageSource : IStorageSource
 		}
 	}
 
+	/// <summary>Determines whether this source can resolve an address.</summary>
+	/// <param name="address">The address to inspect.</param>
+	/// <returns><see langword="true"/> when the scheme is supported.</returns>
 	public bool CanResolve(StorageAddress address)
 	{
 		ArgumentNullException.ThrowIfNull(address);
@@ -97,6 +114,10 @@ public sealed class WindowsStorageSource : IStorageSource
 			|| address.Scheme.Equals(FileAddressScheme, StringComparison.OrdinalIgnoreCase);
 	}
 
+	/// <summary>Resolves a Windows Shell address.</summary>
+	/// <param name="address">The address to resolve.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The resolved item.</returns>
 	public async ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -110,6 +131,10 @@ public sealed class WindowsStorageSource : IStorageSource
 		return await _storableFactory.CreateAsync(address.Value, cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Resolves a Windows Shell item reference.</summary>
+	/// <param name="reference">The reference to resolve.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The resolved item.</returns>
 	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -141,6 +166,8 @@ public sealed class WindowsStorageSource : IStorageSource
 		throw new FileNotFoundException("The Windows Shell item could not be resolved.", reference.ItemId);
 	}
 
+	/// <summary>Disposes the source and any scheduler it owns.</summary>
+	/// <returns>A value task that represents source disposal.</returns>
 	public ValueTask DisposeAsync()
 	{
 		lock (_disposalLock)

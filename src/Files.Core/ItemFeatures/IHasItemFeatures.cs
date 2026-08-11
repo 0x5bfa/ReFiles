@@ -8,5 +8,6 @@ namespace Files.Core.ItemFeatures;
 /// </summary>
 public interface IHasItemFeatures
 {
+	/// <summary>Gets the optional features attached to the item.</summary>
 	IItemFeatures Features { get; }
 }

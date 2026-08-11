@@ -3,10 +3,14 @@
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Represents the media type of preview content.</summary>
 public sealed record PreviewContentType
 {
+	/// <summary>Gets the media type value.</summary>
 	public string MediaType { get; }
 
+	/// <summary>Initializes a media type.</summary>
+	/// <param name="mediaType">The media type in type/subtype form.</param>
 	public PreviewContentType(string mediaType)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);

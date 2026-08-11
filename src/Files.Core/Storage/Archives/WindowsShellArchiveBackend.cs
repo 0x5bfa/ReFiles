@@ -12,14 +12,22 @@ namespace Files.Core.Storage.Archives;
 /// </summary>
 public sealed class WindowsShellArchiveBackend : IArchiveBackend
 {
+	/// <summary>Gets the stable backend identifier.</summary>
 	public const string DefaultBackendId = "windows-shell-archive";
 
+	/// <summary>Gets the backend identifier.</summary>
 	public string Id => DefaultBackendId;
 
+	/// <summary>Gets the backend priority.</summary>
 	public int Priority => 200;
 
+	/// <summary>Gets a value indicating whether encrypted archives are supported.</summary>
 	public bool SupportsEncryptedArchives => false;
 
+	/// <summary>Attempts to mount an archive exposed as a Windows Shell folder.</summary>
+	/// <param name="request">The mount request.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The mount result.</returns>
 	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

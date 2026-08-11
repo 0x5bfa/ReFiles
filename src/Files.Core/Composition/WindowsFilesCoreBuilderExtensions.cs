@@ -20,6 +20,15 @@ public static class WindowsFilesCoreBuilderExtensions
 	private const string WindowsItemFeaturesModule = "Files.Core.Windows.ItemFeatures";
 	private const string WindowsShellPreviewsModule = "Files.Core.Previews.WindowsShell";
 
+	/// <summary>Registers Windows Shell storage and its optional preview, thumbnail, property, change, and archive features.</summary>
+	/// <param name="builder">The composition builder.</param>
+	/// <param name="source">An optional existing Windows storage source.</param>
+	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
+	/// <param name="shellPreviewPolicy">The optional Windows Shell preview policy.</param>
+	/// <param name="enablePreviews">Whether to register preview loaders.</param>
+	/// <param name="enableArchives">Whether to register archive browsing.</param>
+	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddWindowsStorage(
 		this FilesCoreBuilder builder,
 		WindowsStorageSource? source = null,

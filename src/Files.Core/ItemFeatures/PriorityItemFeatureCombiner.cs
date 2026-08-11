@@ -9,6 +9,10 @@ namespace Files.Core.ItemFeatures;
 public sealed class PriorityItemFeatureCombiner<TFeature> : IItemFeatureCombiner<TFeature>
 	where TFeature : class
 {
+	/// <summary>Selects the single feature option with the highest priority.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="options">The feature options to evaluate.</param>
+	/// <returns>The highest-priority feature, or <see langword="null"/> when no options exist.</returns>
 	public TFeature? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<TFeature>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);

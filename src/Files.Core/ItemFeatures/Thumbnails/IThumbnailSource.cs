@@ -8,5 +8,9 @@ namespace Files.Core.ItemFeatures.Thumbnails;
 /// </summary>
 public interface IThumbnailSource
 {
+	/// <summary>Gets a thumbnail for an item.</summary>
+	/// <param name="request">The thumbnail request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The thumbnail result, or <see langword="null"/> when no thumbnail is available.</returns>
 	ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default);
 }

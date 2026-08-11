@@ -8,12 +8,15 @@ using OwlCore.Storage;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Resolves and caches Windows Shell preview handler registrations.</summary>
 public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolver
 {
 	private readonly IWindowsPreviewHandlerAssociation _association;
 	private readonly Dictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Lock _cacheLock = new();
 
+	/// <summary>Initializes a preview handler resolver.</summary>
+	/// <param name="association">The Shell association lookup.</param>
 	public WindowsPreviewHandlerResolver(IWindowsPreviewHandlerAssociation association)
 	{
 		ArgumentNullException.ThrowIfNull(association);
@@ -21,6 +24,10 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		_association = association;
 	}
 
+	/// <summary>Resolves the handler registered for an item.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The handler CLSID, or <see langword="null"/> when none is registered.</returns>
 	public ValueTask<Guid?> ResolveAsync(ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(context);
@@ -63,6 +70,7 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		return ValueTask.FromResult(clsid);
 	}
 
+	/// <summary>Clears the cached extension associations.</summary>
 	public void ClearCache()
 	{
 		lock (_cacheLock)
@@ -71,6 +79,9 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		}
 	}
 
+	/// <summary>Normalizes a file extension for Shell association lookup.</summary>
+	/// <param name="extension">The extension to normalize.</param>
+	/// <returns>The normalized extension, or <see langword="null"/> when invalid.</returns>
 	public static string? NormalizeExtension(string? extension)
 	{
 		if (string.IsNullOrWhiteSpace(extension)

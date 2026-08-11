@@ -15,6 +15,8 @@ public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource
 	private readonly IThumbnailCache _cache;
 	private readonly ConcurrentDictionary<ThumbnailCacheKey, Lazy<Task<ThumbnailResult?>>> _inFlight = [];
 
+	/// <summary>Initializes a thumbnail cache wrapper.</summary>
+	/// <param name="cache">The shared thumbnail cache.</param>
 	public ThumbnailCacheWrapper(IThumbnailCache cache)
 	{
 		ArgumentNullException.ThrowIfNull(cache);
@@ -22,6 +24,10 @@ public sealed class ThumbnailCacheWrapper : IItemFeatureWrapper<IThumbnailSource
 		_cache = cache;
 	}
 
+	/// <summary>Wraps a thumbnail source with cache lookup and request coalescing.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="source">The source to wrap.</param>
+	/// <returns>A caching thumbnail source.</returns>
 	public IThumbnailSource Wrap(ItemContext context, IThumbnailSource source)
 	{
 		ArgumentNullException.ThrowIfNull(context);

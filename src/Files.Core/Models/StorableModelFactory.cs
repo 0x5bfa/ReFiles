@@ -7,15 +7,22 @@ using OwlCore.Storage;
 
 namespace Files.Core.Models;
 
+/// <summary>Creates storage presentation models and composes their item features.</summary>
 public sealed class StorableModelFactory : IStorableModelFactory
 {
 	private readonly ItemFeatureRegistry _itemFeatureRegistry;
 
+	/// <summary>Initializes a model factory.</summary>
+	/// <param name="itemFeatureRegistry">The optional item feature registry.</param>
 	public StorableModelFactory(ItemFeatureRegistry? itemFeatureRegistry = null)
 	{
 		_itemFeatureRegistry = itemFeatureRegistry ?? ItemFeatureRegistry.Empty;
 	}
 
+	/// <summary>Creates a presentation model for a storage-layer item.</summary>
+	/// <param name="source">The storage source that owns the item.</param>
+	/// <param name="coreModel">The storage-layer item.</param>
+	/// <returns>The corresponding presentation model.</returns>
 	public IStorableModel Create(IStorageSource source, IStorable coreModel)
 	{
 		ArgumentNullException.ThrowIfNull(source);

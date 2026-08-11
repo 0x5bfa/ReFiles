@@ -12,8 +12,14 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed class FluentFtpSessionFactory : IFtpSessionFactory
 {
+	/// <summary>Gets the shared FluentFTP session factory.</summary>
 	public static FluentFtpSessionFactory Instance { get; } = new();
 
+	/// <summary>Connects a FluentFTP-backed session.</summary>
+	/// <param name="profile">The connection profile.</param>
+	/// <param name="credential">The connection credential.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The connected FTP session.</returns>
 	public async ValueTask<IFtpSession> ConnectAsync(FtpConnectionProfile profile, FtpCredential credential, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(profile);

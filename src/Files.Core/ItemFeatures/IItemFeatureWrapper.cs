@@ -9,5 +9,9 @@ namespace Files.Core.ItemFeatures;
 public interface IItemFeatureWrapper<TFeature>
 	where TFeature : class
 {
+	/// <summary>Wraps a feature for an item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="feature">The feature to wrap.</param>
+	/// <returns>The wrapped feature.</returns>
 	TFeature Wrap(ItemContext context, TFeature feature);
 }

@@ -6,6 +6,7 @@ using OwlCore.Storage;
 
 namespace Files.Core.Storage.Windows;
 
+/// <summary>Represents a folder exposed by the Windows Shell.</summary>
 public sealed class WindowsFolder : WindowsStorable, IChildFolder
 {
 	internal WindowsFolder(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
@@ -23,6 +24,10 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 		return Factory.GetColumnsAsync(Descriptor, cancellationToken);
 	}
 
+	/// <summary>Enumerates the items in the Windows Shell folder.</summary>
+	/// <param name="type">The kinds of items to include.</param>
+	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
+	/// <returns>An asynchronous sequence of child items.</returns>
 	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();

@@ -10,6 +10,8 @@ public sealed class StorageOperationService : IStorageOperationService
 {
 	private readonly IReadOnlyList<IStorageOperationHandler> _handlers;
 
+	/// <summary>Initializes a storage operation service.</summary>
+	/// <param name="handlers">The handlers used to execute requests.</param>
 	public StorageOperationService(IEnumerable<IStorageOperationHandler> handlers)
 	{
 		ArgumentNullException.ThrowIfNull(handlers);
@@ -21,6 +23,9 @@ public sealed class StorageOperationService : IStorageOperationService
 		}
 	}
 
+	/// <summary>Determines whether a registered handler supports a request.</summary>
+	/// <param name="request">The operation request.</param>
+	/// <returns><see langword="true"/> when a handler can execute the request.</returns>
 	public bool CanHandle(StorageOperationRequest request)
 	{
 		ArgumentNullException.ThrowIfNull(request);
@@ -28,6 +33,11 @@ public sealed class StorageOperationService : IStorageOperationService
 		return _handlers.Any(handler => handler.CanHandle(request));
 	}
 
+	/// <summary>Executes a request through the first compatible handler.</summary>
+	/// <param name="request">The operation request.</param>
+	/// <param name="progress">The optional progress receiver.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The operation result.</returns>
 	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

@@ -8,9 +8,14 @@ namespace Files.Core.ItemFeatures.Changes;
 /// </summary>
 public enum FolderChangeKind
 {
+	/// <summary>An item was created.</summary>
 	Created,
+	/// <summary>An item was deleted.</summary>
 	Deleted,
+	/// <summary>An item was renamed.</summary>
 	Renamed,
+	/// <summary>An item's metadata or contents were updated.</summary>
 	Updated,
+	/// <summary>A directory's contents changed.</summary>
 	DirectoryUpdated,
 }

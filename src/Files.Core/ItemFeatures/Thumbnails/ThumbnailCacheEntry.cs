@@ -10,12 +10,19 @@ public sealed class ThumbnailCacheEntry
 {
 	private readonly byte[] _content;
 
+	/// <summary>Gets the immutable thumbnail bytes.</summary>
 	public ReadOnlyMemory<byte> Content => _content;
 
+	/// <summary>Gets the MIME type of the thumbnail content.</summary>
 	public string ContentType { get; }
 
+	/// <summary>Gets a value indicating whether the thumbnail is a fallback representation.</summary>
 	public bool IsFallback { get; }
 
+	/// <summary>Initializes a thumbnail cache entry.</summary>
+	/// <param name="content">The thumbnail bytes.</param>
+	/// <param name="contentType">The MIME type of the content.</param>
+	/// <param name="isFallback">Whether the content is a fallback representation.</param>
 	public ThumbnailCacheEntry(byte[] content, string contentType, bool isFallback = false)
 	{
 		ArgumentNullException.ThrowIfNull(content);

@@ -19,6 +19,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 	private readonly WindowsStorageSource _source;
 
+	/// <summary>Initializes a Windows Shell operation handler.</summary>
+	/// <param name="source">The Windows storage source.</param>
 	public WindowsStorageOperationHandler(WindowsStorageSource source)
 	{
 		ArgumentNullException.ThrowIfNull(source);
@@ -26,6 +28,9 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		_source = source;
 	}
 
+	/// <summary>Determines whether this handler owns a request.</summary>
+	/// <param name="request">The operation request.</param>
+	/// <returns><see langword="true"/> when the request targets Windows storage.</returns>
 	public bool CanHandle(StorageOperationRequest request)
 	{
 		ArgumentNullException.ThrowIfNull(request);
@@ -41,6 +46,11 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		};
 	}
 
+	/// <summary>Executes a Windows Shell storage operation.</summary>
+	/// <param name="request">The operation request.</param>
+	/// <param name="progress">The optional progress receiver.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The operation result.</returns>
 	[SupportedOSPlatform("windows6.0.6000")]
 	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 	{

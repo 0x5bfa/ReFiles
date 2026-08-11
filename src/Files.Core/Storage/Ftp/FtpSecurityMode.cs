@@ -8,7 +8,10 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public enum FtpSecurityMode
 {
+	/// <summary>Use unencrypted FTP.</summary>
 	Plain,
+	/// <summary>Upgrade FTP to TLS explicitly.</summary>
 	ExplicitTls,
+	/// <summary>Use implicit TLS from connection start.</summary>
 	ImplicitTls,
 }

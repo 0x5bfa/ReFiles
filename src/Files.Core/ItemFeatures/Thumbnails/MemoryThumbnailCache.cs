@@ -20,6 +20,8 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 	// reject an unrelated in-flight write, but can never admit a stale one.
 	private readonly long[] _invalidationVersions = new long[InvalidationStripeCount];
 
+	/// <summary>Initializes a bounded in-memory thumbnail cache.</summary>
+	/// <param name="capacity">The maximum number of entries to retain.</param>
 	public MemoryThumbnailCache(int capacity = 512)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
@@ -27,6 +29,10 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		_capacity = capacity;
 	}
 
+	/// <summary>Gets an entry from the cache.</summary>
+	/// <param name="key">The cache key.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The cached entry, or <see langword="null"/> when no entry exists.</returns>
 	public ValueTask<ThumbnailCacheEntry?> GetAsync(ThumbnailCacheKey key, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
@@ -47,6 +53,10 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		}
 	}
 
+	/// <summary>Stores an entry in the cache.</summary>
+	/// <param name="key">The cache key.</param>
+	/// <param name="entry">The entry to store.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
@@ -62,6 +72,10 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		return ValueTask.CompletedTask;
 	}
 
+	/// <summary>Gets the invalidation version for a storage reference.</summary>
+	/// <param name="reference">The storage reference.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The current invalidation version.</returns>
 	public ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
@@ -74,6 +88,12 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		}
 	}
 
+	/// <summary>Stores an entry if its invalidation version is still current.</summary>
+	/// <param name="key">The cache key.</param>
+	/// <param name="entry">The entry to store.</param>
+	/// <param name="expectedInvalidationVersion">The version observed before producing the entry.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the entry was stored.</returns>
 	public ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
@@ -96,6 +116,9 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		}
 	}
 
+	/// <summary>Invalidates cached entries for a storage reference.</summary>
+	/// <param name="reference">The storage reference.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);

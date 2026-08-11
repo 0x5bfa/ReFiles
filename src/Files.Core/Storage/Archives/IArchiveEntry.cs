@@ -8,7 +8,9 @@ namespace Files.Core.Storage.Archives;
 /// </summary>
 public interface IArchiveEntry
 {
+	/// <summary>Gets the archive reference.</summary>
 	StorableReference Archive { get; }
 
+	/// <summary>Gets the normalized entry path.</summary>
 	string EntryPath { get; }
 }

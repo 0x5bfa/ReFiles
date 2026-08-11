@@ -10,6 +10,8 @@ public sealed class StaticFtpCredentialResolver : IFtpCredentialResolver
 {
 	private readonly FtpCredential _credential;
 
+	/// <summary>Initializes a resolver with one credential.</summary>
+	/// <param name="credential">The credential to return.</param>
 	public StaticFtpCredentialResolver(FtpCredential credential)
 	{
 		ArgumentNullException.ThrowIfNull(credential);
@@ -17,6 +19,10 @@ public sealed class StaticFtpCredentialResolver : IFtpCredentialResolver
 		_credential = credential;
 	}
 
+	/// <summary>Returns the configured credential.</summary>
+	/// <param name="request">The credential request.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The configured credential.</returns>
 	public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

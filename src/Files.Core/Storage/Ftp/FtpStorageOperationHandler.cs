@@ -15,6 +15,8 @@ public sealed class FtpStorageOperationHandler :
 	private const int MaximumGeneratedNameAttempts = 10000;
 	private readonly FtpStorageSource _source;
 
+	/// <summary>Initializes an FTP storage operation handler.</summary>
+	/// <param name="source">The FTP storage source.</param>
 	public FtpStorageOperationHandler(FtpStorageSource source)
 	{
 		ArgumentNullException.ThrowIfNull(source);
@@ -22,6 +24,9 @@ public sealed class FtpStorageOperationHandler :
 		_source = source;
 	}
 
+	/// <summary>Determines whether this handler owns a request's references.</summary>
+	/// <param name="request">The operation request.</param>
+	/// <returns><see langword="true"/> when the request targets this source.</returns>
 	public bool CanHandle(StorageOperationRequest request)
 	{
 		ArgumentNullException.ThrowIfNull(request);
@@ -44,6 +49,11 @@ public sealed class FtpStorageOperationHandler :
 		};
 	}
 
+	/// <summary>Executes an FTP storage operation.</summary>
+	/// <param name="request">The operation request.</param>
+	/// <param name="progress">The optional progress receiver.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The operation result.</returns>
 	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

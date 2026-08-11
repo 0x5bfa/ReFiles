@@ -18,6 +18,8 @@ public sealed class FtpPropertyReader : IPropertyReader
 	private const string DateCreated = "System.DateCreated";
 	private readonly FtpStorageSource _source;
 
+	/// <summary>Initializes an FTP property reader.</summary>
+	/// <param name="source">The FTP storage source.</param>
 	public FtpPropertyReader(FtpStorageSource source)
 	{
 		ArgumentNullException.ThrowIfNull(source);
@@ -25,6 +27,9 @@ public sealed class FtpPropertyReader : IPropertyReader
 		_source = source;
 	}
 
+	/// <summary>Determines whether the reader can read the item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns><see langword="true"/> when the context belongs to this source.</returns>
 	public bool CanRead(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
@@ -33,6 +38,11 @@ public sealed class FtpPropertyReader : IPropertyReader
 			&& context.CoreModel is FtpStorable;
 	}
 
+	/// <summary>Reads properties captured by FTP listings.</summary>
+	/// <param name="request">The requested properties.</param>
+	/// <param name="contexts">The item contexts to read.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>Properties grouped by item reference.</returns>
 	public ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

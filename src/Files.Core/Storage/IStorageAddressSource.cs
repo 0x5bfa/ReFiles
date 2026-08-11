@@ -8,5 +8,6 @@ namespace Files.Core.Storage;
 /// </summary>
 public interface IStorageAddressSource
 {
+	/// <summary>Gets the address that can be resolved by a storage source.</summary>
 	StorageAddress Address { get; }
 }

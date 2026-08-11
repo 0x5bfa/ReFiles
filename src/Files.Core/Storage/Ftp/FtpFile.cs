@@ -6,6 +6,7 @@ using OwlCore.Storage;
 
 namespace Files.Core.Storage.Ftp;
 
+/// <summary>Represents a file exposed by an FTP source.</summary>
 public sealed class FtpFile : FtpStorable, IChildFile
 {
 	internal FtpFile(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
@@ -13,6 +14,10 @@ public sealed class FtpFile : FtpStorable, IChildFile
 	{
 	}
 
+	/// <summary>Opens the file for the requested access mode.</summary>
+	/// <param name="accessMode">The requested access mode.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The opened file stream.</returns>
 	public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();

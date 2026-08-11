@@ -5,16 +5,24 @@ using Files.Core.Storage.Windows;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Describes the lifecycle state of a Windows Shell preview session.</summary>
 public enum WindowsShellPreviewSessionState
 {
+	/// <summary>The session has been created.</summary>
 	Created,
+	/// <summary>The preview handler is being activated.</summary>
 	Activating,
+	/// <summary>The preview handler has been initialized.</summary>
 	Initialized,
+	/// <summary>The preview handler is rendering a preview.</summary>
 	Previewing,
+	/// <summary>Activation or rendering failed.</summary>
 	Faulted,
+	/// <summary>The session has been disposed.</summary>
 	Disposed,
 }
 
+/// <summary>Coordinates a Windows Shell preview handler session.</summary>
 public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 {
 	private readonly WindowsPreviewTarget _target;
@@ -30,6 +38,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	private WindowsShellPreviewSessionState _state =
 		WindowsShellPreviewSessionState.Created;
 
+	/// <summary>Gets the current session state.</summary>
 	public WindowsShellPreviewSessionState State
 	{
 		get
@@ -52,6 +61,9 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		_scheduler = scheduler;
 	}
 
+	/// <summary>Updates the preview bounds.</summary>
+	/// <param name="bounds">The preview bounds.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public ValueTask SetBoundsAsync(WindowsPreviewBounds bounds, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
@@ -59,6 +71,10 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		return new ValueTask(_scheduler.InvokeOperationAsync(() => {_controller.SetBounds(bounds); return true;}, cancellationToken));
 	}
 
+	/// <summary>Updates the preview colors.</summary>
+	/// <param name="background">The background color.</param>
+	/// <param name="foreground">The foreground color.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public ValueTask SetThemeAsync(WindowsPreviewColor background, WindowsPreviewColor foreground, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
@@ -66,6 +82,8 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		return new ValueTask(_scheduler.InvokeOperationAsync(() => {_controller.SetTheme(background, foreground); return true;}, cancellationToken));
 	}
 
+	/// <summary>Gives keyboard focus to the preview handler.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public ValueTask SetFocusAsync(CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
@@ -73,6 +91,9 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		return new ValueTask(_scheduler.InvokeOperationAsync(() => {_controller.SetFocus(); return true;}, cancellationToken));
 	}
 
+	/// <summary>Gets the window that currently has preview focus.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The focused window handle.</returns>
 	public async ValueTask<nint> QueryFocusAsync(CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
@@ -80,6 +101,10 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		return await _scheduler.InvokeOperationAsync(() => _controller.QueryFocus(), cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Attempts to translate a keyboard message for the preview handler.</summary>
+	/// <param name="messagePointer">A pointer to the native message.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the message was handled.</returns>
 	public ValueTask<bool> TryTranslateAcceleratorAsync(nint messagePointer, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
@@ -109,6 +134,8 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		}
 	}
 
+	/// <summary>Asynchronously disposes the preview session and its target.</summary>
+	/// <returns>A value task that represents the disposal operation.</returns>
 	public ValueTask DisposeAsync()
 	{
 		lock (_syncRoot)

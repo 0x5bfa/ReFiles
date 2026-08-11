@@ -13,6 +13,16 @@ namespace Files.Core.Composition;
 /// </summary>
 public static class FtpFilesCoreBuilderExtensions
 {
+	/// <summary>Registers FTP storage and its optional archive and preview features.</summary>
+	/// <param name="builder">The composition builder.</param>
+	/// <param name="profile">The FTP connection profile.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
+	/// <param name="sessionFactory">The optional FTP session factory.</param>
+	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
+	/// <param name="enablePreviews">Whether to register stream previews.</param>
+	/// <param name="enableArchives">Whether to register archive browsing.</param>
+	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddFtpStorage(
 		this FilesCoreBuilder builder,
 		FtpConnectionProfile profile,
@@ -49,6 +59,14 @@ public static class FtpFilesCoreBuilderExtensions
 		return AddFtpItemFeatures(builder, source, streamPreviewPolicy, enablePreviews, enableArchives, archiveCredentialResolver);
 	}
 
+	/// <summary>Registers an existing FTP storage source and its optional features.</summary>
+	/// <param name="builder">The composition builder.</param>
+	/// <param name="source">The FTP storage source to register.</param>
+	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
+	/// <param name="enablePreviews">Whether to register stream previews.</param>
+	/// <param name="enableArchives">Whether to register archive browsing.</param>
+	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddFtpStorage(
 		this FilesCoreBuilder builder,
 		FtpStorageSource source,

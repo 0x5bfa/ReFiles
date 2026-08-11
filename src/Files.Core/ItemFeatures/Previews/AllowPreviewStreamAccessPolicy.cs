@@ -11,12 +11,18 @@ namespace Files.Core.ItemFeatures.Previews;
 public sealed class AllowPreviewStreamAccessPolicy
 	: IPreviewStreamAccessPolicy
 {
+	/// <summary>Gets the shared policy instance.</summary>
 	public static AllowPreviewStreamAccessPolicy Instance { get; } = new();
 
 	private AllowPreviewStreamAccessPolicy()
 	{
 	}
 
+	/// <summary>Allows the requested stream preview.</summary>
+	/// <param name="request">The preview request.</param>
+	/// <param name="context">The item context.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A completed task with no blocking reason.</returns>
 	public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);

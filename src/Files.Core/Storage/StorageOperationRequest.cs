@@ -8,15 +8,21 @@ namespace Files.Core.Storage;
 /// </summary>
 public abstract record StorageOperationRequest;
 
+/// <summary>Specifies how an operation handles an existing destination name.</summary>
 public enum StorageConflictBehavior
 {
+	/// <summary>Fail when the destination name already exists.</summary>
 	Fail,
+	/// <summary>Generate a unique destination name.</summary>
 	GenerateUniqueName,
 }
 
+/// <summary>Specifies the kind of item to create.</summary>
 public enum StorageItemKind
 {
+	/// <summary>Create a file.</summary>
 	File,
+	/// <summary>Create a folder.</summary>
 	Folder,
 }
 
@@ -25,10 +31,15 @@ public enum StorageItemKind
 /// </summary>
 public sealed record RenameOperationRequest : StorageOperationRequest
 {
+	/// <summary>Gets the item to rename.</summary>
 	public StorableReference Item { get; }
 
+	/// <summary>Gets the new item name.</summary>
 	public string NewName { get; }
 
+	/// <summary>Initializes a rename request.</summary>
+	/// <param name="item">The item to rename.</param>
+	/// <param name="newName">The new item name.</param>
 	public RenameOperationRequest(StorableReference item, string newName)
 	{
 		ArgumentNullException.ThrowIfNull(item);
@@ -44,14 +55,23 @@ public sealed record RenameOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record CreateItemOperationRequest : StorageOperationRequest
 {
+	/// <summary>Gets the parent folder.</summary>
 	public StorableReference Parent { get; }
 
+	/// <summary>Gets the new item name.</summary>
 	public string Name { get; }
 
+	/// <summary>Gets the item kind to create.</summary>
 	public StorageItemKind Kind { get; }
 
+	/// <summary>Gets the conflict behavior.</summary>
 	public StorageConflictBehavior ConflictBehavior { get; }
 
+	/// <summary>Initializes a create-item request.</summary>
+	/// <param name="parent">The parent folder.</param>
+	/// <param name="name">The new item name.</param>
+	/// <param name="kind">The item kind to create.</param>
+	/// <param name="conflictBehavior">The conflict behavior.</param>
 	public CreateItemOperationRequest(StorableReference parent, string name, StorageItemKind kind, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(parent);
@@ -84,14 +104,23 @@ public sealed record CreateItemOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record CopyOperationRequest : StorageOperationRequest
 {
+	/// <summary>Gets the item to copy.</summary>
 	public StorableReference Item { get; }
 
+	/// <summary>Gets the destination folder.</summary>
 	public StorableReference DestinationFolder { get; }
 
+	/// <summary>Gets the optional destination name.</summary>
 	public string? NewName { get; }
 
+	/// <summary>Gets the conflict behavior.</summary>
 	public StorageConflictBehavior ConflictBehavior { get; }
 
+	/// <summary>Initializes a copy request.</summary>
+	/// <param name="item">The item to copy.</param>
+	/// <param name="destinationFolder">The destination folder.</param>
+	/// <param name="newName">The optional destination name.</param>
+	/// <param name="conflictBehavior">The conflict behavior.</param>
 	public CopyOperationRequest(StorableReference item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(item);
@@ -124,14 +153,23 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record MoveOperationRequest : StorageOperationRequest
 {
+	/// <summary>Gets the item to move.</summary>
 	public StorableReference Item { get; }
 
+	/// <summary>Gets the destination folder.</summary>
 	public StorableReference DestinationFolder { get; }
 
+	/// <summary>Gets the optional destination name.</summary>
 	public string? NewName { get; }
 
+	/// <summary>Gets the conflict behavior.</summary>
 	public StorageConflictBehavior ConflictBehavior { get; }
 
+	/// <summary>Initializes a move request.</summary>
+	/// <param name="item">The item to move.</param>
+	/// <param name="destinationFolder">The destination folder.</param>
+	/// <param name="newName">The optional destination name.</param>
+	/// <param name="conflictBehavior">The conflict behavior.</param>
 	public MoveOperationRequest(StorableReference item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(item);
@@ -164,10 +202,15 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 /// </summary>
 public sealed record DeleteOperationRequest : StorageOperationRequest
 {
+	/// <summary>Gets the item to delete.</summary>
 	public StorableReference Item { get; }
 
+	/// <summary>Gets a value indicating whether the item should bypass the Recycle Bin.</summary>
 	public bool Permanently { get; }
 
+	/// <summary>Initializes a delete request.</summary>
+	/// <param name="item">The item to delete.</param>
+	/// <param name="permanently">Whether to delete the item permanently.</param>
 	public DeleteOperationRequest(StorableReference item, bool permanently = false)
 	{
 		ArgumentNullException.ThrowIfNull(item);

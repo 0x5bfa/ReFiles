@@ -12,6 +12,7 @@ using System.Diagnostics;
 
 namespace Files.Core.Browsing;
 
+/// <summary>Coordinates navigation, item enumeration, selection, and presentation for one browse tab.</summary>
 public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 {
 	private const int InitialEnumerationBatchSize = 32;

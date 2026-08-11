@@ -8,11 +8,15 @@ using Windows.Win32.UI.Shell;
 
 namespace Files.Core.ItemFeatures.Previews;
 
+/// <summary>Reads Windows Shell preview handler associations.</summary>
 [SupportedOSPlatform("windows5.0")]
 public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandlerAssociation
 {
 	private const string PreviewHandlerCategory = "{8895B1C6-B41F-4C1C-A562-0D564250836F}";
 
+	/// <summary>Queries the preview handler associated with an extension.</summary>
+	/// <param name="normalizedExtension">The normalized extension.</param>
+	/// <returns>The handler CLSID string, or <see langword="null"/> when none is registered.</returns>
 	public unsafe string? QueryPreviewHandler(string normalizedExtension)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(normalizedExtension);

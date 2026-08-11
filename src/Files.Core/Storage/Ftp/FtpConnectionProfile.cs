@@ -8,20 +8,28 @@ namespace Files.Core.Storage.Ftp;
 /// </summary>
 public sealed record FtpConnectionProfile
 {
+	/// <summary>Gets the stable connection identifier.</summary>
 	public string ConnectionId { get; }
 
+	/// <summary>Gets the display name of the connection.</summary>
 	public string DisplayName { get; }
 
+	/// <summary>Gets the normalized FTP host.</summary>
 	public string Host { get; }
 
+	/// <summary>Gets the FTP port.</summary>
 	public int Port { get; }
 
+	/// <summary>Gets the transport security mode.</summary>
 	public FtpSecurityMode SecurityMode { get; }
 
+	/// <summary>Gets the root path exposed by the connection.</summary>
 	public FtpPath RootPath { get; }
 
+	/// <summary>Gets the optional user-name hint.</summary>
 	public string? UserNameHint { get; }
 
+	/// <summary>Gets the path comparison mode.</summary>
 	public FtpPathComparison PathComparison { get; }
 
 	internal StringComparer PathComparer =>
@@ -29,6 +37,15 @@ public sealed record FtpConnectionProfile
 			? StringComparer.OrdinalIgnoreCase
 			: StringComparer.Ordinal;
 
+	/// <summary>Initializes an FTP connection profile.</summary>
+	/// <param name="connectionId">The stable connection identifier.</param>
+	/// <param name="displayName">The display name.</param>
+	/// <param name="host">The FTP host.</param>
+	/// <param name="port">The FTP port.</param>
+	/// <param name="securityMode">The transport security mode.</param>
+	/// <param name="rootPath">The root path.</param>
+	/// <param name="userNameHint">The optional user-name hint.</param>
+	/// <param name="pathComparison">The path comparison mode.</param>
 	public FtpConnectionProfile(
 		string connectionId,
 		string displayName,

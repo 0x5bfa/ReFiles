@@ -8,6 +8,9 @@ namespace Files.Core.Storage.Archives;
 /// </summary>
 public static class ArchiveEntryPath
 {
+	/// <summary>Normalizes an archive entry path.</summary>
+	/// <param name="path">The path to normalize.</param>
+	/// <returns>The normalized root-relative path.</returns>
 	public static string Normalize(string? path)
 	{
 		if (!TryNormalize(path, out var normalized))
@@ -18,6 +21,10 @@ public static class ArchiveEntryPath
 		return normalized;
 	}
 
+	/// <summary>Attempts to normalize an archive entry path.</summary>
+	/// <param name="path">The path to normalize.</param>
+	/// <param name="normalized">Receives the normalized path.</param>
+	/// <returns><see langword="true"/> when the path is safe and valid.</returns>
 	public static bool TryNormalize(string? path, out string normalized)
 	{
 		normalized = string.Empty;
@@ -59,6 +66,10 @@ public static class ArchiveEntryPath
 		return true;
 	}
 
+	/// <summary>Combines two normalized archive entry paths.</summary>
+	/// <param name="parent">The parent path.</param>
+	/// <param name="child">The child path.</param>
+	/// <returns>The combined normalized path.</returns>
 	public static string Combine(string parent, string child)
 	{
 		var normalizedParent = Normalize(parent);
@@ -71,6 +82,9 @@ public static class ArchiveEntryPath
 				: $"{normalizedParent}/{normalizedChild}";
 	}
 
+	/// <summary>Gets the final name in an archive entry path.</summary>
+	/// <param name="path">The entry path.</param>
+	/// <returns>The entry name.</returns>
 	public static string GetName(string path)
 	{
 		var normalized = Normalize(path);
@@ -81,6 +95,9 @@ public static class ArchiveEntryPath
 			: normalized[(separatorIndex + 1)..];
 	}
 
+	/// <summary>Gets the parent path of an archive entry.</summary>
+	/// <param name="path">The entry path.</param>
+	/// <returns>The parent path, or an empty string for a root entry.</returns>
 	public static string GetParent(string path)
 	{
 		var normalized = Normalize(path);

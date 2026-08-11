@@ -10,12 +10,16 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 public interface IWindowsStorable : IStorableChild, IStorageAddressSource
 {
+	/// <summary>Gets the Windows Shell parsing name.</summary>
 	string ParsingName { get; }
 
+	/// <summary>Gets the file-system path, when the item has one.</summary>
 	string? FileSystemPath { get; }
 
+	/// <summary>Gets a value indicating whether the item is file-system backed.</summary>
 	bool IsFileSystem { get; }
 
+	/// <summary>Gets a value indicating whether the item is exposed as a stream.</summary>
 	bool IsStream { get; }
 
 	/// <summary>

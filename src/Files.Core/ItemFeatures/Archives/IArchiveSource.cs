@@ -10,5 +10,6 @@ namespace Files.Core.ItemFeatures.Archives;
 /// </summary>
 public interface IArchiveSource
 {
+	/// <summary>Gets the archive reference represented by the item.</summary>
 	StorableReference Archive { get; }
 }

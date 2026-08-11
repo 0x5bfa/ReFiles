@@ -11,6 +11,10 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public sealed class PropertySourceCombiner : IItemFeatureCombiner<IPropertySource>
 {
+	/// <summary>Combines property sources in descending priority order.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="options">The property source options.</param>
+	/// <returns>A combined property source, or <see langword="null"/> when no source applies.</returns>
 	public IPropertySource? Combine(ItemContext context, IReadOnlyList<ItemFeatureOption<IPropertySource>> options)
 	{
 		ArgumentNullException.ThrowIfNull(context);

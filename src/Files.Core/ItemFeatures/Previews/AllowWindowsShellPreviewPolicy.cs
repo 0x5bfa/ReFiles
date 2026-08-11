@@ -10,12 +10,17 @@ namespace Files.Core.ItemFeatures.Previews;
 /// </summary>
 public sealed class AllowWindowsShellPreviewPolicy : IWindowsShellPreviewPolicy
 {
+	/// <summary>Gets the shared policy instance.</summary>
 	public static AllowWindowsShellPreviewPolicy Instance { get; } = new();
 
 	private AllowWindowsShellPreviewPolicy()
 	{
 	}
 
+	/// <summary>Allows the specified preview handler.</summary>
+	/// <param name="context">The item context.</param>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	/// <returns><see langword="null"/> because the handler is not blocked.</returns>
 	public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid)
 	{
 		ArgumentNullException.ThrowIfNull(context);

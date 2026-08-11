@@ -34,6 +34,8 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 	private readonly MessagePumpedStaScheduler _operationScheduler;
 	private Task? _disposeTask;
 
+	/// <summary>Initializes Windows Shell scheduler lanes.</summary>
+	/// <param name="concurrentWorkerCount">The number of concurrent workers.</param>
 	public WindowsShellScheduler(int? concurrentWorkerCount = null)
 	{
 		var workerCount = concurrentWorkerCount
@@ -46,21 +48,38 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		CoreDiagnosticLog.Write("WindowsShellScheduler", $"created concurrentWorkers={workerCount}");
 	}
 
+	/// <summary>Invokes a delegate on the ordered Shell lane.</summary>
+	/// <typeparam name="T">The delegate result type.</typeparam>
+	/// <param name="action">The synchronous delegate.</param>
+	/// <param name="cancellationToken">The token used to cancel queuing.</param>
+	/// <returns>A task containing the delegate result.</returns>
 	public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return _orderedScheduler.InvokeAsync(action, cancellationToken);
 	}
 
+	/// <summary>Invokes a delegate on a concurrent Shell lane.</summary>
+	/// <typeparam name="T">The delegate result type.</typeparam>
+	/// <param name="action">The synchronous delegate.</param>
+	/// <param name="cancellationToken">The token used to cancel queuing.</param>
+	/// <returns>A task containing the delegate result.</returns>
 	public Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return _concurrentScheduler.InvokeAsync(action, cancellationToken);
 	}
 
+	/// <summary>Invokes a delegate on the ordered operation lane.</summary>
+	/// <typeparam name="T">The delegate result type.</typeparam>
+	/// <param name="action">The synchronous delegate.</param>
+	/// <param name="cancellationToken">The token used to cancel queuing.</param>
+	/// <returns>A task containing the delegate result.</returns>
 	public Task<T> InvokeOperationAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return _operationScheduler.InvokeAsync(action, cancellationToken);
 	}
 
+	/// <summary>Stops all scheduler lanes.</summary>
+	/// <returns>A value task that represents scheduler disposal.</returns>
 	public ValueTask DisposeAsync()
 	{
 		lock (_syncRoot)

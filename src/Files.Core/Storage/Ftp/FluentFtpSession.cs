@@ -25,6 +25,10 @@ public sealed class FluentFtpSession : IFtpSession
 		_pathComparer = pathComparer;
 	}
 
+	/// <summary>Gets metadata for an FTP path.</summary>
+	/// <param name="path">The path to inspect.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The entry metadata, or <see langword="null"/> when the path does not exist.</returns>
 	public async ValueTask<FtpEntryInfo?> GetEntryAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -54,6 +58,10 @@ public sealed class FluentFtpSession : IFtpSession
 		return listing.FirstOrDefault(candidate => _pathComparer.Equals(candidate.Path.Value, path.Value));
 	}
 
+	/// <summary>Gets the entries in an FTP folder.</summary>
+	/// <param name="path">The folder path.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The folder entries.</returns>
 	public async ValueTask<IReadOnlyList<FtpEntryInfo>> GetListingAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -65,6 +73,10 @@ public sealed class FluentFtpSession : IFtpSession
 		return new ReadOnlyCollection<FtpEntryInfo>(entries);
 	}
 
+	/// <summary>Opens an FTP path for reading.</summary>
+	/// <param name="path">The file path.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A readable stream.</returns>
 	public async ValueTask<Stream> OpenReadAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -73,6 +85,10 @@ public sealed class FluentFtpSession : IFtpSession
 		return await _client.OpenRead(path.Value, FtpDataType.Binary, restart: 0, checkIfFileExists: true, token: cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Opens an FTP path for writing.</summary>
+	/// <param name="path">The file path.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A writable stream.</returns>
 	public async ValueTask<Stream> OpenWriteAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -81,6 +97,8 @@ public sealed class FluentFtpSession : IFtpSession
 		return await _client.OpenWrite(path.Value, FtpDataType.Binary, checkIfFileExists: true, token: cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Completes the current transfer.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public async ValueTask CompleteTransferAsync(CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -92,6 +110,9 @@ public sealed class FluentFtpSession : IFtpSession
 		}
 	}
 
+	/// <summary>Creates an empty file.</summary>
+	/// <param name="path">The file path.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public async ValueTask CreateFileAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -104,6 +125,9 @@ public sealed class FluentFtpSession : IFtpSession
 		}
 	}
 
+	/// <summary>Creates a folder.</summary>
+	/// <param name="path">The folder path.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public async ValueTask CreateFolderAsync(FtpPath path, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -116,6 +140,10 @@ public sealed class FluentFtpSession : IFtpSession
 		}
 	}
 
+	/// <summary>Deletes an FTP entry.</summary>
+	/// <param name="path">The entry path.</param>
+	/// <param name="kind">The entry kind.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public async ValueTask DeleteAsync(FtpPath path, FtpEntryKind kind, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -131,6 +159,11 @@ public sealed class FluentFtpSession : IFtpSession
 		await _client.DeleteFile(path.Value, cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Moves an FTP entry.</summary>
+	/// <param name="sourcePath">The source path.</param>
+	/// <param name="destinationPath">The destination path.</param>
+	/// <param name="kind">The entry kind.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	public async ValueTask MoveAsync(FtpPath sourcePath, FtpPath destinationPath, FtpEntryKind kind, CancellationToken cancellationToken = default)
 	{
 		ThrowIfDisposed();
@@ -146,6 +179,8 @@ public sealed class FluentFtpSession : IFtpSession
 		}
 	}
 
+	/// <summary>Disposes the FTP connection.</summary>
+	/// <returns>A value task that represents the disposal operation.</returns>
 	public async ValueTask DisposeAsync()
 	{
 		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)

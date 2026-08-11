@@ -9,5 +9,8 @@ namespace Files.Core.ItemFeatures;
 public interface IItemFeatureFactory<TFeature>
 	where TFeature : class
 {
+	/// <summary>Creates a feature for an item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns>The created feature, or <see langword="null"/> when the feature does not apply.</returns>
 	TFeature? Create(ItemContext context);
 }

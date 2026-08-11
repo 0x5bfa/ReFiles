@@ -8,12 +8,19 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorageOperationResult
 {
+	/// <summary>Gets a value indicating whether the operation succeeded.</summary>
 	public bool Succeeded { get; }
 
+	/// <summary>Gets the item produced by a successful operation.</summary>
 	public StorableReference? ResultItem { get; }
 
+	/// <summary>Gets the error produced by a failed operation.</summary>
 	public Exception? Error { get; }
 
+	/// <summary>Initializes an operation result.</summary>
+	/// <param name="succeeded">Whether the operation succeeded.</param>
+	/// <param name="resultItem">The item produced by the operation.</param>
+	/// <param name="error">The error produced by a failed operation.</param>
 	public StorageOperationResult(bool succeeded, StorableReference? resultItem, Exception? error = null)
 	{
 		if (succeeded && error is not null)

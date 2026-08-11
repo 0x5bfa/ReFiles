@@ -8,8 +8,11 @@ namespace Files.Core.Storage;
 /// </summary>
 public sealed record StorageSourceId
 {
+	/// <summary>Gets the stable source identifier value.</summary>
 	public string Value { get; }
 
+	/// <summary>Initializes a storage source identifier.</summary>
+	/// <param name="value">The identifier value.</param>
 	public StorageSourceId(string value)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(value);
@@ -17,5 +20,7 @@ public sealed record StorageSourceId
 		Value = value;
 	}
 
+	/// <summary>Returns the identifier value.</summary>
+	/// <returns>The identifier value.</returns>
 	public override string ToString() => Value;
 }

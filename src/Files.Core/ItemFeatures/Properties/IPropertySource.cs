@@ -8,5 +8,9 @@ namespace Files.Core.ItemFeatures.Properties;
 /// </summary>
 public interface IPropertySource
 {
+	/// <summary>Reads the requested properties for the bound item.</summary>
+	/// <param name="request">The requested properties.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The requested property values.</returns>
 	ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default);
 }

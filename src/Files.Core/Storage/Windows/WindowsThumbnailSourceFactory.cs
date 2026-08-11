@@ -15,6 +15,8 @@ public sealed class WindowsThumbnailSourceFactory : IItemFeatureFactory<IThumbna
 {
 	private readonly WindowsShellThumbnailBackend _backend;
 
+	/// <summary>Initializes a Windows thumbnail source factory.</summary>
+	/// <param name="backend">The Windows thumbnail backend.</param>
 	public WindowsThumbnailSourceFactory(WindowsShellThumbnailBackend backend)
 	{
 		ArgumentNullException.ThrowIfNull(backend);
@@ -22,6 +24,9 @@ public sealed class WindowsThumbnailSourceFactory : IItemFeatureFactory<IThumbna
 		_backend = backend;
 	}
 
+	/// <summary>Creates a thumbnail source for a Windows item context.</summary>
+	/// <param name="context">The item context.</param>
+	/// <returns>The thumbnail source, or <see langword="null"/> when unsupported.</returns>
 	public IThumbnailSource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
