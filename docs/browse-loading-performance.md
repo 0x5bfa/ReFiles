@@ -120,8 +120,8 @@ Shell、disk、network は含みません。測定値は navigation request か�
 msbuild -restore tests/Files.UnitTests/Files.UnitTests.csproj -p:Configuration=Release -p:Platform=x64 -v:quiet -clp:ErrorsOnly
 tests/Files.UnitTests/bin/x64/Release/net10.0-windows10.0.26100.0/Files.UnitTests.exe
 
-msbuild -restore tests/Files.PresentationTests/Files.PresentationTests.csproj -p:Configuration=Release -p:Platform=x64 -v:quiet -clp:ErrorsOnly
-tests/Files.PresentationTests/bin/x64/Release/net10.0-windows10.0.26100.0/Files.PresentationTests.exe
+msbuild -restore tests/Files.UITests/Files.UITests.csproj -p:Configuration=Release -p:Platform=x64 -v:quiet -clp:ErrorsOnly
+tests/Files.UITests/bin/x64/Release/net10.0-windows10.0.26100.0/Files.UITests.exe
 
 msbuild -restore tests/Files.Benchmarks/Files.Benchmarks.csproj -p:Configuration=Release -p:Platform=x64 -v:quiet -clp:ErrorsOnly
 tests/Files.Benchmarks/bin/x64/Release/net10.0-windows10.0.26100.0/Files.Benchmarks.exe --browse-scenario

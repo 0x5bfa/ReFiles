@@ -38,7 +38,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<InternalsVisibleTo Include="Files.PresentationTests" />
+		<InternalsVisibleTo Include="Files.UITests" />
 	</ItemGroup>
 
 </Project>

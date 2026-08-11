@@ -53,6 +53,7 @@
 
 		<!--  Test infrastructure  -->
 		<PackageVersion Include="PolySharp" Version="1.16.0" />
+		<PackageVersion Include="Microsoft.TestPlatform.TestHost" Version="18.8.1" />
 		<PackageVersion Include="MSTest.TestAdapter" Version="4.3.2" />
 		<PackageVersion Include="MSTest.TestFramework" Version="4.3.2" />
 		<PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.2" />
