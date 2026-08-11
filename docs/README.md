@@ -1,138 +1,97 @@
-# Files と Files.Core のアーキテクチャ
+# ReFiles technical documentation
 
-この文書群は、UI に依存しない `Files.Core` 基盤と、それを利用する `Files` WinUI ホストのアーキテクチャを定義します。
-設計は [Trickle-down MVVM と Files の設計規約](trickle-down-mvvm.md) に従います。長寿命の依存関係は 1 回だけ合成してモデルグラフへ渡し、項目のオプション機能は項目機能単位で遅延合成します。
+This directory is the technical handbook for contributors working on ReFiles.
 
-`Files.App` は旧アプリケーションを指す場合にだけ使います。新しい WinUI ホスト、View、ViewModel は `Files` と呼びます。
+The documentation is organized around **architectural contracts, invariants, ownership, data flow, concurrency, extension points, testing, and performance** rather than around individual classes. Class names and implementations may change; the rules that keep the system correct should remain understandable.
 
-## システム境界
+## Start here
 
-```mermaid
-flowchart TB
-    Views["WinUI ビュー"]
-    ViewModels["Files ViewModel"]
-    ShellSessions["Shell Session Model"]
-    Workspace["StorageWorkspace"]
-    AppModels["項目 AppModel"]
-    ItemFeatures["項目機能"]
-    CoreModels["OwlCore.Storage CoreModel"]
-    Sources["ストレージ/プラットフォームソース"]
+Read these documents before making architectural changes:
 
-    Views --> ViewModels
-    ViewModels --> ShellSessions
-    ViewModels --> AppModels
-    ShellSessions --> Workspace
-    Workspace --> AppModels
-    AppModels --> ItemFeatures
-    AppModels --> CoreModels
-    ItemFeatures --> Sources
-    CoreModels --> Sources
+1. [`architecture/overview.md`](architecture/overview.md) — high-level architecture and project responsibilities.
+2. [`architecture/principles.md`](architecture/principles.md) — rules that changes are expected to preserve.
+3. [`architecture/layering.md`](architecture/layering.md) — dependency direction and where code belongs.
+4. [`architecture/ownership-and-lifetime.md`](architecture/ownership-and-lifetime.md) — ownership, cancellation, and disposal.
+5. [`architecture/browsing.md`](architecture/browsing.md) — end-to-end browse pipeline.
+6. [`architecture/presentation.md`](architecture/presentation.md) — the Core/WinUI boundary.
+
+## Repository layers
+
+```text
+ReFiles
+├─ Files.Core          UI-independent application, browsing, storage, and model logic
+├─ Files               WinUI application and presentation
+├─ Files.Controls      Reusable WinUI controls
+├─ Files.Operations    Out-of-process operation host
+├─ Files.SourceGenerators
+└─ FilesLauncher       Native launcher/integration component
 ```
 
-WinUI に依存しないコードを最終的に 1 つの物理的な `Files.Core` プロジェクトへ統合する場合でも、論理的なレイヤーは分離したままにします。
+The most important dependency rule is:
 
-## モデル用語
+> Core logic must not depend on presentation.
 
-`Files.Core` はアセンブリ境界であり、単一のアーキテクチャレイヤーの名前ではありません。次の用語を一貫して使います。
+`Files.Core` must remain independent from XAML, WinUI controls, ViewModels, visual state, and UI formatting.
 
-| 用語 | 具体的な型 | 意味 |
-| --- | --- | --- |
-| ストレージ CoreModel | OwlCore.Storage `IStorable`、`IFile`、`IFolder` | ソースが扱う最小限のストレージ形状 |
-| 項目 AppModel | `Files.Core.Models.IStorableModel` | Files の識別情報、ライフタイム、合成済み項目機能 |
-| ストレージ Workspace | `Files.Core.Data.IStorageWorkspace` | ソースの列挙と、アドレスまたは安定参照から項目 AppModel を解決する UI 非依存ルート |
-| Shell Session Model | `Files.Core.Sessions.*` と参照モデル | ウィンドウ、タブ、ペイン、ナビゲーションなど、復元可能なアプリケーションセッション状態 |
-| ViewModel | `Files.ViewModels.*` | 対応する Session/AppModel と明示的な UI adapter を WinUI バインディングへ適応する薄いラッパー |
+## By task
 
-項目 AppModel と Shell Session Model はどちらも UI 非依存ですが、同じモデルレイヤーではありません。前者はストレージ CoreModel を Files 向けに適応し、
-後者は UI ホストが持つセッション状態を表します。`Files.Core.Sessions` はそのための明示的な名前空間であり、CLI から項目 AppModel と同一視しません。
+### Browsing and navigation
 
-## 依存関係の規則
+- [`architecture/browsing.md`](architecture/browsing.md)
+- [`subsystems/storage.md`](subsystems/storage.md)
+- [`subsystems/item-features.md`](subsystems/item-features.md)
+- [`development/performance.md`](development/performance.md)
 
-| レイヤー | 所有するもの | 依存できるもの |
-| --- | --- | --- |
-| Views | コントロール、表示状態、入力ルーティング | ウィンドウ単位の ViewModel |
-| ViewModels | ローカライズ表示、コマンド binding、UI コレクション | 直接の Session/AppModel と明示的な UI adapter |
-| Shell Sessions | ウィンドウ、タブ、ペイン、参照、選択、履歴 | Workspace、項目 AppModel、UI 非依存サービス |
-| Storage Workspace / AppModels | ソース解決、安定参照、項目モデルとその所有権 | CoreModel と項目機能契約 |
-| CoreModels | 標準化されたストレージ項目 | OwlCore.Storage とソース抽象化 |
-| 項目機能 | サムネイル、プロパティ、プレビュー、ウォッチャーのオプション処理 | 項目コンテキストとソースサービス |
-| ソース | Windows Shell、クラウド、FTP、アーカイブ | バックエンド/プラットフォーム API |
+### Storage providers
 
-禁止する依存関係:
+- [`subsystems/storage-providers.md`](subsystems/storage-providers.md)
+- [`development/adding-a-storage-provider.md`](development/adding-a-storage-provider.md)
+- [`architecture/layering.md`](architecture/layering.md)
 
-- `Files.Core` が WinUI、`Window`、`Frame`、`Page`、`DispatcherQueue` を参照すること。
-- ViewModel が `IServiceProvider` や `Ioc.Default` をサービスロケーターとして使うこと。
-- View が Windows Shell やストレージソースを直接呼び出すこと。
-- ソースが ViewModel に依存すること。
-- `IStorageSource` を `IStorable` のように扱うこと。
-- `IItemFeatures` をプロセス全体の依存性注入として使うこと。
-- パスや `LastKnownAddress` を項目識別情報として使うこと。
+### Windows Shell
 
-## Trickle-down による所有関係
+- [`subsystems/windows-shell.md`](subsystems/windows-shell.md)
+- [`architecture/ownership-and-lifetime.md`](architecture/ownership-and-lifetime.md)
 
-```mermaid
-flowchart TB
-    Runtime["FilesCoreRuntime"]
-    Workspace["IStorageWorkspace"]
-    App["FilesApplicationSession<br/>(ShellSession)"]
-    Window["WindowSession"]
-    Tab["TabSession"]
-    Pane["PaneSession"]
-    Content["IPaneContentSession"]
-    Item["IStorableModel"]
+### Properties, thumbnails, and preview
 
-    Runtime --> Workspace
-    Runtime --> App
-    App --> Window
-    Window --> Tab
-    Tab --> Pane
-    Pane --> Content
-    Workspace --> Item
-```
+- [`subsystems/item-features.md`](subsystems/item-features.md)
+- [`subsystems/properties.md`](subsystems/properties.md)
+- [`subsystems/thumbnails.md`](subsystems/thumbnails.md)
+- [`subsystems/preview.md`](subsystems/preview.md)
 
-Storage Workspace と Shell Session は runtime が持つ別々のルートです。それぞれのグラフで親は子を所有し、非同期に破棄します。共有ソース、キャッシュ、スケジューラーはランタイムまたはソースレベルで所有します。
-項目に結び付いたアダプターは、その項目の `ItemFeatures` が所有します。
+### UI and controls
 
-## 文書一覧
+- [`architecture/presentation.md`](architecture/presentation.md)
+- [`architecture/layering.md`](architecture/layering.md)
+- [`testing/ui-tests.md`](testing/ui-tests.md)
 
-新しい Files ホストを開始するときは、次の順に読んでください。
+### Testing and performance
 
-1. [Trickle-down MVVM の設計規約](trickle-down-mvvm.md)
-2. [移行進捗](migration-progress.md)
-3. [Shell Session モデルグラフ](app-models.md)
-4. [合成ルート](composition.md)
-5. [Files アーキテクチャ](files.md)
-6. [Files.App の Core 統合（旧互換経路）](files-app.md)
-7. [Files のコマンド実行](commands.md)
-8. [Files の項目機能とアクティブ化](files-app-features.md)
-9. [クリップボード、ドラッグ/ドロップ、Shell 連携](platform-interactions.md)
-10. [テストと性能](testing.md)
+- [`testing/strategy.md`](testing/strategy.md)
+- [`testing/unit-tests.md`](testing/unit-tests.md)
+- [`testing/integration-tests.md`](testing/integration-tests.md)
+- [`testing/ui-tests.md`](testing/ui-tests.md)
+- [`testing/performance-tests.md`](testing/performance-tests.md)
 
-参照文書:
+## Documentation contract
 
-- [ストレージモデルの境界と識別情報](storage-models.md)
-- [アーカイブ参照と SevenZip フォールバック](archives.md)
-- [FTP ストレージソース](ftp-storage.md)
-- [項目機能の合成](item-features.md)
-- [参照ビュー設定と投影](view-settings.md)
-- [プレビューの流れと Shell セッション](previews.md)
-- [ストレージ操作](operations.md)
-- [`Files.Operations` によるクラッシュ耐性のある操作](server-operations.md)
-- [Windows ストレージソース](windows-storage.md)
-- [Windows Shell のスレッド処理](threading.md)
-- [Browse 読み込み性能と実行経路](browse-loading-performance.md)
-- [移行原則と物理プロジェクト統合](migration.md)
+When a pull request changes an architectural contract, update the relevant document in the same pull request. In particular, documentation should be reviewed when changing:
 
-## 文書の役割
+- layer ownership or dependency direction;
+- lifetime/disposal semantics;
+- concurrency or COM apartment behavior;
+- navigation generations or cancellation;
+- provider/capability contracts;
+- browse publication or enrichment flow;
+- operation execution boundaries;
+- performance expectations;
+- extension points.
 
-`migration-progress.md` だけが、完了した移行境界、現在の作業、次の移行単位を記録します。
-その他の文書は、次のような概念を定義します。
+A subsystem document should answer **why the subsystem exists, what it owns, what it does not own, what must remain true, and how it is tested**. Avoid documentation that only restates methods or current private implementation details.
 
-- `trickle-down-mvvm.md`: CoreModel、AppModel、ViewModel、View の横断規約。
-- `app-models.md`、`composition.md`、`files.md`: model graph、composition、UI ownership。
-- `commands.md`、`platform-interactions.md`、`operations.md`: command、platform、operation contracts。
-- `storage-models.md`、`windows-storage.md`、`ftp-storage.md`、`archives.md`: storage boundaries。
-- `item-features.md`、`files-app-features.md`、`view-settings.md`、`previews.md`: item and presentation concepts。
-- `threading.md`、`testing.md`、`server-operations.md`: threading、validation、failure-isolation concepts。
+## Legacy documentation
 
-概念文書は進捗の一覧を複製せず、実装状況を参照するときは `migration-progress.md` を使用します。
+The previous documentation set is preserved under [`archive/legacy/`](archive/legacy/README.md).
+
+It is historical reference material only and must not be treated as current contributor guidance.
