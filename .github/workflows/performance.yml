@@ -1,0 +1,103 @@
+# Copyright (c) Files Community
+# SPDX-License-Identifier: MPL-2.0
+
+name: Browse performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder:
+        description: Windows folder to measure
+        required: true
+        default: 'C:\Windows\WinSxS'
+        type: string
+      iterations:
+        description: Number of real-folder iterations
+        required: true
+        default: '3'
+        type: string
+      environment_notes:
+        description: Optional notes about cache state, Shell extensions, or machine setup
+        required: false
+        default: ''
+        type: string
+
+run-name: Browse performance - ${{ inputs.folder }}
+
+env:
+  WORKING_DIR: ${{ github.workspace }}
+  SOLUTION_PATH: '${{ github.workspace }}\Files.slnx'
+  CONFIGURATION: Debug
+  ARCHITECTURE: x64
+
+jobs:
+  real-folder:
+    runs-on: windows-2025-vs2026
+
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v6
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v3
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v5
+      with:
+        global-json-file: global.json
+
+    - name: Restore
+      shell: pwsh
+      run: |
+        msbuild $env:SOLUTION_PATH `
+          -t:Restore -p:Platform=$env:ARCHITECTURE -p:Configuration=$env:CONFIGURATION -v:quiet
+
+    - name: Build UI performance test host
+      shell: pwsh
+      run: |
+        msbuild tests/Files.UITests/Files.UITests.csproj `
+          -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:UseSharedCompilation=false -m:1 -nr:false -v:quiet -clp:ErrorsOnly
+
+    - name: Install Windows App SDK runtime
+      shell: pwsh
+      run: |
+        $runtimeRoot = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windowsappsdk.runtime" -Directory | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+        if ($null -eq $runtimeRoot) {
+          throw 'The restored Microsoft.WindowsAppSDK runtime package was not found.'
+        }
+
+        Get-ChildItem (Join-Path $runtimeRoot.FullName 'tools\MSIX\win10-x64') -Filter '*.msix' | Sort-Object Name | ForEach-Object {
+          try {
+            Add-AppxPackage -Path $_.FullName -ForceApplicationShutdown
+          }
+          catch {
+            if ($_.Exception.Message -notmatch '0x80073D06') {
+              throw
+            }
+          }
+        }
+
+    - name: Run real-folder performance scenario
+      shell: pwsh
+      timeout-minutes: 10
+      env:
+        FILES_PERF_REAL_FOLDER: ${{ inputs.folder }}
+        FILES_PERF_ITERATIONS: ${{ inputs.iterations }}
+        FILES_PERF_ENVIRONMENT_NOTES: ${{ inputs.environment_notes }}
+        FILES_PERF_RESULTS_DIR: ${{ runner.temp }}\refiles-performance
+      run: |
+        dotnet run --project tests/Files.UITests/Files.UITests.csproj `
+          --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE `
+          -- --filter "TestCategory=RealFolderPerformance"
+
+    - name: Upload real-folder performance results
+      if: always()
+      uses: actions/upload-artifact@v6
+      with:
+        name: browse-real-folder-${{ github.run_id }}
+        path: ${{ runner.temp }}\refiles-performance\*.json
+        if-no-files-found: warn
+        retention-days: 30

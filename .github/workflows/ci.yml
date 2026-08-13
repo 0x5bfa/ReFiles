@@ -86,29 +86,10 @@ jobs:
       shell: pwsh
       run: dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity quiet
 
-    - name: Run UI tests
+    - name: Install Windows App SDK runtime
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
       run: |
-        $testAssembly = Get-ChildItem "$env:WORKING_DIR\tests\Files.UITests\bin\$env:ARCHITECTURE\$env:CONFIGURATION" -Filter 'Files.UITests.dll' -Recurse |
-          Where-Object { $_.FullName -notmatch '\\win-[^\\]+\\Files\.UITests\.dll$' } |
-          Select-Object -First 1
-        if ($null -eq $testAssembly) {
-          throw 'The Files.UITests test assembly was not produced by the build.'
-        }
-
-        dotnet vstest $testAssembly.FullName `
-          /TestAdapterPath:$testAssembly.DirectoryName `
-          /Platform:$env:ARCHITECTURE
-
-    - name: Register UI test application
-      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
-      shell: pwsh
-      run: |
-        $developerModePath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
-        New-Item -Path $developerModePath -Force | Out-Null
-        Set-ItemProperty -Path $developerModePath -Name AllowDevelopmentWithoutDevLicense -Type DWord -Value 1
-
         $runtimeRoot = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windowsappsdk.runtime" -Directory | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
         if ($null -eq $runtimeRoot) {
           throw 'The restored Microsoft.WindowsAppSDK runtime package was not found.'
@@ -124,6 +105,43 @@ jobs:
             }
           }
         }
+
+    - name: Run UI tests
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      timeout-minutes: 3
+      run: |
+        dotnet run --project tests/Files.UITests/Files.UITests.csproj `
+          --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE `
+          -- --filter "FullyQualifiedName!~BrowsePerformanceTests"
+
+    - name: Run browse performance tests
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      timeout-minutes: 5
+      env:
+        FILES_PERF_RESULTS_DIR: ${{ runner.temp }}\refiles-performance
+      run: |
+        dotnet run --project tests/Files.UITests/Files.UITests.csproj `
+          --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE `
+          -- --filter "TestCategory=Performance"
+
+    - name: Upload browse performance results
+      if: always() && matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      uses: actions/upload-artifact@v6
+      with:
+        name: browse-performance-${{ github.sha }}
+        path: ${{ runner.temp }}\refiles-performance\*.json
+        if-no-files-found: warn
+        retention-days: 14
+
+    - name: Register UI test application
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      run: |
+        $developerModePath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+        New-Item -Path $developerModePath -Force | Out-Null
+        Set-ItemProperty -Path $developerModePath -Name AllowDevelopmentWithoutDevLicense -Type DWord -Value 1
 
         $appManifest = Get-ChildItem "$env:WORKING_DIR\src\Files\bin\x64\Debug" -Filter AppxManifest.xml -Recurse | Where-Object { Test-Path (Join-Path $_.DirectoryName 'Files.exe') } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($null -eq $appManifest) {
