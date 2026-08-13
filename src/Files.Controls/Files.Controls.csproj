@@ -26,4 +26,8 @@
 		<PackageReference Update="Microsoft.WindowsAppSDK.Widgets" ExcludeAssets="all" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Files.UITests" />
+	</ItemGroup>
+
 </Project>

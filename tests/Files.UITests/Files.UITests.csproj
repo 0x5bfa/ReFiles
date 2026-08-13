@@ -2,24 +2,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>WinExe</OutputType>
+		<OutputType>Exe</OutputType>
 		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
 		<RootNamespace>Files.UITests</RootNamespace>
 		<UseWinUI>true</UseWinUI>
 		<WinUIDSKReferences>false</WinUIDSKReferences>
-		<EnableMsixTooling>true</EnableMsixTooling>
+		<EnableMsixTooling>false</EnableMsixTooling>
+		<WindowsPackageType>None</WindowsPackageType>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<Configurations>Debug;Release</Configurations>
 		<Platforms>x86;x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-		<EnableMSTestRunner>false</EnableMSTestRunner>
+		<EnableMSTestRunner>true</EnableMSTestRunner>
+		<GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
 		<IsTestProject>true</IsTestProject>
 		<SelfContained>false</SelfContained>
-		<ShouldComputeInputPris>false</ShouldComputeInputPris>
+		<PrependPriInitialPath>true</PrependPriInitialPath>
+		<ShouldComputeInputPris>true</ShouldComputeInputPris>
 		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
-		<WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
-		<WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -34,7 +35,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Files\Files.csproj" AdditionalProperties="WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false" />
 		<ProjectReference Include="..\..\src\Files.Controls\Files.Controls.csproj" />
-		<PackageReference Include="Microsoft.TestPlatform.TestHost" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
 		<!--<PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" />-->
 		<PackageReference Include="Microsoft.WindowsAppSDK" />

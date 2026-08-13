@@ -22,6 +22,7 @@ using Files.Presentation;
 using Files.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using OwlCore.Storage;
 
 namespace Files.UITests;
@@ -318,7 +319,7 @@ public sealed class BrowsePresentationPipelineTests
 	/// Verifies that large folders do not refresh selection commands for every item batch.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
-	[TestMethod]
+	[UITestMethod]
 	public async Task LargeFolderDoesNotRefreshSelectionCommandsForEachItemBatch()
 	{
 		var resolver = new PresentationBrowseLocationResolver(44_000, static (_, _) => ValueTask.CompletedTask);
