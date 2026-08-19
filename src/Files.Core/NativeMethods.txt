@@ -14,9 +14,11 @@ RegisterWindowMessage
 NOTIFYICONDATAW
 Shell_NotifyIcon
 GetCursorPos
+GetMessagePos
 DestroyMenu
 AppendMenu
 CreatePopupMenu
+GetMenuDefaultItem
 SetForegroundWindow
 TrackPopupMenuEx
 TRACK_POPUP_MENU_FLAGS
@@ -203,6 +205,7 @@ ILIsParent
 SHCreateItemFromIDList
 BHID_SFObject
 IContextMenu
+CMINVOKECOMMANDINFOEX
 CMF_NORMAL
 CMF_OPTIMIZEFORINVOKE
 CMF_EXTENDEDVERBS

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Views;
+using Files.Activation;
 using Files.Commands;
 using Files.Core.Sessions;
 using Files.Core.Data;
@@ -12,6 +13,7 @@ using Files.Presentation;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
+using WinRT.Interop;
 
 namespace Files;
 
@@ -47,7 +49,8 @@ public sealed partial class MainWindow : Window
 		_activateSession = activateSession;
 		_closeAsync = closeAsync;
 		_createWindowAsync = createWindowAsync;
-		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry);
+		var itemActivationService = new ItemActivationService(workspace, WindowNative.GetWindowHandle(this));
+		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry, itemActivationService);
 		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;

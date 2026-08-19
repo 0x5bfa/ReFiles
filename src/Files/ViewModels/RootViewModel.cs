@@ -4,6 +4,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Diagnostics;
 using Files.Adapters;
+using Files.Activation;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
@@ -112,6 +113,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	public CommandBindingViewModel ShowFileExtensionsCommand => _commandManager.GetBinding(CommandIds.ShowFileExtensions);
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
+
+	internal IItemActivationService ItemActivationService => _presentationFactory.ItemActivationService;
 
 	internal Func<Task>? CloseWindowAsync { get; set; }
 

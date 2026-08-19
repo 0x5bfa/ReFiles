@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Commands;
+using Files.Activation;
 using Files.Core.Data;
 using Files.Core.Sessions;
 using Files.Core.Storage;
@@ -16,10 +17,13 @@ internal sealed class WindowPresentationFactory
 	private readonly IStorageOperationService _storageOperations;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly CommandRegistry _commandRegistry;
+	private readonly IItemActivationService _itemActivationService;
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
-	internal WindowPresentationFactory(IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, CommandRegistry commandRegistry)
+	internal IItemActivationService ItemActivationService => _itemActivationService;
+
+	internal WindowPresentationFactory(IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, CommandRegistry commandRegistry, IItemActivationService? itemActivationService = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 		ArgumentNullException.ThrowIfNull(storageOperations);
@@ -30,6 +34,7 @@ internal sealed class WindowPresentationFactory
 		_storageOperations = storageOperations;
 		_dispatcher = dispatcher;
 		_commandRegistry = commandRegistry;
+		_itemActivationService = itemActivationService ?? Files.Activation.ItemActivationService.CreateStorageOnly();
 	}
 
 	internal RootViewModel Create(WindowSession window)

@@ -98,6 +98,14 @@ internal sealed unsafe class WindowsShellItemResolver
 		return _scheduler.InvokeConcurrentAsync(() => InvokeCore(locator, action), cancellationToken);
 	}
 
+	public Task<T> InvokeOperationAsync<T>(WindowsItemLocator locator, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(locator);
+		ArgumentNullException.ThrowIfNull(action);
+
+		return _scheduler.InvokeOperationAsync(() => InvokeCore(locator, action), cancellationToken);
+	}
+
 	public Task<T> InvokeOperationAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);

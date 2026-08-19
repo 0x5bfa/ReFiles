@@ -6,9 +6,13 @@ using Files.Controls;
 using Files.Infrastructure;
 using Files.ViewModels;
 using Files.Core.Browsing;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Windows.Win32;
 
 namespace Files.Views;
 
@@ -103,12 +107,13 @@ internal sealed class FolderViewInteraction : IDisposable
 
 	private async void ListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
 	{
-		if (_listView?.SelectedItem is not BrowseItemViewModel item)
+		if (_listView is null || e.OriginalSource is not DependencyObject source || FindInvokedListItem(source) is not { } item)
 		{
 			return;
 		}
 
-		await _viewModel.CommandManager.ExecuteAsync(CommandIds.OpenItem, item);
+		e.Handled = true;
+		await _viewModel.CommandManager.ExecuteAsync(CommandIds.OpenItem, new OpenItemCommandParameter(item, GetInvocationPoint()));
 	}
 
 	private void ListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -125,7 +130,7 @@ internal sealed class FolderViewInteraction : IDisposable
 	{
 		if (e.Item is BrowseItemViewModel item)
 		{
-			await _viewModel.CommandManager.ExecuteAsync(CommandIds.OpenItem, item);
+			await _viewModel.CommandManager.ExecuteAsync(CommandIds.OpenItem, new OpenItemCommandParameter(item, GetInvocationPoint()));
 		}
 	}
 
@@ -220,6 +225,28 @@ internal sealed class FolderViewInteraction : IDisposable
 		var scale = _element.XamlRoot?.RasterizationScale ?? 1.0;
 
 		return Math.Max(1, (int)Math.Round(scale * 96.0));
+	}
+
+	private static WindowsShellInvocationPoint GetInvocationPoint()
+	{
+		var position = PInvoke.GetMessagePos();
+		var x = unchecked((short)(position & ushort.MaxValue));
+		var y = unchecked((short)(position >> 16));
+
+		return new WindowsShellInvocationPoint(x, y);
+	}
+
+	private BrowseItemViewModel? FindInvokedListItem(DependencyObject source)
+	{
+		for (var current = source; current is not null && current != _listView; current = VisualTreeHelper.GetParent(current))
+		{
+			if (current is SelectorItem { Content: BrowseItemViewModel item } && _listView?.IndexFromContainer(current) >= 0)
+			{
+				return item;
+			}
+		}
+
+		return null;
 	}
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

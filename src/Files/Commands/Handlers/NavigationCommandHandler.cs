@@ -37,14 +37,10 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 				browser.CanGoUp,
 			var commandId when commandId == CommandIds.NavigatePath =>
 				true,
-			var commandId when commandId == CommandIds.OpenItem =>
-				context.InvokedItem is not null,
 			_ => true,
 		};
 
-		var canRunWhileLoading = id == CommandIds.OpenItem;
-
-		return new(true, isAvailable && (canRunWhileLoading || !browser.IsLoading));
+		return new(true, isAvailable && !browser.IsLoading);
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
@@ -79,14 +75,6 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 				break;
 			case var commandId when commandId == CommandIds.Refresh:
 				await browser.RefreshAsync(cancellationToken).ConfigureAwait(false);
-				break;
-			case var commandId when commandId == CommandIds.OpenItem:
-				if (context.InvokedItem is not { } item)
-				{
-					return CommandExecutionResult.Unsupported();
-				}
-
-				await browser.NavigateToItemAsync(item, cancellationToken).ConfigureAwait(false);
 				break;
 			default:
 				throw new InvalidOperationException($"Unsupported navigation command '{id}'.");
