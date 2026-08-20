@@ -26,6 +26,14 @@ namespace Windows.Win32
 		[LibraryImport("ole32.dll", EntryPoint = "CoCreateInstance")]
 		public static unsafe partial int CoCreateInstanceRaw(Guid* classId, nint outer, uint context, Guid* interfaceId, nint* instance);
 
+		/// <summary>Gets a Windows Runtime activation factory using the raw ABI signature.</summary>
+		/// <param name="activatableClassId">The runtime class name.</param>
+		/// <param name="interfaceId">The requested factory interface identifier.</param>
+		/// <param name="factory">Receives the activation factory pointer.</param>
+		/// <returns>The HRESULT returned by Windows Runtime activation.</returns>
+		[LibraryImport("combase.dll", EntryPoint = "RoGetActivationFactory")]
+		public static unsafe partial int RoGetActivationFactoryRaw(nint activatableClassId, Guid* interfaceId, nint* factory);
+
 		/// <summary>Creates a Shell item from a parsing name using the raw ABI signature.</summary>
 		/// <param name="parsingName">The item parsing name.</param>
 		/// <param name="bindContext">The optional bind context.</param>

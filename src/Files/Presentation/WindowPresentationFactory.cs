@@ -7,6 +7,7 @@ using Files.Core.Data;
 using Files.Core.Sessions;
 using Files.Core.Storage;
 using Files.Infrastructure;
+using Files.ItemProperties;
 using Files.ViewModels;
 
 namespace Files.Presentation;
@@ -18,12 +19,21 @@ internal sealed class WindowPresentationFactory
 	private readonly IUIDispatcher _dispatcher;
 	private readonly CommandRegistry _commandRegistry;
 	private readonly IItemActivationService _itemActivationService;
+	private readonly IItemPropertiesService? _itemPropertiesService;
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	internal IItemActivationService ItemActivationService => _itemActivationService;
 
-	internal WindowPresentationFactory(IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, CommandRegistry commandRegistry, IItemActivationService? itemActivationService = null)
+	internal IItemPropertiesService? ItemPropertiesService => _itemPropertiesService;
+
+	internal WindowPresentationFactory(
+		IStorageWorkspace workspace,
+		IStorageOperationService storageOperations,
+		IUIDispatcher dispatcher,
+		CommandRegistry commandRegistry,
+		IItemActivationService? itemActivationService = null,
+		IItemPropertiesService? itemPropertiesService = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 		ArgumentNullException.ThrowIfNull(storageOperations);
@@ -35,6 +45,7 @@ internal sealed class WindowPresentationFactory
 		_dispatcher = dispatcher;
 		_commandRegistry = commandRegistry;
 		_itemActivationService = itemActivationService ?? Files.Activation.ItemActivationService.CreateStorageOnly();
+		_itemPropertiesService = itemPropertiesService;
 	}
 
 	internal RootViewModel Create(WindowSession window)

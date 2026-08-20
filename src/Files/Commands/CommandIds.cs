@@ -38,6 +38,8 @@ public static class CommandIds
 	public static readonly CommandId Delete =
 		new("files.item.delete");
 
+	public static readonly CommandId Properties = new("files.item.properties");
+
 	public static readonly CommandId NewTab =
 		new("files.tab.new");
 

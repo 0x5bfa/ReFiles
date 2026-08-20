@@ -11,6 +11,7 @@ using Files.Localization;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Presentation;
+using Files.ItemProperties;
 
 namespace Files.ViewModels;
 
@@ -115,6 +116,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	internal IItemActivationService ItemActivationService => _presentationFactory.ItemActivationService;
+
+	internal IItemPropertiesService? ItemPropertiesService => _presentationFactory.ItemPropertiesService;
 
 	internal Func<Task>? CloseWindowAsync { get; set; }
 

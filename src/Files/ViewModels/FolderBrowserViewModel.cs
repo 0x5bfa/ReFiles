@@ -42,6 +42,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly IStorageOperationService _storageOperations;
 	private readonly WindowsStorageSource? _windowsSource;
 	private readonly WindowsShellNewMenu? _shellNewMenu;
+	private readonly WindowsShellAppExtensionService? _shellAppExtensionService;
 
 	private readonly IUIDispatcher _dispatcher;
 
@@ -64,6 +65,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private FolderViewMode _viewMode = FolderViewMode.Details;
 
 	internal WindowCommandManager CommandManager { get; }
+
+	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
 
@@ -165,6 +168,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_shellNewMenu = _windowsSource is { } windowsSource
 			? new WindowsShellNewMenu(windowsSource.Scheduler)
 			: null;
+		_shellAppExtensionService = _windowsSource is { } shellSource ? new WindowsShellAppExtensionService(shellSource) : null;
 		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 		_wasLoading = _browseAdapter.IsLoading;
@@ -293,6 +297,30 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	internal Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetAppExtensionCommandsAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		return _shellAppExtensionService is null
+			? Task.FromResult<IReadOnlyList<WindowsShellAppExtensionCommand>>([])
+			: _shellAppExtensionService.GetCommandsAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+	}
+
+	internal Task<bool> InvokeAppExtensionCommandAsync(IReadOnlyList<BrowseItemViewModel> selection, WindowsShellAppExtensionCommand command, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+		ArgumentNullException.ThrowIfNull(command);
+
+		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.InvokeAsync(selection.Select(static item => item.Reference).ToArray(), command, cancellationToken);
+	}
+
+	internal Task<bool> ShowShellPropertiesAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
 	public async Task SetViewModeAsync(FolderViewMode mode, CancellationToken cancellationToken = default)

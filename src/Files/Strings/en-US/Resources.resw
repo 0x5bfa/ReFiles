@@ -40,6 +40,10 @@
 	<data name="Cut" xml:space="preserve"><value>Cut</value></data>
 	<data name="Paste" xml:space="preserve"><value>Paste</value></data>
 	<data name="Delete" xml:space="preserve"><value>Delete</value></data>
+	<data name="Properties" xml:space="preserve"><value>Properties</value></data>
+	<data name="PropertiesTitleFormat" xml:space="preserve"><value>{0} Properties</value></data>
+	<data name="Location" xml:space="preserve"><value>Location</value></data>
+	<data name="MultipleTypes" xml:space="preserve"><value>Multiple types</value></data>
 	<data name="New" xml:space="preserve"><value>New</value></data>
 	<data name="Add" xml:space="preserve"><value>Add</value></data>
 	<data name="Close" xml:space="preserve"><value>Close</value></data>
@@ -71,6 +75,14 @@
 	<data name="DateModified" xml:space="preserve"><value>Date modified</value></data>
 	<data name="DateCreated" xml:space="preserve"><value>Date created</value></data>
 	<data name="Size" xml:space="preserve"><value>Size</value></data>
+	<data name="ByteSymbol" xml:space="preserve"><value>bytes</value></data>
+	<data name="KilobyteSymbol" xml:space="preserve"><value>KB</value></data>
+	<data name="MegabyteSymbol" xml:space="preserve"><value>MB</value></data>
+	<data name="GigabyteSymbol" xml:space="preserve"><value>GB</value></data>
+	<data name="TerabyteSymbol" xml:space="preserve"><value>TB</value></data>
+	<data name="PetabyteSymbol" xml:space="preserve"><value>PB</value></data>
+	<data name="SizeBytesFormat" xml:space="preserve"><value>{0:N0} {1}</value></data>
+	<data name="SizeScaledFormat" xml:space="preserve"><value>{0:N1} {1} ({2:N0} {3})</value></data>
 	<data name="Type" xml:space="preserve"><value>Type</value></data>
 	<data name="None" xml:space="preserve"><value>None</value></data>
 	<data name="Ascending" xml:space="preserve"><value>Ascending</value></data>

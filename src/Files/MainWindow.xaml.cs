@@ -10,6 +10,7 @@ using Files.Core.ItemFeatures.Previews;
 using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.Presentation;
+using Files.ItemProperties;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
@@ -24,6 +25,7 @@ public sealed partial class MainWindow : Window
 	private readonly Action _activateSession;
 	private readonly Func<Task> _closeAsync;
 	private readonly Func<Task> _createWindowAsync;
+	private readonly ItemPropertiesService _itemPropertiesService;
 	private int _closeStarted;
 	private int _isDisposed;
 
@@ -49,8 +51,16 @@ public sealed partial class MainWindow : Window
 		_activateSession = activateSession;
 		_closeAsync = closeAsync;
 		_createWindowAsync = createWindowAsync;
-		var itemActivationService = new ItemActivationService(workspace, WindowNative.GetWindowHandle(this));
-		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, new DispatcherQueueUIDispatcher(DispatcherQueue), commandRegistry, itemActivationService);
+		var windowHandle = WindowNative.GetWindowHandle(this);
+		var itemActivationService = new ItemActivationService(workspace, windowHandle);
+		_itemPropertiesService = new ItemPropertiesService(windowHandle);
+		var presentationFactory = new WindowPresentationFactory(
+			workspace,
+			storageOperations,
+			new DispatcherQueueUIDispatcher(DispatcherQueue),
+			commandRegistry,
+			itemActivationService,
+			_itemPropertiesService);
 		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;
@@ -73,6 +83,7 @@ public sealed partial class MainWindow : Window
 		Activated -= MainWindow_Activated;
 		_rootView.NewWindowRequested -= RootView_NewWindowRequested;
 		_rootView.Dispose();
+		_itemPropertiesService.Dispose();
 	}
 
 	private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)

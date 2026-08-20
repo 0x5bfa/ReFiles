@@ -6,10 +6,12 @@ using Files.Core.Storage.Windows;
 
 namespace Files.UnitTests;
 
+/// <summary>Verifies Windows Shell default-command discovery.</summary>
 [TestClass]
 [DoNotParallelize]
 public sealed class WindowsShellDefaultCommandTests
 {
+	/// <summary>Verifies that a file-system folder exposes a navigation command.</summary>
 	[TestMethod]
 	public async Task FileSystemFolderExposesNavigationDefaultCommand()
 	{

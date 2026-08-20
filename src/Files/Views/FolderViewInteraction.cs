@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.System;
 using Windows.Win32;
 
 namespace Files.Views;
@@ -21,8 +22,10 @@ internal sealed class FolderViewInteraction : IDisposable
 	private readonly FrameworkElement _element;
 	private readonly IList<object> _selectedItems;
 	private readonly FolderBrowserViewModel _viewModel;
+	private readonly KeyboardAccelerator _propertiesAccelerator = new() { Key = VirtualKey.Enter, Modifiers = VirtualKeyModifiers.Menu };
 	private readonly HashSet<int> _realizedIndices = [];
 	private readonly ListViewBase? _listView;
+	private readonly ListViewBase? _itemsControl;
 	private readonly ITableViewRowsHost? _rowsHost;
 	private readonly ITableViewSelectionHost? _selectionHost;
 	private int _containerContentChangeCount;
@@ -40,12 +43,16 @@ internal sealed class FolderViewInteraction : IDisposable
 		ArgumentNullException.ThrowIfNull(viewModel);
 
 		_listView = listView;
+		_itemsControl = listView;
 		_element = listView;
 		_selectedItems = listView.SelectedItems;
 		_viewModel = viewModel;
 		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
 
+		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
+		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
 		listView.DoubleTapped += ListView_DoubleTapped;
+		listView.ContextRequested += Element_ContextRequested;
 		listView.SelectionChanged += ListView_SelectionChanged;
 		listView.ContainerContentChanging += ListView_ContainerContentChanging;
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -63,13 +70,17 @@ internal sealed class FolderViewInteraction : IDisposable
 		_rowsHost = rowsHost;
 		_selectionHost = selectionHost;
 		_element = rowsHost.Element;
+		_itemsControl = rowsHost.Element as ListViewBase;
 		_selectedItems = selectionHost.SelectedItems;
 		_viewModel = viewModel;
 		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={rowsHost.Element.GetType().Name} items={viewModel.Items.Count}");
 
+		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
+		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
 		rowsHost.RowChanging += RowsHost_RowChanging;
 		selectionHost.ItemInvoked += SelectionHost_ItemInvoked;
 		selectionHost.SelectionChanged += SelectionHost_SelectionChanged;
+		_element.ContextRequested += Element_ContextRequested;
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		SynchronizeSelection();
 	}
@@ -85,6 +96,7 @@ internal sealed class FolderViewInteraction : IDisposable
 		if (_listView is not null)
 		{
 			_listView.DoubleTapped -= ListView_DoubleTapped;
+			_listView.ContextRequested -= Element_ContextRequested;
 			_listView.SelectionChanged -= ListView_SelectionChanged;
 			_listView.ContainerContentChanging -= ListView_ContainerContentChanging;
 		}
@@ -92,6 +104,7 @@ internal sealed class FolderViewInteraction : IDisposable
 		if (_rowsHost is not null)
 		{
 			_rowsHost.RowChanging -= RowsHost_RowChanging;
+			_element.ContextRequested -= Element_ContextRequested;
 		}
 
 		if (_selectionHost is not null)
@@ -101,6 +114,8 @@ internal sealed class FolderViewInteraction : IDisposable
 		}
 
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+		_propertiesAccelerator.Invoked -= PropertiesAccelerator_Invoked;
+		_element.KeyboardAccelerators.Remove(_propertiesAccelerator);
 		_realizedIndices.Clear();
 		UiDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
 	}
@@ -142,6 +157,48 @@ internal sealed class FolderViewInteraction : IDisposable
 	private void RowsHost_RowChanging(object? sender, TableViewRowChangingEventArgs e)
 	{
 		TrackRealizedRow(e.Index, e.InRecycleQueue);
+	}
+
+	private async void PropertiesAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		args.Handled = true;
+		await _viewModel.CommandManager.ExecuteAsync(CommandIds.Properties);
+	}
+
+	private void Element_ContextRequested(UIElement sender, ContextRequestedEventArgs e)
+	{
+		var invokedItem = e.OriginalSource is DependencyObject source ? FindInvokedListItem(source) : null;
+		invokedItem ??= _selectedItems.OfType<BrowseItemViewModel>().FirstOrDefault();
+		if (invokedItem is null)
+		{
+			return;
+		}
+
+		EnsureContextSelection(invokedItem);
+		var selection = _selectedItems.OfType<BrowseItemViewModel>().ToArray();
+		if (selection.Length is 0)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		var hasPosition = e.TryGetPosition(_element, out var position);
+		var anchor = hasPosition ? _element : _itemsControl?.ContainerFromItem(invokedItem) as FrameworkElement ?? _element;
+		new ItemContextMenu(_viewModel, invokedItem, selection).ShowAt(anchor, hasPosition ? position : null);
+	}
+
+	private void EnsureContextSelection(BrowseItemViewModel invokedItem)
+	{
+		if (_selectedItems.Contains(invokedItem))
+		{
+			return;
+		}
+
+		if (_itemsControl is not null)
+		{
+			_itemsControl.SelectedItems.Clear();
+			_itemsControl.SelectedItem = invokedItem;
+		}
 	}
 
 	private void UpdateViewModelSelection()
@@ -238,9 +295,9 @@ internal sealed class FolderViewInteraction : IDisposable
 
 	private BrowseItemViewModel? FindInvokedListItem(DependencyObject source)
 	{
-		for (var current = source; current is not null && current != _listView; current = VisualTreeHelper.GetParent(current))
+		for (var current = source; current is not null && current != _itemsControl; current = VisualTreeHelper.GetParent(current))
 		{
-			if (current is SelectorItem { Content: BrowseItemViewModel item } && _listView?.IndexFromContainer(current) >= 0)
+			if (current is SelectorItem { Content: BrowseItemViewModel item } && _itemsControl?.IndexFromContainer(current) >= 0)
 			{
 				return item;
 			}

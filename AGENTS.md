@@ -36,6 +36,7 @@ This project is a C#/.NET WinUI 3 desktop app; an alternative to File Explorer.
 These rules are mandatory for new and modified C# code:
 
 - Do not insert line breaks in the middle of code, including argument lists, parameter lists, and expressions, unless the resulting line would be longer than 200 characters. When a break is necessary, break at a natural syntactic boundary.
+- Keep method and constructor declarations and invocations on one line when they fit within 200 characters. Do not vertically expand parameters or arguments merely for formatting preference.
 - Always use braces for `if`, `else if`, and `else` blocks. Do not use single-line or brace-less alternatives.
 - Insert a blank line immediately before every `return` statement, except when the `return` is the first statement in its block.
 - Insert a blank line immediately after every guard statement, including guards that throw `ArgumentNullException` or another argument-related exception. The blank line follows the complete guard block.

@@ -205,6 +205,9 @@ ILIsParent
 SHCreateItemFromIDList
 BHID_SFObject
 IContextMenu
+IExplorerCommand
+IEnumExplorerCommand
+IInitializeCommand
 CMINVOKECOMMANDINFOEX
 CMF_NORMAL
 CMF_OPTIMIZEFORINVOKE
@@ -339,6 +342,7 @@ IExecuteCommand
 IObjectWithSelection
 SHCreateShellItemArrayFromShellItem
 IDataObject
+SHMultiFileProperties
 IShellExtInit
 IContextMenu2
 GetSubMenu
