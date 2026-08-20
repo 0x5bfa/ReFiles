@@ -28,7 +28,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		InitializeComponent();
 		_viewModel = viewModel;
-		PreviewPaneView.SessionFactory = previewSessionFactory;
+		// PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		Loaded += RootView_Loaded;
 	}
@@ -38,7 +38,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		ArgumentNullException.ThrowIfNull(window);
 
 		TabStrip.AttachWindow(window);
-		PreviewPaneView.AttachWindow(window);
+		// PreviewPaneView.AttachWindow(window);
 	}
 
 	public void ReportOperationError(Exception exception)
@@ -62,7 +62,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		Loaded -= RootView_Loaded;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
-		await PreviewPaneView.DisposeAsync();
+		// await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
 		await _viewModel.DisposeAsync();
 	}
