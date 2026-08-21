@@ -1,163 +1,263 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
 <Window
 	x:Class="Files.ItemProperties.ItemPropertiesWindow"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:local="using:Files.ItemProperties">
-	<Grid Padding="20" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" RowSpacing="12">
+
+	<Window.SystemBackdrop>
+		<MicaBackdrop />
+	</Window.SystemBackdrop>
+
+	<Grid RowSpacing="8">
 		<Grid.RowDefinitions>
-			<RowDefinition Height="Auto" />
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="*" />
 			<RowDefinition Height="Auto" />
 		</Grid.RowDefinitions>
 
-		<Grid Grid.Row="0" ColumnSpacing="12">
-			<Grid.ColumnDefinitions>
-				<ColumnDefinition Width="Auto" />
-				<ColumnDefinition Width="*" />
-			</Grid.ColumnDefinitions>
-			<FontIcon
-				Width="40"
-				Height="40"
-				VerticalAlignment="Center"
-				FontSize="32"
-				Glyph="&#xE946;" />
-			<StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-				<TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="{x:Bind ViewModel.Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-				<TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Location}" TextTrimming="CharacterEllipsis" />
-			</StackPanel>
-		</Grid>
-
 		<InfoBar
 			x:Name="ErrorInfoBar"
-			Grid.Row="1"
+			Grid.Row="0"
 			IsClosable="True"
 			IsOpen="False"
 			Severity="Error" />
 
 		<TabView
 			x:Name="PropertyTabs"
-			Grid.Row="2"
+			Grid.Row="1"
 			IsAddTabButtonVisible="False"
 			TabWidthMode="SizeToContent">
-			<TabViewItem x:Name="GeneralTab" Header="{x:Bind ViewModel.GeneralLabel}" IsClosable="False">
-				<ScrollViewer Padding="0,8,8,8">
+			<TabViewItem
+				x:Name="GeneralTab"
+				Header="{x:Bind ViewModel.GeneralLabel}"
+				IsClosable="False">
+				<ScrollViewer Padding="14,12,14,8">
 					<StackPanel Spacing="12">
-						<ProgressBar IsIndeterminate="True" Visibility="{x:Bind ToVisibility(ViewModel.IsLoading), Mode=OneWay}" />
+						<ProgressBar
+							Height="2"
+							IsIndeterminate="True"
+							Visibility="{x:Bind ToVisibility(ViewModel.IsLoading), Mode=OneWay}" />
 
-						<Border
-							Padding="16"
-							Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-							BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-							BorderThickness="1"
-							CornerRadius="8">
-							<Grid ColumnSpacing="16" RowSpacing="10">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="140" />
-									<ColumnDefinition Width="*" />
-								</Grid.ColumnDefinitions>
-								<Grid.RowDefinitions>
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-								</Grid.RowDefinitions>
-								<TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ViewModel.NameLabel}" />
-								<TextBox Grid.Column="1" IsEnabled="{x:Bind ViewModel.CanRename}" Text="{x:Bind ViewModel.Name, Mode=TwoWay}" />
-								<TextBlock Grid.Row="1" VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ViewModel.TypeLabel}" />
-								<TextBlock Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind ViewModel.Type}" TextWrapping="Wrap" />
-								<TextBlock Grid.Row="2" VerticalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ViewModel.LocationLabel}" />
-								<TextBlock Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.Location}" TextWrapping="Wrap" />
+						<Grid ColumnSpacing="14">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="48" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<Grid Width="48" Height="48">
+								<FontIcon
+									FontSize="36"
+									Glyph="&#xE946;"
+									Visibility="{x:Bind ToInverseVisibility(ViewModel.HasIcon), Mode=OneWay}" />
+								<Image
+									Source="{x:Bind ViewModel.Icon, Mode=OneWay}"
+									Stretch="Uniform"
+									Visibility="{x:Bind ToVisibility(ViewModel.HasIcon), Mode=OneWay}" />
 							</Grid>
-						</Border>
+							<TextBox
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								IsEnabled="{x:Bind ViewModel.CanRename}"
+								Text="{x:Bind ViewModel.Name, Mode=TwoWay}" />
+						</Grid>
 
-						<Border
-							Padding="16"
-							Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-							BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-							BorderThickness="1"
-							CornerRadius="8"
+						<Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+
+						<Grid ColumnSpacing="12" RowSpacing="10">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="112" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+							</Grid.RowDefinitions>
+							<TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.TypeLabel}" />
+							<TextBlock
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								IsTextSelectionEnabled="True"
+								Text="{x:Bind ViewModel.Type}"
+								TextTrimming="CharacterEllipsis" />
+							<TextBlock
+								Grid.Row="1"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.DescriptionLabel}" />
+							<TextBlock
+								Grid.Row="1"
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								IsTextSelectionEnabled="True"
+								Text="{x:Bind ViewModel.Description, Mode=OneWay}"
+								TextTrimming="CharacterEllipsis" />
+						</Grid>
+
+						<Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+
+						<Grid
+							ColumnSpacing="12"
+							RowSpacing="10"
 							Visibility="{x:Bind ToInverseVisibility(ViewModel.IsDrive), Mode=OneWay}">
-							<Grid ColumnSpacing="16" RowSpacing="10">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="140" />
-									<ColumnDefinition Width="*" />
-								</Grid.ColumnDefinitions>
-								<Grid.RowDefinitions>
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-								</Grid.RowDefinitions>
-								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SizeLabel}" />
-								<TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Size, Mode=OneWay}" />
-								<TextBlock Grid.Row="1" FontWeight="SemiBold" Text="{x:Bind ViewModel.SizeOnDiskLabel}" />
-								<TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SizeOnDisk, Mode=OneWay}" />
-								<TextBlock Grid.Row="2" FontWeight="SemiBold" Text="{x:Bind ViewModel.ContainsLabel}" />
-								<TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.Contains, Mode=OneWay}" />
-								<TextBlock Grid.Row="3" FontWeight="SemiBold" Text="{x:Bind ViewModel.DateCreatedLabel}" />
-								<TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.DateCreated, Mode=OneWay}" />
-								<TextBlock Grid.Row="4" FontWeight="SemiBold" Text="{x:Bind ViewModel.DateModifiedLabel}" />
-								<TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.DateModified, Mode=OneWay}" />
-								<TextBlock Grid.Row="5" FontWeight="SemiBold" Text="{x:Bind ViewModel.DateAccessedLabel}" />
-								<TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.DateAccessed, Mode=OneWay}" />
-							</Grid>
-						</Border>
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="112" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+							</Grid.RowDefinitions>
+							<TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.LocationLabel}" />
+							<TextBlock
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								IsTextSelectionEnabled="True"
+								Text="{x:Bind ViewModel.Location}"
+								TextTrimming="CharacterEllipsis" />
+							<TextBlock
+								Grid.Row="1"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.SizeLabel}" />
+							<TextBlock
+								Grid.Row="1"
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.Size, Mode=OneWay}" />
+							<TextBlock
+								Grid.Row="2"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.SizeOnDiskLabel}" />
+							<TextBlock
+								Grid.Row="2"
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.SizeOnDisk, Mode=OneWay}" />
+							<TextBlock
+								Grid.Row="3"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.ContainsLabel}"
+								Visibility="{x:Bind ToVisibility(ViewModel.HasFolders)}" />
+							<TextBlock
+								Grid.Row="3"
+								Grid.Column="1"
+								VerticalAlignment="Center"
+								Text="{x:Bind ViewModel.Contains, Mode=OneWay}"
+								Visibility="{x:Bind ToVisibility(ViewModel.HasFolders)}" />
+						</Grid>
 
-						<Border
-							Padding="16"
-							Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-							BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-							BorderThickness="1"
-							CornerRadius="8"
+						<Grid
+							ColumnSpacing="12"
+							RowSpacing="10"
 							Visibility="{x:Bind ToVisibility(ViewModel.IsDrive), Mode=OneWay}">
-							<Grid ColumnSpacing="16" RowSpacing="10">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="140" />
-									<ColumnDefinition Width="*" />
-								</Grid.ColumnDefinitions>
-								<Grid.RowDefinitions>
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-									<RowDefinition Height="Auto" />
-								</Grid.RowDefinitions>
-								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.FileSystemLabel}" />
-								<TextBlock Grid.Column="1" Text="{x:Bind ViewModel.FileSystem, Mode=OneWay}" />
-								<TextBlock Grid.Row="1" FontWeight="SemiBold" Text="{x:Bind ViewModel.UsedSpaceLabel}" />
-								<TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.UsedSpace, Mode=OneWay}" />
-								<TextBlock Grid.Row="2" FontWeight="SemiBold" Text="{x:Bind ViewModel.FreeSpaceLabel}" />
-								<TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.FreeSpace, Mode=OneWay}" />
-								<TextBlock Grid.Row="3" FontWeight="SemiBold" Text="{x:Bind ViewModel.CapacityLabel}" />
-								<TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.Capacity, Mode=OneWay}" />
-							</Grid>
-						</Border>
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="112" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+							</Grid.RowDefinitions>
+							<TextBlock Text="{x:Bind ViewModel.FileSystemLabel}" />
+							<TextBlock Grid.Column="1" Text="{x:Bind ViewModel.FileSystem, Mode=OneWay}" />
+							<TextBlock Grid.Row="1" Text="{x:Bind ViewModel.UsedSpaceLabel}" />
+							<TextBlock
+								Grid.Row="1"
+								Grid.Column="1"
+								Text="{x:Bind ViewModel.UsedSpace, Mode=OneWay}" />
+							<TextBlock Grid.Row="2" Text="{x:Bind ViewModel.FreeSpaceLabel}" />
+							<TextBlock
+								Grid.Row="2"
+								Grid.Column="1"
+								Text="{x:Bind ViewModel.FreeSpace, Mode=OneWay}" />
+							<TextBlock Grid.Row="3" Text="{x:Bind ViewModel.CapacityLabel}" />
+							<TextBlock
+								Grid.Row="3"
+								Grid.Column="1"
+								Text="{x:Bind ViewModel.Capacity, Mode=OneWay}" />
+						</Grid>
 
 						<Border
-							Padding="16"
-							Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-							BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-							BorderThickness="1"
-							CornerRadius="8">
-							<StackPanel Spacing="10">
-								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.AttributesLabel}" />
-								<StackPanel Orientation="Horizontal" Spacing="20">
-									<CheckBox IsEnabled="{x:Bind ViewModel.CanEditAttributes}" IsThreeState="True" IsChecked="{x:Bind ViewModel.IsReadOnly, Mode=TwoWay}" Content="{x:Bind ViewModel.ReadOnlyLabel}" />
-									<CheckBox IsEnabled="{x:Bind ViewModel.CanEditAttributes}" IsThreeState="True" IsChecked="{x:Bind ViewModel.IsHidden, Mode=TwoWay}" Content="{x:Bind ViewModel.HiddenLabel}" />
-									<CheckBox IsEnabled="{x:Bind ViewModel.CanEditAttributes}" IsThreeState="True" IsChecked="{x:Bind ViewModel.IsArchive, Mode=TwoWay}" Content="{x:Bind ViewModel.ArchiveLabel}" />
-								</StackPanel>
-								<CheckBox IsChecked="{x:Bind ViewModel.ApplyToContents, Mode=TwoWay}" Content="{x:Bind ViewModel.ApplyToContentsLabel}" Visibility="{x:Bind ToVisibility(ViewModel.HasFolders)}" />
+							Height="1"
+							Background="{ThemeResource CardStrokeColorDefaultBrush}"
+							Visibility="{x:Bind ToInverseVisibility(ViewModel.IsDrive), Mode=OneWay}" />
+
+						<Grid
+							ColumnSpacing="12"
+							RowSpacing="10"
+							Visibility="{x:Bind ToInverseVisibility(ViewModel.IsDrive), Mode=OneWay}">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="112" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+							</Grid.RowDefinitions>
+							<TextBlock Text="{x:Bind ViewModel.DateCreatedLabel}" />
+							<TextBlock
+								Grid.Column="1"
+								Text="{x:Bind ViewModel.DateCreated, Mode=OneWay}"
+								TextTrimming="CharacterEllipsis" />
+							<TextBlock Grid.Row="1" Text="{x:Bind ViewModel.DateModifiedLabel}" />
+							<TextBlock
+								Grid.Row="1"
+								Grid.Column="1"
+								Text="{x:Bind ViewModel.DateModified, Mode=OneWay}"
+								TextTrimming="CharacterEllipsis" />
+							<TextBlock Grid.Row="2" Text="{x:Bind ViewModel.DateAccessedLabel}" />
+							<TextBlock
+								Grid.Row="2"
+								Grid.Column="1"
+								Text="{x:Bind ViewModel.DateAccessed, Mode=OneWay}"
+								TextTrimming="CharacterEllipsis" />
+						</Grid>
+
+						<Border Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+
+						<Grid ColumnSpacing="12">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="112" />
+								<ColumnDefinition Width="*" />
+								<ColumnDefinition Width="Auto" />
+							</Grid.ColumnDefinitions>
+							<TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.AttributesLabel}" />
+							<StackPanel
+								Grid.Column="1"
+								Orientation="Horizontal"
+								Spacing="12">
+								<CheckBox
+									Content="{x:Bind ViewModel.ReadOnlyLabel}"
+									IsChecked="{x:Bind ViewModel.IsReadOnly, Mode=TwoWay}"
+									IsEnabled="{x:Bind ViewModel.CanEditAttributes}"
+									IsThreeState="True" />
+								<CheckBox
+									Content="{x:Bind ViewModel.HiddenLabel}"
+									IsChecked="{x:Bind ViewModel.IsHidden, Mode=TwoWay}"
+									IsEnabled="{x:Bind ViewModel.CanEditAttributes}"
+									IsThreeState="True" />
 							</StackPanel>
-						</Border>
+							<Button
+								Grid.Column="2"
+								Click="AdvancedButton_Click"
+								Content="{x:Bind ViewModel.AdvancedLabel}"
+								IsEnabled="{x:Bind ViewModel.CanEditAttributes}" />
+						</Grid>
 					</StackPanel>
 				</ScrollViewer>
 			</TabViewItem>
 
-			<TabViewItem x:Name="DetailsTab" Header="{x:Bind ViewModel.DetailsLabel}" IsClosable="False">
-				<ListView Padding="0,8,8,8" ItemsSource="{x:Bind ViewModel.Details}" SelectionMode="None">
+			<TabViewItem
+				x:Name="DetailsTab"
+				Header="{x:Bind ViewModel.DetailsLabel}"
+				IsClosable="False">
+				<ListView
+					Padding="0,8,8,8"
+					ItemsSource="{x:Bind ViewModel.Details}"
+					SelectionMode="None">
 					<ListView.ItemContainerStyle>
 						<Style TargetType="ListViewItem">
 							<Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -171,8 +271,15 @@
 									<ColumnDefinition Width="180" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" TextWrapping="Wrap" />
-								<TextBlock Grid.Column="1" IsTextSelectionEnabled="True" Text="{x:Bind Value}" TextWrapping="Wrap" />
+								<TextBlock
+									FontWeight="SemiBold"
+									Text="{x:Bind Name}"
+									TextWrapping="Wrap" />
+								<TextBlock
+									Grid.Column="1"
+									IsTextSelectionEnabled="True"
+									Text="{x:Bind Value}"
+									TextWrapping="Wrap" />
 							</Grid>
 						</DataTemplate>
 					</ListView.ItemTemplate>
@@ -180,10 +287,25 @@
 			</TabViewItem>
 		</TabView>
 
-		<StackPanel Grid.Row="3" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-			<Button Click="OkButton_Click" Content="{x:Bind ViewModel.OkLabel}" />
-			<Button Click="CancelButton_Click" Content="{x:Bind ViewModel.CancelLabel}" />
-			<Button Click="ApplyButton_Click" Content="{x:Bind ViewModel.ApplyLabel}" IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
+		<StackPanel
+			Grid.Row="2"
+			Padding="12"
+			HorizontalAlignment="Right"
+			Orientation="Horizontal"
+			Spacing="8">
+			<Button
+				MinWidth="80"
+				Click="OkButton_Click"
+				Content="{x:Bind ViewModel.OkLabel}" />
+			<Button
+				MinWidth="80"
+				Click="CancelButton_Click"
+				Content="{x:Bind ViewModel.CancelLabel}" />
+			<Button
+				MinWidth="80"
+				Click="ApplyButton_Click"
+				Content="{x:Bind ViewModel.ApplyLabel}"
+				IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
 		</StackPanel>
 	</Grid>
 </Window>

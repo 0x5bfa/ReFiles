@@ -87,6 +87,45 @@ public sealed class ItemPropertiesViewModelTests
 		}
 	}
 
+	/// <summary>
+	/// Verifies that the General page type includes the selected file's extension.
+	/// </summary>
+	[TestMethod]
+	public void GeneralTypeIncludesFileExtension()
+	{
+		var viewModel = new ItemPropertiesViewModel([CreateItem("item.txt", false, null, ("System.ItemTypeText", "Text Document"))]);
+
+		Assert.AreEqual("Text Document (.txt)", viewModel.Type);
+	}
+
+	/// <summary>
+	/// Verifies that renaming from a display name preserves an extension hidden by the browse view.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task ApplyRenamePreservesHiddenExtensionAsync()
+	{
+		var directory = CreateTemporaryDirectory();
+		var path = Path.Combine(directory, "before.txt");
+		var renamedPath = Path.Combine(directory, "after.txt");
+		try
+		{
+			File.WriteAllText(path, "content");
+			var reference = new StorableReference(new StorageSourceId("test"), path, new StorageAddress("file", path));
+			var item = new BrowseItemViewModel(Path.GetFileName(path), false, reference, showFileExtensions: false);
+			var viewModel = new ItemPropertiesViewModel([item]) { Name = "after" };
+
+			await viewModel.ApplyAsync();
+
+			Assert.IsFalse(File.Exists(path));
+			Assert.IsTrue(File.Exists(renamedPath));
+		}
+		finally
+		{
+			DeleteTemporaryDirectory(directory);
+		}
+	}
+
 	private static BrowseItemViewModel CreateItem(string name, bool isFolder, string? path, params (string PropertyId, object? Value)[] properties)
 	{
 		var address = path is null ? new StorageAddress("test", name) : new StorageAddress("file", path);

@@ -44,7 +44,69 @@
 	<data name="PropertiesTitleFormat" xml:space="preserve"><value>{0} Properties</value></data>
 	<data name="General" xml:space="preserve"><value>General</value></data>
 	<data name="PropertyPageFallbackFormat" xml:space="preserve"><value>Page {0}</value></data>
-	<data name="PropertyPageNotImplementedFormat" xml:space="preserve"><value>The {0} property page is available for this selection, but its ReFiles interface hasn't been implemented yet.</value></data>
+	<data name="Shortcut" xml:space="preserve"><value>Shortcut</value></data>
+	<data name="Sharing" xml:space="preserve"><value>Sharing</value></data>
+	<data name="Security" xml:space="preserve"><value>Security</value></data>
+	<data name="PreviousVersions" xml:space="preserve"><value>Previous Versions</value></data>
+	<data name="Customize" xml:space="preserve"><value>Customize</value></data>
+	<data name="DigitalSignatures" xml:space="preserve"><value>Digital Signatures</value></data>
+	<data name="TargetType" xml:space="preserve"><value>Target type</value></data>
+	<data name="TargetLocation" xml:space="preserve"><value>Target location</value></data>
+	<data name="Target" xml:space="preserve"><value>Target</value></data>
+	<data name="StartIn" xml:space="preserve"><value>Start in</value></data>
+	<data name="ShortcutKey" xml:space="preserve"><value>Shortcut key</value></data>
+	<data name="Run" xml:space="preserve"><value>Run</value></data>
+	<data name="Comment" xml:space="preserve"><value>Comment</value></data>
+	<data name="NormalWindow" xml:space="preserve"><value>Normal window</value></data>
+	<data name="Minimized" xml:space="preserve"><value>Minimized</value></data>
+	<data name="Maximized" xml:space="preserve"><value>Maximized</value></data>
+	<data name="ControlKey" xml:space="preserve"><value>Ctrl</value></data>
+	<data name="AltKey" xml:space="preserve"><value>Alt</value></data>
+	<data name="ShiftKey" xml:space="preserve"><value>Shift</value></data>
+	<data name="OpenFileLocation" xml:space="preserve"><value>Open File Location</value></data>
+	<data name="ChangeIcon" xml:space="preserve"><value>Change Icon...</value></data>
+	<data name="NetworkFolderSharing" xml:space="preserve"><value>Network File and Folder Sharing</value></data>
+	<data name="NetworkPath" xml:space="preserve"><value>Network Path</value></data>
+	<data name="Shared" xml:space="preserve"><value>Shared</value></data>
+	<data name="NotShared" xml:space="preserve"><value>Not shared</value></data>
+	<data name="Share" xml:space="preserve"><value>Share...</value></data>
+	<data name="AdvancedSharing" xml:space="preserve"><value>Advanced Sharing...</value></data>
+	<data name="PasswordProtection" xml:space="preserve"><value>Password Protection</value></data>
+	<data name="PasswordProtectionDescription" xml:space="preserve"><value>People must have a user account and password for this computer to access shared folders.</value></data>
+	<data name="ObjectName" xml:space="preserve"><value>Object name</value></data>
+	<data name="GroupOrUserNames" xml:space="preserve"><value>Group or user names</value></data>
+	<data name="PermissionsForFormat" xml:space="preserve"><value>Permissions for {0}</value></data>
+	<data name="Allow" xml:space="preserve"><value>Allow</value></data>
+	<data name="Deny" xml:space="preserve"><value>Deny</value></data>
+	<data name="FullControl" xml:space="preserve"><value>Full control</value></data>
+	<data name="Modify" xml:space="preserve"><value>Modify</value></data>
+	<data name="ReadAndExecute" xml:space="preserve"><value>Read &amp; execute</value></data>
+	<data name="ListFolderContents" xml:space="preserve"><value>List folder contents</value></data>
+	<data name="ReadPermission" xml:space="preserve"><value>Read</value></data>
+	<data name="WritePermission" xml:space="preserve"><value>Write</value></data>
+	<data name="Edit" xml:space="preserve"><value>Edit...</value></data>
+	<data name="SecurityAdvancedDescription" xml:space="preserve"><value>For special permissions or advanced settings, click Advanced.</value></data>
+	<data name="PreviousVersionsDescription" xml:space="preserve"><value>Previous versions come from File History or from restore points.</value></data>
+	<data name="FolderVersions" xml:space="preserve"><value>Folder versions</value></data>
+	<data name="NoPreviousVersions" xml:space="preserve"><value>There are no previous versions available.</value></data>
+	<data name="Restore" xml:space="preserve"><value>Restore</value></data>
+	<data name="FolderCustomizationQuestion" xml:space="preserve"><value>What kind of folder do you want?</value></data>
+	<data name="OptimizeFolderFor" xml:space="preserve"><value>Optimize this folder for</value></data>
+	<data name="GeneralItems" xml:space="preserve"><value>General items</value></data>
+	<data name="ApplyTemplateToSubfolders" xml:space="preserve"><value>Also apply this template to all subfolders</value></data>
+	<data name="FolderPictures" xml:space="preserve"><value>Folder pictures</value></data>
+	<data name="ChooseFile" xml:space="preserve"><value>Choose File...</value></data>
+	<data name="RestoreDefault" xml:space="preserve"><value>Restore Default</value></data>
+	<data name="FolderIcons" xml:space="preserve"><value>Folder icons</value></data>
+	<data name="EmbeddedSignatures" xml:space="preserve"><value>Embedded Signatures</value></data>
+	<data name="CatalogSignatures" xml:space="preserve"><value>Catalog Signatures</value></data>
+	<data name="SignerName" xml:space="preserve"><value>Name of signer</value></data>
+	<data name="DigestAlgorithm" xml:space="preserve"><value>Digest algorithm</value></data>
+	<data name="Timestamp" xml:space="preserve"><value>Timestamp</value></data>
+	<data name="CatalogName" xml:space="preserve"><value>Catalog name</value></data>
+	<data name="NoSignatures" xml:space="preserve"><value>No signatures were found.</value></data>
+	<data name="Property" xml:space="preserve"><value>Property</value></data>
+	<data name="Value" xml:space="preserve"><value>Value</value></data>
 	<data name="Location" xml:space="preserve"><value>Location</value></data>
 	<data name="MultipleTypes" xml:space="preserve"><value>Multiple types</value></data>
 	<data name="MultipleValues" xml:space="preserve"><value>Multiple values</value></data>
@@ -90,6 +152,10 @@
 	<data name="ReadOnly" xml:space="preserve"><value>Read-only</value></data>
 	<data name="Hidden" xml:space="preserve"><value>Hidden</value></data>
 	<data name="Archive" xml:space="preserve"><value>Archive</value></data>
+	<data name="Description" xml:space="preserve"><value>Description</value></data>
+	<data name="Advanced" xml:space="preserve"><value>Advanced...</value></data>
+	<data name="AdvancedAttributes" xml:space="preserve"><value>Advanced Attributes</value></data>
+	<data name="PropertyLabelFormat" xml:space="preserve"><value>{0}:</value></data>
 	<data name="ApplyAttributesToContents" xml:space="preserve"><value>Apply attribute changes to this folder, subfolders, and files</value></data>
 	<data name="FileSystem" xml:space="preserve"><value>File system</value></data>
 	<data name="UsedSpace" xml:space="preserve"><value>Used space</value></data>
@@ -104,8 +170,9 @@
 	<data name="TerabyteSymbol" xml:space="preserve"><value>TB</value></data>
 	<data name="PetabyteSymbol" xml:space="preserve"><value>PB</value></data>
 	<data name="SizeBytesFormat" xml:space="preserve"><value>{0:N0} {1}</value></data>
-	<data name="SizeScaledFormat" xml:space="preserve"><value>{0:N1} {1} ({2:N0} {3})</value></data>
+	<data name="SizeScaledFormat" xml:space="preserve"><value>{0} {1} ({2:N0} {3})</value></data>
 	<data name="Type" xml:space="preserve"><value>Type</value></data>
+	<data name="TypeOfFile" xml:space="preserve"><value>Type of file</value></data>
 	<data name="None" xml:space="preserve"><value>None</value></data>
 	<data name="Ascending" xml:space="preserve"><value>Ascending</value></data>
 	<data name="Descending" xml:space="preserve"><value>Descending</value></data>

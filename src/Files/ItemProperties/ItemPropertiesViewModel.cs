@@ -9,20 +9,24 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Win32;
 
 namespace Files.ItemProperties;
 
 internal sealed class ItemPropertiesViewModel : ObservableObject
 {
+	private const string FileDescriptionPropertyId = "System.FileDescription";
 	private readonly IReadOnlyList<BrowseItemViewModel> _items;
 	private readonly List<string> _fileSystemPaths;
+	private readonly string _hiddenFileExtension;
 	private bool? _initialIsReadOnly;
 	private bool? _initialIsHidden;
 	private bool? _initialIsArchive;
 	private string _originalName;
 	private string _name;
 	private string _windowTitle;
+	private string _description;
 	private string _size;
 	private string _sizeOnDisk;
 	private string _contains;
@@ -40,6 +44,7 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	private bool _isLoading;
 	private bool _isDrive;
 	private bool _isInitialized;
+	private BitmapImage? _icon;
 
 	public string WindowTitle
 	{
@@ -61,7 +66,27 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public string Type { get; }
 
+	public string Description
+	{
+		get => _description;
+		private set => SetProperty(ref _description, value);
+	}
+
 	public string Location { get; }
+
+	public BitmapImage? Icon
+	{
+		get => _icon;
+		private set
+		{
+			if (SetProperty(ref _icon, value))
+			{
+				OnPropertyChanged(nameof(HasIcon));
+			}
+		}
+	}
+
+	public bool HasIcon => Icon is not null;
 
 	public string Size
 	{
@@ -192,23 +217,25 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public string NameLabel { get; } = Strings.Name.GetLocalized();
 
-	public string TypeLabel { get; } = Strings.Type.GetLocalized();
+	public string TypeLabel { get; } = FormatPropertyLabel(Strings.TypeOfFile.GetLocalized());
 
-	public string LocationLabel { get; } = Strings.Location.GetLocalized();
+	public string DescriptionLabel { get; } = FormatPropertyLabel(Strings.Description.GetLocalized());
 
-	public string SizeLabel { get; } = Strings.Size.GetLocalized();
+	public string LocationLabel { get; } = FormatPropertyLabel(Strings.Location.GetLocalized());
 
-	public string SizeOnDiskLabel { get; } = Strings.SizeOnDisk.GetLocalized();
+	public string SizeLabel { get; } = FormatPropertyLabel(Strings.Size.GetLocalized());
 
-	public string ContainsLabel { get; } = Strings.Contains.GetLocalized();
+	public string SizeOnDiskLabel { get; } = FormatPropertyLabel(Strings.SizeOnDisk.GetLocalized());
 
-	public string DateCreatedLabel { get; } = Strings.DateCreated.GetLocalized();
+	public string ContainsLabel { get; } = FormatPropertyLabel(Strings.Contains.GetLocalized());
 
-	public string DateModifiedLabel { get; } = Strings.DateModified.GetLocalized();
+	public string DateCreatedLabel { get; } = FormatPropertyLabel(Strings.DateCreated.GetLocalized());
 
-	public string DateAccessedLabel { get; } = Strings.DateAccessed.GetLocalized();
+	public string DateModifiedLabel { get; } = FormatPropertyLabel(Strings.DateModified.GetLocalized());
 
-	public string AttributesLabel { get; } = Strings.Attributes.GetLocalized();
+	public string DateAccessedLabel { get; } = FormatPropertyLabel(Strings.DateAccessed.GetLocalized());
+
+	public string AttributesLabel { get; } = FormatPropertyLabel(Strings.Attributes.GetLocalized());
 
 	public string ReadOnlyLabel { get; } = Strings.ReadOnly.GetLocalized();
 
@@ -218,13 +245,17 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public string ApplyToContentsLabel { get; } = Strings.ApplyAttributesToContents.GetLocalized();
 
-	public string FileSystemLabel { get; } = Strings.FileSystem.GetLocalized();
+	public string AdvancedLabel { get; } = Strings.Advanced.GetLocalized();
 
-	public string UsedSpaceLabel { get; } = Strings.UsedSpace.GetLocalized();
+	public string AdvancedAttributesLabel { get; } = Strings.AdvancedAttributes.GetLocalized();
 
-	public string FreeSpaceLabel { get; } = Strings.FreeSpace.GetLocalized();
+	public string FileSystemLabel { get; } = FormatPropertyLabel(Strings.FileSystem.GetLocalized());
 
-	public string CapacityLabel { get; } = Strings.Capacity.GetLocalized();
+	public string UsedSpaceLabel { get; } = FormatPropertyLabel(Strings.UsedSpace.GetLocalized());
+
+	public string FreeSpaceLabel { get; } = FormatPropertyLabel(Strings.FreeSpace.GetLocalized());
+
+	public string CapacityLabel { get; } = FormatPropertyLabel(Strings.Capacity.GetLocalized());
 
 	public string OkLabel { get; } = Strings.Ok.GetLocalized();
 
@@ -246,11 +277,14 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		_items = items;
 		_fileSystemPaths = GetFileSystemPaths(items);
 		var unspecified = Strings.Unspecified.GetLocalized();
-		_name = items.Count is 1 ? items[0].Name : FormatItemCount(items.Count);
+		_name = items.Count is 1 ? items[0].DisplayName : FormatItemCount(items.Count);
 		_originalName = _name;
+		_hiddenFileExtension = items.Count is 1 ? GetHiddenFileExtension(items[0]) : string.Empty;
 		_windowTitle = string.Format(CultureInfo.CurrentCulture, Strings.PropertiesTitleFormat.GetLocalized(), items.Count is 1 ? items[0].DisplayName : _name);
-		Type = items.Count is 1 ? GetValue(items[0], BrowseDisplayPropertyIds.Type, items[0].Kind) : Strings.MultipleTypes.GetLocalized();
+		Type = items.Count is 1 ? FormatType(items[0]) : Strings.MultipleTypes.GetLocalized();
+		_description = items.Count is 1 ? GetValue(items[0], FileDescriptionPropertyId, unspecified) : unspecified;
 		Location = GetLocation(items) ?? unspecified;
+		_icon = items.Count is 1 ? items[0].Thumbnail : null;
 		_size = GetSize(items) ?? unspecified;
 		_sizeOnDisk = _size;
 		_contains = unspecified;
@@ -326,6 +360,35 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		OnPropertyChanged(nameof(HasChanges));
 	}
 
+	internal void SetGeneralShellProperties(string? description, BitmapImage? icon)
+	{
+		if (!string.IsNullOrWhiteSpace(description))
+		{
+			Description = description;
+		}
+
+		if (icon is not null)
+		{
+			Icon = icon;
+		}
+	}
+
+	internal void SetShellDetails(IReadOnlyList<WindowsShellPropertyValue> details)
+	{
+		ArgumentNullException.ThrowIfNull(details);
+
+		if (details.Count is 0)
+		{
+			return;
+		}
+
+		Details.Clear();
+		foreach (var detail in details)
+		{
+			Details.Add(new(detail.Name, detail.Value));
+		}
+	}
+
 	private static string FormatItemCount(int count)
 	{
 		var format = count is 1 ? Strings.ItemCountSingle.GetLocalized() : Strings.ItemCountPlural.GetLocalized();
@@ -333,11 +396,40 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		return string.Format(CultureInfo.CurrentCulture, format, count);
 	}
 
+	private static string FormatPropertyLabel(string label)
+	{
+		return string.Format(CultureInfo.CurrentCulture, Strings.PropertyLabelFormat.GetLocalized(), label);
+	}
+
 	private static string GetValue(BrowseItemViewModel item, string propertyId, string fallback)
 	{
 		var value = item.GetDisplayText(propertyId);
 
 		return string.IsNullOrWhiteSpace(value) ? fallback : value;
+	}
+
+	private static string FormatType(BrowseItemViewModel item)
+	{
+		var type = GetValue(item, BrowseDisplayPropertyIds.Type, item.Kind);
+		var extension = item.IsFolder ? string.Empty : Path.GetExtension(item.Name);
+		if (string.IsNullOrWhiteSpace(extension) || type.Contains(extension, StringComparison.OrdinalIgnoreCase))
+		{
+			return type;
+		}
+
+		return $"{type} ({extension.ToLowerInvariant()})";
+	}
+
+	private static string GetHiddenFileExtension(BrowseItemViewModel item)
+	{
+		if (item.IsFolder || StringComparer.Ordinal.Equals(item.Name, item.DisplayName))
+		{
+			return string.Empty;
+		}
+
+		var extension = Path.GetExtension(item.Name);
+
+		return extension.Length is not 0 && StringComparer.Ordinal.Equals(item.Name[..^extension.Length], item.DisplayName) ? extension : string.Empty;
 	}
 
 	private static string? GetLocation(IReadOnlyList<BrowseItemViewModel> items)
@@ -419,9 +511,14 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 			suffixIndex++;
 		}
 
-		return suffixIndex is 0
-			? string.Format(CultureInfo.CurrentCulture, Strings.SizeBytesFormat.GetLocalized(), size, suffixes[suffixIndex])
-			: string.Format(CultureInfo.CurrentCulture, Strings.SizeScaledFormat.GetLocalized(), value, suffixes[suffixIndex], size, suffixes[0]);
+		if (suffixIndex is 0)
+		{
+			return string.Format(CultureInfo.CurrentCulture, Strings.SizeBytesFormat.GetLocalized(), size, suffixes[suffixIndex]);
+		}
+
+		var scaledFormat = value < 10 ? "N2" : value < 100 ? "N1" : "N0";
+
+		return string.Format(CultureInfo.CurrentCulture, Strings.SizeScaledFormat.GetLocalized(), value.ToString(scaledFormat, CultureInfo.CurrentCulture), suffixes[suffixIndex], size, suffixes[0]);
 	}
 
 	private static List<string> GetFileSystemPaths(IReadOnlyList<BrowseItemViewModel> items)
@@ -687,7 +784,9 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 			return Strings.Unspecified.GetLocalized();
 		}
 
-		return values[0].ToString("g", CultureInfo.CurrentCulture);
+		var value = values[0];
+
+		return $"{value.ToString("D", CultureInfo.CurrentCulture)}, {value.ToString("T", CultureInfo.CurrentCulture)}";
 	}
 
 	private void ValidateName()
@@ -724,7 +823,7 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		{
 			var sourcePath = _fileSystemPaths[0];
 			var parentPath = Path.GetDirectoryName(sourcePath) ?? throw new IOException(Strings.ItemParentUnavailable.GetLocalized());
-			var destinationPath = Path.Combine(parentPath, requestedName);
+			var destinationPath = Path.Combine(parentPath, requestedName + _hiddenFileExtension);
 			if (Directory.Exists(sourcePath))
 			{
 				Directory.Move(sourcePath, destinationPath);

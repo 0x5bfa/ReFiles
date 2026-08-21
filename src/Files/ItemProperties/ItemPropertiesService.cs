@@ -30,7 +30,10 @@ internal sealed class ItemPropertiesService : IItemPropertiesService, IDisposabl
 		ArgumentNullException.ThrowIfNull(items);
 
 		var references = items.Select(static item => item.Reference).ToArray();
-		var window = new ItemPropertiesWindow(items, _shellProperties is null ? null : cancellationToken => _shellProperties.GetPropertyPagesAsync(references, cancellationToken));
+		var window = new ItemPropertiesWindow(
+			items,
+			_shellProperties is null ? null : cancellationToken => _shellProperties.GetPropertySheetDataAsync(references, cancellationToken),
+			_shellProperties is null ? null : cancellationToken => _shellProperties.GetGeneralPropertiesAsync(references, cancellationToken));
 		PInvoke.SetWindowLongPtr(new(WindowNative.GetWindowHandle(window)), WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, _owner);
 		window.Closed += Window_Closed;
 		_windows.Add(window);
