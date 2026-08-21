@@ -8,6 +8,7 @@ using Files.Core.Sessions;
 using Files.Core.Data;
 using Files.Core.ItemFeatures.Previews;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.Presentation;
 using Files.ItemProperties;
@@ -53,7 +54,8 @@ public sealed partial class MainWindow : Window
 		_createWindowAsync = createWindowAsync;
 		var windowHandle = WindowNative.GetWindowHandle(this);
 		var itemActivationService = new ItemActivationService(workspace, windowHandle);
-		_itemPropertiesService = new ItemPropertiesService(windowHandle);
+		var windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
+		_itemPropertiesService = new ItemPropertiesService(windowHandle, windowsSource is null ? null : new WindowsShellAppExtensionService(windowsSource));
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,

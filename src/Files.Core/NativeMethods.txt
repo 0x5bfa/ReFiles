@@ -344,6 +344,18 @@ SHCreateShellItemArrayFromShellItem
 IDataObject
 SHMultiFileProperties
 IShellExtInit
+DestroyPropertySheetPage
+HPROPSHEETPAGE
+PROPSHEETPAGEW
+IShellPropSheetExt
+RegOpenKeyExW
+RegEnumKeyW
+RegGetValueW
+RegCloseKey
+FindResourceW
+LoadResource
+LockResource
+LoadStringW
 IContextMenu2
 GetSubMenu
 GetMenuItemCount
@@ -365,6 +377,8 @@ WinVerifyTrust
 FileTimeToSystemTime
 FileTimeToLocalFileTime
 SystemTimeToFileTime
+GetCompressedFileSize
+GetDiskFreeSpace
 CMSG_SIGNER_INFO
 CRYPT_ATTRIBUTE
 FILETIME

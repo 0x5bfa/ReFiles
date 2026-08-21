@@ -7,6 +7,8 @@ using System.Runtime.InteropServices.Marshalling;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.DirectComposition;
 using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.System.Registry;
+using Windows.Win32.UI.Shell.Common;
 using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Windows.Win32
@@ -42,6 +44,10 @@ namespace Windows.Win32
 		/// <returns>The HRESULT returned by the Shell.</returns>
 		[LibraryImport("shell32.dll", EntryPoint = "SHCreateItemFromParsingName")]
 		public static unsafe partial int SHCreateItemFromParsingNameRaw(char* parsingName, nint bindContext, Guid* interfaceId, nint* item);
+
+		[LibraryImport("windows.storage.dll", EntryPoint = "SHGetAssocKeysForIDList")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial uint SHGetAssocKeysForIDListRaw(ITEMIDLIST* pidl, HKEY* keys, uint capacity);
 
 		/// <summary>Creates a stream for a file using the raw ABI signature.</summary>
 		/// <param name="fileName">The file path.</param>

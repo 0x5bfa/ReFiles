@@ -14,7 +14,7 @@ using Windows.Win32.UI.Shell.Common;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
-/// Enumerates and invokes packaged File Explorer app-extension commands without constructing an <c>IContextMenu</c>.
+/// Provides Windows Shell app-extension commands and property pages without constructing an <c>IContextMenu</c>.
 /// </summary>
 public sealed class WindowsShellAppExtensionService
 {
@@ -45,6 +45,22 @@ public sealed class WindowsShellAppExtensionService
 		}
 
 		return await _source.Scheduler.InvokeOperationAsync(() => GetCommandsOnCurrentSta(resolvedSelection), cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Gets the Windows Shell property pages applicable to a selection.</summary>
+	/// <param name="selection">The selected Windows Shell item references.</param>
+	/// <param name="cancellationToken">The token used to cancel selection resolution.</param>
+	/// <returns>Apartment-neutral descriptions of the pages accepted by the Shell property page providers.</returns>
+	public async Task<IReadOnlyList<WindowsShellPropertyPage>> GetPropertyPagesAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		if (selection.Count is 0 || await ResolveSelectionAsync(selection, cancellationToken).ConfigureAwait(false) is not { } resolvedSelection)
+		{
+			return [];
+		}
+
+		return await _source.Scheduler.InvokeOperationAsync(() => WindowsShellPropertyPageEnumerator.GetPages(CreateShellItemArray(resolvedSelection.Locators)), cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Invokes a previously described packaged File Explorer command.</summary>

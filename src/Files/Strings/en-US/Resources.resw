@@ -42,11 +42,18 @@
 	<data name="Delete" xml:space="preserve"><value>Delete</value></data>
 	<data name="Properties" xml:space="preserve"><value>Properties</value></data>
 	<data name="PropertiesTitleFormat" xml:space="preserve"><value>{0} Properties</value></data>
+	<data name="General" xml:space="preserve"><value>General</value></data>
+	<data name="PropertyPageFallbackFormat" xml:space="preserve"><value>Page {0}</value></data>
+	<data name="PropertyPageNotImplementedFormat" xml:space="preserve"><value>The {0} property page is available for this selection, but its ReFiles interface hasn't been implemented yet.</value></data>
 	<data name="Location" xml:space="preserve"><value>Location</value></data>
 	<data name="MultipleTypes" xml:space="preserve"><value>Multiple types</value></data>
+	<data name="MultipleValues" xml:space="preserve"><value>Multiple values</value></data>
 	<data name="New" xml:space="preserve"><value>New</value></data>
 	<data name="Add" xml:space="preserve"><value>Add</value></data>
 	<data name="Close" xml:space="preserve"><value>Close</value></data>
+	<data name="Ok" xml:space="preserve"><value>OK</value></data>
+	<data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+	<data name="Apply" xml:space="preserve"><value>Apply</value></data>
 	<data name="Navigation" xml:space="preserve"><value>Navigation</value></data>
 	<data name="Item" xml:space="preserve"><value>Item</value></data>
 	<data name="Tabs" xml:space="preserve"><value>Tabs</value></data>
@@ -75,6 +82,21 @@
 	<data name="DateModified" xml:space="preserve"><value>Date modified</value></data>
 	<data name="DateCreated" xml:space="preserve"><value>Date created</value></data>
 	<data name="Size" xml:space="preserve"><value>Size</value></data>
+	<data name="SizeOnDisk" xml:space="preserve"><value>Size on disk</value></data>
+	<data name="Contains" xml:space="preserve"><value>Contains</value></data>
+	<data name="ContainsFormat" xml:space="preserve"><value>{0:N0} files, {1:N0} folders</value></data>
+	<data name="DateAccessed" xml:space="preserve"><value>Accessed</value></data>
+	<data name="Attributes" xml:space="preserve"><value>Attributes</value></data>
+	<data name="ReadOnly" xml:space="preserve"><value>Read-only</value></data>
+	<data name="Hidden" xml:space="preserve"><value>Hidden</value></data>
+	<data name="Archive" xml:space="preserve"><value>Archive</value></data>
+	<data name="ApplyAttributesToContents" xml:space="preserve"><value>Apply attribute changes to this folder, subfolders, and files</value></data>
+	<data name="FileSystem" xml:space="preserve"><value>File system</value></data>
+	<data name="UsedSpace" xml:space="preserve"><value>Used space</value></data>
+	<data name="FreeSpace" xml:space="preserve"><value>Free space</value></data>
+	<data name="Capacity" xml:space="preserve"><value>Capacity</value></data>
+	<data name="InvalidFileName" xml:space="preserve"><value>Enter a valid file or folder name.</value></data>
+	<data name="ItemParentUnavailable" xml:space="preserve"><value>The item's parent folder isn't available.</value></data>
 	<data name="ByteSymbol" xml:space="preserve"><value>bytes</value></data>
 	<data name="KilobyteSymbol" xml:space="preserve"><value>KB</value></data>
 	<data name="MegabyteSymbol" xml:space="preserve"><value>MB</value></data>
