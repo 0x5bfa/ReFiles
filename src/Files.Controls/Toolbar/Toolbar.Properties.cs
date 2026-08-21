@@ -20,7 +20,7 @@ namespace Files.Controls
 		public partial IList<ToolbarItem>? Items { get; set; }
 
 		/// <summary>
-		/// Gets or sets the optional data template used by the internal items repeater.
+		/// Gets or sets the optional data template used to present materialized toolbar controls.
 		/// </summary>
 		[GeneratedDependencyProperty]
 		public partial DataTemplate? ItemTemplate { get; set; }

@@ -4,7 +4,7 @@
 namespace Files.Controls
 {
 	// TemplateParts
-	[TemplatePart(Name = ToolbarItemsRepeaterPartName, Type = typeof(ItemsRepeater))]
+	[TemplatePart(Name = ToolbarItemsPanelPartName, Type = typeof(ToolbarItemsPanel))]
 	[TemplatePart(Name = OverflowStackPanelPartName, Type = typeof(StackPanel))]
 	[TemplatePart(Name = OverflowButtonPartName, Type = typeof(ToolbarButton))]
 	[TemplatePart(Name = OverflowFlyoutPartName, Type = typeof(MenuFlyout))]
@@ -15,7 +15,7 @@ namespace Files.Controls
 	public partial class Toolbar : Control
 	{
 		// TemplatePart Names
-		internal const string ToolbarItemsRepeaterPartName = "PART_ItemsRepeater";
+		internal const string ToolbarItemsPanelPartName = "PART_ItemsPanel";
 		internal const string OverflowStackPanelPartName = "PART_OverflowStackPanel";
 		internal const string OverflowButtonPartName = "PART_OverflowButton";
 		internal const string OverflowFlyoutPartName = "PART_OverflowFlyout";

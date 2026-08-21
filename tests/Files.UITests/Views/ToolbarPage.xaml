@@ -80,11 +80,6 @@
 							OverflowBehavior="Never"
 							ThemedIcon="{StaticResource App.ThemedIcons.PanelRight}" />
 					</controls:Toolbar.Items>
-					<controls:Toolbar.ItemTemplate>
-						<DataTemplate x:DataType="controls:IToolbarItemSet">
-							<ContentPresenter Content="{x:Bind}" />
-						</DataTemplate>
-					</controls:Toolbar.ItemTemplate>
 				</controls:Toolbar>
 			</controls:SamplePanel.MainContent>
 		</controls:SamplePanel>

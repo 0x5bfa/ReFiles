@@ -102,11 +102,6 @@
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
 			</controls:Toolbar.Items>
-			<controls:Toolbar.ItemTemplate>
-				<DataTemplate x:DataType="controls:IToolbarItemSet">
-					<ContentPresenter Content="{x:Bind}" />
-				</DataTemplate>
-			</controls:Toolbar.ItemTemplate>
 		</controls:Toolbar>
 
 		<controls:Toolbar
@@ -397,11 +392,6 @@
 					</controls:ToolbarItem.Flyout>
 				</controls:ToolbarItem>
 			</controls:Toolbar.Items>
-			<controls:Toolbar.ItemTemplate>
-				<DataTemplate x:DataType="controls:IToolbarItemSet">
-					<ContentPresenter Content="{x:Bind}" />
-				</DataTemplate>
-			</controls:Toolbar.ItemTemplate>
 		</controls:Toolbar>
 	</Grid>
 </UserControl>

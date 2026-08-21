@@ -3,8 +3,8 @@
 
 using System.Collections.Specialized;
 using System.ComponentModel;
-using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.Foundation;
 
@@ -20,16 +20,16 @@ namespace Files.Controls
 		private readonly Dictionary<ToolbarItem, MaterializedToolbarItem> _itemOwners = [];
 		private readonly Dictionary<FrameworkElement, ToggleEventHandlers> _toggleEventHandlers = [];
 		private readonly Dictionary<FrameworkElement, MenuFlyout> _generatedFlyouts = [];
-		private List<IToolbarItemSet> _visibleItems = [];
 		private List<ToolbarItem> _overflowItems = [];
 
-		private ItemsRepeater? _itemsRepeater;
+		private ToolbarItemsPanel? _itemsPanel;
 		private StackPanel? _overflowStackPanel;
 		private ToolbarButton? _overflowButton;
 		private MenuFlyout? _overflowFlyout;
 		private INotifyCollectionChanged? _itemsCollection;
+		private IList<ToolbarItem>? _observedItems;
 		private bool _overflowMenuDirty = true;
-		private bool _layoutUpdateQueued;
+		private bool _isUpdatingLayoutPartition;
 		private bool _templateApplied;
 
 		private double _smallMinWidth = 32;
@@ -50,17 +50,22 @@ namespace Files.Controls
 			Items = [];
 			Loaded += OnLoaded;
 			Unloaded += OnUnloaded;
-			SizeChanged += OnSizeChanged;
 			UpdateMinSizesFromResources();
 		}
 
 		protected override void OnApplyTemplate()
 		{
-			_overflowFlyout?.Hide();
-			_overflowFlyout?.Items.Clear();
-			if (_itemsRepeater is not null)
+			if (_overflowFlyout is not null)
 			{
-				_itemsRepeater.ItemsSource = null;
+				_overflowFlyout.Opening -= OnOverflowFlyoutOpening;
+				_overflowFlyout.Hide();
+				_overflowFlyout.Items.Clear();
+			}
+
+			if (_itemsPanel is not null)
+			{
+				_itemsPanel.Children.Clear();
+				_itemsPanel.SetVisibleChildren(Array.Empty<UIElement>());
 			}
 
 			ReleaseMaterializedItems();
@@ -70,14 +75,14 @@ namespace Files.Controls
 			_templateApplied = false;
 			base.OnApplyTemplate();
 
-			_itemsRepeater = GetTemplateChild(ToolbarItemsRepeaterPartName) as ItemsRepeater;
+			_itemsPanel = GetTemplateChild(ToolbarItemsPanelPartName) as ToolbarItemsPanel;
 			_overflowStackPanel = GetTemplateChild(OverflowStackPanelPartName) as StackPanel;
 			_overflowButton = GetTemplateChild(OverflowButtonPartName) as ToolbarButton;
 			_overflowFlyout = GetTemplateChild(OverflowFlyoutPartName) as MenuFlyout ?? _overflowButton?.Flyout as MenuFlyout;
 
-			if (_itemsRepeater is not null)
+			if (_overflowFlyout is not null)
 			{
-				_itemsRepeater.ItemTemplate = ItemTemplate;
+				_overflowFlyout.Opening += OnOverflowFlyoutOpening;
 			}
 
 			if (_overflowButton is not null)
@@ -87,45 +92,43 @@ namespace Files.Controls
 
 			_templateApplied = true;
 			RebuildMaterializedItems();
-			RequestLayoutUpdate();
+			InvalidateMeasure();
+		}
+
+		protected override Size MeasureOverride(Size availableSize)
+		{
+			if (!_templateApplied || _itemsPanel is null || _isUpdatingLayoutPartition)
+			{
+				return base.MeasureOverride(availableSize);
+			}
+
+			_isUpdatingLayoutPartition = true;
+			try
+			{
+				UpdateLayoutPartition(GetAvailableContentWidth(availableSize.Width));
+			}
+			finally
+			{
+				_isUpdatingLayoutPartition = false;
+			}
+
+			return base.MeasureOverride(availableSize);
 		}
 
 		private void OnLoaded(object sender, RoutedEventArgs args)
 		{
 			ItemsChanged(Items);
-			RequestLayoutUpdate();
+			InvalidateMeasure();
 		}
 
 		private void OnUnloaded(object sender, RoutedEventArgs args)
 		{
-			_layoutUpdateQueued = false;
-			if (_itemsRepeater is not null)
-			{
-				_itemsRepeater.ItemsSource = null;
-			}
-
-			ReleaseMaterializedItems();
-			_materializedItems.Clear();
-			_visibleItems = [];
-			_overflowItems = [];
 			_overflowFlyout?.Hide();
-			_overflowFlyout?.Items.Clear();
-			ClearItemSubscriptions();
-			if (_itemsCollection is not null)
-			{
-				_itemsCollection.CollectionChanged -= OnItemsCollectionChanged;
-				_itemsCollection = null;
-			}
-		}
-
-		private void OnSizeChanged(object sender, SizeChangedEventArgs args)
-		{
-			RequestLayoutUpdate();
 		}
 
 		private void ItemsChanged(IList<ToolbarItem>? newItems)
 		{
-			if (ReferenceEquals(_itemsCollection, newItems))
+			if (ReferenceEquals(_observedItems, newItems))
 			{
 				return;
 			}
@@ -136,6 +139,7 @@ namespace Files.Controls
 				_itemsCollection.CollectionChanged -= OnItemsCollectionChanged;
 			}
 
+			_observedItems = newItems;
 			_itemsCollection = newItems as INotifyCollectionChanged;
 			if (_itemsCollection is not null)
 			{
@@ -143,20 +147,21 @@ namespace Files.Controls
 			}
 
 			RebuildMaterializedItems();
-			RequestLayoutUpdate();
+			InvalidateMeasure();
 		}
 
 		private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
 		{
 			RebuildMaterializedItems();
-			RequestLayoutUpdate();
+			InvalidateMeasure();
 		}
 
 		private void RebuildMaterializedItems()
 		{
-			if (_itemsRepeater is not null)
+			if (_itemsPanel is not null)
 			{
-				_itemsRepeater.ItemsSource = null;
+				_itemsPanel.Children.Clear();
+				_itemsPanel.SetVisibleChildren(Array.Empty<UIElement>());
 			}
 
 			ReleaseMaterializedItems();
@@ -164,7 +169,7 @@ namespace Files.Controls
 			_materializedItems.Clear();
 			_overflowMenuDirty = true;
 
-			if (_templateApplied && _itemsRepeater is not null && Items is not null)
+			if (_templateApplied && _itemsPanel is not null && Items is not null)
 			{
 				foreach (var item in Items)
 				{
@@ -173,18 +178,16 @@ namespace Files.Controls
 						continue;
 					}
 
-					var materializedItem = new MaterializedToolbarItem(item, CreateToolbarItem(item));
+					var element = CreateToolbarItem(item);
+					var host = new ContentPresenter { Content = element, ContentTemplate = ItemTemplate };
+					var materializedItem = new MaterializedToolbarItem(item, element, host);
 					_materializedItems.Add(materializedItem);
+					_itemsPanel.Children.Add(host);
 					SubscribeToItemTree(item, materializedItem);
 				}
 			}
 
-			_visibleItems = [];
 			_overflowItems = [];
-			if (_itemsRepeater is not null)
-			{
-				_itemsRepeater.ItemsSource = _visibleItems;
-			}
 		}
 
 		private void ReleaseMaterializedItems()
@@ -228,6 +231,8 @@ namespace Files.Controls
 				{
 					contentControl.Content = null;
 				}
+
+				materializedItem.Host.Content = null;
 			}
 		}
 
@@ -270,19 +275,44 @@ namespace Files.Controls
 			}
 
 			_overflowMenuDirty = true;
-			if (args.PropertyName is nameof(ToolbarItem.ItemType) or nameof(ToolbarItem.SubItems))
+			if (!_itemOwners.TryGetValue(item, out var materializedItem))
+			{
+				return;
+			}
+
+			if (ReferenceEquals(item, materializedItem.Item) && args.PropertyName == nameof(ToolbarItem.ItemType))
 			{
 				RebuildMaterializedItems();
+
+				InvalidateMeasure();
+
+				return;
+			}
+
+			if (args.PropertyName == nameof(ToolbarItem.SubItems))
+			{
+				RefreshItemSubscriptions();
+			}
+
+			if (ReferenceEquals(item, materializedItem.Item))
+			{
+				ApplyToolbarItemProperty(materializedItem.Element, materializedItem.Item, args.PropertyName);
 			}
 			else
 			{
-				if (_itemOwners.TryGetValue(item, out var materializedItem))
-				{
-					ApplyToolbarItem(materializedItem.Element, materializedItem.Item);
-				}
+				ApplyToolbarItemFlyout(materializedItem.Element, materializedItem.Item);
 			}
 
-			RequestLayoutUpdate();
+			InvalidateMeasure();
+		}
+
+		private void RefreshItemSubscriptions()
+		{
+			ClearItemSubscriptions();
+			foreach (var materializedItem in _materializedItems)
+			{
+				SubscribeToItemTree(materializedItem.Item, materializedItem);
+			}
 		}
 
 		private FrameworkElement CreateToolbarItem(ToolbarItem item)
@@ -375,10 +405,169 @@ namespace Files.Controls
 			}
 		}
 
+		private void ApplyToolbarItemProperty(FrameworkElement element, ToolbarItem item, string? propertyName)
+		{
+			switch (propertyName)
+			{
+				case nameof(ToolbarItem.OverflowBehavior):
+				case nameof(ToolbarItem.KeyboardAcceleratorTextOverride):
+					break;
+				case nameof(ToolbarItem.Label):
+					ApplyToolbarItemLabel(element, item);
+					break;
+				case nameof(ToolbarItem.Content):
+				case nameof(ToolbarItem.ThemedIcon):
+				case nameof(ToolbarItem.IconSize):
+					ApplyToolbarItemContent(element, item);
+					break;
+				case nameof(ToolbarItem.IsEnabled):
+					if (element is Control control)
+					{
+						control.IsEnabled = item.IsEnabled;
+					}
+					break;
+				case nameof(ToolbarItem.IsChecked):
+					if (element is ToolbarToggleButton toggleButton)
+					{
+						toggleButton.IsChecked = item.IsChecked;
+					}
+					else if (element is ToolbarRadioButton radioButton)
+					{
+						radioButton.IsChecked = item.IsChecked;
+					}
+					break;
+				case nameof(ToolbarItem.GroupName):
+					if (element is ToolbarRadioButton groupRadioButton)
+					{
+						groupRadioButton.GroupName = item.GroupName;
+					}
+					break;
+				case nameof(ToolbarItem.Command):
+				case nameof(ToolbarItem.CommandParameter):
+					ApplyToolbarItemCommand(element, item);
+					break;
+				case nameof(ToolbarItem.Flyout):
+				case nameof(ToolbarItem.SubItems):
+					ApplyToolbarItemFlyout(element, item);
+					break;
+				case nameof(ToolbarItem.KeyboardAccelerators):
+					ApplyKeyboardAccelerators(element, item);
+					break;
+				default:
+					ApplyToolbarItem(element, item);
+					break;
+			}
+		}
+
+		private static void ApplyToolbarItemLabel(FrameworkElement element, ToolbarItem item)
+		{
+			ToolTipService.SetToolTip(element, string.IsNullOrWhiteSpace(item.Label) ? null : item.Label);
+			if (element is Control control)
+			{
+				AutomationProperties.SetName(control, item.Label);
+			}
+
+			if (element is ToolbarButton button)
+			{
+				button.Label = item.Label;
+			}
+			else if (element is ToolbarToggleButton toggleButton)
+			{
+				toggleButton.Label = item.Label;
+			}
+		}
+
+		private static void ApplyToolbarItemContent(FrameworkElement element, ToolbarItem item)
+		{
+			switch (element)
+			{
+				case ToolbarFlyoutButton flyoutButton:
+					flyoutButton.Content = CreateToolbarContent(item);
+					break;
+				case ToolbarButton button:
+					button.ThemedIcon = item.ThemedIcon;
+					button.IconSize = item.IconSize;
+					button.Content = item.Content;
+					break;
+				case ToolbarToggleButton toggleButton:
+					toggleButton.ThemedIcon = item.ThemedIcon;
+					toggleButton.IconSize = item.IconSize;
+					toggleButton.Content = item.Content;
+					break;
+				case ToolbarRadioButton radioButton:
+					radioButton.Content = CreateToolbarContent(item);
+					break;
+				case ToolbarSplitButton splitButton:
+					splitButton.Content = CreateToolbarContent(item);
+					break;
+				case ToolbarContentHost contentHost:
+					contentHost.Content = item.Content;
+					break;
+			}
+		}
+
+		private static void ApplyToolbarItemCommand(FrameworkElement element, ToolbarItem item)
+		{
+			switch (element)
+			{
+				case ToolbarSplitButton splitButton:
+					splitButton.Command = item.Command;
+					splitButton.CommandParameter = item.CommandParameter;
+					break;
+				case ButtonBase button:
+					button.Command = item.Command;
+					button.CommandParameter = item.CommandParameter;
+					break;
+			}
+		}
+
+		private void ApplyToolbarItemFlyout(FrameworkElement element, ToolbarItem item)
+		{
+			if (element is not ToolbarFlyoutButton && element is not ToolbarSplitButton)
+			{
+				RemoveGeneratedFlyout(element);
+
+				return;
+			}
+
+			if (item.Flyout is not null)
+			{
+				RemoveGeneratedFlyout(element);
+			}
+
+			var flyout = item.Flyout ?? GetGeneratedFlyout(element, item);
+			if (element is ToolbarFlyoutButton flyoutButton)
+			{
+				flyoutButton.Flyout = flyout;
+			}
+			else if (element is ToolbarSplitButton splitButton)
+			{
+				splitButton.Flyout = flyout;
+			}
+		}
+
+		private static void ApplyKeyboardAccelerators(FrameworkElement element, ToolbarItem item)
+		{
+			if (element is not Control control)
+			{
+				return;
+			}
+
+			control.KeyboardAccelerators.Clear();
+			if (item.KeyboardAccelerators is null)
+			{
+				return;
+			}
+
+			foreach (var keyboardAccelerator in item.KeyboardAccelerators)
+			{
+				control.KeyboardAccelerators.Add(CloneKeyboardAccelerator(keyboardAccelerator));
+			}
+		}
+
 		private void SetCommonItemProperties(FrameworkElement element, ToolbarItem item)
 		{
-			element.MinWidth = _currentMinWidth;
-			element.MinHeight = _currentMinHeight;
+			ApplyToolbarItemSize(element);
 			element.HorizontalAlignment = HorizontalAlignment.Center;
 			element.VerticalAlignment = VerticalAlignment.Center;
 			ToolTipService.SetToolTip(element, string.IsNullOrWhiteSpace(item.Label) ? null : item.Label);
@@ -389,16 +578,15 @@ namespace Files.Controls
 				control.HorizontalContentAlignment = HorizontalAlignment.Center;
 				control.VerticalContentAlignment = VerticalAlignment.Center;
 				AutomationProperties.SetName(control, item.Label);
-				control.KeyboardAccelerators.Clear();
-				if (item.KeyboardAccelerators is not null)
-				{
-					foreach (var keyboardAccelerator in item.KeyboardAccelerators)
-					{
-						control.KeyboardAccelerators.Add(CloneKeyboardAccelerator(keyboardAccelerator));
-					}
-				}
 			}
 
+			ApplyKeyboardAccelerators(element, item);
+		}
+
+		private void ApplyToolbarItemSize(FrameworkElement element)
+		{
+			element.MinWidth = _currentMinWidth;
+			element.MinHeight = _currentMinHeight;
 			if (element is ToolbarSeparator separator)
 			{
 				separator.MinWidth = 1;
@@ -564,10 +752,12 @@ namespace Files.Controls
 
 		private void ItemTemplateChanged(DataTemplate? newDataTemplate)
 		{
-			if (_itemsRepeater is not null)
+			foreach (var materializedItem in _materializedItems)
 			{
-				_itemsRepeater.ItemTemplate = newDataTemplate;
+				materializedItem.Host.ContentTemplate = newDataTemplate;
 			}
+
+			InvalidateMeasure();
 		}
 
 		private void ToolbarSizeChanged(ToolbarSizes newToolbarSize)
@@ -575,10 +765,10 @@ namespace Files.Controls
 			UpdateMinSizesFromResources();
 			foreach (var materializedItem in _materializedItems)
 			{
-				ApplyToolbarItem(materializedItem.Element, materializedItem.Item);
+				ApplyToolbarItemSize(materializedItem.Element);
 			}
 
-			RequestLayoutUpdate();
+			InvalidateMeasure();
 		}
 
 		private void UpdateMinSizesFromResources()
@@ -609,42 +799,21 @@ namespace Files.Controls
 			return fallback;
 		}
 
-		private void RequestLayoutUpdate()
+		private void UpdateLayoutPartition(double availableWidth)
 		{
-			if (!_templateApplied || _itemsRepeater is null || _layoutUpdateQueued)
-			{
-				return;
-			}
-
-			_layoutUpdateQueued = true;
-			if (DispatcherQueue is null || !DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, UpdateLayoutPartition))
-			{
-				_layoutUpdateQueued = false;
-			}
-		}
-
-		private void UpdateLayoutPartition()
-		{
-			_layoutUpdateQueued = false;
-			if (!_templateApplied || _itemsRepeater is null)
-			{
-				return;
-			}
-
 			var spacing = GetItemSpacing();
-			var availableWidth = GetAvailableContentWidth();
 			var infiniteSize = new Size(double.PositiveInfinity, double.PositiveInfinity);
 			foreach (var materializedItem in _materializedItems)
 			{
-				materializedItem.Element.Measure(infiniteSize);
-				materializedItem.Width = Math.Max(materializedItem.Element.DesiredSize.Width, materializedItem.Element.MinWidth);
+				materializedItem.Host.Measure(infiniteSize);
+				materializedItem.Width = Math.Max(materializedItem.Host.DesiredSize.Width, materializedItem.Element.MinWidth);
 			}
 
-			var overflowWidth = GetOverflowWidth(infiniteSize);
+			var overflowWidth = GetOverflowWidth(infiniteSize, spacing);
 			var hasAlwaysItems = _materializedItems.Any(x => x.Item.OverflowBehavior == OverflowBehaviors.Always);
 			var allNonAlwaysWidth = GetMaterializedWidth(x => x.Item.OverflowBehavior != OverflowBehaviors.Always, spacing);
-			var visibleItems = new List<IToolbarItemSet>();
 			var overflowItems = new List<ToolbarItem>();
+			var visibleItems = new HashSet<ToolbarItem>();
 
 			if (!hasAlwaysItems && allNonAlwaysWidth <= availableWidth)
 			{
@@ -652,7 +821,7 @@ namespace Files.Controls
 				{
 					if (materializedItem.Item.OverflowBehavior != OverflowBehaviors.Always)
 					{
-						visibleItems.Add(materializedItem.Element as IToolbarItemSet ?? throw new InvalidOperationException("Toolbar items must implement IToolbarItemSet."));
+						visibleItems.Add(materializedItem.Item);
 					}
 				}
 			}
@@ -662,13 +831,12 @@ namespace Files.Controls
 				var requiredWidth = GetMaterializedWidth(x => x.Item.OverflowBehavior == OverflowBehaviors.Never, spacing);
 				var optionalWidth = Math.Max(0, availableForItems - requiredWidth);
 				var optionalCount = 0;
-				var visibleSet = new HashSet<ToolbarItem>();
 
 				foreach (var materializedItem in _materializedItems)
 				{
 					if (materializedItem.Item.OverflowBehavior == OverflowBehaviors.Never)
 					{
-						visibleSet.Add(materializedItem.Item);
+						visibleItems.Add(materializedItem.Item);
 						continue;
 					}
 
@@ -683,46 +851,35 @@ namespace Files.Controls
 					{
 						optionalWidth -= candidateWidth;
 						optionalCount++;
-						visibleSet.Add(materializedItem.Item);
+						visibleItems.Add(materializedItem.Item);
 					}
 					else
 					{
 						overflowItems.Add(materializedItem.Item);
 					}
 				}
-
-				foreach (var materializedItem in _materializedItems)
-				{
-					if (visibleSet.Contains(materializedItem.Item))
-					{
-						visibleItems.Add(materializedItem.Element as IToolbarItemSet ?? throw new InvalidOperationException("Toolbar items must implement IToolbarItemSet."));
-					}
-				}
 			}
 
-			if (!_visibleItems.SequenceEqual(visibleItems))
+			_itemsPanel?.SetVisibleChildren(_materializedItems.Where(item => visibleItems.Contains(item.Item)).Select(item => item.Host));
+			foreach (var materializedItem in _materializedItems)
 			{
-				_visibleItems = visibleItems;
-				_itemsRepeater.ItemsSource = _visibleItems;
+				var isVisible = visibleItems.Contains(materializedItem.Item);
+				materializedItem.Host.Opacity = isVisible ? 1 : 0;
+				materializedItem.Host.IsHitTestVisible = isVisible;
+				if (materializedItem.Element is Control control)
+				{
+					control.IsTabStop = isVisible && materializedItem.Element is not ToolbarSeparator;
+				}
 			}
 
 			var overflowChanged = !_overflowItems.SequenceEqual(overflowItems);
 			_overflowItems = overflowItems;
+			_overflowMenuDirty |= overflowChanged;
 			if (_overflowItems.Count > 0)
 			{
 				if (_overflowStackPanel is not null)
 				{
 					_overflowStackPanel.Visibility = Visibility.Visible;
-				}
-
-				if (_overflowButton is not null)
-				{
-					_overflowButton.Visibility = Visibility.Visible;
-				}
-
-				if (overflowChanged || _overflowMenuDirty)
-				{
-					PopulateOverflowMenu(_overflowItems);
 				}
 			}
 			else
@@ -731,11 +888,14 @@ namespace Files.Controls
 				{
 					_overflowStackPanel.Visibility = Visibility.Collapsed;
 				}
+			}
+		}
 
-				if (_overflowButton is not null)
-				{
-					_overflowButton.Visibility = Visibility.Collapsed;
-				}
+		private void OnOverflowFlyoutOpening(object? sender, object args)
+		{
+			if (_overflowMenuDirty)
+			{
+				PopulateOverflowMenu(_overflowItems);
 			}
 		}
 
@@ -746,7 +906,6 @@ namespace Files.Controls
 				return;
 			}
 
-			_overflowFlyout.Hide();
 			_overflowFlyout.Items.Clear();
 			AddMenuItems(items, _overflowFlyout.Items);
 			_overflowMenuDirty = false;
@@ -768,33 +927,41 @@ namespace Files.Controls
 			return count == 0 ? 0 : width + ((count - 1) * spacing);
 		}
 
-		private double GetOverflowWidth(Size infiniteSize)
+		private double GetOverflowWidth(Size infiniteSize, double spacing)
 		{
 			if (_overflowStackPanel is not null)
 			{
-				var previousVisibility = _overflowStackPanel.Visibility;
-				_overflowStackPanel.Visibility = Visibility.Visible;
-				_overflowStackPanel.Measure(infiniteSize);
-				var desiredWidth = _overflowStackPanel.DesiredSize.Width;
-				_overflowStackPanel.Visibility = previousVisibility;
-				if (desiredWidth > 0)
+				var width = 0d;
+				var childCount = 0;
+				foreach (var child in _overflowStackPanel.Children)
 				{
-					return desiredWidth;
+					if (child is FrameworkElement element && element.Visibility == Visibility.Visible)
+					{
+						element.Measure(infiniteSize);
+						width += element.DesiredSize.Width;
+						childCount++;
+					}
+				}
+
+				if (childCount > 0)
+				{
+					return width + ((childCount - 1) * spacing);
 				}
 			}
 
 			return Math.Max(_overflowButton?.MinWidth ?? 0, DefaultOverflowButtonWidth);
 		}
 
-		private double GetAvailableContentWidth()
+		private double GetAvailableContentWidth(double availableWidth)
 		{
-			if (!double.IsFinite(ActualWidth))
+			if (!double.IsFinite(availableWidth))
 			{
 				return double.PositiveInfinity;
 			}
 
 			var horizontalChrome = Padding.Left + Padding.Right + BorderThickness.Left + BorderThickness.Right;
-			return Math.Max(0, ActualWidth - horizontalChrome);
+
+			return Math.Max(0, availableWidth - horizontalChrome);
 		}
 
 		private static double GetItemSpacing()
@@ -810,30 +977,33 @@ namespace Files.Controls
 
 		private sealed class MaterializedToolbarItem
 		{
-			public MaterializedToolbarItem(ToolbarItem item, FrameworkElement element)
-			{
-				Item = item;
-				Element = element;
-			}
-
 			public ToolbarItem Item { get; }
 
 			public FrameworkElement Element { get; }
 
+			public ContentPresenter Host { get; }
+
 			public double Width { get; set; }
+
+			public MaterializedToolbarItem(ToolbarItem item, FrameworkElement element, ContentPresenter host)
+			{
+				Item = item;
+				Element = element;
+				Host = host;
+			}
 		}
 
 		private sealed class ToggleEventHandlers
 		{
+			public RoutedEventHandler Checked { get; }
+
+			public RoutedEventHandler? Unchecked { get; }
+
 			public ToggleEventHandlers(RoutedEventHandler checkedHandler, RoutedEventHandler? uncheckedHandler)
 			{
 				Checked = checkedHandler;
 				Unchecked = uncheckedHandler;
 			}
-
-			public RoutedEventHandler Checked { get; }
-
-			public RoutedEventHandler? Unchecked { get; }
 		}
 
 		private sealed class ToolbarContentHost : ContentControl, IToolbarItemSet

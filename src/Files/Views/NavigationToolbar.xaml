@@ -64,11 +64,6 @@
 					</controls:ToolbarItem.Content>
 				</controls:ToolbarItem>
 			</controls:Toolbar.Items>
-			<controls:Toolbar.ItemTemplate>
-				<DataTemplate x:DataType="controls:IToolbarItemSet">
-					<ContentPresenter Content="{x:Bind}" />
-				</DataTemplate>
-			</controls:Toolbar.ItemTemplate>
 		</controls:Toolbar>
 
 		<TextBox
@@ -114,11 +109,6 @@
 					</controls:ToolbarItem.Content>
 				</controls:ToolbarItem>
 			</controls:Toolbar.Items>
-			<controls:Toolbar.ItemTemplate>
-				<DataTemplate x:DataType="controls:IToolbarItemSet">
-					<ContentPresenter Content="{x:Bind}" />
-				</DataTemplate>
-			</controls:Toolbar.ItemTemplate>
 		</controls:Toolbar>
 
 	</Grid>

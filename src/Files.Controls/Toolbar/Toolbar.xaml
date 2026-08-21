@@ -34,19 +34,14 @@
 								<ColumnDefinition x:Name="OverflowColumn" Width="Auto" />
 							</Grid.ColumnDefinitions>
 
-							<ItemsRepeater
-								x:Name="PART_ItemsRepeater"
+							<primitives:ToolbarItemsPanel
+								x:Name="PART_ItemsPanel"
 								Grid.Column="0"
 								HorizontalAlignment="Stretch"
-								VerticalAlignment="Stretch"
-								ItemTemplate="{TemplateBinding ItemTemplate}"
-								ItemsSource="{TemplateBinding Items}"
+								Spacing="{ThemeResource ToolbarItemSpacing}"
 								TabFocusNavigation="Local"
-								Visibility="Visible">
-								<ItemsRepeater.Layout>
-									<StackLayout Orientation="Horizontal" Spacing="{ThemeResource ToolbarItemSpacing}" />
-								</ItemsRepeater.Layout>
-							</ItemsRepeater>
+								VerticalAlignment="Stretch"
+								Visibility="Visible" />
 
 							<StackPanel
 								x:Name="PART_OverflowStackPanel"
@@ -64,8 +59,7 @@
 									AutomationProperties.Name="{TemplateBinding OverflowButtonLabel}"
 									IconSize="16"
 									Label="{TemplateBinding OverflowButtonLabel}"
-									ThemedIcon="{StaticResource App.ThemedIcons.More}"
-									Visibility="Collapsed">
+									ThemedIcon="{StaticResource App.ThemedIcons.More}">
 									<local:ToolbarButton.Flyout>
 										<MenuFlyout x:Name="PART_OverflowFlyout" />
 									</local:ToolbarButton.Flyout>
