@@ -1,0 +1,260 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.ItemProperties.GeneralPropertyView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+	<UserControl.Resources>
+		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+	</UserControl.Resources>
+
+	<Grid>
+		<ScrollViewer Padding="12,12,12,12">
+			<StackPanel Spacing="12">
+				<ProgressBar
+					Height="2"
+					IsIndeterminate="True"
+					Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+				<Grid ColumnSpacing="14">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="48" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<Grid Width="48" Height="48">
+						<FontIcon
+							FontSize="36"
+							Glyph="&#xE946;"
+							Visibility="{x:Bind ViewModel.HasIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
+						<Image
+							Source="{x:Bind ViewModel.Icon, Mode=OneWay}"
+							Stretch="Uniform"
+							Visibility="{x:Bind ViewModel.HasIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+					</Grid>
+					<TextBox
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						IsEnabled="{x:Bind ViewModel.CanRename, Mode=OneWay}"
+						Text="{x:Bind ViewModel.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+				</Grid>
+
+				<Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+				<Grid ColumnSpacing="12" RowSpacing="10">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="112" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+					</Grid.RowDefinitions>
+					<TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.TypeLabel}" />
+					<TextBlock
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						IsTextSelectionEnabled="True"
+						Text="{x:Bind ViewModel.Type}"
+						TextTrimming="CharacterEllipsis" />
+					<TextBlock
+						Grid.Row="1"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.DescriptionLabel}" />
+					<TextBlock
+						Grid.Row="1"
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						IsTextSelectionEnabled="True"
+						Text="{x:Bind ViewModel.Description, Mode=OneWay}"
+						TextTrimming="CharacterEllipsis" />
+				</Grid>
+
+				<Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+				<Grid
+					ColumnSpacing="12"
+					RowSpacing="10"
+					Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="112" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+					</Grid.RowDefinitions>
+					<TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.LocationLabel}" />
+					<TextBlock
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						IsTextSelectionEnabled="True"
+						Text="{x:Bind ViewModel.Location}"
+						TextTrimming="CharacterEllipsis" />
+					<TextBlock
+						Grid.Row="1"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.SizeLabel}" />
+					<TextBlock
+						Grid.Row="1"
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.Size, Mode=OneWay}" />
+					<TextBlock
+						Grid.Row="2"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.SizeOnDiskLabel}" />
+					<TextBlock
+						Grid.Row="2"
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.SizeOnDisk, Mode=OneWay}" />
+					<TextBlock
+						Grid.Row="3"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.ContainsLabel}"
+						Visibility="{x:Bind ViewModel.HasFolders, Converter={StaticResource BoolToVisibilityConverter}}" />
+					<TextBlock
+						Grid.Row="3"
+						Grid.Column="1"
+						VerticalAlignment="Center"
+						Text="{x:Bind ViewModel.Contains, Mode=OneWay}"
+						Visibility="{x:Bind ViewModel.HasFolders, Converter={StaticResource BoolToVisibilityConverter}}" />
+				</Grid>
+
+				<Grid
+					ColumnSpacing="12"
+					RowSpacing="10"
+					Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="112" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+					</Grid.RowDefinitions>
+					<TextBlock Text="{x:Bind ViewModel.FileSystemLabel}" />
+					<TextBlock Grid.Column="1" Text="{x:Bind ViewModel.FileSystem, Mode=OneWay}" />
+					<TextBlock Grid.Row="1" Text="{x:Bind ViewModel.UsedSpaceLabel}" />
+					<TextBlock
+						Grid.Row="1"
+						Grid.Column="1"
+						Text="{x:Bind ViewModel.UsedSpace, Mode=OneWay}" />
+					<TextBlock Grid.Row="2" Text="{x:Bind ViewModel.FreeSpaceLabel}" />
+					<TextBlock
+						Grid.Row="2"
+						Grid.Column="1"
+						Text="{x:Bind ViewModel.FreeSpace, Mode=OneWay}" />
+					<TextBlock Grid.Row="3" Text="{x:Bind ViewModel.CapacityLabel}" />
+					<TextBlock
+						Grid.Row="3"
+						Grid.Column="1"
+						Text="{x:Bind ViewModel.Capacity, Mode=OneWay}" />
+				</Grid>
+
+				<Grid ColumnSpacing="18" Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+					<ProgressRing
+						Width="88"
+						Height="88"
+						HorizontalAlignment="Center"
+						VerticalAlignment="Center"
+						IsIndeterminate="False"
+						Value="{x:Bind ViewModel.UsedPercentage, Mode=OneWay}" />
+					<Button
+						MinWidth="96"
+						HorizontalAlignment="Right"
+						VerticalAlignment="Bottom"
+						Click="StorageDetailsButton_Click"
+						Content="{x:Bind ViewModel.DetailsLabel}"
+						Visibility="{x:Bind ViewModel.ShowDriveStorageDetails, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+				</Grid>
+
+				<Border
+					Height="1"
+					Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+					Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
+
+				<Grid
+					ColumnSpacing="12"
+					RowSpacing="10"
+					Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="112" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+						<RowDefinition Height="Auto" />
+					</Grid.RowDefinitions>
+					<TextBlock Text="{x:Bind ViewModel.DateCreatedLabel}" />
+					<TextBlock
+						Grid.Column="1"
+						Text="{x:Bind ViewModel.DateCreated, Mode=OneWay}"
+						TextTrimming="CharacterEllipsis" />
+					<TextBlock Grid.Row="1" Text="{x:Bind ViewModel.DateModifiedLabel}" />
+					<TextBlock
+						Grid.Row="1"
+						Grid.Column="1"
+						Text="{x:Bind ViewModel.DateModified, Mode=OneWay}"
+						TextTrimming="CharacterEllipsis" />
+					<TextBlock Grid.Row="2" Text="{x:Bind ViewModel.DateAccessedLabel}" />
+					<TextBlock
+						Grid.Row="2"
+						Grid.Column="1"
+						Text="{x:Bind ViewModel.DateAccessed, Mode=OneWay}"
+						TextTrimming="CharacterEllipsis" />
+				</Grid>
+
+				<Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+				<Grid ColumnSpacing="12" Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="112" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<TextBlock
+						Margin="0,6,0,0"
+						VerticalAlignment="Top"
+						Text="{x:Bind ViewModel.AttributesLabel}" />
+					<StackPanel Grid.Column="1">
+						<CheckBox
+							Content="{x:Bind ViewModel.ReadOnlyLabel}"
+							IsChecked="{x:Bind ViewModel.IsReadOnly, Mode=TwoWay}"
+							IsEnabled="{x:Bind ViewModel.CanEditAttributes}"
+							IsThreeState="True" />
+						<CheckBox
+							Content="{x:Bind ViewModel.HiddenLabel}"
+							IsChecked="{x:Bind ViewModel.IsHidden, Mode=TwoWay}"
+							IsEnabled="{x:Bind ViewModel.CanEditAttributes}"
+							IsThreeState="True" />
+						<Button
+							Grid.Column="2"
+							HorizontalAlignment="Right"
+							Click="AdvancedButton_Click"
+							Content="{x:Bind ViewModel.AdvancedLabel}"
+							IsEnabled="{x:Bind ViewModel.CanEditAttributes}" />
+					</StackPanel>
+				</Grid>
+
+				<StackPanel Spacing="8" Visibility="{x:Bind ViewModel.IsDrive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+					<CheckBox
+						Content="{x:Bind ViewModel.CompressDriveLabel}"
+						IsChecked="{x:Bind ViewModel.IsDriveCompressed, Mode=TwoWay}"
+						IsEnabled="{x:Bind ViewModel.CanEditDriveCompression, Mode=OneWay}"
+						Visibility="{x:Bind ViewModel.ShowDriveCompression, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+					<CheckBox
+						Content="{x:Bind ViewModel.AllowDriveIndexingLabel}"
+						IsChecked="{x:Bind ViewModel.IsDriveIndexed, Mode=TwoWay}"
+						IsEnabled="{x:Bind ViewModel.CanEditDriveIndexing, Mode=OneWay}"
+						Visibility="{x:Bind ViewModel.ShowDriveIndexing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+				</StackPanel>
+			</StackPanel>
+		</ScrollViewer>
+	</Grid>
+</UserControl>

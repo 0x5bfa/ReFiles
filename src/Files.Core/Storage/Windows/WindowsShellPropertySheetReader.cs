@@ -7,6 +7,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Windows.Win32;
+using Windows.Win32.Devices.DeviceAndDriverInstallation;
+using Windows.Win32.Devices.Properties;
 using Windows.Win32.Foundation;
 using Windows.Win32.Security;
 using Windows.Win32.Security.Authorization;
@@ -15,6 +17,7 @@ using Windows.Win32.Security.Cryptography.Catalog;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.Com.StructuredStorage;
+using Windows.Win32.System.IO;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.PropertiesSystem;
 
@@ -31,14 +34,19 @@ internal static unsafe class WindowsShellPropertySheetReader
 	private const uint CryptographicMessageSignerCount = 5;
 	private const uint CryptographicMessageSignerInfo = 6;
 	private const uint CertificateNameSimpleDisplayType = 4;
+	private const uint DiskQuotaStateTrack = 1;
+	private const uint DiskQuotaStateEnforce = 2;
+	private const uint DiskQuotaLogUserThreshold = 1;
+	private const uint DiskQuotaLogUserLimit = 2;
+	private const int AccessDeniedResult = unchecked((int)0x80070005);
 	private const uint SnapshotControlCode = 0x00144064;
 	private const int SnapshotHeaderSize = 12;
-	private const int SnapshotNameSize = 50;
+	private const int StatusPending = 0x00000103;
 	private const string SnapshotNameFormat = "'@GMT-'yyyy.MM.dd-HH.mm.ss";
 
 	internal static WindowsShellPropertySheetData CreateEmpty(IReadOnlyList<WindowsShellPropertyPage> pages)
 	{
-		return new(pages, null, null, null, [], null, [], [], []);
+		return new(pages, null, null, null, null, null, [], [], null, null, [], [], []);
 	}
 
 	internal static WindowsShellPropertySheetData Read(IShellItem primaryItem, WindowsShellResolvedSelection selection, IReadOnlyList<WindowsShellPropertyPage> pages, CancellationToken cancellationToken)
@@ -49,9 +57,15 @@ internal static unsafe class WindowsShellPropertySheetReader
 
 		cancellationToken.ThrowIfCancellationRequested();
 		var primaryPath = selection.FileSystemPaths.Count is 1 ? selection.FileSystemPaths[0] : null;
+		var drive = primaryPath is not null && WindowsShellPropertyPageEnumerator.TryGetDriveRoot(primaryPath, out var driveRoot) ? ReadDriveProperties(driveRoot, pages) : null;
+		cancellationToken.ThrowIfCancellationRequested();
 		var shortcut = primaryPath is null ? null : TryReadShortcut(primaryPath);
 		cancellationToken.ThrowIfCancellationRequested();
-		var sharing = selection.IsSingleFolder && primaryPath is not null ? ReadSharing(primaryPath) : null;
+		var readsCompatibility = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Compatibility);
+		var compatibility = readsCompatibility && primaryPath is not null ? TryReadCompatibility(primaryPath, shortcut) : null;
+		cancellationToken.ThrowIfCancellationRequested();
+		var readsSharing = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Sharing);
+		var sharing = readsSharing && primaryPath is not null ? ReadSharing(primaryPath) : null;
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsSecurity = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Security);
 		var security = readsSecurity && primaryPath is not null ? TryReadSecurity(primaryPath) : null;
@@ -59,7 +73,14 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var readsPreviousVersions = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.PreviousVersions);
 		var previousVersions = readsPreviousVersions && primaryPath is not null ? ReadPreviousVersions(primaryPath) : [];
 		cancellationToken.ThrowIfCancellationRequested();
-		var customization = selection.IsSingleFolder && primaryPath is not null ? TryReadFolderCustomization(primaryItem, primaryPath) : null;
+		var readsHardware = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Hardware);
+		var hardwareDevices = readsHardware ? ReadHardwareDevices(cancellationToken) : [];
+		cancellationToken.ThrowIfCancellationRequested();
+		var readsQuota = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Quota);
+		var quota = readsQuota && drive is not null ? TryReadQuota(drive.RootPath) : null;
+		cancellationToken.ThrowIfCancellationRequested();
+		var readsCustomization = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Customize);
+		var customization = readsCustomization && primaryPath is not null ? TryReadFolderCustomization(primaryItem, primaryPath) : null;
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsSignatures = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.DigitalSignatures);
 		var embeddedSignatures = readsSignatures && primaryPath is not null && File.Exists(primaryPath) ? ReadEmbeddedSignatures(primaryPath) : [];
@@ -69,7 +90,221 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var readsDetails = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Details);
 		var details = readsDetails ? ReadDetails(primaryItem) : [];
 
-		return new(pages, shortcut, sharing, security, previousVersions, customization, embeddedSignatures, catalogSignatures, details);
+		return new(pages, drive, shortcut, compatibility, sharing, security, previousVersions, hardwareDevices, quota, customization, embeddedSignatures, catalogSignatures, details);
+	}
+
+	internal static string? TryResolveShortcutTarget(string path)
+	{
+		if (!Path.GetExtension(path).Equals(".lnk", StringComparison.OrdinalIgnoreCase))
+		{
+			return null;
+		}
+
+		try
+		{
+			var link = ShellLink.CreateInstance<IShellLinkW>();
+			if (link is not IPersistFile persistedLink || persistedLink.Load(path, STGM.STGM_READ).Failed)
+			{
+				return null;
+			}
+
+			Span<char> targetBuffer = stackalloc char[ShellStringCapacity];
+			var findData = new WIN32_FIND_DATAW();
+			link.GetPath(targetBuffer, ref findData, ShellLinkRawPath);
+
+			return ReadNullTerminated(targetBuffer);
+		}
+		catch (Exception exception) when (exception is COMException or IOException or UnauthorizedAccessException)
+		{
+			return null;
+		}
+	}
+
+	private static WindowsShellDriveProperties ReadDriveProperties(string root, IReadOnlyList<WindowsShellPropertyPage> pages)
+	{
+		PInvoke.GetVolumeInformation(root, [], out _, out _, out var fileSystemFlags, []);
+		var hasTools = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Tools);
+
+		return new(root, PInvoke.GetDriveType(root), fileSystemFlags, hasTools, hasTools);
+	}
+
+	private static IReadOnlyList<WindowsShellHardwareDevice> ReadHardwareDevices(CancellationToken cancellationToken)
+	{
+		var devices = new List<WindowsShellHardwareDevice>();
+		var instanceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		ReadHardwareClass(PInvoke.GUID_DEVCLASS_DISKDRIVE, devices, instanceIds, cancellationToken);
+		ReadHardwareClass(PInvoke.GUID_DEVCLASS_FLOPPYDISK, devices, instanceIds, cancellationToken);
+		ReadHardwareClass(PInvoke.GUID_DEVCLASS_CDROM, devices, instanceIds, cancellationToken);
+		ReadHardwareClass(PInvoke.GUID_DEVCLASS_SCMDISK, devices, instanceIds, cancellationToken);
+
+		return devices.OrderBy(static device => device.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+	}
+
+	private static void ReadHardwareClass(Guid classId, List<WindowsShellHardwareDevice> devices, HashSet<string> instanceIds, CancellationToken cancellationToken)
+	{
+		using var deviceInfoSet = PInvoke.SetupDiGetClassDevs(classId, null!, default, SETUP_DI_GET_CLASS_DEVS_FLAGS.DIGCF_PRESENT | SETUP_DI_GET_CLASS_DEVS_FLAGS.DIGCF_PROFILE);
+		if (deviceInfoSet.IsInvalid)
+		{
+			return;
+		}
+
+		var classDescriptionBuffer = new char[256];
+		for (var index = 0u; ; index++)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var deviceInfo = new SP_DEVINFO_DATA { cbSize = checked((uint)sizeof(SP_DEVINFO_DATA)) };
+			if (!PInvoke.SetupDiEnumDeviceInfo(deviceInfoSet, index, ref deviceInfo))
+			{
+				break;
+			}
+
+			var instanceId = ReadDeviceInstanceId(deviceInfoSet, deviceInfo);
+			if (string.IsNullOrEmpty(instanceId) || !instanceIds.Add(instanceId))
+			{
+				continue;
+			}
+
+			var name = ReadDeviceProperty(deviceInfoSet, deviceInfo, PInvoke.DEVPKEY_NAME);
+			var manufacturer = ReadDeviceProperty(deviceInfoSet, deviceInfo, PInvoke.DEVPKEY_Device_Manufacturer);
+			var location = ReadDeviceProperty(deviceInfoSet, deviceInfo, PInvoke.DEVPKEY_Device_LocationInfo);
+			var locationNumber = ReadDeviceUInt32Property(deviceInfoSet, deviceInfo, PInvoke.DEVPKEY_Device_UINumber);
+			var locationNumberFormat = ReadDeviceProperty(deviceInfoSet, deviceInfo, PInvoke.DEVPKEY_Device_UINumberDescFormat);
+			if (string.IsNullOrEmpty(location))
+			{
+				location = ReadDeviceProperty(deviceInfoSet, deviceInfo, PInvoke.DEVPKEY_Device_LocationPaths);
+			}
+
+			classDescriptionBuffer.AsSpan().Clear();
+			var type = PInvoke.SetupDiGetClassDescription(deviceInfo.ClassGuid, classDescriptionBuffer) ? ReadNullTerminated(classDescriptionBuffer) : string.Empty;
+			var configurationResult = PInvoke.CM_Get_DevNode_Status(out var status, out var problemCode, deviceInfo.DevInst, 0);
+			if (configurationResult is not CONFIGRET.CR_SUCCESS)
+			{
+				status = 0;
+				problemCode = 0;
+			}
+
+			ReadOnlyMemory<byte> iconData = ReadOnlyMemory<byte>.Empty;
+			if (PInvoke.SetupDiLoadDeviceIcon(deviceInfoSet, deviceInfo, 32, 32, 0, out var icon))
+			{
+				using (icon)
+				{
+					iconData = WindowsThumbnailRenderer.EncodeHIcon(icon, 32, cancellationToken) ?? [];
+				}
+			}
+
+			if (iconData.IsEmpty)
+			{
+				var stockIcon = classId == PInvoke.GUID_DEVCLASS_CDROM ? SHSTOCKICONID.SIID_DRIVECD : classId == PInvoke.GUID_DEVCLASS_FLOPPYDISK ? SHSTOCKICONID.SIID_DRIVEREMOVE : SHSTOCKICONID.SIID_DRIVEFIXED;
+				iconData = WindowsShellIconProvider.GetStockIcon(stockIcon, 32, cancellationToken);
+			}
+
+			devices.Add(new(iconData, string.IsNullOrEmpty(name) ? instanceId : name, type, manufacturer, location, locationNumber, locationNumberFormat, (uint)status, (uint)problemCode, instanceId));
+		}
+	}
+
+	private static string ReadDeviceInstanceId(SafeHandle deviceInfoSet, SP_DEVINFO_DATA deviceInfo)
+	{
+		Span<char> buffer = stackalloc char[512];
+
+		return PInvoke.SetupDiGetDeviceInstanceId(deviceInfoSet, deviceInfo, buffer) ? ReadNullTerminated(buffer) : string.Empty;
+	}
+
+	private static string ReadDeviceProperty(SafeHandle deviceInfoSet, SP_DEVINFO_DATA deviceInfo, DEVPROPKEY propertyKey)
+	{
+		PInvoke.SetupDiGetDeviceProperty(deviceInfoSet, deviceInfo, propertyKey, out _, [], out var requiredSize, 0);
+		if (requiredSize < sizeof(char) || requiredSize > ShellStringCapacity * sizeof(char))
+		{
+			return string.Empty;
+		}
+
+		var buffer = new byte[requiredSize];
+		if (!PInvoke.SetupDiGetDeviceProperty(deviceInfoSet, deviceInfo, propertyKey, out _, buffer, 0))
+		{
+			return string.Empty;
+		}
+
+		var values = MemoryMarshal.Cast<byte, char>(buffer);
+		var value = ReadNullTerminated(values);
+
+		return value;
+	}
+
+	private static uint? ReadDeviceUInt32Property(SafeHandle deviceInfoSet, SP_DEVINFO_DATA deviceInfo, DEVPROPKEY propertyKey)
+	{
+		Span<byte> buffer = stackalloc byte[sizeof(uint)];
+		var succeeded = PInvoke.SetupDiGetDeviceProperty(deviceInfoSet, deviceInfo, propertyKey, out var propertyType, buffer, out var requiredSize, 0);
+		if (!succeeded || propertyType is not DEVPROPTYPE.DEVPROP_TYPE_UINT32 || requiredSize != sizeof(uint))
+		{
+			return null;
+		}
+
+		return BinaryPrimitives.ReadUInt32LittleEndian(buffer);
+	}
+
+	private static WindowsShellQuotaProperties? TryReadQuota(string root)
+	{
+		var displayName = ReadVolumeDisplayName(root);
+		try
+		{
+			var createResult = PInvoke.CoCreateInstance(CLSID.CLSID_DiskQuotaControl, null, CLSCTX.CLSCTX_INPROC_SERVER, out IDiskQuotaControl? quotaControl);
+			if (createResult.Failed || quotaControl is null)
+			{
+				return null;
+			}
+
+			fixed (char* rootPointer = root)
+			{
+				var initializeResult = quotaControl.Initialize(new PCWSTR(rootPointer), false);
+				if (initializeResult.Value is AccessDeniedResult)
+				{
+					return new(root, displayName, true, false, false, false, false, -1, -1);
+				}
+
+				if (initializeResult.Failed)
+				{
+					return null;
+				}
+			}
+
+			uint state = 0;
+			uint logFlags = 0;
+			long defaultLimit = -1;
+			long defaultThreshold = -1;
+			quotaControl.GetQuotaState(ref state);
+			quotaControl.GetQuotaLogFlags(ref logFlags);
+			quotaControl.GetDefaultQuotaLimit(ref defaultLimit);
+			quotaControl.GetDefaultQuotaThreshold(ref defaultThreshold);
+
+			return new(
+				root,
+				displayName,
+				false,
+				(state & DiskQuotaStateTrack) is not 0,
+				(state & DiskQuotaStateEnforce) is not 0,
+				(logFlags & DiskQuotaLogUserLimit) is not 0,
+				(logFlags & DiskQuotaLogUserThreshold) is not 0,
+				defaultLimit,
+				defaultThreshold);
+		}
+		catch (COMException)
+		{
+			return null;
+		}
+	}
+
+	private static string ReadVolumeDisplayName(string root)
+	{
+		if (PInvoke.SHCreateItemFromParsingName(root, null, out IShellItem shellItem).Succeeded)
+		{
+			var displayName = ShellItemHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_NORMALDISPLAY);
+			if (!string.IsNullOrWhiteSpace(displayName))
+			{
+				return displayName;
+			}
+		}
+
+		return root;
 	}
 
 	private static WindowsShellShortcutProperties? TryReadShortcut(string path)
@@ -122,6 +357,17 @@ internal static unsafe class WindowsShellPropertySheetReader
 		}
 	}
 
+	private static WindowsShellCompatibilityProperties? TryReadCompatibility(string path, WindowsShellShortcutProperties? shortcut)
+	{
+		var executablePath = Path.GetExtension(path).Equals(".lnk", StringComparison.OrdinalIgnoreCase) ? shortcut?.TargetPath : path;
+		if (executablePath is null || !Path.GetExtension(executablePath).Equals(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(executablePath))
+		{
+			return null;
+		}
+
+		return new(executablePath);
+	}
+
 	private static string ReadShellType(string path)
 	{
 		if (string.IsNullOrEmpty(path) || PInvoke.SHCreateItemFromParsingName(path, null, out IShellItem shellItem).Failed)
@@ -134,60 +380,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 
 	private static WindowsShellSharingProperties ReadSharing(string path)
 	{
-		var normalizedPath = NormalizePath(path);
-		var bestShareName = string.Empty;
-		var bestSharePath = string.Empty;
-		uint resumeHandle = 0;
-		do
-		{
-			byte* buffer = null;
-			var result = PInvoke.NetShareEnum(default, 2, out buffer, MaximumPreferredLength, out var entriesRead, out _, ref resumeHandle);
-			try
-			{
-				if (buffer is null || result is not 0 and not ErrorMoreData)
-				{
-					break;
-				}
-
-				var shares = (SHARE_INFO_2*)buffer;
-				for (var index = 0u; index < entriesRead; index++)
-				{
-					var sharePath = NormalizePath(shares[index].shi2_path.ToString());
-					if (sharePath.Length > bestSharePath.Length && IsPathWithin(normalizedPath, sharePath))
-					{
-						bestSharePath = sharePath;
-						bestShareName = shares[index].shi2_netname.ToString();
-					}
-				}
-			}
-			finally
-			{
-				if (buffer is not null)
-				{
-					PInvoke.NetApiBufferFree(buffer);
-				}
-			}
-
-			if (result is not ErrorMoreData)
-			{
-				break;
-			}
-		}
-		while (true);
-
-		if (string.IsNullOrEmpty(bestSharePath))
-		{
-			return new(false, string.Empty, string.Empty);
-		}
-
-		var relativePath = normalizedPath[bestSharePath.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-		var networkPath = $"\\\\{Environment.MachineName}\\{bestShareName}";
-		if (!string.IsNullOrEmpty(relativePath))
-		{
-			networkPath = Path.Combine(networkPath, relativePath);
-		}
-
-		return new(true, bestShareName, networkPath);
+		return WindowsShellSharingService.ReadProperties(path);
 	}
 
 	private static WindowsShellSecurityProperties? TryReadSecurity(string path)
@@ -247,7 +440,9 @@ internal static unsafe class WindowsShellPropertySheetReader
 
 				if (!principals.TryGetValue(sidText, out var principal))
 				{
-					principal = new(ReadAccountName(sid, sidText), sidText);
+					var account = ReadAccount(sid, sidText);
+					var icon = WindowsSecurityPrincipalIconProvider.GetIcon(sidText, account.Type);
+					principal = new(account.Name, sidText, icon.Data, icon.Index);
 					principals.Add(sidText, principal);
 				}
 
@@ -286,27 +481,27 @@ internal static unsafe class WindowsShellPropertySheetReader
 		}
 	}
 
-	private static string ReadAccountName(PSID sid, string fallback)
+	private static (string Name, SID_NAME_USE Type) ReadAccount(PSID sid, string fallback)
 	{
 		uint nameLength = 0;
 		uint domainLength = 0;
-		PInvoke.LookupAccountSid(null!, sid, [], ref nameLength, [], ref domainLength, out _);
+		PInvoke.LookupAccountSid(null!, sid, [], ref nameLength, [], ref domainLength, out var type);
 		if (nameLength is 0)
 		{
-			return fallback;
+			return (fallback, SID_NAME_USE.SidTypeUnknown);
 		}
 
 		var name = new char[nameLength];
 		var domain = new char[domainLength];
-		if (!PInvoke.LookupAccountSid(null!, sid, name, ref nameLength, domain, ref domainLength, out _))
+		if (!PInvoke.LookupAccountSid(null!, sid, name, ref nameLength, domain, ref domainLength, out type))
 		{
-			return fallback;
+			return (fallback, SID_NAME_USE.SidTypeUnknown);
 		}
 
 		var accountName = ReadNullTerminated(name);
 		var domainName = ReadNullTerminated(domain);
 
-		return string.IsNullOrEmpty(domainName) ? accountName : $"{domainName}\\{accountName}";
+		return (string.IsNullOrEmpty(domainName) ? accountName : $"{domainName}\\{accountName}", type);
 	}
 
 	private static WindowsShellFolderCustomizationProperties? TryReadFolderCustomization(IShellItem shellItem, string path)
@@ -325,22 +520,60 @@ internal static unsafe class WindowsShellPropertySheetReader
 				pszLogo = new PWSTR(picturePointer),
 				cchLogo = checked((uint)pictureBuffer.Length),
 			};
-			if (PInvoke.SHGetSetFolderCustomSettings(ref settings, path, PInvoke.FCS_READ).Failed)
-			{
-				return null;
-			}
+			var hasCustomSettings = PInvoke.SHGetSetFolderCustomSettings(ref settings, path, PInvoke.FCS_READ).Succeeded;
+			var folderKind = WindowsShellFolderCustomizationService.ReadFolderKind(path, ReadShellString(shellItem, "System.FolderKind") ?? string.Empty);
+			var root = Path.GetPathRoot(path);
+			var isUncShareRoot = path.StartsWith(@"\\", StringComparison.Ordinal) && root is not null
+				&& Path.TrimEndingDirectorySeparator(path).Equals(Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase);
+			var applyToSubfolders = WindowsShellFolderCustomizationService.IsFolderKindInherited(path, folderKind);
 
-			var folderKind = ReadShellString(shellItem, "System.FolderKind") ?? string.Empty;
-
-			return new(folderKind, ReadNullTerminated(pictureBuffer), ReadNullTerminated(iconBuffer), settings.iIconIndex);
+			return new(path, folderKind, hasCustomSettings ? ReadNullTerminated(pictureBuffer) : string.Empty, hasCustomSettings ? ReadNullTerminated(iconBuffer) : string.Empty,
+				hasCustomSettings ? settings.iIconIndex : 0, !isUncShareRoot, Directory.Exists(path), applyToSubfolders);
 		}
 	}
 
 	private static IReadOnlyList<WindowsShellPreviousVersion> ReadPreviousVersions(string path)
 	{
+		var snapshotPath = path;
+		var snapshotNames = ReadSnapshotNames(snapshotPath);
+		if (snapshotNames.Count is 0 && TryGetAdministrativeSharePath(path, out var administrativePath))
+		{
+			snapshotPath = administrativePath;
+			snapshotNames = ReadSnapshotNames(snapshotPath);
+		}
+
+		if (snapshotNames.Count is 0)
+		{
+			return [];
+		}
+
+		var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+		if (string.IsNullOrEmpty(name))
+		{
+			name = path;
+		}
+
+		var versions = new List<WindowsShellPreviousVersion>(snapshotNames.Count);
+		foreach (var snapshotName in snapshotNames)
+		{
+			if (DateTimeOffset.TryParseExact(snapshotName, SnapshotNameFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp))
+			{
+				var sourcePath = BuildSnapshotItemPath(snapshotPath, snapshotName);
+				if (File.Exists(sourcePath) || Directory.Exists(sourcePath))
+				{
+					versions.Add(new(name, sourcePath, timestamp.ToLocalTime()));
+				}
+			}
+		}
+
+		return versions.OrderByDescending(static version => version.DateModified).ToArray();
+	}
+
+	private static IReadOnlyList<string> ReadSnapshotNames(string path)
+	{
 		using var file = PInvoke.CreateFile(
 			path,
-			(uint)FILE_ACCESS_RIGHTS.FILE_LIST_DIRECTORY,
+			(uint)FILE_ACCESS_RIGHTS.FILE_READ_DATA,
 			FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE,
 			null,
 			FILE_CREATION_DISPOSITION.OPEN_EXISTING,
@@ -352,46 +585,92 @@ internal static unsafe class WindowsShellPropertySheetReader
 		}
 
 		Span<byte> header = stackalloc byte[16];
-		var initialResult = PInvoke.DeviceIoControl(file, SnapshotControlCode, [], header, out _, null);
-		var initialError = initialResult ? WIN32_ERROR.ERROR_SUCCESS : (WIN32_ERROR)Marshal.GetLastPInvokeError();
-		if (!initialResult && initialError is not WIN32_ERROR.ERROR_INSUFFICIENT_BUFFER and not WIN32_ERROR.ERROR_MORE_DATA)
+		if (IssueSnapshotControl(file, header) is not 0)
 		{
 			return [];
 		}
 
-		var count = BinaryPrimitives.ReadUInt32LittleEndian(header);
+		var snapshotCount = BinaryPrimitives.ReadUInt32LittleEndian(header);
 		var payloadSize = BinaryPrimitives.ReadUInt32LittleEndian(header[8..]);
-		if (count is 0 || payloadSize < (ulong)count * SnapshotNameSize || payloadSize > int.MaxValue - SnapshotHeaderSize)
+		if (snapshotCount is 0 || payloadSize is 0 || payloadSize > int.MaxValue - SnapshotHeaderSize)
 		{
 			return [];
 		}
 
 		var output = new byte[checked((int)payloadSize + SnapshotHeaderSize)];
-		if (!PInvoke.DeviceIoControl(file, SnapshotControlCode, [], output, out _, null))
+		if (IssueSnapshotControl(file, output) is not 0)
 		{
 			return [];
 		}
 
-		count = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output), count);
-		var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-		var versions = new List<WindowsShellPreviousVersion>(checked((int)count));
-		var names = output.AsSpan(SnapshotHeaderSize);
-		for (var index = 0u; index < count; index++)
+		var returnedCount = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint))), snapshotCount);
+		var returnedSize = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint) * 2)), payloadSize);
+		var characters = MemoryMarshal.Cast<byte, char>(output.AsSpan(SnapshotHeaderSize, checked((int)returnedSize)));
+		var names = new List<string>(checked((int)returnedCount));
+		while (names.Count < returnedCount && !characters.IsEmpty)
 		{
-			var offset = checked((int)index * SnapshotNameSize);
-			if (offset + SnapshotNameSize > names.Length)
+			var terminator = characters.IndexOf('\0');
+			if (terminator <= 0)
 			{
 				break;
 			}
 
-			var snapshotName = ReadNullTerminated(MemoryMarshal.Cast<byte, char>(names.Slice(offset, SnapshotNameSize)));
-			if (DateTimeOffset.TryParseExact(snapshotName, SnapshotNameFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp))
-			{
-				versions.Add(new(name, snapshotName, timestamp.ToLocalTime()));
-			}
+			names.Add(new(characters[..terminator]));
+			characters = characters[(terminator + 1)..];
 		}
 
-		return versions.OrderByDescending(static version => version.DateModified).ToArray();
+		return names;
+	}
+
+	private static int IssueSnapshotControl(SafeHandle file, Span<byte> output)
+	{
+		using var completedEvent = PInvoke.CreateEvent(null, true, false, null);
+		if (completedEvent.IsInvalid)
+		{
+			return Marshal.GetLastPInvokeError();
+		}
+
+		var ioStatus = new IO_STATUS_BLOCK();
+		fixed (byte* outputPointer = output)
+		{
+			var status = PInvoke.NtFsControlFile(file, completedEvent, 0, 0, &ioStatus, SnapshotControlCode, null, 0, outputPointer, checked((uint)output.Length));
+			if (status is StatusPending)
+			{
+				PInvoke.WaitForSingleObjectEx(completedEvent, uint.MaxValue, false);
+				status = ioStatus.Status.Value;
+			}
+
+			return status;
+		}
+	}
+
+	private static bool TryGetAdministrativeSharePath(string path, out string administrativePath)
+	{
+		administrativePath = string.Empty;
+		var fullPath = Path.GetFullPath(path);
+		var root = Path.GetPathRoot(fullPath);
+		if (root is null || root.Length < 2 || root[1] is not ':')
+		{
+			return false;
+		}
+
+		var relativePath = fullPath[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		administrativePath = $"\\\\localhost\\{char.ToUpperInvariant(root[0])}$";
+		if (!string.IsNullOrEmpty(relativePath))
+		{
+			administrativePath = Path.Combine(administrativePath, relativePath);
+		}
+
+		return true;
+	}
+
+	private static string BuildSnapshotItemPath(string sourcePath, string snapshotName)
+	{
+		var root = Path.GetPathRoot(sourcePath) ?? string.Empty;
+		var relativePath = sourcePath[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		var snapshotRoot = Path.Combine(root, snapshotName);
+
+		return string.IsNullOrEmpty(relativePath) ? snapshotRoot : Path.Combine(snapshotRoot, relativePath);
 	}
 
 	private static IReadOnlyList<WindowsShellDigitalSignature> ReadEmbeddedSignatures(string path)
@@ -704,35 +983,31 @@ internal static unsafe class WindowsShellPropertySheetReader
 		return new string(value[..(terminator < 0 ? value.Length : terminator)]);
 	}
 
-	private static string NormalizePath(string path)
-	{
-		return string.IsNullOrWhiteSpace(path) ? string.Empty : Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-	}
-
-	private static bool IsPathWithin(string path, string root)
-	{
-		return !string.IsNullOrEmpty(root) && (path.Equals(root, StringComparison.OrdinalIgnoreCase) || path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
-	}
-
 	private sealed class SecurityPrincipalBuilder
 	{
 		internal string Name { get; }
 
 		internal string Sid { get; }
 
+		internal ReadOnlyMemory<byte> IconData { get; }
+
+		internal int IconIndex { get; }
+
 		internal uint AllowedAccessMask { get; set; }
 
 		internal uint DeniedAccessMask { get; set; }
 
-		internal SecurityPrincipalBuilder(string name, string sid)
+		internal SecurityPrincipalBuilder(string name, string sid, ReadOnlyMemory<byte> iconData, int iconIndex)
 		{
 			Name = name;
 			Sid = sid;
+			IconData = iconData;
+			IconIndex = iconIndex;
 		}
 
 		internal WindowsShellSecurityPrincipal Create()
 		{
-			return new(Name, Sid, AllowedAccessMask, DeniedAccessMask);
+			return new(Name, Sid, IconData, IconIndex, AllowedAccessMask, DeniedAccessMask);
 		}
 	}
 }

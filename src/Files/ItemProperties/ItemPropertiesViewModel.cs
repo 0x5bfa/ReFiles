@@ -11,11 +11,14 @@ using Files.Localization;
 using Files.ViewModels;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Win32;
+using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
 
 internal sealed class ItemPropertiesViewModel : ObservableObject
 {
+	private const uint DriveCdRom = 5;
+	private const uint FileReadOnlyVolume = 0x00080000;
 	private const string FileDescriptionPropertyId = "System.FileDescription";
 	private readonly IReadOnlyList<BrowseItemViewModel> _items;
 	private readonly List<string> _fileSystemPaths;
@@ -23,6 +26,11 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	private bool? _initialIsReadOnly;
 	private bool? _initialIsHidden;
 	private bool? _initialIsArchive;
+	private bool? _initialIsIndexed;
+	private bool? _initialIsCompressed;
+	private bool? _initialIsEncrypted;
+	private bool _initialIsDriveCompressed;
+	private bool _initialIsDriveIndexed;
 	private string _originalName;
 	private string _name;
 	private string _windowTitle;
@@ -37,13 +45,25 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	private string _usedSpace;
 	private string _freeSpace;
 	private string _capacity;
+	private double _usedPercentage;
+	private bool _isDriveCompressed;
+	private bool _isDriveIndexed;
 	private bool? _isReadOnly;
 	private bool? _isHidden;
 	private bool? _isArchive;
+	private bool? _isIndexed;
+	private bool? _isCompressed;
+	private bool? _isEncrypted;
 	private bool _applyToContents;
+	private bool _supportsCompression;
+	private bool _supportsEncryption;
+	private bool _supportsDriveIndexing;
+	private bool _supportsDriveStorageDetails;
+	private bool _canRenameDrive;
 	private bool _isLoading;
 	private bool _isDrive;
 	private bool _isInitialized;
+	private bool _hasPropertyPageChanges;
 	private BitmapImage? _icon;
 
 	public string WindowTitle
@@ -87,6 +107,10 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	}
 
 	public bool HasIcon => Icon is not null;
+
+	internal string? PrimaryPath => _fileSystemPaths.Count is 1 ? _fileSystemPaths[0] : null;
+
+	internal bool RequiresAttributeScopeSelection => HasFolders && (CanEditAttributes && HasPendingFileAttributeChanges || IsDrive && HasPendingDriveAttributeChanges);
 
 	public string Size
 	{
@@ -148,6 +172,36 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		private set => SetProperty(ref _capacity, value);
 	}
 
+	public double UsedPercentage
+	{
+		get => _usedPercentage;
+		private set => SetProperty(ref _usedPercentage, value);
+	}
+
+	public bool IsDriveCompressed
+	{
+		get => _isDriveCompressed;
+		set
+		{
+			if (SetProperty(ref _isDriveCompressed, value))
+			{
+				OnPropertyChanged(nameof(HasChanges));
+			}
+		}
+	}
+
+	public bool IsDriveIndexed
+	{
+		get => _isDriveIndexed;
+		set
+		{
+			if (SetProperty(ref _isDriveIndexed, value))
+			{
+				OnPropertyChanged(nameof(HasChanges));
+			}
+		}
+	}
+
 	public bool? IsReadOnly
 	{
 		get => _isReadOnly;
@@ -184,6 +238,42 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		}
 	}
 
+	public bool? IsIndexed
+	{
+		get => _isIndexed;
+		set
+		{
+			if (SetProperty(ref _isIndexed, value))
+			{
+				OnPropertyChanged(nameof(HasChanges));
+			}
+		}
+	}
+
+	public bool? IsCompressed
+	{
+		get => _isCompressed;
+		set
+		{
+			if (SetProperty(ref _isCompressed, value))
+			{
+				OnPropertyChanged(nameof(HasChanges));
+			}
+		}
+	}
+
+	public bool? IsEncrypted
+	{
+		get => _isEncrypted;
+		set
+		{
+			if (SetProperty(ref _isEncrypted, value))
+			{
+				OnPropertyChanged(nameof(HasChanges));
+			}
+		}
+	}
+
 	public bool ApplyToContents
 	{
 		get => _applyToContents;
@@ -202,14 +292,47 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		private set => SetProperty(ref _isDrive, value);
 	}
 
-	public bool CanRename => _items.Count is 1 && _fileSystemPaths.Count is 1 && !_isDrive;
+	public bool SupportsCompression
+	{
+		get => _supportsCompression;
+		private set => SetProperty(ref _supportsCompression, value);
+	}
+
+	public bool SupportsEncryption
+	{
+		get => _supportsEncryption;
+		private set => SetProperty(ref _supportsEncryption, value);
+	}
+
+	public bool CanRename => _items.Count is 1 && _fileSystemPaths.Count is 1 && (!_isDrive || _canRenameDrive);
 
 	public bool CanEditAttributes => _fileSystemPaths.Count == _items.Count && !_isDrive;
 
+	public bool ShowDriveCompression => _isDrive && SupportsCompression;
+
+	public bool ShowDriveIndexing => _isDrive && _supportsDriveIndexing;
+
+	public bool ShowDriveStorageDetails => _isDrive && _supportsDriveStorageDetails;
+
+	public bool CanEditDriveCompression => ShowDriveCompression && _canRenameDrive;
+
+	public bool CanEditDriveIndexing => ShowDriveIndexing && _canRenameDrive;
+
 	public bool HasFolders => _fileSystemPaths.Any(Directory.Exists);
 
-	public bool HasChanges => CanEditAttributes
-		&& (!StringComparer.Ordinal.Equals(Name, _originalName) || IsReadOnly != _initialIsReadOnly || IsHidden != _initialIsHidden || IsArchive != _initialIsArchive);
+	public bool IsSingleFile => _fileSystemPaths.Count is 1 && File.Exists(_fileSystemPaths[0]);
+
+	public bool IsSingleFolder => _fileSystemPaths.Count is 1 && Directory.Exists(_fileSystemPaths[0]) && !_isDrive;
+
+	public bool HasChanges => HasGeneralChanges || _hasPropertyPageChanges;
+
+	private bool HasGeneralChanges => CanRename && !StringComparer.Ordinal.Equals(Name, _originalName)
+		|| CanEditAttributes && HasPendingFileAttributeChanges || IsDrive && HasPendingDriveAttributeChanges;
+
+	private bool HasPendingDriveAttributeChanges => IsDriveCompressed != _initialIsDriveCompressed || IsDriveIndexed != _initialIsDriveIndexed;
+
+	private bool HasPendingFileAttributeChanges => IsReadOnly != _initialIsReadOnly || IsHidden != _initialIsHidden || IsArchive != _initialIsArchive
+		|| IsIndexed != _initialIsIndexed || IsCompressed != _initialIsCompressed || IsEncrypted != _initialIsEncrypted;
 
 	public string GeneralLabel { get; } = Strings.General.GetLocalized();
 
@@ -237,13 +360,11 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public string AttributesLabel { get; } = FormatPropertyLabel(Strings.Attributes.GetLocalized());
 
-	public string ReadOnlyLabel { get; } = Strings.ReadOnly.GetLocalized();
+	public string ReadOnlyLabel => IsSingleFolder ? Strings.ReadOnlyFolder.GetLocalized() : Strings.ReadOnly.GetLocalized();
 
 	public string HiddenLabel { get; } = Strings.Hidden.GetLocalized();
 
 	public string ArchiveLabel { get; } = Strings.Archive.GetLocalized();
-
-	public string ApplyToContentsLabel { get; } = Strings.ApplyAttributesToContents.GetLocalized();
 
 	public string AdvancedLabel { get; } = Strings.Advanced.GetLocalized();
 
@@ -256,6 +377,10 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	public string FreeSpaceLabel { get; } = FormatPropertyLabel(Strings.FreeSpace.GetLocalized());
 
 	public string CapacityLabel { get; } = FormatPropertyLabel(Strings.Capacity.GetLocalized());
+
+	public string CompressDriveLabel { get; } = Strings.CompressDrive.GetLocalized();
+
+	public string AllowDriveIndexingLabel { get; } = Strings.AllowDriveIndexing.GetLocalized();
 
 	public string OkLabel { get; } = Strings.Ok.GetLocalized();
 
@@ -295,13 +420,26 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		_usedSpace = unspecified;
 		_freeSpace = unspecified;
 		_capacity = unspecified;
-		_initialIsReadOnly = GetCommonAttributeState(_fileSystemPaths, FileAttributes.ReadOnly);
+		_usedPercentage = 0;
+		_isDriveCompressed = false;
+		_isDriveIndexed = false;
+		_isDrive = IsDriveRoot(_fileSystemPaths);
+		_initialIsReadOnly = HasFolders ? null : GetCommonAttributeState(_fileSystemPaths, FileAttributes.ReadOnly);
 		_initialIsHidden = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Hidden);
 		_initialIsArchive = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Archive);
+		_initialIsIndexed = Invert(GetCommonAttributeState(_fileSystemPaths, FileAttributes.NotContentIndexed));
+		_initialIsCompressed = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Compressed);
+		_initialIsEncrypted = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Encrypted);
 		_isReadOnly = _initialIsReadOnly;
 		_isHidden = _initialIsHidden;
 		_isArchive = _initialIsArchive;
-		_isDrive = IsDriveRoot(_fileSystemPaths);
+		_isIndexed = _initialIsIndexed;
+		_isCompressed = _initialIsCompressed;
+		_isEncrypted = _initialIsEncrypted;
+		var capabilities = GetCommonAttributeCapabilities(_fileSystemPaths);
+		_supportsCompression = capabilities.SupportsCompression;
+		_supportsEncryption = capabilities.SupportsEncryption;
+		_canRenameDrive = !_isDrive;
 		Details = new(BuildDetails(items));
 	}
 
@@ -326,10 +464,34 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 			if (metadata.Drive is { } drive)
 			{
 				IsDrive = true;
+				if (StringComparer.Ordinal.Equals(Name, _originalName))
+				{
+					Name = drive.VolumeLabel;
+					_originalName = Name;
+				}
+
+				var driveDisplayName = WindowsVolumeLabelService.GetDisplayName(_fileSystemPaths[0]);
+				WindowTitle = string.Format(CultureInfo.CurrentCulture, Strings.PropertiesTitleFormat.GetLocalized(), driveDisplayName);
 				FileSystem = drive.FileSystem;
 				UsedSpace = FormatSize(drive.UsedSpace);
 				FreeSpace = FormatSize(drive.FreeSpace);
 				Capacity = FormatSize(drive.Capacity);
+				UsedPercentage = drive.Capacity is 0 ? 0 : drive.UsedSpace * 100d / drive.Capacity;
+				IsDriveCompressed = drive.IsCompressed;
+				IsDriveIndexed = drive.IsIndexed;
+				_initialIsDriveCompressed = drive.IsCompressed;
+				_initialIsDriveIndexed = drive.IsIndexed;
+				SupportsCompression = drive.SupportsCompression;
+				_supportsDriveIndexing = drive.SupportsIndexing;
+				_supportsDriveStorageDetails = drive.SupportsStorageDetails;
+				_canRenameDrive = drive.CanRename;
+				OnPropertyChanged(nameof(CanRename));
+				OnPropertyChanged(nameof(ShowDriveCompression));
+				OnPropertyChanged(nameof(ShowDriveIndexing));
+				OnPropertyChanged(nameof(ShowDriveStorageDetails));
+				OnPropertyChanged(nameof(CanEditDriveCompression));
+				OnPropertyChanged(nameof(CanEditDriveIndexing));
+				OnPropertyChanged(nameof(HasChanges));
 			}
 		}
 		finally
@@ -340,7 +502,12 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public async Task ApplyAsync(CancellationToken cancellationToken = default)
 	{
-		if (!HasChanges)
+		await ApplyAsync(default, cancellationToken);
+	}
+
+	internal async Task ApplyAsync(HWND owner, CancellationToken cancellationToken = default)
+	{
+		if (!HasGeneralChanges)
 		{
 			return;
 		}
@@ -350,13 +517,42 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		var requestedReadOnly = IsReadOnly;
 		var requestedHidden = IsHidden;
 		var requestedArchive = IsArchive;
+		var requestedIndexed = IsIndexed;
+		var requestedCompressed = IsCompressed;
+		var requestedEncrypted = IsEncrypted;
+		var updateCompression = IsCompressed is not null && IsCompressed != _initialIsCompressed;
+		var updateEncryption = IsEncrypted is not null && IsEncrypted != _initialIsEncrypted;
 		var applyToContents = ApplyToContents;
-		await Task.Run(() => ApplyChanges(requestedName, requestedReadOnly, requestedHidden, requestedArchive, applyToContents, cancellationToken), cancellationToken);
+		if (IsDrive && !StringComparer.Ordinal.Equals(requestedName, _originalName))
+		{
+			WindowsVolumeLabelService.SetLabel(owner, _fileSystemPaths[0], requestedName);
+		}
+
+		await Task.Run(
+			() => ApplyChanges(requestedName, requestedReadOnly, requestedHidden, requestedArchive, requestedIndexed, requestedCompressed, requestedEncrypted,
+				updateCompression, updateEncryption, applyToContents, cancellationToken), cancellationToken);
 		_originalName = Name;
 		_initialIsReadOnly = IsReadOnly;
 		_initialIsHidden = IsHidden;
 		_initialIsArchive = IsArchive;
-		WindowTitle = string.Format(CultureInfo.CurrentCulture, Strings.PropertiesTitleFormat.GetLocalized(), Name);
+		_initialIsIndexed = IsIndexed;
+		_initialIsCompressed = IsCompressed;
+		_initialIsEncrypted = IsEncrypted;
+		_initialIsDriveCompressed = IsDriveCompressed;
+		_initialIsDriveIndexed = IsDriveIndexed;
+		var titleName = IsDrive ? WindowsVolumeLabelService.GetDisplayName(_fileSystemPaths[0]) : Name;
+		WindowTitle = string.Format(CultureInfo.CurrentCulture, Strings.PropertiesTitleFormat.GetLocalized(), titleName);
+		OnPropertyChanged(nameof(HasChanges));
+	}
+
+	internal void SetPropertyPageChanges(bool hasChanges)
+	{
+		if (_hasPropertyPageChanges == hasChanges)
+		{
+			return;
+		}
+
+		_hasPropertyPageChanges = hasChanges;
 		OnPropertyChanged(nameof(HasChanges));
 	}
 
@@ -567,6 +763,25 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		return common;
 	}
 
+	private static WindowsFileAttributeCapabilities GetCommonAttributeCapabilities(IReadOnlyList<string> paths)
+	{
+		var supportsCompression = paths.Count is not 0;
+		var supportsEncryption = paths.Count is not 0;
+		foreach (var path in paths)
+		{
+			var capabilities = WindowsFileAttributeService.GetCapabilities(path);
+			supportsCompression &= capabilities.SupportsCompression;
+			supportsEncryption &= capabilities.SupportsEncryption;
+		}
+
+		return new(supportsCompression, supportsEncryption);
+	}
+
+	private static bool? Invert(bool? value)
+	{
+		return value is null ? null : !value.Value;
+	}
+
 	private static IReadOnlyList<ItemPropertyDetail> BuildDetails(IReadOnlyList<BrowseItemViewModel> items)
 	{
 		var propertyIds = items.SelectMany(static item => item.Properties.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
@@ -756,8 +971,23 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 			var capacity = checked((ulong)drive.TotalSize);
 			var freeSpace = checked((ulong)drive.TotalFreeSpace);
+			var attributes = File.GetAttributes(root);
+			PInvoke.GetVolumeInformation(root, [], out _, out _, out var fileSystemFlags, []);
+			var driveType = PInvoke.GetDriveType(root);
+			var isReadOnly = (fileSystemFlags & FileReadOnlyVolume) is not 0;
 
-			return new DriveMetadata(drive.DriveFormat, checked(capacity - freeSpace), freeSpace, capacity);
+			return new DriveMetadata(
+				drive.VolumeLabel,
+				drive.DriveFormat,
+				checked(capacity - freeSpace),
+				freeSpace,
+				capacity,
+				attributes.HasFlag(FileAttributes.Compressed),
+				!attributes.HasFlag(FileAttributes.NotContentIndexed),
+				(fileSystemFlags & PInvoke.FILE_FILE_COMPRESSION) is not 0 && !isReadOnly,
+				driveType is not DriveCdRom && !isReadOnly,
+				driveType is not DriveCdRom && !isReadOnly,
+				WindowsShellStorageSettingsService.SupportsDriveUsage(root));
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
@@ -796,25 +1026,68 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 			return;
 		}
 
+		if (IsDrive)
+		{
+			return;
+		}
+
 		if (string.IsNullOrWhiteSpace(Name) || Name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || !StringComparer.Ordinal.Equals(Path.GetFileName(Name), Name))
 		{
 			throw new ArgumentException(Strings.InvalidFileName.GetLocalized(), nameof(Name));
 		}
 	}
 
-	private void ApplyChanges(string requestedName, bool? requestedReadOnly, bool? requestedHidden, bool? requestedArchive, bool applyToContents, CancellationToken cancellationToken)
+	private void ApplyChanges(string requestedName, bool? requestedReadOnly, bool? requestedHidden, bool? requestedArchive, bool? requestedIndexed,
+		bool? requestedCompressed, bool? requestedEncrypted, bool updateCompression, bool updateEncryption, bool applyToContents, CancellationToken cancellationToken)
 	{
+		if (IsDrive)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			var rootPath = _fileSystemPaths[0];
+			if (IsDriveIndexed != _initialIsDriveIndexed)
+			{
+				ApplyAttributes(rootPath, null, null, null, IsDriveIndexed);
+			}
+
+			if (IsDriveCompressed != _initialIsDriveCompressed)
+			{
+				WindowsFileAttributeService.SetCompression(rootPath, IsDriveCompressed);
+			}
+
+			if (applyToContents)
+			{
+				var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
+				foreach (var entry in Directory.EnumerateFileSystemEntries(rootPath, "*", options))
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					if (IsDriveIndexed != _initialIsDriveIndexed)
+					{
+						ApplyAttributes(entry, null, null, null, IsDriveIndexed);
+					}
+
+					if (IsDriveCompressed != _initialIsDriveCompressed)
+					{
+						WindowsFileAttributeService.SetCompression(entry, IsDriveCompressed);
+					}
+				}
+			}
+
+			return;
+		}
+
 		foreach (var path in _fileSystemPaths)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			ApplyAttributes(path, requestedReadOnly, requestedHidden, requestedArchive);
+			ApplyAttributes(path, requestedReadOnly, requestedHidden, requestedArchive, requestedIndexed);
+			ApplyAdvancedAttributes(path, requestedCompressed, requestedEncrypted, updateCompression, updateEncryption);
 			if (applyToContents && Directory.Exists(path))
 			{
 				var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
 				foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", options))
 				{
 					cancellationToken.ThrowIfCancellationRequested();
-					ApplyAttributes(entry, requestedReadOnly, requestedHidden, requestedArchive);
+					ApplyAttributes(entry, requestedReadOnly, requestedHidden, requestedArchive, requestedIndexed);
+					ApplyAdvancedAttributes(entry, requestedCompressed, requestedEncrypted, updateCompression, updateEncryption);
 				}
 			}
 		}
@@ -837,12 +1110,36 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		}
 	}
 
-	private static void ApplyAttributes(string path, bool? readOnly, bool? hidden, bool? archive)
+	private static void ApplyAdvancedAttributes(string path, bool? compressed, bool? encrypted, bool updateCompression, bool updateEncryption)
+	{
+		if (updateCompression && compressed is false)
+		{
+			WindowsFileAttributeService.SetCompression(path, false);
+		}
+
+		if (updateEncryption && encrypted is false)
+		{
+			WindowsFileAttributeService.SetEncryption(path, false);
+		}
+
+		if (updateCompression && compressed is true)
+		{
+			WindowsFileAttributeService.SetCompression(path, true);
+		}
+
+		if (updateEncryption && encrypted is true)
+		{
+			WindowsFileAttributeService.SetEncryption(path, true);
+		}
+	}
+
+	private static void ApplyAttributes(string path, bool? readOnly, bool? hidden, bool? archive, bool? indexed)
 	{
 		var attributes = File.GetAttributes(path);
 		attributes = SetAttribute(attributes, FileAttributes.ReadOnly, readOnly);
 		attributes = SetAttribute(attributes, FileAttributes.Hidden, hidden);
 		attributes = SetAttribute(attributes, FileAttributes.Archive, archive);
+		attributes = SetAttribute(attributes, FileAttributes.NotContentIndexed, Invert(indexed));
 		File.SetAttributes(path, attributes);
 	}
 
@@ -860,7 +1157,8 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		ulong Size, ulong SizeOnDisk, int FileCount, int FolderCount, bool HasDirectory, IReadOnlyList<DateTime> CreationTimes, IReadOnlyList<DateTime> ModifiedTimes,
 		IReadOnlyList<DateTime> AccessedTimes, DriveMetadata? Drive);
 
-	private sealed record DriveMetadata(string FileSystem, ulong UsedSpace, ulong FreeSpace, ulong Capacity);
+	private sealed record DriveMetadata(string VolumeLabel, string FileSystem, ulong UsedSpace, ulong FreeSpace, ulong Capacity, bool IsCompressed, bool IsIndexed,
+		bool SupportsCompression, bool SupportsIndexing, bool CanRename, bool SupportsStorageDetails);
 }
 
 internal sealed record ItemPropertyDetail(string Name, string Value);

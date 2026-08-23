@@ -1,0 +1,78 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.ItemProperties.QuotaPropertyView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.ItemProperties">
+	<ScrollViewer Padding="14,12,14,8">
+		<Grid>
+			<StackPanel Spacing="14" Visibility="{x:Bind ElevationVisibility}">
+				<TextBlock Text="{x:Bind ElevationDescription}" TextWrapping="Wrap" />
+				<Button
+					HorizontalAlignment="Left"
+					Click="ShowQuotaSettings_Click">
+					<StackPanel Orientation="Horizontal" Spacing="6">
+						<local:ElevationShieldIcon />
+						<TextBlock Text="{x:Bind ShowQuotaSettingsLabel}" />
+					</StackPanel>
+				</Button>
+			</StackPanel>
+			<StackPanel Spacing="14" Visibility="{x:Bind SettingsVisibility}">
+				<Border
+					Padding="10"
+					BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+					BorderThickness="1">
+					<StackPanel Spacing="10">
+						<TextBlock FontWeight="SemiBold" Text="{x:Bind QuotaManagementLabel}" />
+						<TextBlock Text="{x:Bind QuotaManagementDescription}" TextWrapping="Wrap" />
+						<CheckBox
+							Content="{x:Bind EnableQuotaManagementLabel}"
+							IsChecked="{x:Bind Quota.IsTrackingEnabled}"
+							IsEnabled="False" />
+						<CheckBox
+							Content="{x:Bind DenyDiskSpaceLabel}"
+							IsChecked="{x:Bind Quota.IsLimitEnforced}"
+							IsEnabled="False" />
+						<Grid ColumnSpacing="12" RowSpacing="8">
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="160" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+							</Grid.RowDefinitions>
+							<TextBlock Text="{x:Bind LimitDiskSpaceLabel}" />
+							<TextBlock Grid.Column="1" Text="{x:Bind DefaultLimit}" />
+							<TextBlock Grid.Row="1" Text="{x:Bind WarningLevelLabel}" />
+							<TextBlock
+								Grid.Row="1"
+								Grid.Column="1"
+								Text="{x:Bind DefaultThreshold}" />
+						</Grid>
+					</StackPanel>
+				</Border>
+				<Border
+					Padding="10"
+					BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+					BorderThickness="1">
+					<StackPanel Spacing="8">
+						<TextBlock FontWeight="SemiBold" Text="{x:Bind QuotaLoggingLabel}" />
+						<CheckBox
+							Content="{x:Bind LogLimitEventLabel}"
+							IsChecked="{x:Bind Quota.LogsLimitEvents}"
+							IsEnabled="False" />
+						<CheckBox
+							Content="{x:Bind LogWarningEventLabel}"
+							IsChecked="{x:Bind Quota.LogsWarningEvents}"
+							IsEnabled="False" />
+					</StackPanel>
+				</Border>
+				<Button
+					HorizontalAlignment="Left"
+					Click="ShowQuotaSettings_Click"
+					Content="{x:Bind QuotaEntriesLabel}" />
+			</StackPanel>
+		</Grid>
+	</ScrollViewer>
+</UserControl>

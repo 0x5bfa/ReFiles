@@ -153,6 +153,34 @@ internal static unsafe class WindowsThumbnailRenderer
 		return true;
 	}
 
+	internal static bool TryCropEncodedImage(ReadOnlyMemory<byte> image, int x, int y, int width, int height, out byte[] croppedImage, CancellationToken cancellationToken)
+	{
+		croppedImage = [];
+		if (!TryDecodePng(image, out var source, out var sourceWidth, out var sourceHeight, cancellationToken)
+			|| x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > sourceWidth || y + height > sourceHeight)
+		{
+			return false;
+		}
+
+		var cropped = GC.AllocateUninitializedArray<byte>(checked(width * height * 4));
+		for (var row = 0; row < height; row++)
+		{
+			var sourceOffset = checked(((y + row) * sourceWidth + x) * 4);
+			var destinationOffset = checked(row * width * 4);
+			Buffer.BlockCopy(source, sourceOffset, cropped, destinationOffset, checked(width * 4));
+		}
+
+		var encoded = EncodeBgra(cropped, width, height, cancellationToken);
+		if (encoded is null)
+		{
+			return false;
+		}
+
+		croppedImage = encoded;
+
+		return true;
+	}
+
 	private static byte[]? EncodeBgra(byte[] bgra, int width, int height, CancellationToken cancellationToken)
 	{
 		if (width <= 0 || height <= 0 || width > MaximumRenderSize || height > MaximumRenderSize || bgra.Length != checked(width * height * 4))
@@ -452,16 +480,25 @@ internal static unsafe class WindowsThumbnailRenderer
 
 	private static void SetRenderedAlpha(byte[] bgra)
 	{
+		var hasSourceAlpha = false;
+		for (var offset = 3; offset < bgra.Length; offset += 4)
+		{
+			if (bgra[offset] is not 0)
+			{
+				hasSourceAlpha = true;
+
+				break;
+			}
+		}
+
 		for (var offset = 0; offset < bgra.Length; offset += 4)
 		{
-			var wasDrawn = bgra[offset] != SentinelBlue
-				|| bgra[offset + 1] != SentinelGreen
-				|| bgra[offset + 2] != SentinelRed;
-			if (wasDrawn)
+			var wasDrawn = bgra[offset] != SentinelBlue || bgra[offset + 1] != SentinelGreen || bgra[offset + 2] != SentinelRed;
+			if (wasDrawn && !hasSourceAlpha)
 			{
 				bgra[offset + 3] = 255;
 			}
-			else
+			else if (!wasDrawn)
 			{
 				bgra[offset] = 0;
 				bgra[offset + 1] = 0;

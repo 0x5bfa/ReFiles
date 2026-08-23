@@ -1,0 +1,125 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.ItemProperties.DigitalSignaturesPropertyView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.ItemProperties">
+	<ScrollViewer Padding="14,12,14,8">
+		<StackPanel Spacing="14">
+			<Border
+				Padding="10"
+				BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+				BorderThickness="1">
+				<StackPanel Spacing="8">
+					<TextBlock FontWeight="SemiBold" Text="{x:Bind EmbeddedSignaturesLabel}" />
+					<Grid ColumnSpacing="12">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="2*" />
+							<ColumnDefinition Width="*" />
+							<ColumnDefinition Width="*" />
+						</Grid.ColumnDefinitions>
+						<TextBlock FontWeight="SemiBold" Text="{x:Bind SignerNameLabel}" />
+						<TextBlock
+							Grid.Column="1"
+							FontWeight="SemiBold"
+							Text="{x:Bind DigestAlgorithmLabel}" />
+						<TextBlock
+							Grid.Column="2"
+							FontWeight="SemiBold"
+							Text="{x:Bind TimestampLabel}" />
+					</Grid>
+					<ListView
+						Height="120"
+						ItemsSource="{x:Bind EmbeddedSignatures}"
+						SelectionMode="Single">
+						<ListView.ItemTemplate>
+							<DataTemplate x:DataType="local:SignatureDisplayRow">
+								<Grid ColumnSpacing="12">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="2*" />
+										<ColumnDefinition Width="*" />
+										<ColumnDefinition Width="*" />
+									</Grid.ColumnDefinitions>
+									<TextBlock Text="{x:Bind Signer}" TextTrimming="CharacterEllipsis" />
+									<TextBlock
+										Grid.Column="1"
+										Text="{x:Bind DigestAlgorithm}"
+										TextTrimming="CharacterEllipsis" />
+									<TextBlock
+										Grid.Column="2"
+										Text="{x:Bind ThirdColumn}"
+										TextTrimming="CharacterEllipsis" />
+								</Grid>
+							</DataTemplate>
+						</ListView.ItemTemplate>
+					</ListView>
+					<TextBlock
+						HorizontalAlignment="Center"
+						Text="{x:Bind EmbeddedEmptyLabel}"
+						Visibility="{x:Bind EmbeddedEmptyVisibility}" />
+					<Button
+						HorizontalAlignment="Right"
+						Content="{x:Bind DetailsLabel}"
+						IsEnabled="False" />
+				</StackPanel>
+			</Border>
+			<Border
+				Padding="10"
+				BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+				BorderThickness="1">
+				<StackPanel Spacing="8">
+					<TextBlock FontWeight="SemiBold" Text="{x:Bind CatalogSignaturesLabel}" />
+					<Grid ColumnSpacing="12">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="2*" />
+							<ColumnDefinition Width="*" />
+							<ColumnDefinition Width="*" />
+						</Grid.ColumnDefinitions>
+						<TextBlock FontWeight="SemiBold" Text="{x:Bind SignerNameLabel}" />
+						<TextBlock
+							Grid.Column="1"
+							FontWeight="SemiBold"
+							Text="{x:Bind DigestAlgorithmLabel}" />
+						<TextBlock
+							Grid.Column="2"
+							FontWeight="SemiBold"
+							Text="{x:Bind CatalogNameLabel}" />
+					</Grid>
+					<ListView
+						Height="120"
+						ItemsSource="{x:Bind CatalogSignatures}"
+						SelectionMode="Single">
+						<ListView.ItemTemplate>
+							<DataTemplate x:DataType="local:SignatureDisplayRow">
+								<Grid ColumnSpacing="12">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="2*" />
+										<ColumnDefinition Width="*" />
+										<ColumnDefinition Width="*" />
+									</Grid.ColumnDefinitions>
+									<TextBlock Text="{x:Bind Signer}" TextTrimming="CharacterEllipsis" />
+									<TextBlock
+										Grid.Column="1"
+										Text="{x:Bind DigestAlgorithm}"
+										TextTrimming="CharacterEllipsis" />
+									<TextBlock
+										Grid.Column="2"
+										Text="{x:Bind ThirdColumn}"
+										TextTrimming="CharacterEllipsis" />
+								</Grid>
+							</DataTemplate>
+						</ListView.ItemTemplate>
+					</ListView>
+					<TextBlock
+						HorizontalAlignment="Center"
+						Text="{x:Bind CatalogEmptyLabel}"
+						Visibility="{x:Bind CatalogEmptyVisibility}" />
+					<Button
+						HorizontalAlignment="Right"
+						Content="{x:Bind DetailsLabel}"
+						IsEnabled="False" />
+				</StackPanel>
+			</Border>
+		</StackPanel>
+	</ScrollViewer>
+</UserControl>

@@ -1,0 +1,82 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<ContentDialog
+	x:Class="Files.ItemProperties.AdvancedAttributesDialog"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="{x:Bind DialogTitle}"
+	CloseButtonText="{x:Bind CancelLabel}"
+	DefaultButton="Primary"
+	PrimaryButtonText="{x:Bind OkLabel}"
+	Style="{StaticResource DefaultContentDialogStyle}">
+
+	<StackPanel MinWidth="410" Spacing="14">
+		<Grid ColumnSpacing="12">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="32" />
+				<ColumnDefinition Width="*" />
+			</Grid.ColumnDefinitions>
+			<Image
+				Width="32"
+				Height="32"
+				Source="{x:Bind ViewModel.Icon, Mode=OneWay}" />
+			<TextBlock
+				Grid.Column="1"
+				VerticalAlignment="Center"
+				Text="{x:Bind Description}"
+				TextWrapping="Wrap" />
+		</Grid>
+
+		<Border
+			Padding="12"
+			Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+			BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+			BorderThickness="1"
+			CornerRadius="{StaticResource OverlayCornerRadius}">
+			<StackPanel Spacing="8">
+				<TextBlock FontWeight="SemiBold" Text="{x:Bind ArchiveAndIndexSectionLabel}" />
+				<CheckBox
+					x:Name="ArchiveCheckBox"
+					Content="{x:Bind ArchiveLabel}"
+					IsThreeState="{x:Bind AllowMixedStates}" />
+				<CheckBox
+					x:Name="IndexCheckBox"
+					Content="{x:Bind IndexLabel}"
+					IsThreeState="{x:Bind AllowMixedStates}" />
+			</StackPanel>
+		</Border>
+
+		<Border
+			Padding="12"
+			Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+			BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+			BorderThickness="1"
+			CornerRadius="{StaticResource OverlayCornerRadius}">
+			<StackPanel Spacing="8">
+				<TextBlock FontWeight="SemiBold" Text="{x:Bind CompressOrEncryptSectionLabel}" />
+				<CheckBox
+					x:Name="CompressCheckBox"
+					Checked="CompressCheckBox_Checked"
+					Content="{x:Bind CompressLabel}"
+					IsEnabled="{x:Bind ViewModel.SupportsCompression}"
+					IsThreeState="{x:Bind AllowMixedStates}" />
+				<Grid ColumnSpacing="8">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="*" />
+						<ColumnDefinition Width="Auto" />
+					</Grid.ColumnDefinitions>
+					<CheckBox
+						x:Name="EncryptCheckBox"
+						Checked="EncryptCheckBox_Checked"
+						Content="{x:Bind EncryptLabel}"
+						IsEnabled="{x:Bind ViewModel.SupportsEncryption}"
+						IsThreeState="{x:Bind AllowMixedStates}" />
+					<Button
+						x:Name="DetailsButton"
+						Grid.Column="1"
+						Click="DetailsButton_Click"
+						Content="{x:Bind DetailsLabel}" />
+				</Grid>
+			</StackPanel>
+		</Border>
+	</StackPanel>
+</ContentDialog>

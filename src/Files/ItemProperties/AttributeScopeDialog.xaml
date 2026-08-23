@@ -1,0 +1,25 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<ContentDialog
+	x:Class="Files.ItemProperties.AttributeScopeDialog"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="{x:Bind DialogTitle}"
+	CloseButtonText="{x:Bind CancelLabel}"
+	DefaultButton="Primary"
+	PrimaryButtonText="{x:Bind OkLabel}"
+	Style="{StaticResource DefaultContentDialogStyle}">
+
+	<StackPanel MinWidth="410" Spacing="12">
+		<TextBlock Text="{x:Bind Intro}" TextWrapping="Wrap" />
+		<TextBlock Text="{x:Bind Question}" TextWrapping="Wrap" />
+		<RadioButton
+			x:Name="SelectedItemsOnlyRadioButton"
+			Content="{x:Bind SelectedItemsOnlyLabel}"
+			GroupName="AttributeScope"
+			IsChecked="True" />
+		<RadioButton
+			x:Name="IncludeContentsRadioButton"
+			Content="{x:Bind IncludeContentsLabel}"
+			GroupName="AttributeScope" />
+	</StackPanel>
+</ContentDialog>

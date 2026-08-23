@@ -1,0 +1,69 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.ItemProperties.PreviousVersionsPropertyView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.ItemProperties">
+
+	<ScrollViewer Padding="12,0,12,12">
+
+		<StackPanel Spacing="14">
+
+			<TextBlock Text="{x:Bind Description}" TextWrapping="Wrap" />
+
+			<StackPanel
+				Padding="12"
+				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+				BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+				BorderThickness="1"
+				CornerRadius="{StaticResource OverlayCornerRadius}"
+				Spacing="8">
+
+				<TextBlock FontWeight="SemiBold" Text="{x:Bind FolderVersionsLabel}" />
+
+				<Grid Height="260">
+					<ListView
+						x:Name="VersionList"
+						ItemsSource="{x:Bind Versions}"
+						SelectionChanged="VersionList_SelectionChanged"
+						SelectionMode="Single">
+						<ListView.ItemTemplate>
+							<DataTemplate x:DataType="local:PreviousVersionViewModel">
+								<Grid ColumnSpacing="16">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="20" />
+										<ColumnDefinition Width="*" />
+										<ColumnDefinition Width="160" />
+									</Grid.ColumnDefinitions>
+									<Image Width="20" Height="20" Source="{x:Bind Icon, Mode=OneWay}" />
+									<TextBlock Grid.Column="1" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+									<TextBlock Grid.Column="2" Text="{x:Bind DateModified}" />
+								</Grid>
+							</DataTemplate>
+						</ListView.ItemTemplate>
+					</ListView>
+					<TextBlock
+						HorizontalAlignment="Center"
+						VerticalAlignment="Center"
+						Text="{x:Bind NoVersionsLabel}"
+						Visibility="{x:Bind EmptyVisibility}" />
+				</Grid>
+			</StackPanel>
+
+			<StackPanel
+				HorizontalAlignment="Right"
+				Orientation="Horizontal"
+				Spacing="8">
+				<Button
+					x:Name="OpenButton"
+					Click="OpenButton_Click"
+					Content="{x:Bind OpenLabel}"
+					IsEnabled="False" />
+				<Button Content="{x:Bind RestoreLabel}" IsEnabled="False" />
+			</StackPanel>
+
+		</StackPanel>
+
+	</ScrollViewer>
+
+</UserControl>

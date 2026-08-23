@@ -1,0 +1,38 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.ItemProperties.DetailsPropertyView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.ItemProperties">
+	<ListView
+		Padding="0,8,8,8"
+		ItemsSource="{x:Bind ViewModel.Details}"
+		SelectionMode="None">
+		<ListView.ItemContainerStyle>
+			<Style TargetType="ListViewItem">
+				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+				<Setter Property="Padding" Value="8,6" />
+			</Style>
+		</ListView.ItemContainerStyle>
+		<ListView.ItemTemplate>
+			<DataTemplate x:DataType="local:ItemPropertyDetail">
+				<Grid ColumnSpacing="16">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="180" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<TextBlock
+						FontWeight="SemiBold"
+						Text="{x:Bind Name}"
+						TextWrapping="Wrap" />
+					<TextBlock
+						Grid.Column="1"
+						IsTextSelectionEnabled="True"
+						Text="{x:Bind Value}"
+						TextWrapping="Wrap" />
+				</Grid>
+			</DataTemplate>
+		</ListView.ItemTemplate>
+	</ListView>
+
+</UserControl>

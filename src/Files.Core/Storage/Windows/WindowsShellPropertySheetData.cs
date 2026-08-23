@@ -11,8 +11,17 @@ public enum WindowsShellPropertyPageKind
 	/// <summary>The common file-system information page.</summary>
 	General,
 
+	/// <summary>The drive error-checking and optimization page.</summary>
+	Tools,
+
+	/// <summary>The storage-device inventory page.</summary>
+	Hardware,
+
 	/// <summary>The Shell link configuration page.</summary>
 	Shortcut,
+
+	/// <summary>The application compatibility page.</summary>
+	Compatibility,
 
 	/// <summary>The SMB sharing page.</summary>
 	Sharing,
@@ -22,6 +31,9 @@ public enum WindowsShellPropertyPageKind
 
 	/// <summary>The File History and volume snapshot page.</summary>
 	PreviousVersions,
+
+	/// <summary>The NTFS disk-quota page.</summary>
+	Quota,
 
 	/// <summary>The folder customization page.</summary>
 	Customize,
@@ -41,8 +53,14 @@ public sealed class WindowsShellPropertySheetData
 	/// <summary>Gets the pages that apply to the selection in display order.</summary>
 	public IReadOnlyList<WindowsShellPropertyPage> Pages { get; }
 
+	/// <summary>Gets drive capabilities when the selected item is a volume root.</summary>
+	public WindowsShellDriveProperties? Drive { get; }
+
 	/// <summary>Gets Shell link data when the selected item is a shortcut.</summary>
 	public WindowsShellShortcutProperties? Shortcut { get; }
+
+	/// <summary>Gets application compatibility data when the selection resolves to an executable.</summary>
+	public WindowsShellCompatibilityProperties? Compatibility { get; }
 
 	/// <summary>Gets SMB sharing data when the selected item is a folder.</summary>
 	public WindowsShellSharingProperties? Sharing { get; }
@@ -52,6 +70,12 @@ public sealed class WindowsShellPropertySheetData
 
 	/// <summary>Gets the previous versions discovered for the selected item.</summary>
 	public IReadOnlyList<WindowsShellPreviousVersion> PreviousVersions { get; }
+
+	/// <summary>Gets the storage devices displayed by the drive Hardware page.</summary>
+	public IReadOnlyList<WindowsShellHardwareDevice> HardwareDevices { get; }
+
+	/// <summary>Gets NTFS disk-quota state when the selected volume supports quotas.</summary>
+	public WindowsShellQuotaProperties? Quota { get; }
 
 	/// <summary>Gets folder customization data when the selected item is a folder.</summary>
 	public WindowsShellFolderCustomizationProperties? Customization { get; }
@@ -67,24 +91,191 @@ public sealed class WindowsShellPropertySheetData
 
 	internal WindowsShellPropertySheetData(
 		IReadOnlyList<WindowsShellPropertyPage> pages,
+		WindowsShellDriveProperties? drive,
 		WindowsShellShortcutProperties? shortcut,
+		WindowsShellCompatibilityProperties? compatibility,
 		WindowsShellSharingProperties? sharing,
 		WindowsShellSecurityProperties? security,
 		IReadOnlyList<WindowsShellPreviousVersion> previousVersions,
+		IReadOnlyList<WindowsShellHardwareDevice> hardwareDevices,
+		WindowsShellQuotaProperties? quota,
 		WindowsShellFolderCustomizationProperties? customization,
 		IReadOnlyList<WindowsShellDigitalSignature> embeddedSignatures,
 		IReadOnlyList<WindowsShellDigitalSignature> catalogSignatures,
 		IReadOnlyList<WindowsShellPropertyValue> details)
 	{
 		Pages = pages;
+		Drive = drive;
 		Shortcut = shortcut;
+		Compatibility = compatibility;
 		Sharing = sharing;
 		Security = security;
 		PreviousVersions = previousVersions;
+		HardwareDevices = hardwareDevices;
+		Quota = quota;
 		Customization = customization;
 		EmbeddedSignatures = embeddedSignatures;
 		CatalogSignatures = catalogSignatures;
 		Details = details;
+	}
+}
+
+/// <summary>
+/// Contains the executable resolved for Explorer's application compatibility page.
+/// </summary>
+public sealed class WindowsShellCompatibilityProperties
+{
+	/// <summary>Gets the executable path whose compatibility settings are managed.</summary>
+	public string ExecutablePath { get; }
+
+	internal WindowsShellCompatibilityProperties(string executablePath)
+	{
+		ExecutablePath = executablePath;
+	}
+}
+
+/// <summary>
+/// Contains capabilities used by the drive General and Tools pages.
+/// </summary>
+public sealed class WindowsShellDriveProperties
+{
+	/// <summary>Gets the normalized volume-root path.</summary>
+	public string RootPath { get; }
+
+	/// <summary>Gets the value returned by <c>GetDriveTypeW</c>.</summary>
+	public uint DriveType { get; }
+
+	/// <summary>Gets the filesystem capability flags returned by <c>GetVolumeInformationW</c>.</summary>
+	public uint FileSystemFlags { get; }
+
+	/// <summary>Gets a value indicating whether Explorer exposes its error-checking command.</summary>
+	public bool SupportsErrorChecking { get; }
+
+	/// <summary>Gets a value indicating whether Explorer exposes its optimization command.</summary>
+	public bool SupportsOptimization { get; }
+
+	internal WindowsShellDriveProperties(string rootPath, uint driveType, uint fileSystemFlags, bool supportsErrorChecking, bool supportsOptimization)
+	{
+		RootPath = rootPath;
+		DriveType = driveType;
+		FileSystemFlags = fileSystemFlags;
+		SupportsErrorChecking = supportsErrorChecking;
+		SupportsOptimization = supportsOptimization;
+	}
+}
+
+/// <summary>
+/// Describes one device displayed by Explorer's drive Hardware page.
+/// </summary>
+public sealed class WindowsShellHardwareDevice
+{
+	/// <summary>Gets the PNG data for the device icon loaded by SetupAPI.</summary>
+	public ReadOnlyMemory<byte> IconData { get; }
+
+	/// <summary>Gets the device's display name.</summary>
+	public string Name { get; }
+
+	/// <summary>Gets the localized setup-class description.</summary>
+	public string Type { get; }
+
+	/// <summary>Gets the device manufacturer.</summary>
+	public string Manufacturer { get; }
+
+	/// <summary>Gets the device location description.</summary>
+	public string Location { get; }
+
+	/// <summary>Gets the device UI location number when one is assigned.</summary>
+	public uint? LocationNumber { get; }
+
+	/// <summary>Gets the provider-supplied format for the device UI location number.</summary>
+	public string LocationNumberFormat { get; }
+
+	/// <summary>Gets the Configuration Manager status flags.</summary>
+	public uint Status { get; }
+
+	/// <summary>Gets the Configuration Manager problem code.</summary>
+	public uint ProblemCode { get; }
+
+	/// <summary>Gets the stable device-instance identifier.</summary>
+	public string InstanceId { get; }
+
+	internal WindowsShellHardwareDevice(
+		ReadOnlyMemory<byte> iconData,
+		string name,
+		string type,
+		string manufacturer,
+		string location,
+		uint? locationNumber,
+		string locationNumberFormat,
+		uint status,
+		uint problemCode,
+		string instanceId)
+	{
+		IconData = iconData;
+		Name = name;
+		Type = type;
+		Manufacturer = manufacturer;
+		Location = location;
+		LocationNumber = locationNumber;
+		LocationNumberFormat = locationNumberFormat;
+		Status = status;
+		ProblemCode = problemCode;
+		InstanceId = instanceId;
+	}
+}
+
+/// <summary>
+/// Contains the default NTFS quota policy for a volume.
+/// </summary>
+public sealed class WindowsShellQuotaProperties
+{
+	/// <summary>Gets the volume root path.</summary>
+	public string RootPath { get; }
+
+	/// <summary>Gets the Shell display name for the volume.</summary>
+	public string DisplayName { get; }
+
+	/// <summary>Gets a value indicating whether reading quota policy requires elevation.</summary>
+	public bool RequiresElevation { get; }
+
+	/// <summary>Gets a value indicating whether quota tracking is enabled.</summary>
+	public bool IsTrackingEnabled { get; }
+
+	/// <summary>Gets a value indicating whether quota limits are enforced.</summary>
+	public bool IsLimitEnforced { get; }
+
+	/// <summary>Gets a value indicating whether limit events are logged.</summary>
+	public bool LogsLimitEvents { get; }
+
+	/// <summary>Gets a value indicating whether warning events are logged.</summary>
+	public bool LogsWarningEvents { get; }
+
+	/// <summary>Gets the default per-user quota limit in bytes, or -1 for no limit.</summary>
+	public long DefaultLimit { get; }
+
+	/// <summary>Gets the default per-user warning threshold in bytes, or -1 for no threshold.</summary>
+	public long DefaultThreshold { get; }
+
+	internal WindowsShellQuotaProperties(
+		string rootPath,
+		string displayName,
+		bool requiresElevation,
+		bool isTrackingEnabled,
+		bool isLimitEnforced,
+		bool logsLimitEvents,
+		bool logsWarningEvents,
+		long defaultLimit,
+		long defaultThreshold)
+	{
+		RootPath = rootPath;
+		DisplayName = displayName;
+		RequiresElevation = requiresElevation;
+		IsTrackingEnabled = isTrackingEnabled;
+		IsLimitEnforced = isLimitEnforced;
+		LogsLimitEvents = logsLimitEvents;
+		LogsWarningEvents = logsWarningEvents;
+		DefaultLimit = defaultLimit;
+		DefaultThreshold = defaultThreshold;
 	}
 }
 
@@ -153,6 +344,12 @@ public sealed class WindowsShellShortcutProperties
 /// </summary>
 public sealed class WindowsShellSharingProperties
 {
+	/// <summary>Gets the local folder path represented by the page.</summary>
+	public string ObjectPath { get; }
+
+	/// <summary>Gets the folder name displayed by the page.</summary>
+	public string DisplayName { get; }
+
 	/// <summary>Gets a value indicating whether the folder is inside an SMB share.</summary>
 	public bool IsShared { get; }
 
@@ -162,11 +359,21 @@ public sealed class WindowsShellSharingProperties
 	/// <summary>Gets the UNC path that addresses the selected folder.</summary>
 	public string NetworkPath { get; }
 
-	internal WindowsShellSharingProperties(bool isShared, string shareName, string networkPath)
+	/// <summary>Gets a value indicating whether password-protection guidance is applicable to this computer.</summary>
+	public bool ShowPasswordProtection { get; }
+
+	/// <summary>Gets a value indicating whether users must authenticate to access shared folders.</summary>
+	public bool IsPasswordProtectionEnabled { get; }
+
+	internal WindowsShellSharingProperties(string objectPath, string displayName, bool isShared, string shareName, string networkPath, bool showPasswordProtection, bool isPasswordProtectionEnabled)
 	{
+		ObjectPath = objectPath;
+		DisplayName = displayName;
 		IsShared = isShared;
 		ShareName = shareName;
 		NetworkPath = networkPath;
+		ShowPasswordProtection = showPasswordProtection;
+		IsPasswordProtectionEnabled = isPasswordProtectionEnabled;
 	}
 }
 
@@ -199,16 +406,24 @@ public sealed class WindowsShellSecurityPrincipal
 	/// <summary>Gets the account's string SID.</summary>
 	public string Sid { get; }
 
+	/// <summary>Gets the PNG data for the ACLUI principal icon.</summary>
+	public ReadOnlyMemory<byte> IconData { get; }
+
+	/// <summary>Gets the image index retained for compatibility with the ACLUI image-list source.</summary>
+	public int IconIndex { get; }
+
 	/// <summary>Gets the combined allowed access mask.</summary>
 	public uint AllowedAccessMask { get; }
 
 	/// <summary>Gets the combined denied access mask.</summary>
 	public uint DeniedAccessMask { get; }
 
-	internal WindowsShellSecurityPrincipal(string name, string sid, uint allowedAccessMask, uint deniedAccessMask)
+	internal WindowsShellSecurityPrincipal(string name, string sid, ReadOnlyMemory<byte> iconData, int iconIndex, uint allowedAccessMask, uint deniedAccessMask)
 	{
 		Name = name;
 		Sid = sid;
+		IconData = iconData;
+		IconIndex = iconIndex;
 		AllowedAccessMask = allowedAccessMask;
 		DeniedAccessMask = deniedAccessMask;
 	}
@@ -241,6 +456,9 @@ public sealed class WindowsShellPreviousVersion
 /// </summary>
 public sealed class WindowsShellFolderCustomizationProperties
 {
+	/// <summary>Gets the customized folder path.</summary>
+	public string ObjectPath { get; }
+
 	/// <summary>Gets the folder-kind canonical name.</summary>
 	public string FolderKind { get; }
 
@@ -253,12 +471,26 @@ public sealed class WindowsShellFolderCustomizationProperties
 	/// <summary>Gets the custom folder icon resource index.</summary>
 	public int IconIndex { get; }
 
-	internal WindowsShellFolderCustomizationProperties(string folderKind, string picturePath, string iconPath, int iconIndex)
+	/// <summary>Gets a value indicating whether Explorer exposes folder-picture customization for this folder.</summary>
+	public bool CanChangePicture { get; }
+
+	/// <summary>Gets a value indicating whether Explorer exposes folder-icon customization for this folder.</summary>
+	public bool CanChangeIcon { get; }
+
+	/// <summary>Gets a value indicating whether the current template is also stored in Explorer's inherited view-state bag.</summary>
+	public bool ApplyToSubfolders { get; }
+
+	internal WindowsShellFolderCustomizationProperties(string objectPath, string folderKind, string picturePath, string iconPath, int iconIndex, bool canChangePicture, bool canChangeIcon,
+		bool applyToSubfolders)
 	{
+		ObjectPath = objectPath;
 		FolderKind = folderKind;
 		PicturePath = picturePath;
 		IconPath = iconPath;
 		IconIndex = iconIndex;
+		CanChangePicture = canChangePicture;
+		CanChangeIcon = canChangeIcon;
+		ApplyToSubfolders = applyToSubfolders;
 	}
 }
 

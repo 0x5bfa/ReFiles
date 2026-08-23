@@ -3,8 +3,10 @@
 
 using System.IO;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using Files.ItemProperties;
 using Files.ViewModels;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UITests;
@@ -15,6 +17,41 @@ namespace Files.UITests;
 [TestClass]
 public sealed class ItemPropertiesViewModelTests
 {
+	/// <summary>
+	/// Verifies that every built-in property sheet is represented by a cacheable WinUI user control.
+	/// </summary>
+	[TestMethod]
+	public void PropertySheetsUseCacheableUserControls()
+	{
+		Type[] propertyViewTypes =
+		[
+			typeof(GeneralPropertyView),
+			typeof(ToolsPropertyView),
+			typeof(HardwarePropertyView),
+			typeof(ShortcutPropertyView),
+			typeof(CompatibilityPropertyView),
+			typeof(SharingPropertyView),
+			typeof(SecurityPropertyView),
+			typeof(PreviousVersionsPropertyView),
+			typeof(QuotaPropertyView),
+			typeof(CustomizePropertyView),
+			typeof(DigitalSignaturesPropertyView),
+			typeof(DetailsPropertyView),
+		];
+
+		Assert.IsTrue(propertyViewTypes.All(static type => typeof(UserControl).IsAssignableFrom(type)));
+	}
+
+	/// <summary>
+	/// Verifies that General-page modal UI is implemented as independent XAML content dialogs.
+	/// </summary>
+	[TestMethod]
+	public void GeneralPageDialogsAreIndependentContentDialogs()
+	{
+		Assert.IsTrue(typeof(AdvancedAttributesDialog).IsSubclassOf(typeof(ContentDialog)));
+		Assert.IsTrue(typeof(AttributeScopeDialog).IsSubclassOf(typeof(ContentDialog)));
+	}
+
 	/// <summary>
 	/// Verifies that details retain common values and identify mixed values.
 	/// </summary>
@@ -74,6 +111,100 @@ public sealed class ItemPropertiesViewModelTests
 			await viewModel.ApplyAsync();
 
 			Assert.IsTrue(File.GetAttributes(path).HasFlag(FileAttributes.ReadOnly));
+			Assert.IsFalse(viewModel.HasChanges);
+		}
+		finally
+		{
+			if (File.Exists(path))
+			{
+				File.SetAttributes(path, FileAttributes.Normal);
+			}
+
+			DeleteTemporaryDirectory(directory);
+		}
+	}
+
+	/// <summary>
+	/// Verifies that a folder presents Explorer's indeterminate read-only state.
+	/// </summary>
+	[TestMethod]
+	public void FolderReadOnlyStateIsIndeterminate()
+	{
+		var directory = CreateTemporaryDirectory();
+		try
+		{
+			var viewModel = new ItemPropertiesViewModel([CreateItem(Path.GetFileName(directory), true, directory)]);
+
+			Assert.IsNull(viewModel.IsReadOnly);
+			StringAssert.Contains(viewModel.ReadOnlyLabel, "Only applies to files in folder");
+		}
+		finally
+		{
+			DeleteTemporaryDirectory(directory);
+		}
+	}
+
+	/// <summary>
+	/// Verifies that drive editing uses the raw label while the title uses the localized Shell display name.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task DriveUsesRawLabelAndShellDisplayNameAsync()
+	{
+		var root = Path.GetPathRoot(Environment.SystemDirectory)!;
+		var drive = new DriveInfo(root);
+		var displayName = WindowsVolumeLabelService.GetDisplayName(root);
+		var viewModel = new ItemPropertiesViewModel([CreateItem(displayName, true, root)]);
+
+		await viewModel.InitializeAsync();
+
+		Assert.AreEqual(drive.VolumeLabel, viewModel.Name);
+		StringAssert.Contains(viewModel.WindowTitle, displayName);
+	}
+
+	/// <summary>
+	/// Verifies that the General page hides unsupported controls for a mounted optical image.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task MountedOpticalImageHidesUnsupportedGeneralControlsAsync()
+	{
+		var drive = DriveInfo.GetDrives().FirstOrDefault(static drive => drive.DriveType is DriveType.CDRom && drive.IsReady);
+		if (drive is null)
+		{
+			return;
+		}
+
+		var root = drive.RootDirectory.FullName;
+		var viewModel = new ItemPropertiesViewModel([CreateItem(WindowsVolumeLabelService.GetDisplayName(root), true, root)]);
+
+		await viewModel.InitializeAsync();
+
+		Assert.IsFalse(viewModel.CanRename);
+		Assert.IsFalse(viewModel.ShowDriveCompression);
+		Assert.IsFalse(viewModel.ShowDriveIndexing);
+		Assert.IsFalse(viewModel.ShowDriveStorageDetails);
+	}
+
+	/// <summary>
+	/// Verifies that archive and indexing choices from Advanced Attributes are applied.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task ApplyUpdatesAdvancedFileAttributesAsync()
+	{
+		var directory = CreateTemporaryDirectory();
+		var path = Path.Combine(directory, "item.txt");
+		try
+		{
+			File.WriteAllText(path, "content");
+			var viewModel = new ItemPropertiesViewModel([CreateItem(Path.GetFileName(path), false, path)]) { IsArchive = true, IsIndexed = false };
+
+			await viewModel.ApplyAsync();
+
+			var attributes = File.GetAttributes(path);
+			Assert.IsTrue(attributes.HasFlag(FileAttributes.Archive));
+			Assert.IsTrue(attributes.HasFlag(FileAttributes.NotContentIndexed));
 			Assert.IsFalse(viewModel.HasChanges);
 		}
 		finally
