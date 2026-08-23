@@ -51,6 +51,9 @@ The most important dependency rule is:
 ### Windows Shell
 
 - [`subsystems/windows-shell.md`](subsystems/windows-shell.md)
+- [`explorer/README.md`](explorer/README.md)
+- [`explorer/property-sheets/README.md`](explorer/property-sheets/README.md)
+- [`explorer/drive-property-sheets/README.md`](explorer/drive-property-sheets/README.md)
 - [`architecture/ownership-and-lifetime.md`](architecture/ownership-and-lifetime.md)
 
 ### Properties, thumbnails, and preview

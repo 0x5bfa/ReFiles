@@ -23,6 +23,15 @@ namespace Windows.Win32
 		public static Guid CLSID_DetectionAndSharing { get; } = new(0x1FDA955Bu, 0x61FF, 0x11DA, 0x97, 0x8C, 0x00, 0x08, 0x74, 0x4F, 0xAA, 0xB7);
 		/// <summary>The Open Control Panel class identifier.</summary>
 		public static Guid CLSID_OpenControlPanel { get; } = new(0x06622D85u, 0x6856, 0x4460, 0x8D, 0xE1, 0xA8, 0x19, 0x21, 0xB4, 0x1C, 0x4B);
+
+		/// <summary>The NTFS disk-quota controller class identifier.</summary>
+		public static Guid CLSID_DiskQuotaControl { get; } = new(0x7988B571u, 0xEC89, 0x11CF, 0x9C, 0x00, 0x00, 0xAA, 0x00, 0xA1, 0x4F, 0x56);
+
+		/// <summary>The NTFS security Shell extension class identifier.</summary>
+		public static Guid CLSID_NTFSSecurityExt { get; } = new(0x1F2E5C40u, 0x9550, 0x11CE, 0x99, 0xD2, 0x00, 0xAA, 0x00, 0x6E, 0x08, 0x6C);
+
+		/// <summary>The elevated disk-quota UI helper class identifier.</summary>
+		public static Guid CLSID_QuotaUIHelper { get; } = new(0x1FB2A002u, 0x4C6C, 0x4DE7, 0x85, 0xC2, 0xCB, 0x8D, 0xB9, 0xA4, 0xF7, 0x28);
 	}
 
 	/// <summary>Contains manually declared Shell folder identifiers used by Files.</summary>

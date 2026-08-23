@@ -36,9 +36,13 @@ Property types and cost differ by provider. Windows Shell property handlers may 
 
 ## Item property sheets
 
-The ReFiles property window owns the General and Details presentation. Filesystem size and containment are loaded asynchronously, while rename and attribute changes are applied only after the user chooses OK or Apply.
+The ReFiles property window hosts dynamically discovered sheets in a `SelectorBar`. Every built-in sheet has a dedicated XAML-backed WinUI `UserControl`; code-behind is limited to data adaptation and interaction handlers. Controls are cached by page kind for the lifetime of the window, and tab changes only switch visibility. Filesystem size and containment are loaded asynchronously, while rename and attribute changes are applied only after the user chooses OK or Apply. Local drive roots add Tools, Hardware, Sharing, Security, Previous Versions, and Quota only when the same underlying drive type, policy, filesystem, and capability checks used by Explorer permit them.
 
-Windows property pages are registration-driven rather than a fixed list. On the Shell scheduler STA, resolve the association keys for the original selection, enumerate only their `shellex\PropertySheetHandlers` registrations, initialize each distinct `IShellPropSheetExt` with the selection, and capture the pages supplied through `AddPages`. Read titles from the accepted `HPROPSHEETPAGE` descriptors and dialog resources without constructing a native property sheet. Populate the ReFiles tabs in the same order, map implemented pages to native ReFiles content, and use placeholders for pages that do not yet have a ReFiles interface.
+The built-in page list is derived from item capabilities and selection shape rather than by reading registration keys or briefly creating the system property dialog. Executables and shortcuts that resolve to a valid Windows executable add Compatibility after `GetBinaryTypeW` validates the target. ReFiles reads each implemented page through a typed Windows service and renders the result in WinUI. It does not load arbitrary `IShellPropSheetExt` implementations merely to discover their titles.
+
+Previous Versions uses the filesystem snapshot control path and Explorer's local administrative-share fallback to resolve `@GMT-*` snapshot items. An unavailable snapshot provider is represented as an empty page, not as a native dialog probe.
+
+The reverse-engineered ownership, data APIs, and native window-construction chain are documented in [`explorer/property-sheets/README.md`](../explorer/property-sheets/README.md). That material is evidence for compatibility work; undocumented module addresses and private COM layouts must remain outside the presentation layer.
 
 ## Stale results
 

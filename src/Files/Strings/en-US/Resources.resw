@@ -43,8 +43,29 @@
 	<data name="Properties" xml:space="preserve"><value>Properties</value></data>
 	<data name="PropertiesTitleFormat" xml:space="preserve"><value>{0} Properties</value></data>
 	<data name="General" xml:space="preserve"><value>General</value></data>
+	<data name="Tools" xml:space="preserve"><value>Tools</value></data>
+	<data name="Hardware" xml:space="preserve"><value>Hardware</value></data>
+	<data name="Quota" xml:space="preserve"><value>Quota</value></data>
 	<data name="PropertyPageFallbackFormat" xml:space="preserve"><value>Page {0}</value></data>
 	<data name="Shortcut" xml:space="preserve"><value>Shortcut</value></data>
+	<data name="Compatibility" xml:space="preserve"><value>Compatibility</value></data>
+	<data name="CompatibilityIntro" xml:space="preserve"><value>If this program isn't working correctly on this version of Windows, try running the compatibility troubleshooter.</value></data>
+	<data name="RunCompatibilityTroubleshooter" xml:space="preserve"><value>Run compatibility troubleshooter</value></data>
+	<data name="CompatibilityMode" xml:space="preserve"><value>Compatibility mode</value></data>
+	<data name="RunInCompatibilityMode" xml:space="preserve"><value>Run this program in compatibility mode for</value></data>
+	<data name="Windows8" xml:space="preserve"><value>Windows 8</value></data>
+	<data name="Windows7" xml:space="preserve"><value>Windows 7</value></data>
+	<data name="WindowsVistaServicePack2" xml:space="preserve"><value>Windows Vista (Service Pack 2)</value></data>
+	<data name="WindowsVistaServicePack1" xml:space="preserve"><value>Windows Vista (Service Pack 1)</value></data>
+	<data name="WindowsVista" xml:space="preserve"><value>Windows Vista</value></data>
+	<data name="WindowsXpServicePack3" xml:space="preserve"><value>Windows XP (Service Pack 3)</value></data>
+	<data name="CompatibilitySettings" xml:space="preserve"><value>Settings</value></data>
+	<data name="ReducedColorMode" xml:space="preserve"><value>Reduced color mode</value></data>
+	<data name="RunIn640By480" xml:space="preserve"><value>Run in 640 × 480 screen resolution</value></data>
+	<data name="DisableFullscreenOptimizations" xml:space="preserve"><value>Disable fullscreen optimizations</value></data>
+	<data name="RunAsAdministrator" xml:space="preserve"><value>Run this program as an administrator</value></data>
+	<data name="ChangeHighDpiSettings" xml:space="preserve"><value>Change high DPI settings</value></data>
+	<data name="Program" xml:space="preserve"><value>Program</value></data>
 	<data name="Sharing" xml:space="preserve"><value>Sharing</value></data>
 	<data name="Security" xml:space="preserve"><value>Security</value></data>
 	<data name="PreviousVersions" xml:space="preserve"><value>Previous Versions</value></data>
@@ -66,13 +87,18 @@
 	<data name="OpenFileLocation" xml:space="preserve"><value>Open File Location</value></data>
 	<data name="ChangeIcon" xml:space="preserve"><value>Change Icon...</value></data>
 	<data name="NetworkFolderSharing" xml:space="preserve"><value>Network File and Folder Sharing</value></data>
-	<data name="NetworkPath" xml:space="preserve"><value>Network Path</value></data>
+	<data name="NetworkPath" xml:space="preserve"><value>Network Path:</value></data>
 	<data name="Shared" xml:space="preserve"><value>Shared</value></data>
-	<data name="NotShared" xml:space="preserve"><value>Not shared</value></data>
+	<data name="NotShared" xml:space="preserve"><value>Not Shared</value></data>
 	<data name="Share" xml:space="preserve"><value>Share...</value></data>
 	<data name="AdvancedSharing" xml:space="preserve"><value>Advanced Sharing...</value></data>
+	<data name="AdvancedSharingSection" xml:space="preserve"><value>Advanced Sharing</value></data>
+	<data name="AdvancedSharingDescription" xml:space="preserve"><value>Set custom permissions, create multiple shares, and set other advanced sharing options.</value></data>
 	<data name="PasswordProtection" xml:space="preserve"><value>Password Protection</value></data>
 	<data name="PasswordProtectionDescription" xml:space="preserve"><value>People must have a user account and password for this computer to access shared folders.</value></data>
+	<data name="PasswordProtectionDisabledDescription" xml:space="preserve"><value>People without a user account and password for this computer can access folders shared with everyone.</value></data>
+	<data name="PasswordProtectionSettingsPrefix" xml:space="preserve"><value>To change this setting, use the </value></data>
+	<data name="NetworkAndSharingCenter" xml:space="preserve"><value>Network and Sharing Center.</value></data>
 	<data name="ObjectName" xml:space="preserve"><value>Object name</value></data>
 	<data name="GroupOrUserNames" xml:space="preserve"><value>Group or user names</value></data>
 	<data name="PermissionsForFormat" xml:space="preserve"><value>Permissions for {0}</value></data>
@@ -85,6 +111,7 @@
 	<data name="ReadPermission" xml:space="preserve"><value>Read</value></data>
 	<data name="WritePermission" xml:space="preserve"><value>Write</value></data>
 	<data name="Edit" xml:space="preserve"><value>Edit...</value></data>
+	<data name="SecurityEditDescription" xml:space="preserve"><value>To change permissions, click Edit.</value></data>
 	<data name="SecurityAdvancedDescription" xml:space="preserve"><value>For special permissions or advanced settings, click Advanced.</value></data>
 	<data name="PreviousVersionsDescription" xml:space="preserve"><value>Previous versions come from File History or from restore points.</value></data>
 	<data name="FolderVersions" xml:space="preserve"><value>Folder versions</value></data>
@@ -93,11 +120,17 @@
 	<data name="FolderCustomizationQuestion" xml:space="preserve"><value>What kind of folder do you want?</value></data>
 	<data name="OptimizeFolderFor" xml:space="preserve"><value>Optimize this folder for</value></data>
 	<data name="GeneralItems" xml:space="preserve"><value>General items</value></data>
+	<data name="Documents" xml:space="preserve"><value>Documents</value></data>
+	<data name="Pictures" xml:space="preserve"><value>Pictures</value></data>
+	<data name="Music" xml:space="preserve"><value>Music</value></data>
+	<data name="Videos" xml:space="preserve"><value>Videos</value></data>
 	<data name="ApplyTemplateToSubfolders" xml:space="preserve"><value>Also apply this template to all subfolders</value></data>
 	<data name="FolderPictures" xml:space="preserve"><value>Folder pictures</value></data>
+	<data name="FolderPicturesDescription" xml:space="preserve"><value>Choose a file to show on this folder icon.</value></data>
 	<data name="ChooseFile" xml:space="preserve"><value>Choose File...</value></data>
 	<data name="RestoreDefault" xml:space="preserve"><value>Restore Default</value></data>
 	<data name="FolderIcons" xml:space="preserve"><value>Folder icons</value></data>
+	<data name="FolderIconsDescription" xml:space="preserve"><value>You can change the folder icon. If you change the icon, it will no longer show a preview of the folder's contents.</value></data>
 	<data name="EmbeddedSignatures" xml:space="preserve"><value>Embedded Signatures</value></data>
 	<data name="CatalogSignatures" xml:space="preserve"><value>Catalog Signatures</value></data>
 	<data name="SignerName" xml:space="preserve"><value>Name of signer</value></data>
@@ -105,6 +138,35 @@
 	<data name="Timestamp" xml:space="preserve"><value>Timestamp</value></data>
 	<data name="CatalogName" xml:space="preserve"><value>Catalog name</value></data>
 	<data name="NoSignatures" xml:space="preserve"><value>No signatures were found.</value></data>
+	<data name="ErrorChecking" xml:space="preserve"><value>Error checking</value></data>
+	<data name="ErrorCheckingDescription" xml:space="preserve"><value>This option will check the drive for file system errors.</value></data>
+	<data name="Check" xml:space="preserve"><value>Check</value></data>
+	<data name="OptimizeAndDefragmentDrive" xml:space="preserve"><value>Optimize and defragment drive</value></data>
+	<data name="OptimizeDescription" xml:space="preserve"><value>Optimizing drives can help your computer run more efficiently.</value></data>
+	<data name="Optimize" xml:space="preserve"><value>Optimize</value></data>
+	<data name="AllDiskDrives" xml:space="preserve"><value>All disk drives</value></data>
+	<data name="DeviceName" xml:space="preserve"><value>Name</value></data>
+	<data name="DeviceType" xml:space="preserve"><value>Type</value></data>
+	<data name="Manufacturer" xml:space="preserve"><value>Manufacturer</value></data>
+	<data name="DeviceLocation" xml:space="preserve"><value>Location</value></data>
+	<data name="DeviceLocationNumberFormat" xml:space="preserve"><value>Location {0}</value></data>
+	<data name="DeviceLocationDetailsFormat" xml:space="preserve"><value>{0} ({1})</value></data>
+	<data name="DeviceStatus" xml:space="preserve"><value>Device status</value></data>
+	<data name="DeviceWorkingProperly" xml:space="preserve"><value>This device is working properly.</value></data>
+	<data name="DeviceProblemFormat" xml:space="preserve"><value>This device has a problem. (Code {0})</value></data>
+	<data name="QuotaManagement" xml:space="preserve"><value>Quota management</value></data>
+	<data name="QuotaManagementDescription" xml:space="preserve"><value>Control how much disk space users can use on this volume.</value></data>
+	<data name="QuotaElevationDescription" xml:space="preserve"><value>This hard disk supports space limits for each user, so a single user cannot fill the entire disk. Click this button to view or change these limits.</value></data>
+	<data name="ShowQuotaSettings" xml:space="preserve"><value>Show Quota Settings</value></data>
+	<data name="EnableQuotaManagement" xml:space="preserve"><value>Enable quota management</value></data>
+	<data name="DenyDiskSpace" xml:space="preserve"><value>Deny disk space to users exceeding quota limit</value></data>
+	<data name="LimitDiskSpaceTo" xml:space="preserve"><value>Limit disk space to</value></data>
+	<data name="SetWarningLevelTo" xml:space="preserve"><value>Set warning level to</value></data>
+	<data name="QuotaLogging" xml:space="preserve"><value>Quota logging options</value></data>
+	<data name="LogLimitEvent" xml:space="preserve"><value>Log event when a user exceeds their quota limit</value></data>
+	<data name="LogWarningEvent" xml:space="preserve"><value>Log event when a user exceeds their warning level</value></data>
+	<data name="QuotaEntries" xml:space="preserve"><value>Quota Entries...</value></data>
+	<data name="NoLimit" xml:space="preserve"><value>No limit</value></data>
 	<data name="Property" xml:space="preserve"><value>Property</value></data>
 	<data name="Value" xml:space="preserve"><value>Value</value></data>
 	<data name="Location" xml:space="preserve"><value>Location</value></data>
@@ -150,17 +212,42 @@
 	<data name="DateAccessed" xml:space="preserve"><value>Accessed</value></data>
 	<data name="Attributes" xml:space="preserve"><value>Attributes</value></data>
 	<data name="ReadOnly" xml:space="preserve"><value>Read-only</value></data>
+	<data name="ReadOnlyFolder" xml:space="preserve"><value>Read-only (Only applies to files in folder)</value></data>
 	<data name="Hidden" xml:space="preserve"><value>Hidden</value></data>
 	<data name="Archive" xml:space="preserve"><value>Archive</value></data>
 	<data name="Description" xml:space="preserve"><value>Description</value></data>
 	<data name="Advanced" xml:space="preserve"><value>Advanced...</value></data>
 	<data name="AdvancedAttributes" xml:space="preserve"><value>Advanced Attributes</value></data>
+	<data name="AdvancedAttributesFileDescription" xml:space="preserve"><value>Choose the options you want for this file.</value></data>
+	<data name="AdvancedAttributesFolderDescription" xml:space="preserve"><value>When you click OK or Apply on the Properties dialog, you will be asked if you want the changes to affect all subfolders and files as well.</value></data>
+	<data name="AdvancedAttributesSelectionDescription" xml:space="preserve"><value>Choose the settings you want for the selected items.</value></data>
+	<data name="FileAttributes" xml:space="preserve"><value>File attributes</value></data>
+	<data name="ArchiveAndIndexAttributes" xml:space="preserve"><value>Archive and Index attributes</value></data>
+	<data name="FileReadyForArchiving" xml:space="preserve"><value>File is ready for archiving</value></data>
+	<data name="FolderReadyForArchiving" xml:space="preserve"><value>Folder is ready for archiving</value></data>
+	<data name="AllowFileIndexing" xml:space="preserve"><value>Allow this file to have contents indexed in addition to file properties</value></data>
+	<data name="AllowFolderIndexing" xml:space="preserve"><value>Allow files in this folder to have contents indexed in addition to file properties</value></data>
+	<data name="CompressOrEncryptAttributes" xml:space="preserve"><value>Compress or Encrypt attributes</value></data>
+	<data name="CompressContents" xml:space="preserve"><value>Compress contents to save disk space</value></data>
+	<data name="EncryptContents" xml:space="preserve"><value>Encrypt contents to secure data</value></data>
+	<data name="ConfirmAttributeChanges" xml:space="preserve"><value>Confirm Attribute Changes</value></data>
+	<data name="AttributeChangesIntro" xml:space="preserve"><value>You have chosen to make attribute changes.</value></data>
+	<data name="AttributeChangesFolderQuestion" xml:space="preserve"><value>Do you want to apply this change to this folder only, or do you want to apply it to all subfolders and files as well?</value></data>
+	<data name="AttributeChangesSelectionQuestion" xml:space="preserve"><value>Do you want to apply this change to the selected items only, or do you want to apply it to all subfolders and files as well?</value></data>
+	<data name="AttributeChangesDriveQuestion" xml:space="preserve"><value>Do you want to apply this change to this drive only, or do you want to apply it to all subfolders and files as well?</value></data>
+	<data name="ApplyChangesToFolderOnly" xml:space="preserve"><value>Apply changes to this folder only</value></data>
+	<data name="ApplyChangesToSelectionOnly" xml:space="preserve"><value>Apply changes to the selected items only</value></data>
+	<data name="ApplyChangesToDriveOnly" xml:space="preserve"><value>Apply changes to this drive only</value></data>
+	<data name="ApplyChangesToFolderContents" xml:space="preserve"><value>Apply changes to this folder, subfolders and files</value></data>
+	<data name="ApplyChangesToSelectionContents" xml:space="preserve"><value>Apply changes to the selected items, subfolders and files</value></data>
+	<data name="ApplyChangesToDriveContents" xml:space="preserve"><value>Apply changes to this drive, subfolders and files</value></data>
 	<data name="PropertyLabelFormat" xml:space="preserve"><value>{0}:</value></data>
-	<data name="ApplyAttributesToContents" xml:space="preserve"><value>Apply attribute changes to this folder, subfolders, and files</value></data>
 	<data name="FileSystem" xml:space="preserve"><value>File system</value></data>
 	<data name="UsedSpace" xml:space="preserve"><value>Used space</value></data>
 	<data name="FreeSpace" xml:space="preserve"><value>Free space</value></data>
 	<data name="Capacity" xml:space="preserve"><value>Capacity</value></data>
+	<data name="CompressDrive" xml:space="preserve"><value>Compress this drive to save disk space</value></data>
+	<data name="AllowDriveIndexing" xml:space="preserve"><value>Allow files on this drive to have contents indexed in addition to file properties</value></data>
 	<data name="InvalidFileName" xml:space="preserve"><value>Enter a valid file or folder name.</value></data>
 	<data name="ItemParentUnavailable" xml:space="preserve"><value>The item's parent folder isn't available.</value></data>
 	<data name="ByteSymbol" xml:space="preserve"><value>bytes</value></data>

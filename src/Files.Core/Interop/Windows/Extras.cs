@@ -7,6 +7,7 @@ using System.Runtime.InteropServices.Marshalling;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.DirectComposition;
 using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.System.IO;
 using Windows.Win32.System.Registry;
 using Windows.Win32.UI.Shell.Common;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -28,6 +29,16 @@ namespace Windows.Win32
 		[LibraryImport("ole32.dll", EntryPoint = "CoCreateInstance")]
 		public static unsafe partial int CoCreateInstanceRaw(Guid* classId, nint outer, uint context, Guid* interfaceId, nint* instance);
 
+		/// <summary>Creates a COM object through a moniker using the raw ABI signature.</summary>
+		/// <param name="displayName">The moniker display name.</param>
+		/// <param name="bindOptions">The optional bind options.</param>
+		/// <param name="interfaceId">The requested interface identifier.</param>
+		/// <param name="instance">Receives the created object pointer.</param>
+		/// <returns>The HRESULT returned by COM.</returns>
+		[LibraryImport("ole32.dll", EntryPoint = "CoGetObject")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		public static unsafe partial int CoGetObjectRaw(char* displayName, void* bindOptions, Guid* interfaceId, nint* instance);
+
 		/// <summary>Gets a Windows Runtime activation factory using the raw ABI signature.</summary>
 		/// <param name="activatableClassId">The runtime class name.</param>
 		/// <param name="interfaceId">The requested factory interface identifier.</param>
@@ -45,9 +56,45 @@ namespace Windows.Win32
 		[LibraryImport("shell32.dll", EntryPoint = "SHCreateItemFromParsingName")]
 		public static unsafe partial int SHCreateItemFromParsingNameRaw(char* parsingName, nint bindContext, Guid* interfaceId, nint* item);
 
+		[LibraryImport("Windows.Storage.dll", EntryPoint = "GetCachedIniForFolder")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT GetCachedIniForFolderRaw(uint reserved, ITEMIDLIST* pidl, uint flags, nint* cachedProfile);
+
+		[LibraryImport("Windows.Storage.dll", EntryPoint = "IsPathOwnedByCurrentUser", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static partial int IsPathOwnedByCurrentUser(string path);
+
+		[LibraryImport("shlwapi.dll", EntryPoint = "#626")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT SHCreatePropertyBagOnCachedProfileSectionRaw(nint cachedProfile, char* section, uint mode, Guid* interfaceId, nint* propertyBag);
+
+		[LibraryImport("shlwapi.dll", EntryPoint = "SHGetViewStatePropertyBag", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT SHGetViewStatePropertyBagRaw(ITEMIDLIST* pidl, string bagName, uint flags, Guid* interfaceId, nint* propertyBag);
+
+		[LibraryImport("propsys.dll", EntryPoint = "PSPropertyBag_Delete", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static partial HRESULT PSPropertyBagDeleteRaw(nint propertyBag, string propertyName);
+
+		[LibraryImport("propsys.dll", EntryPoint = "PSPropertyBag_ReadStr", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT PSPropertyBagReadStringRaw(nint propertyBag, string propertyName, char* value, uint valueLength);
+
+		[LibraryImport("propsys.dll", EntryPoint = "PSPropertyBag_WriteStr", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static partial HRESULT PSPropertyBagWriteStringRaw(nint propertyBag, string propertyName, string value);
+
 		[LibraryImport("windows.storage.dll", EntryPoint = "SHGetAssocKeysForIDList")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static unsafe partial uint SHGetAssocKeysForIDListRaw(ITEMIDLIST* pidl, HKEY* keys, uint capacity);
+
+		[LibraryImport("ext-ms-win-storage-sense-l1-1-0.dll", EntryPoint = "GetStorageInstanceCount")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT GetStorageInstanceCount(uint category, uint* count);
+
+		[LibraryImport("ext-ms-win-storage-sense-l1-1-0.dll", EntryPoint = "GetStorageDeviceInfo")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT GetStorageDeviceInfo(uint category, uint index, void* information);
 
 		/// <summary>Creates a stream for a file using the raw ABI signature.</summary>
 		/// <param name="fileName">The file path.</param>
@@ -78,6 +125,31 @@ namespace Windows.Win32
 		/// <summary>Refreshes the Recycle Bin icon.</summary>
 		[LibraryImport("shell32.dll", EntryPoint = "SHUpdateRecycleBinIcon", SetLastError = true)]
 		public static partial void SHUpdateRecycleBinIcon();
+
+		/// <summary>Opens the system device-properties UI for a device instance.</summary>
+		/// <param name="parent">The owner window.</param>
+		/// <param name="machineName">The optional remote machine name.</param>
+		/// <param name="deviceInstanceId">The device instance identifier.</param>
+		/// <param name="flags">Reserved flags.</param>
+		/// <param name="showDeviceTree">Whether to show the Device Manager tree.</param>
+		/// <returns>The native result code.</returns>
+		[LibraryImport("devmgr.dll", EntryPoint = "DevicePropertiesExW", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		public static partial int DevicePropertiesEx(HWND parent, string? machineName, string deviceInstanceId, uint flags, BOOL showDeviceTree);
+
+		[LibraryImport("ntdll.dll", EntryPoint = "NtFsControlFile")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial int NtFsControlFile(
+			SafeHandle fileHandle,
+			SafeHandle eventHandle,
+			nint apcRoutine,
+			nint apcContext,
+			IO_STATUS_BLOCK* ioStatusBlock,
+			uint controlCode,
+			void* inputBuffer,
+			uint inputBufferLength,
+			void* outputBuffer,
+			uint outputBufferLength);
 
 		[LibraryImport("User32", EntryPoint = "SetWindowLongW")]
 		private static partial int _SetWindowLong(nint hWnd, int nIndex, int dwNewLong);

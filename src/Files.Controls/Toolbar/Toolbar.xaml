@@ -38,9 +38,9 @@
 								x:Name="PART_ItemsPanel"
 								Grid.Column="0"
 								HorizontalAlignment="Stretch"
+								VerticalAlignment="Stretch"
 								Spacing="{ThemeResource ToolbarItemSpacing}"
 								TabFocusNavigation="Local"
-								VerticalAlignment="Stretch"
 								Visibility="Visible" />
 
 							<StackPanel
