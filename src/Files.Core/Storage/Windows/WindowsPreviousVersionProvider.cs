@@ -44,13 +44,14 @@ internal static unsafe class WindowsPreviousVersionProvider
 			}
 
 			var relativePath = fullPath[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-			var options = new EnumerationOptions
+			var options = new System.Management.EnumerationOptions
 			{
 				ReturnImmediately = true,
 				Rewindable = false,
 				Timeout = TimeSpan.FromSeconds(ProviderTimeoutSeconds),
 			};
-			using var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT DeviceObject, InstallDate, VolumeName FROM Win32_ShadowCopy", options);
+			using var searcher = new ManagementObjectSearcher(
+				new ManagementScope(@"root\cimv2"), new ObjectQuery("SELECT DeviceObject, InstallDate, VolumeName FROM Win32_ShadowCopy"), options);
 			using var snapshots = searcher.Get();
 			var versions = new List<WindowsShellPreviousVersion>();
 			foreach (ManagementBaseObject snapshot in snapshots)

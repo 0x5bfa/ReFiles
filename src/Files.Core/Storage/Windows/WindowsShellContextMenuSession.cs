@@ -69,7 +69,7 @@ public sealed class WindowsShellContextMenuSession
 			subclassInstalled = true;
 			PInvoke.SetForegroundWindow(owner);
 			var commandId = unchecked((uint)PInvoke.TrackPopupMenuEx(
-				menu, TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON, invocationPoint.x, invocationPoint.y, owner, null).Value);
+				menu, (uint)(TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON), invocationPoint.x, invocationPoint.y, owner, null).Value);
 			PInvoke.PostMessage(owner, PInvoke.WM_NULL, default, default);
 			if (commandId is 0)
 			{
