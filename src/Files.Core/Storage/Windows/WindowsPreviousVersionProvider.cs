@@ -3,6 +3,7 @@
 
 using System.Buffers.Binary;
 using System.Globalization;
+using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
 using Windows.Win32;

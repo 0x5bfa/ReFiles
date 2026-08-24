@@ -27,15 +27,8 @@ public sealed class WindowsShellContextMenuSession
 	private const uint UnicodeMask = 0x00004000;
 	private const int VirtualKeyShift = 0x10;
 
-	private readonly SUBCLASSPROC _subclassProcedure;
 	private IContextMenu2? _contextMenu2;
 	private IContextMenu3? _contextMenu3;
-
-	/// <summary>Initializes a classic Shell context-menu session.</summary>
-	public WindowsShellContextMenuSession()
-	{
-		_subclassProcedure = WindowSubclassProcedure;
-	}
 
 	/// <summary>Shows the native popup menu and invokes the selected Shell command.</summary>
 	/// <param name="owner">The owning top-level window.</param>
@@ -63,20 +56,21 @@ public sealed class WindowsShellContextMenuSession
 		contextMenu.QueryContextMenu(menu, 0, FirstCommandId, LastCommandId, queryFlags).ThrowOnFailure();
 		_contextMenu2 = contextMenu as IContextMenu2;
 		_contextMenu3 = contextMenu as IContextMenu3;
-		if (PInvoke.SetWindowSubclass(owner, _subclassProcedure, SubclassId, 0).Value is 0)
-		{
-			_contextMenu2 = null;
-			_contextMenu3 = null;
-
-			throw new Win32Exception(Marshal.GetLastPInvokeError());
-		}
-
+		var sessionHandle = GCHandle.Alloc(this);
+		var subclassInstalled = false;
 		try
 		{
+			delegate* unmanaged[Stdcall]<HWND, uint, WPARAM, LPARAM, nuint, nuint, LRESULT> subclassProcedure = &WindowSubclassProcedure;
+			if (PInvoke.SetWindowSubclass(owner, subclassProcedure, SubclassId, (nuint)GCHandle.ToIntPtr(sessionHandle)).Value is 0)
+			{
+				throw new Win32Exception(Marshal.GetLastPInvokeError());
+			}
+
+			subclassInstalled = true;
 			PInvoke.SetForegroundWindow(owner);
 			var commandId = unchecked((uint)PInvoke.TrackPopupMenuEx(
-				menu, TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON, invocationPoint.X, invocationPoint.Y, owner, null).Value);
-			PInvoke.PostMessage(owner, PInvoke.WM_NULL, 0, 0);
+				menu, TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON, invocationPoint.x, invocationPoint.y, owner, null).Value);
+			PInvoke.PostMessage(owner, PInvoke.WM_NULL, default, default);
 			if (commandId is 0)
 			{
 				return false;
@@ -88,7 +82,13 @@ public sealed class WindowsShellContextMenuSession
 		}
 		finally
 		{
-			PInvoke.RemoveWindowSubclass(owner, _subclassProcedure, SubclassId);
+			if (subclassInstalled)
+			{
+				delegate* unmanaged[Stdcall]<HWND, uint, WPARAM, LPARAM, nuint, nuint, LRESULT> subclassProcedure = &WindowSubclassProcedure;
+				PInvoke.RemoveWindowSubclass(owner, subclassProcedure, SubclassId);
+			}
+
+			sessionHandle.Free();
 			_contextMenu2 = null;
 			_contextMenu3 = null;
 		}
@@ -138,13 +138,23 @@ public sealed class WindowsShellContextMenuSession
 			hwnd = owner,
 			lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal,
 			nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL,
-			ptInvoke = invocationPoint,
+			ptInvoke = new(invocationPoint.x, invocationPoint.y),
 		};
 		ref var baseInvoke = ref Unsafe.As<CMINVOKECOMMANDINFOEX, CMINVOKECOMMANDINFO>(ref invoke);
 		contextMenu.InvokeCommand(baseInvoke).ThrowOnFailure();
 	}
 
-	private unsafe LRESULT WindowSubclassProcedure(HWND window, uint message, WPARAM wParam, LPARAM lParam, nuint subclassId, nuint referenceData)
+	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)])]
+	private static LRESULT WindowSubclassProcedure(HWND window, uint message, WPARAM wParam, LPARAM lParam, nuint subclassId, nuint referenceData)
+	{
+		var sessionHandle = GCHandle.FromIntPtr((nint)referenceData);
+
+		return sessionHandle.Target is WindowsShellContextMenuSession session
+			? session.HandleWindowMessage(window, message, wParam, lParam)
+			: PInvoke.DefSubclassProc(window, message, wParam, lParam);
+	}
+
+	private unsafe LRESULT HandleWindowMessage(HWND window, uint message, WPARAM wParam, LPARAM lParam)
 	{
 		if (message is PInvoke.WM_INITMENUPOPUP or PInvoke.WM_DRAWITEM or PInvoke.WM_MEASUREITEM or PInvoke.WM_MENUCHAR)
 		{

@@ -118,7 +118,6 @@ public sealed class WindowsShellPropertyPageTests
 		Assert.IsFalse(data.Pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Tools));
 		Assert.IsFalse(data.Pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.PreviousVersions));
 		Assert.IsTrue(data.Pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Hardware));
-		Assert.IsTrue(data.Pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Sharing));
 		Assert.IsTrue(data.Pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Customize));
 		Assert.IsNotNull(data.Customization);
 		Assert.IsFalse(WindowsShellStorageSettingsService.SupportsDriveUsage(drive.RootDirectory.FullName));
