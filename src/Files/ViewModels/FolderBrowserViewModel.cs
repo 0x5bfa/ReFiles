@@ -316,6 +316,13 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			: _shellAppExtensionService.GetCommandsAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
+	internal Task<ReadOnlyMemory<byte>> GetAppExtensionIconAsync(WindowsShellAppExtensionCommand command, int pixelSize, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
+
+		return _shellAppExtensionService is null ? Task.FromResult(ReadOnlyMemory<byte>.Empty) : _shellAppExtensionService.GetCommandIconAsync(command, pixelSize, cancellationToken);
+	}
+
 	internal Task<bool> InvokeAppExtensionCommandAsync(IReadOnlyList<BrowseItemViewModel> selection, WindowsShellAppExtensionCommand command, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(selection);

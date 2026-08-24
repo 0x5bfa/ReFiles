@@ -22,6 +22,7 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 public sealed class WindowsShellAppExtensionService
 {
+	private const int MaximumCommandIconPixelSize = 256;
 	private const int MaximumSubCommandDepth = 2;
 	private const int PendingResult = unchecked((int)0x8000000A);
 	private readonly WindowsStorageSource _source;
@@ -50,6 +51,22 @@ public sealed class WindowsShellAppExtensionService
 		}
 
 		return await _source.Scheduler.InvokeOperationAsync(() => GetCommandsOnCurrentSta(resolvedSelection, cancellationToken), cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Gets a command icon at the requested physical pixel size.</summary>
+	/// <param name="command">The command that supplies the Shell icon resource.</param>
+	/// <param name="pixelSize">The square icon size in physical pixels.</param>
+	/// <param name="cancellationToken">The token used to cancel icon extraction.</param>
+	/// <returns>The encoded PNG, or an empty value when the command has no icon.</returns>
+	public Task<ReadOnlyMemory<byte>> GetCommandIconAsync(WindowsShellAppExtensionCommand command, int pixelSize, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
+		ArgumentOutOfRangeException.ThrowIfLessThan(pixelSize, 1);
+		ArgumentOutOfRangeException.ThrowIfGreaterThan(pixelSize, MaximumCommandIconPixelSize);
+
+		return command.IconPath is not { Length: > 0 } iconPath
+			? Task.FromResult(ReadOnlyMemory<byte>.Empty)
+			: _source.Scheduler.InvokeConcurrentAsync(() => WindowsShellIconProvider.GetResourceIcon(iconPath, command.IconIndex, pixelSize, cancellationToken), cancellationToken);
 	}
 
 	/// <summary>Gets the Windows Shell property pages applicable to a selection.</summary>
@@ -190,7 +207,6 @@ public sealed class WindowsShellAppExtensionService
 
 		var shellItemArray = CreateShellItemArray(selection.Locators);
 		var commands = new List<WindowsShellAppExtensionCommand>(registrations.Count);
-		var iconCache = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.OrdinalIgnoreCase);
 		foreach (var registration in registrations)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
@@ -202,7 +218,7 @@ public sealed class WindowsShellAppExtensionService
 			}
 
 			var token = new WindowsShellAppExtensionCommandToken(registration.ClassId, registration.VerbId, []);
-			if (TryCreateDescription(explorerCommand, shellItemArray, token, registration.DisplayName, depth: 0, iconCache, cancellationToken) is { } description)
+			if (TryCreateDescription(explorerCommand, shellItemArray, token, registration.DisplayName, depth: 0, cancellationToken) is { } description)
 			{
 				commands.Add(description);
 			}
@@ -309,7 +325,6 @@ public sealed class WindowsShellAppExtensionService
 		WindowsShellAppExtensionCommandToken token,
 		string fallbackTitle,
 		int depth,
-		Dictionary<string, ReadOnlyMemory<byte>> iconCache,
 		CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -337,16 +352,15 @@ public sealed class WindowsShellAppExtensionService
 			title = string.IsNullOrWhiteSpace(fallbackTitle) ? token.VerbId : fallbackTitle;
 		}
 
-		var iconPath = ReadCommandString(command.GetIcon, selection);
-		var iconData = ReadCommandIcon(iconPath, iconCache, cancellationToken);
-		var children = depth < MaximumSubCommandDepth && flags.HasFlag(_EXPCMDFLAGS.ECF_HASSUBCOMMANDS) ? GetSubCommandDescriptions(command, selection, token, depth + 1, iconCache, cancellationToken) : [];
+		var (iconPath, iconIndex) = ParseCommandIcon(ReadCommandString(command.GetIcon, selection));
+		var children = depth < MaximumSubCommandDepth && flags.HasFlag(_EXPCMDFLAGS.ECF_HASSUBCOMMANDS) ? GetSubCommandDescriptions(command, selection, token, depth + 1, cancellationToken) : [];
 
 		return new(
 			token,
 			token.VerbId,
 			title,
 			iconPath,
-			iconData,
+			iconIndex,
 			!state.HasFlag(_EXPCMDSTATE.ECS_DISABLED),
 			state.HasFlag(_EXPCMDSTATE.ECS_CHECKED),
 			state.HasFlag(_EXPCMDSTATE.ECS_RADIOCHECK),
@@ -359,7 +373,6 @@ public sealed class WindowsShellAppExtensionService
 		IShellItemArray selection,
 		WindowsShellAppExtensionCommandToken parentToken,
 		int depth,
-		Dictionary<string, ReadOnlyMemory<byte>> iconCache,
 		CancellationToken cancellationToken)
 	{
 		if (parent.EnumSubCommands(out var enumerator).Failed || enumerator is null)
@@ -375,7 +388,7 @@ public sealed class WindowsShellAppExtensionService
 
 			var path = parentToken.SubCommandPath.Append(subCommandIndex).ToArray();
 			var token = new WindowsShellAppExtensionCommandToken(parentToken.ClassId, parentToken.VerbId, path);
-			if (TryCreateDescription(subCommand, selection, token, parentToken.VerbId, depth, iconCache, cancellationToken) is { } description)
+			if (TryCreateDescription(subCommand, selection, token, parentToken.VerbId, depth, cancellationToken) is { } description)
 			{
 				descriptions.Add(description);
 			}
@@ -457,16 +470,11 @@ public sealed class WindowsShellAppExtensionService
 		}
 	}
 
-	private static ReadOnlyMemory<byte> ReadCommandIcon(string? iconLocation, Dictionary<string, ReadOnlyMemory<byte>> iconCache, CancellationToken cancellationToken)
+	private static (string? Path, int Index) ParseCommandIcon(string? iconLocation)
 	{
 		if (string.IsNullOrWhiteSpace(iconLocation))
 		{
-			return ReadOnlyMemory<byte>.Empty;
-		}
-
-		if (iconCache.TryGetValue(iconLocation, out var cachedIcon))
-		{
-			return cachedIcon;
+			return (null, 0);
 		}
 
 		var path = iconLocation.Trim();
@@ -479,10 +487,8 @@ public sealed class WindowsShellAppExtensionService
 		}
 
 		path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
-		var iconData = string.IsNullOrWhiteSpace(path) ? ReadOnlyMemory<byte>.Empty : WindowsShellIconProvider.GetResourceIcon(path, iconIndex, 16, cancellationToken);
-		iconCache.Add(iconLocation, iconData);
 
-		return iconData;
+		return string.IsNullOrWhiteSpace(path) ? (null, 0) : (path, iconIndex);
 	}
 
 	private static unsafe IShellItemArray CreateShellItemArray(IReadOnlyList<WindowsItemLocator> locators)

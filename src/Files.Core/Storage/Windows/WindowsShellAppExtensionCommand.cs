@@ -19,8 +19,8 @@ public sealed class WindowsShellAppExtensionCommand
 	/// <summary>Gets the optional Shell icon resource path.</summary>
 	public string? IconPath { get; }
 
-	/// <summary>Gets the command icon encoded as PNG.</summary>
-	public ReadOnlyMemory<byte> IconData { get; }
+	/// <summary>Gets the icon resource index within <see cref="IconPath"/>.</summary>
+	public int IconIndex { get; }
 
 	/// <summary>Gets a value indicating whether the command can be invoked.</summary>
 	public bool IsEnabled { get; }
@@ -42,7 +42,7 @@ public sealed class WindowsShellAppExtensionCommand
 		string id,
 		string title,
 		string? iconPath,
-		ReadOnlyMemory<byte> iconData,
+		int iconIndex,
 		bool isEnabled,
 		bool isChecked,
 		bool isRadio,
@@ -57,7 +57,7 @@ public sealed class WindowsShellAppExtensionCommand
 		Id = id;
 		Title = title;
 		IconPath = iconPath;
-		IconData = iconData;
+		IconIndex = iconIndex;
 		IsEnabled = isEnabled;
 		IsChecked = isChecked;
 		IsRadio = isRadio;

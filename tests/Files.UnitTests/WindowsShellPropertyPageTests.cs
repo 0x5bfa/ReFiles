@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Buffers.Binary;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 
@@ -21,6 +22,20 @@ public sealed class WindowsShellPropertyPageTests
 	{
 		Assert.IsFalse(WindowsShellIconProvider.GetElevationShieldIcon().IsEmpty);
 		Assert.IsFalse(WindowsShellIconProvider.GetFolderIcon().IsEmpty);
+	}
+
+	/// <summary>
+	/// Verifies that Shell resource icons retain the requested physical pixel size.
+	/// </summary>
+	[TestMethod]
+	public void ShellResourceIconUsesRequestedPixelSize()
+	{
+		const int requestedSize = 24;
+		var shellLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "shell32.dll");
+		var icon = WindowsShellIconProvider.GetResourceIcon(shellLibrary, 0, requestedSize);
+		Assert.IsTrue(icon.Length >= 24);
+		Assert.AreEqual(requestedSize, BinaryPrimitives.ReadInt32BigEndian(icon.Span.Slice(16, sizeof(int))));
+		Assert.AreEqual(requestedSize, BinaryPrimitives.ReadInt32BigEndian(icon.Span.Slice(20, sizeof(int))));
 	}
 
 	/// <summary>

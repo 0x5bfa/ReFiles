@@ -304,6 +304,10 @@ SetFileAttributes
 INVALID_FILE_ATTRIBUTES
 SHDefExtractIconW
 GdipCreateBitmapFromHICON
+GUID_WICPixelFormat32bppBGRA
+IWICBitmap
+IWICImagingFactory
+CLSID_WICImagingFactory2
 GdipLoadImageFromStream
 GdipCreateHBITMAPFromBitmap
 GdiFlush

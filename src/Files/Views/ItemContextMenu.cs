@@ -15,11 +15,15 @@ namespace Files.Views;
 
 internal sealed class ItemContextMenu
 {
+	private const double AppExtensionIconSize = 16;
+	private const int MaximumAppExtensionIconPixelSize = 256;
+
 	private readonly FolderBrowserViewModel _viewModel;
 	private readonly IReadOnlyList<BrowseItemViewModel> _selection;
 	private readonly MenuFlyout _flyout = new() { AreOpenCloseAnimationsEnabled = false };
 	private readonly MenuFlyoutItem _loadingItem = new() { IsEnabled = false };
 	private readonly CancellationTokenSource _lifetime = new();
+	private readonly Dictionary<AppExtensionIconCacheKey, Task<ReadOnlyMemory<byte>>> _appExtensionIconLoads = [];
 	private Point _classicMenuPosition;
 	private double _rasterizationScale = 1;
 	private bool _showClassicMenuRequested;
@@ -164,14 +168,49 @@ internal sealed class ItemContextMenu
 		return item;
 	}
 
-	private static IconElement? CreateAppExtensionIcon(WindowsShellAppExtensionCommand command)
+	private IconElement? CreateAppExtensionIcon(WindowsShellAppExtensionCommand command)
 	{
-		if (command.IconData.IsEmpty)
+		if (command.IconPath is not { Length: > 0 } iconPath)
 		{
 			return null;
 		}
 
-		return new ImageIcon { Source = ThumbnailImageFactory.Create(command.IconData) };
+		var pixelSize = Math.Clamp((int)Math.Ceiling(AppExtensionIconSize * _rasterizationScale), (int)AppExtensionIconSize, MaximumAppExtensionIconPixelSize);
+		var cacheKey = new AppExtensionIconCacheKey(iconPath, command.IconIndex, pixelSize);
+		if (!_appExtensionIconLoads.TryGetValue(cacheKey, out var iconLoad))
+		{
+			iconLoad = _viewModel.GetAppExtensionIconAsync(command, pixelSize, _lifetime.Token);
+			_appExtensionIconLoads.Add(cacheKey, iconLoad);
+		}
+
+		var icon = new ImageIcon { Width = AppExtensionIconSize, Height = AppExtensionIconSize };
+		_ = ApplyAppExtensionIconAsync(icon, iconLoad);
+
+		return icon;
+	}
+
+	private async Task ApplyAppExtensionIconAsync(ImageIcon icon, Task<ReadOnlyMemory<byte>> iconLoad)
+	{
+		try
+		{
+			var iconData = await iconLoad.ConfigureAwait(false);
+			if (iconData.IsEmpty || _isClosed)
+			{
+				return;
+			}
+
+			await RunOnUiAsync(() =>
+			{
+				if (!_isClosed)
+				{
+					icon.Source = ThumbnailImageFactory.Create(iconData);
+				}
+			}).ConfigureAwait(false);
+		}
+		catch
+		{
+			// App-extension icons are optional.
+		}
 	}
 
 	private async Task InvokeAppExtensionAsync(WindowsShellAppExtensionCommand command)
@@ -263,4 +302,6 @@ internal sealed class ItemContextMenu
 			_ = ShowClassicMenuAsync();
 		}
 	}
+
+	private readonly record struct AppExtensionIconCacheKey(string Path, int Index, int PixelSize);
 }
