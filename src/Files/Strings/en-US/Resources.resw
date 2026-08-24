@@ -200,6 +200,7 @@
 	<data name="Sort" xml:space="preserve"><value>Sort</value></data>
 	<data name="SortBy" xml:space="preserve"><value>Sort by</value></data>
 	<data name="GroupBy" xml:space="preserve"><value>Group by</value></data>
+	<data name="ShowMoreOptions" xml:space="preserve"><value>Show more options</value></data>
 	<data name="ShowHiddenItems" xml:space="preserve"><value>Show hidden items</value></data>
 	<data name="ShowFileExtensions" xml:space="preserve"><value>Show file extensions</value></data>
 	<data name="Name" xml:space="preserve"><value>Name</value></data>

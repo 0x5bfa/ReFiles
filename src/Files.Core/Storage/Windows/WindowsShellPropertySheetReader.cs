@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Buffers.Binary;
-using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -17,7 +16,6 @@ using Windows.Win32.Security.Cryptography.Catalog;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.Com.StructuredStorage;
-using Windows.Win32.System.IO;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.PropertiesSystem;
 
@@ -39,10 +37,6 @@ internal static unsafe class WindowsShellPropertySheetReader
 	private const uint DiskQuotaLogUserThreshold = 1;
 	private const uint DiskQuotaLogUserLimit = 2;
 	private const int AccessDeniedResult = unchecked((int)0x80070005);
-	private const uint SnapshotControlCode = 0x00144064;
-	private const int SnapshotHeaderSize = 12;
-	private const int StatusPending = 0x00000103;
-	private const string SnapshotNameFormat = "'@GMT-'yyyy.MM.dd-HH.mm.ss";
 
 	internal static WindowsShellPropertySheetData CreateEmpty(IReadOnlyList<WindowsShellPropertyPage> pages)
 	{
@@ -57,11 +51,13 @@ internal static unsafe class WindowsShellPropertySheetReader
 
 		cancellationToken.ThrowIfCancellationRequested();
 		var primaryPath = selection.FileSystemPaths.Count is 1 ? selection.FileSystemPaths[0] : null;
-		var drive = primaryPath is not null && WindowsShellPropertyPageEnumerator.TryGetDriveRoot(primaryPath, out var driveRoot) ? ReadDriveProperties(driveRoot, pages) : null;
-		cancellationToken.ThrowIfCancellationRequested();
-		var shortcut = primaryPath is null ? null : TryReadShortcut(primaryPath);
+		var readsDrive = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.General or WindowsShellPropertyPageKind.Tools or WindowsShellPropertyPageKind.Quota);
+		var drive = readsDrive && primaryPath is not null && WindowsShellPropertyPageEnumerator.TryGetDriveRoot(primaryPath, out var driveRoot) ? ReadDriveProperties(driveRoot, pages) : null;
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsCompatibility = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Compatibility);
+		var readsShortcut = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Shortcut) || readsCompatibility;
+		var shortcut = readsShortcut && primaryPath is not null ? TryReadShortcut(primaryPath) : null;
+		cancellationToken.ThrowIfCancellationRequested();
 		var compatibility = readsCompatibility && primaryPath is not null ? TryReadCompatibility(primaryPath, shortcut) : null;
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsSharing = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Sharing);
@@ -71,7 +67,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var security = readsSecurity && primaryPath is not null ? TryReadSecurity(primaryPath) : null;
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsPreviousVersions = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.PreviousVersions);
-		var previousVersions = readsPreviousVersions && primaryPath is not null ? ReadPreviousVersions(primaryPath) : [];
+		var previousVersions = readsPreviousVersions && primaryPath is not null ? WindowsPreviousVersionProvider.Read(primaryPath, cancellationToken) : [];
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsHardware = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Hardware);
 		var hardwareDevices = readsHardware ? ReadHardwareDevices(cancellationToken) : [];
@@ -88,7 +84,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var catalogSignatures = readsSignatures && primaryPath is not null && File.Exists(primaryPath) ? ReadCatalogSignatures(primaryPath) : [];
 		cancellationToken.ThrowIfCancellationRequested();
 		var readsDetails = pages.Any(static page => page.Kind is WindowsShellPropertyPageKind.Details);
-		var details = readsDetails ? ReadDetails(primaryItem) : [];
+		var details = readsDetails && selection.Locators.Count is 1 ? ReadDetails(primaryItem) : [];
 
 		return new(pages, drive, shortcut, compatibility, sharing, security, previousVersions, hardwareDevices, quota, customization, embeddedSignatures, catalogSignatures, details);
 	}
@@ -530,147 +526,6 @@ internal static unsafe class WindowsShellPropertySheetReader
 			return new(path, folderKind, hasCustomSettings ? ReadNullTerminated(pictureBuffer) : string.Empty, hasCustomSettings ? ReadNullTerminated(iconBuffer) : string.Empty,
 				hasCustomSettings ? settings.iIconIndex : 0, !isUncShareRoot, Directory.Exists(path), applyToSubfolders);
 		}
-	}
-
-	private static IReadOnlyList<WindowsShellPreviousVersion> ReadPreviousVersions(string path)
-	{
-		var snapshotPath = path;
-		var snapshotNames = ReadSnapshotNames(snapshotPath);
-		if (snapshotNames.Count is 0 && TryGetAdministrativeSharePath(path, out var administrativePath))
-		{
-			snapshotPath = administrativePath;
-			snapshotNames = ReadSnapshotNames(snapshotPath);
-		}
-
-		if (snapshotNames.Count is 0)
-		{
-			return [];
-		}
-
-		var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-		if (string.IsNullOrEmpty(name))
-		{
-			name = path;
-		}
-
-		var versions = new List<WindowsShellPreviousVersion>(snapshotNames.Count);
-		foreach (var snapshotName in snapshotNames)
-		{
-			if (DateTimeOffset.TryParseExact(snapshotName, SnapshotNameFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp))
-			{
-				var sourcePath = BuildSnapshotItemPath(snapshotPath, snapshotName);
-				if (File.Exists(sourcePath) || Directory.Exists(sourcePath))
-				{
-					versions.Add(new(name, sourcePath, timestamp.ToLocalTime()));
-				}
-			}
-		}
-
-		return versions.OrderByDescending(static version => version.DateModified).ToArray();
-	}
-
-	private static IReadOnlyList<string> ReadSnapshotNames(string path)
-	{
-		using var file = PInvoke.CreateFile(
-			path,
-			(uint)FILE_ACCESS_RIGHTS.FILE_READ_DATA,
-			FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE,
-			null,
-			FILE_CREATION_DISPOSITION.OPEN_EXISTING,
-			FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS,
-			null);
-		if (file.IsInvalid)
-		{
-			return [];
-		}
-
-		Span<byte> header = stackalloc byte[16];
-		if (IssueSnapshotControl(file, header) is not 0)
-		{
-			return [];
-		}
-
-		var snapshotCount = BinaryPrimitives.ReadUInt32LittleEndian(header);
-		var payloadSize = BinaryPrimitives.ReadUInt32LittleEndian(header[8..]);
-		if (snapshotCount is 0 || payloadSize is 0 || payloadSize > int.MaxValue - SnapshotHeaderSize)
-		{
-			return [];
-		}
-
-		var output = new byte[checked((int)payloadSize + SnapshotHeaderSize)];
-		if (IssueSnapshotControl(file, output) is not 0)
-		{
-			return [];
-		}
-
-		var returnedCount = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint))), snapshotCount);
-		var returnedSize = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint) * 2)), payloadSize);
-		var characters = MemoryMarshal.Cast<byte, char>(output.AsSpan(SnapshotHeaderSize, checked((int)returnedSize)));
-		var names = new List<string>(checked((int)returnedCount));
-		while (names.Count < returnedCount && !characters.IsEmpty)
-		{
-			var terminator = characters.IndexOf('\0');
-			if (terminator <= 0)
-			{
-				break;
-			}
-
-			names.Add(new(characters[..terminator]));
-			characters = characters[(terminator + 1)..];
-		}
-
-		return names;
-	}
-
-	private static int IssueSnapshotControl(SafeHandle file, Span<byte> output)
-	{
-		using var completedEvent = PInvoke.CreateEvent(null, true, false, null);
-		if (completedEvent.IsInvalid)
-		{
-			return Marshal.GetLastPInvokeError();
-		}
-
-		var ioStatus = new IO_STATUS_BLOCK();
-		fixed (byte* outputPointer = output)
-		{
-			var status = PInvoke.NtFsControlFile(file, completedEvent, 0, 0, &ioStatus, SnapshotControlCode, null, 0, outputPointer, checked((uint)output.Length));
-			if (status is StatusPending)
-			{
-				PInvoke.WaitForSingleObjectEx(completedEvent, uint.MaxValue, false);
-				status = ioStatus.Status.Value;
-			}
-
-			return status;
-		}
-	}
-
-	private static bool TryGetAdministrativeSharePath(string path, out string administrativePath)
-	{
-		administrativePath = string.Empty;
-		var fullPath = Path.GetFullPath(path);
-		var root = Path.GetPathRoot(fullPath);
-		if (root is null || root.Length < 2 || root[1] is not ':')
-		{
-			return false;
-		}
-
-		var relativePath = fullPath[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-		administrativePath = $"\\\\localhost\\{char.ToUpperInvariant(root[0])}$";
-		if (!string.IsNullOrEmpty(relativePath))
-		{
-			administrativePath = Path.Combine(administrativePath, relativePath);
-		}
-
-		return true;
-	}
-
-	private static string BuildSnapshotItemPath(string sourcePath, string snapshotName)
-	{
-		var root = Path.GetPathRoot(sourcePath) ?? string.Empty;
-		var relativePath = sourcePath[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-		var snapshotRoot = Path.Combine(root, snapshotName);
-
-		return string.IsNullOrEmpty(relativePath) ? snapshotRoot : Path.Combine(snapshotRoot, relativePath);
 	}
 
 	private static IReadOnlyList<WindowsShellDigitalSignature> ReadEmbeddedSignatures(string path)

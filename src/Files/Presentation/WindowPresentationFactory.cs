@@ -20,6 +20,7 @@ internal sealed class WindowPresentationFactory
 	private readonly CommandRegistry _commandRegistry;
 	private readonly IItemActivationService _itemActivationService;
 	private readonly IItemPropertiesService? _itemPropertiesService;
+	private readonly nint _ownerWindowHandle;
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
@@ -33,7 +34,8 @@ internal sealed class WindowPresentationFactory
 		IUIDispatcher dispatcher,
 		CommandRegistry commandRegistry,
 		IItemActivationService? itemActivationService = null,
-		IItemPropertiesService? itemPropertiesService = null)
+		IItemPropertiesService? itemPropertiesService = null,
+		nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 		ArgumentNullException.ThrowIfNull(storageOperations);
@@ -46,6 +48,7 @@ internal sealed class WindowPresentationFactory
 		_commandRegistry = commandRegistry;
 		_itemActivationService = itemActivationService ?? Files.Activation.ItemActivationService.CreateStorageOnly();
 		_itemPropertiesService = itemPropertiesService;
+		_ownerWindowHandle = ownerWindowHandle;
 	}
 
 	internal RootViewModel Create(WindowSession window)
@@ -77,7 +80,7 @@ internal sealed class WindowPresentationFactory
 
 	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
 	{
-		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _dispatcher, commandManager);
+		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle);
 	}
 
 	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)

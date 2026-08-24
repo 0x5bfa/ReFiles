@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -66,6 +67,25 @@ public sealed class WindowsShellAppExtensionService
 		return WindowsShellPropertyPageEnumerator.GetPages(resolvedSelection);
 	}
 
+	/// <summary>Gets a portable target that can create the selection's classic Shell context menu on the UI STA.</summary>
+	/// <param name="selection">The selected Windows Shell item references.</param>
+	/// <param name="cancellationToken">The token used to cancel selection resolution.</param>
+	/// <returns>The copied item ID lists, or <see langword="null"/> when the selection cannot expose one native menu.</returns>
+	public async Task<WindowsShellContextMenuTarget?> GetContextMenuTargetAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		if (selection.Count is 0 || await ResolveSelectionAsync(selection, cancellationToken).ConfigureAwait(false) is not { } resolvedSelection
+			|| !HasCommonParent(resolvedSelection.Locators))
+		{
+			return null;
+		}
+
+		var absolutePidls = resolvedSelection.Locators.Select(static locator => (ReadOnlyMemory<byte>)locator.AbsolutePidl.ToArray()).ToArray();
+
+		return new WindowsShellContextMenuTarget(absolutePidls);
+	}
+
 	/// <summary>Gets the native data used to render the Windows property pages for a selection.</summary>
 	/// <param name="selection">The selected Windows Shell item references.</param>
 	/// <param name="cancellationToken">The token used to cancel selection resolution and property retrieval.</param>
@@ -79,7 +99,32 @@ public sealed class WindowsShellAppExtensionService
 			return null;
 		}
 
-		return await _source.Scheduler.InvokeOperationAsync(() => ReadPropertySheetDataOnCurrentSta(resolvedSelection, cancellationToken), cancellationToken).ConfigureAwait(false);
+		return await _source.Scheduler.InvokeConcurrentAsync(
+			() => ReadPropertySheetDataOnCurrentSta(resolvedSelection, WindowsShellPropertyPageEnumerator.GetPages(resolvedSelection), cancellationToken), cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Gets the native data used to render one Windows property page for a selection.</summary>
+	/// <param name="selection">The selected Windows Shell item references.</param>
+	/// <param name="kind">The property page to read.</param>
+	/// <param name="cancellationToken">The token used to cancel selection resolution and property retrieval.</param>
+	/// <returns>Apartment-neutral data for the requested page, or <see langword="null"/> when the page does not apply or the selection cannot be resolved.</returns>
+	public async Task<WindowsShellPropertySheetData?> GetPropertyPageDataAsync(
+		IReadOnlyList<StorableReference> selection, WindowsShellPropertyPageKind kind, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		if (selection.Count is 0 || await ResolveSelectionAsync(selection, cancellationToken).ConfigureAwait(false) is not { } resolvedSelection)
+		{
+			return null;
+		}
+
+		var page = WindowsShellPropertyPageEnumerator.GetPages(resolvedSelection).FirstOrDefault(page => page.Kind == kind);
+		if (page is null)
+		{
+			return null;
+		}
+
+		return await _source.Scheduler.InvokeConcurrentAsync(() => ReadPropertySheetDataOnCurrentSta(resolvedSelection, [page], cancellationToken), cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Gets the Shell description and icon shown on the General property page for a single item.</summary>
@@ -191,10 +236,10 @@ public sealed class WindowsShellAppExtensionService
 		return bindResult.Succeeded && dataObject is not null && PInvoke.SHMultiFileProperties(dataObject, 0).Succeeded;
 	}
 
-	private static WindowsShellPropertySheetData ReadPropertySheetDataOnCurrentSta(WindowsShellResolvedSelection selection, CancellationToken cancellationToken)
+	private static WindowsShellPropertySheetData ReadPropertySheetDataOnCurrentSta(
+		WindowsShellResolvedSelection selection, IReadOnlyList<WindowsShellPropertyPage> pages, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		var pages = WindowsShellPropertyPageEnumerator.GetPages(selection);
 		var shellItemArray = CreateShellItemArray(selection.Locators);
 		if (shellItemArray.GetItemAt(0, out var primaryItem).Failed || primaryItem is null)
 		{
@@ -436,6 +481,56 @@ public sealed class WindowsShellAppExtensionService
 				handles[index].Dispose();
 			}
 		}
+	}
+
+	private static bool HasCommonParent(IReadOnlyList<WindowsItemLocator> locators)
+	{
+		if (locators.Count is 0 || !TryGetParentPidl(locators[0].AbsolutePidl.Span, out var firstParent))
+		{
+			return false;
+		}
+
+		for (var index = 1; index < locators.Count; index++)
+		{
+			if (!TryGetParentPidl(locators[index].AbsolutePidl.Span, out var parent) || !firstParent.SequenceEqual(parent))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private static bool TryGetParentPidl(ReadOnlySpan<byte> absolutePidl, out ReadOnlySpan<byte> parent)
+	{
+		parent = default;
+		var offset = 0;
+		var lastItemOffset = -1;
+		while (offset + sizeof(ushort) <= absolutePidl.Length)
+		{
+			var itemSize = BinaryPrimitives.ReadUInt16LittleEndian(absolutePidl[offset..]);
+			if (itemSize is 0)
+			{
+				if (lastItemOffset < 0 || offset + sizeof(ushort) != absolutePidl.Length)
+				{
+					return false;
+				}
+
+				parent = absolutePidl[..lastItemOffset];
+
+				return true;
+			}
+
+			if (itemSize < sizeof(ushort) || offset + itemSize > absolutePidl.Length)
+			{
+				return false;
+			}
+
+			lastItemOffset = offset;
+			offset += itemSize;
+		}
+
+		return false;
 	}
 
 	private async Task<WindowsShellResolvedSelection?> ResolveSelectionAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)

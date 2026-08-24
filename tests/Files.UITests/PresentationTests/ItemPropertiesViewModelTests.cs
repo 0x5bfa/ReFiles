@@ -68,6 +68,22 @@ public sealed class ItemPropertiesViewModelTests
 	}
 
 	/// <summary>
+	/// Verifies that an unavailable Shell details payload does not replace the merged multi-selection values.
+	/// </summary>
+	[TestMethod]
+	public void EmptyShellDetailsPreserveMergedSelectionValues()
+	{
+		var first = CreateItem("first.txt", false, null, ("System.Author", "Files"), ("System.Rating", 1));
+		var second = CreateItem("second.txt", false, null, ("System.Author", "Files"), ("System.Rating", 2));
+		var viewModel = new ItemPropertiesViewModel([first, second]);
+		var originalDetails = viewModel.Details.Select(static detail => (detail.Name, detail.Value)).ToArray();
+
+		viewModel.SetShellDetails([]);
+
+		CollectionAssert.AreEqual(originalDetails, viewModel.Details.Select(static detail => (detail.Name, detail.Value)).ToArray());
+	}
+
+	/// <summary>
 	/// Verifies that folder contents are counted and sized asynchronously.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>

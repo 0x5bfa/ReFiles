@@ -19,6 +19,9 @@ internal sealed class ItemContextMenu
 	private readonly MenuFlyout _flyout = new();
 	private readonly MenuFlyoutItem _loadingItem = new() { IsEnabled = false };
 	private readonly CancellationTokenSource _lifetime = new();
+	private Point _classicMenuPosition;
+	private double _rasterizationScale = 1;
+	private bool _showClassicMenuRequested;
 	private bool _isClosed;
 
 	internal ItemContextMenu(FolderBrowserViewModel viewModel, BrowseItemViewModel invokedItem, IReadOnlyList<BrowseItemViewModel> selection)
@@ -39,12 +42,23 @@ internal sealed class ItemContextMenu
 		AddCommand(CommandIds.Delete, null, "\uE74D", "Del");
 		_flyout.Items.Add(new MenuFlyoutSeparator());
 		AddCommand(CommandIds.Properties, null, "\uE946", "Alt+Enter");
+		if (_viewModel.CanShowShellContextMenu)
+		{
+			_flyout.Items.Add(new MenuFlyoutSeparator());
+			var showMoreOptions = new MenuFlyoutItem { Text = Strings.ShowMoreOptions.GetLocalized(), Icon = new FontIcon { Glyph = "\uE712" } };
+			showMoreOptions.Click += ShowMoreOptions_Click;
+			_flyout.Items.Add(showMoreOptions);
+		}
+
 		_flyout.Closed += Flyout_Closed;
 	}
 
 	internal void ShowAt(FrameworkElement target, Point? position)
 	{
 		ArgumentNullException.ThrowIfNull(target);
+		var invocationPoint = position ?? new Point(target.ActualWidth / 2, target.ActualHeight / 2);
+		_classicMenuPosition = target.TransformToVisual(null).TransformPoint(invocationPoint);
+		_rasterizationScale = target.XamlRoot?.RasterizationScale ?? 1;
 
 		if (position is { } point)
 		{
@@ -203,11 +217,38 @@ internal sealed class ItemContextMenu
 		}
 	}
 
+	private void ShowMoreOptions_Click(object sender, RoutedEventArgs e)
+	{
+		_showClassicMenuRequested = true;
+	}
+
+	private async Task ShowClassicMenuAsync()
+	{
+		try
+		{
+			var target = await _viewModel.GetShellContextMenuTargetAsync(_selection).ConfigureAwait(false);
+			if (target is null)
+			{
+				return;
+			}
+
+			await RunOnUiAsync(() => _viewModel.ShowShellContextMenu(target, _classicMenuPosition, _rasterizationScale)).ConfigureAwait(false);
+		}
+		catch (Exception exception)
+		{
+			await RunOnUiAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
+		}
+	}
+
 	private void Flyout_Closed(object? sender, object e)
 	{
 		_isClosed = true;
 		_flyout.Closed -= Flyout_Closed;
 		_lifetime.Cancel();
 		_lifetime.Dispose();
+		if (_showClassicMenuRequested)
+		{
+			_ = ShowClassicMenuAsync();
+		}
 	}
 }

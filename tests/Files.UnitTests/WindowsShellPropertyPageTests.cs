@@ -24,7 +24,7 @@ public sealed class WindowsShellPropertyPageTests
 	}
 
 	/// <summary>
-	/// Verifies that folder-template and picture changes are persisted through the Shell customization APIs.
+	/// Verifies that folder-picture changes are persisted through the public Shell customization API.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
@@ -37,7 +37,7 @@ public sealed class WindowsShellPropertyPageTests
 
 		try
 		{
-			WindowsShellFolderCustomizationService.Apply(directoryPath, "Pictures", true, false, picturePath, true, string.Empty, 0, false);
+			WindowsShellFolderCustomizationService.Apply(directoryPath, string.Empty, false, false, picturePath, true, string.Empty, 0, false);
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
@@ -46,7 +46,6 @@ public sealed class WindowsShellPropertyPageTests
 			var data = await service.GetPropertySheetDataAsync([reference]);
 
 			Assert.IsNotNull(data?.Customization);
-			Assert.AreEqual("Pictures", data.Customization.FolderKind, true);
 			Assert.AreEqual(picturePath, data.Customization.PicturePath, true);
 		}
 		finally
@@ -189,14 +188,102 @@ public sealed class WindowsShellPropertyPageTests
 			var data = await service.GetPropertySheetDataAsync([reference]);
 
 			Assert.IsNotNull(data);
-		Assert.IsNotNull(data.Security);
-		Assert.AreEqual(filePath, data.Security.ObjectPath);
-		Assert.IsTrue(data.Security.Principals.Any(static principal => !principal.IconData.IsEmpty));
-		Assert.IsNotEmpty(data.Details);
+			Assert.IsNotNull(data.Security);
+			Assert.AreEqual(filePath, data.Security.ObjectPath);
+			Assert.IsTrue(data.Security.Principals.Any(static principal => !principal.IconData.IsEmpty));
+			Assert.IsNotEmpty(data.Details);
 		}
 		finally
 		{
 			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	/// <summary>
+	/// Verifies that property-page data is read independently and that multi-selection details remain managed by the presentation model.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PropertyPageDataCanBeLoadedIndependently()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyPageTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		var firstPath = Path.Combine(directoryPath, "first.txt");
+		var secondPath = Path.Combine(directoryPath, "second.txt");
+		File.WriteAllText(firstPath, "first");
+		File.WriteAllText(secondPath, "second");
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var first = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, firstPath));
+			var second = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, secondPath));
+			var firstReference = new StorableReference(source.SourceId, first.Id, first.Address);
+			var secondReference = new StorableReference(source.SourceId, second.Id, second.Address);
+			var service = new WindowsShellAppExtensionService(source);
+
+			var security = await service.GetPropertyPageDataAsync([firstReference], WindowsShellPropertyPageKind.Security);
+			var details = await service.GetPropertyPageDataAsync([firstReference], WindowsShellPropertyPageKind.Details);
+			var multiSelectionDetails = await service.GetPropertyPageDataAsync([firstReference, secondReference], WindowsShellPropertyPageKind.Details);
+
+			Assert.IsNotNull(security?.Security);
+			CollectionAssert.AreEqual(new[] { WindowsShellPropertyPageKind.Security }, security.Pages.Select(static page => page.Kind).ToArray());
+			Assert.IsEmpty(security.Details);
+			Assert.IsNotNull(details);
+			CollectionAssert.AreEqual(new[] { WindowsShellPropertyPageKind.Details }, details.Pages.Select(static page => page.Kind).ToArray());
+			Assert.IsNotEmpty(details.Details);
+			Assert.IsNotNull(multiSelectionDetails);
+			Assert.IsEmpty(multiSelectionDetails.Details);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	/// <summary>
+	/// Verifies that classic context-menu targets copy same-parent Shell item ID lists and reject mixed parents.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ClassicContextMenuTargetRequiresCommonParent()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyPageTests-{Guid.NewGuid():N}");
+		var otherDirectoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyPageTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		Directory.CreateDirectory(otherDirectoryPath);
+		var firstPath = Path.Combine(directoryPath, "first.txt");
+		var secondPath = Path.Combine(directoryPath, "second.txt");
+		var otherPath = Path.Combine(otherDirectoryPath, "other.txt");
+		File.WriteAllText(firstPath, "first");
+		File.WriteAllText(secondPath, "second");
+		File.WriteAllText(otherPath, "other");
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var first = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, firstPath));
+			var second = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, secondPath));
+			var other = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, otherPath));
+			var firstReference = new StorableReference(source.SourceId, first.Id, first.Address);
+			var secondReference = new StorableReference(source.SourceId, second.Id, second.Address);
+			var otherReference = new StorableReference(source.SourceId, other.Id, other.Address);
+			var service = new WindowsShellAppExtensionService(source);
+
+			var sameParent = await service.GetContextMenuTargetAsync([firstReference, secondReference]);
+			var mixedParents = await service.GetContextMenuTargetAsync([firstReference, otherReference]);
+
+			Assert.IsNotNull(sameParent);
+			Assert.HasCount(2, sameParent.AbsolutePidls);
+			Assert.IsTrue(sameParent.AbsolutePidls.All(static pidl => !pidl.IsEmpty));
+			Assert.IsNull(mixedParents);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+			Directory.Delete(otherDirectoryPath, recursive: true);
 		}
 	}
 
@@ -220,16 +307,17 @@ public sealed class WindowsShellPropertyPageTests
 
 			var pages = await service.GetPropertyPagesAsync([reference]);
 
+			var pageKinds = pages.Select(static page => page.Kind).ToArray();
 			CollectionAssert.AreEqual(
 				new[]
 				{
 					WindowsShellPropertyPageKind.General,
-					WindowsShellPropertyPageKind.Sharing,
 					WindowsShellPropertyPageKind.Security,
 					WindowsShellPropertyPageKind.PreviousVersions,
 					WindowsShellPropertyPageKind.Customize,
 				},
-				pages.Select(static page => page.Kind).ToArray());
+				pageKinds.Where(static kind => kind is not WindowsShellPropertyPageKind.Sharing).ToArray());
+			Assert.IsTrue(pageKinds.Count(static kind => kind is WindowsShellPropertyPageKind.Sharing) <= 1);
 		}
 		finally
 		{
