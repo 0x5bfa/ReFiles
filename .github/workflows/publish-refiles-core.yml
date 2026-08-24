@@ -1,0 +1,88 @@
+# Copyright (c) Files Community
+# SPDX-License-Identifier: MPL-2.0
+
+name: ReFiles.Core CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the package to NuGet.org
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  CORE_PROJECT_PATH: '${{ github.workspace }}\src\Files.Core\Files.Core.csproj'
+  OUTPUT_DIR: '${{ github.workspace }}\artifacts\packages'
+
+jobs:
+  pack:
+    name: Pack ReFiles.Core
+    runs-on: windows-2025-vs2026
+    env:
+      CONFIGURATION: Release
+      PLATFORM: x64
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v6
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Pack the project
+        shell: pwsh
+        run: |
+          msbuild $env:CORE_PROJECT_PATH `
+            -restore -p:Configuration=$env:CONFIGURATION -p:Platform=$env:PLATFORM `
+            -p:PackageOutputPath=$env:OUTPUT_DIR -v:quiet -clp:ErrorsOnly
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ReFiles.Core-packages
+          path: |
+            ${{ env.OUTPUT_DIR }}\*.nupkg
+            ${{ env.OUTPUT_DIR }}\*.snupkg
+          if-no-files-found: error
+
+  publish:
+    name: Publish ReFiles.Core
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    needs: pack
+    runs-on: windows-2025-vs2026
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download package artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: ReFiles.Core-packages
+          path: artifacts\packages
+
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Publish package
+        shell: pwsh
+        run: |
+          dotnet nuget push artifacts\packages\*.nupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push artifacts\packages\*.snupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

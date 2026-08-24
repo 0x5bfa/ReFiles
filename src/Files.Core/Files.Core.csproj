@@ -10,16 +10,39 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
+		<Deterministic>true</Deterministic>
+		<ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<DebugType>portable</DebugType>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 		<!-- The COM source generator emits CS1591 for inherited members; source files still use the .editorconfig error rule. -->
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<PackageId>ReFiles.Core</PackageId>
+		<Title>ReFiles.Core</Title>
+		<Authors>Files Community</Authors>
+		<Version>0.1.0-alpha</Version>
+		<Description>UI-independent storage, browsing, item feature, and Windows Shell foundation for ReFiles.</Description>
+		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
+		<PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/0x5bfa/ReFiles</RepositoryUrl>
+		<PackageTags>Files ReFiles FileManager Storage Windows Shell</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="FluentFTP" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
 		<PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
 		<PackageReference Include="OwlCore.Storage" />
 		<PackageReference Include="SevenZipSharp" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\LICENSE-MPL" Pack="true" PackagePath="" />
+		<None Update="PACKAGE.md" Pack="true" PackagePath="" />
 	</ItemGroup>
 
 </Project>
