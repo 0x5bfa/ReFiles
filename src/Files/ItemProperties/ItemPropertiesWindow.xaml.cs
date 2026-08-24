@@ -19,9 +19,13 @@ namespace Files.ItemProperties;
 public sealed partial class ItemPropertiesWindow : Window
 {
 	private readonly CancellationTokenSource _lifetime = new();
-	private readonly Func<CancellationToken, Task<WindowsShellPropertySheetData?>>? _getPropertySheetData;
+	private readonly Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? _getPropertyPages;
+	private readonly Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? _getPropertyPageData;
 	private readonly Func<CancellationToken, Task<(string? Description, ThumbnailResult? Icon)>>? _getGeneralProperties;
 	private readonly Dictionary<WindowsShellPropertyPageKind, UserControl> _propertyViewCache = [];
+	private readonly HashSet<WindowsShellPropertyPageKind> _loadedPropertyPages = [WindowsShellPropertyPageKind.General];
+	private readonly HashSet<WindowsShellPropertyPageKind> _loadingPropertyPages = [];
+	private readonly List<WindowsShellPropertyPageKind> _propertyPageKinds = [];
 	private readonly List<UserControl> _propertyViews = [];
 	private readonly GeneralPropertyView _generalView;
 	private readonly DetailsPropertyView _detailsView;
@@ -31,18 +35,20 @@ public sealed partial class ItemPropertiesWindow : Window
 
 	internal ItemPropertiesWindow(
 		IReadOnlyList<BrowseItemViewModel> items,
-		Func<CancellationToken, Task<WindowsShellPropertySheetData?>>? getPropertySheetData = null,
+		Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? getPropertyPages = null,
+		Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? getPropertyPageData = null,
 		Func<CancellationToken, Task<(string? Description, ThumbnailResult? Icon)>>? getGeneralProperties = null)
 	{
 		ViewModel = new(items);
-		_getPropertySheetData = getPropertySheetData;
+		_getPropertyPages = getPropertyPages;
+		_getPropertyPageData = getPropertyPageData;
 		_getGeneralProperties = getGeneralProperties;
 		InitializeComponent();
 		_generalView = new(ViewModel, ShowError);
 		_detailsView = new(ViewModel);
 		_propertyViewCache[WindowsShellPropertyPageKind.General] = _generalView;
 		_propertyViewCache[WindowsShellPropertyPageKind.Details] = _detailsView;
-		RegisterPropertyView(ViewModel.GeneralLabel, _generalView);
+		RegisterPropertyView(ViewModel.GeneralLabel, WindowsShellPropertyPageKind.General, _generalView);
 		Title = ViewModel.WindowTitle;
 		AppWindow.Resize(new SizeInt32(540, 650));
 		Activated += Window_Activated;
@@ -133,19 +139,19 @@ public sealed partial class ItemPropertiesWindow : Window
 
 	private async Task PopulatePropertyViewsAsync(CancellationToken cancellationToken)
 	{
-		if (_getPropertySheetData is null)
+		if (_getPropertyPages is null)
 		{
 			return;
 		}
 
-		var data = await _getPropertySheetData(cancellationToken);
-		if (data is null || data.Pages.Count is 0)
+		var pages = await _getPropertyPages(cancellationToken);
+		if (pages.Count is 0)
 		{
 			return;
 		}
 
-		ViewModel.SetShellDetails(data.Details);
 		PropertyPageSelector.Items.Clear();
+		_propertyPageKinds.Clear();
 		_propertyViews.Clear();
 		for (var childIndex = PropertyPagePanel.Children.Count - 1; childIndex >= 0; childIndex--)
 		{
@@ -155,19 +161,20 @@ public sealed partial class ItemPropertiesWindow : Window
 			}
 		}
 
-		for (var index = 0; index < data.Pages.Count; index++)
+		for (var index = 0; index < pages.Count; index++)
 		{
-			var page = data.Pages[index];
+			var page = pages[index];
 			var title = GetPageTitle(page, index);
 			if (!_propertyViewCache.TryGetValue(page.Kind, out var view))
 			{
-				view = CreatePropertyView(page.Kind, data);
+				view = new MessagePropertyView(Strings.Loading.GetLocalized());
 				view.Tag = title;
-				_propertyViewCache[page.Kind] = view;
 			}
 
-			RegisterPropertyView(title, view);
+			RegisterPropertyView(title, page.Kind, view);
 		}
+
+		LoadSelectedPropertyPage();
 	}
 
 	private async Task PopulateGeneralPropertiesAsync(CancellationToken cancellationToken)
@@ -182,7 +189,7 @@ public sealed partial class ItemPropertiesWindow : Window
 		ViewModel.SetGeneralShellProperties(properties.Description, icon);
 	}
 
-	private void RegisterPropertyView(string title, UserControl view)
+	private void RegisterPropertyView(string title, WindowsShellPropertyPageKind kind, UserControl view)
 	{
 		var isFirstView = _propertyViews.Count is 0;
 		view.Visibility = isFirstView ? Visibility.Visible : Visibility.Collapsed;
@@ -191,6 +198,7 @@ public sealed partial class ItemPropertiesWindow : Window
 			PropertyPagePanel.Children.Add(view);
 		}
 
+		_propertyPageKinds.Add(kind);
 		_propertyViews.Add(view);
 		PropertyPageSelector.Items.Add(new SelectorBarItem { IsSelected = isFirstView, Text = title });
 	}
@@ -202,6 +210,79 @@ public sealed partial class ItemPropertiesWindow : Window
 		{
 			_propertyViews[index].Visibility = index == selectedIndex ? Visibility.Visible : Visibility.Collapsed;
 		}
+
+		LoadSelectedPropertyPage();
+	}
+
+	private void LoadSelectedPropertyPage()
+	{
+		var selectedIndex = PropertyPageSelector.SelectedItem is null ? -1 : PropertyPageSelector.Items.IndexOf(PropertyPageSelector.SelectedItem);
+		if (selectedIndex >= 0 && selectedIndex < _propertyPageKinds.Count)
+		{
+			_ = LoadPropertyPageAsync(_propertyPageKinds[selectedIndex], _lifetime.Token);
+		}
+	}
+
+	private async Task LoadPropertyPageAsync(WindowsShellPropertyPageKind kind, CancellationToken cancellationToken)
+	{
+		if (_getPropertyPageData is null || _loadedPropertyPages.Contains(kind) || !_loadingPropertyPages.Add(kind))
+		{
+			return;
+		}
+
+		try
+		{
+			var data = await _getPropertyPageData(kind, cancellationToken);
+			cancellationToken.ThrowIfCancellationRequested();
+			if (data is null)
+			{
+				return;
+			}
+
+			if (kind is WindowsShellPropertyPageKind.Details)
+			{
+				ViewModel.SetShellDetails(data.Details);
+			}
+
+			var view = CreatePropertyView(kind, data);
+			ReplacePropertyView(kind, view);
+			_loadedPropertyPages.Add(kind);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			ReplacePropertyView(kind, new MessagePropertyView(exception.Message));
+			ShowError(exception.Message);
+		}
+		finally
+		{
+			_loadingPropertyPages.Remove(kind);
+		}
+	}
+
+	private void ReplacePropertyView(WindowsShellPropertyPageKind kind, UserControl view)
+	{
+		var index = _propertyPageKinds.IndexOf(kind);
+		if (index < 0)
+		{
+			return;
+		}
+
+		var oldView = _propertyViews[index];
+		var childIndex = PropertyPagePanel.Children.IndexOf(oldView);
+		if (childIndex < 0)
+		{
+			return;
+		}
+
+		view.Tag = oldView.Tag;
+		view.Visibility = oldView.Visibility;
+		PropertyPagePanel.Children.RemoveAt(childIndex);
+		PropertyPagePanel.Children.Insert(childIndex, view);
+		_propertyViews[index] = view;
+		_propertyViewCache[kind] = view;
 	}
 
 	private UserControl CreatePropertyView(WindowsShellPropertyPageKind kind, WindowsShellPropertySheetData data)

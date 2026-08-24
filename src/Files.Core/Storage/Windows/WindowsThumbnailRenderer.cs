@@ -7,6 +7,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.Graphics.GdiPlus;
+using Windows.Win32.Graphics.Imaging;
 using Windows.Win32.System.Com;
 using Windows.Win32.UI.WindowsAndMessaging;
 
@@ -109,6 +110,12 @@ internal static unsafe class WindowsThumbnailRenderer
 		{
 			icon.DangerousAddRef(ref addedReference);
 			var rawIcon = (HICON)icon.DangerousGetHandle();
+			var encodedIcon = EncodeHIconWithWic(rawIcon, size, cancellationToken);
+			if (encodedIcon is not null)
+			{
+				return encodedIcon;
+			}
+
 			var bgra = RenderHIcon(rawIcon, size, cancellationToken);
 
 			return bgra is null
@@ -179,6 +186,37 @@ internal static unsafe class WindowsThumbnailRenderer
 		croppedImage = encoded;
 
 		return true;
+	}
+
+	private static byte[]? EncodeHIconWithWic(HICON icon, int expectedSize, CancellationToken cancellationToken)
+	{
+		var createFactoryResult = PInvoke.CoCreateInstance(PInvoke.CLSID_WICImagingFactory2, null!, CLSCTX.CLSCTX_INPROC_SERVER, out IWICImagingFactory factory);
+		if (createFactoryResult.Failed || factory.CreateBitmapFromHICON(icon, out var bitmap).Failed || bitmap.GetSize(out var width, out var height).Failed
+			|| width != expectedSize || height != expectedSize)
+		{
+			return null;
+		}
+
+		if (factory.CreateFormatConverter(out var converter).Failed)
+		{
+			return null;
+		}
+
+		var pixelFormat = PInvoke.GUID_WICPixelFormat32bppBGRA;
+		if (converter.Initialize(bitmap, &pixelFormat, WICBitmapDitherType.WICBitmapDitherTypeNone, null!, 0, WICBitmapPaletteType.WICBitmapPaletteTypeCustom).Failed)
+		{
+			return null;
+		}
+
+		var stride = checked(width * 4);
+		var bufferSize = checked(stride * height);
+		var bgra = GC.AllocateUninitializedArray<byte>(checked((int)bufferSize));
+		if (converter.CopyPixels(null, stride, bufferSize, bgra).Failed)
+		{
+			return null;
+		}
+
+		return EncodeBgra(bgra, checked((int)width), checked((int)height), cancellationToken);
 	}
 
 	private static byte[]? EncodeBgra(byte[] bgra, int width, int height, CancellationToken cancellationToken)

@@ -10,7 +10,7 @@ internal static unsafe class WindowsFileExplorerAppExtensionCatalog
 {
 	private const uint WaitForStateRepository = 1;
 	private const int DisplayNameSlot = 6;
-	private const int PackageFullNameSlot = 8;
+	private const int PackageFullNameSlot = 7;
 	private const int GetVerbsSlot = 9;
 	private const int VectorGetAtSlot = 6;
 	private const int VectorSizeSlot = 7;
@@ -18,8 +18,8 @@ internal static unsafe class WindowsFileExplorerAppExtensionCatalog
 	private const int PropertyValueGetStringSlot = 19;
 	private const int PropertyValueGetGuidSlot = 20;
 	private static readonly Guid _staticsInterfaceId = new("104C1AFF-F09F-5AA1-945F-78737EE0FE45");
-	private static readonly Guid _mapViewInterfaceId = new("E480CE40-A338-4ADA-ADCF-272272E48CB9");
-	private static readonly Guid _propertyValueInterfaceId = new("4BD682DD-7554-40E9-9A9B-82654BF08D3C");
+	private static readonly Guid _mapInterfaceId = new("1B0D3570-0877-5EC2-8A2C-3B9539506ACA");
+	private static readonly Guid _propertyValueInterfaceId = new("4BD682DD-7554-40E9-9A9B-82654EDE7E62");
 
 	internal static IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> GetRegistrations(IEnumerable<string> itemTypes)
 	{
@@ -232,7 +232,7 @@ internal static unsafe class WindowsFileExplorerAppExtensionCatalog
 	private static bool TryLookupValue(nint valueSet, string key, out nint value)
 	{
 		value = 0;
-		if (!TryQueryInterface(valueSet, _mapViewInterfaceId, out var map))
+		if (!TryQueryInterface(valueSet, _mapInterfaceId, out var map))
 		{
 			return false;
 		}

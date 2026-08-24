@@ -19,6 +19,9 @@ using Files.Core.ViewSettings;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Foundation;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 
 namespace Files.ViewModels;
 
@@ -43,6 +46,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly WindowsStorageSource? _windowsSource;
 	private readonly WindowsShellNewMenu? _shellNewMenu;
 	private readonly WindowsShellAppExtensionService? _shellAppExtensionService;
+	private readonly nint _ownerWindowHandle;
 
 	private readonly IUIDispatcher _dispatcher;
 
@@ -67,6 +71,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	internal WindowCommandManager CommandManager { get; }
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
+
+	internal bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _shellAppExtensionService is not null;
 
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
 
@@ -146,7 +152,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		?? _browseAdapter.ErrorMessage
 		?? _browseAdapter.StatusText;
 
-	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, WindowCommandManager commandManager)
+	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, WindowCommandManager commandManager,
+		nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 
@@ -169,6 +176,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			? new WindowsShellNewMenu(windowsSource.Scheduler)
 			: null;
 		_shellAppExtensionService = _windowsSource is { } shellSource ? new WindowsShellAppExtensionService(shellSource) : null;
+		_ownerWindowHandle = ownerWindowHandle;
 		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
 		_wasLoading = _browseAdapter.IsLoading;
@@ -308,6 +316,13 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			: _shellAppExtensionService.GetCommandsAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
+	internal Task<ReadOnlyMemory<byte>> GetAppExtensionIconAsync(WindowsShellAppExtensionCommand command, int pixelSize, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(command);
+
+		return _shellAppExtensionService is null ? Task.FromResult(ReadOnlyMemory<byte>.Empty) : _shellAppExtensionService.GetCommandIconAsync(command, pixelSize, cancellationToken);
+	}
+
 	internal Task<bool> InvokeAppExtensionCommandAsync(IReadOnlyList<BrowseItemViewModel> selection, WindowsShellAppExtensionCommand command, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(selection);
@@ -321,6 +336,34 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		ArgumentNullException.ThrowIfNull(selection);
 
 		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+	}
+
+	internal Task<WindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		return _shellAppExtensionService is null
+			? Task.FromResult<WindowsShellContextMenuTarget?>(null)
+			: _shellAppExtensionService.GetContextMenuTargetAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+	}
+
+	internal bool ShowShellContextMenu(WindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
+	{
+		ArgumentNullException.ThrowIfNull(target);
+
+		if (_ownerWindowHandle is 0)
+		{
+			return false;
+		}
+
+		var point = new System.Drawing.Point(checked((int)Math.Round(clientPoint.X * rasterizationScale)), checked((int)Math.Round(clientPoint.Y * rasterizationScale)));
+		var owner = new HWND(_ownerWindowHandle);
+		if (PInvoke.ClientToScreen(owner, ref point).Value is 0)
+		{
+			return false;
+		}
+
+		return new WindowsShellContextMenuSession().Show(owner, target, point);
 	}
 
 	public async Task SetViewModeAsync(FolderViewMode mode, CancellationToken cancellationToken = default)

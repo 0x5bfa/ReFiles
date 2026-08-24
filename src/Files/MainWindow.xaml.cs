@@ -62,7 +62,8 @@ public sealed partial class MainWindow : Window
 			new DispatcherQueueUIDispatcher(DispatcherQueue),
 			commandRegistry,
 			itemActivationService,
-			_itemPropertiesService);
+			_itemPropertiesService,
+			windowHandle);
 		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;

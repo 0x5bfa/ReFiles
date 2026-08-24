@@ -22,6 +22,11 @@ GetMenuDefaultItem
 SetForegroundWindow
 TrackPopupMenuEx
 TRACK_POPUP_MENU_FLAGS
+ClientToScreen
+DefSubclassProc
+RemoveWindowSubclass
+SetWindowSubclass
+PostMessage
 GetSystemMetricsForDpi
 DefWindowProc
 SYSTEM_METRICS_INDEX
@@ -83,6 +88,7 @@ GetFileInformationByName
 FILE_INFO_BY_NAME_CLASS
 Windows.Win32.System.SystemServices.FILE_STAT_INFORMATION
 GetVolumePathName
+GetVolumeNameForVolumeMountPoint
 FindFirstStreamW
 FindNextStreamW
 WIN32_FIND_STREAM_DATA
@@ -217,6 +223,7 @@ ILIsParent
 SHCreateItemFromIDList
 BHID_SFObject
 IContextMenu
+IContextMenu3
 IExplorerCommand
 IEnumExplorerCommand
 IInitializeCommand
@@ -297,6 +304,10 @@ SetFileAttributes
 INVALID_FILE_ATTRIBUTES
 SHDefExtractIconW
 GdipCreateBitmapFromHICON
+GUID_WICPixelFormat32bppBGRA
+IWICBitmap
+IWICImagingFactory
+CLSID_WICImagingFactory2
 GdipLoadImageFromStream
 GdipCreateHBITMAPFromBitmap
 GdiFlush

@@ -37,10 +37,12 @@ public static unsafe class WindowsShellFolderCustomizationService
 		ArgumentNullException.ThrowIfNull(initialPath);
 
 		Span<char> pathBuffer = stackalloc char[MaximumPathLength];
+		pathBuffer.Clear();
 		initialPath.AsSpan(0, Math.Min(initialPath.Length, pathBuffer.Length - 1)).CopyTo(pathBuffer);
 		var selectedIndex = initialIndex;
 		var selected = PInvoke.PickIconDlg(owner, ref pathBuffer, checked((uint)pathBuffer.Length), ref selectedIndex) is not 0;
-		iconPath = selected ? pathBuffer.ToString() : initialPath;
+		var terminatorIndex = pathBuffer.IndexOf('\0');
+		iconPath = selected ? pathBuffer[..(terminatorIndex < 0 ? pathBuffer.Length : terminatorIndex)].ToString() : initialPath;
 		iconIndex = selected ? selectedIndex : initialIndex;
 
 		return selected;
@@ -365,7 +367,7 @@ public static unsafe class WindowsShellFolderCustomizationService
 				pszIconFile = new PWSTR(iconPointer),
 				iIconIndex = iconIndex,
 			};
-			PInvoke.SHGetSetFolderCustomSettings(ref settings, folderPath, PInvoke.FCS_READ | PInvoke.FCS_FORCEWRITE).ThrowOnFailure();
+			PInvoke.SHGetSetFolderCustomSettings(ref settings, folderPath, PInvoke.FCS_FORCEWRITE).ThrowOnFailure();
 		}
 	}
 }
