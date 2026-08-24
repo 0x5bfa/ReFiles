@@ -8,7 +8,7 @@ namespace Files.Controls
 	/// </summary>
 	public sealed partial class FlatSidebarItem : INotifyPropertyChanged
 	{
-		private static readonly PropertyChangedEventArgs SectionGapMarginChangedArgs = new(nameof(SectionGapMargin));
+		private static readonly PropertyChangedEventArgs _sectionGapMarginChangedArgs = new(nameof(SectionGapMargin));
 
 		private bool _hasExpandedPredecessor;
 
@@ -30,7 +30,7 @@ namespace Files.Controls
 				}
 
 				_hasExpandedPredecessor = value;
-				PropertyChanged?.Invoke(this, SectionGapMarginChangedArgs);
+				PropertyChanged?.Invoke(this, _sectionGapMarginChangedArgs);
 			}
 		}
 

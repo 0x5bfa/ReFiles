@@ -4,7 +4,9 @@
 using Files.Controls;
 using Files.Core.Storage;
 using Files.ViewModels;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
@@ -37,21 +39,53 @@ public sealed class NavigationItemViewModelTests
 	/// Verifies that generated sidebar dependency properties preserve their defaults and callbacks.
 	/// </summary>
 	[UITestMethod]
-	public void PreservesGeneratedSidebarDependencyPropertyBehavior()
+	public async Task PreservesGeneratedSidebarDependencyPropertyBehavior()
 	{
 		var item = new SidebarItem { NestingLevel = 2 };
 		var view = new SidebarView { OpenPaneLength = 320d };
+		var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		view.Loaded += (_, _) => loaded.TrySetResult();
+		var window = new Window { Content = view };
+		try
+		{
+			window.Activate();
+			await loaded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			var templateReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			Assert.IsTrue(App.TestDispatcherQueue.TryEnqueue(templateReady.SetResult));
+			await templateReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-		Assert.IsNotNull(SidebarItem.MenuItemsSourceProperty);
-		Assert.IsNotNull(SidebarView.MenuItemsSourceProperty);
-		Assert.IsTrue(item.IsExpanded);
-		Assert.IsTrue(item.SelectsOnInvoked);
-		Assert.AreEqual(32d, item.IndentWidth);
-		Assert.AreEqual(SidebarDisplayMode.Expanded, view.DisplayMode);
-		Assert.IsTrue(view.CanResizePane);
-		Assert.AreEqual(-320d, view.NegativeOpenPaneLength);
-		Assert.AreEqual(TimeSpan.Zero, view.HoverToOpenDelay);
-		Assert.AreEqual(TimeSpan.Zero, view.HoverToExpandDelay);
+			Assert.IsNotNull(SidebarItem.MenuItemsSourceProperty);
+			Assert.IsNotNull(SidebarView.MenuItemsSourceProperty);
+			Assert.IsFalse((object)view is UserControl);
+			Assert.IsTrue(VisualTreeHelper.GetChildrenCount(view) > 0);
+			var templateRoot = (FrameworkElement)VisualTreeHelper.GetChild(view, 0);
+			var pane = (Grid)templateRoot.FindName("PaneColumnGrid");
+			var displayModes = VisualStateManager.GetVisualStateGroups(templateRoot).Single(group => group.Name == "DisplayModes");
+			Assert.IsTrue(item.IsExpanded);
+			Assert.IsTrue(item.SelectsOnInvoked);
+			Assert.AreEqual(32d, item.IndentWidth);
+			Assert.AreEqual(SidebarDisplayMode.Expanded, view.DisplayMode);
+			Assert.IsTrue(view.CanResizePane);
+			Assert.AreEqual(-320d, view.NegativeOpenPaneLength);
+			Assert.AreEqual(TimeSpan.Zero, view.HoverToOpenDelay);
+			Assert.AreEqual(TimeSpan.Zero, view.HoverToExpandDelay);
+
+			view.DisplayMode = SidebarDisplayMode.Minimal;
+			await Task.Delay(TimeSpan.FromSeconds(1));
+			Assert.AreEqual(SidebarDisplayMode.Minimal, view.DisplayMode);
+			Assert.AreEqual("MinimalCollapsed", displayModes.CurrentState?.Name);
+			Assert.AreEqual(Visibility.Collapsed, pane.Visibility);
+			view.IsPaneOpen = true;
+			await Task.Delay(TimeSpan.FromSeconds(1));
+			Assert.AreEqual(Visibility.Visible, pane.Visibility);
+			view.DisplayMode = SidebarDisplayMode.Compact;
+			await Task.Delay(TimeSpan.FromSeconds(1));
+			Assert.AreEqual(Visibility.Visible, pane.Visibility);
+		}
+		finally
+		{
+			window.Close();
+		}
 	}
 
 	/// <summary>

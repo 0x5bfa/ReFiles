@@ -71,60 +71,60 @@ namespace Files.Controls
 		// Off by default; flat-list sidebars (Settings) collapse the chevron column. Opt in for hierarchical sidebars (main tree view).
 		public bool SupportsExpansion { get; set; }
 
-		partial void OnDisplayModeChanged(SidebarDisplayMode newValue)
+		partial void OnDisplayModePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateDisplayMode();
 		}
 
-		partial void OnIsPaneOpenChanged(bool newValue)
+		partial void OnIsPaneOpenPropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateMinimalMode();
 		}
 
-		partial void OnOpenPaneLengthChanged(double newValue)
+		partial void OnOpenPaneLengthPropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
-			NegativeOpenPaneLength = -newValue;
+			NegativeOpenPaneLength = -(double)e.NewValue;
 			UpdateOpenPaneLengthColumn();
 		}
 
-		partial void OnCanResizePaneChanged(bool newValue)
+		partial void OnCanResizePanePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateResizerAvailability();
 		}
 
-		partial void OnSelectedItemChanged(object? newValue)
+		partial void OnSelectedItemPropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			SelectedItemContainer = null;
-			ReevaluateSelection(MenuItemsHost);
-			ReevaluateSelection(FooterMenuItemsHost);
+			ReevaluateSelection(_menuItemsHost);
+			ReevaluateSelection(_footerMenuItemsHost);
 		}
 
-		partial void OnMenuItemsSourceChanged(object? newValue)
+		partial void OnMenuItemsSourcePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateItemsSources();
 		}
 
-		partial void OnFooterMenuItemsSourceChanged(object? newValue)
+		partial void OnFooterMenuItemsSourcePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateItemsSources();
 		}
 
-		partial void OnMenuItemTemplateChanged(DataTemplate? newValue)
+		partial void OnMenuItemTemplatePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateItemTemplates();
 		}
 
-		partial void OnMenuItemTemplateSelectorChanged(DataTemplateSelector? newValue)
+		partial void OnMenuItemTemplateSelectorPropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateItemTemplates();
 		}
 
-		partial void OnFooterMenuItemTemplateChanged(DataTemplate? newValue)
+		partial void OnFooterMenuItemTemplatePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateItemTemplates();
 		}
 
-		partial void OnFooterMenuItemTemplateSelectorChanged(DataTemplateSelector? newValue)
+		partial void OnFooterMenuItemTemplateSelectorPropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			UpdateItemTemplates();
 		}
