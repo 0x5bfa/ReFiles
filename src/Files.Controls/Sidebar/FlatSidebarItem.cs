@@ -6,13 +6,13 @@ namespace Files.Controls
 	/// <summary>
 	/// Per-row wrapper used by the sidebar's virtualized ItemsRepeater. Carries the row's tree depth and section-gap flags so the underlying data items don't have to.
 	/// </summary>
-	public sealed class FlatSidebarItem : INotifyPropertyChanged
+	public sealed partial class FlatSidebarItem : INotifyPropertyChanged
 	{
 		private static readonly PropertyChangedEventArgs SectionGapMarginChangedArgs = new(nameof(SectionGapMargin));
 
 		private bool _hasExpandedPredecessor;
 
-		public ISidebarItemModel Item { get; }
+		public object Item { get; }
 
 		public int Depth { get; }
 
@@ -40,7 +40,7 @@ namespace Files.Controls
 
 		public event PropertyChangedEventHandler? PropertyChanged;
 
-		public FlatSidebarItem(ISidebarItemModel item, int depth, double rowOpacity = 1.0)
+		public FlatSidebarItem(object item, int depth, double rowOpacity = 1.0)
 		{
 			Item = item;
 			Depth = depth;

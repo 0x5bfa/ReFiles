@@ -13,13 +13,13 @@ namespace Files.Controls
 	[ContentProperty(Name = "InnerContent")]
 	public sealed partial class SidebarView : UserControl
 	{
-		private const double COMPACT_MAX_WIDTH = 200;
+		private const double CompactMaxWidth = 200;
 
-		internal SidebarItem? SelectedItemContainer = null;
+		internal SidebarItem? SelectedItemContainer;
 
-		private bool draggingSidebarResizer;
+		private bool _draggingSidebarResizer;
 
-		private double preManipulationSidebarWidth = 0;
+		private double _preManipulationSidebarWidth;
 
 		public event EventHandler<ItemInvokedEventArgs>? ItemInvoked;
 
@@ -34,6 +34,13 @@ namespace Files.Controls
 		public SidebarView()
 		{
 			InitializeComponent();
+			UpdateItemsSources();
+			UpdateItemTemplates();
+		}
+
+		public void ScrollToVerticalOffset(double offset)
+		{
+			MenuItemHostScrollViewer?.ChangeView(null, offset, null, true);
 		}
 
 		internal void UpdateSelectedItemContainer(SidebarItem container)
@@ -43,8 +50,7 @@ namespace Files.Controls
 
 		internal void RaiseItemInvoked(SidebarItem item, PointerUpdateKind pointerUpdateKind)
 		{
-			// Only true group headers (e.g. Pinned, Drives) suppress selection; leaves-with-children (tree-view folder rows) navigate AND get selected.
-			if (item.Item is null || (item.IsGroupHeader && item.Item.IsLeafWithChildren != true))
+			if (item.Item is null || !item.SelectsOnInvoked)
 			{
 				return;
 			}
@@ -76,11 +82,6 @@ namespace Files.Controls
 			}
 
 			ItemDragOver?.Invoke(this, new(sideBarItem.Item, rawEvent.DataView, dropPosition, rawEvent));
-		}
-
-		public void ScrollToVerticalOffset(double offset)
-		{
-			MenuItemHostScrollViewer?.ChangeView(null, offset, null, true);
 		}
 
 		private void UpdateMinimalMode()
@@ -117,16 +118,17 @@ namespace Files.Controls
 					break;
 			}
 
+			UpdateRealizedMenuItemVisibility();
 			UpdateResizerAvailability();
 		}
 
 		private void UpdateDisplayModeForPaneWidth(double newPaneWidth)
 		{
-			if (newPaneWidth < COMPACT_MAX_WIDTH)
+			if (newPaneWidth < CompactMaxWidth)
 			{
 				DisplayMode = SidebarDisplayMode.Compact;
 			}
-			else if (newPaneWidth > COMPACT_MAX_WIDTH)
+			else if (newPaneWidth > CompactMaxWidth)
 			{
 				DisplayMode = SidebarDisplayMode.Expanded;
 				OpenPaneLength = newPaneWidth;
@@ -174,15 +176,15 @@ namespace Files.Controls
 				return;
 			}
 
-			draggingSidebarResizer = true;
-			preManipulationSidebarWidth = PaneColumnGrid.ActualWidth;
+			_draggingSidebarResizer = true;
+			_preManipulationSidebarWidth = PaneColumnGrid.ActualWidth;
 			VisualStateManager.GoToState(this, "ResizerPressed", true);
 			e.Handled = true;
 		}
 
 		private void SidebarResizer_ManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
 		{
-			var newWidth = preManipulationSidebarWidth + e.Cumulative.Translation.X;
+			var newWidth = _preManipulationSidebarWidth + e.Cumulative.Translation.X;
 			UpdateDisplayModeForPaneWidth(newWidth);
 			e.Handled = true;
 		}
@@ -281,7 +283,7 @@ namespace Files.Controls
 
 		private void SidebarResizer_PointerExited(object sender, PointerRoutedEventArgs e)
 		{
-			if (!CanResizePane || draggingSidebarResizer)
+			if (!CanResizePane || _draggingSidebarResizer)
 			{
 				return;
 			}
@@ -294,7 +296,7 @@ namespace Files.Controls
 
 		private void SidebarResizer_ManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
 		{
-			draggingSidebarResizer = false;
+			_draggingSidebarResizer = false;
 			VisualStateManager.GoToState(this, "ResizerNormal", true);
 			e.Handled = true;
 		}
@@ -307,12 +309,83 @@ namespace Files.Controls
 
 		private void MenuItemsHost_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
 		{
-			if (args.Element is SidebarItem sidebarItem)
+			PrepareSidebarItem(args.Element, true);
+		}
+
+		private void FooterMenuItemsHost_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+		{
+			PrepareSidebarItem(args.Element, false);
+		}
+
+		private void PrepareSidebarItem(UIElement element, bool applyDepthVisibility)
+		{
+			if (element is SidebarItem sidebarItem)
 			{
-				// Assign Owner from the hosting SidebarView rather than letting the row's HookupOwners FindAscendant walk resolve it: that walk picks up the WRONG SidebarView when this view is the nested SettingsSidebar inside SidebarControl.InnerContent (and a stale Owner from a prior realization can persist across container recycling). Owner drives both the click-routing target and the chevron-column visual state.
+				// Recycled containers can retain an owner from another sidebar.
 				sidebarItem.Owner = this;
+				if (applyDepthVisibility)
+				{
+					UpdateMenuItemVisibility(sidebarItem);
+				}
+
 				sidebarItem.HandleItemChange();
 			}
+		}
+
+		private void UpdateRealizedMenuItemVisibility()
+		{
+			for (int index = 0; ; index++)
+			{
+				if (MenuItemsHost.TryGetElement(index) is not UIElement element)
+				{
+					break;
+				}
+
+				if (element is SidebarItem sidebarItem)
+				{
+					UpdateMenuItemVisibility(sidebarItem);
+				}
+			}
+		}
+
+		private void UpdateMenuItemVisibility(SidebarItem item)
+		{
+			item.Visibility = DisplayMode is SidebarDisplayMode.Compact && item.DataContext is FlatSidebarItem { Depth: > 0 } ? Visibility.Collapsed : Visibility.Visible;
+		}
+
+		private void UpdateItemsSources()
+		{
+			if (MenuItemsHost is null || FooterMenuItemsHost is null)
+			{
+				return;
+			}
+
+			MenuItemsHost.ItemsSource = MenuItemsSource ?? MenuItems;
+			FooterMenuItemsHost.ItemsSource = FooterMenuItemsSource ?? FooterMenuItems;
+		}
+
+		private void UpdateItemTemplates()
+		{
+			if (MenuItemsHost is null || FooterMenuItemsHost is null)
+			{
+				return;
+			}
+
+			var defaultTemplate = (DataTemplate)Resources["DefaultSidebarItemTemplate"];
+			UpdateItemTemplate(MenuItemsHost, MenuItemTemplate, MenuItemTemplateSelector, defaultTemplate);
+			UpdateItemTemplate(FooterMenuItemsHost, FooterMenuItemTemplate, FooterMenuItemTemplateSelector, defaultTemplate);
+		}
+
+		private static void UpdateItemTemplate(ItemsRepeater itemsHost, DataTemplate? itemTemplate, DataTemplateSelector? itemTemplateSelector, DataTemplate defaultTemplate)
+		{
+			if (itemTemplateSelector is not null)
+			{
+				itemsHost.ItemTemplate = itemTemplateSelector;
+
+				return;
+			}
+
+			itemsHost.ItemTemplate = itemTemplate ?? defaultTemplate;
 		}
 	}
 }

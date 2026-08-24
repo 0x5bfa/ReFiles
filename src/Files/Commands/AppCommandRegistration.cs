@@ -23,6 +23,7 @@ public static class AppCommandRegistration
 
 	private static void RegisterNavigation(CommandRegistryBuilder builder)
 	{
+		builder.Register(new(CommandIds.ToggleSidebar, Strings.ToggleSidebar, null, Strings.Navigation, 5, "\uE700"), static _ => new SidebarCommandHandler());
 		builder.Register(new(CommandIds.NavigateBack, Strings.Back, "Navigation.Back", Strings.Navigation, 10, "\uE72B"), static _ => new NavigationCommandHandler(CommandIds.NavigateBack));
 		builder.Register(new(CommandIds.NavigateForward, Strings.Forward, "Navigation.Forward", Strings.Navigation, 20, "\uE72A"), static _ => new NavigationCommandHandler(CommandIds.NavigateForward));
 		builder.Register(new(CommandIds.NavigateUp, Strings.Up, "Navigation.Up", Strings.Navigation, 30, "\uE74A"), static _ => new NavigationCommandHandler(CommandIds.NavigateUp));

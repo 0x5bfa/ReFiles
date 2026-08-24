@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.ViewModels;
+using Files.Controls;
 using Files.Infrastructure;
 using Files.Core.ItemFeatures.Previews;
 using System.Diagnostics;
@@ -80,10 +81,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		_isLoaded = true;
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("RootView", "Loaded START");
-		if (Sidebar.MenuItems.Count > 0)
-		{
-			Sidebar.SelectedItem = Sidebar.MenuItems[0];
-		}
+		Sidebar.SelectedItem ??= ViewModel.HomeNavigationItem;
 
 		try
 		{
@@ -102,17 +100,14 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 	}
 
-	private async void NavigationView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+	private async void Sidebar_ItemInvoked(object? sender, ItemInvokedEventArgs args)
 	{
 		if (!_isLoaded)
 		{
 			return;
 		}
 
-		var item = args.InvokedItemContainer?.Tag as NavigationItemViewModel
-			?? (args.InvokedItemContainer?.Content as NavigationViewItem)?.Tag as NavigationItemViewModel
-			?? args.InvokedItem as NavigationItemViewModel;
-		if (item is null)
+		if (sender is not SidebarItem { Item: NavigationItemViewModel item })
 		{
 			return;
 		}

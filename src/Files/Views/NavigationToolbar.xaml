@@ -4,7 +4,11 @@
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:controls="using:Files.Controls"
+	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	x:Name="Root">
+	<UserControl.Resources>
+		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+	</UserControl.Resources>
 
 	<Grid Padding="8,0,8,8" ColumnSpacing="6">
 		<Grid.ColumnDefinitions>
@@ -14,57 +18,77 @@
 			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
-		<controls:Toolbar
+		<StackPanel
 			Grid.Column="0"
-			Padding="0"
-			Background="Transparent"
-			BorderBrush="Transparent"
-			BorderThickness="0"
-			CornerRadius="0"
-			ToolbarSize="Small">
-			<controls:Toolbar.Items>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.BackCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.BackCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.BackCommand.Label, Mode=OneWay}"
-					OverflowBehavior="Never">
-					<controls:ToolbarItem.Content>
-						<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.BackCommand.Glyph, Mode=OneWay}" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.ForwardCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.ForwardCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.ForwardCommand.Label, Mode=OneWay}"
-					OverflowBehavior="Never">
-					<controls:ToolbarItem.Content>
-						<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.ForwardCommand.Glyph, Mode=OneWay}" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.UpCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.UpCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.UpCommand.Label, Mode=OneWay}"
-					OverflowBehavior="Never">
-					<controls:ToolbarItem.Content>
-						<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.UpCommand.Glyph, Mode=OneWay}" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.HomeCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.HomeCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.HomeCommand.Label, Mode=OneWay}"
-					OverflowBehavior="Never">
-					<controls:ToolbarItem.Content>
-						<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.HomeCommand.Glyph, Mode=OneWay}" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
-			</controls:Toolbar.Items>
-		</controls:Toolbar>
+			Orientation="Horizontal"
+			Spacing="6">
+			<ToggleButton
+				x:Name="SidebarPaneToggleButton"
+				Width="32"
+				Height="32"
+				Padding="0"
+				AutomationProperties.AutomationId="SidebarPaneToggleButton"
+				AutomationProperties.Name="{x:Bind ViewModel.ToggleSidebarCommand.AutomationName, Mode=OneWay}"
+				Background="Transparent"
+				BorderBrush="Transparent"
+				Command="{x:Bind ViewModel.ToggleSidebarCommand.Command}"
+				IsChecked="{x:Bind ViewModel.ToggleSidebarCommand.IsChecked, Mode=OneWay}"
+				ToolTipService.ToolTip="{x:Bind ViewModel.ToggleSidebarCommand.ToolTip, Mode=OneWay}"
+				Visibility="{x:Bind ViewModel.ToggleSidebarCommand.IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+				<FontIcon FontSize="14" Glyph="{x:Bind ViewModel.ToggleSidebarCommand.Glyph, Mode=OneWay}" />
+			</ToggleButton>
+
+			<controls:Toolbar
+				Padding="0"
+				Background="Transparent"
+				BorderBrush="Transparent"
+				BorderThickness="0"
+				CornerRadius="0"
+				ToolbarSize="Small">
+				<controls:Toolbar.Items>
+					<controls:ToolbarItem
+						Command="{x:Bind ViewModel.BackCommand.Command}"
+						IsEnabled="{x:Bind ViewModel.BackCommand.IsEnabled, Mode=OneWay}"
+						ItemType="Button"
+						Label="{x:Bind ViewModel.BackCommand.Label, Mode=OneWay}"
+						OverflowBehavior="Never">
+						<controls:ToolbarItem.Content>
+							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.BackCommand.Glyph, Mode=OneWay}" />
+						</controls:ToolbarItem.Content>
+					</controls:ToolbarItem>
+					<controls:ToolbarItem
+						Command="{x:Bind ViewModel.ForwardCommand.Command}"
+						IsEnabled="{x:Bind ViewModel.ForwardCommand.IsEnabled, Mode=OneWay}"
+						ItemType="Button"
+						Label="{x:Bind ViewModel.ForwardCommand.Label, Mode=OneWay}"
+						OverflowBehavior="Never">
+						<controls:ToolbarItem.Content>
+							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.ForwardCommand.Glyph, Mode=OneWay}" />
+						</controls:ToolbarItem.Content>
+					</controls:ToolbarItem>
+					<controls:ToolbarItem
+						Command="{x:Bind ViewModel.UpCommand.Command}"
+						IsEnabled="{x:Bind ViewModel.UpCommand.IsEnabled, Mode=OneWay}"
+						ItemType="Button"
+						Label="{x:Bind ViewModel.UpCommand.Label, Mode=OneWay}"
+						OverflowBehavior="Never">
+						<controls:ToolbarItem.Content>
+							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.UpCommand.Glyph, Mode=OneWay}" />
+						</controls:ToolbarItem.Content>
+					</controls:ToolbarItem>
+					<controls:ToolbarItem
+						Command="{x:Bind ViewModel.HomeCommand.Command}"
+						IsEnabled="{x:Bind ViewModel.HomeCommand.IsEnabled, Mode=OneWay}"
+						ItemType="Button"
+						Label="{x:Bind ViewModel.HomeCommand.Label, Mode=OneWay}"
+						OverflowBehavior="Never">
+						<controls:ToolbarItem.Content>
+							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.HomeCommand.Glyph, Mode=OneWay}" />
+						</controls:ToolbarItem.Content>
+					</controls:ToolbarItem>
+				</controls:Toolbar.Items>
+			</controls:Toolbar>
+		</StackPanel>
 
 		<TextBox
 			x:Name="PathTextBox"

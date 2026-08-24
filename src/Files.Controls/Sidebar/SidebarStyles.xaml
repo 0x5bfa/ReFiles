@@ -33,21 +33,8 @@
 		<Setter Target="Height" Value="12" />
 	</Style>
 
-	<DataTemplate x:Key="DefaultSidebarItemTemplate">
-		<local:SidebarItem
-			Margin="{Binding SectionGapMargin}"
-			AutomationProperties.AutomationId="{Binding Item.Text}"
-			ContentOpacity="{Binding RowOpacity}"
-			Decorator="{Binding Item.ItemDecorator}"
-			Icon="{Binding Item.IconElement}"
-			IsExpanded="{Binding Item.IsExpanded, Mode=TwoWay}"
-			Item="{Binding Item}"
-			NestingLevel="{Binding Depth}"
-			Text="{Binding Item.Text}"
-			ToolTip="{Binding Item.ToolTip}" />
-	</DataTemplate>
-
 	<Style TargetType="local:SidebarItem">
+		<Setter Property="HorizontalAlignment" Value="Stretch" />
 		<Setter Property="IsTabStop" Value="False" />
 		<Setter Property="Template">
 			<Setter.Value>
@@ -206,19 +193,13 @@
 											x:Name="FlyoutChildrenPresenter"
 											HorizontalAlignment="Stretch"
 											AutomationProperties.AccessibilityView="Content"
-											ItemsSource="{Binding Item.Children, Mode=OneWay}"
 											XYFocusKeyboardNavigation="Enabled">
 											<ItemsRepeater.ItemTemplate>
 												<DataTemplate>
-													<local:SidebarItem
-														AutomationProperties.AutomationId="{Binding Text}"
-														Decorator="{Binding ItemDecorator}"
-														Icon="{Binding IconElement}"
-														IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
-														IsInFlyout="True"
-														Item="{Binding}"
-														Text="{Binding Text}"
-														ToolTip="{Binding ToolTip}" />
+											<local:SidebarItem
+												IsInFlyout="True"
+												Item="{Binding}"
+												Text="{Binding}" />
 												</DataTemplate>
 											</ItemsRepeater.ItemTemplate>
 										</ItemsRepeater>

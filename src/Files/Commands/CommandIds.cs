@@ -5,6 +5,9 @@ namespace Files.Commands;
 
 public static class CommandIds
 {
+	public static readonly CommandId ToggleSidebar =
+		new("files.navigation.toggle-sidebar");
+
 	public static readonly CommandId NavigateBack =
 		new("files.navigation.back");
 

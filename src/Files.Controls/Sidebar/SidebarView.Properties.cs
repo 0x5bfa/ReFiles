@@ -1,184 +1,144 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
+using CommunityToolkit.WinUI;
+
 namespace Files.Controls
 {
 	public sealed partial class SidebarView
 	{
-		public static readonly DependencyProperty DisplayModeProperty =
-			DependencyProperty.Register(nameof(DisplayMode), typeof(SidebarDisplayMode), typeof(SidebarView), new PropertyMetadata(SidebarDisplayMode.Expanded, OnPropertyChanged));
+		[GeneratedDependencyProperty(DefaultValue = SidebarDisplayMode.Expanded)]
+		public partial SidebarDisplayMode DisplayMode { get; set; }
 
-		public static readonly DependencyProperty InnerContentProperty =
-			DependencyProperty.Register(nameof(InnerContent), typeof(UIElement), typeof(SidebarView), new PropertyMetadata(null));
+		[GeneratedDependencyProperty]
+		public partial UIElement? InnerContent { get; set; }
 
-		public static readonly DependencyProperty SidebarContentProperty =
-			DependencyProperty.Register("SidebarContent", typeof(UIElement), typeof(SidebarView), new PropertyMetadata(null));
+		[GeneratedDependencyProperty]
+		public partial UIElement? SidebarContent { get; set; }
 
-		public static readonly DependencyProperty HeaderProperty =
-			DependencyProperty.Register(nameof(Header), typeof(UIElement), typeof(SidebarView), new PropertyMetadata(null));
+		[GeneratedDependencyProperty]
+		public partial UIElement? Header { get; set; }
 
-		public static readonly DependencyProperty FooterProperty =
-			DependencyProperty.Register("Footer", typeof(UIElement), typeof(SidebarView), new PropertyMetadata(null));
+		[GeneratedDependencyProperty]
+		public partial UIElement? Footer { get; set; }
 
-		public static readonly DependencyProperty PaneBackgroundBrushProperty =
-			DependencyProperty.Register(nameof(PaneBackgroundBrush), typeof(Microsoft.UI.Xaml.Media.Brush), typeof(SidebarView), new PropertyMetadata(null));
+		[GeneratedDependencyProperty]
+		public partial Microsoft.UI.Xaml.Media.Brush? PaneBackgroundBrush { get; set; }
 
-		public static readonly DependencyProperty IsPaneOpenProperty =
-			DependencyProperty.Register(nameof(IsPaneOpen), typeof(bool), typeof(SidebarView), new PropertyMetadata(false, OnPropertyChanged));
+		[GeneratedDependencyProperty]
+		public partial bool IsPaneOpen { get; set; }
 
-		public static readonly DependencyProperty OpenPaneLengthProperty =
-			DependencyProperty.Register(nameof(OpenPaneLength), typeof(double), typeof(SidebarView), new PropertyMetadata(240d, OnPropertyChanged));
+		[GeneratedDependencyProperty(DefaultValue = 240d)]
+		public partial double OpenPaneLength { get; set; }
 
-		public static readonly DependencyProperty NegativeOpenPaneLengthProperty =
-			DependencyProperty.Register(nameof(NegativeOpenPaneLength), typeof(double), typeof(SidebarView), new PropertyMetadata(-240d));
+		[GeneratedDependencyProperty(DefaultValue = -240d)]
+		public partial double NegativeOpenPaneLength { get; set; }
 
-		public static readonly DependencyProperty CanResizePaneProperty =
-			DependencyProperty.Register(nameof(CanResizePane), typeof(bool), typeof(SidebarView), new PropertyMetadata(true, OnPropertyChanged));
+		[GeneratedDependencyProperty(DefaultValue = true)]
+		public partial bool CanResizePane { get; set; }
 
-		public static readonly DependencyProperty SelectedItemProperty =
-			DependencyProperty.Register(nameof(SelectedItem), typeof(ISidebarItemModel), typeof(SidebarView), new PropertyMetadata(null, OnSelectedItemChanged));
+		[GeneratedDependencyProperty]
+		public partial object? SelectedItem { get; set; }
 
-		public static readonly DependencyProperty MenuItemsSourceProperty =
-			DependencyProperty.Register(nameof(MenuItemsSource), typeof(object), typeof(SidebarView), new PropertyMetadata(null));
+		[GeneratedDependencyProperty]
+		public partial object? MenuItemsSource { get; set; }
 
-		public static readonly DependencyProperty HoverToOpenDelayProperty =
-			DependencyProperty.Register(nameof(HoverToOpenDelay), typeof(TimeSpan), typeof(SidebarView), new PropertyMetadata(TimeSpan.Zero));
+		[GeneratedDependencyProperty]
+		public partial DataTemplate? MenuItemTemplate { get; set; }
 
-		public static readonly DependencyProperty HoverToExpandDelayProperty =
-			DependencyProperty.Register(nameof(HoverToExpandDelay), typeof(TimeSpan), typeof(SidebarView), new PropertyMetadata(TimeSpan.Zero));
+		[GeneratedDependencyProperty]
+		public partial DataTemplateSelector? MenuItemTemplateSelector { get; set; }
 
-		public SidebarDisplayMode DisplayMode
-		{
-			get { return (SidebarDisplayMode)GetValue(DisplayModeProperty); }
-			set { SetValue(DisplayModeProperty, value); }
-		}
+		[GeneratedDependencyProperty]
+		public partial object? FooterMenuItemsSource { get; set; }
 
-		public UIElement InnerContent
-		{
-			get { return (UIElement)GetValue(InnerContentProperty); }
-			set { SetValue(InnerContentProperty, value); }
-		}
+		[GeneratedDependencyProperty]
+		public partial DataTemplate? FooterMenuItemTemplate { get; set; }
 
-		public UIElement SidebarContent
-		{
-			get { return (UIElement)GetValue(SidebarContentProperty); }
-			set { SetValue(SidebarContentProperty, value); }
-		}
+		[GeneratedDependencyProperty]
+		public partial DataTemplateSelector? FooterMenuItemTemplateSelector { get; set; }
 
-		public UIElement Header
-		{
-			get { return (UIElement)GetValue(HeaderProperty); }
-			set { SetValue(HeaderProperty, value); }
-		}
+		[GeneratedDependencyProperty]
+		public partial TimeSpan HoverToOpenDelay { get; set; }
 
-		public UIElement Footer
-		{
-			get { return (UIElement)GetValue(FooterProperty); }
-			set { SetValue(FooterProperty, value); }
-		}
+		[GeneratedDependencyProperty]
+		public partial TimeSpan HoverToExpandDelay { get; set; }
 
-		public Microsoft.UI.Xaml.Media.Brush PaneBackgroundBrush
-		{
-			get { return (Microsoft.UI.Xaml.Media.Brush)GetValue(PaneBackgroundBrushProperty); }
-			set { SetValue(PaneBackgroundBrushProperty, value); }
-		}
+		public IList<object> MenuItems { get; } = new ObservableCollection<object>();
 
-		public bool IsPaneOpen
-		{
-			get { return (bool)GetValue(IsPaneOpenProperty); }
-			set { SetValue(IsPaneOpenProperty, value); }
-		}
-
-		public double OpenPaneLength
-		{
-			get { return (double)GetValue(OpenPaneLengthProperty); }
-			set
-			{
-				SetValue(OpenPaneLengthProperty, value);
-				NegativeOpenPaneLength = -value;
-			}
-		}
-
-		public double NegativeOpenPaneLength
-		{
-			get { return (double)GetValue(NegativeOpenPaneLengthProperty); }
-			set { SetValue(NegativeOpenPaneLengthProperty, value); }
-		}
-
-		public bool CanResizePane
-		{
-			get => (bool)GetValue(CanResizePaneProperty);
-			set => SetValue(CanResizePaneProperty, value);
-		}
-
-		public ISidebarItemModel SelectedItem
-		{
-			get => (ISidebarItemModel)GetValue(SelectedItemProperty);
-			set
-			{
-				SetValue(SelectedItemProperty, value);
-			}
-		}
-
-		public object MenuItemsSource
-		{
-			get => (object)GetValue(MenuItemsSourceProperty);
-			set => SetValue(MenuItemsSourceProperty, value);
-		}
-
-		// Default TimeSpan.Zero disables hover-to-open; the hosting app supplies the timing policy.
-		public TimeSpan HoverToOpenDelay
-		{
-			get => (TimeSpan)GetValue(HoverToOpenDelayProperty);
-			set => SetValue(HoverToOpenDelayProperty, value);
-		}
-
-		// Default TimeSpan.Zero disables hover-to-expand; the hosting app supplies the timing policy.
-		public TimeSpan HoverToExpandDelay
-		{
-			get => (TimeSpan)GetValue(HoverToExpandDelayProperty);
-			set => SetValue(HoverToExpandDelayProperty, value);
-		}
+		public IList<object> FooterMenuItems { get; } = new ObservableCollection<object>();
 
 		// Off by default; flat-list sidebars (Settings) collapse the chevron column. Opt in for hierarchical sidebars (main tree view).
 		public bool SupportsExpansion { get; set; }
 
-		public static void OnPropertyChanged(DependencyObject sender, DependencyPropertyChangedEventArgs e)
+		partial void OnDisplayModeChanged(SidebarDisplayMode newValue)
 		{
-			if (sender is not SidebarView control)
-			{
-				return;
-			}
-
-			if (e.Property == OpenPaneLengthProperty)
-			{
-				control.UpdateOpenPaneLengthColumn();
-			}
-			else if (e.Property == DisplayModeProperty)
-			{
-				control.UpdateDisplayMode();
-			}
-			else if (e.Property == IsPaneOpenProperty)
-			{
-				control.UpdateMinimalMode();
-			}
-			else if (e.Property == CanResizePaneProperty)
-			{
-				control.UpdateResizerAvailability();
-			}
+			UpdateDisplayMode();
 		}
 
-		// Broadcasts SelectedItem changes to every realized row in MenuItemsHost instead of relying on each row's own RegisterPropertyChangedCallback. The per-row callback only registers after Loaded fires, so a row prepared but not yet loaded (or unloaded then re-loaded mid-recycle) can otherwise miss a SelectedItem change and keep its stale IsSelected — visible as multiple "selected" rows.
-		private static void OnSelectedItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+		partial void OnIsPaneOpenChanged(bool newValue)
 		{
-			if (d is not SidebarView view || view.MenuItemsHost is null)
+			UpdateMinimalMode();
+		}
+
+		partial void OnOpenPaneLengthChanged(double newValue)
+		{
+			NegativeOpenPaneLength = -newValue;
+			UpdateOpenPaneLengthColumn();
+		}
+
+		partial void OnCanResizePaneChanged(bool newValue)
+		{
+			UpdateResizerAvailability();
+		}
+
+		partial void OnSelectedItemChanged(object? newValue)
+		{
+			SelectedItemContainer = null;
+			ReevaluateSelection(MenuItemsHost);
+			ReevaluateSelection(FooterMenuItemsHost);
+		}
+
+		partial void OnMenuItemsSourceChanged(object? newValue)
+		{
+			UpdateItemsSources();
+		}
+
+		partial void OnFooterMenuItemsSourceChanged(object? newValue)
+		{
+			UpdateItemsSources();
+		}
+
+		partial void OnMenuItemTemplateChanged(DataTemplate? newValue)
+		{
+			UpdateItemTemplates();
+		}
+
+		partial void OnMenuItemTemplateSelectorChanged(DataTemplateSelector? newValue)
+		{
+			UpdateItemTemplates();
+		}
+
+		partial void OnFooterMenuItemTemplateChanged(DataTemplate? newValue)
+		{
+			UpdateItemTemplates();
+		}
+
+		partial void OnFooterMenuItemTemplateSelectorChanged(DataTemplateSelector? newValue)
+		{
+			UpdateItemTemplates();
+		}
+
+		private static void ReevaluateSelection(ItemsRepeater? itemsHost)
+		{
+			if (itemsHost is null)
 			{
 				return;
 			}
 
 			for (int i = 0; ; i++)
 			{
-				var element = view.MenuItemsHost.TryGetElement(i);
+				var element = itemsHost.TryGetElement(i);
 				if (element is null)
 				{
 					break;

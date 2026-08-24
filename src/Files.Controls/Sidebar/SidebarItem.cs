@@ -4,7 +4,6 @@
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using System.Collections.Specialized;
 using System.IO;
@@ -15,32 +14,34 @@ namespace Files.Controls
 {
 	public sealed partial class SidebarItem : Control
 	{
-		private const double DROP_REPOSITION_THRESHOLD = 0.2; // Percentage of top/bottom at which we consider a drop to be a reposition/insertion
+		private const double DropRepositionThreshold = 0.2;
 
-		private bool isPointerOver = false;
+		private bool _isPointerOver;
 
-		private bool isClicking = false;
+		private bool _isClicking;
 
-		private object? selectedChildItem = null;
+		private object? _selectedChildItem;
 
-		private ISidebarItemModel? lastSubscriber;
+		private INotifyCollectionChanged? _childrenSource;
 
-		// Owner DisplayMode callback runs once per container, gated by isWiredUp. Template-child handlers (ElementBorder pointer events etc.) run once per template application, gated by isTemplateWired — they can't share the gate because Loaded can fire on a Visibility=Collapsed container before OnApplyTemplate has supplied any template children to hook up.
-		private bool isWiredUp;
+		private object? _defaultFlyoutItemTemplate;
 
-		private bool isTemplateWired;
+		// Owner callbacks and template-child handlers have separate lifetimes because a recycled row can load before its template is applied.
+		private bool _isWiredUp;
 
-		private DispatcherQueueTimer? dragOverTimer;
+		private bool _isTemplateWired;
 
-		private DispatcherQueueTimer? dragOverExpandTimer;
+		private DispatcherQueueTimer? _dragOverTimer;
 
-		public bool HasChildren => (Item?.Children is IList enumerable && enumerable.Count > 0) || (Item?.HasUnrealizedChildren ?? false);
+		private DispatcherQueueTimer? _dragOverExpandTimer;
 
-		public bool IsGroupHeader => Item?.Children is not null;
+		public bool HasChildren => (MenuItemsSource is IList enumerable && enumerable.Count > 0) || HasUnrealizedChildren;
+
+		public bool IsGroupHeader => MenuItemsSource is not null;
 
 		public bool CollapseEnabled => DisplayMode != SidebarDisplayMode.Compact;
 
-		private bool hasChildSelection => selectedChildItem != null;
+		private bool HasChildSelection => _selectedChildItem is not null;
 
 		public SidebarItem()
 		{
@@ -70,19 +71,27 @@ namespace Files.Controls
 			Loaded += SidebarItem_Loaded;
 		}
 
+		public void HandleItemChange()
+		{
+			UpdateFlyoutChildrenSource();
+			UpdateExpansionState();
+			ReevaluateSelection();
+			UpdateCanDrag();
+		}
+
 		protected override AutomationPeer OnCreateAutomationPeer()
 		{
 			return new SidebarItemAutomationPeer(this);
 		}
 
-		// Template-tied work needs to run *here* (not in Loaded) because Loaded can fire while the control is still not measured; template parts may not exist yet. Sub-rows realized later would otherwise keep isWiredUp=true with no handlers attached.
+		// Template-tied work runs here because Loaded can fire before template parts are available.
 		protected override void OnApplyTemplate()
 		{
 			base.OnApplyTemplate();
 
-			if (!isTemplateWired)
+			if (!_isTemplateWired)
 			{
-				isTemplateWired = true;
+				_isTemplateWired = true;
 				if (GetTemplateChild("ElementBorder") is Border border)
 				{
 					border.PointerEntered += ItemBorder_PointerEntered;
@@ -105,6 +114,9 @@ namespace Files.Controls
 				if (GetTemplateChild("FlyoutChildrenPresenter") is ItemsRepeater flyoutRepeater)
 				{
 					flyoutRepeater.ElementPrepared += FlyoutChildrenPresenter_ElementPrepared;
+					_defaultFlyoutItemTemplate ??= flyoutRepeater.ItemTemplate;
+					flyoutRepeater.ItemsSource = MenuItemsSource;
+					UpdateFlyoutItemTemplate();
 				}
 			}
 
@@ -114,7 +126,7 @@ namespace Files.Controls
 			}
 
 			VisualStateManager.GoToState(this, Owner.SupportsExpansion ? "OwnerSupportsExpansion" : "OwnerDoesNotSupportExpansion", false);
-			// Flyout items inherit DisplayMode=Compact from the parent SidebarView but render full-size inside the overlay; they must NOT enter the Compact visual state or their text gets hidden. This matches the !IsInFlyout guard in SidebarDisplayModeChanged.
+			// Flyout items stay full-size even when their owner is compact.
 			if (!IsInFlyout)
 			{
 				VisualStateManager.GoToState(this, DisplayMode == SidebarDisplayMode.Compact ? "Compact" : "NonCompact", false);
@@ -125,27 +137,19 @@ namespace Files.Controls
 
 		internal void Select()
 		{
-			if (Owner is not null)
+			if (Owner is not null && Item is not null && SelectsOnInvoked)
 			{
-				Owner.SelectedItem = Item!;
+				Owner.SelectedItem = Item;
 			}
 		}
 
-		public void HandleItemChange()
-		{
-			HookupItemChangeListener(null, Item);
-			UpdateExpansionState();
-			ReevaluateSelection();
-			CanDrag = Item?.Path is string path && Path.IsPathRooted(path);
-		}
-
-		// Entry point for SidebarView's SelectedItem PropertyChangedCallback to broadcast selection changes to every realized row, bypassing the per-row RegisterPropertyChangedCallback (which only attaches after Loaded).
+		// Allows SidebarView to refresh every realized row after selection changes.
 		internal void ReevaluateSelectionFromOwner() => ReevaluateSelection();
 
 		internal void Clicked(PointerUpdateKind pointerUpdateKind)
 		{
-			// Section headers (Pinned, Drives, ...) toggle expansion on row click since they have no navigation target. Tree-view folder rows (leaves-with-children) only navigate — their expansion is reserved for the chevron click target.
-			if (IsGroupHeader && Item?.IsLeafWithChildren != true)
+			// Group headers toggle on row clicks; navigable tree rows toggle only from the chevron.
+			if (IsGroupHeader && !SelectsOnInvoked)
 			{
 				if (CollapseEnabled)
 				{
@@ -167,21 +171,29 @@ namespace Files.Controls
 		private void SidebarItem_Loaded(object sender, RoutedEventArgs e)
 		{
 			// Loaded fires every time ItemsRepeater recycles the container; only the per-row HandleItemChange runs each time.
-			if (!isWiredUp)
+			if (!_isWiredUp)
 			{
 				HookupOwners();
-				// HookupOwners can leave Owner null for static SidebarItems whose FindAscendant walk fires before they're parented into a SidebarView (rare). Leave isWiredUp=false so the next Loaded retries.
+				// Leave the row unwired when it has not been parented yet so the next Loaded event retries.
 				if (Owner is not null)
 				{
-					isWiredUp = true;
+					_isWiredUp = true;
 				}
 			}
 			HandleItemChange();
 		}
 
+		private void UpdateFlyoutChildrenSource()
+		{
+			if (GetTemplateChild("FlyoutChildrenPresenter") is ItemsRepeater flyoutRepeater)
+			{
+				flyoutRepeater.ItemsSource = MenuItemsSource;
+			}
+		}
+
 		private void HookupOwners()
 		{
-			// Owner is pushed in by the hosting SidebarView's MenuItemsHost_ElementPrepared (top-level rows) or the parent SidebarItem's FlyoutChildrenPresenter_ElementPrepared (flyout children) before Loaded fires. Static SidebarItems declared directly in XAML (MainPage's SettingsButton in SidebarView.Footer) aren't realized through either path, so resolve Owner via a visual-tree walk for them. OwnerExpansionSupport state is applied by OnOwnerChanged.
+			// Static rows are not prepared by an ItemsRepeater and must locate their owner in the visual tree.
 			if (Owner is null)
 			{
 				Owner = this.FindAscendant<SidebarView>();
@@ -194,65 +206,59 @@ namespace Files.Controls
 
 			Owner.RegisterPropertyChangedCallback(SidebarView.DisplayModeProperty, (sender, args) => { DisplayMode = Owner.DisplayMode; });
 			DisplayMode = Owner.DisplayMode;
-			// Setting the DP above only fires SidebarDisplayModeChanged (which calls GoToState) when the value actually changes from the default — sub-rows realized after Compact→Expanded never trigger it because both default and new value are Expanded. Force the state transition. Flyout items are skipped (same as in SidebarDisplayModeChanged) so they don't enter Compact and hide their text.
+			// Force the initial visual state because assigning the default display mode does not invoke the callback.
 			if (!IsInFlyout)
 			{
 				VisualStateManager.GoToState(this, DisplayMode == SidebarDisplayMode.Compact ? "Compact" : "NonCompact", false);
 			}
 
-			// Static SidebarItems (MainPage's SettingsButton inside SidebarView.Footer) sit outside MenuItemsHost, so SidebarView.OnSelectedItemChanged's broadcast can't reach them. The per-row callback fills that gap.
+			// Static rows outside the repeaters still need selection updates.
 			Owner.RegisterPropertyChangedCallback(SidebarView.SelectedItemProperty, (sender, args) => { ReevaluateSelection(); });
 		}
 
-		private void HookupItemChangeListener(ISidebarItemModel? oldItem, ISidebarItemModel? newItem)
+		private void HandleMenuItemsSourceChange(object? newValue)
 		{
-			if (lastSubscriber != null)
+			if (_childrenSource is not null)
 			{
-				if (lastSubscriber.Children is INotifyCollectionChanged observableCollection)
-				{
-					observableCollection.CollectionChanged -= ChildItems_CollectionChanged;
-				}
-
-				lastSubscriber.PropertyChanged -= Item_PropertyChanged;
+				_childrenSource.CollectionChanged -= ChildItems_CollectionChanged;
 			}
 
-			if (oldItem != null)
+			_childrenSource = newValue as INotifyCollectionChanged;
+			if (_childrenSource is not null)
 			{
-				if (oldItem.Children is INotifyCollectionChanged observableCollection)
-				{
-					observableCollection.CollectionChanged -= ChildItems_CollectionChanged;
-				}
-
-				oldItem.PropertyChanged -= Item_PropertyChanged;
+				_childrenSource.CollectionChanged += ChildItems_CollectionChanged;
 			}
-			if (newItem != null)
-			{
-				lastSubscriber = newItem;
-				if (newItem.Children is INotifyCollectionChanged observableCollection)
-				{
-					observableCollection.CollectionChanged += ChildItems_CollectionChanged;
-				}
 
-				newItem.PropertyChanged += Item_PropertyChanged;
-			}
+			UpdateFlyoutChildrenSource();
+			UpdateExpansionState();
+			ReevaluateSelection();
 		}
 
-		private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+		private void UpdateFlyoutItemTemplate()
 		{
-			switch (e.PropertyName)
+			if (GetTemplateChild("FlyoutChildrenPresenter") is not ItemsRepeater flyoutRepeater)
 			{
-				case nameof(ISidebarItemModel.HasUnrealizedChildren):
-				case nameof(ISidebarItemModel.IsLeafWithChildren):
-				case nameof(ISidebarItemModel.Children):
-					UpdateExpansionState();
-					ReevaluateSelection();
-					break;
+				return;
 			}
+
+			if (MenuItemTemplateSelector is not null)
+			{
+				flyoutRepeater.ItemTemplate = MenuItemTemplateSelector;
+
+				return;
+			}
+
+			flyoutRepeater.ItemTemplate = MenuItemTemplate ?? _defaultFlyoutItemTemplate;
+		}
+
+		private void UpdateCanDrag()
+		{
+			CanDrag = DragPath is string path && Path.IsPathRooted(path);
 		}
 
 		private void SidebarItem_DragStarting(UIElement sender, DragStartingEventArgs args)
 		{
-			if (Item?.Path is not string dragPath || !Path.IsPathRooted(dragPath))
+			if (DragPath is not string dragPath || !Path.IsPathRooted(dragPath))
 			{
 				return;
 			}
@@ -282,7 +288,7 @@ namespace Files.Controls
 
 		private void SetFlyoutOpen(bool isOpen = true)
 		{
-			if (Item?.Children is null)
+			if (MenuItemsSource is null)
 			{
 				return;
 			}
@@ -299,7 +305,7 @@ namespace Files.Controls
 					FlyoutBase.GetAttachedFlyout(flyoutOwner).Hide();
 				}
 			}
-			// ArgumentException when GetAttachedFlyout/ShowAttachedFlyout runs before the template is applied (e.g. DisplayMode toggled via ToggleSidebarAction at startup, before all containers have realized).
+			// The attached flyout is unavailable until the template is applied.
 			catch (ArgumentException) { }
 		}
 
@@ -315,10 +321,8 @@ namespace Files.Controls
 
 		private void ReevaluateSelection()
 		{
-			// Leaves-with-children (tree-view folder rows) can be selected themselves as well as host a selected descendant.
-			var isLeafWithChildren = Item?.IsLeafWithChildren == true;
 			var selected = Owner?.SelectedItem;
-			if (!IsGroupHeader || isLeafWithChildren)
+			if (SelectsOnInvoked)
 			{
 				// Item-null guard avoids the null==null match that paints cleared/recycled containers as selected when SelectedItem is also null (e.g. after collapsing the section that held the active path).
 				IsSelected = Item is not null && Item == selected;
@@ -329,17 +333,17 @@ namespace Files.Controls
 			}
 			else
 			{
-				// Recycled container previously bound to a selected leaf carries IsSelected=true into its new section-header binding; left unset, the header paints selected alongside the actual selected row after Compact↔overlay flips rebuild the flat list.
+				// Clear selection state retained by a recycled leaf container.
 				IsSelected = false;
 			}
-			if (IsGroupHeader && Item?.Children is IList list && selected is not null && list.Contains(selected))
+			if (IsGroupHeader && MenuItemsSource is IList list && selected is not null && list.Contains(selected))
 			{
-				selectedChildItem = selected;
+				_selectedChildItem = selected;
 				SetFlyoutOpen(false);
 			}
 			else
 			{
-				selectedChildItem = null;
+				_selectedChildItem = null;
 			}
 			UpdateSelectionState();
 		}
@@ -347,12 +351,14 @@ namespace Files.Controls
 		// Flyout items live outside the flat list and need their selection state mirrored here so the realized row matches what the inline row would render.
 		private void FlyoutChildrenPresenter_ElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
 		{
-			if (args.Element is SidebarItem item && Item?.Children is IList enumerable)
+			if (args.Element is SidebarItem item && MenuItemsSource is IList enumerable)
 			{
-				// Inherit the owning SidebarView so the flyout row's click routes to the correct view's RaiseItemInvoked instead of falling through to a FindAscendant walk that — inside a popup-hosted ItemsRepeater — can resolve to the wrong SidebarView entirely.
+				// Popup content cannot reliably locate its SidebarView through the visual tree.
 				item.Owner = Owner;
+				item.MenuItemTemplate ??= MenuItemTemplate;
+				item.MenuItemTemplateSelector ??= MenuItemTemplateSelector;
 				var newElement = enumerable[args.Index];
-				item.IsSelected = newElement == selectedChildItem;
+				item.IsSelected = newElement == _selectedChildItem;
 				item.HandleItemChange();
 			}
 		}
@@ -363,8 +369,8 @@ namespace Files.Controls
 
 		private void ItemBorder_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
 		{
-			// Group-header rows already toggle on every PointerReleased via Clicked, so a DoubleTapped toggle stacks on top of the per-click toggles and lands the section in the opposite state (the rapid-click stutter). Leaves-with-children navigate on row click and only toggle via the chevron, so double-tap on the row is still the expected toggle path there.
-			if (IsGroupHeader && Item?.IsLeafWithChildren != true)
+			// Group headers already toggle on PointerReleased, while navigable tree rows reserve row double-click for expansion.
+			if (IsGroupHeader && !SelectsOnInvoked)
 			{
 				e.Handled = true;
 
@@ -385,7 +391,7 @@ namespace Files.Controls
 			return true;
 		}
 
-		private void SidebarDisplayModeChanged(SidebarDisplayMode oldValue)
+		private void SidebarDisplayModeChanged()
 		{
 			switch (DisplayMode)
 			{
@@ -436,7 +442,7 @@ namespace Files.Controls
 			}
 			else
 			{
-				return IsSelected || hasChildSelection;
+				return IsSelected || HasChildSelection;
 			}
 		}
 
@@ -447,7 +453,7 @@ namespace Files.Controls
 			{
 				VisualStateManager.GoToState(this, useSelectedState ? "PressedSelected" : "Pressed", false);
 			}
-			else if (isPointerOver)
+			else if (_isPointerOver)
 			{
 				VisualStateManager.GoToState(this, useSelectedState ? "PointerOverSelected" : "PointerOver", false);
 			}
@@ -467,18 +473,18 @@ namespace Files.Controls
 				return;
 			}
 
-			if (Item?.Children is null || !CollapseEnabled)
+			if (MenuItemsSource is null || !CollapseEnabled)
 			{
 				VisualStateManager.GoToState(this, "NoExpansion", false);
 			}
 			else if (!HasChildren)
 			{
 				// Empty folder leaves render like normal leaves; empty group headers keep the section-heading style.
-				VisualStateManager.GoToState(this, Item?.IsLeafWithChildren == true ? "NoExpansion" : "NoChildren", false);
+				VisualStateManager.GoToState(this, SelectsOnInvoked ? "NoExpansion" : "NoChildren", false);
 			}
 			else
 			{
-				VisualStateManager.GoToState(this, Item?.IsLeafWithChildren == true ? "LeafWithChildren" : (IsExpanded ? "Expanded" : "Collapsed"), false);
+				VisualStateManager.GoToState(this, SelectsOnInvoked ? "LeafWithChildren" : (IsExpanded ? "Expanded" : "Collapsed"), false);
 				VisualStateManager.GoToState(this, IsExpanded ? "ExpandedIconNormal" : "CollapsedIconNormal", false);
 			}
 			UpdateSelectionState();
@@ -486,38 +492,38 @@ namespace Files.Controls
 
 		private void ItemBorder_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
 		{
-			isPointerOver = true;
+			_isPointerOver = true;
 			UpdatePointerState();
 		}
 
 		private void ItemBorder_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
 		{
-			isPointerOver = false;
-			isClicking = false;
+			_isPointerOver = false;
+			_isClicking = false;
 			UpdatePointerState();
 		}
 
 		private void ItemBorder_PointerCanceled(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
 		{
-			isClicking = false;
+			_isClicking = false;
 			UpdatePointerState();
 		}
 
 		private void ItemBorder_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
 		{
-			isClicking = true;
+			_isClicking = true;
 			UpdatePointerState(true);
 			VisualStateManager.GoToState(this, IsExpanded ? "ExpandedIconPressed" : "CollapsedIconPressed", true);
 		}
 
 		private void Item_PointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
 		{
-			if (!isClicking)
+			if (!_isClicking)
 			{
 				return;
 			}
 
-			isClicking = false;
+			_isClicking = false;
 			e.Handled = true;
 			UpdatePointerState();
 
@@ -550,25 +556,25 @@ namespace Files.Controls
 			var openDelay = Owner?.HoverToOpenDelay ?? TimeSpan.Zero;
 			var expandDelay = Owner?.HoverToExpandDelay ?? TimeSpan.Zero;
 			var isCenter = insertsAbove == SidebarItemDropPosition.Center;
-			var canHoverOpen = openDelay > TimeSpan.Zero && isCenter && Item is not null && (!IsGroupHeader || Item.IsLeafWithChildren);
+			var canHoverOpen = openDelay > TimeSpan.Zero && isCenter && Item is not null && SelectsOnInvoked;
 			var canHoverExpand = expandDelay > TimeSpan.Zero && isCenter && HasChildren && CollapseEnabled;
 			if (canHoverExpand)
 			{
-				dragOverExpandTimer ??= DispatcherQueue.CreateTimer();
-				dragOverExpandTimer.Debounce(() => {dragOverExpandTimer!.Stop(); IsExpanded = true;}, expandDelay, false);
+				_dragOverExpandTimer ??= DispatcherQueue.CreateTimer();
+				_dragOverExpandTimer.Debounce(() => { _dragOverExpandTimer.Stop(); IsExpanded = true; }, expandDelay, false);
 			}
 			else
 			{
-				dragOverExpandTimer?.Stop();
+				_dragOverExpandTimer?.Stop();
 			}
 			if (canHoverOpen)
 			{
-				dragOverTimer ??= DispatcherQueue.CreateTimer();
-				dragOverTimer.Debounce(() => {dragOverTimer!.Stop(); RaiseItemInvoked(PointerUpdateKind.Other);}, openDelay, false);
+				_dragOverTimer ??= DispatcherQueue.CreateTimer();
+				_dragOverTimer.Debounce(() => { _dragOverTimer.Stop(); RaiseItemInvoked(PointerUpdateKind.Other); }, openDelay, false);
 			}
 			else
 			{
-				dragOverTimer?.Stop();
+				_dragOverTimer?.Stop();
 			}
 		}
 
@@ -580,15 +586,15 @@ namespace Files.Controls
 
 		private void ItemBorder_DragLeave(object sender, DragEventArgs e)
 		{
-			dragOverTimer?.Stop();
-			dragOverExpandTimer?.Stop();
+			_dragOverTimer?.Stop();
+			_dragOverExpandTimer?.Stop();
 			UpdatePointerState();
 		}
 
 		private void ItemBorder_Drop(object sender, DragEventArgs e)
 		{
-			dragOverTimer?.Stop();
-			dragOverExpandTimer?.Stop();
+			_dragOverTimer?.Stop();
+			_dragOverExpandTimer?.Stop();
 			UpdatePointerState();
 			Owner?.RaiseItemDropped(this, DetermineDropTargetPosition(e), e);
 		}
@@ -600,11 +606,11 @@ namespace Files.Controls
 				if (GetTemplateChild("ElementGrid") is Grid grid)
 				{
 					var position = args.GetPosition(grid);
-					if (position.Y < grid.ActualHeight * DROP_REPOSITION_THRESHOLD)
+					if (position.Y < grid.ActualHeight * DropRepositionThreshold)
 					{
 						return SidebarItemDropPosition.Top;
 					}
-					if (position.Y > grid.ActualHeight * (1 - DROP_REPOSITION_THRESHOLD))
+					if (position.Y > grid.ActualHeight * (1 - DropRepositionThreshold))
 					{
 						return SidebarItemDropPosition.Bottom;
 					}

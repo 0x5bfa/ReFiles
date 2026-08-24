@@ -31,6 +31,7 @@
 	<data name="ItemCountPlural" xml:space="preserve"><value>{0} items</value></data>
 	<data name="NotFolderFormat" xml:space="preserve"><value>The location '{0}' is not a folder.</value></data>
 	<data name="Back" xml:space="preserve"><value>Back</value></data>
+	<data name="ToggleSidebar" xml:space="preserve"><value>Toggle the sidebar</value></data>
 	<data name="Forward" xml:space="preserve"><value>Forward</value></data>
 	<data name="Up" xml:space="preserve"><value>Up</value></data>
 	<data name="Address" xml:space="preserve"><value>Address</value></data>

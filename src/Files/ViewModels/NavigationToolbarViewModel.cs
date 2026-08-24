@@ -13,6 +13,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	private int _isDisposed;
 
+	public CommandBindingViewModel ToggleSidebarCommand { get; }
+
 	public CommandBindingViewModel BackCommand { get; }
 
 	public CommandBindingViewModel ForwardCommand { get; }
@@ -30,6 +32,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 	public string LocationText => _activeFolderBrowser?.LocationText ?? string.Empty;
 
 	internal NavigationToolbarViewModel(
+		CommandBindingViewModel toggleSidebarCommand,
 		CommandBindingViewModel backCommand,
 		CommandBindingViewModel forwardCommand,
 		CommandBindingViewModel upCommand,
@@ -37,6 +40,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel navigatePathCommand,
 		CommandBindingViewModel refreshCommand)
 	{
+		ArgumentNullException.ThrowIfNull(toggleSidebarCommand);
 		ArgumentNullException.ThrowIfNull(backCommand);
 		ArgumentNullException.ThrowIfNull(forwardCommand);
 		ArgumentNullException.ThrowIfNull(upCommand);
@@ -44,6 +48,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(navigatePathCommand);
 		ArgumentNullException.ThrowIfNull(refreshCommand);
 
+		ToggleSidebarCommand = toggleSidebarCommand;
 		BackCommand = backCommand;
 		ForwardCommand = forwardCommand;
 		UpCommand = upCommand;

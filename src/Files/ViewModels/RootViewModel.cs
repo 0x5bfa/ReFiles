@@ -6,12 +6,14 @@ using System.Diagnostics;
 using Files.Adapters;
 using Files.Activation;
 using Files.Commands;
+using Files.Controls;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Presentation;
 using Files.ItemProperties;
+using System.Collections.Specialized;
 
 namespace Files.ViewModels;
 
@@ -37,9 +39,13 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	private readonly Dictionary<int, NavigationItemViewModel> _navigationSectionViewModels = [];
 
+	private readonly HashSet<NavigationItemViewModel> _trackedNavigationItems = [];
+
 	private readonly SemaphoreSlim _navigationThumbnailGate = new(4);
 
 	private string? _operationError;
+
+	private SidebarDisplayMode _sidebarDisplayMode = SidebarDisplayMode.Expanded;
 
 	private int _isDisposed;
 
@@ -53,6 +59,22 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
 
+	public ObservableCollection<FlatSidebarItem> SidebarItems { get; }
+
+	public SidebarDisplayMode SidebarDisplayMode
+	{
+		get => _sidebarDisplayMode;
+		set
+		{
+			if (!SetProperty(ref _sidebarDisplayMode, value))
+			{
+				return;
+			}
+
+			_commandManager.RefreshStates(CommandStateInvalidation.Pane);
+		}
+	}
+
 	public NavigationItemViewModel HomeNavigationItem { get; }
 
 	public TabStripViewModel TabStrip { get; }
@@ -64,6 +86,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	public WindowCommandManager Commands => _commandManager;
 
 	public CommandBindingViewModel BackCommand => _commandManager.GetBinding(CommandIds.NavigateBack);
+
+	public CommandBindingViewModel ToggleSidebarCommand => _commandManager.GetBinding(CommandIds.ToggleSidebar);
 
 	public CommandBindingViewModel ForwardCommand => _commandManager.GetBinding(CommandIds.NavigateForward);
 
@@ -151,6 +175,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		_navigationItemLoader = presentationFactory.CreateNavigationItemLoader();
 		Tabs = [];
 		NavigationItems = [];
+		SidebarItems = [];
+		NavigationItems.CollectionChanged += NavigationItems_CollectionChanged;
 		HomeNavigationItem = NavigationItemViewModel.CreateHome(Strings.Home.GetLocalized());
 		NavigationItems.Add(HomeNavigationItem);
 		_commandManager = presentationFactory.CreateCommandManager(this);
@@ -163,7 +189,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			SplitPaneVerticalCommand,
 			SplitPaneHorizontalCommand,
 			SetActiveTabAt);
-		NavigationToolbar = new(BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
+		NavigationToolbar = new(ToggleSidebarCommand, BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
 		Toolbar = new(
 			CopyCommand,
 			CutCommand,
@@ -425,9 +451,67 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		_navigationSectionViewModels.Clear();
+		NavigationItems.CollectionChanged -= NavigationItems_CollectionChanged;
+		UnsubscribeNavigationItems();
+		SidebarItems.Clear();
 		NavigationItems.Clear();
 		_navigationThumbnailGate.Dispose();
 		_lifetime.Dispose();
+	}
+
+	private void NavigationItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+	{
+		RebuildSidebarItems();
+	}
+
+	private void NavigationItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is nameof(NavigationItemViewModel.IsExpanded))
+		{
+			RebuildSidebarItems();
+		}
+	}
+
+	private void RebuildSidebarItems()
+	{
+		UnsubscribeNavigationItems();
+		SidebarItems.Clear();
+
+		foreach (var item in NavigationItems)
+		{
+			AddSidebarItem(item, 0);
+		}
+	}
+
+	private void AddSidebarItem(NavigationItemViewModel item, int depth)
+	{
+		if (_trackedNavigationItems.Add(item))
+		{
+			item.PropertyChanged += NavigationItem_PropertyChanged;
+			item.Children.CollectionChanged += NavigationItems_CollectionChanged;
+		}
+
+		SidebarItems.Add(new FlatSidebarItem(item, depth));
+		if (!item.IsExpanded)
+		{
+			return;
+		}
+
+		foreach (var child in item.Children)
+		{
+			AddSidebarItem(child, depth + 1);
+		}
+	}
+
+	private void UnsubscribeNavigationItems()
+	{
+		foreach (var item in _trackedNavigationItems)
+		{
+			item.PropertyChanged -= NavigationItem_PropertyChanged;
+			item.Children.CollectionChanged -= NavigationItems_CollectionChanged;
+		}
+
+		_trackedNavigationItems.Clear();
 	}
 
 	private async Task<bool> LoadNavigationItemsAsync(CancellationToken cancellationToken)
@@ -532,7 +616,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			_ = Task.Run(() => LoadNavigationThumbnailAsync(item, child, navigationCancellationToken));
 		}
 
-		var sectionViewModel = NavigationItemViewModel.CreateSection(section.Name, section.Reference, children);
+		var sectionViewModel = NavigationItemViewModel.CreateSection(section.SectionType, section.Name, section.Reference, children);
 		var insertIndex = 1;
 
 		foreach (var order in _navigationSectionViewModels.Keys)

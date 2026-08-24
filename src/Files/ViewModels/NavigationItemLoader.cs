@@ -54,9 +54,9 @@ internal sealed class NavigationItemLoader
 
 		var pendingSections = new[]
 		{
-			TryLoadAddressSectionAsync(0, windowsSource, Strings.Pinned.GetLocalized(), PinnedParsingName, IsPinnedHomeItemAsync, cancellationToken),
-			TryLoadAddressSectionAsync(1, windowsSource, Strings.Drives.GetLocalized(), _myComputerParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
-			TryLoadAddressSectionAsync(2, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
+			TryLoadAddressSectionAsync(0, SidebarSectionType.Pinned, windowsSource, Strings.Pinned.GetLocalized(), PinnedParsingName, IsPinnedHomeItemAsync, cancellationToken),
+			TryLoadAddressSectionAsync(1, SidebarSectionType.Drives, windowsSource, Strings.Drives.GetLocalized(), _myComputerParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
+			TryLoadAddressSectionAsync(2, SidebarSectionType.WSL, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
 		};
 
 		while (pendingSections.Length > 0)
@@ -112,6 +112,7 @@ internal sealed class NavigationItemLoader
 
 	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(
 		int order,
+		SidebarSectionType sectionType,
 		WindowsStorageSource source,
 		string name,
 		string parsingName,
@@ -172,7 +173,7 @@ internal sealed class NavigationItemLoader
 
 				UiDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} items={children.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
-				return new NavigationSectionData(order, name, folder.Reference, children);
+				return new NavigationSectionData(order, sectionType, name, folder.Reference, children);
 			}
 			finally
 			{
@@ -243,6 +244,6 @@ internal sealed class NavigationItemLoader
 	}
 }
 
-internal sealed record NavigationSectionData(int Order, string Name, StorableReference Reference, IReadOnlyList<NavigationItemData> Items);
+internal sealed record NavigationSectionData(int Order, SidebarSectionType SectionType, string Name, StorableReference Reference, IReadOnlyList<NavigationItemData> Items);
 
 internal sealed record NavigationItemData(string Name, StorableReference Reference);
