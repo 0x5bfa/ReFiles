@@ -63,7 +63,7 @@ public sealed class WindowsShellContextMenuSession
 		contextMenu.QueryContextMenu(menu, 0, FirstCommandId, LastCommandId, queryFlags).ThrowOnFailure();
 		_contextMenu2 = contextMenu as IContextMenu2;
 		_contextMenu3 = contextMenu as IContextMenu3;
-		if (!PInvoke.SetWindowSubclass(owner, _subclassProcedure, SubclassId, 0))
+		if (PInvoke.SetWindowSubclass(owner, _subclassProcedure, SubclassId, 0).Value is 0)
 		{
 			_contextMenu2 = null;
 			_contextMenu3 = null;
@@ -74,7 +74,8 @@ public sealed class WindowsShellContextMenuSession
 		try
 		{
 			PInvoke.SetForegroundWindow(owner);
-			var commandId = PInvoke.TrackPopupMenuEx(menu, TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON, invocationPoint.X, invocationPoint.Y, owner, null);
+			var commandId = unchecked((uint)PInvoke.TrackPopupMenuEx(
+				menu, TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON, invocationPoint.X, invocationPoint.Y, owner, null).Value);
 			PInvoke.PostMessage(owner, PInvoke.WM_NULL, 0, 0);
 			if (commandId is 0)
 			{

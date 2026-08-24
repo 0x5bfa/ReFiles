@@ -8,6 +8,7 @@ CreateWindowEx
 DestroyWindow
 GetModuleHandle
 RECT
+POINT
 NOTIFYICONIDENTIFIER
 Shell_NotifyIconGetRect
 RegisterWindowMessage

@@ -351,7 +351,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		var point = new POINT(checked((int)Math.Round(clientPoint.X * rasterizationScale)), checked((int)Math.Round(clientPoint.Y * rasterizationScale)));
 		var owner = new HWND(_ownerWindowHandle);
-		if (!PInvoke.ClientToScreen(owner, ref point))
+		if (PInvoke.ClientToScreen(owner, ref point).Value is 0)
 		{
 			return false;
 		}
