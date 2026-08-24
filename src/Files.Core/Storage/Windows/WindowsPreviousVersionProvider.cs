@@ -15,6 +15,7 @@ namespace Files.Core.Storage.Windows;
 internal static unsafe class WindowsPreviousVersionProvider
 {
 	private const int ErrorTimeout = 1460;
+	private const int MinimumVolumePathCapacity = 261;
 	private const int ProviderTimeoutSeconds = 5;
 	private const uint SnapshotControlCode = 0x00144064;
 	private const int SnapshotHeaderSize = 12;
@@ -37,21 +38,23 @@ internal static unsafe class WindowsPreviousVersionProvider
 		try
 		{
 			var fullPath = Path.GetFullPath(path);
-			var root = Path.GetPathRoot(fullPath);
-			if (root is null || ReadVolumeName(root) is not { } volumeName)
+			var volumePath = ReadVolumePath(fullPath);
+			var volumeRoot = volumePath is null ? null : Path.TrimEndingDirectorySeparator(volumePath);
+			if (volumePath is null || volumeRoot is null || (!fullPath.Equals(volumeRoot, StringComparison.OrdinalIgnoreCase) && !fullPath.StartsWith(volumePath, StringComparison.OrdinalIgnoreCase))
+				|| ReadVolumeName(volumePath) is not { } volumeName)
 			{
 				return [];
 			}
 
-			var relativePath = fullPath[root.Length..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			var relativePath = fullPath.Equals(volumeRoot, StringComparison.OrdinalIgnoreCase) ? string.Empty : fullPath[volumePath.Length..];
 			var options = new System.Management.EnumerationOptions
 			{
 				ReturnImmediately = true,
 				Rewindable = false,
 				Timeout = TimeSpan.FromSeconds(ProviderTimeoutSeconds),
 			};
-			using var searcher = new ManagementObjectSearcher(
-				new ManagementScope(@"root\cimv2"), new ObjectQuery("SELECT DeviceObject, InstallDate, VolumeName FROM Win32_ShadowCopy"), options);
+			var query = CreateShadowCopyQuery(volumeName);
+			using var searcher = new ManagementObjectSearcher(new ManagementScope(@"root\cimv2"), new ObjectQuery(query), options);
 			using var snapshots = searcher.Get();
 			var versions = new List<WindowsShellPreviousVersion>();
 			foreach (ManagementBaseObject snapshot in snapshots)
@@ -59,8 +62,7 @@ internal static unsafe class WindowsPreviousVersionProvider
 				using (snapshot)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
-					if (snapshot["VolumeName"] is not string snapshotVolume || !VolumeNamesEqual(volumeName, snapshotVolume)
-						|| snapshot["DeviceObject"] is not string deviceObject || snapshot["InstallDate"] is not string installDate)
+					if (snapshot["DeviceObject"] is not string deviceObject || snapshot["InstallDate"] is not string installDate)
 					{
 						continue;
 					}
@@ -237,6 +239,26 @@ internal static unsafe class WindowsPreviousVersionProvider
 		return path.StartsWith(@"\\", StringComparison.Ordinal) && !path.StartsWith(@"\\?\", StringComparison.Ordinal);
 	}
 
+	private static string CreateShadowCopyQuery(string volumeName)
+	{
+		var escapedVolumeName = volumeName.Replace(@"\", @"\\", StringComparison.Ordinal).Replace("'", @"\'", StringComparison.Ordinal);
+
+		return $"SELECT DeviceObject, InstallDate FROM Win32_ShadowCopy WHERE VolumeName = '{escapedVolumeName}'";
+	}
+
+	private static string? ReadVolumePath(string fullPath)
+	{
+		var volumePath = new char[Math.Max(MinimumVolumePathCapacity, fullPath.Length + 1)];
+		if (!PInvoke.GetVolumePathName(fullPath, volumePath))
+		{
+			return null;
+		}
+
+		var terminator = volumePath.AsSpan().IndexOf('\0');
+
+		return volumePath.AsSpan(0, terminator < 0 ? volumePath.Length : terminator).ToString();
+	}
+
 	private static string? ReadVolumeName(string root)
 	{
 		Span<char> volumeName = stackalloc char[64];
@@ -264,10 +286,5 @@ internal static unsafe class WindowsPreviousVersionProvider
 
 			return false;
 		}
-	}
-
-	private static bool VolumeNamesEqual(string left, string right)
-	{
-		return Path.TrimEndingDirectorySeparator(left).Equals(Path.TrimEndingDirectorySeparator(right), StringComparison.OrdinalIgnoreCase);
 	}
 }

@@ -271,10 +271,16 @@ public sealed partial class ItemPropertiesWindow : Window
 		}
 
 		var oldView = _propertyViews[index];
+		var childIndex = PropertyPagePanel.Children.IndexOf(oldView);
+		if (childIndex < 0)
+		{
+			return;
+		}
+
 		view.Tag = oldView.Tag;
 		view.Visibility = oldView.Visibility;
-		PropertyPagePanel.Children.Remove(oldView);
-		PropertyPagePanel.Children.Add(view);
+		PropertyPagePanel.Children.RemoveAt(childIndex);
+		PropertyPagePanel.Children.Insert(childIndex, view);
 		_propertyViews[index] = view;
 		_propertyViewCache[kind] = view;
 	}
