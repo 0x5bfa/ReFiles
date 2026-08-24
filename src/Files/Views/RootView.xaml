@@ -63,7 +63,7 @@
 			</controls:SidebarView.MenuItemTemplate>
 
 			<controls:SidebarView.InnerContent>
-				<Grid Padding="0,8,8,8" RowSpacing="1">
+				<Grid Padding="0,0,8,8" RowSpacing="1">
 					<Grid.RowDefinitions>
 						<RowDefinition Height="Auto" />
 						<RowDefinition Height="*" />

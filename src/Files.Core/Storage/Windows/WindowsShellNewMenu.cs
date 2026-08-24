@@ -46,7 +46,7 @@ public sealed class WindowsShellNewMenu
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
 
-		return _scheduler.InvokeAsync(() => GetItemsOnSta(folderPath), cancellationToken);
+		return _scheduler.InvokeAsync(() => GetItemsOnSta(folderPath, cancellationToken), cancellationToken);
 	}
 
 	/// <summary>
@@ -63,7 +63,7 @@ public sealed class WindowsShellNewMenu
 		return _scheduler.InvokeAsync(() => InvokeOnSta(folderPath, commandOffset), cancellationToken);
 	}
 
-	private static unsafe IReadOnlyList<WindowsShellNewItem> GetItemsOnSta(string folderPath)
+	private static unsafe IReadOnlyList<WindowsShellNewItem> GetItemsOnSta(string folderPath, CancellationToken cancellationToken)
 	{
 		if (!Directory.Exists(folderPath))
 		{
@@ -91,9 +91,10 @@ public sealed class WindowsShellNewMenu
 			var items = new List<WindowsShellNewItem>(count);
 			for (var index = 0; index < count; index++)
 			{
+				cancellationToken.ThrowIfCancellationRequested();
 				var menuItem = default(MENUITEMINFOW);
 				menuItem.cbSize = (uint)sizeof(MENUITEMINFOW);
-				menuItem.fMask = MENU_ITEM_MASK.MIIM_FTYPE | MENU_ITEM_MASK.MIIM_ID | MENU_ITEM_MASK.MIIM_STATE | MENU_ITEM_MASK.MIIM_STRING;
+				menuItem.fMask = MENU_ITEM_MASK.MIIM_BITMAP | MENU_ITEM_MASK.MIIM_FTYPE | MENU_ITEM_MASK.MIIM_ID | MENU_ITEM_MASK.MIIM_STATE | MENU_ITEM_MASK.MIIM_STRING;
 				menuItem.dwTypeData = (char*)NativeMemory.Alloc((nuint)MenuTextBufferLength, (nuint)sizeof(char));
 				menuItem.cch = MenuTextBufferLength;
 
@@ -113,7 +114,8 @@ public sealed class WindowsShellNewMenu
 						continue;
 					}
 
-					items.Add(new WindowsShellNewItem(menuItem.wID - FirstCommandId, name, !menuItem.fState.HasFlag(MENU_ITEM_STATE.MFS_DISABLED)));
+					var iconData = WindowsThumbnailRenderer.EncodeHBitmap(menuItem.hbmpItem, cancellationToken) ?? [];
+					items.Add(new WindowsShellNewItem(menuItem.wID - FirstCommandId, name, iconData, !menuItem.fState.HasFlag(MENU_ITEM_STATE.MFS_DISABLED)));
 				}
 				finally
 				{
@@ -254,19 +256,6 @@ public sealed class WindowsShellNewMenu
 public sealed class WindowsShellNewItem
 {
 	/// <summary>
-	/// Initializes a Shell New menu item.
-	/// </summary>
-	/// <param name="commandOffset">The command offset used by <c>IContextMenu::InvokeCommand</c>.</param>
-	/// <param name="name">The localized display name.</param>
-	/// <param name="isEnabled">A value indicating whether the Shell enabled the item.</param>
-	internal WindowsShellNewItem(uint commandOffset, string name, bool isEnabled)
-	{
-		CommandOffset = commandOffset;
-		Name = name;
-		IsEnabled = isEnabled;
-	}
-
-	/// <summary>
 	/// Gets the command offset used to invoke the item.
 	/// </summary>
 	public uint CommandOffset { get; }
@@ -277,7 +266,27 @@ public sealed class WindowsShellNewItem
 	public string Name { get; }
 
 	/// <summary>
+	/// Gets the encoded PNG icon data supplied by the Windows Shell.
+	/// </summary>
+	public ReadOnlyMemory<byte> IconData { get; }
+
+	/// <summary>
 	/// Gets a value indicating whether the Shell enabled the item.
 	/// </summary>
 	public bool IsEnabled { get; }
+
+	/// <summary>
+	/// Initializes a Shell New menu item.
+	/// </summary>
+	/// <param name="commandOffset">The command offset used by <c>IContextMenu::InvokeCommand</c>.</param>
+	/// <param name="name">The localized display name.</param>
+	/// <param name="iconData">The encoded PNG icon data.</param>
+	/// <param name="isEnabled">A value indicating whether the Shell enabled the item.</param>
+	internal WindowsShellNewItem(uint commandOffset, string name, ReadOnlyMemory<byte> iconData, bool isEnabled)
+	{
+		CommandOffset = commandOffset;
+		Name = name;
+		IconData = iconData;
+		IsEnabled = isEnabled;
+	}
 }

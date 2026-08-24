@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Adapters;
 using Files.Commands;
 using Files.Controls;
 using Files.Core.Storage.Windows;
@@ -52,10 +53,7 @@ public sealed partial class ToolbarView : UserControl
 					IsEnabled = item.IsEnabled,
 					Tag = item,
 				};
-				if (Application.Current?.Resources.TryGetValue("App.ThemedIcons.New.Item", out var value) is true && value is ThemedIconData iconData)
-				{
-					menuItem.Icon = new ThemedIcon { Data = iconData, IconSize = 16 };
-				}
+				menuItem.Icon = CreateNewItemIcon(item);
 
 				menuItem.Click += NewMenuItem_Click;
 				NewMenuFlyout.Items.Add(menuItem);
@@ -79,6 +77,18 @@ public sealed partial class ToolbarView : UserControl
 		}
 
 		await viewModel.InvokeNewItemAsync(item);
+	}
+
+	private static IconElement? CreateNewItemIcon(WindowsShellNewItem item)
+	{
+		if (!item.IconData.IsEmpty)
+		{
+			return new ImageIcon { Source = ThumbnailImageFactory.Create(item.IconData), Width = 16, Height = 16 };
+		}
+
+		return Application.Current?.Resources.TryGetValue("App.ThemedIcons.New.Item", out var value) is true && value is ThemedIconData iconData
+			? new ThemedIcon { Data = iconData, IconSize = 16 }
+			: null;
 	}
 
 	private void LayoutSizeSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
