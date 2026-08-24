@@ -3,6 +3,7 @@
 
 using System.Buffers;
 using System.ComponentModel;
+using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Windows.Win32;
@@ -35,7 +36,7 @@ public sealed class WindowsShellContextMenuSession
 	/// <param name="target">The copied Shell item ID lists for the selection.</param>
 	/// <param name="invocationPoint">The screen position, in physical pixels, where the menu should open.</param>
 	/// <returns><see langword="true"/> when a command was selected and invoked; otherwise, <see langword="false"/>.</returns>
-	public unsafe bool Show(HWND owner, WindowsShellContextMenuTarget target, POINT invocationPoint)
+	public unsafe bool Show(HWND owner, WindowsShellContextMenuTarget target, Point invocationPoint)
 	{
 		ArgumentNullException.ThrowIfNull(target);
 
@@ -69,7 +70,7 @@ public sealed class WindowsShellContextMenuSession
 			subclassInstalled = true;
 			PInvoke.SetForegroundWindow(owner);
 			var commandId = unchecked((uint)PInvoke.TrackPopupMenuEx(
-				menu, (uint)(TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON), invocationPoint.x, invocationPoint.y, owner, null).Value);
+				menu, (uint)(TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD | TRACK_POPUP_MENU_FLAGS.TPM_RIGHTBUTTON), invocationPoint.X, invocationPoint.Y, owner, null).Value);
 			PInvoke.PostMessage(owner, PInvoke.WM_NULL, default, default);
 			if (commandId is 0)
 			{
@@ -129,7 +130,7 @@ public sealed class WindowsShellContextMenuSession
 		}
 	}
 
-	private static unsafe void InvokeCommand(IContextMenu contextMenu, uint commandOrdinal, HWND owner, POINT invocationPoint)
+	private static unsafe void InvokeCommand(IContextMenu contextMenu, uint commandOrdinal, HWND owner, Point invocationPoint)
 	{
 		var invoke = new CMINVOKECOMMANDINFOEX
 		{
@@ -138,7 +139,7 @@ public sealed class WindowsShellContextMenuSession
 			hwnd = owner,
 			lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal,
 			nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL,
-			ptInvoke = new(invocationPoint.x, invocationPoint.y),
+			ptInvoke = invocationPoint,
 		};
 		ref var baseInvoke = ref Unsafe.As<CMINVOKECOMMANDINFOEX, CMINVOKECOMMANDINFO>(ref invoke);
 		contextMenu.InvokeCommand(baseInvoke).ThrowOnFailure();
