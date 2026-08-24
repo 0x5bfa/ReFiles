@@ -4,6 +4,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using Files.Core.ItemFeatures.Thumbnails;
@@ -48,7 +49,7 @@ public sealed class WindowsShellAppExtensionService
 			return [];
 		}
 
-		return await _source.Scheduler.InvokeOperationAsync(() => GetCommandsOnCurrentSta(resolvedSelection), cancellationToken).ConfigureAwait(false);
+		return await _source.Scheduler.InvokeOperationAsync(() => GetCommandsOnCurrentSta(resolvedSelection, cancellationToken), cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Gets the Windows Shell property pages applicable to a selection.</summary>
@@ -179,7 +180,7 @@ public sealed class WindowsShellAppExtensionService
 		return await _source.Scheduler.InvokeOperationAsync(() => ShowShellPropertiesOnCurrentSta(resolvedSelection), cancellationToken).ConfigureAwait(false);
 	}
 
-	private static IReadOnlyList<WindowsShellAppExtensionCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection)
+	private static IReadOnlyList<WindowsShellAppExtensionCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection, CancellationToken cancellationToken)
 	{
 		var registrations = WindowsFileExplorerAppExtensionCatalog.GetRegistrations(selection.ItemTypes);
 		if (registrations.Count is 0)
@@ -189,8 +190,11 @@ public sealed class WindowsShellAppExtensionService
 
 		var shellItemArray = CreateShellItemArray(selection.Locators);
 		var commands = new List<WindowsShellAppExtensionCommand>(registrations.Count);
+		var iconCache = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.OrdinalIgnoreCase);
 		foreach (var registration in registrations)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var explorerCommand = TryCreateExplorerCommand(registration);
 			if (explorerCommand is null)
 			{
@@ -198,7 +202,7 @@ public sealed class WindowsShellAppExtensionService
 			}
 
 			var token = new WindowsShellAppExtensionCommandToken(registration.ClassId, registration.VerbId, []);
-			if (TryCreateDescription(explorerCommand, shellItemArray, token, registration.DisplayName, depth: 0) is { } description)
+			if (TryCreateDescription(explorerCommand, shellItemArray, token, registration.DisplayName, depth: 0, iconCache, cancellationToken) is { } description)
 			{
 				commands.Add(description);
 			}
@@ -304,8 +308,12 @@ public sealed class WindowsShellAppExtensionService
 		IShellItemArray selection,
 		WindowsShellAppExtensionCommandToken token,
 		string fallbackTitle,
-		int depth)
+		int depth,
+		Dictionary<string, ReadOnlyMemory<byte>> iconCache,
+		CancellationToken cancellationToken)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
+
 		var stateResult = command.GetState(selection, false, out var state);
 		if (stateResult.Value is PendingResult)
 		{
@@ -330,13 +338,15 @@ public sealed class WindowsShellAppExtensionService
 		}
 
 		var iconPath = ReadCommandString(command.GetIcon, selection);
-		var children = depth < MaximumSubCommandDepth && flags.HasFlag(_EXPCMDFLAGS.ECF_HASSUBCOMMANDS) ? GetSubCommandDescriptions(command, selection, token, depth + 1) : [];
+		var iconData = ReadCommandIcon(iconPath, iconCache, cancellationToken);
+		var children = depth < MaximumSubCommandDepth && flags.HasFlag(_EXPCMDFLAGS.ECF_HASSUBCOMMANDS) ? GetSubCommandDescriptions(command, selection, token, depth + 1, iconCache, cancellationToken) : [];
 
 		return new(
 			token,
 			token.VerbId,
 			title,
 			iconPath,
+			iconData,
 			!state.HasFlag(_EXPCMDSTATE.ECS_DISABLED),
 			state.HasFlag(_EXPCMDSTATE.ECS_CHECKED),
 			state.HasFlag(_EXPCMDSTATE.ECS_RADIOCHECK),
@@ -348,7 +358,9 @@ public sealed class WindowsShellAppExtensionService
 		IExplorerCommand parent,
 		IShellItemArray selection,
 		WindowsShellAppExtensionCommandToken parentToken,
-		int depth)
+		int depth,
+		Dictionary<string, ReadOnlyMemory<byte>> iconCache,
+		CancellationToken cancellationToken)
 	{
 		if (parent.EnumSubCommands(out var enumerator).Failed || enumerator is null)
 		{
@@ -359,9 +371,11 @@ public sealed class WindowsShellAppExtensionService
 		var subCommandIndex = 0;
 		while (TryGetNextCommand(enumerator, out var subCommand))
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var path = parentToken.SubCommandPath.Append(subCommandIndex).ToArray();
 			var token = new WindowsShellAppExtensionCommandToken(parentToken.ClassId, parentToken.VerbId, path);
-			if (TryCreateDescription(subCommand, selection, token, parentToken.VerbId, depth) is { } description)
+			if (TryCreateDescription(subCommand, selection, token, parentToken.VerbId, depth, iconCache, cancellationToken) is { } description)
 			{
 				descriptions.Add(description);
 			}
@@ -441,6 +455,34 @@ public sealed class WindowsShellAppExtensionService
 		{
 			PInvoke.CoTaskMemFree(value.Value);
 		}
+	}
+
+	private static ReadOnlyMemory<byte> ReadCommandIcon(string? iconLocation, Dictionary<string, ReadOnlyMemory<byte>> iconCache, CancellationToken cancellationToken)
+	{
+		if (string.IsNullOrWhiteSpace(iconLocation))
+		{
+			return ReadOnlyMemory<byte>.Empty;
+		}
+
+		if (iconCache.TryGetValue(iconLocation, out var cachedIcon))
+		{
+			return cachedIcon;
+		}
+
+		var path = iconLocation.Trim();
+		var iconIndex = 0;
+		var separatorIndex = path.LastIndexOf(',');
+		if (separatorIndex >= 0 && int.TryParse(path.AsSpan(separatorIndex + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedIndex))
+		{
+			iconIndex = parsedIndex;
+			path = path[..separatorIndex];
+		}
+
+		path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
+		var iconData = string.IsNullOrWhiteSpace(path) ? ReadOnlyMemory<byte>.Empty : WindowsShellIconProvider.GetResourceIcon(path, iconIndex, 16, cancellationToken);
+		iconCache.Add(iconLocation, iconData);
+
+		return iconData;
 	}
 
 	private static unsafe IShellItemArray CreateShellItemArray(IReadOnlyList<WindowsItemLocator> locators)

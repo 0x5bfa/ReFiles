@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Adapters;
 using Files.Commands;
 using Files.Core.Storage.Windows;
 using Files.Localization;
@@ -16,7 +17,7 @@ internal sealed class ItemContextMenu
 {
 	private readonly FolderBrowserViewModel _viewModel;
 	private readonly IReadOnlyList<BrowseItemViewModel> _selection;
-	private readonly MenuFlyout _flyout = new();
+	private readonly MenuFlyout _flyout = new() { AreOpenCloseAnimationsEnabled = false };
 	private readonly MenuFlyoutItem _loadingItem = new() { IsEnabled = false };
 	private readonly CancellationTokenSource _lifetime = new();
 	private Point _classicMenuPosition;
@@ -145,7 +146,7 @@ internal sealed class ItemContextMenu
 
 		if (command.Children.Count is not 0)
 		{
-			var subItem = new MenuFlyoutSubItem { Text = command.Title, IsEnabled = command.IsEnabled };
+			var subItem = new MenuFlyoutSubItem { Text = command.Title, Icon = CreateAppExtensionIcon(command), IsEnabled = command.IsEnabled };
 			foreach (var child in command.Children)
 			{
 				subItem.Items.Add(CreateAppExtensionItem(child));
@@ -156,10 +157,21 @@ internal sealed class ItemContextMenu
 
 		MenuFlyoutItem item = command.IsChecked || command.IsRadio ? new ToggleMenuFlyoutItem { IsChecked = command.IsChecked } : new MenuFlyoutItem();
 		item.Text = command.Title;
+		item.Icon = CreateAppExtensionIcon(command);
 		item.IsEnabled = command.IsEnabled;
 		item.Click += (_, _) => _ = InvokeAppExtensionAsync(command);
 
 		return item;
+	}
+
+	private static IconElement? CreateAppExtensionIcon(WindowsShellAppExtensionCommand command)
+	{
+		if (command.IconData.IsEmpty)
+		{
+			return null;
+		}
+
+		return new ImageIcon { Source = ThumbnailImageFactory.Create(command.IconData) };
 	}
 
 	private async Task InvokeAppExtensionAsync(WindowsShellAppExtensionCommand command)
