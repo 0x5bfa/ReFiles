@@ -39,10 +39,9 @@ public sealed class NavigationStressTests
 		Assert.IsTrue(Directory.Exists(windowsPath), $"The Windows directory '{windowsPath}' does not exist.");
 
 		var pathTextBox = TestHelper.WaitForElementByAutomationId("PathTextBox", _navigationTimeout);
-		var navigatePathButton = TestHelper.WaitForElementByAutomationId("NavigatePathButton", _navigationTimeout);
 		for (var iteration = 0; iteration < IterationCount; iteration++)
 		{
-			TestHelper.EnterPath(ref pathTextBox, ref navigatePathButton, windowsPath);
+			TestHelper.EnterPath(ref pathTextBox, windowsPath);
 		}
 
 		Thread.Sleep(_postNavigationDelay);
@@ -63,10 +62,9 @@ public sealed class NavigationStressTests
 
 		var paths = new[] { windowsPath, systemPath };
 		var pathTextBox = TestHelper.WaitForElementByAutomationId("PathTextBox", _navigationTimeout);
-		var navigatePathButton = TestHelper.WaitForElementByAutomationId("NavigatePathButton", _navigationTimeout);
 		for (var iteration = 0; iteration < IterationCount; iteration++)
 		{
-			TestHelper.EnterPath(ref pathTextBox, ref navigatePathButton, paths[iteration % paths.Length]);
+			TestHelper.EnterPath(ref pathTextBox, paths[iteration % paths.Length]);
 		}
 
 		var expectedPath = paths[(IterationCount - 1) % paths.Length];

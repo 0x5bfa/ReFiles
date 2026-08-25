@@ -31,25 +31,21 @@ public static class TestHelper
 	/// Enters a path in the path text box and invokes navigation.
 	/// </summary>
 	/// <param name="pathTextBox">The path text box automation element, updated if it becomes unavailable.</param>
-	/// <param name="navigatePathButton">The navigation button automation element, updated if it becomes unavailable.</param>
 	/// <param name="path">The path to enter.</param>
-	public static void EnterPath(ref AutomationElement pathTextBox, ref AutomationElement navigatePathButton, string path)
+	public static void EnterPath(ref AutomationElement pathTextBox, string path)
 	{
 		ArgumentNullException.ThrowIfNull(pathTextBox);
-
-		ArgumentNullException.ThrowIfNull(navigatePathButton);
 
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
 		try
 		{
-			SetPathAndNavigate(pathTextBox, navigatePathButton, path);
+			SetPathAndNavigate(pathTextBox, path);
 		}
 		catch (Exception exception) when (exception is ElementNotAvailableException or InvalidOperationException)
 		{
 			pathTextBox = WaitForElementByAutomationId("PathTextBox", TimeSpan.FromSeconds(15));
-			navigatePathButton = WaitForElementByAutomationId("NavigatePathButton", TimeSpan.FromSeconds(15));
-			SetPathAndNavigate(pathTextBox, navigatePathButton, path);
+			SetPathAndNavigate(pathTextBox, path);
 		}
 	}
 
@@ -135,20 +131,11 @@ public static class TestHelper
 		return valuePattern;
 	}
 
-	private static InvokePattern GetInvokePattern(AutomationElement element)
-	{
-		if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern) || pattern is not InvokePattern invokePattern)
-		{
-			throw new InvalidOperationException($"The UI element '{element.Current.AutomationId}' does not support the Invoke pattern.");
-		}
-
-		return invokePattern;
-	}
-
-	private static void SetPathAndNavigate(AutomationElement pathTextBox, AutomationElement navigatePathButton, string path)
+	private static void SetPathAndNavigate(AutomationElement pathTextBox, string path)
 	{
 		GetValuePattern(pathTextBox).SetValue(path);
-		GetInvokePattern(navigatePathButton).Invoke();
+		pathTextBox.SetFocus();
+		System.Windows.Forms.SendKeys.SendWait("{ENTER}");
 	}
 
 	private static bool PathsEqual(string? actualPath, string expectedPath)

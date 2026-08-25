@@ -9,6 +9,7 @@
 		<IsPackable>false</IsPackable>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWindowsForms>true</UseWindowsForms>
 		<UseWPF>true</UseWPF>
 		<Configurations>Debug;Release</Configurations>
 		<Platforms>x86;x64;arm64</Platforms>

@@ -118,10 +118,8 @@
 					IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
 					ItemType="FlyoutButton"
 					Label="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
-					OverflowBehavior="Never">
-					<controls:ToolbarItem.Content>
-						<FontIcon FontSize="18" Glyph="&#xE8CB;" />
-					</controls:ToolbarItem.Content>
+					OverflowBehavior="Never"
+					ThemedIcon="{StaticResource App.ThemedIcons.Sorting}">
 					<controls:ToolbarItem.Flyout>
 						<MenuFlyout Placement="Bottom">
 							<MenuFlyoutSubItem Text="{x:Bind ViewModel.SortByLabel, Mode=OneWay}">

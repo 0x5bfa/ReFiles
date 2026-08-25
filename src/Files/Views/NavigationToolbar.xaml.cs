@@ -38,17 +38,8 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private async void PathOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
 	{
-		try
-		{
-			await NavigatePathAsync(args.Text);
-		}
-		finally
-		{
-			NavigatePathButton.Focus(FocusState.Keyboard);
-		}
+		await NavigatePathAsync(args.Text);
 	}
-
-	private async void NavigatePathButton_Click(object sender, RoutedEventArgs e) => await NavigatePathAsync(PathOmnibarMode.Text ?? string.Empty);
 
 	private async void PathBreadcrumbBar_ItemClicked(Files.Controls.BreadcrumbBar sender, Files.Controls.BreadcrumbBarItemClickedEventArgs args)
 	{

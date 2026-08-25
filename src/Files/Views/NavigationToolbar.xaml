@@ -15,29 +15,26 @@
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="Auto" />
 			<ColumnDefinition Width="*" />
-			<ColumnDefinition Width="Auto" />
-			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
 
 		<StackPanel
 			Grid.Column="0"
 			Orientation="Horizontal"
 			Spacing="6">
-			<ToggleButton
+			<controls:ToolbarToggleButton
 				x:Name="SidebarPaneToggleButton"
 				Width="32"
 				Height="32"
 				Padding="0"
 				AutomationProperties.AutomationId="SidebarPaneToggleButton"
 				AutomationProperties.Name="{x:Bind ViewModel.ToggleSidebarCommand.AutomationName, Mode=OneWay}"
-				Background="Transparent"
-				BorderBrush="Transparent"
 				Command="{x:Bind ViewModel.ToggleSidebarCommand.Command}"
 				IsChecked="{x:Bind ViewModel.ToggleSidebarCommand.IsChecked, Mode=OneWay}"
+				Label="{x:Bind ViewModel.ToggleSidebarCommand.Label, Mode=OneWay}"
 				ToolTipService.ToolTip="{x:Bind ViewModel.ToggleSidebarCommand.ToolTip, Mode=OneWay}"
 				Visibility="{x:Bind ViewModel.ToggleSidebarCommand.IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
 				<FontIcon FontSize="14" Glyph="{x:Bind ViewModel.ToggleSidebarCommand.Glyph, Mode=OneWay}" />
-			</ToggleButton>
+			</controls:ToolbarToggleButton>
 
 			<controls:Toolbar
 				Padding="0"
@@ -75,6 +72,16 @@
 						OverflowBehavior="Never">
 						<controls:ToolbarItem.Content>
 							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.UpCommand.Glyph, Mode=OneWay}" />
+						</controls:ToolbarItem.Content>
+					</controls:ToolbarItem>
+					<controls:ToolbarItem
+						Command="{x:Bind ViewModel.RefreshCommand.Command}"
+						IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}"
+						ItemType="Button"
+						Label="{x:Bind ViewModel.RefreshCommand.Label, Mode=OneWay}"
+						OverflowBehavior="Never">
+						<controls:ToolbarItem.Content>
+							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.RefreshCommand.Glyph, Mode=OneWay}" />
 						</controls:ToolbarItem.Content>
 					</controls:ToolbarItem>
 					<controls:ToolbarItem
@@ -138,41 +145,5 @@
 				</controls:OmnibarMode.ContentOnInactive>
 			</controls:OmnibarMode>
 		</controls:Omnibar>
-
-		<Button
-			x:Name="NavigatePathButton"
-			Grid.Column="2"
-			Width="32"
-			Height="32"
-			Padding="0"
-			AutomationProperties.AutomationId="NavigatePathButton"
-			AutomationProperties.Name="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}"
-			Click="NavigatePathButton_Click"
-			ToolTipService.ToolTip="{x:Bind ViewModel.NavigatePathCommand.Label, Mode=OneWay}">
-			<FontIcon FontSize="16" Glyph="&#xE8AD;" />
-		</Button>
-
-		<controls:Toolbar
-			Grid.Column="3"
-			Padding="0"
-			Background="Transparent"
-			BorderBrush="Transparent"
-			BorderThickness="0"
-			CornerRadius="0"
-			ToolbarSize="Small">
-			<controls:Toolbar.Items>
-				<controls:ToolbarItem
-					Command="{x:Bind ViewModel.RefreshCommand.Command}"
-					IsEnabled="{x:Bind ViewModel.RefreshCommand.IsEnabled, Mode=OneWay}"
-					ItemType="Button"
-					Label="{x:Bind ViewModel.RefreshCommand.Label, Mode=OneWay}"
-					OverflowBehavior="Never">
-					<controls:ToolbarItem.Content>
-						<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.RefreshCommand.Glyph, Mode=OneWay}" />
-					</controls:ToolbarItem.Content>
-				</controls:ToolbarItem>
-			</controls:Toolbar.Items>
-		</controls:Toolbar>
-
 	</Grid>
 </UserControl>
