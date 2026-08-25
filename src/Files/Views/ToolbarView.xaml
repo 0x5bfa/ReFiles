@@ -366,27 +366,6 @@
 											IsFilled="{x:Bind ViewModel.IsLayoutSizeExtraLarge, Mode=OneWay}" />
 									</Grid>
 								</StackPanel>
-								<Border
-									Margin="-20,0"
-									HorizontalAlignment="Stretch"
-									BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-									BorderThickness="0.5" />
-								<ToggleSwitch
-									Padding="8,4"
-									HorizontalAlignment="Stretch"
-									AutomationProperties.Name="{x:Bind ViewModel.ShowHiddenItemsCommand.AutomationName, Mode=OneWay}"
-									Header="{x:Bind ViewModel.ShowHiddenItemsCommand.Label, Mode=OneWay}"
-									IsEnabled="{x:Bind ViewModel.ShowHiddenItemsCommand.IsEnabled, Mode=OneWay}"
-									IsOn="{x:Bind ViewModel.ShowHiddenItemsCommand.IsChecked, Mode=OneWay}"
-									Toggled="ShowHiddenItemsToggleSwitch_Toggled" />
-								<ToggleSwitch
-									Padding="8,4"
-									HorizontalAlignment="Stretch"
-									AutomationProperties.Name="{x:Bind ViewModel.ShowFileExtensionsCommand.AutomationName, Mode=OneWay}"
-									Header="{x:Bind ViewModel.ShowFileExtensionsCommand.Label, Mode=OneWay}"
-									IsEnabled="{x:Bind ViewModel.ShowFileExtensionsCommand.IsEnabled, Mode=OneWay}"
-									IsOn="{x:Bind ViewModel.ShowFileExtensionsCommand.IsChecked, Mode=OneWay}"
-									Toggled="ShowFileExtensionsToggleSwitch_Toggled" />
 							</StackPanel>
 						</Flyout>
 					</controls:ToolbarItem.Flyout>

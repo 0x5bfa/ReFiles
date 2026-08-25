@@ -120,7 +120,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 			OnPropertyChanged(nameof(LocationText));
 		}
 
-		if (e.PropertyName is null or nameof(FolderBrowserViewModel.Location))
+		if (e.PropertyName is null or nameof(FolderBrowserViewModel.Location) or nameof(FolderBrowserViewModel.ShowHiddenItems))
 		{
 			_ = RefreshBreadcrumbItemsAsync();
 		}

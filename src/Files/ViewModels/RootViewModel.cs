@@ -137,10 +137,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public CommandBindingViewModel GroupItemsCommand => _commandManager.GetBinding(CommandIds.GroupItems);
 
-	public CommandBindingViewModel ShowHiddenItemsCommand => _commandManager.GetBinding(CommandIds.ShowHiddenItems);
-
-	public CommandBindingViewModel ShowFileExtensionsCommand => _commandManager.GetBinding(CommandIds.ShowFileExtensions);
-
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	internal IItemActivationService ItemActivationService => _presentationFactory.ItemActivationService;
@@ -204,8 +200,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			DeleteCommand,
 			SortItemsCommand,
 			GroupItemsCommand,
-			ShowHiddenItemsCommand,
-			ShowFileExtensionsCommand,
 			LayoutDetailsCommand,
 			LayoutListCommand,
 			LayoutCardsCommand,

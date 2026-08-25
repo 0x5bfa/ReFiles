@@ -71,6 +71,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	public BrowseViewSettings ViewSettings { get; private set; }
 
 	/// <inheritdoc />
+	public BrowseDisplaySettings DisplaySettings { get; private set; }
+
+	/// <inheritdoc />
 	public bool IsLoading { get; private set; }
 
 	/// <inheritdoc />
@@ -102,6 +105,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		_changeCoordinator = new BrowseChangeCoordinator(ProcessPendingChangesAsync);
 		_itemProjection = new BrowseItemProjection(BrowseViewSettings.Default, _presentationStore.GetSortPropertyValue);
 		ViewSettings = BrowseViewSettings.Default;
+		DisplaySettings = BrowseDisplaySettings.Default;
 	}
 
 	/// <inheritdoc />
@@ -170,7 +174,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 			await foreach (var item in nextLocationContext.GetItemsAsync(cancellationToken).ConfigureAwait(false))
 			{
-				if (ShouldHideItem(nextViewSettings, item))
+				if (ShouldHideItem(DisplaySettings, item))
 				{
 					await item.DisposeAsync().ConfigureAwait(false);
 
@@ -565,7 +569,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return IncrementalApplyResult.Stale;
 				}
 
-				if (ShouldHideItem(ViewSettings, replacement))
+				if (ShouldHideItem(DisplaySettings, replacement))
 				{
 					return IncrementalApplyResult.Applied;
 				}
@@ -741,7 +745,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return IncrementalApplyResult.RequiresFullRefresh;
 				}
 
-				if (ShouldHideItem(ViewSettings, replacement))
+				if (ShouldHideItem(DisplaySettings, replacement))
 				{
 					return IncrementalApplyResult.RequiresFullRefresh;
 				}
@@ -843,7 +847,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return IncrementalApplyResult.RequiresFullRefresh;
 				}
 
-				if (ShouldHideItem(ViewSettings, replacement))
+				if (ShouldHideItem(DisplaySettings, replacement))
 				{
 					return IncrementalApplyResult.RequiresFullRefresh;
 				}
@@ -933,7 +937,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		return ToKey(model.Reference) == key;
 	}
 
-	private static bool ShouldHideItem(BrowseViewSettings settings, IStorableModel item)
+	private static bool ShouldHideItem(BrowseDisplaySettings settings, IStorableModel item)
 	{
 		return !settings.ShowHiddenItems && item.IsHidden;
 	}
@@ -1050,6 +1054,29 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		foreach (var thumbnail in clearedThumbnails)
 		{
 			RaiseEvent(ItemPresentationChanged, thumbnail);
+		}
+	}
+
+	/// <inheritdoc />
+	public async ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
+		ArgumentNullException.ThrowIfNull(settings);
+		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			if (DisplaySettings == settings)
+			{
+				return;
+			}
+
+			DisplaySettings = settings;
+			OnStateChanged();
+		}
+		finally
+		{
+			_navigationLock.Release();
 		}
 	}
 

@@ -1234,6 +1234,38 @@ public sealed class BrowseSessionTests
 		Assert.AreSame(settings, await settingsStore.GetAsync(location));
 	}
 
+	/// <summary>
+	/// Test case: application display settings control hidden item enumeration independently of location view settings.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task DisplaySettingsControlHiddenItemEnumeration()
+	{
+		var hiddenFactory = new TestModelFactory();
+		var hiddenLocation = hiddenFactory.CreateModel("folder", "Folder", out _);
+		var visibleItem = hiddenFactory.CreateModel("visible", "Visible", out _);
+		var hiddenItem = new HiddenTestModel(hiddenFactory.CreateModel("hidden", "Hidden", out _));
+		using (var session = new BrowseSession(new TestBrowseLocationResolver([visibleItem, hiddenItem]) { LocationModelFactory = _ => hiddenLocation }))
+		{
+			await session.NavigateAsync(new FolderLocation(hiddenLocation.Reference));
+
+			Assert.AreEqual("Visible", session.Items.Single().Name);
+		}
+
+		var shownFactory = new TestModelFactory();
+		var shownLocation = shownFactory.CreateModel("folder", "Folder", out _);
+		var shownVisibleItem = shownFactory.CreateModel("visible", "Visible", out _);
+		var shownHiddenItem = new HiddenTestModel(shownFactory.CreateModel("hidden", "Hidden", out _));
+		using var shownSession = new BrowseSession(new TestBrowseLocationResolver([shownVisibleItem, shownHiddenItem]) { LocationModelFactory = _ => shownLocation });
+		var displaySettings = new BrowseDisplaySettings(showHiddenItems: true);
+
+		await shownSession.UpdateDisplaySettingsAsync(displaySettings);
+		await shownSession.NavigateAsync(new FolderLocation(shownLocation.Reference));
+
+		Assert.AreSame(displaySettings, shownSession.DisplaySettings);
+		Assert.AreEqual(2, shownSession.Items.Count);
+	}
+
 	private static TestBrowseLocationResolver CreateIncrementalResolver(
 		IStorableModel locationModel,
 		IStorableModel resolvedModel,
@@ -1259,6 +1291,34 @@ public sealed class BrowseSessionTests
 		}
 
 		Assert.IsTrue(condition());
+	}
+
+	private sealed class HiddenTestModel : IStorableModel
+	{
+		private readonly IStorableModel _inner;
+
+		public StorableReference Reference => _inner.Reference;
+
+		public string Name => _inner.Name;
+
+		public bool IsHidden => true;
+
+		public Files.Core.ItemFeatures.IItemFeatures Features => _inner.Features;
+
+		public HiddenTestModel(IStorableModel inner)
+		{
+			_inner = inner;
+		}
+
+		public void Dispose()
+		{
+			_inner.Dispose();
+		}
+
+		public ValueTask DisposeAsync()
+		{
+			return _inner.DisposeAsync();
+		}
 	}
 
 	private sealed class TestFolder : IFolder

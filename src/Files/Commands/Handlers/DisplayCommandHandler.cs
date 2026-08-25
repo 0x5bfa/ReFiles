@@ -34,8 +34,8 @@ internal sealed class DisplayCommandHandler(CommandId id) : ICommandHandler
 		}
 
 		var isChecked = id == CommandIds.ShowHiddenItems
-			? browser.ViewSettings.ShowHiddenItems
-			: id == CommandIds.ShowFileExtensions && browser.ViewSettings.ShowFileExtensions;
+			? browser.ShowHiddenItems
+			: id == CommandIds.ShowFileExtensions && browser.ShowFileExtensions;
 
 		return new(true, !browser.IsLoading, isChecked);
 	}
@@ -49,11 +49,11 @@ internal sealed class DisplayCommandHandler(CommandId id) : ICommandHandler
 
 		if (id == CommandIds.ShowHiddenItems)
 		{
-			await browser.SetShowHiddenItemsAsync(!browser.ViewSettings.ShowHiddenItems, cancellationToken).ConfigureAwait(false);
+			await browser.SetShowHiddenItemsAsync(!browser.ShowHiddenItems, cancellationToken).ConfigureAwait(false);
 		}
 		else if (id == CommandIds.ShowFileExtensions)
 		{
-			await browser.SetShowFileExtensionsAsync(!browser.ViewSettings.ShowFileExtensions, cancellationToken).ConfigureAwait(false);
+			await browser.SetShowFileExtensionsAsync(!browser.ShowFileExtensions, cancellationToken).ConfigureAwait(false);
 		}
 		else if (context.Parameter is not string parameter)
 		{

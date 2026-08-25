@@ -3,7 +3,9 @@
 	x:Class="Files.Views.GeneralSettingsView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls">
+	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls"
+	Loaded="GeneralSettingsView_Loaded"
+	Unloaded="GeneralSettingsView_Unloaded">
 
 	<ScrollViewer
 		Padding="36"
@@ -16,6 +18,26 @@
 				Margin="0,0,0,20"
 				Style="{ThemeResource TitleTextBlockStyle}"
 				Text="{x:Bind Title, Mode=OneWay}" />
+
+			<wctcontrols:SettingsCard Header="{x:Bind ShowHiddenItemsLabel, Mode=OneWay}">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xED1A;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+				<ToggleSwitch
+					x:Name="ShowHiddenItemsToggleSwitch"
+					AutomationProperties.Name="{x:Bind ShowHiddenItemsLabel, Mode=OneWay}"
+					Toggled="ShowHiddenItemsToggleSwitch_Toggled" />
+			</wctcontrols:SettingsCard>
+
+			<wctcontrols:SettingsCard Header="{x:Bind ShowFileExtensionsLabel, Mode=OneWay}">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xE8A5;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+				<ToggleSwitch
+					x:Name="ShowFileExtensionsToggleSwitch"
+					AutomationProperties.Name="{x:Bind ShowFileExtensionsLabel, Mode=OneWay}"
+					Toggled="ShowFileExtensionsToggleSwitch_Toggled" />
+			</wctcontrols:SettingsCard>
 
 			<wctcontrols:SettingsCard Description="{x:Bind LanguageDescription, Mode=OneWay}" Header="{x:Bind LanguageLabel, Mode=OneWay}">
 				<wctcontrols:SettingsCard.HeaderIcon>

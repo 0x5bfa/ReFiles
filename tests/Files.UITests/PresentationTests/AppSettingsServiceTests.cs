@@ -22,6 +22,8 @@ public sealed class AppSettingsServiceTests
 
 		Assert.AreEqual(AppThemeMode.System, service.ThemeMode);
 		Assert.AreEqual(string.Empty, service.LanguageTag);
+		Assert.IsTrue(service.ShowFileExtensions);
+		Assert.IsFalse(service.ShowHiddenItems);
 	}
 
 	/// <summary>
@@ -37,10 +39,16 @@ public sealed class AppSettingsServiceTests
 
 		service.ThemeMode = AppThemeMode.Dark;
 		service.LanguageTag = "en-US";
+		service.ShowFileExtensions = false;
+		service.ShowHiddenItems = true;
 
 		Assert.AreEqual("Dark", values["ThemeMode"]);
 		Assert.AreEqual("en-US", values["LanguageTag"]);
-		CollectionAssert.AreEqual(new[] { nameof(AppSettingsService.ThemeMode), nameof(AppSettingsService.LanguageTag) }, changedProperties);
+		Assert.AreEqual(false, values["ShowFileExtensions"]);
+		Assert.AreEqual(true, values["ShowHiddenItems"]);
+		CollectionAssert.AreEqual(
+			new[] { nameof(AppSettingsService.ThemeMode), nameof(AppSettingsService.LanguageTag), nameof(AppSettingsService.ShowFileExtensions), nameof(AppSettingsService.ShowHiddenItems) },
+			changedProperties);
 	}
 
 	/// <summary>

@@ -8,6 +8,7 @@ using Files.Adapters;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
+using Files.Settings;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Data;
@@ -47,6 +48,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly BrowsePaneSession _pane;
 	private readonly IStorageWorkspace _workspace;
 	private readonly IStorageOperationService _storageOperations;
+	private readonly AppSettingsService _appSettings;
 	private readonly WindowsStorageSource? _windowsSource;
 	private readonly WindowsShellNewMenu? _shellNewMenu;
 	private readonly WindowsShellAppExtensionService? _shellAppExtensionService;
@@ -61,6 +63,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private string? _operationError;
 	private BitmapImage? _locationIcon;
 	private CancellationTokenSource? _locationIconCancellation;
+	private CancellationTokenSource? _displaySettingsCancellation;
 
 	private bool _isApplyingUpdate;
 
@@ -87,6 +90,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _browseAdapter.DetailsColumns;
 
 	public BrowseViewSettings ViewSettings => _browseAdapter.ViewSettings;
+
+	public bool ShowHiddenItems => _appSettings.ShowHiddenItems;
+
+	public bool ShowFileExtensions => _appSettings.ShowFileExtensions;
 
 	public double LayoutSize => Math.Clamp(Math.Round(ViewSettings.ItemSize ?? 3), 1, 5);
 
@@ -174,6 +181,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_workspace = workspace;
 		_storageOperations = storageOperations;
 		_dispatcher = dispatcher;
+		_appSettings = ((App)Microsoft.UI.Xaml.Application.Current).Settings;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
 		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
 		_shellNewMenu = _windowsSource is { } windowsSource
@@ -186,11 +194,15 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_wasLoading = _browseAdapter.IsLoading;
 		_wasBusy = _browseAdapter.IsBusy;
 		_browseAdapter.Updated += BrowseAdapter_Updated;
+		_appSettings.PropertyChanged += AppSettings_PropertyChanged;
 		RefreshLocationIcon();
 	}
 
-	public Task InitializeAsync(CancellationToken cancellationToken = default) =>
-		_browseAdapter.InitializeAsync(cancellationToken);
+	public async Task InitializeAsync(CancellationToken cancellationToken = default)
+	{
+		await ApplyDisplaySettingsAsync(cancellationToken).ConfigureAwait(false);
+		await _browseAdapter.InitializeAsync(cancellationToken).ConfigureAwait(false);
+	}
 
 	public Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default) =>
 		_browseAdapter.NavigateToPathAsync(path, cancellationToken);
@@ -445,12 +457,20 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public ValueTask SetShowHiddenItemsAsync(bool showHiddenItems, CancellationToken cancellationToken = default)
 	{
-		return _browseAdapter.UpdateShowHiddenItemsAsync(showHiddenItems, cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		_appSettings.ShowHiddenItems = showHiddenItems;
+
+		return ValueTask.CompletedTask;
 	}
 
 	public ValueTask SetShowFileExtensionsAsync(bool showFileExtensions, CancellationToken cancellationToken = default)
 	{
-		return _browseAdapter.UpdateShowFileExtensionsAsync(showFileExtensions, cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		_appSettings.ShowFileExtensions = showFileExtensions;
+
+		return ValueTask.CompletedTask;
 	}
 
 	public void ReportOperationError(Exception exception)
@@ -480,7 +500,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 
 		_browseAdapter.Updated -= BrowseAdapter_Updated;
+		_appSettings.PropertyChanged -= AppSettings_PropertyChanged;
 		Interlocked.Exchange(ref _locationIconCancellation, null)?.Cancel();
+		Interlocked.Exchange(ref _displaySettingsCancellation, null)?.Cancel();
 		_lifetime.Cancel();
 		try
 		{
@@ -490,6 +512,56 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			_lifetime.Dispose();
 		}
+	}
+
+	private async void AppSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is not nameof(AppSettingsService.ShowHiddenItems) and not nameof(AppSettingsService.ShowFileExtensions))
+		{
+			return;
+		}
+
+		if (!_dispatcher.HasThreadAccess)
+		{
+			if (Volatile.Read(ref _isDisposed) is 0)
+			{
+				_dispatcher.TryEnqueue(() => AppSettings_PropertyChanged(sender, e));
+			}
+
+			return;
+		}
+
+		OnPropertyChanged(nameof(ShowHiddenItems));
+		OnPropertyChanged(nameof(ShowFileExtensions));
+		CommandManager.RefreshStates(CommandStateInvalidation.ViewSettings);
+		var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+		Interlocked.Exchange(ref _displaySettingsCancellation, cancellation)?.Cancel();
+		try
+		{
+			await ApplyDisplaySettingsAsync(cancellation.Token).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch (ObjectDisposedException) when (Volatile.Read(ref _isDisposed) is not 0)
+		{
+		}
+		catch (Exception exception)
+		{
+			_dispatcher.TryEnqueue(() => ReportOperationError(exception));
+		}
+		finally
+		{
+			Interlocked.CompareExchange(ref _displaySettingsCancellation, null, cancellation);
+			cancellation.Dispose();
+		}
+	}
+
+	private Task ApplyDisplaySettingsAsync(CancellationToken cancellationToken)
+	{
+		var settings = new BrowseDisplaySettings(_appSettings.ShowHiddenItems, _appSettings.ShowFileExtensions);
+
+		return _browseAdapter.UpdateDisplaySettingsAsync(settings, cancellationToken).AsTask();
 	}
 
 	private async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> CreateFolderBreadcrumbItemsAsync(FolderLocation location, CancellationToken cancellationToken)
@@ -579,6 +651,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			{
 				try
 				{
+					if (!_appSettings.ShowHiddenItems && root.IsHidden)
+					{
+						continue;
+					}
+
 					var thumbnailData = await LoadBreadcrumbThumbnailAsync(root, cancellationToken).ConfigureAwait(false);
 					items.Add(new NavigationToolbarBreadcrumbItem(root.Name, new FolderLocation(root.Reference), false, thumbnailData));
 				}
@@ -605,6 +682,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			try
 			{
+				if (!_appSettings.ShowHiddenItems && child.IsHidden)
+				{
+					continue;
+				}
+
 				var thumbnailData = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
 				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new FolderLocation(child.Reference), false, thumbnailData));
 			}
@@ -629,6 +711,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			try
 			{
+				if (!_appSettings.ShowHiddenItems && child.IsHidden)
+				{
+					continue;
+				}
+
 				var entryPath = ArchiveEntryPath.Combine(location.EntryPath, child.Name);
 				var thumbnailData = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
 				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new ArchiveLocation(location.Archive, entryPath), false, thumbnailData));
@@ -672,15 +759,25 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 	}
 
-	private static async Task<bool> HasFolderChildrenAsync(IFolderModel folder, CancellationToken cancellationToken)
+	private async Task<bool> HasFolderChildrenAsync(IFolderModel folder, CancellationToken cancellationToken)
 	{
 		try
 		{
 			await foreach (var child in folder.GetItemsAsync(StorableType.Folder, cancellationToken).ConfigureAwait(false))
 			{
-				await child.DisposeAsync().ConfigureAwait(false);
+				try
+				{
+					if (!_appSettings.ShowHiddenItems && child.IsHidden)
+					{
+						continue;
+					}
 
-				return true;
+					return true;
+				}
+				finally
+				{
+					await child.DisposeAsync().ConfigureAwait(false);
+				}
 			}
 		}
 		catch (Exception) when (!cancellationToken.IsCancellationRequested)
@@ -689,6 +786,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		return false;
 	}
+
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
 	{
 		var updateStartTimestamp = Stopwatch.GetTimestamp();

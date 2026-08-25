@@ -43,6 +43,9 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 	/// <summary>Gets the current view settings.</summary>
 	BrowseViewSettings ViewSettings { get; }
 
+	/// <summary>Gets the application-wide display preferences applied to this session.</summary>
+	BrowseDisplaySettings DisplaySettings { get; }
+
 	/// <summary>Gets a value indicating whether navigation or refresh is in progress.</summary>
 	bool IsLoading { get; }
 
@@ -77,6 +80,12 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>A task that represents the update.</returns>
 	ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default);
+
+	/// <summary>Updates the application-wide display preferences applied to this session.</summary>
+	/// <param name="settings">The new display preferences.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the update.</returns>
+	ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default);
 
 	/// <summary>Gets prefetched presentation data for an item.</summary>
 	/// <param name="key">The item key.</param>

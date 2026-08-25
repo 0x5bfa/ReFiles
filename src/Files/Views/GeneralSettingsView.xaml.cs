@@ -19,6 +19,10 @@ public sealed partial class GeneralSettingsView : UserControl
 
 	internal string LanguageDescription => Strings.LanguageDescription.GetLocalized();
 
+	internal string ShowHiddenItemsLabel => Strings.ShowHiddenItems.GetLocalized();
+
+	internal string ShowFileExtensionsLabel => Strings.ShowFileExtensions.GetLocalized();
+
 	internal string RestartDescription => Strings.RestartToApplyLanguage.GetLocalized();
 
 	internal GeneralSettingsView(AppSettingsService settings)
@@ -33,6 +37,19 @@ public sealed partial class GeneralSettingsView : UserControl
 		];
 		InitializeComponent();
 		LanguagePicker.SelectedItem = Languages.FirstOrDefault(option => string.Equals(option.LanguageTag, _settings.LanguageTag, StringComparison.OrdinalIgnoreCase)) ?? Languages[0];
+		SyncDisplaySettings();
+	}
+
+	private void GeneralSettingsView_Loaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+	{
+		_settings.PropertyChanged -= Settings_PropertyChanged;
+		_settings.PropertyChanged += Settings_PropertyChanged;
+		SyncDisplaySettings();
+	}
+
+	private void GeneralSettingsView_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+	{
+		_settings.PropertyChanged -= Settings_PropertyChanged;
 	}
 
 	private void LanguagePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -41,6 +58,39 @@ public sealed partial class GeneralSettingsView : UserControl
 		{
 			_settings.LanguageTag = option.LanguageTag;
 		}
+	}
+
+	private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is not nameof(AppSettingsService.ShowHiddenItems) and not nameof(AppSettingsService.ShowFileExtensions))
+		{
+			return;
+		}
+
+		if (!DispatcherQueue.HasThreadAccess)
+		{
+			DispatcherQueue.TryEnqueue(SyncDisplaySettings);
+
+			return;
+		}
+
+		SyncDisplaySettings();
+	}
+
+	private void ShowFileExtensionsToggleSwitch_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+	{
+		_settings.ShowFileExtensions = ShowFileExtensionsToggleSwitch.IsOn;
+	}
+
+	private void ShowHiddenItemsToggleSwitch_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+	{
+		_settings.ShowHiddenItems = ShowHiddenItemsToggleSwitch.IsOn;
+	}
+
+	private void SyncDisplaySettings()
+	{
+		ShowHiddenItemsToggleSwitch.IsOn = _settings.ShowHiddenItems;
+		ShowFileExtensionsToggleSwitch.IsOn = _settings.ShowFileExtensions;
 	}
 }
 
