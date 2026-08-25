@@ -29,6 +29,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		InitializeComponent();
 		_viewModel = viewModel;
+		_viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		// PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		Loaded += RootView_Loaded;
@@ -62,6 +63,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 
 		Loaded -= RootView_Loaded;
+		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
 		// await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
@@ -71,6 +73,29 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 	private void TabStrip_NewWindowRequested(object? sender, EventArgs e) =>
 		NewWindowRequested?.Invoke(this, e);
 
+	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is null or nameof(RootViewModel.ActiveTab))
+		{
+			UpdateActiveTabPresentation();
+		}
+	}
+
+	private void UpdateActiveTabPresentation()
+	{
+		var isSettings = ViewModel.ActiveTab?.IsSettings is true;
+		NavigationToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
+		FolderToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
+		if (isSettings)
+		{
+			Sidebar.SelectedItem = ViewModel.SettingsNavigationItem;
+		}
+		else if (ReferenceEquals(Sidebar.SelectedItem, ViewModel.SettingsNavigationItem))
+		{
+			Sidebar.SelectedItem = null;
+		}
+	}
+
 	private async void RootView_Loaded(object sender, RoutedEventArgs e)
 	{
 		if (_isLoaded)
@@ -79,6 +104,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 
 		_isLoaded = true;
+		UpdateActiveTabPresentation();
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("RootView", "Loaded START");
 		Sidebar.SelectedItem ??= ViewModel.HomeNavigationItem;

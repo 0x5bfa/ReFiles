@@ -175,6 +175,25 @@ public sealed class SessionTests
 	}
 
 	/// <summary>
+	/// Test case: a window owns custom pane content for the lifetime of its tab.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task WindowOwnsCustomTabContent()
+	{
+		var resolver = new TestBrowseLocationResolver([]);
+		await using var window = new WindowSession(new BrowsePaneSessionFactory(resolver));
+		var content = new TestPaneContentSession();
+
+		var tab = await window.OpenContentTabAsync(() => content);
+
+		Assert.AreSame(content, tab.ActivePane?.Content);
+		Assert.IsFalse(content.IsDisposed);
+		Assert.IsTrue(await window.CloseTabAsync(tab.Id));
+		Assert.IsTrue(content.IsDisposed);
+	}
+
+	/// <summary>
 	/// Test case: session events do not bubble child state to ancestors.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
@@ -242,5 +261,17 @@ public sealed class SessionTests
 	private static BrowsePaneSession GetBrowsePane(PaneSession pane)
 	{
 		return pane.Content as BrowsePaneSession ?? throw new AssertFailedException("Expected browse pane content.");
+	}
+
+	private sealed class TestPaneContentSession : IPaneContentSession
+	{
+		public bool IsDisposed { get; private set; }
+
+		public ValueTask DisposeAsync()
+		{
+			IsDisposed = true;
+
+			return ValueTask.CompletedTask;
+		}
 	}
 }

@@ -33,7 +33,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	private readonly Dictionary<Guid, TabViewModel> _tabViewModels = [];
 
-	private readonly Stack<BrowseLocation> _closedTabLocations = [];
+	private readonly Stack<ClosedTab> _closedTabs = [];
 
 	private readonly Lock _closedTabsLock = new();
 
@@ -61,6 +61,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public ObservableCollection<FlatSidebarItem> SidebarItems { get; }
 
+	public ObservableCollection<FlatSidebarItem> SidebarFooterItems { get; }
+
 	public SidebarDisplayMode SidebarDisplayMode
 	{
 		get => _sidebarDisplayMode;
@@ -76,6 +78,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	}
 
 	public NavigationItemViewModel HomeNavigationItem { get; }
+
+	public NavigationItemViewModel SettingsNavigationItem { get; }
 
 	public TabStripViewModel TabStrip { get; }
 
@@ -159,7 +163,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		{
 			lock (_closedTabsLock)
 			{
-				return _closedTabLocations.Count > 0;
+				return _closedTabs.Count > 0;
 			}
 		}
 	}
@@ -176,9 +180,12 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		Tabs = [];
 		NavigationItems = [];
 		SidebarItems = [];
+		SidebarFooterItems = [];
 		NavigationItems.CollectionChanged += NavigationItems_CollectionChanged;
 		HomeNavigationItem = NavigationItemViewModel.CreateHome(Strings.Home.GetLocalized());
+		SettingsNavigationItem = NavigationItemViewModel.CreateSettings(Strings.Settings.GetLocalized());
 		NavigationItems.Add(HomeNavigationItem);
+		SidebarFooterItems.Add(new FlatSidebarItem(SettingsNavigationItem, 0));
 		_commandManager = presentationFactory.CreateCommandManager(this);
 		TabStrip = new(
 			Tabs,
@@ -240,23 +247,46 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	public Task NavigateToNavigationItemAsync(NavigationItemViewModel item, CancellationToken cancellationToken = default)
+	public async Task NavigateToNavigationItemAsync(NavigationItemViewModel item, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
 
 		ArgumentNullException.ThrowIfNull(item);
 
-		if (!item.SelectsOnInvoked || ActiveFolderBrowser is not { } browser)
+		if (ReferenceEquals(item, SettingsNavigationItem))
 		{
-			return Task.CompletedTask;
+			await OpenSettingsTabAsync(cancellationToken).ConfigureAwait(false);
+
+			return;
+		}
+
+		if (!item.SelectsOnInvoked)
+		{
+			return;
+		}
+
+		if (ActiveFolderBrowser is { } browser)
+		{
+			if (item.IsHome)
+			{
+				await browser.NavigateHomeAsync(cancellationToken).ConfigureAwait(false);
+			}
+			else if (item.Reference is { } reference)
+			{
+				await browser.NavigateToReferenceAsync(reference, cancellationToken).ConfigureAwait(false);
+			}
+
+			return;
 		}
 
 		if (item.IsHome)
 		{
-			return browser.NavigateHomeAsync(cancellationToken);
+			await _window.OpenTabAsync(HomeLocation.Instance, cancellationToken).ConfigureAwait(false);
 		}
-
-		return item.Reference is { } reference ? browser.NavigateToReferenceAsync(reference, cancellationToken) : Task.CompletedTask;
+		else if (item.Reference is { } reference)
+		{
+			await _window.OpenTabAsync(new FolderLocation(reference), cancellationToken).ConfigureAwait(false);
+		}
 	}
 
 	public async Task OpenTabAsync(CancellationToken cancellationToken = default)
@@ -264,6 +294,13 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		EnsureActive();
 
 		await _window.OpenTabAsync(HomeLocation.Instance, cancellationToken).ConfigureAwait(false);
+	}
+
+	public async Task OpenSettingsTabAsync(CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		await _window.OpenContentTabAsync(static () => new SettingsPaneSession(), cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task CloseTabAsync(Guid tabId, CancellationToken cancellationToken = default)
@@ -285,10 +322,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			return;
 		}
 
-		var location = tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance;
+		var closedTab = CreateClosedTab(tab);
 		if (await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false))
 		{
-			RememberClosedTab(location);
+			RememberClosedTab(closedTab);
 		}
 	}
 
@@ -302,6 +339,13 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		var tab = Tabs.First(tab => tab.Id == tabId);
+		if (tab.IsSettings)
+		{
+			await OpenSettingsTabAsync(cancellationToken).ConfigureAwait(false);
+
+			return;
+		}
+
 		var location = tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance;
 		await _window.OpenTabAsync(location, cancellationToken).ConfigureAwait(false);
 	}
@@ -318,7 +362,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		var tabsToClose = Tabs
 			.Take(tabIndex)
-			.Select(static tab => (tab.Id, Location: tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance))
+			.Select(static tab => (tab.Id, Content: CreateClosedTab(tab)))
 			.ToArray();
 		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
 	}
@@ -335,7 +379,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		var tabsToClose = Tabs
 			.Skip(tabIndex + 1)
-			.Select(static tab => (tab.Id, Location: tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance))
+			.Select(static tab => (tab.Id, Content: CreateClosedTab(tab)))
 			.ToArray();
 		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
 	}
@@ -351,7 +395,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		var tabsToClose = Tabs
 			.Where(tab => tab.Id != tabId)
-			.Select(static tab => (tab.Id, Location: tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance))
+			.Select(static tab => (tab.Id, Content: CreateClosedTab(tab)))
 			.ToArray();
 		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
 	}
@@ -360,24 +404,31 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		EnsureActive();
 
-		BrowseLocation location;
+		ClosedTab closedTab;
 		lock (_closedTabsLock)
 		{
-			if (_closedTabLocations.Count is 0)
+			if (_closedTabs.Count is 0)
 			{
 				return;
 			}
 
-			location = _closedTabLocations.Pop();
+			closedTab = _closedTabs.Pop();
 		}
 
 		try
 		{
-			await _window.OpenTabAsync(location, cancellationToken).ConfigureAwait(false);
+			if (closedTab.IsSettings)
+			{
+				await OpenSettingsTabAsync(cancellationToken).ConfigureAwait(false);
+			}
+			else
+			{
+				await _window.OpenTabAsync(closedTab.Location, cancellationToken).ConfigureAwait(false);
+			}
 		}
 		catch
 		{
-			RememberClosedTab(location);
+			RememberClosedTab(closedTab);
 			throw;
 		}
 	}
@@ -447,13 +498,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		Tabs.Clear();
 		lock (_closedTabsLock)
 		{
-			_closedTabLocations.Clear();
+			_closedTabs.Clear();
 		}
 
 		_navigationSectionViewModels.Clear();
 		NavigationItems.CollectionChanged -= NavigationItems_CollectionChanged;
 		UnsubscribeNavigationItems();
 		SidebarItems.Clear();
+		SidebarFooterItems.Clear();
 		NavigationItems.Clear();
 		_navigationThumbnailGate.Dispose();
 		_lifetime.Dispose();
@@ -835,22 +887,27 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private async Task CloseTabsAsync((Guid Id, BrowseLocation Location)[] tabs, CancellationToken cancellationToken)
+	private async Task CloseTabsAsync((Guid Id, ClosedTab Content)[] tabs, CancellationToken cancellationToken)
 	{
 		foreach (var tab in tabs)
 		{
 			if (await _window.CloseTabAsync(tab.Id, cancellationToken).ConfigureAwait(false))
 			{
-				RememberClosedTab(tab.Location);
+				RememberClosedTab(tab.Content);
 			}
 		}
 	}
 
-	private void RememberClosedTab(BrowseLocation location)
+	private static ClosedTab CreateClosedTab(TabViewModel tab)
+	{
+		return new ClosedTab(tab.IsSettings, tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance);
+	}
+
+	private void RememberClosedTab(ClosedTab closedTab)
 	{
 		lock (_closedTabsLock)
 		{
-			_closedTabLocations.Push(location);
+			_closedTabs.Push(closedTab);
 		}
 	}
 
@@ -858,4 +915,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 	}
+
+	private readonly record struct ClosedTab(bool IsSettings, BrowseLocation Location);
 }

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using Files.Controls;
 using Files.Core.Storage;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 
@@ -13,6 +15,8 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 	private const double FolderIconFontSize = 14;
 
 	private const string FolderIconGlyph = "\uE8B7";
+	private const string SettingsIconResourceKey = "App.ThemedIcons.Settings";
+	private const string SettingsIconGlyph = "\uE713";
 
 	private readonly bool _prefersThumbnail;
 
@@ -67,6 +71,11 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 		return new(name, reference: null, true, true, CreateSectionIcon(SidebarSectionType.Home));
 	}
 
+	internal static NavigationItemViewModel CreateSettings(string name)
+	{
+		return new(name, reference: null, false, true, CreateSettingsIcon());
+	}
+
 	internal static NavigationItemViewModel CreateSection(SidebarSectionType sectionType, string name, StorableReference reference, IEnumerable<NavigationItemViewModel> children)
 	{
 		return new(name, reference, false, false, CreateSectionIcon(sectionType), children: children);
@@ -96,8 +105,16 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 			SymbolIcon symbolIcon => new SymbolIcon { Symbol = symbolIcon.Symbol },
 			FontIcon fontIcon => new FontIcon { FontSize = fontIcon.FontSize, Glyph = fontIcon.Glyph },
 			ImageIcon imageIcon => new ImageIcon { Source = imageIcon.Source },
+			ThemedIcon themedIcon => new ThemedIcon { Data = themedIcon.Data, IconSize = themedIcon.IconSize },
 			_ => throw new InvalidOperationException($"Unsupported navigation icon type '{_icon.GetType().Name}'."),
 		};
+	}
+
+	private static IconElement CreateSettingsIcon()
+	{
+		return Application.Current?.Resources.TryGetValue(SettingsIconResourceKey, out var value) is true && value is ThemedIconData iconData
+			? new ThemedIcon { Data = iconData, IconSize = 16 }
+			: new FontIcon { Glyph = SettingsIconGlyph };
 	}
 
 	private static IconElement CreateSectionIcon(SidebarSectionType sectionType)

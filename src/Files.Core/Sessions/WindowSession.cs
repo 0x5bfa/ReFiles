@@ -134,6 +134,70 @@ public sealed class WindowSession : IAsyncDisposable
 		}
 	}
 
+	/// <summary>Opens and activates a tab containing custom pane content.</summary>
+	/// <param name="contentFactory">The factory used to create the owned pane content.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The created tab session.</returns>
+	public async ValueTask<TabSession> OpenContentTabAsync(Func<IPaneContentSession> contentFactory, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(contentFactory);
+
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+
+		IPaneContentSession? content = null;
+		PaneSession? pane = null;
+		TabSession? tab = null;
+
+		try
+		{
+			EnsureActive();
+			content = contentFactory() ?? throw new InvalidOperationException("The pane content factory returned null.");
+			pane = new PaneSession(content);
+			content = null;
+			tab = new TabSession(_paneFactory, pane);
+			pane = null;
+
+			lock (_syncRoot)
+			{
+				EnsureActive();
+				_tabs.Add(tab);
+				_activeTabId = tab.Id;
+				UpdateSnapshot();
+			}
+
+			var result = tab;
+			tab = null;
+			SessionEvent.Raise(this, TabsChanged);
+			SessionEvent.Raise(this, ActiveTabChanged);
+
+			return result;
+		}
+		catch (Exception creationError)
+		{
+			var incompleteModel = (IAsyncDisposable?)tab ?? (IAsyncDisposable?)pane ?? content;
+			if (incompleteModel is null)
+			{
+				throw;
+			}
+
+			try
+			{
+				await incompleteModel.DisposeAsync().ConfigureAwait(false);
+			}
+			catch (Exception cleanupError)
+			{
+				throw new AggregateException("Tab creation and cleanup failed.", creationError, cleanupError);
+			}
+
+			throw;
+		}
+		finally
+		{
+			_mutationLock.Release();
+		}
+	}
+
 	/// <summary>Closes and disposes a tab.</summary>
 	/// <param name="tabId">The tab identifier.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>

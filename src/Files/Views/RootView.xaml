@@ -19,6 +19,22 @@
 				Text="{Binding Text, Mode=OneWay}"
 				ToolTip="{Binding ToolTip, Mode=OneWay}" />
 		</DataTemplate>
+		<DataTemplate x:Key="NavigationSidebarItemTemplate" x:DataType="controls:FlatSidebarItem">
+			<controls:SidebarItem
+				Margin="{x:Bind SectionGapMargin, Mode=OneWay}"
+				AutomationProperties.Name="{Binding Item.Text}"
+				ContentOpacity="{x:Bind RowOpacity}"
+				DataContext="{x:Bind}"
+				Icon="{Binding Item.Icon, Mode=OneWay}"
+				IsExpanded="{Binding Item.IsExpanded, Mode=TwoWay}"
+				Item="{x:Bind Item}"
+				MenuItemTemplate="{StaticResource NavigationSidebarFlyoutItemTemplate}"
+				MenuItemsSource="{Binding Item.MenuItemsSource, Mode=OneWay}"
+				NestingLevel="{x:Bind Depth}"
+				SelectsOnInvoked="{Binding Item.SelectsOnInvoked, Mode=OneWay}"
+				Text="{Binding Item.Text, Mode=OneWay}"
+				ToolTip="{Binding Item.ToolTip, Mode=OneWay}" />
+		</DataTemplate>
 	</UserControl.Resources>
 
 	<Grid RowSpacing="1">
@@ -30,37 +46,21 @@
 
 		<views:TabView x:Name="TabStrip" ViewModel="{x:Bind ViewModel.TabStrip, Mode=OneWay}" />
 
-		<views:NavigationToolbar Grid.Row="1" ViewModel="{x:Bind ViewModel.NavigationToolbar, Mode=OneWay}" />
+		<views:NavigationToolbar x:Name="NavigationToolbarView" Grid.Row="1" ViewModel="{x:Bind ViewModel.NavigationToolbar, Mode=OneWay}" />
 
 		<controls:SidebarView
 			x:Name="Sidebar"
 			Grid.Row="2"
 			AutomationProperties.AutomationId="Sidebar"
 			DisplayMode="{x:Bind ViewModel.SidebarDisplayMode, Mode=TwoWay}"
+			FooterMenuItemsSource="{x:Bind ViewModel.SidebarFooterItems, Mode=OneWay}"
+			FooterMenuItemTemplate="{StaticResource NavigationSidebarItemTemplate}"
 			ItemInvoked="Sidebar_ItemInvoked"
+			MenuItemTemplate="{StaticResource NavigationSidebarItemTemplate}"
 			MenuItemsSource="{x:Bind ViewModel.SidebarItems, Mode=OneWay}"
 			OpenPaneLength="240"
 			PaneBackgroundBrush="{ThemeResource ControlFillColorTransparentBrush}"
 			SupportsExpansion="True">
-
-			<controls:SidebarView.MenuItemTemplate>
-				<DataTemplate x:DataType="controls:FlatSidebarItem">
-					<controls:SidebarItem
-						Margin="{x:Bind SectionGapMargin, Mode=OneWay}"
-						AutomationProperties.Name="{Binding Item.Text}"
-						ContentOpacity="{x:Bind RowOpacity}"
-						DataContext="{x:Bind}"
-						Icon="{Binding Item.Icon, Mode=OneWay}"
-						IsExpanded="{Binding Item.IsExpanded, Mode=TwoWay}"
-						Item="{x:Bind Item}"
-						MenuItemTemplate="{StaticResource NavigationSidebarFlyoutItemTemplate}"
-						MenuItemsSource="{Binding Item.MenuItemsSource, Mode=OneWay}"
-						NestingLevel="{x:Bind Depth}"
-						SelectsOnInvoked="{Binding Item.SelectsOnInvoked, Mode=OneWay}"
-						Text="{Binding Item.Text, Mode=OneWay}"
-						ToolTip="{Binding Item.ToolTip, Mode=OneWay}" />
-				</DataTemplate>
-			</controls:SidebarView.MenuItemTemplate>
 
 			<controls:SidebarView.InnerContent>
 				<Grid Padding="0,0,8,8" RowSpacing="1">
@@ -71,7 +71,7 @@
 						<RowDefinition Height="Auto" />
 					</Grid.RowDefinitions>
 
-					<views:ToolbarView ViewModel="{x:Bind ViewModel.Toolbar, Mode=OneWay}" />
+					<views:ToolbarView x:Name="FolderToolbarView" ViewModel="{x:Bind ViewModel.Toolbar, Mode=OneWay}" />
 
 					<Grid Grid.Row="1" ColumnSpacing="1">
 						<Grid.ColumnDefinitions>

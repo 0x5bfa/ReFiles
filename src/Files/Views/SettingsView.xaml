@@ -2,8 +2,24 @@
 <UserControl
 	x:Class="Files.Views.SettingsView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-	<Border Padding="24" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-		<TextBlock Text="Settings" />
-	</Border>
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	x:Name="Root">
+	<Grid
+		Background="{StaticResource LayerFillColorDefaultBrush}"
+		BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
+		BorderThickness="1"
+		CornerRadius="{StaticResource OverlayCornerRadius}">
+		<ScrollViewer
+			HorizontalContentAlignment="Stretch"
+			HorizontalScrollBarVisibility="Disabled"
+			HorizontalScrollMode="Disabled">
+			<StackPanel
+				MaxWidth="720"
+				Margin="32"
+				HorizontalAlignment="Stretch"
+				Spacing="24">
+				<TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="{x:Bind Title, Mode=OneWay}" />
+			</StackPanel>
+		</ScrollViewer>
+	</Grid>
 </UserControl>

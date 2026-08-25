@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
 	<data name="Home" xml:space="preserve"><value>Home</value></data>
+	<data name="Settings" xml:space="preserve"><value>Settings</value></data>
 	<data name="Pinned" xml:space="preserve"><value>Pinned</value></data>
 	<data name="Drives" xml:space="preserve"><value>Drives</value></data>
 	<data name="Network" xml:space="preserve"><value>Network</value></data>

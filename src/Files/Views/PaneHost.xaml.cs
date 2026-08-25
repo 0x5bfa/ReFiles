@@ -106,6 +106,21 @@ public sealed partial class PaneHost : UserControl
 			return;
 		}
 
+		if (viewModel.IsSettings)
+		{
+			ClearPaneViews();
+			PaneGrid.Children.Clear();
+			PaneGrid.ColumnDefinitions.Clear();
+			PaneGrid.RowDefinitions.Clear();
+			PaneGrid.Children.Add(new SettingsView
+			{
+				HorizontalAlignment = HorizontalAlignment.Stretch,
+				VerticalAlignment = VerticalAlignment.Stretch,
+			});
+
+			return;
+		}
+
 		var currentPaneIds = viewModel.Panes.Select(static pane => pane.Id).ToHashSet();
 		foreach (var removedPaneId in _paneViews.Keys.Where(paneId => !currentPaneIds.Contains(paneId)).ToArray())
 		{

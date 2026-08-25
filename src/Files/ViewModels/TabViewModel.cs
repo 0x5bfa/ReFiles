@@ -3,11 +3,13 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
+using Files.Controls;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Presentation;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 
@@ -15,6 +17,9 @@ namespace Files.ViewModels;
 
 public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
+	private const string SettingsIconGlyph = "\uE713";
+	private const string SettingsIconResourceKey = "App.ThemedIcons.Settings";
+
 	private readonly TabSession _tab;
 
 	private readonly IUIDispatcher _dispatcher;
@@ -40,13 +45,15 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 
 	public PaneSplitOrientation SplitOrientation => _tab.SplitOrientation;
 
-	public string Title => ActivePane?.Title ?? Strings.NewTab.GetLocalized();
+	public bool IsSettings => _tab.ActivePane?.Content is SettingsPaneSession;
+
+	public string Title => IsSettings ? Strings.Settings.GetLocalized() : ActivePane?.Title ?? Strings.NewTab.GetLocalized();
 
 	public BitmapImage? Icon => ActivePane?.Icon;
 
-	public IconSource? IconSource => Icon is { } icon ? new ImageIconSource { ImageSource = icon } : null;
+	public IconSource? IconSource => IsSettings ? CreateSettingsIconSource() : Icon is { } icon ? new ImageIconSource { ImageSource = icon } : null;
 
-	public string StatusText => _operationError ?? ActivePane?.FolderBrowser.StatusText ?? Strings.NoPane.GetLocalized();
+	public string StatusText => _operationError ?? (IsSettings ? string.Empty : ActivePane?.FolderBrowser.StatusText ?? Strings.NoPane.GetLocalized());
 
 	public bool IsLoading => ActivePane?.IsLoading ?? false;
 
@@ -60,7 +67,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 
 	public bool CanClosePane => Panes.Count > 1;
 
-	public bool CanOpenPane => Panes.Count < 2;
+	public bool CanOpenPane => !IsSettings && Panes.Count < 2;
 
 	public CommandBindingViewModel NewTabCommand => _commandManager.GetBinding(CommandIds.NewTab);
 
@@ -99,6 +106,10 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 	public async Task OpenPaneAsync(PaneSplitOrientation orientation, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
+		if (IsSettings)
+		{
+			throw new NotSupportedException("Settings tabs cannot be split.");
+		}
 
 		await _tab.OpenSplitAsync(orientation, cancellationToken: cancellationToken).ConfigureAwait(false);
 	}
@@ -107,7 +118,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 	{
 		EnsureActive();
 
-		return orientation is PaneSplitOrientation.Vertical or PaneSplitOrientation.Horizontal
+		return !IsSettings && (orientation is PaneSplitOrientation.Vertical or PaneSplitOrientation.Horizontal)
 			&& (CanOpenPane || SplitOrientation != orientation);
 	}
 
@@ -214,7 +225,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 				_paneViewModels.Remove(removedId);
 			}
 
-			foreach (var corePane in corePanes)
+			foreach (var corePane in corePanes.Where(static pane => pane.Content is not SettingsPaneSession))
 			{
 				if (!_paneViewModels.ContainsKey(corePane.Id))
 				{
@@ -224,7 +235,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 				}
 			}
 
-			var orderedPanes = corePanes.Select(corePane => _paneViewModels[corePane.Id]).ToArray();
+			var orderedPanes = corePanes.Where(static pane => pane.Content is not SettingsPaneSession).Select(corePane => _paneViewModels[corePane.Id]).ToArray();
 			foreach (var pane in orderedPanes)
 			{
 				pane.SetActive(_tab.ActivePane?.Id == pane.Id);
@@ -288,6 +299,13 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 				OnPropertyChanged(nameof(CanRefresh));
 				break;
 		}
+	}
+
+	private static IconSource CreateSettingsIconSource()
+	{
+		return Application.Current?.Resources.TryGetValue(SettingsIconResourceKey, out var value) is true && value is ThemedIconData iconData
+			? new ThemedIconSource { Data = iconData, IconSize = 16 }
+			: new FontIconSource { Glyph = SettingsIconGlyph };
 	}
 
 	private void EnsureActive() =>
