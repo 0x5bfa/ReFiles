@@ -5,6 +5,7 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:controls="using:Files.Controls"
 	xmlns:local="using:Files.Views"
+	xmlns:selection="using:Files.Views.Selection"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
@@ -85,12 +86,16 @@
 		</DataTemplate>
 	</UserControl.Resources>
 
-	<controls:TableView
-		x:Name="ItemTable"
-		ColumnTemplateSelector="{StaticResource DetailsColumnTemplateSelector}"
-		ColumnsSource="{x:Bind ViewModel.DetailsColumns, Mode=OneWay}"
-		GroupHeaderTemplate="{StaticResource DetailsGroupHeaderTemplate}"
-		ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
-		RowHeight="{x:Bind ViewModel.DetailsRowHeight, Mode=OneWay}" />
+	<controls:RectangleSelectionHost>
+		<controls:TableView
+			x:Name="ItemTable"
+			controls:RectangleSelection.IsTarget="True"
+			ColumnTemplateSelector="{StaticResource DetailsColumnTemplateSelector}"
+			ColumnsSource="{x:Bind ViewModel.DetailsColumns, Mode=OneWay}"
+			GroupHeaderTemplate="{StaticResource DetailsGroupHeaderTemplate}"
+			ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
+			RowHeight="{x:Bind ViewModel.DetailsRowHeight, Mode=OneWay}"
+			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
+	</controls:RectangleSelectionHost>
 
 </UserControl>

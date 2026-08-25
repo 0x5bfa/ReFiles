@@ -3,87 +3,93 @@
 	x:Class="Files.Views.CardsFolderView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:controls="using:Files.Controls"
+	xmlns:selection="using:Files.Views.Selection"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
-	<GridView
-		x:Name="ItemGrid"
-		ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
-		SelectionMode="Extended">
-		<GridView.ItemContainerTransitions>
-			<TransitionCollection />
-		</GridView.ItemContainerTransitions>
-		<GridView.ItemContainerStyle>
-			<Style BasedOn="{StaticResource DefaultGridViewItemStyle}" TargetType="GridViewItem">
-				<Setter Property="HorizontalContentAlignment" Value="Stretch" />
-				<Setter Property="VerticalContentAlignment" Value="Stretch" />
-			</Style>
-		</GridView.ItemContainerStyle>
-		<GridView.GroupStyle>
-			<GroupStyle>
-				<GroupStyle.HeaderTemplate>
-					<DataTemplate x:DataType="vm:BrowseItemGroupViewModel">
-						<StackPanel
-							Padding="12,10,12,6"
-							Orientation="Horizontal"
-							Spacing="8">
-							<TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
-							<TextBlock Opacity="0.65" Text="{x:Bind CountText}" />
-						</StackPanel>
-					</DataTemplate>
-				</GroupStyle.HeaderTemplate>
-			</GroupStyle>
-		</GridView.GroupStyle>
+	<controls:RectangleSelectionHost>
+		<GridView
+			x:Name="ItemGrid"
+			controls:RectangleSelection.IsTarget="True"
+			ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
+			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}"
+			SelectionMode="Extended">
+			<GridView.ItemContainerTransitions>
+				<TransitionCollection />
+			</GridView.ItemContainerTransitions>
+			<GridView.ItemContainerStyle>
+				<Style BasedOn="{StaticResource DefaultGridViewItemStyle}" TargetType="GridViewItem">
+					<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+					<Setter Property="VerticalContentAlignment" Value="Stretch" />
+				</Style>
+			</GridView.ItemContainerStyle>
+			<GridView.GroupStyle>
+				<GroupStyle>
+					<GroupStyle.HeaderTemplate>
+						<DataTemplate x:DataType="vm:BrowseItemGroupViewModel">
+							<StackPanel
+								Padding="12,10,12,6"
+								Orientation="Horizontal"
+								Spacing="8">
+								<TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" />
+								<TextBlock Opacity="0.65" Text="{x:Bind CountText}" />
+							</StackPanel>
+						</DataTemplate>
+					</GroupStyle.HeaderTemplate>
+				</GroupStyle>
+			</GridView.GroupStyle>
 
-		<GridView.ItemTemplate>
-			<DataTemplate x:DataType="vm:BrowseItemViewModel">
-				<Grid
-					Width="288"
-					MinHeight="{Binding ViewModel.CardsItemHeight, ElementName=Root}"
-					Padding="10"
-					AutomationProperties.Name="{x:Bind DisplayName}"
-					ColumnSpacing="12">
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition Width="Auto" />
-						<ColumnDefinition Width="*" />
-					</Grid.ColumnDefinitions>
+			<GridView.ItemTemplate>
+				<DataTemplate x:DataType="vm:BrowseItemViewModel">
 					<Grid
-						Width="{Binding ViewModel.CardsThumbnailSize, ElementName=Root}"
-						Height="{Binding ViewModel.CardsThumbnailSize, ElementName=Root}"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center">
-						<FontIcon
+						Width="288"
+						MinHeight="{Binding ViewModel.CardsItemHeight, ElementName=Root}"
+						Padding="10"
+						AutomationProperties.Name="{x:Bind DisplayName}"
+						ColumnSpacing="12">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="Auto" />
+							<ColumnDefinition Width="*" />
+						</Grid.ColumnDefinitions>
+						<Grid
+							Width="{Binding ViewModel.CardsThumbnailSize, ElementName=Root}"
+							Height="{Binding ViewModel.CardsThumbnailSize, ElementName=Root}"
 							HorizontalAlignment="Center"
+							VerticalAlignment="Center">
+							<FontIcon
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center"
+								FontSize="40"
+								Glyph="&#xE8B7;"
+								Opacity="{x:Bind DefaultIconOpacity, Mode=OneWay}"
+								Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />
+							<Image
+								Opacity="{x:Bind IconOpacity, Mode=OneWay}"
+								Source="{x:Bind Thumbnail, Mode=OneWay}"
+								Stretch="Uniform" />
+						</Grid>
+						<StackPanel
+							Grid.Column="1"
 							VerticalAlignment="Center"
-							FontSize="40"
-							Glyph="&#xE8B7;"
-							Opacity="{x:Bind DefaultIconOpacity, Mode=OneWay}"
-							Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />
-						<Image
-							Opacity="{x:Bind IconOpacity, Mode=OneWay}"
-							Source="{x:Bind Thumbnail, Mode=OneWay}"
-							Stretch="Uniform" />
+							Spacing="4">
+							<TextBlock
+								FontWeight="SemiBold"
+								Text="{x:Bind DisplayName}"
+								TextTrimming="CharacterEllipsis" />
+							<TextBlock
+								Opacity="0.7"
+								Text="{x:Bind Kind}"
+								TextTrimming="CharacterEllipsis" />
+							<TextBlock
+								Opacity="0.7"
+								Text="{x:Bind ReferenceText}"
+								TextTrimming="CharacterEllipsis" />
+						</StackPanel>
 					</Grid>
-					<StackPanel
-						Grid.Column="1"
-						VerticalAlignment="Center"
-						Spacing="4">
-						<TextBlock
-							FontWeight="SemiBold"
-							Text="{x:Bind DisplayName}"
-							TextTrimming="CharacterEllipsis" />
-						<TextBlock
-							Opacity="0.7"
-							Text="{x:Bind Kind}"
-							TextTrimming="CharacterEllipsis" />
-						<TextBlock
-							Opacity="0.7"
-							Text="{x:Bind ReferenceText}"
-							TextTrimming="CharacterEllipsis" />
-					</StackPanel>
-				</Grid>
-			</DataTemplate>
-		</GridView.ItemTemplate>
-	</GridView>
+				</DataTemplate>
+			</GridView.ItemTemplate>
+		</GridView>
+	</controls:RectangleSelectionHost>
 
 </UserControl>

@@ -10,9 +10,7 @@ namespace Files.Views;
 public sealed partial class GridFolderView : UserControl
 {
 	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(GridFolderView), new PropertyMetadata(null, ViewModelChanged));
-
-	private FolderViewInteraction? interaction;
+		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(GridFolderView), new PropertyMetadata(null));
 
 	public FolderBrowserViewModel? ViewModel
 	{
@@ -23,38 +21,5 @@ public sealed partial class GridFolderView : UserControl
 	public GridFolderView()
 	{
 		InitializeComponent();
-		Loaded += FolderView_Loaded;
-		Unloaded += FolderView_Unloaded;
-	}
-
-	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
-	{
-		if (sender is not GridFolderView view)
-		{
-			return;
-		}
-
-		view.UpdateInteraction();
-	}
-
-	private void FolderView_Loaded(object sender, RoutedEventArgs e) =>
-		UpdateInteraction();
-
-	private void FolderView_Unloaded(object sender, RoutedEventArgs e) =>
-		DisposeInteraction();
-
-	private void UpdateInteraction()
-	{
-		DisposeInteraction();
-		if (IsLoaded && ViewModel is { } viewModel)
-		{
-			interaction = new FolderViewInteraction(ItemGrid, viewModel);
-		}
-	}
-
-	private void DisposeInteraction()
-	{
-		interaction?.Dispose();
-		interaction = null;
 	}
 }

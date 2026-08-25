@@ -3,21 +3,179 @@
 
 using Files.Commands;
 using Files.Controls;
-using Files.Infrastructure;
-using Files.ViewModels;
 using Files.Core.Browsing;
 using Files.Core.Storage.Windows;
+using Files.Infrastructure;
+using Files.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using System.Runtime.CompilerServices;
 using Windows.System;
 using Windows.Win32;
 
-namespace Files.Views;
+namespace Files.Views.Selection;
 
-internal sealed class FolderViewInteraction : IDisposable
+/// <summary>
+/// Connects a folder view target to its view model while the target is loaded.
+/// </summary>
+public static class FolderViewInteraction
+{
+	private static readonly ConditionalWeakTable<FrameworkElement, InteractionRegistration> _registrations = new();
+
+	/// <summary>Identifies the attached view model property.</summary>
+	public static readonly DependencyProperty ViewModelProperty =
+		DependencyProperty.RegisterAttached("ViewModel", typeof(FolderBrowserViewModel), typeof(FolderViewInteraction), new PropertyMetadata(null, ViewModelChanged));
+
+	/// <summary>Gets the folder view model connected to an element.</summary>
+	/// <param name="element">The folder view target.</param>
+	/// <returns>The connected view model, or <see langword="null"/>.</returns>
+	public static FolderBrowserViewModel? GetViewModel(DependencyObject element)
+	{
+		ArgumentNullException.ThrowIfNull(element);
+
+		return (FolderBrowserViewModel?)element.GetValue(ViewModelProperty);
+	}
+
+	/// <summary>Sets the folder view model connected to an element.</summary>
+	/// <param name="element">The folder view target.</param>
+	/// <param name="value">The view model to connect.</param>
+	public static void SetViewModel(DependencyObject element, FolderBrowserViewModel? value)
+	{
+		ArgumentNullException.ThrowIfNull(element);
+
+		element.SetValue(ViewModelProperty, value);
+	}
+
+	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+	{
+		if (sender is not FrameworkElement target)
+		{
+			return;
+		}
+
+		if (args.NewValue is not FolderBrowserViewModel viewModel)
+		{
+			if (_registrations.TryGetValue(target, out var existingRegistration))
+			{
+				existingRegistration.Dispose();
+				_registrations.Remove(target);
+			}
+
+			return;
+		}
+
+		var registration = _registrations.GetValue(target, static element => new InteractionRegistration(element));
+		registration.UpdateViewModel(viewModel);
+	}
+
+	private sealed class InteractionRegistration : IDisposable
+	{
+		private readonly FrameworkElement _target;
+		private FolderViewInteractionSession? _session;
+		private FolderBrowserViewModel? _viewModel;
+		private bool _isWaitingForLayout;
+
+		internal InteractionRegistration(FrameworkElement target)
+		{
+			_target = target;
+			_target.Loaded += Target_Loaded;
+			_target.Unloaded += Target_Unloaded;
+		}
+
+		public void Dispose()
+		{
+			StopWaitingForLayout();
+			DisposeSession();
+			_target.Loaded -= Target_Loaded;
+			_target.Unloaded -= Target_Unloaded;
+		}
+
+		internal void UpdateViewModel(FolderBrowserViewModel viewModel)
+		{
+			_viewModel = viewModel;
+			DisposeSession();
+			TryCreateSession();
+		}
+
+		private void DisposeSession()
+		{
+			_session?.Dispose();
+			_session = null;
+		}
+
+		private void StartWaitingForLayout()
+		{
+			if (_isWaitingForLayout)
+			{
+				return;
+			}
+
+			_isWaitingForLayout = true;
+			_target.LayoutUpdated += Target_LayoutUpdated;
+		}
+
+		private void StopWaitingForLayout()
+		{
+			if (!_isWaitingForLayout)
+			{
+				return;
+			}
+
+			_isWaitingForLayout = false;
+			_target.LayoutUpdated -= Target_LayoutUpdated;
+		}
+
+		private void Target_LayoutUpdated(object? sender, object e)
+		{
+			TryCreateSession();
+		}
+
+		private void Target_Loaded(object sender, RoutedEventArgs e)
+		{
+			TryCreateSession();
+		}
+
+		private void Target_Unloaded(object sender, RoutedEventArgs e)
+		{
+			StopWaitingForLayout();
+			DisposeSession();
+		}
+
+		private void TryCreateSession()
+		{
+			if (_session is not null || !_target.IsLoaded || _viewModel is null)
+			{
+				return;
+			}
+
+			if (_target is ListViewBase listView)
+			{
+				_session = new FolderViewInteractionSession(listView, _viewModel);
+				StopWaitingForLayout();
+
+				return;
+			}
+
+			if (_target is TableView tableView && tableView.RowsHost is ITableViewRowsHost rowsHost && tableView.RowsHost is ITableViewSelectionHost selectionHost)
+			{
+				_session = new FolderViewInteractionSession(rowsHost, selectionHost, _viewModel);
+				StopWaitingForLayout();
+
+				return;
+			}
+
+			if (_target is TableView)
+			{
+				StartWaitingForLayout();
+			}
+		}
+	}
+}
+
+internal sealed class FolderViewInteractionSession : IDisposable
 {
 	private readonly FrameworkElement _element;
 	private readonly IList<object> _selectedItems;
@@ -36,7 +194,7 @@ internal sealed class FolderViewInteraction : IDisposable
 	private bool _viewportUpdateQueued;
 	private bool _isDisposed;
 
-	public FolderViewInteraction(ListViewBase listView, FolderBrowserViewModel viewModel)
+	internal FolderViewInteractionSession(ListViewBase listView, FolderBrowserViewModel viewModel)
 	{
 		ArgumentNullException.ThrowIfNull(listView);
 
@@ -55,11 +213,12 @@ internal sealed class FolderViewInteraction : IDisposable
 		listView.ContextRequested += Element_ContextRequested;
 		listView.SelectionChanged += ListView_SelectionChanged;
 		listView.ContainerContentChanging += ListView_ContainerContentChanging;
+		RectangleSelection.AddSelectionUpdatedHandler(listView, RectangleSelection_SelectionUpdated);
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		SynchronizeSelection();
 	}
 
-	public FolderViewInteraction(ITableViewRowsHost rowsHost, ITableViewSelectionHost selectionHost, FolderBrowserViewModel viewModel)
+	internal FolderViewInteractionSession(ITableViewRowsHost rowsHost, ITableViewSelectionHost selectionHost, FolderBrowserViewModel viewModel)
 	{
 		ArgumentNullException.ThrowIfNull(rowsHost);
 
@@ -81,6 +240,11 @@ internal sealed class FolderViewInteraction : IDisposable
 		selectionHost.ItemInvoked += SelectionHost_ItemInvoked;
 		selectionHost.SelectionChanged += SelectionHost_SelectionChanged;
 		_element.ContextRequested += Element_ContextRequested;
+		if (_itemsControl is not null)
+		{
+			RectangleSelection.AddSelectionUpdatedHandler(_itemsControl, RectangleSelection_SelectionUpdated);
+		}
+
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		SynchronizeSelection();
 	}
@@ -93,6 +257,11 @@ internal sealed class FolderViewInteraction : IDisposable
 		}
 
 		_isDisposed = true;
+		if (_itemsControl is not null)
+		{
+			RectangleSelection.RemoveSelectionUpdatedHandler(_itemsControl, RectangleSelection_SelectionUpdated);
+		}
+
 		if (_listView is not null)
 		{
 			_listView.DoubleTapped -= ListView_DoubleTapped;
@@ -133,7 +302,10 @@ internal sealed class FolderViewInteraction : IDisposable
 
 	private void ListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
-		UpdateViewModelSelection();
+		if (_itemsControl is null || !RectangleSelection.GetIsUpdatingSelection(_itemsControl))
+		{
+			UpdateViewModelSelection();
+		}
 	}
 
 	private void ListView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
@@ -150,6 +322,14 @@ internal sealed class FolderViewInteraction : IDisposable
 	}
 
 	private void SelectionHost_SelectionChanged(object? sender, EventArgs e)
+	{
+		if (_itemsControl is null || !RectangleSelection.GetIsUpdatingSelection(_itemsControl))
+		{
+			UpdateViewModelSelection();
+		}
+	}
+
+	private void RectangleSelection_SelectionUpdated(object? sender, EventArgs e)
 	{
 		UpdateViewModelSelection();
 	}

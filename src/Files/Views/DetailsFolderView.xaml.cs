@@ -15,8 +15,6 @@ public sealed partial class DetailsFolderView : UserControl
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(DetailsFolderView), new PropertyMetadata(null, ViewModelChanged));
 
-	private FolderViewInteraction? _interaction;
-
 	public FolderBrowserViewModel? ViewModel
 	{
 		get => (FolderBrowserViewModel?)GetValue(ViewModelProperty);
@@ -56,7 +54,6 @@ public sealed partial class DetailsFolderView : UserControl
 		}
 
 		view.UpdateSortState();
-		view.UpdateInteraction();
 	}
 
 	private void FolderView_Loaded(object sender, RoutedEventArgs e)
@@ -68,31 +65,14 @@ public sealed partial class DetailsFolderView : UserControl
 		}
 
 		UpdateSortState();
-		UpdateInteraction();
 	}
 
 	private void FolderView_Unloaded(object sender, RoutedEventArgs e)
 	{
-		DisposeInteraction();
 		if (ViewModel is not null)
 		{
 			ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		}
-	}
-
-	private void UpdateInteraction()
-	{
-		DisposeInteraction();
-		if (IsLoaded && ViewModel is { } viewModel && ItemTable.RowsHost is ITableViewRowsHost rowsHost && ItemTable.RowsHost is ITableViewSelectionHost selectionHost)
-		{
-			_interaction = new FolderViewInteraction(rowsHost, selectionHost, viewModel);
-		}
-	}
-
-	private void DisposeInteraction()
-	{
-		_interaction?.Dispose();
-		_interaction = null;
 	}
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

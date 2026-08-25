@@ -76,6 +76,10 @@
 		<ResourceDictionary Source="ms-appx:///Files.Controls/TableView/TableView.xaml" />
 		<!--#endregion-->
 
+		<!--#region Selection-->
+		<ResourceDictionary Source="ms-appx:///Files.Controls/Selection/RectangleSelectionHost.xaml" />
+		<!--#endregion-->
+
 		<!--#region Breadcrumb-->
 		<ResourceDictionary Source="ms-appx:///Files.Controls/BreadcrumbBar/BreadcrumbBar.xaml" />
 		<!--#endregion-->

@@ -1,0 +1,43 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<ResourceDictionary
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="using:Files.Controls">
+
+	<Style BasedOn="{StaticResource DefaultRectangleSelectionHostStyle}" TargetType="local:RectangleSelectionHost" />
+
+	<Style x:Key="DefaultRectangleSelectionHostStyle" TargetType="local:RectangleSelectionHost">
+		<Setter Property="Background" Value="Transparent" />
+		<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+		<Setter Property="VerticalContentAlignment" Value="Stretch" />
+		<Setter Property="Template">
+			<Setter.Value>
+				<ControlTemplate TargetType="local:RectangleSelectionHost">
+					<Grid Background="{TemplateBinding Background}">
+						<ContentPresenter
+							HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+							VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+							Content="{TemplateBinding Content}"
+							ContentTemplate="{TemplateBinding ContentTemplate}"
+							ContentTransitions="{TemplateBinding ContentTransitions}" />
+
+						<Canvas
+							x:Name="PART_SelectionLayer"
+							IsHitTestVisible="False">
+							<Rectangle
+								x:Name="PART_SelectionRectangle"
+								Stroke="{ThemeResource AccentFillColorDefaultBrush}"
+								StrokeThickness="1"
+								Visibility="Collapsed">
+								<Rectangle.Fill>
+									<SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.18" />
+								</Rectangle.Fill>
+							</Rectangle>
+						</Canvas>
+					</Grid>
+				</ControlTemplate>
+			</Setter.Value>
+		</Setter>
+	</Style>
+
+</ResourceDictionary>
