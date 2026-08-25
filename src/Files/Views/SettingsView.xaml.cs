@@ -20,8 +20,6 @@ public sealed partial class SettingsView : UserControl
 
 	internal IReadOnlyList<SettingsNavigationItem> FooterNavigationItems { get; }
 
-	internal string Title => Strings.Settings.GetLocalized();
-
 	public SettingsView()
 	{
 		var settings = ((App)Application.Current).Settings;

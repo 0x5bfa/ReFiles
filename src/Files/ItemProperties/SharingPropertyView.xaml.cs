@@ -21,31 +21,13 @@ public sealed partial class SharingPropertyView : UserControl
 
 	internal WindowsShellSharingProperties Sharing { get; }
 
-	internal string AdvancedSharingDescription => Strings.AdvancedSharingDescription.GetLocalized();
-
-	internal string AdvancedSharingLabel => Strings.AdvancedSharing.GetLocalized();
-
-	internal string AdvancedSharingSectionLabel => Strings.AdvancedSharingSection.GetLocalized();
-
-	internal string NetworkFolderSharingLabel => Strings.NetworkFolderSharing.GetLocalized();
-
-	internal string NetworkAndSharingCenterLabel => Strings.NetworkAndSharingCenter.GetLocalized();
-
-	internal string NetworkPathLabel => Strings.NetworkPath.GetLocalized();
-
 	internal Visibility NetworkPathVisibility => Sharing.IsShared ? Visibility.Visible : Visibility.Collapsed;
 
 	internal string PasswordProtectionDescription => Sharing.IsPasswordProtectionEnabled
 		? Strings.PasswordProtectionDescription.GetLocalized()
 		: Strings.PasswordProtectionDisabledDescription.GetLocalized();
 
-	internal string PasswordProtectionLabel => Strings.PasswordProtection.GetLocalized();
-
-	internal string PasswordProtectionSettingsPrefix => Strings.PasswordProtectionSettingsPrefix.GetLocalized();
-
 	internal Visibility PasswordProtectionVisibility => Sharing.ShowPasswordProtection ? Visibility.Visible : Visibility.Collapsed;
-
-	internal string ShareLabel => Strings.Share.GetLocalized();
 
 	internal string SharingState => Sharing.IsShared ? Strings.Shared.GetLocalized() : Strings.NotShared.GetLocalized();
 

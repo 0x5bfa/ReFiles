@@ -3,14 +3,10 @@
 
 using Microsoft.UI.Xaml.Controls;
 
-using Files.Localization;
-
 namespace Files.Views;
 
 public sealed partial class WebView : UserControl
 {
-	public string Text => Strings.WebView.GetLocalized();
-
 	public WebView()
 	{
 		InitializeComponent();

@@ -3,6 +3,7 @@
 	x:Class="Files.Views.NavigationToolbar"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:controls="using:Files.Controls"
 	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	xmlns:viewModels="using:Files.ViewModels"
@@ -109,8 +110,8 @@
 			<controls:OmnibarMode
 				x:Name="PathOmnibarMode"
 				IsDefault="True"
-				ModeName="{x:Bind ViewModel.PathModeName, Mode=OneWay}"
-				PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
+				ModeName="{localization:Localized ResourceKey=Address}"
+				PlaceholderText="{localization:Localized ResourceKey=EnterFolderPath}"
 				Text="{x:Bind ViewModel.LocationText, Mode=OneWay}">
 				<controls:OmnibarMode.IconOnActive>
 					<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IsFilled="True" />
@@ -121,13 +122,13 @@
 				<controls:OmnibarMode.ContentOnInactive>
 					<controls:BreadcrumbBar
 						x:Name="PathBreadcrumbBar"
-						EllipsisButtonToolTip="{x:Bind ViewModel.PathModeName, Mode=OneWay}"
+						EllipsisButtonToolTip="{localization:Localized ResourceKey=Address}"
 						ItemClicked="PathBreadcrumbBar_ItemClicked"
 						ItemDropDownFlyoutClosed="PathBreadcrumbBar_ItemDropDownFlyoutClosed"
 						ItemDropDownFlyoutOpening="PathBreadcrumbBar_ItemDropDownFlyoutOpening"
 						ItemsSource="{x:Bind ViewModel.BreadcrumbItems, Mode=OneWay}"
-						RootItemChevronToolTip="{x:Bind ViewModel.HomeText, Mode=OneWay}"
-						RootItemToolTip="{x:Bind ViewModel.HomeText, Mode=OneWay}"
+						RootItemChevronToolTip="{localization:Localized ResourceKey=Home}"
+						RootItemToolTip="{localization:Localized ResourceKey=Home}"
 						Tapped="PathBreadcrumbBar_Tapped">
 						<controls:BreadcrumbBar.RootItem>
 							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.HomeCommand.Glyph, Mode=OneWay}" />

@@ -13,12 +13,6 @@ public sealed partial class AppearanceSettingsView : UserControl
 
 	internal IReadOnlyList<ThemeOption> Themes { get; }
 
-	internal string Title => Strings.Appearance.GetLocalized();
-
-	internal string ThemeLabel => Strings.Theme.GetLocalized();
-
-	internal string ThemeDescription => Strings.ThemeDescription.GetLocalized();
-
 	internal AppearanceSettingsView(AppSettingsService settings)
 	{
 		ArgumentNullException.ThrowIfNull(settings);

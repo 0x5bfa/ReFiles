@@ -13,18 +13,6 @@ public sealed partial class GeneralSettingsView : UserControl
 
 	internal IReadOnlyList<LanguageOption> Languages { get; }
 
-	internal string Title => Strings.General.GetLocalized();
-
-	internal string LanguageLabel => Strings.Language.GetLocalized();
-
-	internal string LanguageDescription => Strings.LanguageDescription.GetLocalized();
-
-	internal string ShowHiddenItemsLabel => Strings.ShowHiddenItems.GetLocalized();
-
-	internal string ShowFileExtensionsLabel => Strings.ShowFileExtensions.GetLocalized();
-
-	internal string RestartDescription => Strings.RestartToApplyLanguage.GetLocalized();
-
 	internal GeneralSettingsView(AppSettingsService settings)
 	{
 		ArgumentNullException.ThrowIfNull(settings);

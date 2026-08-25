@@ -3,6 +3,7 @@
 	x:Class="Files.Views.TabView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:controls="using:Files.Controls"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
@@ -80,16 +81,16 @@
 					Padding="7"
 					HorizontalAlignment="Left"
 					VerticalAlignment="Center"
-					AutomationProperties.Name="{x:Bind ViewModel.SplitPaneLabel, Mode=OneWay}"
+					AutomationProperties.Name="{localization:Localized ResourceKey=SplitPane}"
 					Background="Transparent"
 					BorderThickness="0"
-					ToolTipService.ToolTip="{x:Bind ViewModel.SplitPaneLabel, Mode=OneWay}">
+					ToolTipService.ToolTip="{localization:Localized ResourceKey=SplitPane}">
 					<Button.Flyout>
 						<MenuFlyout Placement="Bottom">
 							<MenuFlyoutItem
 								x:Name="NewWindowMenuItem"
 								Click="NewWindowMenuItem_Click"
-								Text="{x:Bind ViewModel.NewWindowLabel, Mode=OneWay}">
+								Text="{localization:Localized ResourceKey=NewWindow}">
 								<MenuFlyoutItem.Icon>
 									<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.OpenInWindow}" IconSize="16" />
 								</MenuFlyoutItem.Icon>
@@ -97,12 +98,12 @@
 							<MenuFlyoutItem
 								x:Name="CompactOverlayMenuItem"
 								Click="CompactOverlayMenuItem_Click"
-								Text="{x:Bind ViewModel.EnterCompactOverlayLabel, Mode=OneWay}">
+								Text="{localization:Localized ResourceKey=EnterCompactOverlay}">
 								<MenuFlyoutItem.Icon>
 									<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.CompactOverlay}" IconSize="16" />
 								</MenuFlyoutItem.Icon>
 							</MenuFlyoutItem>
-							<MenuFlyoutSubItem Text="{x:Bind ViewModel.SplitPaneLabel, Mode=OneWay}">
+							<MenuFlyoutSubItem Text="{localization:Localized ResourceKey=SplitPane}">
 								<MenuFlyoutItem
 									Command="{x:Bind ViewModel.SplitPaneVerticalCommand.Command}"
 									KeyboardAcceleratorTextOverride="Alt+Shift+V"

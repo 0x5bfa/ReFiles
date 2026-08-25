@@ -33,26 +33,6 @@ public sealed partial class CustomizePropertyView : UserControl
 
 	internal IReadOnlyList<FolderKindOption> FolderKinds { get; }
 
-	internal string ApplyToSubfoldersLabel => Strings.ApplyTemplateToSubfolders.GetLocalized();
-
-	internal string ChangeIconLabel => Strings.ChangeIcon.GetLocalized();
-
-	internal string ChooseFileLabel => Strings.ChooseFile.GetLocalized();
-
-	internal string FolderIconsDescriptionLabel => Strings.FolderIconsDescription.GetLocalized();
-
-	internal string FolderIconsLabel => Strings.FolderIcons.GetLocalized();
-
-	internal string FolderPicturesDescriptionLabel => Strings.FolderPicturesDescription.GetLocalized();
-
-	internal string FolderPicturesLabel => Strings.FolderPictures.GetLocalized();
-
-	internal string FolderQuestionLabel => Strings.FolderCustomizationQuestion.GetLocalized();
-
-	internal string OptimizeFolderLabel => Strings.OptimizeFolderFor.GetLocalized();
-
-	internal string RestoreDefaultLabel => Strings.RestoreDefault.GetLocalized();
-
 	internal bool HasChanges => !StringComparer.OrdinalIgnoreCase.Equals(_selectedFolderKind, _appliedFolderKind)
 		|| !StringComparer.OrdinalIgnoreCase.Equals(_picturePath, _appliedPicturePath)
 		|| !StringComparer.OrdinalIgnoreCase.Equals(_iconPath, _appliedIconPath) || _iconIndex != _appliedIconIndex;

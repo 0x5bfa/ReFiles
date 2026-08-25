@@ -23,27 +23,13 @@ internal sealed partial class AdvancedAttributesDialog : ContentDialog
 
 	internal string ArchiveLabel => ViewModel.IsSingleFile ? Strings.FileReadyForArchiving.GetLocalized() : Strings.FolderReadyForArchiving.GetLocalized();
 
-	internal string CancelLabel => Strings.Cancel.GetLocalized();
-
-	internal string CompressLabel => Strings.CompressContents.GetLocalized();
-
-	internal string CompressOrEncryptSectionLabel => Strings.CompressOrEncryptAttributes.GetLocalized();
-
 	internal string Description => ViewModel.IsSingleFile
 		? Strings.AdvancedAttributesFileDescription.GetLocalized()
 		: ViewModel.IsSingleFolder
 			? Strings.AdvancedAttributesFolderDescription.GetLocalized()
 			: Strings.AdvancedAttributesSelectionDescription.GetLocalized();
 
-	internal string DetailsLabel => Strings.Details.GetLocalized();
-
-	internal string DialogTitle => Strings.AdvancedAttributes.GetLocalized();
-
-	internal string EncryptLabel => Strings.EncryptContents.GetLocalized();
-
 	internal string IndexLabel => ViewModel.IsSingleFile ? Strings.AllowFileIndexing.GetLocalized() : Strings.AllowFolderIndexing.GetLocalized();
-
-	internal string OkLabel => Strings.Ok.GetLocalized();
 
 	internal AdvancedAttributesDialog(ItemPropertiesViewModel viewModel, Action<string> showError)
 	{

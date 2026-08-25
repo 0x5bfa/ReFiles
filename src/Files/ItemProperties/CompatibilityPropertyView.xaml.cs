@@ -16,28 +16,6 @@ public sealed partial class CompatibilityPropertyView : UserControl
 
 	internal IReadOnlyList<string> CompatibilityVersions { get; }
 
-	internal string ChangeHighDpiSettingsLabel => Strings.ChangeHighDpiSettings.GetLocalized();
-
-	internal string CompatibilityModeLabel => Strings.CompatibilityMode.GetLocalized();
-
-	internal string DisableFullscreenOptimizationsLabel => Strings.DisableFullscreenOptimizations.GetLocalized();
-
-	internal string Intro => Strings.CompatibilityIntro.GetLocalized();
-
-	internal string ProgramLabel => Strings.Program.GetLocalized();
-
-	internal string ReducedColorModeLabel => Strings.ReducedColorMode.GetLocalized();
-
-	internal string RunAsAdministratorLabel => Strings.RunAsAdministrator.GetLocalized();
-
-	internal string RunIn640By480Label => Strings.RunIn640By480.GetLocalized();
-
-	internal string RunInCompatibilityModeLabel => Strings.RunInCompatibilityMode.GetLocalized();
-
-	internal string SettingsLabel => Strings.CompatibilitySettings.GetLocalized();
-
-	internal string TroubleshooterLabel => Strings.RunCompatibilityTroubleshooter.GetLocalized();
-
 	internal CompatibilityPropertyView(WindowsShellCompatibilityProperties compatibility, Action<string, string?> launchSystemTool)
 	{
 		Compatibility = compatibility;

@@ -14,15 +14,9 @@ public sealed partial class AboutSettingsView : UserControl
 {
 	private const string SourceCodeUrl = "https://github.com/0x5bfa/ReFiles";
 
-	internal string Title => Strings.About.GetLocalized();
-
 	internal string AppName { get; }
 
 	internal string VersionDescription { get; }
-
-	internal string SourceCodeLabel => Strings.SourceCode.GetLocalized();
-
-	internal string SourceCodeDescription => Strings.SourceCodeDescription.GetLocalized();
 
 	internal AboutSettingsView()
 	{

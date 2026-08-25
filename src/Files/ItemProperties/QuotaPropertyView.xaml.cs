@@ -21,33 +21,9 @@ public sealed partial class QuotaPropertyView : UserControl
 
 	internal string DefaultThreshold => FormatQuotaBytes(Quota.DefaultThreshold);
 
-	internal string DenyDiskSpaceLabel => Strings.DenyDiskSpace.GetLocalized();
-
-	internal string ElevationDescription => Strings.QuotaElevationDescription.GetLocalized();
-
 	internal Visibility ElevationVisibility => Quota.RequiresElevation ? Visibility.Visible : Visibility.Collapsed;
 
-	internal string EnableQuotaManagementLabel => Strings.EnableQuotaManagement.GetLocalized();
-
-	internal string LimitDiskSpaceLabel => Strings.LimitDiskSpaceTo.GetLocalized();
-
-	internal string LogLimitEventLabel => Strings.LogLimitEvent.GetLocalized();
-
-	internal string LogWarningEventLabel => Strings.LogWarningEvent.GetLocalized();
-
-	internal string QuotaEntriesLabel => Strings.QuotaEntries.GetLocalized();
-
-	internal string QuotaLoggingLabel => Strings.QuotaLogging.GetLocalized();
-
-	internal string QuotaManagementDescription => Strings.QuotaManagementDescription.GetLocalized();
-
-	internal string QuotaManagementLabel => Strings.QuotaManagement.GetLocalized();
-
 	internal Visibility SettingsVisibility => Quota.RequiresElevation ? Visibility.Collapsed : Visibility.Visible;
-
-	internal string ShowQuotaSettingsLabel => Strings.ShowQuotaSettings.GetLocalized();
-
-	internal string WarningLevelLabel => Strings.SetWarningLevelTo.GetLocalized();
 
 	internal QuotaPropertyView(WindowsShellQuotaProperties quota, HWND owner, Action<string> showError)
 	{

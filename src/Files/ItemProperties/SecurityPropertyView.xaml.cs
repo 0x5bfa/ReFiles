@@ -25,35 +25,7 @@ public sealed partial class SecurityPropertyView : UserControl
 
 	internal WindowsShellSecurityProperties Security { get; }
 
-	internal string AdvancedDescription => Strings.SecurityAdvancedDescription.GetLocalized();
-
-	internal string AdvancedLabel => Strings.Advanced.GetLocalized();
-
-	internal string AllowLabel => Strings.Allow.GetLocalized();
-
-	internal string DenyLabel => Strings.Deny.GetLocalized();
-
-	internal string EditDescription => Strings.SecurityEditDescription.GetLocalized();
-
-	internal string EditLabel => Strings.Edit.GetLocalized();
-
 	internal Visibility EditShieldVisibility => WindowsShellSecurityService.RequiresElevation(Security.ObjectPath) ? Visibility.Visible : Visibility.Collapsed;
-
-	internal string FullControlLabel => Strings.FullControl.GetLocalized();
-
-	internal string GroupOrUserNamesLabel => Strings.GroupOrUserNames.GetLocalized();
-
-	internal string ListFolderContentsLabel => Strings.ListFolderContents.GetLocalized();
-
-	internal string ModifyLabel => Strings.Modify.GetLocalized();
-
-	internal string ObjectNameLabel => Strings.ObjectName.GetLocalized();
-
-	internal string ReadAndExecuteLabel => Strings.ReadAndExecute.GetLocalized();
-
-	internal string ReadLabel => Strings.ReadPermission.GetLocalized();
-
-	internal string WriteLabel => Strings.WritePermission.GetLocalized();
 
 	internal SecurityPropertyView(WindowsShellSecurityProperties security, HWND owner, Action<string> showError)
 	{

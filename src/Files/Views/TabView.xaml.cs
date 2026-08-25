@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.WinUI;
+using Files.Localization;
 using Files.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Input;
@@ -170,8 +171,8 @@ public sealed partial class TabView : UserControl, IDisposable
 		}
 
 		CompactOverlayMenuItem.Text = _appWindow.Presenter.Kind is AppWindowPresenterKind.CompactOverlay
-			? ViewModel.ExitCompactOverlayLabel
-			: ViewModel.EnterCompactOverlayLabel;
+			? LocalizationExtensions.GetLocalized(Strings.ExitCompactOverlay)
+			: LocalizationExtensions.GetLocalized(Strings.EnterCompactOverlay);
 	}
 
 	private void EnsureTitleBarElements()

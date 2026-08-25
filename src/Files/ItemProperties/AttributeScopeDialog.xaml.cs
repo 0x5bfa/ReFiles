@@ -12,17 +12,9 @@ internal sealed partial class AttributeScopeDialog : ContentDialog
 
 	internal bool ApplyToContents => IncludeContentsRadioButton.IsChecked is true;
 
-	internal string CancelLabel => Strings.Cancel.GetLocalized();
-
-	internal string DialogTitle => Strings.ConfirmAttributeChanges.GetLocalized();
-
 	internal string IncludeContentsLabel => _viewModel.IsDrive
 		? Strings.ApplyChangesToDriveContents.GetLocalized()
 		: _viewModel.IsSingleFolder ? Strings.ApplyChangesToFolderContents.GetLocalized() : Strings.ApplyChangesToSelectionContents.GetLocalized();
-
-	internal string Intro => Strings.AttributeChangesIntro.GetLocalized();
-
-	internal string OkLabel => Strings.Ok.GetLocalized();
 
 	internal string Question => _viewModel.IsDrive
 		? Strings.AttributeChangesDriveQuestion.GetLocalized()

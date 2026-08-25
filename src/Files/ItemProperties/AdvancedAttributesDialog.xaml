@@ -3,10 +3,11 @@
 	x:Class="Files.ItemProperties.AdvancedAttributesDialog"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	Title="{x:Bind DialogTitle}"
-	CloseButtonText="{x:Bind CancelLabel}"
+	xmlns:localization="using:Files.Localization"
+	Title="{localization:Localized ResourceKey=AdvancedAttributes}"
+	CloseButtonText="{localization:Localized ResourceKey=Cancel}"
 	DefaultButton="Primary"
-	PrimaryButtonText="{x:Bind OkLabel}"
+	PrimaryButtonText="{localization:Localized ResourceKey=Ok}"
 	Style="{StaticResource DefaultContentDialogStyle}">
 
 	<StackPanel MinWidth="410" Spacing="14">
@@ -52,11 +53,11 @@
 			BorderThickness="1"
 			CornerRadius="{StaticResource OverlayCornerRadius}">
 			<StackPanel Spacing="8">
-				<TextBlock FontWeight="SemiBold" Text="{x:Bind CompressOrEncryptSectionLabel}" />
+				<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=CompressOrEncryptAttributes}" />
 				<CheckBox
 					x:Name="CompressCheckBox"
 					Checked="CompressCheckBox_Checked"
-					Content="{x:Bind CompressLabel}"
+					Content="{localization:Localized ResourceKey=CompressContents}"
 					IsEnabled="{x:Bind ViewModel.SupportsCompression}"
 					IsThreeState="{x:Bind AllowMixedStates}" />
 				<Grid ColumnSpacing="8">
@@ -67,14 +68,14 @@
 					<CheckBox
 						x:Name="EncryptCheckBox"
 						Checked="EncryptCheckBox_Checked"
-						Content="{x:Bind EncryptLabel}"
+						Content="{localization:Localized ResourceKey=EncryptContents}"
 						IsEnabled="{x:Bind ViewModel.SupportsEncryption}"
 						IsThreeState="{x:Bind AllowMixedStates}" />
 					<Button
 						x:Name="DetailsButton"
 						Grid.Column="1"
 						Click="DetailsButton_Click"
-						Content="{x:Bind DetailsLabel}" />
+						Content="{localization:Localized ResourceKey=Details}" />
 				</Grid>
 			</StackPanel>
 		</Border>

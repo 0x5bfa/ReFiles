@@ -6,7 +6,6 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Files.Adapters;
 using Files.Core.Storage.Windows;
-using Files.Localization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -19,17 +18,7 @@ public sealed partial class PreviousVersionsPropertyView : UserControl
 
 	internal ObservableCollection<PreviousVersionViewModel> Versions { get; }
 
-	internal string Description => Strings.PreviousVersionsDescription.GetLocalized();
-
 	internal Visibility EmptyVisibility => Versions.Count is 0 ? Visibility.Visible : Visibility.Collapsed;
-
-	internal string FolderVersionsLabel => Strings.FolderVersions.GetLocalized();
-
-	internal string NoVersionsLabel => Strings.NoPreviousVersions.GetLocalized();
-
-	internal string OpenLabel => Strings.Open.GetLocalized();
-
-	internal string RestoreLabel => Strings.Restore.GetLocalized();
 
 	internal PreviousVersionsPropertyView(IReadOnlyList<WindowsShellPreviousVersion> versions, Action<string, string?> launchSystemTool)
 	{

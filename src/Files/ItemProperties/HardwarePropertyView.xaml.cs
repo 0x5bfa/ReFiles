@@ -24,20 +24,6 @@ public sealed partial class HardwarePropertyView : UserControl
 
 	internal ObservableCollection<HardwareDeviceViewModel> Devices { get; }
 
-	internal string AllDiskDrivesLabel => Strings.AllDiskDrives.GetLocalized();
-
-	internal string DeviceNameLabel => Strings.DeviceName.GetLocalized();
-
-	internal string DeviceTypeLabel => Strings.DeviceType.GetLocalized();
-
-	internal string LocationLabel => Strings.DeviceLocation.GetLocalized();
-
-	internal string ManufacturerLabel => Strings.Manufacturer.GetLocalized();
-
-	internal string PropertiesLabel => Strings.Properties.GetLocalized();
-
-	internal string StatusLabel => Strings.DeviceStatus.GetLocalized();
-
 	internal HardwarePropertyView(IReadOnlyList<WindowsShellHardwareDevice> devices, HWND owner, Action<string> showError)
 	{
 		Devices = new(devices.Select(static device => new HardwareDeviceViewModel(device)));

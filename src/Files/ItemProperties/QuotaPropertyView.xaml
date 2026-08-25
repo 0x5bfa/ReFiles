@@ -3,17 +3,18 @@
 	x:Class="Files.ItemProperties.QuotaPropertyView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:local="using:Files.ItemProperties">
 	<ScrollViewer Padding="14,12,14,8">
 		<Grid>
 			<StackPanel Spacing="14" Visibility="{x:Bind ElevationVisibility}">
-				<TextBlock Text="{x:Bind ElevationDescription}" TextWrapping="Wrap" />
+				<TextBlock Text="{localization:Localized ResourceKey=QuotaElevationDescription}" TextWrapping="Wrap" />
 				<Button
 					HorizontalAlignment="Left"
 					Click="ShowQuotaSettings_Click">
 					<StackPanel Orientation="Horizontal" Spacing="6">
 						<local:ElevationShieldIcon />
-						<TextBlock Text="{x:Bind ShowQuotaSettingsLabel}" />
+						<TextBlock Text="{localization:Localized ResourceKey=ShowQuotaSettings}" />
 					</StackPanel>
 				</Button>
 			</StackPanel>
@@ -23,14 +24,14 @@
 					BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
 					BorderThickness="1">
 					<StackPanel Spacing="10">
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind QuotaManagementLabel}" />
-						<TextBlock Text="{x:Bind QuotaManagementDescription}" TextWrapping="Wrap" />
+						<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=QuotaManagement}" />
+						<TextBlock Text="{localization:Localized ResourceKey=QuotaManagementDescription}" TextWrapping="Wrap" />
 						<CheckBox
-							Content="{x:Bind EnableQuotaManagementLabel}"
+							Content="{localization:Localized ResourceKey=EnableQuotaManagement}"
 							IsChecked="{x:Bind Quota.IsTrackingEnabled}"
 							IsEnabled="False" />
 						<CheckBox
-							Content="{x:Bind DenyDiskSpaceLabel}"
+							Content="{localization:Localized ResourceKey=DenyDiskSpace}"
 							IsChecked="{x:Bind Quota.IsLimitEnforced}"
 							IsEnabled="False" />
 						<Grid ColumnSpacing="12" RowSpacing="8">
@@ -42,9 +43,9 @@
 								<RowDefinition Height="Auto" />
 								<RowDefinition Height="Auto" />
 							</Grid.RowDefinitions>
-							<TextBlock Text="{x:Bind LimitDiskSpaceLabel}" />
+							<TextBlock Text="{localization:Localized ResourceKey=LimitDiskSpaceTo}" />
 							<TextBlock Grid.Column="1" Text="{x:Bind DefaultLimit}" />
-							<TextBlock Grid.Row="1" Text="{x:Bind WarningLevelLabel}" />
+							<TextBlock Grid.Row="1" Text="{localization:Localized ResourceKey=SetWarningLevelTo}" />
 							<TextBlock
 								Grid.Row="1"
 								Grid.Column="1"
@@ -57,13 +58,13 @@
 					BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
 					BorderThickness="1">
 					<StackPanel Spacing="8">
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind QuotaLoggingLabel}" />
+						<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=QuotaLogging}" />
 						<CheckBox
-							Content="{x:Bind LogLimitEventLabel}"
+							Content="{localization:Localized ResourceKey=LogLimitEvent}"
 							IsChecked="{x:Bind Quota.LogsLimitEvents}"
 							IsEnabled="False" />
 						<CheckBox
-							Content="{x:Bind LogWarningEventLabel}"
+							Content="{localization:Localized ResourceKey=LogWarningEvent}"
 							IsChecked="{x:Bind Quota.LogsWarningEvents}"
 							IsEnabled="False" />
 					</StackPanel>
@@ -71,7 +72,7 @@
 				<Button
 					HorizontalAlignment="Left"
 					Click="ShowQuotaSettings_Click"
-					Content="{x:Bind QuotaEntriesLabel}" />
+					Content="{localization:Localized ResourceKey=QuotaEntries}" />
 			</StackPanel>
 		</Grid>
 	</ScrollViewer>

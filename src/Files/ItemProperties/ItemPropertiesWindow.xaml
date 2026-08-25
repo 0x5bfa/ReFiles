@@ -3,6 +3,7 @@
 	x:Class="Files.ItemProperties.ItemPropertiesWindow"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:local="using:Files.ItemProperties">
 
 	<Window.SystemBackdrop>
@@ -55,19 +56,19 @@
 				MinWidth="80"
 				HorizontalAlignment="Stretch"
 				Click="OkButton_Click"
-				Content="{x:Bind ViewModel.OkLabel}" />
+				Content="{localization:Localized ResourceKey=Ok}" />
 			<Button
 				Grid.Column="1"
 				MinWidth="80"
 				HorizontalAlignment="Stretch"
 				Click="CancelButton_Click"
-				Content="{x:Bind ViewModel.CancelLabel}" />
+				Content="{localization:Localized ResourceKey=Cancel}" />
 			<Button
 				Grid.Column="2"
 				MinWidth="80"
 				HorizontalAlignment="Stretch"
 				Click="ApplyButton_Click"
-				Content="{x:Bind ViewModel.ApplyLabel}"
+				Content="{localization:Localized ResourceKey=Apply}"
 				IsEnabled="{x:Bind ViewModel.HasChanges, Mode=OneWay}" />
 		</Grid>
 	</Grid>

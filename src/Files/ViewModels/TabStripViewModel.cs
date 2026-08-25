@@ -3,7 +3,6 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
-using Files.Localization;
 
 namespace Files.ViewModels;
 
@@ -24,14 +23,6 @@ public sealed partial class TabStripViewModel : ObservableObject
 	public CommandBindingViewModel SplitPaneVerticalCommand { get; }
 
 	public CommandBindingViewModel SplitPaneHorizontalCommand { get; }
-
-	public string NewWindowLabel => Strings.NewWindow.GetLocalized();
-
-	public string EnterCompactOverlayLabel => Strings.EnterCompactOverlay.GetLocalized();
-
-	public string ExitCompactOverlayLabel => Strings.ExitCompactOverlay.GetLocalized();
-
-	public string SplitPaneLabel => Strings.SplitPane.GetLocalized();
 
 	[ObservableProperty]
 	public partial int ActiveTabIndex { get; private set; } = -1;

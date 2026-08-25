@@ -48,7 +48,7 @@ public sealed partial class ItemPropertiesWindow : Window
 		_detailsView = new(ViewModel);
 		_propertyViewCache[WindowsShellPropertyPageKind.General] = _generalView;
 		_propertyViewCache[WindowsShellPropertyPageKind.Details] = _detailsView;
-		RegisterPropertyView(ViewModel.GeneralLabel, WindowsShellPropertyPageKind.General, _generalView);
+		RegisterPropertyView(Strings.General.GetLocalized(), WindowsShellPropertyPageKind.General, _generalView);
 		Title = ViewModel.WindowTitle;
 		AppWindow.Resize(new SizeInt32(540, 650));
 		Activated += Window_Activated;

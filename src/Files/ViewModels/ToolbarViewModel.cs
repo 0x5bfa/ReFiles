@@ -6,7 +6,6 @@ using Files.Commands;
 using Files.Controls;
 using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
-using Files.Localization;
 
 namespace Files.ViewModels;
 
@@ -38,32 +37,6 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 	public CommandBindingViewModel LayoutGridCommand { get; }
 
 	public CommandBindingViewModel LayoutColumnsCommand { get; }
-
-	public string SortLabel => Strings.Sort.GetLocalized();
-
-	public string SortByLabel => Strings.SortBy.GetLocalized();
-
-	public string GroupByLabel => Strings.GroupBy.GetLocalized();
-
-	public string NameLabel => Strings.Name.GetLocalized();
-
-	public string DateModifiedLabel => Strings.DateModified.GetLocalized();
-
-	public string DateCreatedLabel => Strings.DateCreated.GetLocalized();
-
-	public string SizeLabel => Strings.Size.GetLocalized();
-
-	public string TypeLabel => Strings.Type.GetLocalized();
-
-	public string NoneLabel => Strings.None.GetLocalized();
-
-	public string AscendingLabel => Strings.Ascending.GetLocalized();
-
-	public string DescendingLabel => Strings.Descending.GetLocalized();
-
-	public string LayoutLabel => Strings.Layout.GetLocalized();
-
-	public string NewLabel => Strings.New.GetLocalized();
 
 	public bool CanShowNew => _activeFolderBrowser?.CanShowNew is true;
 

@@ -3,6 +3,7 @@
 	x:Class="Files.ItemProperties.DigitalSignaturesPropertyView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:local="using:Files.ItemProperties">
 	<ScrollViewer Padding="14,12,14,8">
 		<StackPanel Spacing="14">
@@ -11,22 +12,22 @@
 				BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
 				BorderThickness="1">
 				<StackPanel Spacing="8">
-					<TextBlock FontWeight="SemiBold" Text="{x:Bind EmbeddedSignaturesLabel}" />
+					<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=EmbeddedSignatures}" />
 					<Grid ColumnSpacing="12">
 						<Grid.ColumnDefinitions>
 							<ColumnDefinition Width="2*" />
 							<ColumnDefinition Width="*" />
 							<ColumnDefinition Width="*" />
 						</Grid.ColumnDefinitions>
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind SignerNameLabel}" />
+						<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=SignerName}" />
 						<TextBlock
 							Grid.Column="1"
 							FontWeight="SemiBold"
-							Text="{x:Bind DigestAlgorithmLabel}" />
+							Text="{localization:Localized ResourceKey=DigestAlgorithm}" />
 						<TextBlock
 							Grid.Column="2"
 							FontWeight="SemiBold"
-							Text="{x:Bind TimestampLabel}" />
+							Text="{localization:Localized ResourceKey=Timestamp}" />
 					</Grid>
 					<ListView
 						Height="120"
@@ -55,11 +56,11 @@
 					</ListView>
 					<TextBlock
 						HorizontalAlignment="Center"
-						Text="{x:Bind EmbeddedEmptyLabel}"
+						Text="{localization:Localized ResourceKey=NoSignatures}"
 						Visibility="{x:Bind EmbeddedEmptyVisibility}" />
 					<Button
 						HorizontalAlignment="Right"
-						Content="{x:Bind DetailsLabel}"
+						Content="{localization:Localized ResourceKey=Details}"
 						IsEnabled="False" />
 				</StackPanel>
 			</Border>
@@ -68,22 +69,22 @@
 				BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
 				BorderThickness="1">
 				<StackPanel Spacing="8">
-					<TextBlock FontWeight="SemiBold" Text="{x:Bind CatalogSignaturesLabel}" />
+					<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=CatalogSignatures}" />
 					<Grid ColumnSpacing="12">
 						<Grid.ColumnDefinitions>
 							<ColumnDefinition Width="2*" />
 							<ColumnDefinition Width="*" />
 							<ColumnDefinition Width="*" />
 						</Grid.ColumnDefinitions>
-						<TextBlock FontWeight="SemiBold" Text="{x:Bind SignerNameLabel}" />
+						<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=SignerName}" />
 						<TextBlock
 							Grid.Column="1"
 							FontWeight="SemiBold"
-							Text="{x:Bind DigestAlgorithmLabel}" />
+							Text="{localization:Localized ResourceKey=DigestAlgorithm}" />
 						<TextBlock
 							Grid.Column="2"
 							FontWeight="SemiBold"
-							Text="{x:Bind CatalogNameLabel}" />
+							Text="{localization:Localized ResourceKey=CatalogName}" />
 					</Grid>
 					<ListView
 						Height="120"
@@ -112,11 +113,11 @@
 					</ListView>
 					<TextBlock
 						HorizontalAlignment="Center"
-						Text="{x:Bind CatalogEmptyLabel}"
+						Text="{localization:Localized ResourceKey=NoSignatures}"
 						Visibility="{x:Bind CatalogEmptyVisibility}" />
 					<Button
 						HorizontalAlignment="Right"
-						Content="{x:Bind DetailsLabel}"
+						Content="{localization:Localized ResourceKey=Details}"
 						IsEnabled="False" />
 				</StackPanel>
 			</Border>

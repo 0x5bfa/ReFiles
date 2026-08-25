@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Core.Browsing;
 using Files.Infrastructure;
-using Files.Localization;
 
 namespace Files.ViewModels;
 
@@ -33,12 +32,6 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 	public CommandBindingViewModel RefreshCommand { get; }
 
 	public ObservableCollection<NavigationToolbarBreadcrumbItem> BreadcrumbItems { get; } = [];
-
-	public string HomeText => Strings.Home.GetLocalized();
-
-	public string PathModeName => Strings.Address.GetLocalized();
-
-	public string PathPlaceholderText => Strings.EnterFolderPath.GetLocalized();
 
 	public string LocationText => _activeFolderBrowser?.LocationText ?? string.Empty;
 

@@ -5,6 +5,7 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	xmlns:local="using:Files.Views"
+	xmlns:localization="using:Files.Localization"
 	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 	<UserControl.Resources>
@@ -38,7 +39,7 @@
 			VerticalAlignment="Top"
 			IsHitTestVisible="False"
 			Opacity="0.7"
-			Text="{x:Bind EmptyFolderText, Mode=OneWay}"
+			Text="{localization:Localized ResourceKey=FolderEmpty}"
 			TextAlignment="Center"
 			TextWrapping="Wrap"
 			Visibility="{x:Bind ViewModel.IsFolderEmpty, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />

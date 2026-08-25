@@ -3,6 +3,7 @@
 	x:Class="Files.ItemProperties.ToolsPropertyView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:local="using:Files.ItemProperties">
 
 	<ScrollViewer Padding="12,0,12,12">
@@ -15,15 +16,15 @@
 				BorderThickness="1"
 				CornerRadius="{StaticResource OverlayCornerRadius}">
 				<StackPanel Spacing="10">
-					<TextBlock FontWeight="SemiBold" Text="{x:Bind ErrorCheckingLabel}" />
-					<TextBlock Text="{x:Bind ErrorCheckingDescription}" TextWrapping="Wrap" />
+					<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=ErrorChecking}" />
+					<TextBlock Text="{localization:Localized ResourceKey=ErrorCheckingDescription}" TextWrapping="Wrap" />
 					<Button
 						HorizontalAlignment="Left"
 						Click="CheckButton_Click"
 						IsEnabled="{x:Bind Drive.SupportsErrorChecking}">
 						<StackPanel Orientation="Horizontal" Spacing="6">
 							<local:ElevationShieldIcon />
-							<TextBlock Text="{x:Bind CheckLabel}" />
+							<TextBlock Text="{localization:Localized ResourceKey=Check}" />
 						</StackPanel>
 					</Button>
 				</StackPanel>
@@ -36,12 +37,12 @@
 				BorderThickness="1"
 				CornerRadius="{StaticResource OverlayCornerRadius}">
 				<StackPanel Spacing="10">
-					<TextBlock FontWeight="SemiBold" Text="{x:Bind OptimizeAndDefragmentLabel}" />
-					<TextBlock Text="{x:Bind OptimizeDescription}" TextWrapping="Wrap" />
+					<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=OptimizeAndDefragmentDrive}" />
+					<TextBlock Text="{localization:Localized ResourceKey=OptimizeDescription}" TextWrapping="Wrap" />
 					<Button
 						HorizontalAlignment="Left"
 						Click="OptimizeButton_Click"
-						Content="{x:Bind OptimizeLabel}"
+						Content="{localization:Localized ResourceKey=Optimize}"
 						IsEnabled="{x:Bind Drive.SupportsOptimization}" />
 				</StackPanel>
 			</Border>

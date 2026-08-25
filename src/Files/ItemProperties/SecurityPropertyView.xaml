@@ -3,6 +3,7 @@
 	x:Class="Files.ItemProperties.SecurityPropertyView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:local="using:Files.ItemProperties">
 
 	<ScrollViewer Padding="12,0,12,12">
@@ -13,14 +14,14 @@
 					<ColumnDefinition Width="120" />
 					<ColumnDefinition Width="*" />
 				</Grid.ColumnDefinitions>
-				<TextBlock Text="{x:Bind ObjectNameLabel}" />
+				<TextBlock Text="{localization:Localized ResourceKey=ObjectName}" />
 				<TextBlock
 					Grid.Column="1"
 					Text="{x:Bind Security.ObjectPath}"
 					TextTrimming="CharacterEllipsis" />
 			</Grid>
 
-			<TextBlock Text="{x:Bind GroupOrUserNamesLabel}" />
+			<TextBlock Text="{localization:Localized ResourceKey=GroupOrUserNames}" />
 
 			<Border
 				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -49,13 +50,13 @@
 					<ColumnDefinition Width="*" />
 					<ColumnDefinition Width="Auto" />
 				</Grid.ColumnDefinitions>
-				<TextBlock Text="{x:Bind EditDescription}" TextWrapping="Wrap" />
+				<TextBlock Text="{localization:Localized ResourceKey=SecurityEditDescription}" TextWrapping="Wrap" />
 				<Button
 					Grid.Column="1"
 					Click="Edit_Click">
 					<StackPanel Orientation="Horizontal" Spacing="6">
 						<local:ElevationShieldIcon Visibility="{x:Bind EditShieldVisibility}" />
-						<TextBlock Text="{x:Bind EditLabel}" />
+						<TextBlock Text="{localization:Localized ResourceKey=Edit}" />
 					</StackPanel>
 				</Button>
 			</Grid>
@@ -88,13 +89,13 @@
 					Grid.Column="1"
 					HorizontalAlignment="Center"
 					FontWeight="SemiBold"
-					Text="{x:Bind AllowLabel}" />
+					Text="{localization:Localized ResourceKey=Allow}" />
 				<TextBlock
 					Grid.Column="2"
 					HorizontalAlignment="Center"
 					FontWeight="SemiBold"
-					Text="{x:Bind DenyLabel}" />
-				<TextBlock Grid.Row="1" Text="{x:Bind FullControlLabel}" />
+					Text="{localization:Localized ResourceKey=Deny}" />
+				<TextBlock Grid.Row="1" Text="{localization:Localized ResourceKey=FullControl}" />
 				<TextBlock
 					x:Name="FullControlAllow"
 					Grid.Row="1"
@@ -107,7 +108,7 @@
 					Grid.Column="2"
 					HorizontalAlignment="Center"
 					FontFamily="Segoe Fluent Icons" />
-				<TextBlock Grid.Row="2" Text="{x:Bind ModifyLabel}" />
+				<TextBlock Grid.Row="2" Text="{localization:Localized ResourceKey=Modify}" />
 				<TextBlock
 					x:Name="ModifyAllow"
 					Grid.Row="2"
@@ -120,7 +121,7 @@
 					Grid.Column="2"
 					HorizontalAlignment="Center"
 					FontFamily="Segoe Fluent Icons" />
-				<TextBlock Grid.Row="3" Text="{x:Bind ReadAndExecuteLabel}" />
+				<TextBlock Grid.Row="3" Text="{localization:Localized ResourceKey=ReadAndExecute}" />
 				<TextBlock
 					x:Name="ReadAndExecuteAllow"
 					Grid.Row="3"
@@ -133,7 +134,7 @@
 					Grid.Column="2"
 					HorizontalAlignment="Center"
 					FontFamily="Segoe Fluent Icons" />
-				<TextBlock Grid.Row="4" Text="{x:Bind ListFolderContentsLabel}" />
+				<TextBlock Grid.Row="4" Text="{localization:Localized ResourceKey=ListFolderContents}" />
 				<TextBlock
 					x:Name="ListFolderContentsAllow"
 					Grid.Row="4"
@@ -146,7 +147,7 @@
 					Grid.Column="2"
 					HorizontalAlignment="Center"
 					FontFamily="Segoe Fluent Icons" />
-				<TextBlock Grid.Row="5" Text="{x:Bind ReadLabel}" />
+				<TextBlock Grid.Row="5" Text="{localization:Localized ResourceKey=ReadPermission}" />
 				<TextBlock
 					x:Name="ReadAllow"
 					Grid.Row="5"
@@ -159,7 +160,7 @@
 					Grid.Column="2"
 					HorizontalAlignment="Center"
 					FontFamily="Segoe Fluent Icons" />
-				<TextBlock Grid.Row="6" Text="{x:Bind WriteLabel}" />
+				<TextBlock Grid.Row="6" Text="{localization:Localized ResourceKey=WritePermission}" />
 				<TextBlock
 					x:Name="WriteAllow"
 					Grid.Row="6"
@@ -179,11 +180,11 @@
 					<ColumnDefinition Width="*" />
 					<ColumnDefinition Width="Auto" />
 				</Grid.ColumnDefinitions>
-				<TextBlock Text="{x:Bind AdvancedDescription}" TextWrapping="Wrap" />
+				<TextBlock Text="{localization:Localized ResourceKey=SecurityAdvancedDescription}" TextWrapping="Wrap" />
 				<Button
 					Grid.Column="1"
 					Click="Advanced_Click"
-					Content="{x:Bind AdvancedLabel}" />
+					Content="{localization:Localized ResourceKey=Advanced}" />
 			</Grid>
 		</StackPanel>
 	</ScrollViewer>

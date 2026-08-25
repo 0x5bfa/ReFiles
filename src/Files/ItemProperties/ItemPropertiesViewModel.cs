@@ -334,12 +334,6 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	private bool HasPendingFileAttributeChanges => IsReadOnly != _initialIsReadOnly || IsHidden != _initialIsHidden || IsArchive != _initialIsArchive
 		|| IsIndexed != _initialIsIndexed || IsCompressed != _initialIsCompressed || IsEncrypted != _initialIsEncrypted;
 
-	public string GeneralLabel { get; } = Strings.General.GetLocalized();
-
-	public string DetailsLabel { get; } = Strings.Details.GetLocalized();
-
-	public string NameLabel { get; } = Strings.Name.GetLocalized();
-
 	public string TypeLabel { get; } = FormatPropertyLabel(Strings.TypeOfFile.GetLocalized());
 
 	public string DescriptionLabel { get; } = FormatPropertyLabel(Strings.Description.GetLocalized());
@@ -362,14 +356,6 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public string ReadOnlyLabel => IsSingleFolder ? Strings.ReadOnlyFolder.GetLocalized() : Strings.ReadOnly.GetLocalized();
 
-	public string HiddenLabel { get; } = Strings.Hidden.GetLocalized();
-
-	public string ArchiveLabel { get; } = Strings.Archive.GetLocalized();
-
-	public string AdvancedLabel { get; } = Strings.Advanced.GetLocalized();
-
-	public string AdvancedAttributesLabel { get; } = Strings.AdvancedAttributes.GetLocalized();
-
 	public string FileSystemLabel { get; } = FormatPropertyLabel(Strings.FileSystem.GetLocalized());
 
 	public string UsedSpaceLabel { get; } = FormatPropertyLabel(Strings.UsedSpace.GetLocalized());
@@ -377,16 +363,6 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	public string FreeSpaceLabel { get; } = FormatPropertyLabel(Strings.FreeSpace.GetLocalized());
 
 	public string CapacityLabel { get; } = FormatPropertyLabel(Strings.Capacity.GetLocalized());
-
-	public string CompressDriveLabel { get; } = Strings.CompressDrive.GetLocalized();
-
-	public string AllowDriveIndexingLabel { get; } = Strings.AllowDriveIndexing.GetLocalized();
-
-	public string OkLabel { get; } = Strings.Ok.GetLocalized();
-
-	public string CancelLabel { get; } = Strings.Cancel.GetLocalized();
-
-	public string ApplyLabel { get; } = Strings.Apply.GetLocalized();
 
 	public ObservableCollection<ItemPropertyDetail> Details { get; }
 

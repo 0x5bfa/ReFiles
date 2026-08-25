@@ -3,6 +3,7 @@
 	x:Class="Files.Views.ToolbarView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:controls="using:Files.Controls"
 	x:Name="Root">
 
@@ -47,7 +48,7 @@
 				<controls:ToolbarItem
 					IsEnabled="{x:Bind ViewModel.CanShowNew, Mode=OneWay}"
 					ItemType="FlyoutButton"
-					Label="{x:Bind ViewModel.NewLabel, Mode=OneWay}"
+					Label="{localization:Localized ResourceKey=New}"
 					OverflowBehavior="Never"
 					ThemedIcon="{StaticResource App.ThemedIcons.New.Item}">
 					<controls:ToolbarItem.Flyout>
@@ -117,91 +118,91 @@
 				<controls:ToolbarItem
 					IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
 					ItemType="FlyoutButton"
-					Label="{x:Bind ViewModel.SortLabel, Mode=OneWay}"
+					Label="{localization:Localized ResourceKey=Sort}"
 					OverflowBehavior="Never"
 					ThemedIcon="{StaticResource App.ThemedIcons.Sorting}">
 					<controls:ToolbarItem.Flyout>
 						<MenuFlyout Placement="Bottom">
-							<MenuFlyoutSubItem Text="{x:Bind ViewModel.SortByLabel, Mode=OneWay}">
+							<MenuFlyoutSubItem Text="{localization:Localized ResourceKey=SortBy}">
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="name"
 									IsChecked="{x:Bind ViewModel.IsSortByName, Mode=OneWay}"
-									Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Name}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="dateModified"
 									IsChecked="{x:Bind ViewModel.IsSortByDateModified, Mode=OneWay}"
-									Text="{x:Bind ViewModel.DateModifiedLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=DateModified}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="dateCreated"
 									IsChecked="{x:Bind ViewModel.IsSortByDateCreated, Mode=OneWay}"
-									Text="{x:Bind ViewModel.DateCreatedLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=DateCreated}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="size"
 									IsChecked="{x:Bind ViewModel.IsSortBySize, Mode=OneWay}"
-									Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Size}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="type"
 									IsChecked="{x:Bind ViewModel.IsSortByType, Mode=OneWay}"
-									Text="{x:Bind ViewModel.TypeLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Type}" />
 								<MenuFlyoutSeparator />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="ascending"
 									IsChecked="{x:Bind ViewModel.IsSortAscending, Mode=OneWay}"
-									Text="{x:Bind ViewModel.AscendingLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Ascending}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.SortItemsCommand.Command}"
 									CommandParameter="descending"
 									IsChecked="{x:Bind ViewModel.IsSortDescending, Mode=OneWay}"
-									Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Descending}" />
 							</MenuFlyoutSubItem>
-							<MenuFlyoutSubItem Text="{x:Bind ViewModel.GroupByLabel, Mode=OneWay}">
+							<MenuFlyoutSubItem Text="{localization:Localized ResourceKey=GroupBy}">
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="none"
 									IsChecked="{x:Bind ViewModel.IsGroupByNone, Mode=OneWay}"
-									Text="{x:Bind ViewModel.NoneLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=None}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="name"
 									IsChecked="{x:Bind ViewModel.IsGroupByName, Mode=OneWay}"
-									Text="{x:Bind ViewModel.NameLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Name}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="dateModified"
 									IsChecked="{x:Bind ViewModel.IsGroupByDateModified, Mode=OneWay}"
-									Text="{x:Bind ViewModel.DateModifiedLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=DateModified}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="dateCreated"
 									IsChecked="{x:Bind ViewModel.IsGroupByDateCreated, Mode=OneWay}"
-									Text="{x:Bind ViewModel.DateCreatedLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=DateCreated}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="size"
 									IsChecked="{x:Bind ViewModel.IsGroupBySize, Mode=OneWay}"
-									Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Size}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="type"
 									IsChecked="{x:Bind ViewModel.IsGroupByType, Mode=OneWay}"
-									Text="{x:Bind ViewModel.TypeLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Type}" />
 								<MenuFlyoutSeparator />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="ascending"
 									IsChecked="{x:Bind ViewModel.IsGroupAscending, Mode=OneWay}"
-									Text="{x:Bind ViewModel.AscendingLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Ascending}" />
 								<ToggleMenuFlyoutItem
 									Command="{x:Bind ViewModel.GroupItemsCommand.Command}"
 									CommandParameter="descending"
 									IsChecked="{x:Bind ViewModel.IsGroupDescending, Mode=OneWay}"
-									Text="{x:Bind ViewModel.DescendingLabel, Mode=OneWay}" />
+									Text="{localization:Localized ResourceKey=Descending}" />
 							</MenuFlyoutSubItem>
 						</MenuFlyout>
 					</controls:ToolbarItem.Flyout>
@@ -209,13 +210,13 @@
 				<controls:ToolbarItem
 					IsEnabled="{x:Bind ViewModel.LayoutDetailsCommand.IsEnabled, Mode=OneWay}"
 					ItemType="FlyoutButton"
-					Label="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}"
+					Label="{localization:Localized ResourceKey=Layout}"
 					OverflowBehavior="Never"
 					ThemedIcon="{x:Bind ViewModel.LayoutIconData, Mode=OneWay}">
 					<controls:ToolbarItem.Flyout>
 						<Flyout x:Name="LayoutFlyout" Placement="Bottom">
 							<StackPanel Spacing="12">
-								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.LayoutLabel, Mode=OneWay}" />
+								<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=Layout}" />
 								<StackPanel Orientation="Horizontal" Spacing="8">
 									<RadioButton
 										AutomationProperties.Name="{x:Bind ViewModel.LayoutDetailsCommand.AutomationName, Mode=OneWay}"
@@ -318,7 +319,7 @@
 									HorizontalAlignment="Stretch"
 									BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
 									BorderThickness="0.5" />
-								<TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SizeLabel, Mode=OneWay}" />
+								<TextBlock FontWeight="SemiBold" Text="{localization:Localized ResourceKey=Size}" />
 								<StackPanel Spacing="4">
 									<Slider
 										x:Name="LayoutSizeSlider"

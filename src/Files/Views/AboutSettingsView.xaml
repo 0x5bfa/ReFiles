@@ -3,6 +3,7 @@
 	x:Class="Files.Views.AboutSettingsView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:localization="using:Files.Localization"
 	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls">
 
 	<ScrollViewer
@@ -15,7 +16,7 @@
 			<TextBlock
 				Margin="0,0,0,20"
 				Style="{ThemeResource TitleTextBlockStyle}"
-				Text="{x:Bind Title, Mode=OneWay}" />
+				Text="{localization:Localized ResourceKey=About}" />
 
 			<wctcontrols:SettingsCard Description="{x:Bind VersionDescription, Mode=OneWay}" Header="{x:Bind AppName, Mode=OneWay}">
 				<wctcontrols:SettingsCard.HeaderIcon>
@@ -25,8 +26,8 @@
 
 			<wctcontrols:SettingsCard
 				Click="OpenSourceCode_Click"
-				Description="{x:Bind SourceCodeDescription, Mode=OneWay}"
-				Header="{x:Bind SourceCodeLabel, Mode=OneWay}"
+				Description="{localization:Localized ResourceKey=SourceCodeDescription}"
+				Header="{localization:Localized ResourceKey=SourceCode}"
 				IsClickEnabled="True">
 				<wctcontrols:SettingsCard.HeaderIcon>
 					<FontIcon Glyph="&#xE943;" />

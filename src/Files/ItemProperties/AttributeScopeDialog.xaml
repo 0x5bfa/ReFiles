@@ -3,14 +3,15 @@
 	x:Class="Files.ItemProperties.AttributeScopeDialog"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	Title="{x:Bind DialogTitle}"
-	CloseButtonText="{x:Bind CancelLabel}"
+	xmlns:localization="using:Files.Localization"
+	Title="{localization:Localized ResourceKey=ConfirmAttributeChanges}"
+	CloseButtonText="{localization:Localized ResourceKey=Cancel}"
 	DefaultButton="Primary"
-	PrimaryButtonText="{x:Bind OkLabel}"
+	PrimaryButtonText="{localization:Localized ResourceKey=Ok}"
 	Style="{StaticResource DefaultContentDialogStyle}">
 
 	<StackPanel MinWidth="410" Spacing="12">
-		<TextBlock Text="{x:Bind Intro}" TextWrapping="Wrap" />
+		<TextBlock Text="{localization:Localized ResourceKey=AttributeChangesIntro}" TextWrapping="Wrap" />
 		<TextBlock Text="{x:Bind Question}" TextWrapping="Wrap" />
 		<RadioButton
 			x:Name="SelectedItemsOnlyRadioButton"

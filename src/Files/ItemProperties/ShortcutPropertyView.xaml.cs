@@ -11,31 +11,11 @@ public sealed partial class ShortcutPropertyView : UserControl
 {
 	internal WindowsShellShortcutProperties Shortcut { get; }
 
-	internal string AdvancedLabel => Strings.Advanced.GetLocalized();
-
-	internal string ChangeIconLabel => Strings.ChangeIcon.GetLocalized();
-
-	internal string CommentLabel => Strings.Comment.GetLocalized();
-
 	internal string Hotkey => FormatHotkey(Shortcut.Hotkey);
-
-	internal string OpenFileLocationLabel => Strings.OpenFileLocation.GetLocalized();
-
-	internal string RunLabel => Strings.Run.GetLocalized();
-
-	internal string ShortcutKeyLabel => Strings.ShortcutKey.GetLocalized();
 
 	internal string ShowCommand => FormatShowCommand(Shortcut.ShowCommand);
 
-	internal string StartInLabel => Strings.StartIn.GetLocalized();
-
 	internal string Target => FormatShortcutTarget(Shortcut);
-
-	internal string TargetLabel => Strings.Target.GetLocalized();
-
-	internal string TargetLocationLabel => Strings.TargetLocation.GetLocalized();
-
-	internal string TargetTypeLabel => Strings.TargetType.GetLocalized();
 
 	internal ShortcutPropertyView(WindowsShellShortcutProperties shortcut)
 	{
