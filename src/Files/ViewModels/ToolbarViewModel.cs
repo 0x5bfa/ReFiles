@@ -244,7 +244,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	private void ActiveFolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is null or nameof(FolderBrowserViewModel.Location))
+		if (e.PropertyName is null or nameof(FolderBrowserViewModel.CanShowNew))
 		{
 			OnPropertyChanged(nameof(CanShowNew));
 		}

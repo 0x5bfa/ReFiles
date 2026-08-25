@@ -116,7 +116,6 @@
 									<VisualState.Setters>
 										<!--  DisabledVisual Should be handled by the control, not the animated icon.  -->
 										<Setter Target="PART_ContentPresenter.(muxc:AnimatedIcon.State)" Value="Normal" />
-										<Setter Target="PART_ThemedIcon.IsEnabled" Value="False" />
 									</VisualState.Setters>
 								</VisualState>
 							</VisualStateGroup>

@@ -124,7 +124,6 @@
 									<VisualState.Setters>
 										<!--  DisabledVisual Should be handled by the control, not the animated icon.  -->
 										<Setter Target="PART_ContentPresenter.(muxc:AnimatedIcon.State)" Value="Normal" />
-										<Setter Target="PART_ThemedIcon.IsEnabled" Value="False" />
 									</VisualState.Setters>
 								</VisualState>
 								<VisualState x:Name="Checked">
@@ -216,7 +215,6 @@
 									<VisualState.Setters>
 										<!--  DisabledVisual Should be handled by the control, not the animated icon.  -->
 										<Setter Target="PART_ContentPresenter.(muxc:AnimatedIcon.State)" Value="Normal" />
-										<Setter Target="PART_ThemedIcon.IsEnabled" Value="False" />
 										<Setter Target="CheckedVisual.Visibility" Value="Visible" />
 									</VisualState.Setters>
 								</VisualState>
@@ -304,7 +302,6 @@
 									<VisualState.Setters>
 										<!--  DisabledVisual Should be handled by the control, not the animated icon.  -->
 										<Setter Target="PART_ContentPresenter.(muxc:AnimatedIcon.State)" Value="Normal" />
-										<Setter Target="PART_ThemedIcon.IsEnabled" Value="False" />
 									</VisualState.Setters>
 								</VisualState>
 							</VisualStateGroup>

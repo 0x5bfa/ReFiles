@@ -4,8 +4,10 @@
 using System.Collections.ObjectModel;
 using Files.Controls;
 using Files.Controls.Primitives;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
@@ -81,6 +83,76 @@ public sealed class ToolbarTests
 		{
 			window.Close();
 		}
+	}
+
+	/// <summary>
+	/// Verifies that a themed icon follows its button's enabled state after the toolbar is reloaded.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task ThemedIconFollowsButtonStateAcrossReload()
+	{
+		if (Application.Current.Resources.TryGetValue("ThemedIconHighContrast", out var highContrastValue) && highContrastValue is true)
+		{
+			Assert.Inconclusive("The enabled layered variant is overridden while the system is using high contrast.");
+		}
+
+		var iconData = new ThemedIconData { OutlineData = "M0,0 H16 V16 H0 Z", Size = 16 };
+		iconData.Layers.Add(new ThemedIconLayer { LayerType = ThemedIconLayerType.Base, PathData = "M0,0 H8 V16 H0 Z" });
+		iconData.Layers.Add(new ThemedIconLayer { LayerType = ThemedIconLayerType.Accent, PathData = "M8,0 H16 V16 H8 Z" });
+		var item = new ToolbarItem { ItemType = ToolbarItemTypes.Button, IsEnabled = false, Label = "Copy", ThemedIcon = iconData };
+		var toolbar = new Toolbar { HorizontalAlignment = HorizontalAlignment.Left, Items = new ObservableCollection<ToolbarItem> { item }, Width = 480 };
+		var host = new Grid();
+		host.Children.Add(toolbar);
+		var window = new Window { Content = host };
+		try
+		{
+			var loaded = WaitForLoadedAsync(toolbar);
+			window.Activate();
+			await loaded;
+			await WaitForDispatcherAsync();
+
+			foreach (var expectedIsEnabled in new[] { false, true, false, true })
+			{
+				if (item.IsEnabled != expectedIsEnabled)
+				{
+					var unloaded = WaitForUnloadedAsync(toolbar);
+					host.Children.Remove(toolbar);
+					await unloaded;
+
+					item.IsEnabled = expectedIsEnabled;
+					loaded = WaitForLoadedAsync(toolbar);
+					host.Children.Add(toolbar);
+					await loaded;
+					await WaitForDispatcherAsync();
+				}
+
+				var itemsPanel = GetNamedDescendant<ToolbarItemsPanel>(toolbar, Toolbar.ToolbarItemsPanelPartName);
+				var button = ((ContentPresenter)itemsPanel.Children[0]).Content as ToolbarButton;
+				Assert.IsNotNull(button);
+				Assert.AreEqual(expectedIsEnabled, button.IsEnabled);
+				var icon = GetNamedDescendant<ThemedIcon>(button, "PART_ThemedIcon");
+				Assert.IsTrue(icon.IsEnabled, "The icon's local state must remain available for owner state tracking.");
+				Assert.AreEqual(expectedIsEnabled ? 2 : 1, GetRenderedShapeCount(icon));
+			}
+		}
+		finally
+		{
+			window.Close();
+		}
+	}
+
+	private static int GetRenderedShapeCount(ThemedIcon icon)
+	{
+		var visualSource = icon.Source as ThemedIconVisualSource;
+		Assert.IsNotNull(visualSource);
+		var compositor = ElementCompositionPreview.GetElementVisual(icon).Compositor;
+		using var animatedVisual = visualSource.TryCreateAnimatedVisual(compositor, out var diagnostics);
+		Assert.IsNotNull(animatedVisual, diagnostics?.ToString());
+		var rootVisual = animatedVisual.RootVisual as ShapeVisual;
+		Assert.IsNotNull(rootVisual);
+
+		return rootVisual.Shapes.Count;
 	}
 
 	private static async Task WaitForDispatcherAsync()
