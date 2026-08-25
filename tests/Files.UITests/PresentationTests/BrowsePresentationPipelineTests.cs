@@ -95,6 +95,46 @@ public sealed class BrowsePresentationPipelineTests
 	}
 
 	/// <summary>
+	/// Verifies that the status bar keeps showing the item count while a folder is loading.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task StatusTextKeepsItemCountWhileLoading()
+	{
+		var providerPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var providerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new PresentationBrowseLocationResolver(1, async (_, cancellationToken) =>
+		{
+			providerPaused.TrySetResult(true);
+			await providerRelease.Task.WaitAsync(cancellationToken);
+		});
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		dispatcher.DrainAll();
+
+		var navigation = adapter.InitializeAsync();
+		await providerPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		dispatcher.DrainAll();
+		try
+		{
+			Assert.IsTrue(adapter.IsLoading);
+			Assert.AreEqual(0, adapter.Items.Count);
+			Assert.AreEqual("0 items", adapter.StatusText);
+		}
+		finally
+		{
+			providerRelease.TrySetResult(true);
+		}
+
+		await navigation;
+		dispatcher.DrainAll();
+		Assert.AreEqual("1 item", adapter.StatusText);
+	}
+
+	/// <summary>
 	/// Verifies that pending items from a canceled navigation generation are discarded.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
@@ -402,7 +442,7 @@ public sealed class BrowsePresentationPipelineTests
 
 	private static BrowsePresentationText CreateText()
 	{
-		return new BrowsePresentationText("Home", "Loading", "{0} item", "{0} items", "{0} is not a folder");
+		return new BrowsePresentationText("Home", "{0} item", "{0} items", "{0} is not a folder");
 	}
 
 	private static StorableReference CreateReference(string itemId)

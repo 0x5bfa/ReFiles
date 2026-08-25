@@ -148,6 +148,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool IsLoading => _browseAdapter.IsLoading;
 
+	public bool IsFolderEmpty => !IsLoading && Location is not null && Items.Count is 0 && _operationError is null && _browseAdapter.ErrorMessage is null;
+
 	public bool IsBusy => _browseAdapter.IsBusy;
 
 	public bool CanGoBack => _browseAdapter.CanGoBack;
@@ -479,12 +481,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		_operationError = exception.Message;
 		OnPropertyChanged(nameof(StatusText));
+		OnPropertyChanged(nameof(IsFolderEmpty));
 	}
 
 	public void ReportOperationCanceled()
 	{
 		_operationError = Strings.OperationCanceled.GetLocalized();
 		OnPropertyChanged(nameof(StatusText));
+		OnPropertyChanged(nameof(IsFolderEmpty));
 	}
 
 	public void Dispose()
@@ -793,6 +797,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		var itemCountBefore = Items.Count;
 		var wasLoading = _wasLoading;
 		var wasBusy = _wasBusy;
+		var hadOperationError = _operationError is not null;
 		_wasLoading = _browseAdapter.IsLoading;
 		_wasBusy = _browseAdapter.IsBusy;
 		_isApplyingUpdate = true;
@@ -905,9 +910,19 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				OnPropertyChanged(nameof(CanGoUp));
 			}
 
-			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Status))
+			if (hadOperationError || args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Status))
 			{
 				OnPropertyChanged(nameof(StatusText));
+			}
+
+			var folderEmptyStateChanged = hadOperationError
+				|| args.Flags.HasFlag(BrowseUpdateFlags.Items)
+				|| args.Flags.HasFlag(BrowseUpdateFlags.Loading)
+				|| args.Flags.HasFlag(BrowseUpdateFlags.Location)
+				|| args.Flags.HasFlag(BrowseUpdateFlags.Status);
+			if (folderEmptyStateChanged)
+			{
+				OnPropertyChanged(nameof(IsFolderEmpty));
 			}
 		}
 		finally

@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Localization;
 using Files.ViewModels;
 using Microsoft.UI.Xaml;
 
@@ -12,6 +13,8 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		DependencyProperty.Register(nameof(ViewModel), typeof(FolderBrowserViewModel), typeof(FolderBrowser), new PropertyMetadata(null, ViewModelChanged));
 
 	private FolderBrowserViewModel? _subscribedViewModel;
+
+	internal string EmptyFolderText => Strings.FolderEmpty.GetLocalized();
 
 	public FolderBrowserViewModel? ViewModel
 	{

@@ -106,9 +106,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	public string StatusText =>
 		ErrorMessage
-		?? (IsLoading
-			? _text.Loading
-			: string.Format(CultureInfo.CurrentCulture, _items.Count is 1 ? _text.ItemCountSingle : _text.ItemCountPlural, _items.Count));
+		?? string.Format(CultureInfo.CurrentCulture, _items.Count is 1 ? _text.ItemCountSingle : _text.ItemCountPlural, _items.Count);
 
 	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 

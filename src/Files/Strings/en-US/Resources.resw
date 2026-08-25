@@ -26,6 +26,7 @@
 	<data name="NoPane" xml:space="preserve"><value>No pane</value></data>
 	<data name="OperationCanceled" xml:space="preserve"><value>The operation was canceled.</value></data>
 	<data name="Folder" xml:space="preserve"><value>Folder</value></data>
+	<data name="FolderEmpty" xml:space="preserve"><value>This folder is empty.</value></data>
 	<data name="File" xml:space="preserve"><value>File</value></data>
 	<data name="FolderPathRequired" xml:space="preserve"><value>A folder path is required.</value></data>
 	<data name="ItemCountSingle" xml:space="preserve"><value>{0} item</value></data>
