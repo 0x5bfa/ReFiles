@@ -91,11 +91,13 @@ namespace Files.Controls
 			var isToggled = ToggleBehavior is ToggleBehaviors.On || (ToggleBehavior is ToggleBehaviors.Auto && (IsToggled || _ownerToggleButton?.IsChecked is true));
 			var isEnabled = IsEnabled && _ownerControl?.IsEnabled is not false;
 			var effectiveSize = GetEffectiveSize();
-			var isHighContrast = IsHighContrast || GetHighContrastResource();
+			var isSystemHighContrast = GetHighContrastResource();
+			var isHighContrast = IsHighContrast || isSystemHighContrast;
 			var data = Data ?? ThemedIconData.Default;
-			if (_visualSource is null || !_visualSource.UpdateAppearance(IconType, IconColorType, IsFilled, isToggled, isEnabled, isHighContrast, Foreground, Color, true))
+			var resourceTheme = isSystemHighContrast ? ElementTheme.Default : ActualTheme;
+			if (_visualSource is null || !_visualSource.UpdateAppearance(IconType, IconColorType, IsFilled, isToggled, isEnabled, isHighContrast, Foreground, Color, resourceTheme, true))
 			{
-				_visualSource = new ThemedIconVisualSource(data, IconType, IconColorType, IsFilled, isToggled, isEnabled, isHighContrast, Foreground, Color, true);
+				_visualSource = new ThemedIconVisualSource(data, IconType, IconColorType, IsFilled, isToggled, isEnabled, isHighContrast, Foreground, Color, resourceTheme, true);
 				Source = _visualSource;
 			}
 

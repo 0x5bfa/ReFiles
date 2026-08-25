@@ -47,7 +47,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 
 	public ThemedIconVisualSource(
 		ThemedIconData data, ThemedIconTypes iconType, ThemedIconColorType iconColorType, bool isFilled, bool isToggled, bool isEnabled, bool isHighContrast,
-		Brush? foreground, Brush? customColor, bool useThemeResources)
+		Brush? foreground, Brush? customColor, ElementTheme theme, bool useThemeResources)
 	{
 		_data = data;
 		_intrinsicSize = (float)(double.IsFinite(data.Size) && data.Size > 0 ? data.Size : 16);
@@ -56,7 +56,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 		_iconColorType = iconColorType;
 		_isToggled = isToggled;
 		_isEnabled = isEnabled;
-		_colors = CreatePalette(foreground, customColor, useThemeResources);
+		_colors = CreatePalette(foreground, customColor, theme, useThemeResources);
 	}
 
 	public IAnimatedVisual TryCreateAnimatedVisual(Compositor compositor, out object diagnostics)
@@ -88,7 +88,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 
 	public bool UpdateAppearance(
 		ThemedIconTypes iconType, ThemedIconColorType iconColorType, bool isFilled, bool isToggled, bool isEnabled, bool isHighContrast,
-		Brush? foreground, Brush? customColor, bool useThemeResources)
+		Brush? foreground, Brush? customColor, ElementTheme theme, bool useThemeResources)
 	{
 		if (GetActiveVariant(_data, iconType, isFilled, isToggled, isEnabled, isHighContrast) != _variant)
 		{
@@ -98,7 +98,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 		_iconColorType = iconColorType;
 		_isToggled = isToggled;
 		_isEnabled = isEnabled;
-		_colors = CreatePalette(foreground, customColor, useThemeResources);
+		_colors = CreatePalette(foreground, customColor, theme, useThemeResources);
 		UpdateBrushes();
 
 		return true;
@@ -135,27 +135,27 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 		};
 	}
 
-	private static IReadOnlyDictionary<ColorRole, Color> CreatePalette(Brush? foreground, Brush? customColor, bool useThemeResources)
+	private static IReadOnlyDictionary<ColorRole, Color> CreatePalette(Brush? foreground, Brush? customColor, ElementTheme theme, bool useThemeResources)
 	{
 		var foregroundColor = GetBrushColor(foreground, global::Microsoft.UI.Colors.Black);
 
 		return new Dictionary<ColorRole, Color>
 		{
 			[ColorRole.Foreground] = foregroundColor,
-			[ColorRole.Base] = GetResourceColor(BaseBrushKey, foregroundColor, useThemeResources),
-			[ColorRole.Alt] = GetResourceColor(AltBrushKey, Color.FromArgb(102, foregroundColor.R, foregroundColor.G, foregroundColor.B), useThemeResources),
-			[ColorRole.Accent] = GetResourceColor(AccentBrushKey, foregroundColor, useThemeResources),
-			[ColorRole.AccentContrast] = GetResourceColor(AccentContrastBrushKey, global::Microsoft.UI.Colors.White, useThemeResources),
-			[ColorRole.Disabled] = GetResourceColor(DisabledBrushKey, Color.FromArgb(92, foregroundColor.R, foregroundColor.G, foregroundColor.B), useThemeResources),
-			[ColorRole.DisabledToggle] = GetResourceColor(DisabledToggleBrushKey, Color.FromArgb(140, 255, 255, 255), useThemeResources),
-			[ColorRole.Critical] = GetResourceColor(CriticalBrushKey, global::Microsoft.UI.Colors.Red, useThemeResources),
-			[ColorRole.CriticalBackground] = GetResourceColor(CriticalBackgroundBrushKey, global::Microsoft.UI.Colors.White, useThemeResources),
-			[ColorRole.Caution] = GetResourceColor(CautionBrushKey, global::Microsoft.UI.Colors.Orange, useThemeResources),
-			[ColorRole.CautionBackground] = GetResourceColor(CautionBackgroundBrushKey, global::Microsoft.UI.Colors.Black, useThemeResources),
-			[ColorRole.Success] = GetResourceColor(SuccessBrushKey, global::Microsoft.UI.Colors.Green, useThemeResources),
-			[ColorRole.SuccessBackground] = GetResourceColor(SuccessBackgroundBrushKey, global::Microsoft.UI.Colors.White, useThemeResources),
-			[ColorRole.Neutral] = GetResourceColor(NeutralBrushKey, foregroundColor, useThemeResources),
-			[ColorRole.NeutralBackground] = GetResourceColor(NeutralBackgroundBrushKey, global::Microsoft.UI.Colors.White, useThemeResources),
+			[ColorRole.Base] = GetResourceColor(BaseBrushKey, foregroundColor, theme, useThemeResources),
+			[ColorRole.Alt] = GetResourceColor(AltBrushKey, Color.FromArgb(102, foregroundColor.R, foregroundColor.G, foregroundColor.B), theme, useThemeResources),
+			[ColorRole.Accent] = GetResourceColor(AccentBrushKey, foregroundColor, theme, useThemeResources),
+			[ColorRole.AccentContrast] = GetResourceColor(AccentContrastBrushKey, global::Microsoft.UI.Colors.White, theme, useThemeResources),
+			[ColorRole.Disabled] = GetResourceColor(DisabledBrushKey, Color.FromArgb(92, foregroundColor.R, foregroundColor.G, foregroundColor.B), theme, useThemeResources),
+			[ColorRole.DisabledToggle] = GetResourceColor(DisabledToggleBrushKey, Color.FromArgb(140, 255, 255, 255), theme, useThemeResources),
+			[ColorRole.Critical] = GetResourceColor(CriticalBrushKey, global::Microsoft.UI.Colors.Red, theme, useThemeResources),
+			[ColorRole.CriticalBackground] = GetResourceColor(CriticalBackgroundBrushKey, global::Microsoft.UI.Colors.White, theme, useThemeResources),
+			[ColorRole.Caution] = GetResourceColor(CautionBrushKey, global::Microsoft.UI.Colors.Orange, theme, useThemeResources),
+			[ColorRole.CautionBackground] = GetResourceColor(CautionBackgroundBrushKey, global::Microsoft.UI.Colors.Black, theme, useThemeResources),
+			[ColorRole.Success] = GetResourceColor(SuccessBrushKey, global::Microsoft.UI.Colors.Green, theme, useThemeResources),
+			[ColorRole.SuccessBackground] = GetResourceColor(SuccessBackgroundBrushKey, global::Microsoft.UI.Colors.White, theme, useThemeResources),
+			[ColorRole.Neutral] = GetResourceColor(NeutralBrushKey, foregroundColor, theme, useThemeResources),
+			[ColorRole.NeutralBackground] = GetResourceColor(NeutralBackgroundBrushKey, global::Microsoft.UI.Colors.White, theme, useThemeResources),
 			[ColorRole.Custom] = GetBrushColor(customColor, foregroundColor),
 		};
 	}
@@ -167,7 +167,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 
 	private static Color GetBrushColor(Brush? brush, Color fallback)
 	{
-		return brush is SolidColorBrush solidColorBrush ? solidColorBrush.Color : fallback;
+		return brush is SolidColorBrush solidColorBrush ? ApplyOpacity(solidColorBrush.Color, solidColorBrush.Opacity) : fallback;
 	}
 
 	private static ColorRole GetLayerColorRole(ThemedIconLayerType layerType, ThemedIconColorType iconColorType)
@@ -225,14 +225,15 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 		};
 	}
 
-	private static Color GetResourceColor(string resourceKey, Color fallback, bool useThemeResources)
+	private static Color GetResourceColor(string resourceKey, Color fallback, ElementTheme theme, bool useThemeResources)
 	{
 		if (!useThemeResources)
 		{
 			return fallback;
 		}
 
-		if (Application.Current?.Resources.TryGetValue(resourceKey, out var value) is true)
+		var effectiveResourceKey = theme is ElementTheme.Default ? resourceKey : GetThemeResourceKey(resourceKey);
+		if (Application.Current is not null && TryGetResourceValue(Application.Current.Resources, effectiveResourceKey, theme, out var value))
 		{
 			return value switch
 			{
@@ -243,6 +244,76 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 		}
 
 		return fallback;
+	}
+
+	private static string GetThemeResourceKey(string resourceKey)
+	{
+		return resourceKey switch
+		{
+			AccentBrushKey => "AccentFillColorDefaultBrush",
+			AccentContrastBrushKey => "TextOnAccentFillColorPrimaryBrush",
+			AltBrushKey => "ThemedIconAltColor",
+			BaseBrushKey => "ThemedIconBaseColor",
+			CautionBackgroundBrushKey => "SystemFillColorCautionBackgroundBrush",
+			CautionBrushKey => "SystemFillColorCaution",
+			CriticalBackgroundBrushKey => "SystemFillColorCriticalBackgroundBrush",
+			CriticalBrushKey => "SystemFillColorCritical",
+			DisabledBrushKey => "TextFillColorDisabledBrush",
+			DisabledToggleBrushKey => "TextOnAccentFillColorDisabledBrush",
+			NeutralBackgroundBrushKey => "SystemFillColorNeutralBackgroundBrush",
+			NeutralBrushKey => "SystemFillColorSolidNeutral",
+			SuccessBackgroundBrushKey => "SystemFillColorSuccessBackgroundBrush",
+			SuccessBrushKey => "SystemFillColorSuccess",
+			_ => resourceKey,
+		};
+	}
+
+	private static bool TryGetResourceValue(ResourceDictionary dictionary, string resourceKey, ElementTheme theme, out object? value)
+	{
+		var themeKey = theme switch
+		{
+			ElementTheme.Dark => "Default",
+			ElementTheme.Light => "Light",
+			_ => null,
+		};
+		if (themeKey is not null)
+		{
+			if (dictionary.ThemeDictionaries.TryGetValue(themeKey, out var themeValue) &&
+				themeValue is ResourceDictionary themeDictionary &&
+				TryGetResourceValue(themeDictionary, resourceKey, ElementTheme.Default, out value))
+			{
+				return true;
+			}
+
+			for (var index = dictionary.MergedDictionaries.Count - 1; index >= 0; index--)
+			{
+				if (TryGetResourceValue(dictionary.MergedDictionaries[index], resourceKey, theme, out value))
+				{
+					return true;
+				}
+			}
+
+			value = null;
+
+			return false;
+		}
+
+		if (dictionary.TryGetValue(resourceKey, out value))
+		{
+			return true;
+		}
+
+		for (var index = dictionary.MergedDictionaries.Count - 1; index >= 0; index--)
+		{
+			if (TryGetResourceValue(dictionary.MergedDictionaries[index], resourceKey, theme, out value))
+			{
+				return true;
+			}
+		}
+
+		value = null;
+
+		return false;
 	}
 
 	private static IconVariant GetActiveVariant(ThemedIconData data, ThemedIconTypes iconType, bool isFilled, bool isToggled, bool isEnabled, bool isHighContrast)
@@ -272,6 +343,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 
 	private IAnimatedVisual CreateAnimatedVisual(Compositor compositor)
 	{
+		_brushBindings.Clear();
 		var root = compositor.CreateShapeVisual();
 		root.Size = new Vector2(_intrinsicSize, _intrinsicSize);
 		var geometries = new List<CanvasGeometry>(_layers.Length);
@@ -284,7 +356,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 			var brush = compositor.CreateColorBrush(GetLayerColor(layer));
 			shape.FillBrush = brush;
 			root.Shapes.Add(shape);
-			_brushBindings.Add(new BrushBinding(new WeakReference<CompositionColorBrush>(brush), layer));
+			_brushBindings.Add(new BrushBinding(brush, layer));
 		}
 
 		return new ThemedIconAnimatedVisual(root, new Vector2(_intrinsicSize, _intrinsicSize), geometries);
@@ -305,17 +377,9 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 
 	private void UpdateBrushes()
 	{
-		for (var index = _brushBindings.Count - 1; index >= 0; index--)
+		foreach (var binding in _brushBindings)
 		{
-			var binding = _brushBindings[index];
-			if (!binding.Brush.TryGetTarget(out var brush))
-			{
-				_brushBindings.RemoveAt(index);
-
-				continue;
-			}
-
-			brush.Color = GetLayerColor(binding.Layer);
+			binding.Brush.Color = GetLayerColor(binding.Layer);
 		}
 	}
 
@@ -346,7 +410,7 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 		Custom,
 	}
 
-	private sealed record BrushBinding(WeakReference<CompositionColorBrush> Brush, LayerDefinition Layer);
+	private sealed record BrushBinding(CompositionColorBrush Brush, LayerDefinition Layer);
 
 	private sealed record LayerDefinition(string PathData, IconVariant Variant, ThemedIconLayerType LayerType, double Opacity);
 
