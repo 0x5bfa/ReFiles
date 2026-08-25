@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
 using CommunityToolkit.WinUI;
@@ -21,6 +21,9 @@ namespace Files.Controls
 
 		[GeneratedDependencyProperty]
 		public partial bool IsFocused { get; set; }
+
+		[GeneratedDependencyProperty]
+		public partial string? TextBoxAutomationId { get; set; }
 
 		partial void OnCurrentSelectedModePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{

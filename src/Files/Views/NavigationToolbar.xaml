@@ -5,6 +5,7 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:controls="using:Files.Controls"
 	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
+	xmlns:viewModels="using:Files.ViewModels"
 	x:Name="Root">
 	<UserControl.Resources>
 		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -90,15 +91,53 @@
 			</controls:Toolbar>
 		</StackPanel>
 
-		<TextBox
-			x:Name="PathTextBox"
+		<controls:Omnibar
+			x:Name="PathOmnibar"
 			Grid.Column="1"
 			MinWidth="260"
 			HorizontalAlignment="Stretch"
-			AutomationProperties.AutomationId="PathTextBox"
-			KeyDown="PathTextBox_KeyDown"
-			PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
-			Text="{x:Bind ViewModel.LocationText, Mode=OneWay}" />
+			AutomationProperties.AutomationId="PathOmnibar"
+			QuerySubmitted="PathOmnibar_QuerySubmitted"
+			TextBoxAutomationId="PathTextBox">
+			<controls:OmnibarMode
+				x:Name="PathOmnibarMode"
+				IsDefault="True"
+				ModeName="{x:Bind ViewModel.PathModeName, Mode=OneWay}"
+				PlaceholderText="{x:Bind ViewModel.PathPlaceholderText, Mode=OneWay}"
+				Text="{x:Bind ViewModel.LocationText, Mode=OneWay}">
+				<controls:OmnibarMode.IconOnActive>
+					<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IsFilled="True" />
+				</controls:OmnibarMode.IconOnActive>
+				<controls:OmnibarMode.IconOnInactive>
+					<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IconType="Outline" />
+				</controls:OmnibarMode.IconOnInactive>
+				<controls:OmnibarMode.ContentOnInactive>
+					<controls:BreadcrumbBar
+						x:Name="PathBreadcrumbBar"
+						EllipsisButtonToolTip="{x:Bind ViewModel.PathModeName, Mode=OneWay}"
+						ItemClicked="PathBreadcrumbBar_ItemClicked"
+						ItemDropDownFlyoutClosed="PathBreadcrumbBar_ItemDropDownFlyoutClosed"
+						ItemDropDownFlyoutOpening="PathBreadcrumbBar_ItemDropDownFlyoutOpening"
+						ItemsSource="{x:Bind ViewModel.BreadcrumbItems, Mode=OneWay}"
+						RootItemChevronToolTip="{x:Bind ViewModel.HomeText, Mode=OneWay}"
+						RootItemToolTip="{x:Bind ViewModel.HomeText, Mode=OneWay}"
+						Tapped="PathBreadcrumbBar_Tapped">
+						<controls:BreadcrumbBar.RootItem>
+							<FontIcon FontSize="16" Glyph="{x:Bind ViewModel.HomeCommand.Glyph, Mode=OneWay}" />
+						</controls:BreadcrumbBar.RootItem>
+						<controls:BreadcrumbBar.ItemTemplate>
+							<DataTemplate x:DataType="viewModels:NavigationToolbarBreadcrumbItem">
+								<controls:BreadcrumbBarItem
+									ChevronToolTip="{x:Bind Text}"
+									Content="{x:Bind Text}"
+									IsChevronVisible="{x:Bind IsChevronVisible}"
+									ItemToolTip="{x:Bind Text}" />
+							</DataTemplate>
+						</controls:BreadcrumbBar.ItemTemplate>
+					</controls:BreadcrumbBar>
+				</controls:OmnibarMode.ContentOnInactive>
+			</controls:OmnibarMode>
+		</controls:Omnibar>
 
 		<Button
 			x:Name="NavigatePathButton"

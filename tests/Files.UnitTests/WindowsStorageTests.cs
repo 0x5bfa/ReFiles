@@ -346,6 +346,31 @@ public sealed class WindowsStorageTests
 		Assert.AreEqual(root.Id, resolved.Id);
 	}
 
+	/// <summary>
+	/// Test case: virtual Shell Desktop is identified independently of its display name.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task VirtualShellDesktopUsesCanonicalIdentity()
+	{
+		await using var scheduler = new WindowsShellScheduler();
+		await using var source = new WindowsStorageSource(scheduler: scheduler);
+		WindowsFolder? root = null;
+		await foreach (var candidate in source.GetRootsAsync())
+		{
+			root = candidate as WindowsFolder;
+
+			break;
+		}
+
+		Assert.IsNotNull(root);
+		var desktop = await root.GetParentAsync() as IWindowsStorable;
+		Assert.IsNotNull(desktop);
+		var reference = new StorableReference(source.SourceId, desktop.Id, desktop.Address);
+
+		Assert.IsTrue(await source.IsShellDesktopAsync(reference));
+	}
+
 	private static async Task<IStorableChild?> FindItemAsync(IFolder folder, string name)
 	{
 		await foreach (var item in folder.GetItemsAsync(StorableType.File))

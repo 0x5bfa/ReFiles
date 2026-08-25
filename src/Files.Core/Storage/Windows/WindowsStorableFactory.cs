@@ -12,6 +12,7 @@ using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.SystemServices;
 using Windows.Win32.UI.Shell;
+using Windows.Win32.UI.Shell.Common;
 
 namespace Files.Core.Storage.Windows;
 
@@ -56,6 +57,20 @@ internal sealed class WindowsStorableFactory
 			() =>
 			{
 				var result = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
+				result.ThrowOnFailure();
+
+				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
+			},
+			cancellationToken);
+	}
+
+	internal Task<WindowsStorable> CreateDesktopAsync(CancellationToken cancellationToken = default)
+	{
+		return _scheduler.InvokeAsync(
+			() =>
+			{
+				ITEMIDLIST desktopPidl = default;
+				var result = PInvoke.SHCreateItemFromIDList(in desktopPidl, out IShellItem shellItem);
 				result.ThrowOnFailure();
 
 				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));

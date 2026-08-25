@@ -1,8 +1,11 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
+using Files.Core.Browsing;
+using Files.Infrastructure;
 using Files.Localization;
 
 namespace Files.ViewModels;
@@ -10,6 +13,8 @@ namespace Files.ViewModels;
 public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 {
 	private FolderBrowserViewModel? _activeFolderBrowser;
+
+	private CancellationTokenSource? _breadcrumbCancellation;
 
 	private int _isDisposed;
 
@@ -26,6 +31,12 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 	public CommandBindingViewModel NavigatePathCommand { get; }
 
 	public CommandBindingViewModel RefreshCommand { get; }
+
+	public ObservableCollection<NavigationToolbarBreadcrumbItem> BreadcrumbItems { get; } = [];
+
+	public string HomeText => Strings.Home.GetLocalized();
+
+	public string PathModeName => Strings.Address.GetLocalized();
 
 	public string PathPlaceholderText => Strings.EnterFolderPath.GetLocalized();
 
@@ -57,6 +68,19 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		RefreshCommand = refreshCommand;
 	}
 
+	public void Dispose()
+	{
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+		{
+			return;
+		}
+
+		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
+		_activeFolderBrowser = null;
+		_breadcrumbCancellation?.Cancel();
+		_breadcrumbCancellation = null;
+	}
+
 	internal void SetActiveFolderBrowser(FolderBrowserViewModel? value)
 	{
 		if (ReferenceEquals(_activeFolderBrowser, value))
@@ -69,17 +93,24 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		_activeFolderBrowser?.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
 
 		OnPropertyChanged(nameof(LocationText));
+		_ = RefreshBreadcrumbItemsAsync();
 	}
 
-	public void Dispose()
+	internal Task NavigateToBreadcrumbAsync(NavigationToolbarBreadcrumbItem item, CancellationToken cancellationToken = default)
 	{
-		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
-		{
-			return;
-		}
+		ArgumentNullException.ThrowIfNull(item);
 
-		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
-		_activeFolderBrowser = null;
+		return _activeFolderBrowser?.NavigateToLocationAsync(item.Location, cancellationToken) ?? Task.CompletedTask;
+	}
+
+	internal Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
+		_activeFolderBrowser?.NavigateHomeAsync(cancellationToken) ?? Task.CompletedTask;
+
+	internal Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbChildrenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+
+		return _activeFolderBrowser?.GetBreadcrumbChildrenAsync(location, cancellationToken) ?? Task.FromResult<IReadOnlyList<NavigationToolbarBreadcrumbItem>>([]);
 	}
 
 	private void ActiveFolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -87,6 +118,60 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		if (e.PropertyName is null or nameof(FolderBrowserViewModel.LocationText))
 		{
 			OnPropertyChanged(nameof(LocationText));
+		}
+
+		if (e.PropertyName is null or nameof(FolderBrowserViewModel.Location))
+		{
+			_ = RefreshBreadcrumbItemsAsync();
+		}
+	}
+
+	private async Task RefreshBreadcrumbItemsAsync()
+	{
+		var browser = _activeFolderBrowser;
+		_breadcrumbCancellation?.Cancel();
+		if (browser is null)
+		{
+			BreadcrumbItems.Clear();
+
+			return;
+		}
+
+		var cancellation = new CancellationTokenSource();
+		_breadcrumbCancellation = cancellation;
+		try
+		{
+			var items = await browser.GetBreadcrumbItemsAsync(cancellation.Token);
+			if (cancellation.IsCancellationRequested || !ReferenceEquals(_activeFolderBrowser, browser))
+			{
+				return;
+			}
+
+			BreadcrumbItems.Clear();
+			foreach (var item in items)
+			{
+				BreadcrumbItems.Add(item);
+			}
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch (Exception error)
+		{
+			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb refresh failed: {error.Message}");
+			if (ReferenceEquals(_activeFolderBrowser, browser))
+			{
+				BreadcrumbItems.Clear();
+			}
+		}
+		finally
+		{
+			if (ReferenceEquals(_breadcrumbCancellation, cancellation))
+			{
+				_breadcrumbCancellation = null;
+			}
+
+			cancellation.Dispose();
 		}
 	}
 }

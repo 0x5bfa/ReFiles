@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // Licensed under the MIT License.
 
 using Microsoft.UI.Xaml.Markup;
@@ -208,7 +208,8 @@ namespace Files.Controls
 			GlobalHelper.WriteDebugStringForOmnibar($"Successfully changed Mode from {oldMode} to {newMode}");
 		}
 
-		internal protected void FocusTextBox()
+		/// <summary>Moves keyboard focus to the text input.</summary>
+		public void FocusTextBox()
 		{
 			_textBox.Focus(FocusState.Keyboard);
 		}

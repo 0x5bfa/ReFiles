@@ -56,6 +56,7 @@
 							Padding="{TemplateBinding AutoSuggestBoxPadding}"
 							HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
 							VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+							AutomationProperties.AutomationId="{TemplateBinding TextBoxAutomationId}"
 							Background="{TemplateBinding Background}"
 							BackgroundSizing="{TemplateBinding BackgroundSizing}"
 							BorderBrush="{TemplateBinding BorderBrush}"

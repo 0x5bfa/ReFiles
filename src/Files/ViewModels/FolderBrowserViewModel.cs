@@ -13,12 +13,15 @@ using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.ItemFeatures;
 using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Models;
 using Files.Core.Storage;
+using Files.Core.Storage.Archives;
 using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media.Imaging;
+using OwlCore.Storage;
 using Windows.Foundation;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -37,6 +40,7 @@ public enum FolderViewMode
 public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private const int BulkNotificationThreshold = 32;
+	private const int BreadcrumbThumbnailSize = 16;
 	private const int LocationIconSize = 16;
 
 	private readonly BrowsePresentationAdapter _browseAdapter;
@@ -211,6 +215,38 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public Task RefreshAsync(CancellationToken cancellationToken = default) =>
 		_browseAdapter.RefreshAsync(cancellationToken);
+
+	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+
+		return _browseAdapter.NavigateToLocationAsync(location, cancellationToken);
+	}
+
+	internal async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbItemsAsync(CancellationToken cancellationToken = default)
+	{
+		return Location switch
+		{
+			HomeLocation => [],
+			FolderLocation folderLocation => await CreateFolderBreadcrumbItemsAsync(folderLocation, cancellationToken).ConfigureAwait(false),
+			ArchiveLocation archiveLocation => await CreateArchiveBreadcrumbItemsAsync(archiveLocation, cancellationToken).ConfigureAwait(false),
+			{ } location => [new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false)],
+			null => [],
+		};
+	}
+
+	internal Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbChildrenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+
+		return location switch
+		{
+			HomeLocation => CreateHomeBreadcrumbChildrenAsync(cancellationToken),
+			FolderLocation folderLocation => CreateFolderBreadcrumbChildrenAsync(folderLocation, cancellationToken),
+			ArchiveLocation archiveLocation => CreateArchiveBreadcrumbChildrenAsync(archiveLocation, cancellationToken),
+			_ => Task.FromResult<IReadOnlyList<NavigationToolbarBreadcrumbItem>>([]),
+		};
+	}
 
 	public void UpdateViewport(BrowseViewport viewport) =>
 		_browseAdapter.UpdateViewport(viewport);
@@ -456,6 +492,203 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 	}
 
+	private async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> CreateFolderBreadcrumbItemsAsync(FolderLocation location, CancellationToken cancellationToken)
+	{
+		if (_pane.BrowseSession.Context is not { Location: FolderLocation contextLocation, LocationModel: IFolderModel currentFolder } || !Equals(contextLocation, location))
+		{
+			return [new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false)];
+		}
+
+		var reversedItems = new List<(string Text, FolderLocation Location)>();
+		var visitedLocations = new HashSet<StorableReference>();
+		IFolderModel? model = currentFolder;
+		IFolderModel? ownedModel = null;
+		try
+		{
+			while (model is not null)
+			{
+				if (!visitedLocations.Add(model.Reference))
+				{
+					break;
+				}
+
+				reversedItems.Add((model.Name, new FolderLocation(model.Reference)));
+				var parent = await model.GetParentAsync(cancellationToken).ConfigureAwait(false);
+				if (ownedModel is not null)
+				{
+					await ownedModel.DisposeAsync().ConfigureAwait(false);
+				}
+
+				ownedModel = parent;
+				model = parent;
+			}
+		}
+		finally
+		{
+			if (ownedModel is not null)
+			{
+				await ownedModel.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		reversedItems.Reverse();
+		if (reversedItems.Count > 0 && await IsShellDesktopLocationAsync(reversedItems[0].Location, cancellationToken).ConfigureAwait(false))
+		{
+			reversedItems.RemoveAt(0);
+		}
+
+		var leafHasChildren = await HasFolderChildrenAsync(currentFolder, cancellationToken).ConfigureAwait(false);
+		var items = new List<NavigationToolbarBreadcrumbItem>(reversedItems.Count);
+		for (var index = 0; index < reversedItems.Count; index++)
+		{
+			var item = reversedItems[index];
+			items.Add(new NavigationToolbarBreadcrumbItem(item.Text, item.Location, index < reversedItems.Count - 1 || leafHasChildren));
+		}
+
+		return items;
+	}
+
+	private async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> CreateArchiveBreadcrumbItemsAsync(ArchiveLocation location, CancellationToken cancellationToken)
+	{
+		await using var archiveModel = await _workspace.ResolveAsync(location.Archive, cancellationToken).ConfigureAwait(false);
+		var context = _pane.BrowseSession.Context;
+		var leafHasChildren = context is { Location: ArchiveLocation contextLocation, LocationModel: IFolderModel currentFolder }
+			&& Equals(contextLocation, location)
+			&& await HasFolderChildrenAsync(currentFolder, cancellationToken).ConfigureAwait(false);
+		var segments = string.IsNullOrEmpty(location.EntryPath) ? [] : location.EntryPath.Split('/');
+		var items = new List<NavigationToolbarBreadcrumbItem>(segments.Length + 1)
+		{
+			new(archiveModel.Name, new ArchiveLocation(location.Archive), segments.Length > 0 || leafHasChildren),
+		};
+		var entryPath = string.Empty;
+		for (var index = 0; index < segments.Length; index++)
+		{
+			entryPath = ArchiveEntryPath.Combine(entryPath, segments[index]);
+			items.Add(new NavigationToolbarBreadcrumbItem(segments[index], new ArchiveLocation(location.Archive, entryPath), index < segments.Length - 1 || leafHasChildren));
+		}
+
+		return items;
+	}
+
+	private async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> CreateHomeBreadcrumbChildrenAsync(CancellationToken cancellationToken)
+	{
+		var items = new List<NavigationToolbarBreadcrumbItem>();
+		foreach (var source in _workspace.Sources)
+		{
+			await foreach (var root in _workspace.GetRootsAsync(source.SourceId, cancellationToken).ConfigureAwait(false))
+			{
+				try
+				{
+					var thumbnailData = await LoadBreadcrumbThumbnailAsync(root, cancellationToken).ConfigureAwait(false);
+					items.Add(new NavigationToolbarBreadcrumbItem(root.Name, new FolderLocation(root.Reference), false, thumbnailData));
+				}
+				finally
+				{
+					await root.DisposeAsync().ConfigureAwait(false);
+				}
+			}
+		}
+
+		return items;
+	}
+
+	private async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> CreateFolderBreadcrumbChildrenAsync(FolderLocation location, CancellationToken cancellationToken)
+	{
+		var items = new List<NavigationToolbarBreadcrumbItem>();
+		await using var model = await _workspace.ResolveAsync(location.Folder, cancellationToken).ConfigureAwait(false);
+		if (model is not IFolderModel folder)
+		{
+			return items;
+		}
+
+		await foreach (var child in folder.GetItemsAsync(StorableType.Folder, cancellationToken).ConfigureAwait(false))
+		{
+			try
+			{
+				var thumbnailData = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
+				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new FolderLocation(child.Reference), false, thumbnailData));
+			}
+			finally
+			{
+				await child.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		return items;
+	}
+
+	private async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> CreateArchiveBreadcrumbChildrenAsync(ArchiveLocation location, CancellationToken cancellationToken)
+	{
+		if (_pane.BrowseSession.Context is not ArchiveBrowseLocationContext context || context.Location is not ArchiveLocation contextLocation || !Equals(contextLocation.Archive, location.Archive))
+		{
+			return [];
+		}
+
+		var items = new List<NavigationToolbarBreadcrumbItem>();
+		await foreach (var child in context.GetItemsAsync(location, StorableType.Folder, cancellationToken).ConfigureAwait(false))
+		{
+			try
+			{
+				var entryPath = ArchiveEntryPath.Combine(location.EntryPath, child.Name);
+				var thumbnailData = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
+				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new ArchiveLocation(location.Archive, entryPath), false, thumbnailData));
+			}
+			finally
+			{
+				await child.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		return items;
+	}
+
+	private async Task<bool> IsShellDesktopLocationAsync(FolderLocation location, CancellationToken cancellationToken)
+	{
+		return _windowsSource is not null && await _windowsSource.IsShellDesktopAsync(location.Folder, cancellationToken).ConfigureAwait(false);
+	}
+
+	private static async Task<ReadOnlyMemory<byte>> LoadBreadcrumbThumbnailAsync(IStorableModel model, CancellationToken cancellationToken)
+	{
+		if (model.Get<IThumbnailSource>() is not { } source)
+		{
+			return ReadOnlyMemory<byte>.Empty;
+		}
+
+		try
+		{
+			var result = await source.GetThumbnailAsync(new ThumbnailRequest(BreadcrumbThumbnailSize, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
+
+			return result is null ? ReadOnlyMemory<byte>.Empty : result.Content.ToArray();
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch (Exception error)
+		{
+			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail failed for '{model.Reference.ItemId}': {error.GetType().Name}");
+
+			return ReadOnlyMemory<byte>.Empty;
+		}
+	}
+
+	private static async Task<bool> HasFolderChildrenAsync(IFolderModel folder, CancellationToken cancellationToken)
+	{
+		try
+		{
+			await foreach (var child in folder.GetItemsAsync(StorableType.Folder, cancellationToken).ConfigureAwait(false))
+			{
+				await child.DisposeAsync().ConfigureAwait(false);
+
+				return true;
+			}
+		}
+		catch (Exception) when (!cancellationToken.IsCancellationRequested)
+		{
+		}
+
+		return false;
+	}
 	private void BrowseAdapter_Updated(object? sender, CoreBrowseUpdatedEventArgs args)
 	{
 		var updateStartTimestamp = Stopwatch.GetTimestamp();
@@ -646,7 +879,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	private bool TryGetCurrentFileSystemFolder(out StorableReference folder)
 	{
-		if (Location is FolderLocation { Folder: { LastKnownAddress: { } address } } && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Directory.Exists(address.Value))
+		if (Location is FolderLocation { Folder: { LastKnownAddress: { } address } }
+			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
+			&& Directory.Exists(address.Value))
 		{
 			folder = ((FolderLocation)Location).Folder;
 
@@ -660,7 +895,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	private static bool TryGetFileSystemPath(StorableReference reference, out string path)
 	{
-		if (reference.LastKnownAddress is { } address && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(address.Value) && (File.Exists(address.Value) || Directory.Exists(address.Value)))
+		if (reference.LastKnownAddress is { } address
+			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
+			&& Path.IsPathRooted(address.Value)
+			&& (File.Exists(address.Value) || Directory.Exists(address.Value)))
 		{
 			path = address.Value;
 

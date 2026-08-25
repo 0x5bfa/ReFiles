@@ -1777,8 +1777,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
 		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 
-	private Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken)
+	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken)
 	{
+		EnsureActive();
+
 		cancellationToken.ThrowIfCancellationRequested();
 
 		LocationNavigation navigation;

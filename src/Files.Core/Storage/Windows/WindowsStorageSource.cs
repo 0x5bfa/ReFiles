@@ -166,6 +166,26 @@ public sealed class WindowsStorageSource : IStorageSource
 		throw new FileNotFoundException("The Windows Shell item could not be resolved.", reference.ItemId);
 	}
 
+	/// <summary>Determines whether a reference identifies the virtual Shell Desktop root.</summary>
+	/// <param name="reference">The reference to inspect.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the reference identifies the virtual Shell Desktop root.</returns>
+	public async ValueTask<bool> IsShellDesktopAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+		ArgumentNullException.ThrowIfNull(reference);
+
+		if (reference.SourceId != SourceId)
+		{
+			return false;
+		}
+
+		var desktop = await _storableFactory.CreateDesktopAsync(cancellationToken).ConfigureAwait(false);
+
+		return StringComparer.Ordinal.Equals(desktop.Id, reference.ItemId);
+	}
+
 	/// <summary>Disposes the source and any scheduler it owns.</summary>
 	/// <returns>A value task that represents source disposal.</returns>
 	public ValueTask DisposeAsync()

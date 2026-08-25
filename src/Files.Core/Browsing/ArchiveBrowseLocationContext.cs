@@ -80,6 +80,49 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 		}
 	}
 
+	/// <summary>
+	/// Enumerates child item models at a location within the active archive mount.
+	/// </summary>
+	/// <param name="location">The archive location to enumerate.</param>
+	/// <param name="type">The item types to include.</param>
+	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
+	/// <returns>The child item models owned by the caller.</returns>
+	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(
+		ArchiveLocation location,
+		OwlCore.Storage.StorableType type = OwlCore.Storage.StorableType.All,
+		[EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+		ArgumentNullException.ThrowIfNull(location);
+
+		if (!Equals(location.Archive, _location.Archive))
+		{
+			throw new ArgumentException("The location belongs to a different archive.", nameof(location));
+		}
+
+		if (Equals(location, _location))
+		{
+			await foreach (var item in _folderModel.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
+			{
+				yield return item;
+			}
+
+			yield break;
+		}
+
+		var coreModel = await _mount.ResolveAsync(location.EntryPath, cancellationToken).ConfigureAwait(false);
+		if (coreModel is not OwlCore.Storage.IFolder folder)
+		{
+			throw new InvalidOperationException($"Archive entry '{location.EntryPath}' is not a folder.");
+		}
+
+		await foreach (var item in folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
+		{
+			yield return _modelFactory.Create(_mount.ItemSource, item);
+		}
+	}
+
 	/// <inheritdoc />
 	public async ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
