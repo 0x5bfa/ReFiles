@@ -1,0 +1,42 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.GeneralSettingsView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls">
+
+	<ScrollViewer
+		Padding="36"
+		HorizontalScrollBarVisibility="Disabled"
+		HorizontalScrollMode="Disabled">
+
+		<StackPanel Spacing="4">
+
+			<TextBlock
+				Margin="0,0,0,20"
+				Style="{ThemeResource TitleTextBlockStyle}"
+				Text="{x:Bind Title, Mode=OneWay}" />
+
+			<wctcontrols:SettingsCard Description="{x:Bind LanguageDescription, Mode=OneWay}" Header="{x:Bind LanguageLabel, Mode=OneWay}">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xE774;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+				<ComboBox
+					x:Name="LanguagePicker"
+					MinWidth="220"
+					DisplayMemberPath="Label"
+					ItemsSource="{x:Bind Languages, Mode=OneWay}"
+					SelectionChanged="LanguagePicker_SelectionChanged" />
+			</wctcontrols:SettingsCard>
+
+			<InfoBar
+				IsClosable="False"
+				IsOpen="True"
+				Message="{x:Bind RestartDescription, Mode=OneWay}"
+				Severity="Informational" />
+
+		</StackPanel>
+
+	</ScrollViewer>
+
+</UserControl>

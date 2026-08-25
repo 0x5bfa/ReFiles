@@ -1,0 +1,36 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.AppearanceSettingsView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls">
+
+	<ScrollViewer
+		Padding="36"
+		HorizontalScrollBarVisibility="Disabled"
+		HorizontalScrollMode="Disabled">
+
+		<StackPanel Spacing="4">
+
+			<TextBlock
+				Margin="0,0,0,20"
+				Style="{ThemeResource TitleTextBlockStyle}"
+				Text="{x:Bind Title, Mode=OneWay}" />
+
+			<wctcontrols:SettingsCard Description="{x:Bind ThemeDescription, Mode=OneWay}" Header="{x:Bind ThemeLabel, Mode=OneWay}">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xE790;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+				<ComboBox
+					x:Name="ThemePicker"
+					MinWidth="220"
+					DisplayMemberPath="Label"
+					ItemsSource="{x:Bind Themes, Mode=OneWay}"
+					SelectionChanged="ThemePicker_SelectionChanged" />
+			</wctcontrols:SettingsCard>
+
+		</StackPanel>
+
+	</ScrollViewer>
+
+</UserControl>

@@ -12,6 +12,7 @@ using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.Presentation;
 using Files.ItemProperties;
+using Files.Settings;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
@@ -87,6 +88,16 @@ public sealed partial class MainWindow : Window
 		_rootView.NewWindowRequested -= RootView_NewWindowRequested;
 		_rootView.Dispose();
 		_itemPropertiesService.Dispose();
+	}
+
+	internal void ApplyTheme(AppThemeMode themeMode)
+	{
+		RootContent.RequestedTheme = themeMode switch
+		{
+			AppThemeMode.Light => ElementTheme.Light,
+			AppThemeMode.Dark => ElementTheme.Dark,
+			_ => ElementTheme.Default,
+		};
 	}
 
 	private void MainWindow_Activated(object sender, WindowActivatedEventArgs args)

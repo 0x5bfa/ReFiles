@@ -3,23 +3,58 @@
 	x:Class="Files.Views.SettingsView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:controls="using:Files.Controls"
+	xmlns:views="using:Files.Views"
 	x:Name="Root">
-	<Grid
-		Background="{StaticResource LayerFillColorDefaultBrush}"
+
+	<UserControl.Resources>
+		<DataTemplate x:Key="SettingsNavigationItemTemplate" x:DataType="views:SettingsNavigationItem">
+			<controls:SidebarItem
+				AutomationProperties.Name="{x:Bind Text}"
+				Item="{x:Bind}"
+				SelectsOnInvoked="True"
+				Text="{x:Bind Text}"
+				ToolTip="{x:Bind Text}">
+				<controls:SidebarItem.Icon>
+					<FontIcon FontSize="16" Glyph="{x:Bind Glyph}" />
+				</controls:SidebarItem.Icon>
+			</controls:SidebarItem>
+		</DataTemplate>
+	</UserControl.Resources>
+
+	<Border
+		Background="{ThemeResource LayerFillColorDefaultBrush}"
 		BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
 		BorderThickness="1"
 		CornerRadius="{StaticResource OverlayCornerRadius}">
-		<ScrollViewer
-			HorizontalContentAlignment="Stretch"
-			HorizontalScrollBarVisibility="Disabled"
-			HorizontalScrollMode="Disabled">
-			<StackPanel
-				MaxWidth="720"
-				Margin="32"
-				HorizontalAlignment="Stretch"
-				Spacing="24">
-				<TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="{x:Bind Title, Mode=OneWay}" />
-			</StackPanel>
-		</ScrollViewer>
-	</Grid>
+		<controls:SidebarView
+			x:Name="SettingsNavigation"
+			CanResizePane="False"
+			DisplayMode="Expanded"
+			FooterMenuItemTemplate="{StaticResource SettingsNavigationItemTemplate}"
+			FooterMenuItemsSource="{x:Bind FooterNavigationItems, Mode=OneWay}"
+			ItemInvoked="SettingsNavigation_ItemInvoked"
+			MenuItemTemplate="{StaticResource SettingsNavigationItemTemplate}"
+			MenuItemsSource="{x:Bind NavigationItems, Mode=OneWay}"
+			OpenPaneLength="220"
+			PaneBackgroundBrush="{ThemeResource ControlFillColorTransparentBrush}"
+			SupportsExpansion="False">
+
+			<controls:SidebarView.Header>
+				<TextBlock
+					Margin="16,12,0,4"
+					Style="{ThemeResource SubtitleTextBlockStyle}"
+					Text="{x:Bind Title, Mode=OneWay}" />
+			</controls:SidebarView.Header>
+
+			<controls:SidebarView.InnerContent>
+				<ContentPresenter
+					x:Name="SettingsContent"
+					HorizontalContentAlignment="Stretch"
+					VerticalContentAlignment="Stretch" />
+			</controls:SidebarView.InnerContent>
+
+		</controls:SidebarView>
+	</Border>
+
 </UserControl>

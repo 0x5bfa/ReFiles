@@ -4,6 +4,7 @@
 using Files.Views;
 using Files.Commands;
 using Files.Infrastructure;
+using Files.Settings;
 using Files.Core.Composition;
 using Files.Core.Sessions;
 using Microsoft.UI.Xaml;
@@ -16,14 +17,20 @@ public partial class App : Application
 	private FilesCoreRuntime? _runtime;
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
+	private readonly AppSettingsService _settings;
 	private readonly Lock _windowsLock = new();
 	private readonly Lock _shutdownLock = new();
 	private Task? _shutdownTask;
 
+	internal AppSettingsService Settings => _settings;
+
 	public App()
 	{
+		_settings = new();
+		_settings.ApplyLanguage();
 		InitializeComponent();
 		_commandRegistry = AppCommandRegistration.Build();
+		_settings.PropertyChanged += Settings_PropertyChanged;
 	}
 
 	protected override async void OnLaunched(LaunchActivatedEventArgs args)
@@ -83,6 +90,7 @@ public partial class App : Application
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),
 				() => CloseWindowAsync(coreWindow.Id, mainWindow),
 				CreateWindowAsync);
+			mainWindow.ApplyTheme(_settings.ThemeMode);
 			lock (_windowsLock)
 			{
 				_mainWindows.Add(mainWindow);
@@ -129,6 +137,25 @@ public partial class App : Application
 		lock (_shutdownLock)
 		{
 			return _shutdownTask ??= ShutdownCoreAsync();
+		}
+	}
+
+	private void Settings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is not nameof(AppSettingsService.ThemeMode))
+		{
+			return;
+		}
+
+		MainWindow[] windows;
+		lock (_windowsLock)
+		{
+			windows = [.. _mainWindows];
+		}
+
+		foreach (var window in windows)
+		{
+			window.ApplyTheme(_settings.ThemeMode);
 		}
 	}
 

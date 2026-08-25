@@ -1,0 +1,43 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.AboutSettingsView"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls">
+
+	<ScrollViewer
+		Padding="36"
+		HorizontalScrollBarVisibility="Disabled"
+		HorizontalScrollMode="Disabled">
+
+		<StackPanel Spacing="4">
+
+			<TextBlock
+				Margin="0,0,0,20"
+				Style="{ThemeResource TitleTextBlockStyle}"
+				Text="{x:Bind Title, Mode=OneWay}" />
+
+			<wctcontrols:SettingsCard Description="{x:Bind VersionDescription, Mode=OneWay}" Header="{x:Bind AppName, Mode=OneWay}">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xE946;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+			</wctcontrols:SettingsCard>
+
+			<wctcontrols:SettingsCard
+				Click="OpenSourceCode_Click"
+				Description="{x:Bind SourceCodeDescription, Mode=OneWay}"
+				Header="{x:Bind SourceCodeLabel, Mode=OneWay}"
+				IsClickEnabled="True">
+				<wctcontrols:SettingsCard.HeaderIcon>
+					<FontIcon Glyph="&#xE943;" />
+				</wctcontrols:SettingsCard.HeaderIcon>
+				<wctcontrols:SettingsCard.ActionIcon>
+					<FontIcon Glyph="&#xE72A;" />
+				</wctcontrols:SettingsCard.ActionIcon>
+			</wctcontrols:SettingsCard>
+
+		</StackPanel>
+
+	</ScrollViewer>
+
+</UserControl>
