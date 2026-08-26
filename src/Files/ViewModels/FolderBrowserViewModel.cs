@@ -307,6 +307,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		var move = content.RequestedOperation.HasFlag(Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move);
 		var itemNames = paths.Select(GetOperationItemName).ToArray();
+		var itemByteCounts = await Task.Run(() => TryGetFileByteCounts(paths), cancellationToken).ConfigureAwait(false);
 		await ExecuteTrackedStorageOperationBatchAsync(
 			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
 			itemNames,
@@ -320,7 +321,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 				await ExecuteStorageOperationAsync(request, progress, operationCancellation).ConfigureAwait(false);
 			},
-			cancellationToken).ConfigureAwait(false);
+			cancellationToken,
+			itemByteCounts).ConfigureAwait(false);
 
 		if (move)
 		{
@@ -1046,27 +1048,36 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	}
 
 	private async Task ExecuteTrackedStorageOperationBatchAsync(TrackedStorageOperationKind kind, IReadOnlyList<string> itemNames, bool canCancel,
-		Func<int, IProgress<StorageOperationProgress>, CancellationToken, Task> execute, CancellationToken cancellationToken)
+		Func<int, IProgress<StorageOperationProgress>, CancellationToken, Task> execute, CancellationToken cancellationToken, IReadOnlyList<long>? itemByteCounts = null)
 	{
 		ArgumentNullException.ThrowIfNull(itemNames);
 
 		ArgumentNullException.ThrowIfNull(execute);
+
+		if (itemByteCounts is not null && itemByteCounts.Count != itemNames.Count)
+		{
+			throw new ArgumentException("The byte count must correspond to every batch item.", nameof(itemByteCounts));
+		}
 
 		if (itemNames.Count is 0)
 		{
 			return;
 		}
 
+		var totalBatchBytes = itemByteCounts?.Aggregate(0L, static (total, itemBytes) => checked(total + itemBytes));
+		var completedBatchBytes = 0L;
 		var operation = _operationTracker.StartOperation(kind, itemNames.Count, itemNames[0], canCancel, cancellationToken);
 		try
 		{
 			for (var index = 0; index < itemNames.Count; index++)
 			{
 				operation.CancellationToken.ThrowIfCancellationRequested();
-				operation.Report(index, itemNames[index]);
-				var progress = new StorageOperationBatchProgress(operation, index, itemNames[index]);
+				var currentItemBytes = itemByteCounts?[index];
+				operation.Report(index, itemNames[index], totalBatchBytes.HasValue ? completedBatchBytes : null, totalBatchBytes, totalBatchBytes.HasValue);
+				var progress = new StorageOperationBatchProgress(operation, index, itemNames[index], totalBatchBytes.HasValue ? completedBatchBytes : null, currentItemBytes, totalBatchBytes);
 				await execute(index, progress, operation.CancellationToken).ConfigureAwait(false);
-				operation.Report(index + 1, itemNames[index]);
+				completedBatchBytes += currentItemBytes ?? 0;
+				operation.Report(index + 1, itemNames[index], totalBatchBytes.HasValue ? completedBatchBytes : null, totalBatchBytes, totalBatchBytes.HasValue);
 			}
 
 			operation.Complete();
@@ -1105,6 +1116,31 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		var itemName = Path.GetFileName(trimmedPath);
 
 		return string.IsNullOrWhiteSpace(itemName) ? path : itemName;
+	}
+
+	private static IReadOnlyList<long>? TryGetFileByteCounts(IReadOnlyList<string> paths)
+	{
+		ArgumentNullException.ThrowIfNull(paths);
+
+		var byteCounts = new long[paths.Count];
+		try
+		{
+			for (var index = 0; index < paths.Count; index++)
+			{
+				if (!File.Exists(paths[index]))
+				{
+					return null;
+				}
+
+				byteCounts[index] = new FileInfo(paths[index]).Length;
+			}
+		}
+		catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
+		{
+			return null;
+		}
+
+		return byteCounts;
 	}
 
 	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)

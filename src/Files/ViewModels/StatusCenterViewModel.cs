@@ -237,6 +237,11 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	private static double GetProgressPercentage(StorageOperationSnapshot snapshot)
 	{
+		if (snapshot.IsByteProgressForWholeOperation && snapshot.CompletedBytes is { } aggregateCompletedBytes && snapshot.TotalBytes is > 0 and { } aggregateTotalBytes)
+		{
+			return Math.Clamp((double)aggregateCompletedBytes * 100d / aggregateTotalBytes, 0, 100);
+		}
+
 		var currentItemProgress = snapshot.CompletedBytes is { } completedBytes && snapshot.TotalBytes is > 0 and { } totalBytes
 			? Math.Clamp((double)completedBytes / totalBytes, 0, 1)
 			: 0;

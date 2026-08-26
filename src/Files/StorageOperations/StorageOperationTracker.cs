@@ -32,6 +32,7 @@ internal sealed record StorageOperationSnapshot(
 	string? CurrentItemName,
 	long? CompletedBytes,
 	long? TotalBytes,
+	bool IsByteProgressForWholeOperation,
 	double? BytesPerSecond,
 	TimeSpan? RemainingTime,
 	Exception? Error,
@@ -190,7 +191,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		}
 	}
 
-	internal void ReportProgress(Guid id, int completedItems, string? currentItemName, long? completedBytes, long? totalBytes)
+	internal void ReportProgress(Guid id, int completedItems, string? currentItemName, long? completedBytes, long? totalBytes, bool isByteProgressForWholeOperation)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(completedItems);
 
@@ -208,6 +209,7 @@ internal sealed class StorageOperationTracker : IDisposable
 
 			operation.CompletedItems = completedItems;
 			operation.CurrentItemName = currentItemName;
+			operation.IsByteProgressForWholeOperation = isByteProgressForWholeOperation;
 			operation.UpdateTransferProgress(completedBytes, totalBytes);
 		}
 
@@ -295,6 +297,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		public string? CurrentItemName { get; set; }
 		public long? CompletedBytes { get; private set; }
 		public long? TotalBytes { get; private set; }
+		public bool IsByteProgressForWholeOperation { get; set; }
 		public double? BytesPerSecond { get; private set; }
 		public TimeSpan? RemainingTime { get; private set; }
 		public Exception? Error { get; set; }
@@ -317,8 +320,8 @@ internal sealed class StorageOperationTracker : IDisposable
 
 		public StorageOperationSnapshot CreateSnapshot()
 		{
-			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, CompletedBytes, TotalBytes, BytesPerSecond, RemainingTime, Error, CanCancel,
-				IsCancellationRequested, StartedAt, CompletedAt);
+			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, CompletedBytes, TotalBytes, IsByteProgressForWholeOperation, BytesPerSecond,
+				RemainingTime, Error, CanCancel, IsCancellationRequested, StartedAt, CompletedAt);
 		}
 
 		public void UpdateTransferProgress(long? completedBytes, long? totalBytes)
@@ -377,9 +380,9 @@ internal sealed class StorageOperationHandle
 		CancellationToken = cancellationToken;
 	}
 
-	public void Report(int completedItems, string? currentItemName, long? completedBytes = null, long? totalBytes = null)
+	public void Report(int completedItems, string? currentItemName, long? completedBytes = null, long? totalBytes = null, bool isByteProgressForWholeOperation = false)
 	{
-		_tracker.ReportProgress(_id, completedItems, currentItemName, completedBytes, totalBytes);
+		_tracker.ReportProgress(_id, completedItems, currentItemName, completedBytes, totalBytes, isByteProgressForWholeOperation);
 	}
 
 	public void Complete()
@@ -403,15 +406,29 @@ internal sealed class StorageOperationBatchProgress : IProgress<StorageOperation
 	private readonly StorageOperationHandle _operation;
 	private readonly int _completedItems;
 	private readonly string _fallbackItemName;
+	private readonly long? _completedBytesBeforeCurrentItem;
+	private readonly long? _currentItemBytes;
+	private readonly long? _totalBatchBytes;
 
-	public StorageOperationBatchProgress(StorageOperationHandle operation, int completedItems, string fallbackItemName)
+	public StorageOperationBatchProgress(StorageOperationHandle operation, int completedItems, string fallbackItemName, long? completedBytesBeforeCurrentItem = null, long? currentItemBytes = null,
+		long? totalBatchBytes = null)
 	{
 		ArgumentNullException.ThrowIfNull(operation);
+
 		ArgumentException.ThrowIfNullOrWhiteSpace(fallbackItemName);
+
+		ArgumentOutOfRangeException.ThrowIfNegative(completedBytesBeforeCurrentItem ?? 0);
+
+		ArgumentOutOfRangeException.ThrowIfNegative(currentItemBytes ?? 0);
+
+		ArgumentOutOfRangeException.ThrowIfNegative(totalBatchBytes ?? 0);
 
 		_operation = operation;
 		_completedItems = completedItems;
 		_fallbackItemName = fallbackItemName;
+		_completedBytesBeforeCurrentItem = completedBytesBeforeCurrentItem;
+		_currentItemBytes = currentItemBytes;
+		_totalBatchBytes = totalBatchBytes;
 	}
 
 	public void Report(StorageOperationProgress value)
@@ -419,6 +436,15 @@ internal sealed class StorageOperationBatchProgress : IProgress<StorageOperation
 		ArgumentNullException.ThrowIfNull(value);
 
 		var itemCompleted = value.CompletedItems == value.TotalItems ? 1 : 0;
+		if (_completedBytesBeforeCurrentItem is { } completedBytesBeforeCurrentItem && _currentItemBytes is { } currentItemBytes && _totalBatchBytes is { } totalBatchBytes)
+		{
+			var currentItemCompletedBytes = itemCompleted is 1 ? currentItemBytes : Math.Clamp(value.CompletedBytes ?? 0, 0, currentItemBytes);
+			_operation.Report(_completedItems + itemCompleted, GetItemName(value.CurrentItem), completedBytesBeforeCurrentItem + currentItemCompletedBytes, totalBatchBytes,
+				isByteProgressForWholeOperation: true);
+
+			return;
+		}
+
 		var completedBytes = itemCompleted is 0 ? value.CompletedBytes : null;
 		var totalBytes = itemCompleted is 0 ? value.TotalBytes : null;
 		_operation.Report(_completedItems + itemCompleted, GetItemName(value.CurrentItem), completedBytes, totalBytes);

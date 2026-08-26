@@ -40,6 +40,27 @@ public sealed class StatusCenterViewModelTests
 	}
 
 	/// <summary>
+	/// Verifies that known file sizes produce byte-weighted progress across an entire batch.
+	/// </summary>
+	[UITestMethod]
+	public void AggregatesByteProgressAcrossUnequalBatchItems()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 2, "small.bin", canCancel: false);
+		var progress = new StorageOperationBatchProgress(operation, completedItems: 1, "large.bin", completedBytesBeforeCurrentItem: 10, currentItemBytes: 90, totalBatchBytes: 100);
+
+		progress.Report(new StorageOperationProgress(0, 1, completedBytes: 45, totalBytes: 90));
+
+		var snapshot = tracker.GetSnapshot()[0];
+		Assert.IsTrue(snapshot.IsByteProgressForWholeOperation);
+		Assert.AreEqual(55L, snapshot.CompletedBytes);
+		Assert.AreEqual(100L, snapshot.TotalBytes);
+		Assert.AreEqual(55d, viewModel.Items[0].ProgressPercentage, 0.01);
+	}
+
+	/// <summary>
 	/// Verifies that byte progress is projected as percentage, speed, and remaining time without blocking the dispatcher.
 	/// </summary>
 	[UITestMethod]
@@ -117,6 +138,32 @@ public sealed class StatusCenterViewModelTests
 		Assert.IsTrue(viewModel.Items[0].CanRemove);
 		viewModel.Remove(operationId);
 		Assert.AreEqual(0, viewModel.Items.Count);
+	}
+
+	/// <summary>
+	/// Verifies that simultaneous operations keep stable cards and independent cancellation tokens.
+	/// </summary>
+	[UITestMethod]
+	public void CancelsOnlyTheSelectedSimultaneousOperation()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var firstOperation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "first.iso", canCancel: true);
+		var secondOperation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "second.iso", canCancel: true);
+		var firstCard = viewModel.Items.Single(item => item.Detail == "first.iso");
+		var secondCard = viewModel.Items.Single(item => item.Detail == "second.iso");
+
+		viewModel.Cancel(firstCard.Id);
+		secondOperation.Report(0, "second.iso", completedBytes: 50, totalBytes: 100);
+
+		Assert.AreEqual(2, viewModel.Items.Count);
+		Assert.AreSame(firstCard, viewModel.Items.Single(item => item.Id == firstCard.Id));
+		Assert.AreSame(secondCard, viewModel.Items.Single(item => item.Id == secondCard.Id));
+		Assert.IsTrue(firstOperation.CancellationToken.IsCancellationRequested);
+		Assert.IsFalse(secondOperation.CancellationToken.IsCancellationRequested);
+		Assert.IsFalse(firstCard.CanCancel);
+		Assert.IsTrue(secondCard.CanCancel);
 	}
 
 	/// <summary>
