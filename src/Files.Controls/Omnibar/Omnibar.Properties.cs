@@ -31,11 +31,6 @@ namespace Files.Controls
 
 				return;
 
-			if (e.OldValue is OmnibarMode oldMode)
-				GlobalHelper.WriteDebugStringForOmnibar($"The mode change from {oldMode} to {newMode} has been requested.");
-			else
-				GlobalHelper.WriteDebugStringForOmnibar($"The mode change to {newMode} has been requested.");
-
 			ChangeMode(e.OldValue as OmnibarMode, newMode);
 			CurrentSelectedModeName = newMode.Name;
 		}
@@ -59,8 +54,6 @@ namespace Files.Controls
 			if (CurrentSelectedMode is null || _textBox is null)
 
 				return;
-
-			GlobalHelper.WriteDebugStringForOmnibar($"{nameof(IsFocused)} has been changed to {IsFocused}");
 
 			if (newValue)
 			{

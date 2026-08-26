@@ -54,8 +54,6 @@ namespace Files.Controls
 
 		private void AutoSuggestBox_GotFocus(object sender, RoutedEventArgs e)
 		{
-			GlobalHelper.WriteDebugStringForOmnibar("The TextBox got the focus.");
-
 			IsFocused = true;
 			IsFocusedChanged?.Invoke(this, new(IsFocused));
 
@@ -71,8 +69,6 @@ namespace Files.Controls
 				return;
 			}
 
-			GlobalHelper.WriteDebugStringForOmnibar("The TextBox lost the focus.");
-
 			IsFocused = false;
 			IsFocusedChanged?.Invoke(this, new(IsFocused));
 		}
@@ -83,15 +79,11 @@ namespace Files.Controls
 			{
 				e.Handled = true;
 
-				GlobalHelper.WriteDebugStringForOmnibar("The TextBox accepted the Enter key.");
-
 				SubmitQuery(_textBoxSuggestionsPopup.IsOpen && _textBoxSuggestionsListView.SelectedIndex is not -1 ? _textBoxSuggestionsListView.SelectedItem : null);
 			}
 			else if ((e.Key == VirtualKey.Up || e.Key == VirtualKey.Down) && _textBoxSuggestionsPopup.IsOpen)
 			{
 				e.Handled = true;
-
-				GlobalHelper.WriteDebugStringForOmnibar("The TextBox accepted the Up/Down key while the suggestions pop-up is open.");
 
 				var currentIndex = _textBoxSuggestionsListView.SelectedIndex;
 				var nextIndex = currentIndex;
@@ -120,8 +112,6 @@ namespace Files.Controls
 			else if (e.Key == VirtualKey.Escape)
 			{
 				e.Handled = true;
-
-				GlobalHelper.WriteDebugStringForOmnibar("The TextBox accepted the Esc key.");
 
 				if (_textBoxSuggestionsPopup.IsOpen)
 				{

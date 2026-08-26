@@ -27,10 +27,10 @@
 							PlaceholderText="Enter text..."
 							Text="Path...">
 							<controls:OmnibarMode.IconOnActive>
-								<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IsFilled="True" />
+								<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IsFilled="True" />
 							</controls:OmnibarMode.IconOnActive>
 							<controls:OmnibarMode.IconOnInactive>
-								<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IconType="Outline" />
+								<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IconType="Outline" />
 							</controls:OmnibarMode.IconOnInactive>
 							<controls:OmnibarMode.ContentOnInactive>
 								<controls:BreadcrumbBar
@@ -59,10 +59,10 @@
 							PlaceholderText="Enter a palette command..."
 							TextMemberPath="{x:Bind Omnibar1_TextMemberPathForPaletteMode}">
 							<controls:OmnibarMode.IconOnActive>
-								<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Commands}" IsFilled="True" />
+								<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Commands}" IsFilled="True" />
 							</controls:OmnibarMode.IconOnActive>
 							<controls:OmnibarMode.IconOnInactive>
-								<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Commands}" IconType="Outline" />
+								<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Commands}" IconType="Outline" />
 							</controls:OmnibarMode.IconOnInactive>
 							<controls:OmnibarMode.ItemTemplate>
 								<DataTemplate x:DataType="data:OmnibarPaletteSuggestionItem">
@@ -103,10 +103,10 @@
 
 						<controls:OmnibarMode ModeName="Search" PlaceholderText="Enter a search query...">
 							<controls:OmnibarMode.IconOnActive>
-								<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Search}" IsFilled="True" />
+								<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Search}" IsFilled="True" />
 							</controls:OmnibarMode.IconOnActive>
 							<controls:OmnibarMode.IconOnInactive>
-								<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Search}" IconType="Outline" />
+								<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Search}" IconType="Outline" />
 							</controls:OmnibarMode.IconOnInactive>
 						</controls:OmnibarMode>
 

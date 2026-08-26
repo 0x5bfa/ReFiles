@@ -114,10 +114,10 @@
 				PlaceholderText="{localization:Localized ResourceKey=EnterFolderPath}"
 				Text="{x:Bind ViewModel.LocationText, Mode=OneWay}">
 				<controls:OmnibarMode.IconOnActive>
-					<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IsFilled="True" />
+					<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IsFilled="True" />
 				</controls:OmnibarMode.IconOnActive>
 				<controls:OmnibarMode.IconOnInactive>
-					<controls:ThemedIconSource Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IconType="Outline" />
+					<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Path}" IconType="Outline" />
 				</controls:OmnibarMode.IconOnInactive>
 				<controls:OmnibarMode.ContentOnInactive>
 					<controls:BreadcrumbBar

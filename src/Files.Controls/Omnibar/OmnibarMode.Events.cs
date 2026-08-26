@@ -14,8 +14,6 @@ namespace Files.Controls
 				return;
 			}
 
-			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has entered the UI area of this Mode ({this})");
-
 			VisualStateManager.GoToState(this, "PointerOver", true);
 		}
 
@@ -25,8 +23,6 @@ namespace Files.Controls
 			{
 				return;
 			}
-
-			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has been pressed on the UI area of this Mode ({this})");
 
 			VisualStateManager.GoToState(this, "PointerPressed", true);
 		}
@@ -38,15 +34,11 @@ namespace Files.Controls
 				return;
 			}
 
-			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has been unpressed from the UI area of this Mode ({this})");
-
 			VisualStateManager.GoToState(this, "PointerOver", true);
 		}
 
 		private void ModeButton_PointerExited(object sender, PointerRoutedEventArgs e)
 		{
-			GlobalHelper.WriteDebugStringForOmnibar($"The mouse pointer has moved away from the UI area of this Mode ({this})");
-
 			VisualStateManager.GoToState(this, "PointerNormal", true);
 		}
 

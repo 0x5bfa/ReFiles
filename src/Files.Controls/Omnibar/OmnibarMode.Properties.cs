@@ -23,10 +23,10 @@ namespace Files.Controls
 		public partial FrameworkElement? ContentOnInactive { get; set; }
 
 		[GeneratedDependencyProperty]
-		public partial IconSource? IconOnActive { get; set; }
+		public partial IconElement? IconOnActive { get; set; }
 
 		[GeneratedDependencyProperty]
-		public partial IconSource? IconOnInactive { get; set; }
+		public partial IconElement? IconOnInactive { get; set; }
 
 		[GeneratedDependencyProperty]
 		/// <remark>

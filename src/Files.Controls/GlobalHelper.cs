@@ -16,11 +16,5 @@ namespace Files.Controls
 
 			type.InvokeMember("ProtectedCursor", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.SetProperty | BindingFlags.Instance, null, uiElement, [cursor]);
 		}
-
-		[Conditional("OMNIBAR_DEBUG")]
-		public static void WriteDebugStringForOmnibar(string? message)
-		{
-			Debug.WriteLine($"OMNIBAR DEBUG: [{message}]");
-		}
 	}
 }

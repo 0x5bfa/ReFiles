@@ -48,8 +48,6 @@ namespace Files.Controls
 
 			Modes = [];
 			AutoSuggestBoxPadding = new(0, 0, 0, 0);
-
-			GlobalHelper.WriteDebugStringForOmnibar("Omnibar has been initialized.");
 		}
 
 		// Methods
@@ -85,8 +83,6 @@ namespace Files.Controls
 
 			// Set the default width
 			_textBoxSuggestionsContainerBorder.Width = ActualWidth;
-
-			GlobalHelper.WriteDebugStringForOmnibar("The template and the events have been initialized.");
 		}
 
 		public void PopulateModes()
@@ -204,8 +200,6 @@ namespace Files.Controls
 				mode.Transitions.Clear();
 				mode.UpdateLayout();
 			}
-
-			GlobalHelper.WriteDebugStringForOmnibar($"Successfully changed Mode from {oldMode} to {newMode}");
 		}
 
 		/// <summary>Moves keyboard focus to the text input.</summary>
@@ -225,8 +219,6 @@ namespace Files.Controls
 			{
 				_textBoxSuggestionsPopup.IsOpen = false;
 
-				GlobalHelper.WriteDebugStringForOmnibar("The suggestions pop-up closed.");
-
 				return false;
 			}
 
@@ -237,8 +229,6 @@ namespace Files.Controls
 			}
 
 			_textBoxSuggestionsPopup.IsOpen = wantToOpen;
-
-			GlobalHelper.WriteDebugStringForOmnibar("The suggestions pop-up is open.");
 
 			return false;
 		}
