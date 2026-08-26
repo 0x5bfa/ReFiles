@@ -31,10 +31,11 @@ public sealed partial class MainWindow : Window
 	private int _closeStarted;
 	private int _isDisposed;
 
-	public MainWindow(
+	internal MainWindow(
 		WindowSession coreWindow,
 		IStorageWorkspace workspace,
 		IStorageOperationService storageOperations,
+		AppSettingsService appSettings,
 		IWindowsShellPreviewSessionFactory? windowsShellPreviewSessions,
 		CommandRegistry commandRegistry,
 		Action activateSession,
@@ -42,11 +43,19 @@ public sealed partial class MainWindow : Window
 		Func<Task> createWindowAsync)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
+
 		ArgumentNullException.ThrowIfNull(workspace);
+
 		ArgumentNullException.ThrowIfNull(storageOperations);
+
+		ArgumentNullException.ThrowIfNull(appSettings);
+
 		ArgumentNullException.ThrowIfNull(commandRegistry);
+
 		ArgumentNullException.ThrowIfNull(activateSession);
+
 		ArgumentNullException.ThrowIfNull(closeAsync);
+
 		ArgumentNullException.ThrowIfNull(createWindowAsync);
 
 		InitializeComponent();
@@ -60,6 +69,7 @@ public sealed partial class MainWindow : Window
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,
+			appSettings,
 			new DispatcherQueueUIDispatcher(DispatcherQueue),
 			commandRegistry,
 			itemActivationService,

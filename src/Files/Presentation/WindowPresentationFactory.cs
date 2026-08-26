@@ -8,6 +8,7 @@ using Files.Core.Sessions;
 using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.ItemProperties;
+using Files.Settings;
 using Files.ViewModels;
 
 namespace Files.Presentation;
@@ -16,6 +17,7 @@ internal sealed class WindowPresentationFactory
 {
 	private readonly IStorageWorkspace _workspace;
 	private readonly IStorageOperationService _storageOperations;
+	private readonly AppSettingsService _appSettings;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly CommandRegistry _commandRegistry;
 	private readonly IItemActivationService _itemActivationService;
@@ -31,6 +33,7 @@ internal sealed class WindowPresentationFactory
 	internal WindowPresentationFactory(
 		IStorageWorkspace workspace,
 		IStorageOperationService storageOperations,
+		AppSettingsService appSettings,
 		IUIDispatcher dispatcher,
 		CommandRegistry commandRegistry,
 		IItemActivationService? itemActivationService = null,
@@ -38,12 +41,18 @@ internal sealed class WindowPresentationFactory
 		nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
+
 		ArgumentNullException.ThrowIfNull(storageOperations);
+
+		ArgumentNullException.ThrowIfNull(appSettings);
+
 		ArgumentNullException.ThrowIfNull(dispatcher);
+
 		ArgumentNullException.ThrowIfNull(commandRegistry);
 
 		_workspace = workspace;
 		_storageOperations = storageOperations;
+		_appSettings = appSettings;
 		_dispatcher = dispatcher;
 		_commandRegistry = commandRegistry;
 		_itemActivationService = itemActivationService ?? Files.Activation.ItemActivationService.CreateStorageOnly();
@@ -80,7 +89,7 @@ internal sealed class WindowPresentationFactory
 
 	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
 	{
-		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle);
+		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
 	}
 
 	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)

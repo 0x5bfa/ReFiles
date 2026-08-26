@@ -2,16 +2,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>WinExe</OutputType>
+		<OutputType>Exe</OutputType>
 		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<Platforms>x86;x64;ARM64</Platforms>
 		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
+		<EnableMSTestRunner>true</EnableMSTestRunner>
+		<GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
+		<IsTestProject>true</IsTestProject>
 		<UseWinUI>true</UseWinUI>
 		<WinUIDSKReferences>false</WinUIDSKReferences>
-		<EnableMsixTooling>true</EnableMsixTooling>
+		<EnableMsixTooling>false</EnableMsixTooling>
+		<WindowsPackageType>None</WindowsPackageType>
+		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+		<SelfContained>false</SelfContained>
+		<PrependPriInitialPath>true</PrependPriInitialPath>
+		<ShouldComputeInputPris>true</ShouldComputeInputPris>
+		<!-- Keep the bootstrap-disabled Files reference isolated from the normal app build output. -->
+		<FilesReferenceOutputPath>bin\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceOutputPath>
+		<FilesReferenceIntermediateOutputPath>obj\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceIntermediateOutputPath>
+		<FilesReferenceBuildProperties>WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false</FilesReferenceBuildProperties>
+		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);OutputPath=$(FilesReferenceOutputPath);IntermediateOutputPath=$(FilesReferenceIntermediateOutputPath)</FilesReferenceBuildProperties>
 		<Nullable>enable</Nullable>
 		<Configurations>Debug;Release</Configurations>
 		<NoWarn>$(NoWarn);CS0436</NoWarn>
@@ -25,11 +38,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\Files\Files.csproj" />
+		<ProjectReference Include="..\..\src\Files\Files.csproj" AdditionalProperties="$(FilesReferenceBuildProperties)" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.TestPlatform.TestHost" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
 		<PackageReference Include="Microsoft.WindowsAppSDK" />
 		<PackageReference Include="MSTest.TestAdapter" />

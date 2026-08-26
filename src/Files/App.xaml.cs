@@ -85,6 +85,7 @@ public partial class App : Application
 				coreWindow,
 				runtime.Workspace,
 				runtime.StorageOperations,
+				_settings,
 				runtime.WindowsShellPreviewSessions,
 				_commandRegistry,
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),

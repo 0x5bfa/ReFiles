@@ -165,14 +165,16 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		?? _browseAdapter.ErrorMessage
 		?? _browseAdapter.StatusText;
 
-	public FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations, IUIDispatcher dispatcher, WindowCommandManager commandManager,
-		nint ownerWindowHandle = 0)
+	internal FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations,
+		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		ArgumentNullException.ThrowIfNull(storageOperations);
+
+		ArgumentNullException.ThrowIfNull(appSettings);
 
 		ArgumentNullException.ThrowIfNull(commandManager);
 
@@ -182,8 +184,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_pane = pane;
 		_workspace = workspace;
 		_storageOperations = storageOperations;
+		_appSettings = appSettings;
 		_dispatcher = dispatcher;
-		_appSettings = ((App)Microsoft.UI.Xaml.Application.Current).Settings;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
 		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
 		_shellNewMenu = _windowsSource is { } windowsSource
