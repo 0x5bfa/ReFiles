@@ -3,6 +3,7 @@
 
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Infrastructure;
 using Files.Localization;
@@ -209,6 +210,12 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	public bool CanRemove => !IsRunning;
 
+	/// <summary>Gets the smoothed transfer-rate history for the operation.</summary>
+	public ObservableCollection<Vector2> SpeedGraphPoints { get; } = [];
+
+	/// <summary>Gets a value indicating whether transfer-rate history is available.</summary>
+	public bool HasSpeedGraphPoints => SpeedGraphPoints.Count is not 0;
+
 	internal StatusCenterItemViewModel(StorageOperationSnapshot snapshot)
 	{
 		ArgumentNullException.ThrowIfNull(snapshot);
@@ -233,6 +240,36 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		ProgressPercentage = GetProgressPercentage(snapshot);
 		IsRunning = snapshot.State is TrackedStorageOperationState.Running;
 		CanCancel = IsRunning && snapshot.CanCancel && !snapshot.IsCancellationRequested;
+		var hadSpeedGraphPoints = HasSpeedGraphPoints;
+		UpdateSpeedGraphPoints(snapshot.SpeedGraphPoints);
+		if (hadSpeedGraphPoints != HasSpeedGraphPoints)
+		{
+			OnPropertyChanged(nameof(HasSpeedGraphPoints));
+		}
+	}
+
+	private void UpdateSpeedGraphPoints(IReadOnlyList<Vector2> points)
+	{
+		ArgumentNullException.ThrowIfNull(points);
+
+		var sharedCount = Math.Min(SpeedGraphPoints.Count, points.Count);
+		for (var index = 0; index < sharedCount; index++)
+		{
+			if (SpeedGraphPoints[index] != points[index])
+			{
+				SpeedGraphPoints[index] = points[index];
+			}
+		}
+
+		while (SpeedGraphPoints.Count > points.Count)
+		{
+			SpeedGraphPoints.RemoveAt(SpeedGraphPoints.Count - 1);
+		}
+
+		for (var index = sharedCount; index < points.Count; index++)
+		{
+			SpeedGraphPoints.Add(points[index]);
+		}
 	}
 
 	private static double GetProgressPercentage(StorageOperationSnapshot snapshot)

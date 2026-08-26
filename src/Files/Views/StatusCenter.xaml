@@ -3,6 +3,7 @@
 	x:Class="Files.Views.StatusCenter"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:controls="using:Files.Controls"
 	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	xmlns:localization="using:Files.Localization"
 	xmlns:viewModels="using:Files.ViewModels">
@@ -78,6 +79,14 @@
 										Text="{x:Bind Detail, Mode=OneWay}"
 										TextTrimming="CharacterEllipsis" />
 									<ProgressBar Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
+									<Grid Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+										<controls:SpeedGraph
+											Height="72"
+											Margin="0,4,0,0"
+											Points="{x:Bind SpeedGraphPoints, Mode=OneWay}"
+											ProgressPercentage="{x:Bind ProgressPercentage, Mode=OneWay}"
+											Visibility="{x:Bind HasSpeedGraphPoints, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									</Grid>
 									<TextBlock
 										FontSize="12"
 										Foreground="{ThemeResource TextFillColorSecondaryBrush}"

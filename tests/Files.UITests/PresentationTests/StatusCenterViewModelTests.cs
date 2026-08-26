@@ -7,6 +7,7 @@ using Files.StorageOperations;
 using Files.ViewModels;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
+using System.Diagnostics;
 using System.IO;
 
 namespace Files.UITests;
@@ -32,11 +33,30 @@ public sealed class StatusCenterViewModelTests
 		Assert.AreEqual(1, runningSnapshot.CompletedItems);
 		Assert.AreEqual(250, runningSnapshot.CompletedBytes);
 		Assert.AreEqual(1000, runningSnapshot.TotalBytes);
+		Assert.AreEqual(41.67f, runningSnapshot.SpeedGraphPoints[^1].X, 0.01f);
 
 		progress.Report(new StorageOperationProgress(1, 1, completedBytes: 1000, totalBytes: 1000));
 		var completedItemSnapshot = tracker.GetSnapshot()[0];
 		Assert.AreEqual(2, completedItemSnapshot.CompletedItems);
 		Assert.IsNull(completedItemSnapshot.CompletedBytes);
+	}
+
+	/// <summary>
+	/// Verifies that item-only operations publish a rate graph when byte totals are unavailable.
+	/// </summary>
+	[TestMethod]
+	public void PublishesItemRateGraphWithoutByteProgress()
+	{
+		using var tracker = new StorageOperationTracker();
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Delete, 2, "first.bin", canCancel: false);
+
+		operation.Report(0, "first.bin");
+		operation.Report(1, "second.bin");
+
+		var points = tracker.GetSnapshot()[0].SpeedGraphPoints;
+		Assert.IsTrue(points.Count > 1);
+		Assert.AreEqual(50f, points[^1].X, 0.01f);
+		Assert.IsTrue(float.IsFinite(points[^1].Y));
 	}
 
 	/// <summary>
@@ -58,6 +78,64 @@ public sealed class StatusCenterViewModelTests
 		Assert.AreEqual(55L, snapshot.CompletedBytes);
 		Assert.AreEqual(100L, snapshot.TotalBytes);
 		Assert.AreEqual(55d, viewModel.Items[0].ProgressPercentage, 0.01);
+	}
+
+	/// <summary>
+	/// Verifies that the speed graph retains finite, ordered samples without growing for every progress callback.
+	/// </summary>
+	[UITestMethod]
+	public void BoundsSpeedGraphHistory()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.bin", canCancel: false);
+		const int sampleCount = 1024;
+		const long totalBytes = sampleCount * 1024L;
+
+		operation.Report(0, "large.bin", completedBytes: 0, totalBytes: totalBytes, isByteProgressForWholeOperation: true);
+		for (var index = 1; index <= sampleCount; index++)
+		{
+			operation.Report(0, "large.bin", completedBytes: index * 1024L, totalBytes: totalBytes, isByteProgressForWholeOperation: true);
+		}
+
+		var item = viewModel.Items[0];
+		var points = item.SpeedGraphPoints.ToArray();
+		Assert.IsTrue(item.HasSpeedGraphPoints);
+		Assert.IsTrue(points.Length > 1);
+		Assert.IsTrue(points.Length <= 201, $"The graph retained {points.Length} samples for {sampleCount} callbacks.");
+		Assert.IsTrue(points.All(static point => float.IsFinite(point.X) && float.IsFinite(point.Y)));
+		Assert.IsTrue(points.Zip(points.Skip(1)).All(static pair => pair.First.X <= pair.Second.X));
+	}
+
+	/// <summary>
+	/// Verifies that a short-lived transfer-rate spike is smoothed before it reaches the graph data.
+	/// </summary>
+	[UITestMethod]
+	public async Task SmoothsTransferRateSpikes()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.bin", canCancel: false);
+		const long totalBytes = 200_000_000;
+
+		operation.Report(0, "large.bin", completedBytes: 0, totalBytes: totalBytes, isByteProgressForWholeOperation: true);
+		await Task.Delay(100);
+		operation.Report(0, "large.bin", completedBytes: 1_000_000, totalBytes: totalBytes, isByteProgressForWholeOperation: true);
+		await Task.Delay(100);
+		operation.Report(0, "large.bin", completedBytes: 2_000_000, totalBytes: totalBytes, isByteProgressForWholeOperation: true);
+		var spikeSampleTimestamp = Stopwatch.GetTimestamp();
+		await Task.Delay(100);
+		operation.Report(0, "large.bin", completedBytes: 102_000_000, totalBytes: totalBytes, isByteProgressForWholeOperation: true);
+
+		var spikeElapsedSeconds = Stopwatch.GetElapsedTime(spikeSampleTimestamp).TotalSeconds;
+		var rawSpikeSpeed = 100_000_000d / spikeElapsedSeconds;
+		var snapshot = tracker.GetSnapshot()[0];
+		Assert.IsNotNull(snapshot.BytesPerSecond);
+		Assert.IsTrue(snapshot.BytesPerSecond.Value < rawSpikeSpeed);
+		Assert.IsTrue(viewModel.Items[0].HasSpeedGraphPoints);
+		Assert.IsTrue(viewModel.Items[0].SpeedGraphPoints.All(static point => float.IsFinite(point.Y) && point.Y >= 0));
 	}
 
 	/// <summary>

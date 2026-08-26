@@ -5,6 +5,7 @@ using Files.Core.Storage;
 using Files.Infrastructure;
 using System.Diagnostics;
 using System.IO;
+using System.Numerics;
 
 namespace Files.StorageOperations;
 
@@ -39,10 +40,15 @@ internal sealed record StorageOperationSnapshot(
 	bool CanCancel,
 	bool IsCancellationRequested,
 	DateTimeOffset StartedAt,
-	DateTimeOffset? CompletedAt);
+	DateTimeOffset? CompletedAt,
+	IReadOnlyList<Vector2> SpeedGraphPoints);
 
 internal sealed class StorageOperationTracker : IDisposable
 {
+	private const int MaxSpeedGraphPoints = 201;
+	private const int SpeedSmoothingSampleCount = 37;
+	private const double SpeedGraphPointIntervalPercentage = 0.5;
+
 	private readonly Lock _syncRoot = new();
 	private readonly Dictionary<Guid, OperationState> _operations = [];
 	private readonly List<Guid> _operationOrder = [];
@@ -210,7 +216,7 @@ internal sealed class StorageOperationTracker : IDisposable
 			operation.CompletedItems = completedItems;
 			operation.CurrentItemName = currentItemName;
 			operation.IsByteProgressForWholeOperation = isByteProgressForWholeOperation;
-			operation.UpdateTransferProgress(completedBytes, totalBytes);
+			operation.UpdateTransferProgress(completedBytes, totalBytes, isByteProgressForWholeOperation);
 		}
 
 		OnChanged();
@@ -251,7 +257,7 @@ internal sealed class StorageOperationTracker : IDisposable
 				operation.CompletedItems = operation.TotalItems;
 			}
 
-			operation.UpdateTransferProgress(null, null);
+			operation.UpdateTransferProgress(null, null, isByteProgressForWholeOperation: false);
 
 			cancellation = operation.Cancellation;
 			operation.Cancellation = null;
@@ -284,7 +290,16 @@ internal sealed class StorageOperationTracker : IDisposable
 
 	private sealed class OperationState
 	{
+		private readonly Queue<double> _itemSpeedSamples = new(SpeedSmoothingSampleCount);
+		private readonly List<Vector2> _speedGraphPoints = [];
+		private readonly Queue<double> _speedSamples = new(SpeedSmoothingSampleCount);
+		private bool _hasByteProgress;
+		private double _itemSpeedSampleTotal;
+		private double _speedSampleTotal;
+		private double _lastSpeedGraphPointProgressPercentage;
 		private long? _previousCompletedBytes;
+		private int? _previousCompletedItems;
+		private long _previousItemProgressTimestamp;
 		private long _previousProgressTimestamp;
 
 		public Guid Id { get; }
@@ -316,31 +331,44 @@ internal sealed class StorageOperationTracker : IDisposable
 			State = TrackedStorageOperationState.Running;
 			Cancellation = cancellation;
 			_previousProgressTimestamp = Stopwatch.GetTimestamp();
+			_previousItemProgressTimestamp = _previousProgressTimestamp;
 		}
 
 		public StorageOperationSnapshot CreateSnapshot()
 		{
 			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, CompletedBytes, TotalBytes, IsByteProgressForWholeOperation, BytesPerSecond,
-				RemainingTime, Error, CanCancel, IsCancellationRequested, StartedAt, CompletedAt);
+				RemainingTime, Error, CanCancel, IsCancellationRequested, StartedAt, CompletedAt, _speedGraphPoints.ToArray());
 		}
 
-		public void UpdateTransferProgress(long? completedBytes, long? totalBytes)
+		public void UpdateTransferProgress(long? completedBytes, long? totalBytes, bool isByteProgressForWholeOperation)
 		{
-			if (completedBytes is null || totalBytes is null)
+			if (completedBytes is null || totalBytes is null || totalBytes <= 0)
 			{
 				CompletedBytes = null;
 				TotalBytes = null;
 				BytesPerSecond = null;
 				RemainingTime = null;
+				ResetSpeedSamples();
 				_previousCompletedBytes = null;
 				_previousProgressTimestamp = Stopwatch.GetTimestamp();
+				if (!_hasByteProgress)
+				{
+					UpdateItemProgress();
+				}
 
 				return;
+			}
+
+			if (!_hasByteProgress)
+			{
+				_hasByteProgress = true;
+				ResetItemSpeedSamples();
 			}
 
 			if (_previousCompletedBytes is { } previousBytes && completedBytes < previousBytes)
 			{
 				BytesPerSecond = null;
+				ResetSpeedSamples();
 				_previousCompletedBytes = null;
 				_previousProgressTimestamp = Stopwatch.GetTimestamp();
 			}
@@ -348,13 +376,13 @@ internal sealed class StorageOperationTracker : IDisposable
 			CompletedBytes = completedBytes;
 			TotalBytes = totalBytes;
 			var now = Stopwatch.GetTimestamp();
-			if (_previousCompletedBytes is { } previousCompletedBytes && completedBytes > previousCompletedBytes)
+			if (_previousCompletedBytes is { } previousCompletedBytes)
 			{
 				var elapsed = Stopwatch.GetElapsedTime(_previousProgressTimestamp, now).TotalSeconds;
 				if (elapsed > 0)
 				{
 					var currentSpeed = (completedBytes.Value - previousCompletedBytes) / elapsed;
-					BytesPerSecond = BytesPerSecond is { } previousSpeed ? previousSpeed * 0.75 + currentSpeed * 0.25 : currentSpeed;
+					AddSpeedSample(currentSpeed);
 				}
 			}
 
@@ -362,6 +390,124 @@ internal sealed class StorageOperationTracker : IDisposable
 			_previousProgressTimestamp = now;
 			var remainingSeconds = BytesPerSecond is > 0 ? Math.Clamp((totalBytes.Value - completedBytes.Value) / BytesPerSecond.Value, 0, TimeSpan.MaxValue.TotalSeconds) : (double?)null;
 			RemainingTime = remainingSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null;
+			if (totalBytes > 0)
+			{
+				var currentItemProgress = Math.Clamp((double)completedBytes.Value / totalBytes.Value, 0, 1);
+				var progressPercentage = isByteProgressForWholeOperation ? currentItemProgress * 100d : Math.Clamp((CompletedItems + currentItemProgress) * 100d / TotalItems, 0, 100);
+				AddSpeedGraphPoint(progressPercentage, BytesPerSecond ?? 0);
+			}
+		}
+
+		private void UpdateItemProgress()
+		{
+			var now = Stopwatch.GetTimestamp();
+			var averageSpeed = 0d;
+			if (_previousCompletedItems is { } previousCompletedItems)
+			{
+				if (CompletedItems < previousCompletedItems)
+				{
+					ResetItemSpeedSamples();
+				}
+				else
+				{
+					var elapsed = Stopwatch.GetElapsedTime(_previousItemProgressTimestamp, now).TotalSeconds;
+					if (elapsed > 0)
+					{
+						averageSpeed = AddItemSpeedSample((CompletedItems - previousCompletedItems) / elapsed);
+					}
+				}
+			}
+
+			_previousCompletedItems = CompletedItems;
+			_previousItemProgressTimestamp = now;
+			var progressPercentage = Math.Clamp((double)CompletedItems * 100d / TotalItems, 0, 100);
+			AddSpeedGraphPoint(progressPercentage, averageSpeed);
+		}
+
+		private double AddItemSpeedSample(double speed)
+		{
+			if (!double.IsFinite(speed) || speed < 0)
+			{
+				return 0;
+			}
+
+			_itemSpeedSamples.Enqueue(speed);
+			_itemSpeedSampleTotal += speed;
+			if (_itemSpeedSamples.Count > SpeedSmoothingSampleCount)
+			{
+				_itemSpeedSampleTotal -= _itemSpeedSamples.Dequeue();
+			}
+
+			return _itemSpeedSampleTotal / _itemSpeedSamples.Count;
+		}
+
+		private void AddSpeedSample(double speed)
+		{
+			if (!double.IsFinite(speed) || speed < 0)
+			{
+				return;
+			}
+
+			_speedSamples.Enqueue(speed);
+			_speedSampleTotal += speed;
+			if (_speedSamples.Count > SpeedSmoothingSampleCount)
+			{
+				_speedSampleTotal -= _speedSamples.Dequeue();
+			}
+
+			BytesPerSecond = _speedSampleTotal / _speedSamples.Count;
+		}
+
+		private void AddSpeedGraphPoint(double progressPercentage, double rate)
+		{
+			var point = new Vector2((float)progressPercentage, (float)Math.Clamp(rate, 0, float.MaxValue));
+			if (_speedGraphPoints.Count is 0)
+			{
+				if (progressPercentage > 0)
+				{
+					_speedGraphPoints.Add(Vector2.Zero);
+				}
+
+				_speedGraphPoints.Add(point);
+				_lastSpeedGraphPointProgressPercentage = progressPercentage;
+
+				return;
+			}
+
+			var lastPoint = _speedGraphPoints[^1];
+			if (point.X < lastPoint.X)
+			{
+				return;
+			}
+
+			if (progressPercentage - _lastSpeedGraphPointProgressPercentage < SpeedGraphPointIntervalPercentage)
+			{
+				_speedGraphPoints[^1] = point;
+
+				return;
+			}
+
+			if (_speedGraphPoints.Count >= MaxSpeedGraphPoints)
+			{
+				_speedGraphPoints.RemoveAt(0);
+			}
+
+			_speedGraphPoints.Add(point);
+			_lastSpeedGraphPointProgressPercentage = progressPercentage;
+		}
+
+		private void ResetSpeedSamples()
+		{
+			_speedSamples.Clear();
+			_speedSampleTotal = 0;
+		}
+
+		private void ResetItemSpeedSamples()
+		{
+			_itemSpeedSamples.Clear();
+			_itemSpeedSampleTotal = 0;
+			_previousCompletedItems = null;
+			_previousItemProgressTimestamp = Stopwatch.GetTimestamp();
 		}
 	}
 }
