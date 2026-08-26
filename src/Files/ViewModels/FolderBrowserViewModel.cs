@@ -9,6 +9,7 @@ using Files.Commands;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.Settings;
+using Files.StorageOperations;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Data;
@@ -48,6 +49,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly BrowsePaneSession _pane;
 	private readonly IStorageWorkspace _workspace;
 	private readonly IStorageOperationService _storageOperations;
+	private readonly StorageOperationTracker _operationTracker;
 	private readonly AppSettingsService _appSettings;
 	private readonly WindowsStorageSource? _windowsSource;
 	private readonly WindowsShellNewMenu? _shellNewMenu;
@@ -165,7 +167,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		?? _browseAdapter.ErrorMessage
 		?? _browseAdapter.StatusText;
 
-	internal FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations,
+	internal FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations, StorageOperationTracker operationTracker,
 		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
@@ -173,6 +175,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		ArgumentNullException.ThrowIfNull(storageOperations);
+
+		ArgumentNullException.ThrowIfNull(operationTracker);
 
 		ArgumentNullException.ThrowIfNull(appSettings);
 
@@ -184,6 +188,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_pane = pane;
 		_workspace = workspace;
 		_storageOperations = storageOperations;
+		_operationTracker = operationTracker;
 		_appSettings = appSettings;
 		_dispatcher = dispatcher;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
@@ -294,16 +299,28 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			return;
 		}
 
-		var move = content.RequestedOperation.HasFlag(Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move);
-		foreach (var path in content.Paths)
+		var paths = content.Paths.ToArray();
+		if (paths.Length is 0)
 		{
-			await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false);
-			StorageOperationRequest request = move
-				? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName)
-				: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName);
-
-			await ExecuteStorageOperationAsync(request, cancellationToken).ConfigureAwait(false);
+			return;
 		}
+
+		var move = content.RequestedOperation.HasFlag(Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move);
+		var itemNames = paths.Select(GetOperationItemName).ToArray();
+		await ExecuteTrackedStorageOperationBatchAsync(
+			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
+			itemNames,
+			canCancel: false,
+			async (index, progress, operationCancellation) =>
+			{
+				await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, paths[index]), operationCancellation).ConfigureAwait(false);
+				StorageOperationRequest request = move
+					? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName)
+					: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName);
+
+				await ExecuteStorageOperationAsync(request, progress, operationCancellation).ConfigureAwait(false);
+			},
+			cancellationToken).ConfigureAwait(false);
 
 		if (move)
 		{
@@ -315,16 +332,20 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public async Task DeleteSelectionAsync(CancellationToken cancellationToken = default)
 	{
-		var selectedItems = SelectedItems;
-		if (selectedItems.Count is 0)
+		var selectedItems = SelectedItems.ToArray();
+		if (selectedItems.Length is 0)
 		{
 			return;
 		}
 
-		foreach (var item in selectedItems)
-		{
-			await ExecuteStorageOperationAsync(CreateDeleteRequest(item.Reference), cancellationToken).ConfigureAwait(false);
-		}
+		var itemNames = selectedItems.Select(static item => item.Name).ToArray();
+		var canCancel = CanCancelStorageOperations(selectedItems.Select(static item => item.Reference));
+		await ExecuteTrackedStorageOperationBatchAsync(
+			TrackedStorageOperationKind.Delete,
+			itemNames,
+			canCancel,
+			(index, progress, operationCancellation) => ExecuteStorageOperationAsync(CreateDeleteRequest(selectedItems[index].Reference), progress, operationCancellation),
+			cancellationToken).ConfigureAwait(false);
 
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
 	}
@@ -1025,18 +1046,71 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return false;
 	}
 
-	private async Task ExecuteStorageOperationAsync(StorageOperationRequest request, CancellationToken cancellationToken)
+	private async Task ExecuteTrackedStorageOperationBatchAsync(TrackedStorageOperationKind kind, IReadOnlyList<string> itemNames, bool canCancel,
+		Func<int, IProgress<StorageOperationProgress>, CancellationToken, Task> execute, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(itemNames);
+
+		ArgumentNullException.ThrowIfNull(execute);
+
+		if (itemNames.Count is 0)
+		{
+			return;
+		}
+
+		var operation = _operationTracker.StartOperation(kind, itemNames.Count, itemNames[0], canCancel, cancellationToken);
+		try
+		{
+			for (var index = 0; index < itemNames.Count; index++)
+			{
+				operation.CancellationToken.ThrowIfCancellationRequested();
+				operation.Report(index, itemNames[index]);
+				var progress = new StorageOperationBatchProgress(operation, index, itemNames[index]);
+				await execute(index, progress, operation.CancellationToken).ConfigureAwait(false);
+				operation.Report(index + 1, itemNames[index]);
+			}
+
+			operation.Complete();
+		}
+		catch (OperationCanceledException) when (operation.CancellationToken.IsCancellationRequested)
+		{
+			operation.MarkCanceled();
+
+			throw;
+		}
+		catch (Exception error)
+		{
+			operation.Fail(error);
+
+			throw;
+		}
+	}
+
+	private async Task ExecuteStorageOperationAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
 		if (!_storageOperations.CanHandle(request))
 		{
 			throw new NotSupportedException($"No storage operation handler can handle '{request.GetType().Name}'.");
 		}
 
-		var result = await _storageOperations.ExecuteAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+		var result = await _storageOperations.ExecuteAsync(request, progress, cancellationToken).ConfigureAwait(false);
 		if (!result.Succeeded)
 		{
 			throw result.Error ?? new IOException($"The storage operation '{request.GetType().Name}' failed.");
 		}
+	}
+
+	private bool CanCancelStorageOperations(IEnumerable<StorableReference> references)
+	{
+		return _windowsSource is null || references.All(reference => reference.SourceId != _windowsSource.SourceId);
+	}
+
+	private static string GetOperationItemName(string path)
+	{
+		var trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		var itemName = Path.GetFileName(trimmedPath);
+
+		return string.IsNullOrWhiteSpace(itemName) ? path : itemName;
 	}
 
 	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)

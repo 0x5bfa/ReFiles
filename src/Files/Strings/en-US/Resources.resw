@@ -25,6 +25,24 @@
 	<data name="SplitHorizontally" xml:space="preserve"><value>Split horizontally</value></data>
 	<data name="NoPane" xml:space="preserve"><value>No pane</value></data>
 	<data name="OperationCanceled" xml:space="preserve"><value>The operation was canceled.</value></data>
+	<data name="StatusCenter" xml:space="preserve"><value>Status center</value></data>
+	<data name="ClearCompleted" xml:space="preserve"><value>Clear completed</value></data>
+	<data name="NoStorageOperations" xml:space="preserve"><value>No storage operations</value></data>
+	<data name="CopyingItems" xml:space="preserve"><value>Copying items</value></data>
+	<data name="MovingItems" xml:space="preserve"><value>Moving items</value></data>
+	<data name="DeletingItems" xml:space="preserve"><value>Deleting items</value></data>
+	<data name="CopyCompleted" xml:space="preserve"><value>Copy completed</value></data>
+	<data name="MoveCompleted" xml:space="preserve"><value>Move completed</value></data>
+	<data name="DeleteCompleted" xml:space="preserve"><value>Delete completed</value></data>
+	<data name="CopyFailed" xml:space="preserve"><value>Copy failed</value></data>
+	<data name="MoveFailed" xml:space="preserve"><value>Move failed</value></data>
+	<data name="DeleteFailed" xml:space="preserve"><value>Delete failed</value></data>
+	<data name="CopyCanceled" xml:space="preserve"><value>Copy canceled</value></data>
+	<data name="MoveCanceled" xml:space="preserve"><value>Move canceled</value></data>
+	<data name="DeleteCanceled" xml:space="preserve"><value>Delete canceled</value></data>
+	<data name="StorageOperationProgressFormat" xml:space="preserve"><value>Items: {0} of {1}</value></data>
+	<data name="StorageOperationFailed" xml:space="preserve"><value>The storage operation failed.</value></data>
+	<data name="CancelingOperation" xml:space="preserve"><value>Canceling...</value></data>
 	<data name="Folder" xml:space="preserve"><value>Folder</value></data>
 	<data name="FolderEmpty" xml:space="preserve"><value>This folder is empty.</value></data>
 	<data name="File" xml:space="preserve"><value>File</value></data>

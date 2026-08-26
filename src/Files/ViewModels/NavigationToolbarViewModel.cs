@@ -31,6 +31,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel RefreshCommand { get; }
 
+	public StatusCenterViewModel StatusCenter { get; }
+
 	public ObservableCollection<NavigationToolbarBreadcrumbItem> BreadcrumbItems { get; } = [];
 
 	public string LocationText => _activeFolderBrowser?.LocationText ?? string.Empty;
@@ -42,7 +44,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel upCommand,
 		CommandBindingViewModel homeCommand,
 		CommandBindingViewModel navigatePathCommand,
-		CommandBindingViewModel refreshCommand)
+		CommandBindingViewModel refreshCommand,
+		StatusCenterViewModel statusCenter)
 	{
 		ArgumentNullException.ThrowIfNull(toggleSidebarCommand);
 		ArgumentNullException.ThrowIfNull(backCommand);
@@ -52,6 +55,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(navigatePathCommand);
 		ArgumentNullException.ThrowIfNull(refreshCommand);
 
+		ArgumentNullException.ThrowIfNull(statusCenter);
+
 		ToggleSidebarCommand = toggleSidebarCommand;
 		BackCommand = backCommand;
 		ForwardCommand = forwardCommand;
@@ -59,6 +64,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		HomeCommand = homeCommand;
 		NavigatePathCommand = navigatePathCommand;
 		RefreshCommand = refreshCommand;
+		StatusCenter = statusCenter;
 	}
 
 	public void Dispose()
@@ -72,6 +78,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		_activeFolderBrowser = null;
 		_breadcrumbCancellation?.Cancel();
 		_breadcrumbCancellation = null;
+		StatusCenter.Dispose();
 	}
 
 	internal void SetActiveFolderBrowser(FolderBrowserViewModel? value)

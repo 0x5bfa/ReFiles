@@ -5,6 +5,7 @@ using Files.Views;
 using Files.Commands;
 using Files.Infrastructure;
 using Files.Settings;
+using Files.StorageOperations;
 using Files.Core.Composition;
 using Files.Core.Sessions;
 using Microsoft.UI.Xaml;
@@ -18,6 +19,7 @@ public partial class App : Application
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
 	private readonly AppSettingsService _settings;
+	private readonly StorageOperationTracker _storageOperationTracker = new();
 	private readonly Lock _windowsLock = new();
 	private readonly Lock _shutdownLock = new();
 	private Task? _shutdownTask;
@@ -85,6 +87,7 @@ public partial class App : Application
 				coreWindow,
 				runtime.Workspace,
 				runtime.StorageOperations,
+				_storageOperationTracker,
 				_settings,
 				runtime.WindowsShellPreviewSessions,
 				_commandRegistry,
@@ -171,5 +174,7 @@ public partial class App : Application
 		{
 			await currentRuntime.DisposeAsync().ConfigureAwait(true);
 		}
+
+		_storageOperationTracker.Dispose();
 	}
 }

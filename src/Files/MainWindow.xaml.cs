@@ -13,6 +13,7 @@ using Files.Infrastructure;
 using Files.Presentation;
 using Files.ItemProperties;
 using Files.Settings;
+using Files.StorageOperations;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
@@ -35,6 +36,7 @@ public sealed partial class MainWindow : Window
 		WindowSession coreWindow,
 		IStorageWorkspace workspace,
 		IStorageOperationService storageOperations,
+		StorageOperationTracker operationTracker,
 		AppSettingsService appSettings,
 		IWindowsShellPreviewSessionFactory? windowsShellPreviewSessions,
 		CommandRegistry commandRegistry,
@@ -47,6 +49,8 @@ public sealed partial class MainWindow : Window
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		ArgumentNullException.ThrowIfNull(storageOperations);
+
+		ArgumentNullException.ThrowIfNull(operationTracker);
 
 		ArgumentNullException.ThrowIfNull(appSettings);
 
@@ -69,6 +73,7 @@ public sealed partial class MainWindow : Window
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,
+			operationTracker,
 			appSettings,
 			new DispatcherQueueUIDispatcher(DispatcherQueue),
 			commandRegistry,

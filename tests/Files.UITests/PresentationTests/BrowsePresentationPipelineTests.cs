@@ -20,6 +20,7 @@ using Files.Core.ViewSettings;
 using Files.Infrastructure;
 using Files.Presentation;
 using Files.Settings;
+using Files.StorageOperations;
 using Files.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -375,7 +376,8 @@ public sealed class BrowsePresentationPipelineTests
 		var stateCalls = new CountingStateCalls();
 		var commandRegistry = CreateCountingCommandRegistry(stateCalls);
 		var appSettings = new AppSettingsService(new Dictionary<string, object>());
-		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, appSettings, dispatcher, commandRegistry);
+		using var operationTracker = new StorageOperationTracker();
+		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, operationTracker, appSettings, dispatcher, commandRegistry);
 		RootViewModel root;
 		try
 		{

@@ -192,7 +192,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			SplitPaneVerticalCommand,
 			SplitPaneHorizontalCommand,
 			SetActiveTabAt);
-		NavigationToolbar = new(ToggleSidebarCommand, BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand);
+		NavigationToolbar = new(ToggleSidebarCommand, BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand, presentationFactory.CreateStatusCenterViewModel());
 		Toolbar = new(
 			CopyCommand,
 			CutCommand,

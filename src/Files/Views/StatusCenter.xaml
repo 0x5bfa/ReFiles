@@ -1,0 +1,125 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Views.StatusCenter"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
+	xmlns:localization="using:Files.Localization"
+	xmlns:viewModels="using:Files.ViewModels">
+
+	<UserControl.Resources>
+		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+	</UserControl.Resources>
+
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="*" />
+		</Grid.RowDefinitions>
+
+		<Grid Padding="12,8">
+			<TextBlock
+				VerticalAlignment="Center"
+				Style="{StaticResource BodyStrongTextBlockStyle}"
+				Text="{localization:Localized ResourceKey=StatusCenter}" />
+
+			<Button
+				Padding="8,2"
+				HorizontalAlignment="Right"
+				Click="ClearCompletedButton_Click"
+				Content="{localization:Localized ResourceKey=ClearCompleted}"
+				IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}" />
+		</Grid>
+
+		<Grid Grid.Row="1">
+			<ListView
+				Padding="12,0,12,12"
+				AutomationProperties.AutomationId="StatusCenterItems"
+				ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+				ScrollViewer.VerticalScrollBarVisibility="Auto"
+				SelectionMode="None">
+				<ListView.ItemContainerStyle>
+					<Style TargetType="ListViewItem">
+						<Setter Property="Padding" Value="0" />
+						<Setter Property="Margin" Value="0,2" />
+						<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+					</Style>
+				</ListView.ItemContainerStyle>
+				<ListView.ItemTemplate>
+					<DataTemplate x:DataType="viewModels:StatusCenterItemViewModel">
+						<Border
+							Padding="10"
+							Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+							BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+							BorderThickness="1"
+							CornerRadius="{StaticResource ControlCornerRadius}">
+							<Grid ColumnSpacing="10">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="Auto" />
+									<ColumnDefinition Width="*" />
+									<ColumnDefinition Width="Auto" />
+								</Grid.ColumnDefinitions>
+
+								<FontIcon
+									Width="24"
+									Height="24"
+									VerticalAlignment="Top"
+									FontSize="16"
+									Glyph="{x:Bind Glyph}" />
+
+								<StackPanel Grid.Column="1" Spacing="4">
+									<TextBlock
+										FontWeight="SemiBold"
+										Text="{x:Bind Title}"
+										TextTrimming="CharacterEllipsis" />
+									<TextBlock
+										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+										MaxLines="2"
+										Text="{x:Bind Detail}"
+										TextTrimming="CharacterEllipsis" />
+									<ProgressBar Visibility="{x:Bind IsRunning, Converter={StaticResource BoolToVisibilityConverter}}" Value="{x:Bind ProgressPercentage}" />
+									<TextBlock
+										FontSize="12"
+										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+										Text="{x:Bind ProgressText}" />
+								</StackPanel>
+
+								<StackPanel Grid.Column="2">
+									<Button
+										Width="32"
+										Height="32"
+										Padding="0"
+										AutomationProperties.Name="{localization:Localized ResourceKey=Cancel}"
+										Click="CancelButton_Click"
+										Tag="{x:Bind Id}"
+										ToolTipService.ToolTip="{localization:Localized ResourceKey=Cancel}"
+										Visibility="{x:Bind CanCancel, Converter={StaticResource BoolToVisibilityConverter}}">
+										<FontIcon FontSize="12" Glyph="&#xE711;" />
+									</Button>
+									<Button
+										Width="32"
+										Height="32"
+										Padding="0"
+										AutomationProperties.Name="{localization:Localized ResourceKey=Close}"
+										Click="RemoveButton_Click"
+										Tag="{x:Bind Id}"
+										ToolTipService.ToolTip="{localization:Localized ResourceKey=Close}"
+										Visibility="{x:Bind CanRemove, Converter={StaticResource BoolToVisibilityConverter}}">
+										<FontIcon FontSize="12" Glyph="&#xE711;" />
+									</Button>
+								</StackPanel>
+							</Grid>
+						</Border>
+					</DataTemplate>
+				</ListView.ItemTemplate>
+			</ListView>
+
+			<TextBlock
+				HorizontalAlignment="Center"
+				VerticalAlignment="Center"
+				Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+				Text="{localization:Localized ResourceKey=NoStorageOperations}"
+				Visibility="{x:Bind ViewModel.HasItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
+		</Grid>
+	</Grid>
+</UserControl>

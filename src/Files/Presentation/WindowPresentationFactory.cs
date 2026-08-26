@@ -9,6 +9,7 @@ using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.ItemProperties;
 using Files.Settings;
+using Files.StorageOperations;
 using Files.ViewModels;
 
 namespace Files.Presentation;
@@ -17,6 +18,7 @@ internal sealed class WindowPresentationFactory
 {
 	private readonly IStorageWorkspace _workspace;
 	private readonly IStorageOperationService _storageOperations;
+	private readonly StorageOperationTracker _operationTracker;
 	private readonly AppSettingsService _appSettings;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly CommandRegistry _commandRegistry;
@@ -33,6 +35,7 @@ internal sealed class WindowPresentationFactory
 	internal WindowPresentationFactory(
 		IStorageWorkspace workspace,
 		IStorageOperationService storageOperations,
+		StorageOperationTracker operationTracker,
 		AppSettingsService appSettings,
 		IUIDispatcher dispatcher,
 		CommandRegistry commandRegistry,
@@ -44,6 +47,8 @@ internal sealed class WindowPresentationFactory
 
 		ArgumentNullException.ThrowIfNull(storageOperations);
 
+		ArgumentNullException.ThrowIfNull(operationTracker);
+
 		ArgumentNullException.ThrowIfNull(appSettings);
 
 		ArgumentNullException.ThrowIfNull(dispatcher);
@@ -52,6 +57,7 @@ internal sealed class WindowPresentationFactory
 
 		_workspace = workspace;
 		_storageOperations = storageOperations;
+		_operationTracker = operationTracker;
 		_appSettings = appSettings;
 		_dispatcher = dispatcher;
 		_commandRegistry = commandRegistry;
@@ -77,6 +83,11 @@ internal sealed class WindowPresentationFactory
 		return new NavigationItemLoader(_workspace);
 	}
 
+	internal StatusCenterViewModel CreateStatusCenterViewModel()
+	{
+		return new StatusCenterViewModel(_operationTracker, _dispatcher);
+	}
+
 	internal TabViewModel CreateTab(TabSession tab, WindowCommandManager commandManager)
 	{
 		return new TabViewModel(tab, this, commandManager);
@@ -89,7 +100,7 @@ internal sealed class WindowPresentationFactory
 
 	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
 	{
-		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
+		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _operationTracker, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
 	}
 
 	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)

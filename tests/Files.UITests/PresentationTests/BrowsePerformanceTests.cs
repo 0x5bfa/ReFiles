@@ -23,6 +23,7 @@ using Files.Core.ViewSettings;
 using Files.Infrastructure;
 using Files.Presentation;
 using Files.Settings;
+using Files.StorageOperations;
 using Files.ViewModels;
 using Files.Views;
 using Microsoft.UI.Dispatching;
@@ -129,7 +130,8 @@ public sealed class BrowsePerformanceTests
 		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
 		var storageOperations = new NoOpStorageOperationService();
 		var appSettings = new AppSettingsService(new Dictionary<string, object>());
-		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, appSettings, dispatcher, CreateNoOpCommandRegistry());
+		using var operationTracker = new StorageOperationTracker();
+		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 		await coreWindow.OpenTabAsync();
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
 		var folder = root.ActiveFolderBrowser;
@@ -196,7 +198,8 @@ public sealed class BrowsePerformanceTests
 		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync();
 		var appSettings = new AppSettingsService(new Dictionary<string, object>());
-		var presentationFactory = new WindowPresentationFactory(runtime.Workspace, runtime.StorageOperations, appSettings, dispatcher, CreateNoOpCommandRegistry());
+		using var operationTracker = new StorageOperationTracker();
+		var presentationFactory = new WindowPresentationFactory(runtime.Workspace, runtime.StorageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
 		await root.InitializeAsync().WaitAsync(NavigationTimeout);
 
