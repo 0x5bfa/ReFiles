@@ -5,10 +5,6 @@
 	xmlns:local="using:Files.Controls"
 	xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
 
-	<ResourceDictionary.MergedDictionaries>
-		<XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-	</ResourceDictionary.MergedDictionaries>
-
 	<ResourceDictionary.ThemeDictionaries>
 		<ResourceDictionary x:Key="Default" />
 

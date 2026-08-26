@@ -21,16 +21,14 @@
 							ContentTemplate="{TemplateBinding ContentTemplate}"
 							ContentTransitions="{TemplateBinding ContentTransitions}" />
 
-						<Canvas
-							x:Name="PART_SelectionLayer"
-							IsHitTestVisible="False">
+						<Canvas x:Name="PART_SelectionLayer" IsHitTestVisible="False">
 							<Rectangle
 								x:Name="PART_SelectionRectangle"
 								Stroke="{ThemeResource AccentFillColorDefaultBrush}"
 								StrokeThickness="1"
 								Visibility="Collapsed">
 								<Rectangle.Fill>
-									<SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.18" />
+									<SolidColorBrush Opacity="0.18" Color="{ThemeResource SystemAccentColor}" />
 								</Rectangle.Fill>
 							</Rectangle>
 						</Canvas>

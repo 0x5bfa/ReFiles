@@ -5,8 +5,6 @@
 	xmlns:local="using:Files.Controls">
 
 	<ResourceDictionary.MergedDictionaries>
-		<XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
-
 		<!--#region Theme Dictionaries-->
 		<ResourceDictionary Source="ms-appx:///Files.Controls/ThemedIcon/ThemedIcon.ThemeResources.xaml" />
 

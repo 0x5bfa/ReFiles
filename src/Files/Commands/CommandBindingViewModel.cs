@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Controls;
 using Files.Localization;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 
 namespace Files.Commands;
 
@@ -22,8 +21,6 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	public string Label => Descriptor.LabelResourceKey.GetLocalized();
 
 	public ThemedIconData? IconData { get; }
-
-	public IconSource? IconSource { get; }
 
 	public string? Glyph => Descriptor.Glyph;
 
@@ -47,7 +44,6 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 		_manager = manager;
 		Descriptor = descriptor;
 		IconData = ResolveIconData(descriptor.IconResourceKey);
-		IconSource = IconData is null ? null : new ThemedIconSource { Data = IconData, IconSize = 16 };
 		Command = new BindingCommand(this);
 	}
 
