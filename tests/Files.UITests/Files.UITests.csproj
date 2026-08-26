@@ -2,44 +2,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<OutputType>Exe</OutputType>
+		<OutputType>WinExe</OutputType>
 		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
-		<RootNamespace>Files.UITests</RootNamespace>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<Platforms>x86;x64;ARM64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<PublishProfile>win-$(Platform).pubxml</PublishProfile>
 		<UseWinUI>true</UseWinUI>
 		<WinUIDSKReferences>false</WinUIDSKReferences>
-		<EnableMsixTooling>false</EnableMsixTooling>
-		<WindowsPackageType>None</WindowsPackageType>
-		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<EnableMsixTooling>true</EnableMsixTooling>
+		<Nullable>enable</Nullable>
 		<Configurations>Debug;Release</Configurations>
-		<Platforms>x86;x64;arm64</Platforms>
-		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-		<EnableMSTestRunner>true</EnableMSTestRunner>
-		<GenerateTestingPlatformEntryPoint>false</GenerateTestingPlatformEntryPoint>
-		<IsTestProject>true</IsTestProject>
-		<SelfContained>false</SelfContained>
-		<PrependPriInitialPath>true</PrependPriInitialPath>
-		<ShouldComputeInputPris>true</ShouldComputeInputPris>
-		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
-		<!-- Keep the bootstrap-disabled Files reference isolated from the normal app build output. -->
-		<FilesReferenceOutputPath>bin\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceOutputPath>
-		<FilesReferenceIntermediateOutputPath>obj\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceIntermediateOutputPath>
-		<FilesReferenceBuildProperties>WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false</FilesReferenceBuildProperties>
-		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);OutputPath=$(FilesReferenceOutputPath);IntermediateOutputPath=$(FilesReferenceIntermediateOutputPath)</FilesReferenceBuildProperties>
+		<NoWarn>$(NoWarn);CS0436</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ApplicationDefinition Remove="App.xaml" />
-		<ApplicationDefinition Include="App.xaml" />
+		<Page Remove="UnitTestApp.xaml" />
+		<ApplicationDefinition Include="UnitTestApp.xaml" />
 		<ProjectCapability Include="TestContainer" />
 		<Manifest Include="$(ApplicationManifest)" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\Files\Files.csproj" AdditionalProperties="$(FilesReferenceBuildProperties)" />
-		<ProjectReference Include="..\..\src\Files.Controls\Files.Controls.csproj" />
+		<ProjectReference Include="..\..\src\Files\Files.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.TestPlatform.TestHost" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
-		<!--<PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" />-->
 		<PackageReference Include="Microsoft.WindowsAppSDK" />
 		<PackageReference Include="MSTest.TestAdapter" />
 		<PackageReference Include="MSTest.TestFramework" />

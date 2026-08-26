@@ -51,7 +51,7 @@ public sealed class NavigationItemViewModelTests
 			window.Activate();
 			await loaded.Task.WaitAsync(TimeSpan.FromSeconds(5));
 			var templateReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-			Assert.IsTrue(App.TestDispatcherQueue.TryEnqueue(templateReady.SetResult));
+			Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(templateReady.SetResult));
 			await templateReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
 			Assert.IsNotNull(SidebarItem.MenuItemsSourceProperty);

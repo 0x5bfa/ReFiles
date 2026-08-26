@@ -14,9 +14,6 @@
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
-		<!--  Use Microsoft.Testing.Platform  -->
-		<EnableMSTestRunner>true</EnableMSTestRunner>
-
 		<!--  Use strict Roslyn compilation mode  -->
 		<Features>strict</Features>
 

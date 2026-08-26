@@ -1,0 +1,14 @@
+<!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
+<Window
+	x:Class="Files.UITests.UnitTestAppWindow"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="Files UI Tests">
+
+	<Window.SystemBackdrop>
+		<MicaBackdrop />
+	</Window.SystemBackdrop>
+
+	<Grid />
+
+</Window>

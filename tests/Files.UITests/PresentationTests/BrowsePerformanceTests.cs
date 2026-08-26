@@ -125,7 +125,7 @@ public sealed class BrowsePerformanceTests
 
 		await using var coreWindow = new WindowSession(paneFactory);
 		await using var workspace = new PerformanceStorageWorkspace();
-		var dispatcher = new MeasuringUiDispatcher(App.TestDispatcherQueue);
+		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
 		var storageOperations = new NoOpStorageOperationService();
 		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, dispatcher, CreateNoOpCommandRegistry());
 		await coreWindow.OpenTabAsync();
@@ -136,7 +136,7 @@ public sealed class BrowsePerformanceTests
 		var detailsView = new DetailsFolderView { ViewModel = folder };
 		using var host = await PerformanceWindowHost.ShowAsync(detailsView);
 		using var tableDiagnostics = new TableViewDiagnostics(detailsView.PerformanceTable);
-		await using var dispatcherProbe = new DispatcherLatencyProbe(App.TestDispatcherQueue);
+		await using var dispatcherProbe = new DispatcherLatencyProbe(UnitTestApp.TestDispatcherQueue);
 		using var metrics = new BrowseMeasurementRecorder(session, folder, tableDiagnostics);
 
 		dispatcherProbe.Start();
@@ -191,7 +191,7 @@ public sealed class BrowsePerformanceTests
 	private static async Task<IReadOnlyList<BrowsePerformanceResult>> RunRealFolderScenarioAsync(string folderPath, int iterations)
 	{
 		await using var runtime = new FilesCoreBuilder().AddWindowsStorage().Build();
-		var dispatcher = new MeasuringUiDispatcher(App.TestDispatcherQueue);
+		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync();
 		var presentationFactory = new WindowPresentationFactory(runtime.Workspace, runtime.StorageOperations, dispatcher, CreateNoOpCommandRegistry());
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
@@ -210,7 +210,7 @@ public sealed class BrowsePerformanceTests
 		for (var iteration = 0; iteration < iterations; iteration++)
 		{
 			using var tableDiagnostics = new TableViewDiagnostics(detailsView.PerformanceTable);
-			await using var dispatcherProbe = new DispatcherLatencyProbe(App.TestDispatcherQueue);
+			await using var dispatcherProbe = new DispatcherLatencyProbe(UnitTestApp.TestDispatcherQueue);
 			using var metrics = new BrowseMeasurementRecorder(pane.BrowseSession, folder, tableDiagnostics);
 			var dispatcherCountBefore = dispatcher.EnqueueCount;
 			dispatcherProbe.Start();
@@ -280,7 +280,7 @@ public sealed class BrowsePerformanceTests
 	private static async Task WaitForUiIdleAsync()
 	{
 		var idle = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-		if (!App.TestDispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => idle.TrySetResult(true)))
+		if (!UnitTestApp.TestDispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => idle.TrySetResult(true)))
 		{
 			throw new InvalidOperationException("Could not enqueue a UI-idle marker.");
 		}

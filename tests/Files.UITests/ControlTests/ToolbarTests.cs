@@ -158,7 +158,7 @@ public sealed class ToolbarTests
 	private static async Task WaitForDispatcherAsync()
 	{
 		var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-		Assert.IsTrue(App.TestDispatcherQueue.TryEnqueue(completion.SetResult));
+		Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(completion.SetResult));
 		await completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
 	}
 
