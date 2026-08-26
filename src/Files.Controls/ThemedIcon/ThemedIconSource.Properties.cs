@@ -8,9 +8,9 @@ namespace Files.Controls;
 
 public sealed partial class ThemedIconSource
 {
-	/// <summary>Gets or sets the geometry displayed by created icons.</summary>
+	/// <summary>Gets or sets the data displayed by created icons.</summary>
 	[GeneratedDependencyProperty]
-	public partial ThemedIconData? Data { get; set; }
+	public partial ThemedIconData? IconData { get; set; }
 
 	/// <summary>Gets or sets the preferred icon variant.</summary>
 	[GeneratedDependencyProperty(DefaultValue = ThemedIconTypes.Layered)]
@@ -44,7 +44,7 @@ public sealed partial class ThemedIconSource
 	[GeneratedDependencyProperty]
 	public partial bool IsHighContrast { get; set; }
 
-	partial void OnDataChanged(ThemedIconData? newValue)
+	partial void OnIconDataChanged(ThemedIconData? newValue)
 	{
 		UpdateDataSource();
 	}

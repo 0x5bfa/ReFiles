@@ -304,7 +304,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 	private static IconSource CreateSettingsIconSource()
 	{
 		return Application.Current?.Resources.TryGetValue(SettingsIconResourceKey, out var value) is true && value is ThemedIconData iconData
-			? new ThemedIconSource { Data = iconData, IconSize = 16 }
+			? new ThemedIconSource { IconData = iconData, IconSize = 16 }
 			: new FontIconSource { Glyph = SettingsIconGlyph };
 	}
 

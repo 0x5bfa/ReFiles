@@ -6,6 +6,7 @@ using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using Windows.UI;
@@ -18,6 +19,70 @@ namespace Files.UITests.ControlTests;
 [TestClass]
 public sealed class ThemedIconTests
 {
+	/// <summary>
+	/// Verifies that a themed icon source is not interpreted as a path icon source.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task IconSourceDoesNotBindThemedDataToPathGeometry()
+	{
+		var bindingFailures = new List<string>();
+		BindingFailedEventHandler handler = (_, args) =>
+		{
+			if (args.Message.Contains(nameof(ThemedIconSource), StringComparison.Ordinal) || args.Message.Contains(nameof(ThemedIconData), StringComparison.Ordinal))
+			{
+				bindingFailures.Add(args.Message);
+			}
+		};
+		Application.Current.DebugSettings.BindingFailed += handler;
+
+		var iconData = new ThemedIconData { OutlineData = "M0,0 H16 V16 H0 Z", Size = 16 };
+		var source = new ThemedIconSource { IconData = iconData, IconType = ThemedIconTypes.Outline };
+		var sourceElement = new IconSourceElement { IconSource = source };
+		var tabItem = new TabViewItem { Header = "Themed icon", IconSource = source };
+		var tabView = new TabView();
+		tabView.TabItems.Add(tabItem);
+		var omnibarMode = new OmnibarMode
+		{
+			IconOnActive = new ThemedIcon { Data = iconData, IsFilled = true },
+			IconOnInactive = new ThemedIcon { Data = iconData, IconType = ThemedIconTypes.Outline },
+			IsDefault = true,
+			ModeName = "Path",
+		};
+		var omnibar = new Omnibar();
+		omnibar.Modes!.Add(omnibarMode);
+		var host = new StackPanel();
+		host.Children.Add(sourceElement);
+		host.Children.Add(tabView);
+		host.Children.Add(omnibar);
+		var window = new Window { Content = host };
+		try
+		{
+			var loaded = Task.WhenAll(WaitForLoadedAsync(sourceElement), WaitForLoadedAsync(tabItem), WaitForLoadedAsync(omnibar));
+			window.Activate();
+			await loaded;
+
+			var createdIcon = source.CreateIconElement();
+			Assert.IsInstanceOfType<ThemedIcon>(createdIcon);
+			Assert.AreSame(iconData, ((ThemedIcon)createdIcon).Data);
+			var updatedIconData = new ThemedIconData { OutlineData = "M2,2 H14 V14 H2 Z", Size = 16 };
+			source.IconData = updatedIconData;
+			Assert.AreSame(updatedIconData, ((ThemedIcon)createdIcon).Data);
+			Assert.IsNotNull(FindDescendant<AnimatedIcon>(tabItem));
+			Assert.IsNull(FindDescendant<PathIcon>(tabItem));
+			Assert.IsNull(FindDescendant<PathIcon>(omnibar));
+			var omnibarIcon = FindDescendant<AnimatedIcon>(omnibar);
+			Assert.IsNotNull(omnibarIcon);
+			Assert.IsInstanceOfType<ThemedIcon>(omnibarIcon, omnibarIcon.GetType().FullName);
+			Assert.AreEqual(0, bindingFailures.Count, string.Join(Environment.NewLine, bindingFailures));
+		}
+		finally
+		{
+			Application.Current.DebugSettings.BindingFailed -= handler;
+			window.Close();
+		}
+	}
+
 	/// <summary>
 	/// Verifies that an icon uses its requested theme when its rendered palette changes at runtime.
 	/// </summary>
@@ -103,6 +168,27 @@ public sealed class ThemedIconTests
 		element.Loaded += handler;
 
 		return completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+	}
+
+	private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+	{
+		var childCount = VisualTreeHelper.GetChildrenCount(root);
+		for (var index = 0; index < childCount; index++)
+		{
+			var child = VisualTreeHelper.GetChild(root, index);
+			if (child is T candidate)
+			{
+				return candidate;
+			}
+
+			var descendant = FindDescendant<T>(child);
+			if (descendant is not null)
+			{
+				return descendant;
+			}
+		}
+
+		return null;
 	}
 
 	private static async Task WaitForActualThemeAsync(FrameworkElement element, ElementTheme expectedTheme)

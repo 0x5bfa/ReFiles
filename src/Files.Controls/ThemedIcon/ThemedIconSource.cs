@@ -23,7 +23,7 @@ public sealed partial class ThemedIconSource : AnimatedIconSource
 	{
 		return new ThemedIcon()
 		{
-			Data = Data,
+			Data = IconData,
 			IconType = IconType,
 			IconColorType = IconColorType,
 			Color = Color,
@@ -38,7 +38,7 @@ public sealed partial class ThemedIconSource : AnimatedIconSource
 	/// <inheritdoc />
 	protected override DependencyProperty GetIconElementPropertyCore(DependencyProperty iconSourceProperty)
 	{
-		if (iconSourceProperty == DataProperty)
+		if (iconSourceProperty == IconDataProperty)
 		{
 			return ThemedIcon.DataProperty;
 		}
@@ -96,7 +96,7 @@ public sealed partial class ThemedIconSource : AnimatedIconSource
 		var isToggled = ToggleBehavior is ToggleBehaviors.On || (ToggleBehavior is ToggleBehaviors.Auto && IsToggled);
 		if (!_visualSource.UpdateAppearance(IconType, IconColorType, IsFilled, isToggled, true, IsHighContrast, Foreground, Color, ElementTheme.Default, false))
 		{
-			_visualSource = new ThemedIconVisualSource(Data ?? ThemedIconData.Default, IconType, IconColorType, IsFilled, isToggled, true, IsHighContrast, Foreground, Color, ElementTheme.Default, false);
+			_visualSource = new ThemedIconVisualSource(IconData ?? ThemedIconData.Default, IconType, IconColorType, IsFilled, isToggled, true, IsHighContrast, Foreground, Color, ElementTheme.Default, false);
 			Source = _visualSource;
 		}
 	}
@@ -104,7 +104,7 @@ public sealed partial class ThemedIconSource : AnimatedIconSource
 	private void UpdateDataSource()
 	{
 		var isToggled = ToggleBehavior is ToggleBehaviors.On || (ToggleBehavior is ToggleBehaviors.Auto && IsToggled);
-		_visualSource = new ThemedIconVisualSource(Data ?? ThemedIconData.Default, IconType, IconColorType, IsFilled, isToggled, true, IsHighContrast, Foreground, Color, ElementTheme.Default, false);
+		_visualSource = new ThemedIconVisualSource(IconData ?? ThemedIconData.Default, IconType, IconColorType, IsFilled, isToggled, true, IsHighContrast, Foreground, Color, ElementTheme.Default, false);
 		Source = _visualSource;
 	}
 }
