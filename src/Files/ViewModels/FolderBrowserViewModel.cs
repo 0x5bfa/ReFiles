@@ -310,7 +310,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		await ExecuteTrackedStorageOperationBatchAsync(
 			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
 			itemNames,
-			canCancel: false,
+			canCancel: true,
 			async (index, progress, operationCancellation) =>
 			{
 				await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, paths[index]), operationCancellation).ConfigureAwait(false);
@@ -339,11 +339,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 
 		var itemNames = selectedItems.Select(static item => item.Name).ToArray();
-		var canCancel = CanCancelStorageOperations(selectedItems.Select(static item => item.Reference));
 		await ExecuteTrackedStorageOperationBatchAsync(
 			TrackedStorageOperationKind.Delete,
 			itemNames,
-			canCancel,
+			canCancel: true,
 			(index, progress, operationCancellation) => ExecuteStorageOperationAsync(CreateDeleteRequest(selectedItems[index].Reference), progress, operationCancellation),
 			cancellationToken).ConfigureAwait(false);
 
@@ -1098,11 +1097,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			throw result.Error ?? new IOException($"The storage operation '{request.GetType().Name}' failed.");
 		}
-	}
-
-	private bool CanCancelStorageOperations(IEnumerable<StorableReference> references)
-	{
-		return _windowsSource is null || references.All(reference => reference.SourceId != _windowsSource.SourceId);
 	}
 
 	private static string GetOperationItemName(string path)

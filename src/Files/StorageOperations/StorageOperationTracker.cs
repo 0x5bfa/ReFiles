@@ -3,6 +3,7 @@
 
 using Files.Core.Storage;
 using Files.Infrastructure;
+using System.Diagnostics;
 using System.IO;
 
 namespace Files.StorageOperations;
@@ -29,6 +30,10 @@ internal sealed record StorageOperationSnapshot(
 	int CompletedItems,
 	int TotalItems,
 	string? CurrentItemName,
+	long? CompletedBytes,
+	long? TotalBytes,
+	double? BytesPerSecond,
+	TimeSpan? RemainingTime,
 	Exception? Error,
 	bool CanCancel,
 	bool IsCancellationRequested,
@@ -185,7 +190,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		}
 	}
 
-	internal void ReportProgress(Guid id, int completedItems, string? currentItemName)
+	internal void ReportProgress(Guid id, int completedItems, string? currentItemName, long? completedBytes, long? totalBytes)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegative(completedItems);
 
@@ -203,6 +208,7 @@ internal sealed class StorageOperationTracker : IDisposable
 
 			operation.CompletedItems = completedItems;
 			operation.CurrentItemName = currentItemName;
+			operation.UpdateTransferProgress(completedBytes, totalBytes);
 		}
 
 		OnChanged();
@@ -243,6 +249,8 @@ internal sealed class StorageOperationTracker : IDisposable
 				operation.CompletedItems = operation.TotalItems;
 			}
 
+			operation.UpdateTransferProgress(null, null);
+
 			cancellation = operation.Cancellation;
 			operation.Cancellation = null;
 		}
@@ -274,6 +282,9 @@ internal sealed class StorageOperationTracker : IDisposable
 
 	private sealed class OperationState
 	{
+		private long? _previousCompletedBytes;
+		private long _previousProgressTimestamp;
+
 		public Guid Id { get; }
 		public TrackedStorageOperationKind Kind { get; }
 		public int TotalItems { get; }
@@ -282,6 +293,10 @@ internal sealed class StorageOperationTracker : IDisposable
 		public TrackedStorageOperationState State { get; set; }
 		public int CompletedItems { get; set; }
 		public string? CurrentItemName { get; set; }
+		public long? CompletedBytes { get; private set; }
+		public long? TotalBytes { get; private set; }
+		public double? BytesPerSecond { get; private set; }
+		public TimeSpan? RemainingTime { get; private set; }
 		public Exception? Error { get; set; }
 		public bool IsCancellationRequested { get; set; }
 		public DateTimeOffset? CompletedAt { get; set; }
@@ -297,11 +312,53 @@ internal sealed class StorageOperationTracker : IDisposable
 			StartedAt = DateTimeOffset.Now;
 			State = TrackedStorageOperationState.Running;
 			Cancellation = cancellation;
+			_previousProgressTimestamp = Stopwatch.GetTimestamp();
 		}
 
 		public StorageOperationSnapshot CreateSnapshot()
 		{
-			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, Error, CanCancel, IsCancellationRequested, StartedAt, CompletedAt);
+			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, CompletedBytes, TotalBytes, BytesPerSecond, RemainingTime, Error, CanCancel,
+				IsCancellationRequested, StartedAt, CompletedAt);
+		}
+
+		public void UpdateTransferProgress(long? completedBytes, long? totalBytes)
+		{
+			if (completedBytes is null || totalBytes is null)
+			{
+				CompletedBytes = null;
+				TotalBytes = null;
+				BytesPerSecond = null;
+				RemainingTime = null;
+				_previousCompletedBytes = null;
+				_previousProgressTimestamp = Stopwatch.GetTimestamp();
+
+				return;
+			}
+
+			if (_previousCompletedBytes is { } previousBytes && completedBytes < previousBytes)
+			{
+				BytesPerSecond = null;
+				_previousCompletedBytes = null;
+				_previousProgressTimestamp = Stopwatch.GetTimestamp();
+			}
+
+			CompletedBytes = completedBytes;
+			TotalBytes = totalBytes;
+			var now = Stopwatch.GetTimestamp();
+			if (_previousCompletedBytes is { } previousCompletedBytes && completedBytes > previousCompletedBytes)
+			{
+				var elapsed = Stopwatch.GetElapsedTime(_previousProgressTimestamp, now).TotalSeconds;
+				if (elapsed > 0)
+				{
+					var currentSpeed = (completedBytes.Value - previousCompletedBytes) / elapsed;
+					BytesPerSecond = BytesPerSecond is { } previousSpeed ? previousSpeed * 0.75 + currentSpeed * 0.25 : currentSpeed;
+				}
+			}
+
+			_previousCompletedBytes = completedBytes;
+			_previousProgressTimestamp = now;
+			var remainingSeconds = BytesPerSecond is > 0 ? Math.Clamp((totalBytes.Value - completedBytes.Value) / BytesPerSecond.Value, 0, TimeSpan.MaxValue.TotalSeconds) : (double?)null;
+			RemainingTime = remainingSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null;
 		}
 	}
 }
@@ -320,9 +377,9 @@ internal sealed class StorageOperationHandle
 		CancellationToken = cancellationToken;
 	}
 
-	public void Report(int completedItems, string? currentItemName)
+	public void Report(int completedItems, string? currentItemName, long? completedBytes = null, long? totalBytes = null)
 	{
-		_tracker.ReportProgress(_id, completedItems, currentItemName);
+		_tracker.ReportProgress(_id, completedItems, currentItemName, completedBytes, totalBytes);
 	}
 
 	public void Complete()
@@ -362,7 +419,9 @@ internal sealed class StorageOperationBatchProgress : IProgress<StorageOperation
 		ArgumentNullException.ThrowIfNull(value);
 
 		var itemCompleted = value.CompletedItems == value.TotalItems ? 1 : 0;
-		_operation.Report(_completedItems + itemCompleted, GetItemName(value.CurrentItem));
+		var completedBytes = itemCompleted is 0 ? value.CompletedBytes : null;
+		var totalBytes = itemCompleted is 0 ? value.TotalBytes : null;
+		_operation.Report(_completedItems + itemCompleted, GetItemName(value.CurrentItem), completedBytes, totalBytes);
 	}
 
 	private string GetItemName(StorableReference? reference)

@@ -39,13 +39,22 @@ public sealed class WindowsStorageOperationTests
 			Assert.IsTrue(created.Succeeded, created.Error?.ToString());
 			Assert.IsNotNull(created.ResultItem);
 			var createdReference = created.ResultItem!;
-			Assert.IsTrue(File.Exists(Path.Combine(rootPath, "created.txt")));
+			var createdPath = Path.Combine(rootPath, "created.txt");
+			Assert.IsTrue(File.Exists(createdPath));
+			var content = new byte[1024 * 1024];
+			Random.Shared.NextBytes(content);
+			File.WriteAllBytes(createdPath, content);
+			var copyProgress = new List<StorageOperationProgress>();
 
-			var copied = await service.ExecuteAsync(new CopyOperationRequest(createdReference, firstDestination, "copied.txt"));
+			var copied = await service.ExecuteAsync(new CopyOperationRequest(createdReference, firstDestination, "copied.txt"), new InlineProgress<StorageOperationProgress>(copyProgress.Add));
 			Assert.IsTrue(copied.Succeeded, copied.Error?.ToString());
 			Assert.IsNotNull(copied.ResultItem);
 			var copiedReference = copied.ResultItem!;
 			Assert.IsTrue(File.Exists(Path.Combine(firstDestinationPath, "copied.txt")));
+			Assert.IsTrue(copyProgress.Count >= 2);
+			Assert.AreEqual(content.LongLength, copyProgress[0].TotalBytes);
+			Assert.AreEqual(0, copyProgress[0].CompletedBytes);
+			Assert.AreEqual(content.LongLength, copyProgress[^1].CompletedBytes);
 
 			var moved = await service.ExecuteAsync(new MoveOperationRequest(copiedReference, secondDestination, "moved.txt"));
 			Assert.IsTrue(moved.Succeeded, moved.Error?.ToString());
@@ -67,6 +76,50 @@ public sealed class WindowsStorageOperationTests
 			Assert.IsTrue(uniqueCopy.Succeeded, uniqueCopy.Error?.ToString());
 			Assert.IsNotNull(uniqueCopy.ResultItem);
 			Assert.AreEqual(Path.Combine(rootPath, "created (2).txt"), uniqueCopy.ResultItem.LastKnownAddress!.Value);
+		}
+		finally
+		{
+			Directory.Delete(rootPath, recursive: true);
+		}
+	}
+
+	/// <summary>
+	/// Test case: cancellation requested by a running progress sink aborts the shell copy.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task RunningCopyCanBeCanceledThroughProgressSink()
+	{
+		var rootPath = Path.Combine(Path.GetTempPath(), $"Files.Core.CanceledOperationTests-{Guid.NewGuid():N}");
+		var destinationPath = Path.Combine(rootPath, "destination");
+		var sourcePath = Path.Combine(rootPath, "source.bin");
+		var copiedPath = Path.Combine(destinationPath, "source.bin");
+		Directory.CreateDirectory(destinationPath);
+		File.WriteAllBytes(sourcePath, new byte[1024 * 1024]);
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var sourceReference = await ResolveReferenceAsync(source, sourcePath);
+			var destinationReference = await ResolveReferenceAsync(source, destinationPath);
+			var service = new StorageOperationService([new WindowsStorageOperationHandler(source)]);
+			using var cancellation = new CancellationTokenSource();
+			var reportCount = 0;
+			var progress = new InlineProgress<StorageOperationProgress>(_ =>
+			{
+				if (Interlocked.Increment(ref reportCount) is 2)
+				{
+					cancellation.Cancel();
+				}
+			});
+
+			var result = await service.ExecuteAsync(new CopyOperationRequest(sourceReference, destinationReference), progress, cancellation.Token);
+
+			Assert.IsFalse(result.Succeeded);
+			Assert.IsInstanceOfType<OperationCanceledException>(result.Error);
+			Assert.IsTrue(reportCount >= 2);
+			Assert.IsFalse(File.Exists(copiedPath));
 		}
 		finally
 		{

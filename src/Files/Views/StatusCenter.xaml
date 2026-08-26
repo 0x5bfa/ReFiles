@@ -65,23 +65,23 @@
 									Height="24"
 									VerticalAlignment="Top"
 									FontSize="16"
-									Glyph="{x:Bind Glyph}" />
+									Glyph="{x:Bind Glyph, Mode=OneWay}" />
 
 								<StackPanel Grid.Column="1" Spacing="4">
 									<TextBlock
 										FontWeight="SemiBold"
-										Text="{x:Bind Title}"
+										Text="{x:Bind Title, Mode=OneWay}"
 										TextTrimming="CharacterEllipsis" />
 									<TextBlock
 										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
 										MaxLines="2"
-										Text="{x:Bind Detail}"
+										Text="{x:Bind Detail, Mode=OneWay}"
 										TextTrimming="CharacterEllipsis" />
-									<ProgressBar Visibility="{x:Bind IsRunning, Converter={StaticResource BoolToVisibilityConverter}}" Value="{x:Bind ProgressPercentage}" />
+									<ProgressBar Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
 									<TextBlock
 										FontSize="12"
 										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-										Text="{x:Bind ProgressText}" />
+										Text="{x:Bind ProgressText, Mode=OneWay}" />
 								</StackPanel>
 
 								<StackPanel Grid.Column="2">
@@ -93,7 +93,7 @@
 										Click="CancelButton_Click"
 										Tag="{x:Bind Id}"
 										ToolTipService.ToolTip="{localization:Localized ResourceKey=Cancel}"
-										Visibility="{x:Bind CanCancel, Converter={StaticResource BoolToVisibilityConverter}}">
+										Visibility="{x:Bind CanCancel, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
 										<FontIcon FontSize="12" Glyph="&#xE711;" />
 									</Button>
 									<Button
@@ -104,7 +104,7 @@
 										Click="RemoveButton_Click"
 										Tag="{x:Bind Id}"
 										ToolTipService.ToolTip="{localization:Localized ResourceKey=Close}"
-										Visibility="{x:Bind CanRemove, Converter={StaticResource BoolToVisibilityConverter}}">
+										Visibility="{x:Bind CanRemove, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
 										<FontIcon FontSize="12" Glyph="&#xE711;" />
 									</Button>
 								</StackPanel>

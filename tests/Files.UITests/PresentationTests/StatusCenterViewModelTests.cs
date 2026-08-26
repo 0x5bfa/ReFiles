@@ -27,11 +27,42 @@ public sealed class StatusCenterViewModelTests
 		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 3, "first.txt", canCancel: false);
 		var progress = new StorageOperationBatchProgress(operation, completedItems: 1, "second.txt");
 
-		progress.Report(new StorageOperationProgress(0, 1));
-		Assert.AreEqual(1, tracker.GetSnapshot()[0].CompletedItems);
+		progress.Report(new StorageOperationProgress(0, 1, completedBytes: 250, totalBytes: 1000));
+		var runningSnapshot = tracker.GetSnapshot()[0];
+		Assert.AreEqual(1, runningSnapshot.CompletedItems);
+		Assert.AreEqual(250, runningSnapshot.CompletedBytes);
+		Assert.AreEqual(1000, runningSnapshot.TotalBytes);
 
-		progress.Report(new StorageOperationProgress(1, 1));
-		Assert.AreEqual(2, tracker.GetSnapshot()[0].CompletedItems);
+		progress.Report(new StorageOperationProgress(1, 1, completedBytes: 1000, totalBytes: 1000));
+		var completedItemSnapshot = tracker.GetSnapshot()[0];
+		Assert.AreEqual(2, completedItemSnapshot.CompletedItems);
+		Assert.IsNull(completedItemSnapshot.CompletedBytes);
+	}
+
+	/// <summary>
+	/// Verifies that byte progress is projected as percentage, speed, and remaining time without blocking the dispatcher.
+	/// </summary>
+	[UITestMethod]
+	public async Task PublishesTransferRateAndRemainingTime()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true);
+		var progress = new StorageOperationBatchProgress(operation, completedItems: 0, "large.iso");
+		const long totalBytes = 100 * 1024 * 1024;
+
+		progress.Report(new StorageOperationProgress(0, 1, completedBytes: 0, totalBytes: totalBytes));
+		var item = viewModel.Items[0];
+		await Task.Delay(120);
+		progress.Report(new StorageOperationProgress(0, 1, completedBytes: totalBytes / 2, totalBytes: totalBytes));
+
+		Assert.AreSame(item, viewModel.Items[0]);
+		Assert.AreEqual(50d, viewModel.Items[0].ProgressPercentage, 0.01);
+		StringAssert.Contains(viewModel.Items[0].ProgressText, "50.0 MB");
+		StringAssert.Contains(viewModel.Items[0].ProgressText, "/s");
+		StringAssert.Contains(viewModel.Items[0].ProgressText, "remaining");
+		Assert.IsTrue(viewModel.Items[0].CanCancel);
 	}
 
 	/// <summary>

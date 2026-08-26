@@ -110,10 +110,33 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 	private void Refresh()
 	{
 		var snapshots = _tracker.GetSnapshot();
-		Items.Clear();
-		foreach (var snapshot in snapshots)
+		var snapshotIds = snapshots.Select(static snapshot => snapshot.Id).ToHashSet();
+		for (var index = Items.Count - 1; index >= 0; index--)
 		{
-			Items.Add(new StatusCenterItemViewModel(snapshot));
+			if (!snapshotIds.Contains(Items[index].Id))
+			{
+				Items.RemoveAt(index);
+			}
+		}
+
+		for (var index = 0; index < snapshots.Count; index++)
+		{
+			var snapshot = snapshots[index];
+			var item = Items.FirstOrDefault(candidate => candidate.Id == snapshot.Id);
+			if (item is null)
+			{
+				Items.Insert(index, new StatusCenterItemViewModel(snapshot));
+
+				continue;
+			}
+
+			var currentIndex = Items.IndexOf(item);
+			if (currentIndex != index)
+			{
+				Items.Move(currentIndex, index);
+			}
+
+			item.Update(snapshot);
 		}
 
 		OnPropertyChanged(nameof(HasItems));
@@ -124,23 +147,65 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 	}
 }
 
-public sealed class StatusCenterItemViewModel
+public sealed class StatusCenterItemViewModel : ObservableObject
 {
+	private string _title = string.Empty;
+	private string _detail = string.Empty;
+	private string _progressText = string.Empty;
+	private string _glyph = string.Empty;
+	private double _progressPercentage;
+	private bool _isRunning;
+	private bool _canCancel;
+
 	public Guid Id { get; }
 
-	public string Title { get; }
+	public string Title
+	{
+		get => _title;
+		private set => SetProperty(ref _title, value);
+	}
 
-	public string Detail { get; }
+	public string Detail
+	{
+		get => _detail;
+		private set => SetProperty(ref _detail, value);
+	}
 
-	public string ProgressText { get; }
+	public string ProgressText
+	{
+		get => _progressText;
+		private set => SetProperty(ref _progressText, value);
+	}
 
-	public string Glyph { get; }
+	public string Glyph
+	{
+		get => _glyph;
+		private set => SetProperty(ref _glyph, value);
+	}
 
-	public double ProgressPercentage { get; }
+	public double ProgressPercentage
+	{
+		get => _progressPercentage;
+		private set => SetProperty(ref _progressPercentage, value);
+	}
 
-	public bool IsRunning { get; }
+	public bool IsRunning
+	{
+		get => _isRunning;
+		private set
+		{
+			if (SetProperty(ref _isRunning, value))
+			{
+				OnPropertyChanged(nameof(CanRemove));
+			}
+		}
+	}
 
-	public bool CanCancel { get; }
+	public bool CanCancel
+	{
+		get => _canCancel;
+		private set => SetProperty(ref _canCancel, value);
+	}
 
 	public bool CanRemove => !IsRunning;
 
@@ -149,13 +214,87 @@ public sealed class StatusCenterItemViewModel
 		ArgumentNullException.ThrowIfNull(snapshot);
 
 		Id = snapshot.Id;
+		Update(snapshot);
+	}
+
+	internal void Update(StorageOperationSnapshot snapshot)
+	{
+		ArgumentNullException.ThrowIfNull(snapshot);
+
+		if (snapshot.Id != Id)
+		{
+			throw new ArgumentException("The snapshot must represent the same storage operation.", nameof(snapshot));
+		}
+
 		Title = GetTitle(snapshot.Kind, snapshot.State);
 		Detail = GetDetail(snapshot);
-		ProgressText = string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationProgressFormat.GetLocalized(), snapshot.CompletedItems, snapshot.TotalItems);
+		ProgressText = GetProgressText(snapshot);
 		Glyph = GetGlyph(snapshot.State);
-		ProgressPercentage = Math.Clamp(snapshot.CompletedItems * 100d / snapshot.TotalItems, 0, 100);
+		ProgressPercentage = GetProgressPercentage(snapshot);
 		IsRunning = snapshot.State is TrackedStorageOperationState.Running;
 		CanCancel = IsRunning && snapshot.CanCancel && !snapshot.IsCancellationRequested;
+	}
+
+	private static double GetProgressPercentage(StorageOperationSnapshot snapshot)
+	{
+		var currentItemProgress = snapshot.CompletedBytes is { } completedBytes && snapshot.TotalBytes is > 0 and { } totalBytes
+			? Math.Clamp((double)completedBytes / totalBytes, 0, 1)
+			: 0;
+
+		return Math.Clamp((snapshot.CompletedItems + currentItemProgress) * 100d / snapshot.TotalItems, 0, 100);
+	}
+
+	private static string GetProgressText(StorageOperationSnapshot snapshot)
+	{
+		if (snapshot.State is TrackedStorageOperationState.Running && snapshot.CompletedBytes is { } completedBytes && snapshot.TotalBytes is { } totalBytes)
+		{
+			var completedText = FormatBytes(completedBytes);
+			var totalText = FormatBytes(totalBytes);
+			if (snapshot.BytesPerSecond is > 0 and { } bytesPerSecond && snapshot.RemainingTime is { } remainingTime)
+			{
+				return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationTransferWithSpeedFormat.GetLocalized(), completedText, totalText, FormatBytes((long)bytesPerSecond),
+					FormatRemainingTime(remainingTime));
+			}
+
+			return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationTransferFormat.GetLocalized(), completedText, totalText);
+		}
+
+		return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationProgressFormat.GetLocalized(), snapshot.CompletedItems, snapshot.TotalItems);
+	}
+
+	private static string FormatBytes(long bytes)
+	{
+		string[] suffixes =
+		[
+			Strings.ByteSymbol.GetLocalized(),
+			Strings.KilobyteSymbol.GetLocalized(),
+			Strings.MegabyteSymbol.GetLocalized(),
+			Strings.GigabyteSymbol.GetLocalized(),
+			Strings.TerabyteSymbol.GetLocalized(),
+			Strings.PetabyteSymbol.GetLocalized(),
+		];
+		var value = (double)bytes;
+		var suffixIndex = 0;
+		while (value >= 1024 && suffixIndex < suffixes.Length - 1)
+		{
+			value /= 1024;
+			suffixIndex++;
+		}
+
+		var valueText = suffixIndex is 0 ? value.ToString("N0", CultureInfo.CurrentCulture) : value.ToString(value < 10 ? "N2" : value < 100 ? "N1" : "N0", CultureInfo.CurrentCulture);
+
+		return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationSizeFormat.GetLocalized(), valueText, suffixes[suffixIndex]);
+	}
+
+	private static string FormatRemainingTime(TimeSpan remainingTime)
+	{
+		var rounded = TimeSpan.FromSeconds(Math.Max(0, Math.Ceiling(remainingTime.TotalSeconds)));
+
+		return rounded.TotalDays >= 1
+			? rounded.ToString(@"d\.hh\:mm\:ss", CultureInfo.CurrentCulture)
+			: rounded.TotalHours >= 1
+				? rounded.ToString(@"h\:mm\:ss", CultureInfo.CurrentCulture)
+				: rounded.ToString(@"m\:ss", CultureInfo.CurrentCulture);
 	}
 
 	private static string GetTitle(TrackedStorageOperationKind kind, TrackedStorageOperationState state)

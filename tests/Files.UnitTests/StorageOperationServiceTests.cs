@@ -120,6 +120,8 @@ public sealed class StorageOperationServiceTests
 		Assert.Throws<ArgumentException>(() => new StorageOperationResult(succeeded: true, resultItem: reference, error: new IOException("unexpected")));
 		Assert.Throws<ArgumentNullException>(() => new StorageOperationResult(succeeded: false, resultItem: null));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(completedItems: 2, totalItems: 1));
+		Assert.Throws<ArgumentException>(() => new StorageOperationProgress(0, 1, completedBytes: 1));
+		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(0, 1, completedBytes: 2, totalBytes: 1));
 	}
 
 	private static RenameOperationRequest CreateRenameRequest()

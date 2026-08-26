@@ -175,26 +175,29 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 				: null;
 		var destinationName = ResolveDestinationName(destinationFolderPath, desiredName, item is WindowsFolder, conflictBehavior, ignoredExistingPath);
 		var destinationPath = Path.Combine(destinationFolderPath, destinationName);
+		var totalBytes = GetTransferByteCount(item, itemPath);
 
-		progress?.Report(new StorageOperationProgress(0, 1, itemReference));
+		progress?.Report(new StorageOperationProgress(0, 1, itemReference, totalBytes.HasValue ? 0 : null, totalBytes));
 		if (move && PathSpellingEquals(itemPath, destinationPath))
 		{
 			var unchanged = new StorableReference(_source.SourceId, item.Id, item.Address);
-			progress?.Report(new StorageOperationProgress(1, 1, unchanged));
+			progress?.Report(new StorageOperationProgress(1, 1, unchanged, totalBytes, totalBytes));
 
 			return new StorageOperationResult(true, unchanged);
 		}
 
 		var outcome = await _source.ShellItemResolver
-			.InvokeOperationAsync(item.ParsingName, destinationFolder.ParsingName, (sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move), cancellationToken)
+			.InvokeOperationAsync(item.ParsingName, destinationFolder.ParsingName,
+				(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move, progress, itemReference, totalBytes, cancellationToken), cancellationToken)
 			.ConfigureAwait(false);
+
 		if (!outcome.Succeeded)
 		{
 			return Failed(outcome.Error!);
 		}
 
 		var resultItem = await ResolveResultAsync(destinationPath).ConfigureAwait(false);
-		progress?.Report(new StorageOperationProgress(1, 1, resultItem));
+		progress?.Report(new StorageOperationProgress(1, 1, resultItem, totalBytes, totalBytes));
 
 		return new StorageOperationResult(true, resultItem);
 	}
@@ -208,7 +211,9 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		}
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
-		var outcome = await _source.ShellItemResolver.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently), cancellationToken).ConfigureAwait(false);
+		var outcome = await _source.ShellItemResolver
+			.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently, progress, request.Item, cancellationToken), cancellationToken)
+			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
 			return Failed(outcome.Error!);
@@ -352,7 +357,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteTransfer(IShellItem item, IShellItem destinationFolder, string destinationName, bool move)
+	private static ShellOperationOutcome ExecuteTransfer(IShellItem item, IShellItem destinationFolder, string destinationName, bool move, IProgress<StorageOperationProgress>? progress,
+		StorableReference itemReference, long? totalBytes, CancellationToken cancellationToken)
 	{
 		var creation = CreateOperation(allowUndo: true);
 		if (!creation.Outcome.Succeeded)
@@ -369,11 +375,14 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			return Failure(result, $"The Windows Shell {(move ? "move" : "copy")} operation could not be queued.");
 		}
 
-		return Perform(fileOperation, move ? "move" : "copy");
+		var progressSink = new WindowsFileOperationProgressSink(progress, itemReference, totalBytes, cancellationToken);
+
+		return Perform(fileOperation, move ? "move" : "copy", progressSink, cancellationToken);
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteDelete(IShellItem item, bool permanently)
+	private static ShellOperationOutcome ExecuteDelete(IShellItem item, bool permanently, IProgress<StorageOperationProgress>? progress, StorableReference itemReference,
+		CancellationToken cancellationToken)
 	{
 		var creation = CreateOperation(allowUndo: !permanently, recycleOnDelete: !permanently);
 		if (!creation.Outcome.Succeeded)
@@ -388,7 +397,9 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			return Failure(result, "The Windows Shell delete operation could not be queued.");
 		}
 
-		return Perform(fileOperation, "delete");
+		var progressSink = new WindowsFileOperationProgressSink(progress, itemReference, null, cancellationToken);
+
+		return Perform(fileOperation, "delete", progressSink, cancellationToken);
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
@@ -426,23 +437,77 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return fileOperation.SetOperationFlags(flags);
 	}
 
-	private static ShellOperationOutcome Perform(IFileOperation fileOperation, string operationName)
+	private static ShellOperationOutcome Perform(IFileOperation fileOperation, string operationName, WindowsFileOperationProgressSink? progressSink = null, CancellationToken cancellationToken = default)
 	{
-		var result = fileOperation.PerformOperations();
-		if (result.Failed)
+		uint? progressCookie = null;
+		if (progressSink is not null)
 		{
-			return Failure(result, $"The Windows Shell {operationName} operation failed.");
+			var progressDialogResult = fileOperation.SetProgressDialog(progressSink);
+			if (progressDialogResult.Failed)
+			{
+				return Failure(progressDialogResult, $"The Windows Shell {operationName} progress dialog could not be registered.");
+			}
+
+			var progressSinkResult = fileOperation.Advise(progressSink, out var cookie);
+			if (progressSinkResult.Failed)
+			{
+				return Failure(progressSinkResult, $"The Windows Shell {operationName} progress sink could not be registered.");
+			}
+
+			progressCookie = cookie;
 		}
 
-		result = fileOperation.GetAnyOperationsAborted(out var aborted);
-		if (result.Failed)
+		try
 		{
-			return Failure(result, $"The Windows Shell {operationName} completion could not be read.");
+			var result = fileOperation.PerformOperations();
+			if (result.Failed)
+			{
+				return cancellationToken.IsCancellationRequested
+					? Canceled(operationName, cancellationToken)
+					: Failure(result, $"The Windows Shell {operationName} operation failed.");
+			}
+
+			result = fileOperation.GetAnyOperationsAborted(out var aborted);
+			if (result.Failed)
+			{
+				return Failure(result, $"The Windows Shell {operationName} completion could not be read.");
+			}
+
+			return aborted
+				? Canceled(operationName, cancellationToken)
+				: new ShellOperationOutcome(true, null);
+		}
+		finally
+		{
+			if (progressCookie is { } cookie)
+			{
+				_ = fileOperation.Unadvise(cookie);
+			}
+
+			GC.KeepAlive(progressSink);
+		}
+	}
+
+	private static ShellOperationOutcome Canceled(string operationName, CancellationToken cancellationToken)
+	{
+		return new ShellOperationOutcome(false, new OperationCanceledException($"The Windows Shell {operationName} operation was canceled.", cancellationToken));
+	}
+
+	private static long? GetTransferByteCount(WindowsStorable item, string path)
+	{
+		if (item is not WindowsFile)
+		{
+			return null;
 		}
 
-		return aborted
-			? new ShellOperationOutcome(false, new OperationCanceledException($"The Windows Shell {operationName} operation was aborted."))
-			: new ShellOperationOutcome(true, null);
+		try
+		{
+			return new FileInfo(path).Length;
+		}
+		catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
+		{
+			return null;
+		}
 	}
 
 	private static string ResolveDestinationName(string destinationFolderPath, string desiredName, bool isFolder, StorageConflictBehavior conflictBehavior, string? ignoredExistingPath = null)

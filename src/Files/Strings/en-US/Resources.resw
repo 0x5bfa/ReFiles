@@ -41,6 +41,9 @@
 	<data name="MoveCanceled" xml:space="preserve"><value>Move canceled</value></data>
 	<data name="DeleteCanceled" xml:space="preserve"><value>Delete canceled</value></data>
 	<data name="StorageOperationProgressFormat" xml:space="preserve"><value>Items: {0} of {1}</value></data>
+	<data name="StorageOperationSizeFormat" xml:space="preserve"><value>{0} {1}</value></data>
+	<data name="StorageOperationTransferFormat" xml:space="preserve"><value>{0} of {1}</value></data>
+	<data name="StorageOperationTransferWithSpeedFormat" xml:space="preserve"><value>{0} of {1} · {2}/s · {3} remaining</value></data>
 	<data name="StorageOperationFailed" xml:space="preserve"><value>The storage operation failed.</value></data>
 	<data name="CancelingOperation" xml:space="preserve"><value>Canceling...</value></data>
 	<data name="Folder" xml:space="preserve"><value>Folder</value></data>
