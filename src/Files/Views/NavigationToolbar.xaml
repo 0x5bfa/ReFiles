@@ -158,26 +158,6 @@
 			AutomationProperties.AutomationId="StatusCenterButton"
 			AutomationProperties.Name="{localization:Localized ResourceKey=StatusCenter}"
 			Label="{localization:Localized ResourceKey=StatusCenter}">
-			<Grid Width="20" Height="20">
-				<controls:ThemedIcon
-					Width="16"
-					Height="16"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Data="{StaticResource App.ThemedIcons.StatusCenter}"
-					Visibility="{x:Bind ViewModel.StatusCenter.HasInProgressItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
-				<ProgressRing
-					Width="20"
-					Height="20"
-					IsIndeterminate="False"
-					Visibility="{x:Bind ViewModel.StatusCenter.HasInProgressItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-					Value="{x:Bind ViewModel.StatusCenter.AverageProgressPercentage, Mode=OneWay}" />
-				<InfoBadge
-					HorizontalAlignment="Right"
-					VerticalAlignment="Top"
-					Visibility="{x:Bind ViewModel.StatusCenter.HasInProgressItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-					Value="{x:Bind ViewModel.StatusCenter.InProgressItemCount, Mode=OneWay}" />
-			</Grid>
 			<controls:ToolbarButton.Flyout>
 				<Flyout Placement="BottomEdgeAlignedRight">
 					<Flyout.FlyoutPresenterStyle>
@@ -187,12 +167,40 @@
 						</Style>
 					</Flyout.FlyoutPresenterStyle>
 					<views:StatusCenter
-						Width="400"
+						Width="420"
 						MinHeight="120"
 						MaxHeight="500"
 						ViewModel="{x:Bind ViewModel.StatusCenter, Mode=OneWay}" />
 				</Flyout>
 			</controls:ToolbarButton.Flyout>
+
+			<Grid Width="30" Height="30">
+				<controls:ThemedIcon
+					Width="16"
+					Height="16"
+					HorizontalAlignment="Center"
+					VerticalAlignment="Center"
+					Data="{StaticResource App.ThemedIcons.StatusCenter}"
+					Visibility="{x:Bind ViewModel.StatusCenter.HasInProgressItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
+				<ProgressRing
+					Width="30"
+					Height="30"
+					IsIndeterminate="False"
+					Visibility="{x:Bind ViewModel.StatusCenter.HasInProgressItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+					Value="{x:Bind ViewModel.StatusCenter.AverageProgressPercentage, Mode=OneWay}">
+					<ProgressRing.Resources>
+						<ResourceDictionary>
+							<x:Double x:Key="ProgressRingStrokeThickness">3</x:Double>
+						</ResourceDictionary>
+					</ProgressRing.Resources>
+				</ProgressRing>
+				<InfoBadge
+					HorizontalAlignment="Center"
+					VerticalAlignment="Center"
+					Visibility="{x:Bind ViewModel.StatusCenter.HasInProgressItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+					Value="{x:Bind ViewModel.StatusCenter.InProgressItemCount, Mode=OneWay}" />
+			</Grid>
+
 		</controls:ToolbarButton>
 	</Grid>
 </UserControl>

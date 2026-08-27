@@ -31,9 +31,15 @@
 	<data name="CopyingItems" xml:space="preserve"><value>Copying items</value></data>
 	<data name="MovingItems" xml:space="preserve"><value>Moving items</value></data>
 	<data name="DeletingItems" xml:space="preserve"><value>Deleting items</value></data>
+	<data name="CopyingItemProgressFormat" xml:space="preserve"><value>Copying item {0} of {1} ({2}%)</value></data>
+	<data name="MovingItemProgressFormat" xml:space="preserve"><value>Moving item {0} of {1} ({2}%)</value></data>
+	<data name="DeletingItemProgressFormat" xml:space="preserve"><value>Deleting item {0} of {1} ({2}%)</value></data>
 	<data name="CopyCompleted" xml:space="preserve"><value>Copy completed</value></data>
 	<data name="MoveCompleted" xml:space="preserve"><value>Move completed</value></data>
 	<data name="DeleteCompleted" xml:space="preserve"><value>Delete completed</value></data>
+	<data name="CopyCompletedDetailFormat" xml:space="preserve"><value>Successfully copied {0} to {1}</value></data>
+	<data name="MoveCompletedDetailFormat" xml:space="preserve"><value>Successfully moved {0} to {1}</value></data>
+	<data name="DeleteCompletedDetailFormat" xml:space="preserve"><value>Successfully deleted {0}</value></data>
 	<data name="CopyFailed" xml:space="preserve"><value>Copy failed</value></data>
 	<data name="MoveFailed" xml:space="preserve"><value>Move failed</value></data>
 	<data name="DeleteFailed" xml:space="preserve"><value>Delete failed</value></data>
@@ -44,8 +50,21 @@
 	<data name="StorageOperationSizeFormat" xml:space="preserve"><value>{0} {1}</value></data>
 	<data name="StorageOperationTransferFormat" xml:space="preserve"><value>{0} of {1}</value></data>
 	<data name="StorageOperationTransferWithSpeedFormat" xml:space="preserve"><value>{0} of {1} · {2}/s · {3} remaining</value></data>
+	<data name="StorageOperationDestinationFormat" xml:space="preserve"><value>to {0}</value></data>
+	<data name="StorageOperationCurrentItemFormat" xml:space="preserve"><value>File: “{0}”</value></data>
+	<data name="StorageOperationTransferredFormat" xml:space="preserve"><value>{0} of {1} transferred</value></data>
+	<data name="StorageOperationSpeedFormat" xml:space="preserve"><value>{0}/s</value></data>
+	<data name="StorageOperationSpeedUnavailable" xml:space="preserve"><value>---</value></data>
+	<data name="StorageOperationLessThanMinuteRemaining" xml:space="preserve"><value>Less than a minute remaining</value></data>
+	<data name="StorageOperationAboutOneMinuteRemaining" xml:space="preserve"><value>About a minute remaining</value></data>
+	<data name="StorageOperationMinutesRemainingFormat" xml:space="preserve"><value>About {0} minutes remaining</value></data>
+	<data name="StorageOperationAboutOneHourRemaining" xml:space="preserve"><value>About an hour remaining</value></data>
+	<data name="StorageOperationHoursRemainingFormat" xml:space="preserve"><value>About {0} hours remaining</value></data>
 	<data name="StorageOperationFailed" xml:space="preserve"><value>The storage operation failed.</value></data>
 	<data name="CancelingOperation" xml:space="preserve"><value>Canceling...</value></data>
+	<data name="ExpandDetails" xml:space="preserve"><value>Expand details</value></data>
+	<data name="CollapseDetails" xml:space="preserve"><value>Collapse details</value></data>
+	<data name="Speed" xml:space="preserve"><value>Speed:</value></data>
 	<data name="Folder" xml:space="preserve"><value>Folder</value></data>
 	<data name="FolderEmpty" xml:space="preserve"><value>This folder is empty.</value></data>
 	<data name="File" xml:space="preserve"><value>File</value></data>

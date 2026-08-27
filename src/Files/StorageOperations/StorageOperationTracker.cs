@@ -31,6 +31,7 @@ internal sealed record StorageOperationSnapshot(
 	int CompletedItems,
 	int TotalItems,
 	string? CurrentItemName,
+	string? DestinationPath,
 	long? CompletedBytes,
 	long? TotalBytes,
 	bool IsByteProgressForWholeOperation,
@@ -56,7 +57,8 @@ internal sealed class StorageOperationTracker : IDisposable
 
 	public event EventHandler? Changed;
 
-	public StorageOperationHandle StartOperation(TrackedStorageOperationKind kind, int totalItems, string? currentItemName, bool canCancel, CancellationToken cancellationToken = default)
+	public StorageOperationHandle StartOperation(TrackedStorageOperationKind kind, int totalItems, string? currentItemName, bool canCancel, CancellationToken cancellationToken = default,
+		string? destinationPath = null)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(totalItems);
 
@@ -76,7 +78,7 @@ internal sealed class StorageOperationTracker : IDisposable
 				throw new ObjectDisposedException(nameof(StorageOperationTracker));
 			}
 
-			_operations.Add(id, new OperationState(id, kind, totalItems, currentItemName, canCancel, operationCancellation));
+			_operations.Add(id, new OperationState(id, kind, totalItems, currentItemName, destinationPath, canCancel, operationCancellation));
 			_operationOrder.Insert(0, id);
 		}
 
@@ -310,6 +312,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		public TrackedStorageOperationState State { get; set; }
 		public int CompletedItems { get; set; }
 		public string? CurrentItemName { get; set; }
+		public string? DestinationPath { get; }
 		public long? CompletedBytes { get; private set; }
 		public long? TotalBytes { get; private set; }
 		public bool IsByteProgressForWholeOperation { get; set; }
@@ -320,12 +323,13 @@ internal sealed class StorageOperationTracker : IDisposable
 		public DateTimeOffset? CompletedAt { get; set; }
 		public CancellationTokenSource? Cancellation { get; set; }
 
-		public OperationState(Guid id, TrackedStorageOperationKind kind, int totalItems, string? currentItemName, bool canCancel, CancellationTokenSource cancellation)
+		public OperationState(Guid id, TrackedStorageOperationKind kind, int totalItems, string? currentItemName, string? destinationPath, bool canCancel, CancellationTokenSource cancellation)
 		{
 			Id = id;
 			Kind = kind;
 			TotalItems = totalItems;
 			CurrentItemName = currentItemName;
+			DestinationPath = destinationPath;
 			CanCancel = canCancel;
 			StartedAt = DateTimeOffset.Now;
 			State = TrackedStorageOperationState.Running;
@@ -336,7 +340,7 @@ internal sealed class StorageOperationTracker : IDisposable
 
 		public StorageOperationSnapshot CreateSnapshot()
 		{
-			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, CompletedBytes, TotalBytes, IsByteProgressForWholeOperation, BytesPerSecond,
+			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, DestinationPath, CompletedBytes, TotalBytes, IsByteProgressForWholeOperation, BytesPerSecond,
 				RemainingTime, Error, CanCancel, IsCancellationRequested, StartedAt, CompletedAt, _speedGraphPoints.ToArray());
 		}
 

@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage;
+using Files.Controls;
 using Files.Infrastructure;
 using Files.StorageOperations;
 using Files.ViewModels;
+using Files.Views;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using System.Diagnostics;
@@ -78,6 +82,69 @@ public sealed class StatusCenterViewModelTests
 		Assert.AreEqual(55L, snapshot.CompletedBytes);
 		Assert.AreEqual(100L, snapshot.TotalBytes);
 		Assert.AreEqual(55d, viewModel.Items[0].ProgressPercentage, 0.01);
+	}
+
+	/// <summary>
+	/// Verifies that an active card exposes the concept layout details and keeps its expansion state locally.
+	/// </summary>
+	[UITestMethod]
+	public void PresentsExpandedOperationCardDetails()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 2, "small.bin", canCancel: true, destinationPath: @"D:\Backups");
+
+		operation.Report(1, "large.iso", completedBytes: 55, totalBytes: 100, isByteProgressForWholeOperation: true);
+
+		var item = viewModel.Items[0];
+		Assert.AreEqual("Copying item 2 of 2 (55%)", item.Title);
+		Assert.AreEqual(@"to D:\Backups", item.Detail);
+		Assert.AreEqual("File: “large.iso”", item.CurrentItemText);
+		StringAssert.Contains(item.TransferText, "transferred");
+		Assert.IsTrue(item.IsExpanded);
+		Assert.IsTrue(item.ShowExpandedGraph);
+		Assert.IsFalse(item.ShowCompactProgress);
+
+		viewModel.ToggleExpanded(item.Id);
+		operation.Report(1, "large.iso", completedBytes: 60, totalBytes: 100, isByteProgressForWholeOperation: true);
+
+		Assert.IsFalse(item.IsExpanded);
+		Assert.IsFalse(item.ShowExpandedGraph);
+		Assert.IsTrue(item.ShowCompactProgress);
+	}
+
+	/// <summary>
+	/// Verifies that the concept card template realizes its graph and themed operation icon.
+	/// </summary>
+	[UITestMethod]
+	public async Task RealizesExpandedOperationCardVisuals()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true, destinationPath: @"D:\Backups");
+		operation.Report(0, "large.iso", completedBytes: 50, totalBytes: 100, isByteProgressForWholeOperation: true);
+		var statusCenter = new StatusCenter { Width = 520, Height = 360, ViewModel = viewModel };
+		var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		statusCenter.Loaded += (_, _) => loaded.TrySetResult();
+		var window = new Window { Content = statusCenter };
+		try
+		{
+			window.Activate();
+			await loaded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			var layoutReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(layoutReady.SetResult));
+			await layoutReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.IsTrue(FindDescendants<SpeedGraph>(statusCenter).Any(static graph => graph.Visibility is Visibility.Visible && graph.ActualWidth > 0));
+			Assert.IsTrue(FindDescendants<ThemedIcon>(statusCenter).Any(static icon => icon.Visibility is Visibility.Visible));
+		}
+		finally
+		{
+			window.Content = null;
+			window.Close();
+		}
 	}
 
 	/// <summary>
@@ -194,6 +261,29 @@ public sealed class StatusCenterViewModelTests
 	}
 
 	/// <summary>
+	/// Verifies that active cards remain above terminal cards without recreating either card.
+	/// </summary>
+	[UITestMethod]
+	public void OrdersActiveCardsBeforeCompletedCards()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "first.iso", canCancel: false);
+		var secondOperation = tracker.StartOperation(TrackedStorageOperationKind.Move, 1, "second.iso", canCancel: false);
+		var firstCard = viewModel.Items.Single(item => item.Detail == "first.iso");
+		var secondCard = viewModel.Items.Single(item => item.Detail == "second.iso");
+
+		secondOperation.Complete();
+
+		Assert.AreSame(firstCard, viewModel.Items[0]);
+		Assert.AreSame(secondCard, viewModel.Items[1]);
+		Assert.IsTrue(viewModel.Items[0].IsRunning);
+		Assert.IsTrue(viewModel.Items[1].IsSucceeded);
+		Assert.IsFalse(viewModel.Items[1].IsExpanded);
+	}
+
+	/// <summary>
 	/// Verifies that canceling a card cancels its operation token and publishes a terminal state.
 	/// </summary>
 	[UITestMethod]
@@ -260,5 +350,25 @@ public sealed class StatusCenterViewModelTests
 		Assert.IsFalse(viewModel.Items[0].IsRunning);
 		Assert.AreEqual("The destination is unavailable.", viewModel.Items[0].Detail);
 		Assert.IsTrue(viewModel.HasCompletedItems);
+	}
+
+	private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+	{
+		var pending = new Stack<DependencyObject>();
+		pending.Push(root);
+		while (pending.Count is not 0)
+		{
+			var parent = pending.Pop();
+			for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+			{
+				var child = VisualTreeHelper.GetChild(parent, index);
+				if (child is T match)
+				{
+					yield return match;
+				}
+
+				pending.Push(child);
+			}
+		}
 	}
 }

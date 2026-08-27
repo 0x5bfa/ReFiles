@@ -36,6 +36,14 @@ public sealed partial class StatusCenter : UserControl
 		}
 	}
 
+	private void ExpandButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is Button { Tag: Guid operationId })
+		{
+			ViewModel?.ToggleExpanded(operationId);
+		}
+	}
+
 	private void RemoveButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (sender is Button { Tag: Guid operationId })

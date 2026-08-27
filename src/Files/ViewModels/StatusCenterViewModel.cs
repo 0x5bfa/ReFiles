@@ -52,6 +52,11 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 		_tracker.RequestCancellation(operationId);
 	}
 
+	public void ToggleExpanded(Guid operationId)
+	{
+		Items.FirstOrDefault(item => item.Id == operationId)?.ToggleExpanded();
+	}
+
 	public void Remove(Guid operationId)
 	{
 		_tracker.Remove(operationId);
@@ -110,7 +115,7 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 
 	private void Refresh()
 	{
-		var snapshots = _tracker.GetSnapshot();
+		var snapshots = _tracker.GetSnapshot().OrderBy(static snapshot => snapshot.State is TrackedStorageOperationState.Running ? 0 : 1).ToArray();
 		var snapshotIds = snapshots.Select(static snapshot => snapshot.Id).ToHashSet();
 		for (var index = Items.Count - 1; index >= 0; index--)
 		{
@@ -120,7 +125,7 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 			}
 		}
 
-		for (var index = 0; index < snapshots.Count; index++)
+		for (var index = 0; index < snapshots.Length; index++)
 		{
 			var snapshot = snapshots[index];
 			var item = Items.FirstOrDefault(candidate => candidate.Id == snapshot.Id);
@@ -153,10 +158,16 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 	private string _title = string.Empty;
 	private string _detail = string.Empty;
 	private string _progressText = string.Empty;
-	private string _glyph = string.Empty;
+	private string _currentItemText = string.Empty;
+	private string _transferText = string.Empty;
+	private string _speedText = string.Empty;
+	private string _remainingText = string.Empty;
 	private double _progressPercentage;
 	private bool _isRunning;
 	private bool _canCancel;
+	private bool _isExpanded;
+	private TrackedStorageOperationKind _kind;
+	private TrackedStorageOperationState _state;
 
 	public Guid Id { get; }
 
@@ -178,10 +189,28 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		private set => SetProperty(ref _progressText, value);
 	}
 
-	public string Glyph
+	public string CurrentItemText
 	{
-		get => _glyph;
-		private set => SetProperty(ref _glyph, value);
+		get => _currentItemText;
+		private set => SetProperty(ref _currentItemText, value);
+	}
+
+	public string TransferText
+	{
+		get => _transferText;
+		private set => SetProperty(ref _transferText, value);
+	}
+
+	public string SpeedText
+	{
+		get => _speedText;
+		private set => SetProperty(ref _speedText, value);
+	}
+
+	public string RemainingText
+	{
+		get => _remainingText;
+		private set => SetProperty(ref _remainingText, value);
 	}
 
 	public double ProgressPercentage
@@ -210,6 +239,58 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	public bool CanRemove => !IsRunning;
 
+	public bool IsExpanded
+	{
+		get => _isExpanded;
+		private set
+		{
+			if (SetProperty(ref _isExpanded, value))
+			{
+				OnPropertyChanged(nameof(ExpandGlyph));
+				OnPropertyChanged(nameof(ExpandAutomationName));
+				OnPropertyChanged(nameof(ShowExpandedDetails));
+				OnPropertyChanged(nameof(ShowExpandedGraph));
+				OnPropertyChanged(nameof(ShowCompactProgress));
+			}
+		}
+	}
+
+	public string ExpandGlyph => IsExpanded ? "\uE70E" : "\uE70D";
+
+	public string ExpandAutomationName => IsExpanded ? Strings.CollapseDetails.GetLocalized() : Strings.ExpandDetails.GetLocalized();
+
+	public bool IsCopyOperation => _kind is TrackedStorageOperationKind.Copy;
+
+	public bool IsMoveOperation => _kind is TrackedStorageOperationKind.Move;
+
+	public bool IsDeleteOperation => _kind is TrackedStorageOperationKind.Delete;
+
+	public bool ShowCopyIcon => IsRunning && IsCopyOperation;
+
+	public bool ShowMoveIcon => IsRunning && IsMoveOperation;
+
+	public bool ShowDeleteIcon => IsRunning && IsDeleteOperation;
+
+	public bool IsSucceeded => _state is TrackedStorageOperationState.Succeeded;
+
+	public bool IsFailed => _state is TrackedStorageOperationState.Failed;
+
+	public bool IsCanceled => _state is TrackedStorageOperationState.Canceled;
+
+	public bool CanExpand => IsRunning;
+
+	public bool HasDetail => !string.IsNullOrWhiteSpace(Detail);
+
+	public bool HasCurrentItemText => !string.IsNullOrWhiteSpace(CurrentItemText);
+
+	public bool HasRemainingText => !string.IsNullOrWhiteSpace(RemainingText);
+
+	public bool ShowExpandedDetails => IsRunning && IsExpanded;
+
+	public bool ShowExpandedGraph => ShowExpandedDetails && HasSpeedGraphPoints;
+
+	public bool ShowCompactProgress => IsRunning && (!IsExpanded || !HasSpeedGraphPoints);
+
 	/// <summary>Gets the smoothed transfer-rate history for the operation.</summary>
 	public ObservableCollection<Vector2> SpeedGraphPoints { get; } = [];
 
@@ -221,7 +302,20 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		ArgumentNullException.ThrowIfNull(snapshot);
 
 		Id = snapshot.Id;
+		_kind = snapshot.Kind;
+		_state = snapshot.State;
 		Update(snapshot);
+		IsExpanded = IsRunning;
+	}
+
+	public void ToggleExpanded()
+	{
+		if (!CanExpand)
+		{
+			return;
+		}
+
+		IsExpanded = !IsExpanded;
 	}
 
 	internal void Update(StorageOperationSnapshot snapshot)
@@ -233,18 +327,32 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 			throw new ArgumentException("The snapshot must represent the same storage operation.", nameof(snapshot));
 		}
 
-		Title = GetTitle(snapshot.Kind, snapshot.State);
+		var wasRunning = IsRunning;
+		_kind = snapshot.Kind;
+		_state = snapshot.State;
+		Title = GetTitle(snapshot);
 		Detail = GetDetail(snapshot);
 		ProgressText = GetProgressText(snapshot);
-		Glyph = GetGlyph(snapshot.State);
+		CurrentItemText = GetCurrentItemText(snapshot);
+		TransferText = GetTransferText(snapshot);
+		SpeedText = GetSpeedText(snapshot);
+		RemainingText = GetRemainingText(snapshot);
 		ProgressPercentage = GetProgressPercentage(snapshot);
 		IsRunning = snapshot.State is TrackedStorageOperationState.Running;
+		if (wasRunning && !IsRunning)
+		{
+			IsExpanded = false;
+		}
+
 		CanCancel = IsRunning && snapshot.CanCancel && !snapshot.IsCancellationRequested;
+		NotifyPresentationStateChanged();
 		var hadSpeedGraphPoints = HasSpeedGraphPoints;
 		UpdateSpeedGraphPoints(snapshot.SpeedGraphPoints);
 		if (hadSpeedGraphPoints != HasSpeedGraphPoints)
 		{
 			OnPropertyChanged(nameof(HasSpeedGraphPoints));
+			OnPropertyChanged(nameof(ShowExpandedGraph));
+			OnPropertyChanged(nameof(ShowCompactProgress));
 		}
 	}
 
@@ -272,6 +380,26 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		}
 	}
 
+	private void NotifyPresentationStateChanged()
+	{
+		OnPropertyChanged(nameof(IsCopyOperation));
+		OnPropertyChanged(nameof(IsMoveOperation));
+		OnPropertyChanged(nameof(IsDeleteOperation));
+		OnPropertyChanged(nameof(ShowCopyIcon));
+		OnPropertyChanged(nameof(ShowMoveIcon));
+		OnPropertyChanged(nameof(ShowDeleteIcon));
+		OnPropertyChanged(nameof(IsSucceeded));
+		OnPropertyChanged(nameof(IsFailed));
+		OnPropertyChanged(nameof(IsCanceled));
+		OnPropertyChanged(nameof(CanExpand));
+		OnPropertyChanged(nameof(HasDetail));
+		OnPropertyChanged(nameof(HasCurrentItemText));
+		OnPropertyChanged(nameof(HasRemainingText));
+		OnPropertyChanged(nameof(ShowExpandedDetails));
+		OnPropertyChanged(nameof(ShowExpandedGraph));
+		OnPropertyChanged(nameof(ShowCompactProgress));
+	}
+
 	private static double GetProgressPercentage(StorageOperationSnapshot snapshot)
 	{
 		if (snapshot.IsByteProgressForWholeOperation && snapshot.CompletedBytes is { } aggregateCompletedBytes && snapshot.TotalBytes is > 0 and { } aggregateTotalBytes)
@@ -284,6 +412,66 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 			: 0;
 
 		return Math.Clamp((snapshot.CompletedItems + currentItemProgress) * 100d / snapshot.TotalItems, 0, 100);
+	}
+
+	private static string GetCurrentItemText(StorageOperationSnapshot snapshot)
+	{
+		return string.IsNullOrWhiteSpace(snapshot.CurrentItemName)
+			? string.Empty
+			: string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationCurrentItemFormat.GetLocalized(), snapshot.CurrentItemName);
+	}
+
+	private static string GetTransferText(StorageOperationSnapshot snapshot)
+	{
+		if (snapshot.CompletedBytes is { } completedBytes && snapshot.TotalBytes is { } totalBytes)
+		{
+			return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationTransferredFormat.GetLocalized(), FormatBytes(completedBytes), FormatBytes(totalBytes));
+		}
+
+		return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationProgressFormat.GetLocalized(), snapshot.CompletedItems, snapshot.TotalItems);
+	}
+
+	private static string GetSpeedText(StorageOperationSnapshot snapshot)
+	{
+		return snapshot.BytesPerSecond is > 0 and { } bytesPerSecond
+			? string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationSpeedFormat.GetLocalized(), FormatBytes((long)bytesPerSecond))
+			: Strings.StorageOperationSpeedUnavailable.GetLocalized();
+	}
+
+	private static string GetRemainingText(StorageOperationSnapshot snapshot)
+	{
+		if (snapshot.State is not TrackedStorageOperationState.Running || snapshot.RemainingTime is not { } remainingTime)
+		{
+			return string.Empty;
+		}
+
+		if (remainingTime <= TimeSpan.Zero)
+		{
+			return string.Empty;
+		}
+
+		if (remainingTime.TotalMinutes < 1)
+		{
+			return Strings.StorageOperationLessThanMinuteRemaining.GetLocalized();
+		}
+
+		if (remainingTime.TotalMinutes < 2)
+		{
+			return Strings.StorageOperationAboutOneMinuteRemaining.GetLocalized();
+		}
+
+		if (remainingTime.TotalMinutes < 60)
+		{
+			var roundedMinutes = (int)Math.Ceiling(remainingTime.TotalMinutes);
+
+			return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationMinutesRemainingFormat.GetLocalized(), roundedMinutes);
+		}
+
+		var roundedHours = Math.Max(1, (int)Math.Ceiling(remainingTime.TotalHours));
+
+		return roundedHours is 1
+			? Strings.StorageOperationAboutOneHourRemaining.GetLocalized()
+			: string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationHoursRemainingFormat.GetLocalized(), roundedHours);
 	}
 
 	private static string GetProgressText(StorageOperationSnapshot snapshot)
@@ -339,13 +527,25 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 				: rounded.ToString(@"m\:ss", CultureInfo.CurrentCulture);
 	}
 
-	private static string GetTitle(TrackedStorageOperationKind kind, TrackedStorageOperationState state)
+	private static string GetTitle(StorageOperationSnapshot snapshot)
 	{
-		return (kind, state) switch
+		if (snapshot.State is TrackedStorageOperationState.Running)
 		{
-			(TrackedStorageOperationKind.Copy, TrackedStorageOperationState.Running) => Strings.CopyingItems.GetLocalized(),
-			(TrackedStorageOperationKind.Move, TrackedStorageOperationState.Running) => Strings.MovingItems.GetLocalized(),
-			(TrackedStorageOperationKind.Delete, TrackedStorageOperationState.Running) => Strings.DeletingItems.GetLocalized(),
+			var currentItemNumber = Math.Min(snapshot.CompletedItems + 1, snapshot.TotalItems);
+			var progressPercentage = (int)Math.Round(GetProgressPercentage(snapshot), MidpointRounding.AwayFromZero);
+			var format = snapshot.Kind switch
+			{
+				TrackedStorageOperationKind.Copy => Strings.CopyingItemProgressFormat.GetLocalized(),
+				TrackedStorageOperationKind.Move => Strings.MovingItemProgressFormat.GetLocalized(),
+				TrackedStorageOperationKind.Delete => Strings.DeletingItemProgressFormat.GetLocalized(),
+				_ => throw new ArgumentOutOfRangeException(nameof(snapshot)),
+			};
+
+			return string.Format(CultureInfo.CurrentCulture, format, currentItemNumber, snapshot.TotalItems, progressPercentage);
+		}
+
+		return (snapshot.Kind, snapshot.State) switch
+		{
 			(TrackedStorageOperationKind.Copy, TrackedStorageOperationState.Succeeded) => Strings.CopyCompleted.GetLocalized(),
 			(TrackedStorageOperationKind.Move, TrackedStorageOperationState.Succeeded) => Strings.MoveCompleted.GetLocalized(),
 			(TrackedStorageOperationKind.Delete, TrackedStorageOperationState.Succeeded) => Strings.DeleteCompleted.GetLocalized(),
@@ -355,7 +555,7 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 			(TrackedStorageOperationKind.Copy, TrackedStorageOperationState.Canceled) => Strings.CopyCanceled.GetLocalized(),
 			(TrackedStorageOperationKind.Move, TrackedStorageOperationState.Canceled) => Strings.MoveCanceled.GetLocalized(),
 			(TrackedStorageOperationKind.Delete, TrackedStorageOperationState.Canceled) => Strings.DeleteCanceled.GetLocalized(),
-			_ => throw new ArgumentOutOfRangeException(nameof(state)),
+			_ => throw new ArgumentOutOfRangeException(nameof(snapshot)),
 		};
 	}
 
@@ -376,18 +576,31 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 			return Strings.CancelingOperation.GetLocalized();
 		}
 
+		if (snapshot.State is TrackedStorageOperationState.Succeeded)
+		{
+			return GetCompletionDetail(snapshot);
+		}
+
+		if (!string.IsNullOrWhiteSpace(snapshot.DestinationPath))
+		{
+			return string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationDestinationFormat.GetLocalized(), snapshot.DestinationPath);
+		}
+
 		return snapshot.CurrentItemName ?? string.Empty;
 	}
 
-	private static string GetGlyph(TrackedStorageOperationState state)
+	private static string GetCompletionDetail(StorageOperationSnapshot snapshot)
 	{
-		return state switch
+		var itemCount = string.Format(CultureInfo.CurrentCulture, snapshot.TotalItems is 1 ? Strings.ItemCountSingle.GetLocalized() : Strings.ItemCountPlural.GetLocalized(), snapshot.TotalItems);
+
+		return snapshot.Kind switch
 		{
-			TrackedStorageOperationState.Running => "\uE895",
-			TrackedStorageOperationState.Succeeded => "\uE73E",
-			TrackedStorageOperationState.Failed => "\uEA39",
-			TrackedStorageOperationState.Canceled => "\uE711",
-			_ => throw new ArgumentOutOfRangeException(nameof(state)),
+			TrackedStorageOperationKind.Copy when !string.IsNullOrWhiteSpace(snapshot.DestinationPath) => string.Format(CultureInfo.CurrentCulture,
+				Strings.CopyCompletedDetailFormat.GetLocalized(), itemCount, snapshot.DestinationPath),
+			TrackedStorageOperationKind.Move when !string.IsNullOrWhiteSpace(snapshot.DestinationPath) => string.Format(CultureInfo.CurrentCulture,
+				Strings.MoveCompletedDetailFormat.GetLocalized(), itemCount, snapshot.DestinationPath),
+			TrackedStorageOperationKind.Delete => string.Format(CultureInfo.CurrentCulture, Strings.DeleteCompletedDetailFormat.GetLocalized(), itemCount),
+			_ => string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationProgressFormat.GetLocalized(), snapshot.CompletedItems, snapshot.TotalItems),
 		};
 	}
 }

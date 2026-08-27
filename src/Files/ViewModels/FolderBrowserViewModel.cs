@@ -322,7 +322,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				await ExecuteStorageOperationAsync(request, progress, operationCancellation).ConfigureAwait(false);
 			},
 			cancellationToken,
-			itemByteCounts).ConfigureAwait(false);
+			itemByteCounts,
+			destinationFolder.LastKnownAddress?.Value).ConfigureAwait(false);
 
 		if (move)
 		{
@@ -1048,7 +1049,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	}
 
 	private async Task ExecuteTrackedStorageOperationBatchAsync(TrackedStorageOperationKind kind, IReadOnlyList<string> itemNames, bool canCancel,
-		Func<int, IProgress<StorageOperationProgress>, CancellationToken, Task> execute, CancellationToken cancellationToken, IReadOnlyList<long>? itemByteCounts = null)
+		Func<int, IProgress<StorageOperationProgress>, CancellationToken, Task> execute, CancellationToken cancellationToken, IReadOnlyList<long>? itemByteCounts = null, string? destinationPath = null)
 	{
 		ArgumentNullException.ThrowIfNull(itemNames);
 
@@ -1066,7 +1067,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		var totalBatchBytes = itemByteCounts?.Aggregate(0L, static (total, itemBytes) => checked(total + itemBytes));
 		var completedBatchBytes = 0L;
-		var operation = _operationTracker.StartOperation(kind, itemNames.Count, itemNames[0], canCancel, cancellationToken);
+		var operation = _operationTracker.StartOperation(kind, itemNames.Count, itemNames[0], canCancel, cancellationToken, destinationPath);
 		try
 		{
 			for (var index = 0; index < itemNames.Count; index++)

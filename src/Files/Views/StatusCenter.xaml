@@ -10,6 +10,17 @@
 
 	<UserControl.Resources>
 		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+		<Style
+			x:Key="StatusCenterIconButtonStyle"
+			BasedOn="{StaticResource DefaultButtonStyle}"
+			TargetType="Button">
+			<Setter Property="Margin" Value="10" />
+			<Setter Property="Width" Value="30" />
+			<Setter Property="Height" Value="30" />
+			<Setter Property="Padding" Value="0" />
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+		</Style>
 	</UserControl.Resources>
 
 	<Grid>
@@ -18,117 +29,260 @@
 			<RowDefinition Height="*" />
 		</Grid.RowDefinitions>
 
-		<Grid Padding="12,8">
+		<!--  Flyout title & Clear All button  -->
+		<Grid
+			Height="40"
+			Padding="16,0"
+			ColumnSpacing="8">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="Auto" />
+			</Grid.ColumnDefinitions>
+
 			<TextBlock
 				VerticalAlignment="Center"
 				Style="{StaticResource BodyStrongTextBlockStyle}"
 				Text="{localization:Localized ResourceKey=StatusCenter}" />
 
 			<Button
-				Padding="8,2"
-				HorizontalAlignment="Right"
+				Grid.Column="1"
+				Height="24"
+				Padding="8,0"
+				VerticalAlignment="Center"
 				Click="ClearCompletedButton_Click"
-				Content="{localization:Localized ResourceKey=ClearCompleted}"
-				IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}" />
+				IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}">
+				<TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{localization:Localized ResourceKey=ClearCompleted}" />
+			</Button>
 		</Grid>
 
-		<Grid Grid.Row="1">
-			<ListView
-				Padding="12,0,12,12"
-				AutomationProperties.AutomationId="StatusCenterItems"
-				ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
-				ScrollViewer.VerticalScrollBarVisibility="Auto"
-				SelectionMode="None">
-				<ListView.ItemContainerStyle>
-					<Style TargetType="ListViewItem">
-						<Setter Property="Padding" Value="0" />
-						<Setter Property="Margin" Value="0,2" />
-						<Setter Property="HorizontalContentAlignment" Value="Stretch" />
-					</Style>
-				</ListView.ItemContainerStyle>
-				<ListView.ItemTemplate>
-					<DataTemplate x:DataType="viewModels:StatusCenterItemViewModel">
-						<Border
-							Padding="10"
-							Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-							BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-							BorderThickness="1"
-							CornerRadius="{StaticResource ControlCornerRadius}">
-							<Grid ColumnSpacing="10">
+		<ListView
+			Grid.Row="1"
+			Padding="16,0,16,16"
+			AutomationProperties.AutomationId="StatusCenterItems"
+			ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+			ScrollViewer.VerticalScrollBarVisibility="Auto"
+			SelectionMode="None">
+			<ListView.ItemContainerStyle>
+				<Style TargetType="ListViewItem">
+					<Setter Property="Padding" Value="0" />
+					<Setter Property="Margin" Value="0,2" />
+					<Setter Property="HorizontalContentAlignment" Value="Stretch" />
+				</Style>
+			</ListView.ItemContainerStyle>
+			<ListView.ItemTemplate>
+				<DataTemplate x:DataType="viewModels:StatusCenterItemViewModel">
+					<Border
+						Padding="12"
+						AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+						Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+						BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+						BorderThickness="1"
+						CornerRadius="{StaticResource OverlayCornerRadius}">
+						<Grid>
+							<Grid.RowDefinitions>
+								<RowDefinition Height="Auto" />
+								<RowDefinition Height="Auto" />
+							</Grid.RowDefinitions>
+
+							<Grid ColumnSpacing="12">
 								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="Auto" />
+									<ColumnDefinition Width="36" />
 									<ColumnDefinition Width="*" />
 									<ColumnDefinition Width="Auto" />
 								</Grid.ColumnDefinitions>
 
-								<FontIcon
-									Width="24"
-									Height="24"
-									VerticalAlignment="Top"
-									FontSize="16"
-									Glyph="{x:Bind Glyph, Mode=OneWay}" />
+								<!--  Icon  -->
+								<Grid Width="36" Height="36">
+									<Border
+										Background="{ThemeResource AccentFillColorDefaultBrush}"
+										CornerRadius="18"
+										Opacity="0.14"
+										Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<Border
+										Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+										CornerRadius="18"
+										Visibility="{x:Bind IsSucceeded, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<Border
+										Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+										CornerRadius="18"
+										Visibility="{x:Bind IsFailed, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<Border
+										Background="{ThemeResource TextFillColorSecondaryBrush}"
+										CornerRadius="18"
+										Opacity="0.12"
+										Visibility="{x:Bind IsCanceled, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
-								<StackPanel Grid.Column="1" Spacing="4">
+									<controls:ThemedIcon
+										Data="{StaticResource App.ThemedIcons.Actions.Copying}"
+										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+										IconSize="18"
+										Visibility="{x:Bind ShowCopyIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<controls:ThemedIcon
+										Data="{StaticResource App.ThemedIcons.Actions.Moving}"
+										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+										IconSize="18"
+										Visibility="{x:Bind ShowMoveIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<controls:ThemedIcon
+										Data="{StaticResource App.ThemedIcons.Actions.Delete}"
+										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+										IconSize="18"
+										Visibility="{x:Bind ShowDeleteIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<FontIcon
+										FontSize="16"
+										Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+										Glyph="&#xE73E;"
+										Visibility="{x:Bind IsSucceeded, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<FontIcon
+										FontSize="16"
+										Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+										Glyph="&#xEA1F;"
+										Visibility="{x:Bind IsFailed, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									<FontIcon
+										FontSize="14"
+										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+										Glyph="&#xE711;"
+										Visibility="{x:Bind IsCanceled, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+								</Grid>
+
+								<!--  Operation title & destination  -->
+								<StackPanel
+									Grid.Column="1"
+									VerticalAlignment="Center"
+									Spacing="2">
 									<TextBlock
-										FontWeight="SemiBold"
+										MaxLines="1"
 										Text="{x:Bind Title, Mode=OneWay}"
 										TextTrimming="CharacterEllipsis" />
 									<TextBlock
-										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-										MaxLines="2"
-										Text="{x:Bind Detail, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis" />
-									<ProgressBar Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
-									<Grid Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<controls:SpeedGraph
-											Height="72"
-											Margin="0,4,0,0"
-											Points="{x:Bind SpeedGraphPoints, Mode=OneWay}"
-											ProgressPercentage="{x:Bind ProgressPercentage, Mode=OneWay}"
-											Visibility="{x:Bind HasSpeedGraphPoints, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									</Grid>
-									<TextBlock
 										FontSize="12"
 										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-										Text="{x:Bind ProgressText, Mode=OneWay}" />
+										MaxLines="1"
+										Text="{x:Bind Detail, Mode=OneWay}"
+										TextTrimming="CharacterEllipsis"
+										Visibility="{x:Bind HasDetail, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 								</StackPanel>
 
-								<StackPanel Grid.Column="2">
+								<!--  Expand button / Remove button  -->
+								<Grid Grid.Column="2" VerticalAlignment="Center">
 									<Button
-										Width="32"
-										Height="32"
-										Padding="0"
-										AutomationProperties.Name="{localization:Localized ResourceKey=Cancel}"
-										Click="CancelButton_Click"
+										AutomationProperties.Name="{x:Bind ExpandAutomationName, Mode=OneWay}"
+										Click="ExpandButton_Click"
+										Style="{StaticResource StatusCenterIconButtonStyle}"
 										Tag="{x:Bind Id}"
-										ToolTipService.ToolTip="{localization:Localized ResourceKey=Cancel}"
-										Visibility="{x:Bind CanCancel, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<FontIcon FontSize="12" Glyph="&#xE711;" />
+										ToolTipService.ToolTip="{x:Bind ExpandAutomationName, Mode=OneWay}"
+										Visibility="{x:Bind CanExpand, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+										<FontIcon FontSize="12" Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" />
 									</Button>
 									<Button
-										Width="32"
-										Height="32"
-										Padding="0"
 										AutomationProperties.Name="{localization:Localized ResourceKey=Close}"
 										Click="RemoveButton_Click"
+										Style="{StaticResource StatusCenterIconButtonStyle}"
 										Tag="{x:Bind Id}"
 										ToolTipService.ToolTip="{localization:Localized ResourceKey=Close}"
 										Visibility="{x:Bind CanRemove, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<FontIcon FontSize="12" Glyph="&#xE711;" />
+										<FontIcon FontSize="14" Glyph="&#xE711;" />
 									</Button>
-								</StackPanel>
+								</Grid>
 							</Grid>
-						</Border>
-					</DataTemplate>
-				</ListView.ItemTemplate>
-			</ListView>
 
-			<TextBlock
-				HorizontalAlignment="Center"
-				VerticalAlignment="Center"
-				Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-				Text="{localization:Localized ResourceKey=NoStorageOperations}"
-				Visibility="{x:Bind ViewModel.HasItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
-		</Grid>
+							<!--  Progress report  -->
+							<Grid Grid.Row="1" Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="*" />
+									<ColumnDefinition Width="Auto" />
+								</Grid.ColumnDefinitions>
+
+								<StackPanel
+									Padding="4,8,8,0"
+									VerticalAlignment="Center"
+									Spacing="6">
+
+									<!--  Progress bar  -->
+									<ProgressBar
+										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+										Visibility="{x:Bind ShowCompactProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+										Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
+
+									<!--  Progress graph  -->
+									<Border
+										Height="72"
+										BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+										BorderThickness="1"
+										CornerRadius="4"
+										Visibility="{x:Bind ShowExpandedGraph, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+										<Grid>
+											<controls:SpeedGraph
+												Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+												Points="{x:Bind SpeedGraphPoints, Mode=OneWay}"
+												ProgressPercentage="{x:Bind ProgressPercentage, Mode=OneWay}" />
+
+											<StackPanel
+												Margin="8,6"
+												HorizontalAlignment="Right"
+												VerticalAlignment="Top">
+												<TextBlock
+													HorizontalAlignment="Right"
+													FontSize="10"
+													Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+													Text="{localization:Localized ResourceKey=Speed}" />
+												<TextBlock
+													HorizontalAlignment="Right"
+													FontSize="13"
+													FontWeight="SemiBold"
+													Text="{x:Bind SpeedText, Mode=OneWay}" />
+											</StackPanel>
+										</Grid>
+									</Border>
+
+									<!--  Status texts  -->
+									<StackPanel
+										Margin="0,4,0,0"
+										Spacing="2"
+										Visibility="{x:Bind ShowExpandedDetails, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+										<TextBlock
+											MaxLines="1"
+											Text="{x:Bind CurrentItemText, Mode=OneWay}"
+											TextTrimming="CharacterEllipsis"
+											Visibility="{x:Bind HasCurrentItemText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+										<TextBlock
+											FontSize="12"
+											Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+											Text="{x:Bind TransferText, Mode=OneWay}" />
+										<TextBlock
+											FontSize="12"
+											FontWeight="SemiBold"
+											Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+											Text="{x:Bind RemainingText, Mode=OneWay}"
+											Visibility="{x:Bind HasRemainingText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+									</StackPanel>
+								</StackPanel>
+
+								<!--  Cancel button  -->
+								<Button
+									Grid.Column="1"
+									VerticalAlignment="Top"
+									AutomationProperties.Name="{localization:Localized ResourceKey=Cancel}"
+									Click="CancelButton_Click"
+									Style="{StaticResource StatusCenterIconButtonStyle}"
+									Tag="{x:Bind Id}"
+									ToolTipService.ToolTip="{localization:Localized ResourceKey=Cancel}"
+									Visibility="{x:Bind CanCancel, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+									<FontIcon FontSize="14" Glyph="&#xE711;" />
+								</Button>
+							</Grid>
+						</Grid>
+					</Border>
+				</DataTemplate>
+			</ListView.ItemTemplate>
+		</ListView>
+
+		<!--  Label for no storage operations  -->
+		<TextBlock
+			Grid.Row="1"
+			HorizontalAlignment="Center"
+			VerticalAlignment="Center"
+			Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+			Text="{localization:Localized ResourceKey=NoStorageOperations}"
+			Visibility="{x:Bind ViewModel.HasItems, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=True}" />
 	</Grid>
 </UserControl>
