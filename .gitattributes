@@ -62,4 +62,8 @@
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
 
+# Generated PDFs are committed artifacts and must remain binary.
+*.pdf binary
+*.PDF binary
+
 *.h linguist-language=C++

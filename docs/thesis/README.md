@@ -2,7 +2,7 @@
 
 # ReFiles thesis
 
-The thesis source is in `thesis.tex`. It uses a two-sided A4 article layout. The first page places the title, author details, centered abstract area, and Introduction in the compact style of an arXiv paper.
+The thesis source is in `thesis.tex`. It uses a two-sided A4 article layout. The first page places the title, author details, centered abstract, and Introduction in the compact style of an arXiv paper. The paper covers the system architecture, capability model, progressive browsing, ownership, provider case studies, evaluation, related systems, limitations, and future work.
 
 Build from the repository root with:
 
