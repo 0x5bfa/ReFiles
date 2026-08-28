@@ -3,10 +3,10 @@
 
 using Files.Core.Sessions;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Previews;
-using Files.Core.ItemFeatures.Properties;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Previews;
+using Files.Core.Capabilities.Properties;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
@@ -15,7 +15,7 @@ using Files.Core.ViewSettings;
 namespace Files.Core.Composition;
 
 /// <summary>
-/// Configures storage sources, item features, workspace services, and shell sessions.
+/// Configures storage sources, item capabilities, workspace services, and shell sessions.
 /// </summary>
 public sealed class FilesCoreBuilder : IAsyncDisposable
 {
@@ -44,7 +44,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	private bool _isDisposed;
 
 	/// <summary>Gets the item capability composition builder.</summary>
-	public ItemFeatureBuilder ItemFeatures { get; }
+	public CapabilityBuilder Capabilities { get; }
 
 	/// <summary>Initializes an empty Files.Core builder.</summary>
 	/// <param name="viewSettingsStore">The optional view settings store.</param>
@@ -54,7 +54,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		_viewSettingsStore = viewSettingsStore ?? new InMemoryViewSettingsStore();
 		_thumbnailCache = thumbnailCache ?? new MemoryThumbnailCache();
 
-		ItemFeatures = new ItemFeatureBuilder().SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner()).SetCombiner<IPropertySource>(new PropertySourceCombiner())
+		Capabilities = new CapabilityBuilder().SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner()).SetCombiner<IPropertySource>(new PropertySourceCombiner())
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner()).AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(_thumbnailCache));
 	}
 
@@ -113,8 +113,8 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		FilesApplicationSession? shellSession = null;
 		try
 		{
-			var itemFeatureRegistry = ItemFeatures.Build();
-			var modelFactory = new StorableModelFactory(itemFeatureRegistry);
+			var capabilityRegistry = Capabilities.Build();
+			var modelFactory = new StorableModelFactory(capabilityRegistry);
 			workspace = new StorageWorkspace(_sources, modelFactory);
 
 			var handlers = new List<IBrowseLocationHandler>

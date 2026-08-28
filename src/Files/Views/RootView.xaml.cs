@@ -4,7 +4,7 @@
 using Files.ViewModels;
 using Files.Controls;
 using Files.Infrastructure;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities.Previews;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

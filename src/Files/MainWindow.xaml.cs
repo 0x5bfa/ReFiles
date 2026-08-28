@@ -6,7 +6,7 @@ using Files.Activation;
 using Files.Commands;
 using Files.Core.Sessions;
 using Files.Core.Data;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities.Previews;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Infrastructure;

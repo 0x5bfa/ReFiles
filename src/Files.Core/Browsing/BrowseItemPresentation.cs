@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using System.Collections.ObjectModel;
 
 namespace Files.Core.Browsing;

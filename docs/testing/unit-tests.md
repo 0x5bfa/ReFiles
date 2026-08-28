@@ -10,7 +10,7 @@ Use controlled doubles for provider sessions, storage models, preview controller
 
 Unit tests should protect behavior such as:
 
-- item-feature resolution/composition/ownership;
+- capability resolution/composition/ownership;
 - thumbnail cache invalidation and eviction logic;
 - preview stream ownership/cancellation/limits;
 - reference navigation, projection, selection, and prefetch policy;

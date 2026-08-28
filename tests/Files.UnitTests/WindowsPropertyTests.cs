@@ -3,8 +3,8 @@
 
 using Files.Core.Browsing;
 using Files.Core.Composition;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Properties;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Properties;
 using Files.Core.Models;
 using Files.Core.Sessions;
 using Files.Core.Storage;
@@ -40,12 +40,12 @@ public sealed class WindowsPropertyTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
-			var featureRegistry = new ItemFeatureBuilder()
+			var capabilityRegistry = new CapabilityBuilder()
 				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
 				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
 				.Build();
 
-			using var model = new StorableModelFactory(featureRegistry).Create(source, coreModel);
+			using var model = new StorableModelFactory(capabilityRegistry).Create(source, coreModel);
 			var propertySource = model.Get<IPropertySource>();
 			Assert.IsNotNull(propertySource);
 
@@ -79,12 +79,12 @@ public sealed class WindowsPropertyTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
-			var featureRegistry = new ItemFeatureBuilder()
+			var capabilityRegistry = new CapabilityBuilder()
 				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
 				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
 				.Build();
 
-			using var model = new StorableModelFactory(featureRegistry).Create(source, coreModel);
+			using var model = new StorableModelFactory(capabilityRegistry).Create(source, coreModel);
 			var propertySource = model.Get<IPropertySource>();
 			Assert.IsNotNull(propertySource);
 

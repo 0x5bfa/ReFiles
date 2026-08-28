@@ -21,7 +21,7 @@ Provide folder/item resolution and progressive enumeration. Honor cancellation a
 
 ## 3. Add capabilities incrementally
 
-Implement only supported features, for example:
+Implement only supported capabilities, for example:
 
 - readable streams;
 - properties;
@@ -39,7 +39,7 @@ Network I/O, Shell STA requirements, archive-session serialization, authenticati
 
 ## 5. Define lifetime
 
-Document ownership of provider sessions, item models, streams, caches, and feature results. Make cleanup work for cancellation and partial construction failure.
+Document ownership of provider sessions, item models, streams, caches, and capability results. Make cleanup work for cancellation and partial construction failure.
 
 ## 6. Protect secrets
 

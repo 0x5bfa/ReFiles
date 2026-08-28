@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Runtime.Versioning;
-using Files.Core.ItemFeatures.Changes;
-using Files.Core.ItemFeatures.Previews;
-using Files.Core.ItemFeatures.Properties;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Changes;
+using Files.Core.Capabilities.Previews;
+using Files.Core.Capabilities.Properties;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Windows;
 
@@ -17,10 +17,10 @@ namespace Files.Core.Composition;
 [SupportedOSPlatform("windows6.0.6000")]
 public static class WindowsFilesCoreBuilderExtensions
 {
-	private const string WindowsItemFeaturesModule = "Files.Core.Windows.ItemFeatures";
+	private const string WindowsCapabilitiesModule = "Files.Core.Windows.Capabilities";
 	private const string WindowsShellPreviewsModule = "Files.Core.Previews.WindowsShell";
 
-	/// <summary>Registers Windows Shell storage and its optional preview, thumbnail, property, change, and archive features.</summary>
+	/// <summary>Registers Windows Shell storage and its optional preview, thumbnail, property, change, and archive capabilities.</summary>
 	/// <param name="builder">The composition builder.</param>
 	/// <param name="source">An optional existing Windows storage source.</param>
 	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
@@ -60,9 +60,9 @@ public static class WindowsFilesCoreBuilderExtensions
 			throw;
 		}
 
-		if (builder.TryAddModule(WindowsItemFeaturesModule))
+		if (builder.TryAddModule(WindowsCapabilitiesModule))
 		{
-			builder.ItemFeatures
+			builder.Capabilities
 				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()), priority: 100, origin: "Windows Shell")
 				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), priority: 100, origin: "Windows Shell")
 				.Add<IFolderChangeSource>(new FolderChangeSourceFactory(), priority: 100, origin: "Windows Shell");
@@ -91,7 +91,7 @@ public static class WindowsFilesCoreBuilderExtensions
 
 		var handlerResolver = new WindowsPreviewHandlerResolver(new WindowsShellPreviewHandlerAssociation());
 		var loader = new WindowsShellPreviewLoader(handlerResolver, policy);
-		builder.ItemFeatures.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
+		builder.Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
 
 		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1);
 		builder.Own(previewScheduler);

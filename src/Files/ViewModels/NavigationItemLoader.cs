@@ -4,9 +4,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Files.Core.Data;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Properties;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Properties;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;

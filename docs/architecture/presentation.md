@@ -47,7 +47,7 @@ Core identity/selection state and visual control selection are different concern
 
 ## Viewport-driven enrichment
 
-The UI knows which rows are visible; Core/provider layers know how to retrieve item features. Presentation bridges these facts by reporting priority/viewport information without taking over feature retrieval semantics.
+The UI knows which rows are visible; Core/provider layers know how to retrieve item capabilities. Presentation bridges these facts by reporting priority/viewport information without taking over capability retrieval semantics.
 
 ## UI-specific resources
 

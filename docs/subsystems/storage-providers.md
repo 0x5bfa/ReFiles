@@ -17,24 +17,24 @@ Generic browse/presentation code is responsible for consuming those contracts, n
 
 ## Capability composition
 
-Not all backends support the same behavior. Prefer optional item features over a large interface whose members throw `NotSupportedException` for many providers.
+Not all backends support the same behavior. Prefer optional capabilities over a large interface whose members throw `NotSupportedException` for many providers.
 
 ```mermaid
 flowchart LR
     Item[Storage item]
-    Features[Feature/capability set]
+    Capabilities[Capability set]
     Props[Properties]
     Thumb[Thumbnail]
     Stream[Stream]
     Ops[Operations]
     Observe[Change observation]
 
-    Item --> Features
-    Features --> Props
-    Features --> Thumb
-    Features --> Stream
-    Features --> Ops
-    Features --> Observe
+    Item --> Capabilities
+    Capabilities --> Props
+    Capabilities --> Thumb
+    Capabilities --> Stream
+    Capabilities --> Ops
+    Capabilities --> Observe
 ```
 
 ## Provider isolation

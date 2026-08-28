@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Runtime.Versioning;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;

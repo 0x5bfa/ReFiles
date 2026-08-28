@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;

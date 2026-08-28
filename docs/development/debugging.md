@@ -31,7 +31,7 @@ Look for:
 
 - event subscriptions retaining panes/ViewModels;
 - background tasks retaining a browse generation;
-- streams/feature objects without clear owners;
+- streams/capability objects without clear owners;
 - COM objects cached longer than their apartment/session lifetime;
 - sync-over-async disposal;
 - operation/session ownership surviving unexpectedly.

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Collections.ObjectModel;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Properties;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Properties;
 
 namespace Files.Core.Storage.Ftp;
 

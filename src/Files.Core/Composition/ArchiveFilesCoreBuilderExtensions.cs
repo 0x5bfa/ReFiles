@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Archives;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Archives;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Archives.SevenZip;
 
@@ -48,7 +48,7 @@ public static class ArchiveFilesCoreBuilderExtensions
 		}
 
 		var selector = new ArchiveBackendSelector(backends, probe);
-		builder.ItemFeatures.SetCombiner<IArchiveSource>(new PriorityItemFeatureCombiner<IArchiveSource>()).Add<IArchiveSource>(new ArchiveSourceFactory(), priority: 100, origin: "Archive browsing");
+		builder.Capabilities.SetCombiner<IArchiveSource>(new PriorityCapabilityCombiner<IArchiveSource>()).Add<IArchiveSource>(new ArchiveSourceFactory(), priority: 100, origin: "Archive browsing");
 		builder.AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, selector, credentialResolver));
 
 		return builder;

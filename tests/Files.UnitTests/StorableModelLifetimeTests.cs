@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures;
+using Files.Core.Capabilities;
 using Files.Core.Browsing;
 using Files.Core.Models;
 
@@ -14,24 +14,24 @@ namespace Files.UnitTests;
 public sealed class StorableModelLifetimeTests
 {
 	/// <summary>
-	/// Test case: model awaits features before async core model.
+	/// Test case: model awaits capabilities before async core model.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
-	public async Task ModelAwaitsFeaturesBeforeAsyncCoreModel()
+	public async Task ModelAwaitsCapabilitiesBeforeAsyncCoreModel()
 	{
 		var order = new List<string>();
-		var featureRegistry = new ItemFeatureBuilder()
-			.Add<AsyncOrderFeature>(new DelegateItemFeatureFactory<AsyncOrderFeature>(_ => new AsyncOrderFeature(order)))
+		var capabilityRegistry = new CapabilityBuilder()
+			.Add<AsyncOrderCapability>(new DelegateCapabilityFactory<AsyncOrderCapability>(_ => new AsyncOrderCapability(order)))
 			.Build();
-		var factory = new StorableModelFactory(featureRegistry);
+		var factory = new StorableModelFactory(capabilityRegistry);
 		var coreModel = new AsyncOrderStorable("item", "Item", order);
 		var model = factory.Create(new TestStorageSource(), coreModel);
 
-		Assert.IsNotNull(model.Get<AsyncOrderFeature>());
+		Assert.IsNotNull(model.Get<AsyncOrderCapability>());
 		await model.DisposeAsync();
 
-		CollectionAssert.AreEqual(new[] {"feature", "core"}, order);
+		CollectionAssert.AreEqual(new[] {"capability", "core"}, order);
 	}
 
 	/// <summary>
@@ -84,11 +84,11 @@ public sealed class StorableModelLifetimeTests
 		Assert.IsTrue(coreModel.IsDisposed);
 	}
 
-	private sealed class AsyncOrderFeature : IAsyncDisposable
+	private sealed class AsyncOrderCapability : IAsyncDisposable
 	{
 		private readonly IList<string> order;
 
-		public AsyncOrderFeature(IList<string> order)
+		public AsyncOrderCapability(IList<string> order)
 		{
 			this.order = order;
 		}
@@ -96,7 +96,7 @@ public sealed class StorableModelLifetimeTests
 		public async ValueTask DisposeAsync()
 		{
 			await Task.Yield();
-			order.Add("feature");
+			order.Add("capability");
 		}
 	}
 

@@ -53,7 +53,7 @@ var config = ManualConfig
 
 if (smoke && benchmarkArgs.Length is 0)
 {
-	BenchmarkRunner.Run<ItemFeatureResolutionBenchmarks>(config);
+	BenchmarkRunner.Run<CapabilityResolutionBenchmarks>(config);
 	BenchmarkRunner.Run<BrowsePipelineBenchmarks>(config);
 	BenchmarkRunner.Run<TableViewColumnLayoutBenchmarks>(config);
 }

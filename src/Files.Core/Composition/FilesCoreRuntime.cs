@@ -3,8 +3,8 @@
 
 using Files.Core.Sessions;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures.Previews;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Previews;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
@@ -53,7 +53,7 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 	public IViewSettingsStore ViewSettingsStore { get; }
 
 	/// <summary>
-	/// Gets the thumbnail cache shared by item features.
+	/// Gets the thumbnail cache shared by item capabilities.
 	/// </summary>
 	public IThumbnailCache ThumbnailCache { get; }
 

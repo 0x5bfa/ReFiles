@@ -11,8 +11,8 @@ using Files.Adapters;
 using Files.Commands;
 using Files.Core.Browsing;
 using Files.Core.Data;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Properties;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Properties;
 using Files.Core.Models;
 using Files.Core.Sessions;
 using Files.Core.Storage;
@@ -881,7 +881,7 @@ public sealed class BrowsePresentationPipelineTests
 				var reference = new StorableReference(_source.SourceId, coreModel.Id, new StorageAddress("presentation", coreModel.Id));
 				var context = new ItemContext(_source, coreModel, reference);
 
-				yield return new StorableModel(coreModel, reference, ItemFeatureRegistry.Empty.CreateFeatures(context));
+				yield return new StorableModel(coreModel, reference, CapabilityRegistry.Empty.CreateCapabilities(context));
 				await Task.Yield();
 			}
 		}

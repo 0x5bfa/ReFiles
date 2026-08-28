@@ -8,7 +8,7 @@ The storage subsystem represents files, folders, references, identity, hierarchy
 - provide stable identity suitable for selection and change reconciliation;
 - resolve references into usable models;
 - enumerate hierarchy progressively;
-- expose optional behavior through item features/capabilities;
+- expose optional behavior through item capabilities;
 - define ownership for streams/resources returned by providers.
 
 ## Non-responsibilities
@@ -41,15 +41,15 @@ Folder enumeration supplies the browse pipeline. Providers should yield useful i
 
 ## Optional behavior
 
-Properties, thumbnails, preview, streams, operations, search, and change observation belong behind feature/capability contracts. An item lacking a capability is valid; generic code must tolerate that absence.
+Properties, thumbnails, preview, streams, operations, search, and change observation belong behind capability contracts. An item lacking a capability is valid; generic code must tolerate that absence.
 
 ## Ownership
 
-A resolved model, stream, provider session, or feature result may have different lifetime semantics. APIs must document whether results are borrowed, owned, or tied to a parent/session lifetime. See [`../architecture/ownership-and-lifetime.md`](../architecture/ownership-and-lifetime.md).
+A resolved model, stream, provider session, or capability result may have different lifetime semantics. APIs must document whether results are borrowed, owned, or tied to a parent/session lifetime. See [`../architecture/ownership-and-lifetime.md`](../architecture/ownership-and-lifetime.md).
 
 ## Extension points
 
-New providers should implement common storage contracts and compose optional features without adding provider-specific conditions to generic browsing/presentation. See [`storage-providers.md`](storage-providers.md).
+New providers should implement common storage contracts and compose optional capabilities without adding provider-specific conditions to generic browsing/presentation. See [`storage-providers.md`](storage-providers.md).
 
 ## Tests
 

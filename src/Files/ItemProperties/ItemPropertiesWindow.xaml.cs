@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using Files.Adapters;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;

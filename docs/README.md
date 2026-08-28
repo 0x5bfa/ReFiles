@@ -39,7 +39,7 @@ The most important dependency rule is:
 
 - [`architecture/browsing.md`](architecture/browsing.md)
 - [`subsystems/storage.md`](subsystems/storage.md)
-- [`subsystems/item-features.md`](subsystems/item-features.md)
+- [`subsystems/capabilities.md`](subsystems/capabilities.md)
 - [`development/performance.md`](development/performance.md)
 
 ### Storage providers
@@ -58,7 +58,7 @@ The most important dependency rule is:
 
 ### Properties, thumbnails, and preview
 
-- [`subsystems/item-features.md`](subsystems/item-features.md)
+- [`subsystems/capabilities.md`](subsystems/capabilities.md)
 - [`subsystems/properties.md`](subsystems/properties.md)
 - [`subsystems/thumbnails.md`](subsystems/thumbnails.md)
 - [`subsystems/preview.md`](subsystems/preview.md)

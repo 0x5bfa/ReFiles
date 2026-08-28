@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures.Changes;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Changes;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
@@ -1303,7 +1303,7 @@ public sealed class BrowseSessionTests
 
 		public bool IsHidden => true;
 
-		public Files.Core.ItemFeatures.IItemFeatures Features => _inner.Features;
+		public Files.Core.Capabilities.ICapabilities Capabilities => _inner.Capabilities;
 
 		public HiddenTestModel(IStorableModel inner)
 		{

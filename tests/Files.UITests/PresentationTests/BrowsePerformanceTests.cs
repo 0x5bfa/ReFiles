@@ -14,8 +14,8 @@ using Files.Controls;
 using Files.Core.Browsing;
 using Files.Core.Composition;
 using Files.Core.Data;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Properties;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Properties;
 using Files.Core.Models;
 using Files.Core.Sessions;
 using Files.Core.Storage;
@@ -672,7 +672,7 @@ public sealed class BrowsePerformanceTests
 				var reference = new StorableReference(source.SourceId, storable.Id, new StorageAddress("performance", storable.Id));
 				var context = new ItemContext(source, storable, reference);
 
-				yield return new StorableModel(storable, reference, ItemFeatureRegistry.Empty.CreateFeatures(context));
+				yield return new StorableModel(storable, reference, CapabilityRegistry.Empty.CreateCapabilities(context));
 			}
 
 			await Task.CompletedTask;

@@ -16,9 +16,9 @@ flowchart TD
     Pane[Pane model]
     Browse[Browse session]
     Items[Browse item models]
-    Features[Item features / resources]
+    Capabilities[Item capabilities / resources]
 
-    App --> Window --> Tab --> Pane --> Browse --> Items --> Features
+    App --> Window --> Tab --> Pane --> Browse --> Items --> Capabilities
 ```
 
 Concrete types can change; the important part is that ownership remains explicit.

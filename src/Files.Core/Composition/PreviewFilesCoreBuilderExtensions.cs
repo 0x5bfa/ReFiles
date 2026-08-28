@@ -1,12 +1,12 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities.Previews;
 
 namespace Files.Core.Composition;
 
 /// <summary>
-/// Adds storage-independent stream preview features.
+/// Adds storage-independent stream preview capabilities.
 /// </summary>
 public static class PreviewFilesCoreBuilderExtensions
 {
@@ -43,7 +43,7 @@ public static class PreviewFilesCoreBuilderExtensions
 				[".xml"] = "application/xml",
 			});
 		var loader = new StreamPreviewLoader(contentTypes, policy ?? AllowPreviewStreamAccessPolicy.Instance);
-		builder.ItemFeatures.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 200, origin: "Core stream preview");
+		builder.Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 200, origin: "Core stream preview");
 
 		return builder;
 	}

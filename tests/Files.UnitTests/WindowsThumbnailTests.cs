@@ -1,11 +1,11 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures;
+using Files.Core.Capabilities;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using OwlCore.Storage;
 
 namespace Files.UnitTests;
@@ -50,13 +50,13 @@ public sealed class WindowsThumbnailTests
 			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 
 			var cache = new MemoryThumbnailCache();
-			var featureRegistry = new ItemFeatureBuilder()
+			var capabilityRegistry = new CapabilityBuilder()
 				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()), origin: "Windows Shell")
 				.SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner())
 				.AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(cache))
 				.Build();
 
-			using var model = new StorableModelFactory(featureRegistry).Create(source, coreModel);
+			using var model = new StorableModelFactory(capabilityRegistry).Create(source, coreModel);
 			var thumbnailSource = model.Get<IThumbnailSource>();
 			Assert.IsNotNull(thumbnailSource);
 

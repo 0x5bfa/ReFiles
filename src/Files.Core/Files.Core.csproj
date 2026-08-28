@@ -1,4 +1,4 @@
-﻿<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
@@ -25,7 +25,7 @@
 		<Title>ReFiles.Core</Title>
 		<Authors>Files Community</Authors>
 		<Version>0.1.0-alpha</Version>
-		<Description>UI-independent storage, browsing, item feature, and Windows Shell foundation for ReFiles.</Description>
+		<Description>UI-independent storage, browsing, capability, and Windows Shell foundation for ReFiles.</Description>
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
 		<PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/0x5bfa/ReFiles</RepositoryUrl>

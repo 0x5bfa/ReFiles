@@ -9,13 +9,13 @@ Core/provider code owns thumbnail retrieval/caching semantics. Presentation owns
 ```mermaid
 flowchart LR
     Item[Item]
-    Feature[Thumbnail capability]
+    Capability[Thumbnail capability]
     Provider[Provider / cache]
     Data[UI-independent thumbnail data]
     Presentation[Decode / WinUI image]
     Row[Visible row]
 
-    Item --> Feature --> Provider --> Data --> Presentation --> Row
+    Item --> Capability --> Provider --> Data --> Presentation --> Row
 ```
 
 ## Priorities

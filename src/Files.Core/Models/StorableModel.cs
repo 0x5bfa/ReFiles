@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures;
+using Files.Core.Capabilities;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using OwlCore.Storage;
@@ -37,26 +37,26 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	public bool IsHidden => _coreModel is IWindowsStorable { IsHidden: true };
 
 	/// <summary>
-	/// Gets the composed optional item features.
+	/// Gets the composed optional item capabilities.
 	/// </summary>
-	public IItemFeatures Features { get; }
+	public ICapabilities Capabilities { get; }
 
 	/// <summary>
 	/// Initializes a Files item model.
 	/// </summary>
 	/// <param name="coreModel">The owned OwlCore storage item.</param>
 	/// <param name="reference">The stable Files item reference.</param>
-	/// <param name="features">The owned composed item features.</param>
-	public StorableModel(IStorable coreModel, StorableReference reference, IItemFeatures features)
+	/// <param name="capabilities">The owned composed item capabilities.</param>
+	public StorableModel(IStorable coreModel, StorableReference reference, ICapabilities capabilities)
 	{
 		ArgumentNullException.ThrowIfNull(coreModel);
 		ArgumentNullException.ThrowIfNull(reference);
-		ArgumentNullException.ThrowIfNull(features);
+		ArgumentNullException.ThrowIfNull(capabilities);
 
 		_coreModel = coreModel;
 		Reference = reference;
 		Name = coreModel.Name;
-		Features = features;
+		Capabilities = capabilities;
 	}
 
 	/// <summary>
@@ -68,7 +68,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	}
 
 	/// <summary>
-	/// Asynchronously disposes the item features and owned storage item.
+	/// Asynchronously disposes the item capabilities and owned storage item.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous disposal operation.</returns>
 	public ValueTask DisposeAsync()
@@ -104,7 +104,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 
 		try
 		{
-			await Features.DisposeAsync().ConfigureAwait(false);
+			await Capabilities.DisposeAsync().ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{

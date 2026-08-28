@@ -3,8 +3,8 @@
 
 using System.Text;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
 
@@ -214,11 +214,11 @@ public sealed class StreamPreviewLoaderTests
 		var fileReference = new StorableReference(source.SourceId, file.Id, new StorageAddress("test", file.Name));
 		var policy = new TestPolicy();
 		var loader = CreateLoader(policy);
-		var featureRegistry = new ItemFeatureBuilder()
+		var capabilityRegistry = new CapabilityBuilder()
 			.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100)
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())
 			.Build();
-		var fileModel = new StorableModel(file, fileReference, featureRegistry.CreateFeatures(new ItemContext(source, file, fileReference)));
+		var fileModel = new StorableModel(file, fileReference, capabilityRegistry.CreateCapabilities(new ItemContext(source, file, fileReference)));
 		var folder = new TestModelFactory().CreateModel("folder", "Folder", out _);
 		var resolver = new TestBrowseLocationResolver([fileModel])
 		{

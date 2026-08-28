@@ -1,6 +1,6 @@
 # ReFiles.Core
 
-ReFiles.Core is the UI-independent application, browsing, storage, and item-feature foundation used by ReFiles. It includes Windows Shell integration and optional FTP and archive providers without depending on WinUI.
+ReFiles.Core is the UI-independent application, browsing, storage, and capability foundation used by ReFiles. It includes Windows Shell integration and optional FTP and archive providers without depending on WinUI.
 
 The package is currently prerelease. Pin an exact version while its public API evolves:
 

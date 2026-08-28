@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.ViewSettings;
 
 namespace Files.Core.Sessions;

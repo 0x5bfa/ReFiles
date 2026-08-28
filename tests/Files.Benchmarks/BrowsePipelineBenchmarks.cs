@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
+using Files.Core.Capabilities;
 using Files.Core.Models;
 using Files.Core.Storage;
 using OwlCore.Storage;
@@ -118,7 +118,7 @@ internal sealed class BenchmarkBrowseLocationContext(BrowseLocation location, in
 			var coreModel = new BrowseBenchmarkStorable($"item-{index:D5}", $"Item {index:D5}");
 			var reference = new StorableReference(_source.SourceId, coreModel.Id, new StorageAddress("benchmark", coreModel.Id));
 			var context = new ItemContext(_source, coreModel, reference);
-			var model = new StorableModel(coreModel, reference, ItemFeatureRegistry.Empty.CreateFeatures(context));
+			var model = new StorableModel(coreModel, reference, CapabilityRegistry.Empty.CreateCapabilities(context));
 			_reportFirstItem(Stopwatch.GetTimestamp());
 
 			yield return model;

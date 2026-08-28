@@ -3,7 +3,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities.Previews;
 using Files.Core.Sessions;
 using Files.Infrastructure;
 using Files.Localization;

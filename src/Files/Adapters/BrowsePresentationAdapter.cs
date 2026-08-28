@@ -8,7 +8,7 @@ using Files.ViewModels;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Data;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;

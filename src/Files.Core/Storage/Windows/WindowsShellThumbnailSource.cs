@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Files.Core.Diagnostics;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Thumbnails;
 
 namespace Files.Core.Storage.Windows;
 

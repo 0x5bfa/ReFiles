@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Diagnostics;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 
 namespace Files.Core.Browsing;

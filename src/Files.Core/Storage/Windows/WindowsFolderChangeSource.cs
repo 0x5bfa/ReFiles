@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Diagnostics;
-using Files.Core.ItemFeatures.Changes;
+using Files.Core.Capabilities.Changes;
 using Files.Core.Storage;
 using Windows.Win32.UI.Shell;
 

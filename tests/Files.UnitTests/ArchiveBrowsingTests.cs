@@ -3,8 +3,8 @@
 
 using System.Runtime.CompilerServices;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Archives;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Archives;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
@@ -129,17 +129,17 @@ public sealed class ArchiveBrowsingTests
 	}
 
 	/// <summary>
-	/// Test case: archive source feature includes archive files.
+	/// Test case: archive source capability includes archive files.
 	/// </summary>
 	[TestMethod]
-	public void ArchiveSourceFeatureIncludesArchiveFiles()
+	public void ArchiveSourceCapabilityIncludesArchiveFiles()
 	{
 		var source = new TestStorageSource();
 		var coreModel = new TestArchiveFile("archive", "example.zip");
-		var featureRegistry = new ItemFeatureBuilder()
+		var capabilityRegistry = new CapabilityBuilder()
 			.Add<IArchiveSource>(new ArchiveSourceFactory())
 			.Build();
-		using var model = new StorableModelFactory(featureRegistry)
+		using var model = new StorableModelFactory(capabilityRegistry)
 			.Create(source, coreModel);
 
 		var archiveSource = model.Get<IArchiveSource>();
@@ -156,10 +156,10 @@ public sealed class ArchiveBrowsingTests
 	{
 		var source = new TestStorageSource();
 		var coreModel = new TestWindowsArchiveFile("archive", "example", @"C:\Data\example.zip");
-		var featureRegistry = new ItemFeatureBuilder()
+		var capabilityRegistry = new CapabilityBuilder()
 			.Add<IArchiveSource>(new ArchiveSourceFactory())
 			.Build();
-		using var model = new StorableModelFactory(featureRegistry)
+		using var model = new StorableModelFactory(capabilityRegistry)
 			.Create(source, coreModel);
 
 		Assert.IsNotNull(model.Get<IArchiveSource>());

@@ -47,7 +47,7 @@ public sealed class WindowsStorageSource : IStorageSource
 	public string DisplayName { get; }
 
 	/// <summary>
-	/// Gets the shared scheduler used by Windows-backed item feature factories.
+	/// Gets the shared scheduler used by Windows-backed capability factories.
 	/// </summary>
 	public IWindowsShellScheduler Scheduler { get; }
 

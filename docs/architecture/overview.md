@@ -30,7 +30,7 @@ Dependency direction is intentional: lower layers must not acquire presentation 
 
 - storage references, identities, models, and provider contracts;
 - browsing, projection, selection, navigation state, and view settings;
-- optional item features/capabilities;
+- optional item capabilities;
 - properties, thumbnails, preview, streams, search, and change-observation contracts;
 - provider composition and resolution;
 - UI-independent application/window/tab/pane state;
@@ -61,9 +61,9 @@ Presentation may adapt Core state, but it does not define storage semantics.
 
 `Files.Operations` is an out-of-process execution boundary. Long-running or isolated operations should communicate through explicit contracts rather than sharing UI state or object ownership with the application process.
 
-## Storage providers and item features
+## Storage providers and capabilities
 
-Providers adapt different storage systems to common Core contracts. Provider differences are expressed through identities, hierarchy, enumeration, and optional item features instead of provider-type branches spread throughout generic code.
+Providers adapt different storage systems to common Core contracts. Provider differences are expressed through identities, hierarchy, enumeration, and optional item capabilities instead of provider-type branches spread throughout generic code.
 
 An item may expose only the capabilities it can implement correctly, such as properties, thumbnail retrieval, preview, streams, operations, search, or change observation.
 

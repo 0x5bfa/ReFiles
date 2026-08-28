@@ -21,7 +21,7 @@ Use [`../architecture/layering.md`](../architecture/layering.md) and [`../archit
 
 ## 3. Decide whether behavior is optional
 
-If only some storage items/providers support it, prefer an item feature/capability instead of expanding a universal interface or adding provider switches.
+If only some storage items/providers support it, prefer a capability instead of expanding a universal interface or adding provider switches.
 
 ## 4. Define async/concurrency behavior
 

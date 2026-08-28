@@ -1,9 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures.Previews;
-using Files.Core.ItemFeatures.Properties;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities.Previews;
+using Files.Core.Capabilities.Properties;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.ViewSettings;
 
 namespace Files.UnitTests;
@@ -15,10 +15,10 @@ namespace Files.UnitTests;
 public sealed class ContractValidationTests
 {
 	/// <summary>
-	/// Test case: feature requests reject unknown enums and invalid ids.
+	/// Test case: capability requests reject unknown enums and invalid ids.
 	/// </summary>
 	[TestMethod]
-	public void FeatureRequestsRejectUnknownEnumsAndInvalidIds()
+	public void CapabilityRequestsRejectUnknownEnumsAndInvalidIds()
 	{
 		Assert.Throws<ArgumentOutOfRangeException>(() => new ThumbnailRequest(64, (ThumbnailMode)int.MaxValue));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new PreviewRequest(hydrationPolicy: (PreviewHydrationPolicy)int.MaxValue));

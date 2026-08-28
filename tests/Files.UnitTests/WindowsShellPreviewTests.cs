@@ -3,8 +3,8 @@
 
 using System.Text;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
@@ -162,7 +162,7 @@ public sealed class WindowsShellPreviewTests
 		var source = new TestStorageSource();
 		var item = new FakeWindowsFile("actual", "document.pdf");
 		var requestedReference = new StorableReference(source.SourceId, "requested");
-		var model = new StorableModel(item, requestedReference, ItemFeatureRegistry.Empty.CreateFeatures(new ItemContext(source, item, requestedReference)));
+		var model = new StorableModel(item, requestedReference, CapabilityRegistry.Empty.CreateCapabilities(new ItemContext(source, item, requestedReference)));
 
 		Assert.Throws<InvalidDataException>(() => new WindowsPreviewTarget(model, item));
 
@@ -261,7 +261,7 @@ public sealed class WindowsShellPreviewTests
 		var handlerResolver = new FakeHandlerResolver { HandlerClsid = Guid.NewGuid() };
 		var streamLoader = new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", "text/plain"), ]), new AllowPreviewPolicy());
 		var shellLoader = new WindowsShellPreviewLoader(handlerResolver, new FakeShellPolicy());
-		var featureRegistry = new ItemFeatureBuilder()
+		var capabilityRegistry = new CapabilityBuilder()
 			.Add<IPreviewSource>(new PreviewSourceFactory(streamLoader), priority: 200)
 			.Add<IPreviewSource>(new PreviewSourceFactory(shellLoader), priority: 100)
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())
@@ -272,7 +272,7 @@ public sealed class WindowsShellPreviewTests
 			StreamFactory = _ => Task.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes("stream"))),
 		};
 		var textReference = new StorableReference(source.SourceId, textFile.Id);
-		var textModel = new StorableModel(textFile, textReference, featureRegistry.CreateFeatures(new ItemContext(source, textFile, textReference)));
+		var textModel = new StorableModel(textFile, textReference, capabilityRegistry.CreateCapabilities(new ItemContext(source, textFile, textReference)));
 		await using var streamResult = await textModel
 			.Get<IPreviewSource>()!
 			.GetPreviewAsync(new PreviewRequest());
@@ -281,7 +281,7 @@ public sealed class WindowsShellPreviewTests
 
 		var shellFile = new FakeWindowsFile("shell", "document.pdf");
 		var shellReference = new StorableReference(source.SourceId, shellFile.Id);
-		var shellModel = new StorableModel(shellFile, shellReference, featureRegistry.CreateFeatures(new ItemContext(source, shellFile, shellReference)));
+		var shellModel = new StorableModel(shellFile, shellReference, capabilityRegistry.CreateCapabilities(new ItemContext(source, shellFile, shellReference)));
 		await using var shellResult = await shellModel
 			.Get<IPreviewSource>()!
 			.GetPreviewAsync(new PreviewRequest());
@@ -305,7 +305,7 @@ public sealed class WindowsShellPreviewTests
 		var source = new TestStorageSource();
 		var item = new FakeWindowsFile(id, name);
 		var reference = new StorableReference(source.SourceId, item.Id);
-		var model = new StorableModel(item, reference, ItemFeatureRegistry.Empty.CreateFeatures(new ItemContext(source, item, reference)));
+		var model = new StorableModel(item, reference, CapabilityRegistry.Empty.CreateCapabilities(new ItemContext(source, item, reference)));
 
 		return new WindowsPreviewTarget(model, item);
 	}

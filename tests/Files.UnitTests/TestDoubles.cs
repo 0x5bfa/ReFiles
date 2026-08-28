@@ -3,11 +3,11 @@
 
 using System.Runtime.CompilerServices;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Changes;
-using Files.Core.ItemFeatures.Previews;
-using Files.Core.ItemFeatures.Properties;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Changes;
+using Files.Core.Capabilities.Previews;
+using Files.Core.Capabilities.Properties;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
@@ -83,7 +83,7 @@ internal sealed class DisposableStorable : TestStorable, IDisposable
 	}
 }
 
-internal sealed class TestItemFeature : IDisposable
+internal sealed class TestCapability : IDisposable
 {
 	private readonly IList<string> disposalOrder;
 
@@ -91,7 +91,7 @@ internal sealed class TestItemFeature : IDisposable
 
 	public bool IsDisposed { get; private set; }
 
-	public TestItemFeature(string name, IList<string> disposalOrder)
+	public TestCapability(string name, IList<string> disposalOrder)
 	{
 		Name = name;
 		this.disposalOrder = disposalOrder;
@@ -126,36 +126,36 @@ internal sealed class TestModelFactory
 	{
 		coreModel = new DisposableStorable(id, name);
 		var reference = new StorableReference(source.SourceId, coreModel.Id, new StorageAddress("test", coreModel.Id));
-		var context = new Files.Core.ItemFeatures.ItemContext(source, coreModel, reference);
-		var featureBuilder = new ItemFeatureBuilder();
+		var context = new Files.Core.Capabilities.ItemContext(source, coreModel, reference);
+		var capabilityBuilder = new CapabilityBuilder();
 		if (changeSource is not null)
 		{
-			featureBuilder.Add<IFolderChangeSource>(new DelegateItemFeatureFactory<IFolderChangeSource>(_ => changeSource));
+			capabilityBuilder.Add<IFolderChangeSource>(new DelegateCapabilityFactory<IFolderChangeSource>(_ => changeSource));
 		}
 
 		if (propertySource is not null)
 		{
-			featureBuilder.Add<IPropertySource>(new DelegateItemFeatureFactory<IPropertySource>(_ => propertySource));
+			capabilityBuilder.Add<IPropertySource>(new DelegateCapabilityFactory<IPropertySource>(_ => propertySource));
 		}
 
 		if (thumbnailSource is not null)
 		{
-			featureBuilder.Add<IThumbnailSource>(new DelegateItemFeatureFactory<IThumbnailSource>(_ => thumbnailSource));
+			capabilityBuilder.Add<IThumbnailSource>(new DelegateCapabilityFactory<IThumbnailSource>(_ => thumbnailSource));
 		}
 
 		if (previewSource is not null)
 		{
-			featureBuilder.Add<IPreviewSource>(new DelegateItemFeatureFactory<IPreviewSource>(_ => previewSource));
+			capabilityBuilder.Add<IPreviewSource>(new DelegateCapabilityFactory<IPreviewSource>(_ => previewSource));
 		}
 
-		var featureRegistry = changeSource is null
+		var capabilityRegistry = changeSource is null
 			&& propertySource is null
 			&& thumbnailSource is null
 			&& previewSource is null
-			? ItemFeatureRegistry.Empty
-			: featureBuilder.Build();
+			? CapabilityRegistry.Empty
+			: capabilityBuilder.Build();
 
-		return new StorableModel(coreModel, reference, featureRegistry.CreateFeatures(context));
+		return new StorableModel(coreModel, reference, capabilityRegistry.CreateCapabilities(context));
 	}
 }
 

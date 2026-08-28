@@ -5,7 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Files.Core.Browsing;
-using Files.Core.ItemFeatures.Previews;
+using Files.Core.Capabilities.Previews;
 using Files.Localization;
 using Files.ViewModels;
 using Microsoft.UI.Xaml;

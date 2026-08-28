@@ -31,7 +31,7 @@ The concrete project-reference graph may evolve, but these architectural rules r
 | Storage abstractions and identity | `Files.Core` |
 | Provider contracts and implementations | `Files.Core` provider/platform areas |
 | Browse/navigation state | `Files.Core` |
-| Item feature/capability contracts | `Files.Core` |
+| Capability contracts | `Files.Core` |
 | Property/thumbnail/preview retrieval contracts | `Files.Core` |
 | Provider-specific retrieval | provider implementation |
 | WinUI image creation/decoding | `Files` |

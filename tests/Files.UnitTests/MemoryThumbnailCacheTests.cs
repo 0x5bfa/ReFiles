@@ -1,8 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

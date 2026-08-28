@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Runtime.CompilerServices;
-using Files.Core.ItemFeatures;
+using Files.Core.Capabilities;
 using Files.Core.Storage;
 using OwlCore.Storage;
 
@@ -24,9 +24,9 @@ public sealed class FolderModel : StorableModel, IFolderModel
 	/// <param name="folder">The owned OwlCore folder.</param>
 	/// <param name="modelFactory">The factory used to adapt child items.</param>
 	/// <param name="reference">The stable Files item reference.</param>
-	/// <param name="features">The owned composed item features.</param>
-	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, IItemFeatures features)
-		: base(folder, reference, features)
+	/// <param name="capabilities">The owned composed item capabilities.</param>
+	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, ICapabilities capabilities)
+		: base(folder, reference, capabilities)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(modelFactory);

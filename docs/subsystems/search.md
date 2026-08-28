@@ -16,7 +16,7 @@ A provider may implement search locally, remotely, through an index, or not at a
 
 ## Result integration
 
-Search results should reuse the normal item feature/property/thumbnail model rather than inventing a parallel presentation-only item type.
+Search results should reuse the normal item capability/property/thumbnail model rather than inventing a parallel presentation-only item type.
 
 ## Performance
 

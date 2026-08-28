@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Runtime.Versioning;
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Thumbnails;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Thumbnails;
 
 namespace Files.Core.Storage.Windows;
 
@@ -11,7 +11,7 @@ namespace Files.Core.Storage.Windows;
 /// Creates a thumbnail source for items resolved by the Windows storage source.
 /// </summary>
 [SupportedOSPlatform("windows6.0.6000")]
-public sealed class WindowsThumbnailSourceFactory : IItemFeatureFactory<IThumbnailSource>
+public sealed class WindowsThumbnailSourceFactory : ICapabilityFactory<IThumbnailSource>
 {
 	private readonly WindowsShellThumbnailBackend _backend;
 

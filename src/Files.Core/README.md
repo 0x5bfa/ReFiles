@@ -1,6 +1,6 @@
 # Files.Core
 
-Files.Core is the UI-independent model, storage, item feature, and application
+Files.Core is the UI-independent model, storage, capability, and application
 state foundation for Files hosts.
 
 ## Public entry point
@@ -52,7 +52,7 @@ flowchart TB
     Content["IPaneContentSession"]
     BrowsePane["BrowsePaneSession"]
     Session["BrowseSession"]
-    Items["IStorableModel + item features"]
+    Items["IStorableModel + capabilities"]
 
     Runtime --> Workspace
     Runtime --> App
@@ -69,7 +69,7 @@ Implemented areas:
 
 - stable source and item identity with recovery addresses;
 - OwlCore.Storage CoreModels wrapped by Files AppModels;
-- lazy per-item feature factories, combiners, wrappers, and ownership;
+- lazy capability factories, combiners, wrappers, and ownership;
 - UI-independent shell sessions for application, window, tab, split-pane,
   navigation-history, and browsing state;
 - home/folder/archive locations plus extensible search/tag location contracts;
@@ -125,7 +125,7 @@ and cross-source transfer coordination remain separate extension boundaries.
   rendering, the preview child HWND, activation, drag/drop, and context menus
   belong to the Files UI host.
 - Search/tag behavior needs a selected backend and custom location handler.
-- Additional storage sources plug into the same storage, item feature,
+- Additional storage sources plug into the same storage, capability,
   location, and operation contracts.
 - Durable settings and window-session serialization are application policy.
 - Retired storage projects no longer define competing contracts. The future of

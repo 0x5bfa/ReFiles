@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures;
+using Files.Core.Capabilities;
 using Files.Core.Storage;
 using OwlCore.Storage;
 
@@ -17,9 +17,9 @@ public sealed class FileModel : StorableModel, IFileModel
 	/// </summary>
 	/// <param name="file">The owned OwlCore file.</param>
 	/// <param name="reference">The stable Files item reference.</param>
-	/// <param name="features">The owned composed item features.</param>
-	public FileModel(IFile file, StorableReference reference, IItemFeatures features)
-		: base(file, reference, features)
+	/// <param name="capabilities">The owned composed item capabilities.</param>
+	public FileModel(IFile file, StorableReference reference, ICapabilities capabilities)
+		: base(file, reference, capabilities)
 	{
 	}
 }

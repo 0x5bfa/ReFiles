@@ -1,8 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures;
-using Files.Core.ItemFeatures.Changes;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Changes;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 

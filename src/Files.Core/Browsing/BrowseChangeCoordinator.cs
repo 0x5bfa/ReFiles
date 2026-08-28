@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.ItemFeatures.Changes;
+using Files.Core.Capabilities.Changes;
 using System.Threading.Channels;
 
 namespace Files.Core.Browsing;
