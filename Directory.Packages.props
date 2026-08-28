@@ -26,7 +26,7 @@
 		<PackageVersion Include="Microsoft.Extensions.DependencyInje nction" Version="10.0.2" />
 		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
 		<PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.2" />
-		<PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />
+		<PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
 		<PackageVersion Include="Microsoft.Xaml.Behaviors.WinUI.Managed" Version="3.0.1" />
 		<PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.4.1-experimental" />
 		<PackageVersion Include="Microsoft.Graphics.Win2D" Version="1.3.2" />
