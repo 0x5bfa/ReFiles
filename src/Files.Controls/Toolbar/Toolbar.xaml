@@ -61,7 +61,7 @@
 									Label="{TemplateBinding OverflowButtonLabel}"
 									ThemedIcon="{StaticResource App.ThemedIcons.More}">
 									<local:ToolbarFlyoutButton.Flyout>
-										<MenuFlyout x:Name="PART_OverflowFlyout" />
+										<MenuFlyout x:Name="PART_OverflowFlyout" Placement="BottomEdgeAlignedRight" />
 									</local:ToolbarFlyoutButton.Flyout>
 								</local:ToolbarFlyoutButton>
 

@@ -83,11 +83,6 @@ namespace Files.Controls
 
 		private void UpdateAppearance()
 		{
-			if (!IsLoaded)
-			{
-				return;
-			}
-
 			var isToggled = ToggleBehavior is ToggleBehaviors.On || (ToggleBehavior is ToggleBehaviors.Auto && (IsToggled || _ownerToggleButton?.IsChecked is true));
 			var isEnabled = IsEnabled && _ownerControl?.IsEnabled is not false;
 			var effectiveSize = GetEffectiveSize();
@@ -107,11 +102,6 @@ namespace Files.Controls
 
 		private void UpdateDataSource()
 		{
-			if (!IsLoaded)
-			{
-				return;
-			}
-
 			_visualSource = null;
 			UpdateAppearance();
 		}

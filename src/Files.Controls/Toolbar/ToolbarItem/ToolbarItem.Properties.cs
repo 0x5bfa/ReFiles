@@ -28,6 +28,12 @@ namespace Files.Controls
 		public partial string Label { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether generated button content displays <see cref="Label"/> next to the icon.
+		/// </summary>
+		[GeneratedDependencyProperty]
+		public partial bool IsLabelVisible { get; set; }
+
+		/// <summary>
 		/// Gets or sets the child items displayed by a flyout or split button.
 		/// </summary>
 		[GeneratedDependencyProperty]
@@ -139,6 +145,10 @@ namespace Files.Controls
 				else if (e.Property == LabelProperty)
 				{
 					propertyName = nameof(Label);
+				}
+				else if (e.Property == IsLabelVisibleProperty)
+				{
+					propertyName = nameof(IsLabelVisible);
 				}
 				else if (e.Property == ContentProperty)
 				{

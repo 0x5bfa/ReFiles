@@ -12,6 +12,8 @@ namespace Files.Controls
 {
 	public partial class Toolbar : Control
 	{
+		private const string CaptionTextBlockStyleResourceKey = "CaptionTextBlockStyle";
+		private const string LabelButtonPaddingResourceKey = "ToolbarLabelButtonPadding";
 		private const double DefaultItemSpacing = 4d;
 		private const double DefaultOverflowButtonWidth = 40d;
 
@@ -368,7 +370,7 @@ namespace Files.Controls
 					button.Label = item.Label;
 					button.ThemedIcon = item.ThemedIcon;
 					button.IconSize = item.IconSize;
-					button.Content = item.Content;
+					button.Content = CreateToolbarButtonContent(item);
 					button.Command = item.Command;
 					button.CommandParameter = item.CommandParameter;
 					break;
@@ -376,7 +378,7 @@ namespace Files.Controls
 					toggleButton.Label = item.Label;
 					toggleButton.ThemedIcon = item.ThemedIcon;
 					toggleButton.IconSize = item.IconSize;
-					toggleButton.Content = item.Content;
+					toggleButton.Content = CreateToolbarButtonContent(item);
 					toggleButton.Command = item.Command;
 					toggleButton.CommandParameter = item.CommandParameter;
 					toggleButton.IsChecked = item.IsChecked;
@@ -414,6 +416,9 @@ namespace Files.Controls
 					break;
 				case nameof(ToolbarItem.Label):
 					ApplyToolbarItemLabel(element, item);
+					break;
+				case nameof(ToolbarItem.IsLabelVisible):
+					ApplyToolbarItemContent(element, item);
 					break;
 				case nameof(ToolbarItem.Content):
 				case nameof(ToolbarItem.ThemedIcon):
@@ -478,10 +483,16 @@ namespace Files.Controls
 			{
 				toggleButton.Label = item.Label;
 			}
+
+			if (item.IsLabelVisible)
+			{
+				ApplyToolbarItemContent(element, item);
+			}
 		}
 
 		private static void ApplyToolbarItemContent(FrameworkElement element, ToolbarItem item)
 		{
+			ApplyToolbarItemPadding(element, item);
 			switch (element)
 			{
 				case ToolbarFlyoutButton flyoutButton:
@@ -490,12 +501,12 @@ namespace Files.Controls
 				case ToolbarButton button:
 					button.ThemedIcon = item.ThemedIcon;
 					button.IconSize = item.IconSize;
-					button.Content = item.Content;
+					button.Content = CreateToolbarButtonContent(item);
 					break;
 				case ToolbarToggleButton toggleButton:
 					toggleButton.ThemedIcon = item.ThemedIcon;
 					toggleButton.IconSize = item.IconSize;
-					toggleButton.Content = item.Content;
+					toggleButton.Content = CreateToolbarButtonContent(item);
 					break;
 				case ToolbarRadioButton radioButton:
 					radioButton.Content = CreateToolbarContent(item);
@@ -584,7 +595,25 @@ namespace Files.Controls
 				AutomationProperties.SetName(control, item.Label);
 			}
 
+			ApplyToolbarItemPadding(element, item);
 			ApplyKeyboardAccelerators(element, item);
+		}
+
+		private static void ApplyToolbarItemPadding(FrameworkElement element, ToolbarItem item)
+		{
+			if (element is not Control control)
+			{
+				return;
+			}
+
+			if (item.IsLabelVisible && item.Content is null)
+			{
+				control.Padding = GetResourceThickness(LabelButtonPaddingResourceKey, new Thickness(8, 4, 8, 4));
+			}
+			else
+			{
+				control.ClearValue(Control.PaddingProperty);
+			}
 		}
 
 		private void ApplyToolbarItemSize(FrameworkElement element)
@@ -615,7 +644,31 @@ namespace Files.Controls
 				return item.Content;
 			}
 
-			return CreateIcon(item);
+			return item.IsLabelVisible ? CreateLabelContent(item) : CreateIcon(item);
+		}
+
+		private static object? CreateToolbarButtonContent(ToolbarItem item)
+		{
+			return item.Content ?? (item.IsLabelVisible ? CreateLabelContent(item) : null);
+		}
+
+		private static FrameworkElement CreateLabelContent(ToolbarItem item)
+		{
+			var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+			if (CreateIcon(item) is { } icon)
+			{
+				panel.Children.Add(icon);
+			}
+
+			var label = new TextBlock { Text = item.Label, VerticalAlignment = VerticalAlignment.Center };
+			if (Application.Current?.Resources.TryGetValue(CaptionTextBlockStyleResourceKey, out var style) is true && style is Style captionStyle)
+			{
+				label.Style = captionStyle;
+			}
+
+			panel.Children.Add(label);
+
+			return panel;
 		}
 
 		private static ThemedIcon? CreateIcon(ToolbarItem item)
@@ -625,7 +678,9 @@ namespace Files.Controls
 				return null;
 			}
 
-			return new ThemedIcon { Data = item.ThemedIcon, IconSize = item.IconSize };
+			var iconSize = double.IsFinite(item.IconSize) && item.IconSize > 0 ? item.IconSize : 16;
+
+			return new ThemedIcon { Data = item.ThemedIcon, IconSize = iconSize, Width = iconSize, Height = iconSize };
 		}
 
 		private MenuFlyout? GetGeneratedFlyout(FrameworkElement element, ToolbarItem item)
@@ -830,6 +885,17 @@ namespace Files.Controls
 			return fallback;
 		}
 
+		private static Thickness GetResourceThickness(string key, Thickness fallback)
+		{
+			var resources = Application.Current?.Resources;
+			if (resources is not null && resources.TryGetValue(key, out var value) && value is Thickness resourceValue)
+			{
+				return resourceValue;
+			}
+
+			return fallback;
+		}
+
 		private void UpdateLayoutPartition(double availableWidth)
 		{
 			var spacing = GetItemSpacing();
@@ -922,6 +988,11 @@ namespace Files.Controls
 				{
 					_overflowStackPanel.Visibility = Visibility.Collapsed;
 				}
+			}
+
+			if (_overflowMenuDirty)
+			{
+				PopulateOverflowMenu(_overflowItems);
 			}
 		}
 

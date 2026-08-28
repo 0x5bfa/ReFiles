@@ -7,6 +7,7 @@ using Files.Controls.Primitives;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -149,12 +150,14 @@ public sealed class ToolbarTests
 	[UITestMethod]
 	public async Task VisibilityAndOverflowMenuStateRemainConsistent()
 	{
+		var iconData = new ThemedIconData { OutlineData = "M0,0 H16 V16 H0 Z", Size = 16 };
+		iconData.Layers.Add(new ThemedIconLayer { LayerType = ThemedIconLayerType.Base, PathData = "M0,0 H16 V16 H0 Z" });
 		var hiddenItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, IsVisible = false, Label = "Hidden", OverflowBehavior = OverflowBehaviors.Always };
 		var disabledItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, IsEnabled = false, Label = "Disabled", OverflowBehavior = OverflowBehaviors.Always };
-		var enabledItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, Label = "Enabled", OverflowBehavior = OverflowBehaviors.Always };
+		var enabledItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, Label = "Enabled", OverflowBehavior = OverflowBehaviors.Always, ThemedIcon = iconData };
 		var items = new ObservableCollection<ToolbarItem>
 		{
-			new() { ItemType = ToolbarItemTypes.Button, Label = "Back", OverflowBehavior = OverflowBehaviors.Never },
+			new() { ItemType = ToolbarItemTypes.Button, IsLabelVisible = true, Label = "Back", OverflowBehavior = OverflowBehaviors.Never, ThemedIcon = iconData },
 			hiddenItem,
 			new() { ItemType = ToolbarItemTypes.Separator, OverflowBehavior = OverflowBehaviors.Always },
 			disabledItem,
@@ -175,8 +178,21 @@ public sealed class ToolbarTests
 			var overflowPanel = GetNamedDescendant<StackPanel>(toolbar, Toolbar.OverflowStackPanelPartName);
 			Assert.AreEqual(Visibility.Visible, overflowPanel.Visibility);
 			var overflowButton = GetNamedDescendant<ToolbarFlyoutButton>(toolbar, Toolbar.OverflowButtonPartName);
+			var labelledButton = ((ContentPresenter)GetNamedDescendant<ToolbarItemsPanel>(toolbar, Toolbar.ToolbarItemsPanelPartName).Children[0]).Content as ToolbarButton;
+			Assert.IsNotNull(labelledButton);
+			var labelledContent = labelledButton.Content as StackPanel;
+			Assert.IsNotNull(labelledContent);
+			Assert.AreEqual(8d, labelledButton.Padding.Left);
+			Assert.AreEqual(8d, labelledButton.Padding.Right);
+			Assert.AreEqual(8d, labelledContent.Spacing);
+			Assert.IsInstanceOfType<ThemedIcon>(labelledContent.Children[0]);
+			var labelledText = labelledContent.Children[1] as TextBlock;
+			Assert.IsNotNull(labelledText);
+			Assert.AreEqual("Back", labelledText.Text);
+			Assert.AreEqual(12d, labelledText.FontSize);
 			var overflowFlyout = overflowButton.Flyout as MenuFlyout;
 			Assert.IsNotNull(overflowFlyout);
+			Assert.AreEqual(FlyoutPlacementMode.BottomEdgeAlignedRight, overflowFlyout.Placement);
 			overflowFlyout.ShowAt(overflowButton);
 			await WaitForDispatcherAsync();
 
@@ -188,6 +204,13 @@ public sealed class ToolbarTests
 			Assert.IsInstanceOfType<MenuFlyoutItem>(overflowFlyout.Items[2]);
 			Assert.AreEqual("Enabled", ((MenuFlyoutItem)overflowFlyout.Items[2]).Text);
 			Assert.IsTrue(((MenuFlyoutItem)overflowFlyout.Items[2]).IsEnabled);
+			var overflowIcon = ((MenuFlyoutItem)overflowFlyout.Items[2]).Icon as ThemedIcon;
+			Assert.IsNotNull(overflowIcon);
+			await WaitForLoadedAsync(overflowIcon);
+			overflowIcon.UpdateLayout();
+			Assert.AreEqual(16d, overflowIcon.ActualWidth);
+			Assert.AreSame(iconData, overflowIcon.Data);
+			Assert.AreEqual(1, GetRenderedShapeCount(overflowIcon));
 			overflowFlyout.Hide();
 
 			disabledItem.IsVisible = false;
@@ -209,9 +232,13 @@ public sealed class ToolbarTests
 
 	private static int GetRenderedShapeCount(ThemedIcon icon)
 	{
-		var visualSource = icon.Source as ThemedIconVisualSource;
+		return GetRenderedShapeCount(icon.Source as ThemedIconVisualSource, icon);
+	}
+
+	private static int GetRenderedShapeCount(ThemedIconVisualSource? visualSource, FrameworkElement owner)
+	{
 		Assert.IsNotNull(visualSource);
-		var compositor = ElementCompositionPreview.GetElementVisual(icon).Compositor;
+		var compositor = ElementCompositionPreview.GetElementVisual(owner).Compositor;
 		using var animatedVisual = visualSource.TryCreateAnimatedVisual(compositor, out var diagnostics);
 		Assert.IsNotNull(animatedVisual, diagnostics?.ToString());
 		var rootVisual = animatedVisual.RootVisual as ShapeVisual;
