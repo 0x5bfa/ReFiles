@@ -142,6 +142,71 @@ public sealed class ToolbarTests
 		}
 	}
 
+	/// <summary>
+	/// Verifies that hidden items do not affect overflow and that overflow menu state and separators are normalized.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task VisibilityAndOverflowMenuStateRemainConsistent()
+	{
+		var hiddenItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, IsVisible = false, Label = "Hidden", OverflowBehavior = OverflowBehaviors.Always };
+		var disabledItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, IsEnabled = false, Label = "Disabled", OverflowBehavior = OverflowBehaviors.Always };
+		var enabledItem = new ToolbarItem { ItemType = ToolbarItemTypes.Button, Label = "Enabled", OverflowBehavior = OverflowBehaviors.Always };
+		var items = new ObservableCollection<ToolbarItem>
+		{
+			new() { ItemType = ToolbarItemTypes.Button, Label = "Back", OverflowBehavior = OverflowBehaviors.Never },
+			hiddenItem,
+			new() { ItemType = ToolbarItemTypes.Separator, OverflowBehavior = OverflowBehaviors.Always },
+			disabledItem,
+			new() { ItemType = ToolbarItemTypes.Separator, OverflowBehavior = OverflowBehaviors.Always },
+			new() { ItemType = ToolbarItemTypes.Separator, OverflowBehavior = OverflowBehaviors.Always },
+			enabledItem,
+			new() { ItemType = ToolbarItemTypes.Separator, OverflowBehavior = OverflowBehaviors.Always },
+		};
+		var toolbar = new Toolbar { HorizontalAlignment = HorizontalAlignment.Left, Items = items, Width = 480 };
+		var window = new Window { Content = toolbar };
+		try
+		{
+			var loaded = WaitForLoadedAsync(toolbar);
+			window.Activate();
+			await loaded;
+			await WaitForDispatcherAsync();
+
+			var overflowPanel = GetNamedDescendant<StackPanel>(toolbar, Toolbar.OverflowStackPanelPartName);
+			Assert.AreEqual(Visibility.Visible, overflowPanel.Visibility);
+			var overflowButton = GetNamedDescendant<ToolbarFlyoutButton>(toolbar, Toolbar.OverflowButtonPartName);
+			var overflowFlyout = overflowButton.Flyout as MenuFlyout;
+			Assert.IsNotNull(overflowFlyout);
+			overflowFlyout.ShowAt(overflowButton);
+			await WaitForDispatcherAsync();
+
+			Assert.AreEqual(3, overflowFlyout.Items.Count);
+			Assert.IsInstanceOfType<MenuFlyoutItem>(overflowFlyout.Items[0]);
+			Assert.AreEqual("Disabled", ((MenuFlyoutItem)overflowFlyout.Items[0]).Text);
+			Assert.IsFalse(((MenuFlyoutItem)overflowFlyout.Items[0]).IsEnabled);
+			Assert.IsInstanceOfType<MenuFlyoutSeparator>(overflowFlyout.Items[1]);
+			Assert.IsInstanceOfType<MenuFlyoutItem>(overflowFlyout.Items[2]);
+			Assert.AreEqual("Enabled", ((MenuFlyoutItem)overflowFlyout.Items[2]).Text);
+			Assert.IsTrue(((MenuFlyoutItem)overflowFlyout.Items[2]).IsEnabled);
+			overflowFlyout.Hide();
+
+			disabledItem.IsVisible = false;
+			enabledItem.IsVisible = false;
+			toolbar.UpdateLayout();
+			await WaitForDispatcherAsync();
+			Assert.AreEqual(Visibility.Collapsed, overflowPanel.Visibility);
+
+			hiddenItem.IsVisible = true;
+			toolbar.UpdateLayout();
+			await WaitForDispatcherAsync();
+			Assert.AreEqual(Visibility.Visible, overflowPanel.Visibility);
+		}
+		finally
+		{
+			window.Close();
+		}
+	}
+
 	private static int GetRenderedShapeCount(ThemedIcon icon)
 	{
 		var visualSource = icon.Source as ThemedIconVisualSource;

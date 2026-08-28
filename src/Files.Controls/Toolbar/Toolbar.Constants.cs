@@ -6,7 +6,7 @@ namespace Files.Controls
 	// TemplateParts
 	[TemplatePart(Name = ToolbarItemsPanelPartName, Type = typeof(ToolbarItemsPanel))]
 	[TemplatePart(Name = OverflowStackPanelPartName, Type = typeof(StackPanel))]
-	[TemplatePart(Name = OverflowButtonPartName, Type = typeof(ToolbarButton))]
+	[TemplatePart(Name = OverflowButtonPartName, Type = typeof(ToolbarFlyoutButton))]
 	[TemplatePart(Name = OverflowFlyoutPartName, Type = typeof(MenuFlyout))]
 
 	// VisualStates

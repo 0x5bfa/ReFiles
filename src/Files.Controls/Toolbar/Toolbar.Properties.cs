@@ -50,5 +50,10 @@ namespace Files.Controls
 		{
 			ToolbarSizeChanged(newValue);
 		}
+
+		partial void OnOverflowButtonLabelChanged(string newValue)
+		{
+			OverflowButtonLabelChanged(newValue);
+		}
 	}
 }

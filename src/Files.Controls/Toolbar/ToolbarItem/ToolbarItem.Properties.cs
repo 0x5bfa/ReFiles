@@ -82,6 +82,12 @@ namespace Files.Controls
 		public partial object? CommandParameter { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether the item participates in toolbar layout and overflow presentation.
+		/// </summary>
+		[GeneratedDependencyProperty(DefaultValue = true)]
+		public partial bool IsVisible { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the rendered item is enabled.
 		/// </summary>
 		[GeneratedDependencyProperty(DefaultValue = true)]
@@ -109,6 +115,11 @@ namespace Files.Controls
 		{
 			ObserveKeyboardAccelerators(e.NewValue as IList<KeyboardAccelerator>);
 			RaisePropertyChanged(nameof(KeyboardAccelerators));
+		}
+
+		partial void OnIsVisibleChanged(bool newValue)
+		{
+			RaisePropertyChanged(nameof(IsVisible));
 		}
 
 		partial void OnPropertyChanged(DependencyPropertyChangedEventArgs e)

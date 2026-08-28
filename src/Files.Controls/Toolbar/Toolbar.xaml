@@ -52,7 +52,7 @@
 
 								<local:ToolbarSeparator />
 
-								<local:ToolbarButton
+								<local:ToolbarFlyoutButton
 									x:Name="PART_OverflowButton"
 									MinWidth="40"
 									MinHeight="32"
@@ -60,10 +60,10 @@
 									IconSize="16"
 									Label="{TemplateBinding OverflowButtonLabel}"
 									ThemedIcon="{StaticResource App.ThemedIcons.More}">
-									<local:ToolbarButton.Flyout>
+									<local:ToolbarFlyoutButton.Flyout>
 										<MenuFlyout x:Name="PART_OverflowFlyout" />
-									</local:ToolbarButton.Flyout>
-								</local:ToolbarButton>
+									</local:ToolbarFlyoutButton.Flyout>
+								</local:ToolbarFlyoutButton>
 
 							</StackPanel>
 						</Grid>

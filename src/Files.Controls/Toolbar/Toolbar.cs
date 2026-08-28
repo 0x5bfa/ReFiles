@@ -24,7 +24,7 @@ namespace Files.Controls
 
 		private ToolbarItemsPanel? _itemsPanel;
 		private StackPanel? _overflowStackPanel;
-		private ToolbarButton? _overflowButton;
+		private ToolbarFlyoutButton? _overflowButton;
 		private MenuFlyout? _overflowFlyout;
 		private INotifyCollectionChanged? _itemsCollection;
 		private IList<ToolbarItem>? _observedItems;
@@ -77,7 +77,7 @@ namespace Files.Controls
 
 			_itemsPanel = GetTemplateChild(ToolbarItemsPanelPartName) as ToolbarItemsPanel;
 			_overflowStackPanel = GetTemplateChild(OverflowStackPanelPartName) as StackPanel;
-			_overflowButton = GetTemplateChild(OverflowButtonPartName) as ToolbarButton;
+			_overflowButton = GetTemplateChild(OverflowButtonPartName) as ToolbarFlyoutButton;
 			_overflowFlyout = GetTemplateChild(OverflowFlyoutPartName) as MenuFlyout ?? _overflowButton?.Flyout as MenuFlyout;
 
 			if (_overflowFlyout is not null)
@@ -446,6 +446,9 @@ namespace Files.Controls
 				case nameof(ToolbarItem.CommandParameter):
 					ApplyToolbarItemCommand(element, item);
 					break;
+				case nameof(ToolbarItem.IsVisible):
+					element.Visibility = item.IsVisible ? Visibility.Visible : Visibility.Collapsed;
+					break;
 				case nameof(ToolbarItem.Flyout):
 				case nameof(ToolbarItem.SubItems):
 					ApplyToolbarItemFlyout(element, item);
@@ -568,6 +571,7 @@ namespace Files.Controls
 		private void SetCommonItemProperties(FrameworkElement element, ToolbarItem item)
 		{
 			ApplyToolbarItemSize(element);
+			element.Visibility = item.IsVisible ? Visibility.Visible : Visibility.Collapsed;
 			element.HorizontalAlignment = HorizontalAlignment.Center;
 			element.VerticalAlignment = VerticalAlignment.Center;
 			ToolTipService.SetToolTip(element, string.IsNullOrWhiteSpace(item.Label) ? null : item.Label);
@@ -670,12 +674,28 @@ namespace Files.Controls
 
 		private static void AddMenuItems(IEnumerable<ToolbarItem> items, IList<MenuFlyoutItemBase> destination)
 		{
+			var separatorPending = false;
 			foreach (var item in items)
 			{
-				if (item is not null)
+				if (item is null || !item.IsVisible)
 				{
-					destination.Add(CreateMenuItem(item));
+					continue;
 				}
+
+				if (item.ItemType == ToolbarItemTypes.Separator)
+				{
+					separatorPending = destination.Count > 0 && destination[^1] is not MenuFlyoutSeparator;
+
+					continue;
+				}
+
+				if (separatorPending)
+				{
+					destination.Add(new MenuFlyoutSeparator());
+					separatorPending = false;
+				}
+
+				destination.Add(CreateMenuItem(item));
 			}
 		}
 
@@ -693,6 +713,7 @@ namespace Files.Controls
 					Text = item.Label,
 					GroupName = item.GroupName,
 					IsChecked = item.IsChecked,
+					IsEnabled = item.IsEnabled,
 					Command = item.Command,
 					CommandParameter = item.CommandParameter,
 					KeyboardAcceleratorTextOverride = item.KeyboardAcceleratorTextOverride,
@@ -709,6 +730,7 @@ namespace Files.Controls
 				{
 					Text = item.Label,
 					IsChecked = item.IsChecked,
+					IsEnabled = item.IsEnabled,
 					Command = item.Command,
 					CommandParameter = item.CommandParameter,
 					KeyboardAcceleratorTextOverride = item.KeyboardAcceleratorTextOverride,
@@ -721,7 +743,7 @@ namespace Files.Controls
 
 			if (item.ItemType is ToolbarItemTypes.FlyoutButton or ToolbarItemTypes.SplitButton || item.SubItems?.Count > 0)
 			{
-				var subItem = new MenuFlyoutSubItem { Text = item.Label, Icon = CreateIcon(item) };
+				var subItem = new MenuFlyoutSubItem { Text = item.Label, Icon = CreateIcon(item), IsEnabled = item.IsEnabled };
 				if (item.ItemType == ToolbarItemTypes.SplitButton && item.Command is not null)
 				{
 					subItem.Items.Add(CreateCommandMenuItem(item));
@@ -743,6 +765,7 @@ namespace Files.Controls
 			return new MenuFlyoutItem
 			{
 				Text = item.Label,
+				IsEnabled = item.IsEnabled,
 				Command = item.Command,
 				CommandParameter = item.CommandParameter,
 				KeyboardAcceleratorTextOverride = item.KeyboardAcceleratorTextOverride,
@@ -769,6 +792,14 @@ namespace Files.Controls
 			}
 
 			InvalidateMeasure();
+		}
+
+		private void OverflowButtonLabelChanged(string newOverflowButtonLabel)
+		{
+			if (_overflowButton is not null)
+			{
+				_overflowButton.Label = newOverflowButtonLabel;
+			}
 		}
 
 		private void UpdateMinSizesFromResources()
@@ -809,15 +840,16 @@ namespace Files.Controls
 				materializedItem.Width = Math.Max(materializedItem.Host.DesiredSize.Width, materializedItem.Element.MinWidth);
 			}
 
+			var participatingItems = NormalizeMaterializedItems(_materializedItems.Where(static item => item.Item.IsVisible));
 			var overflowWidth = GetOverflowWidth(infiniteSize, spacing);
-			var hasAlwaysItems = _materializedItems.Any(x => x.Item.OverflowBehavior == OverflowBehaviors.Always);
-			var allNonAlwaysWidth = GetMaterializedWidth(x => x.Item.OverflowBehavior != OverflowBehaviors.Always, spacing);
+			var hasAlwaysItems = participatingItems.Any(static item => item.Item.OverflowBehavior == OverflowBehaviors.Always);
+			var allNonAlwaysWidth = GetMaterializedWidth(participatingItems, static item => item.Item.OverflowBehavior != OverflowBehaviors.Always, spacing);
 			var overflowItems = new List<ToolbarItem>();
 			var visibleItems = new HashSet<ToolbarItem>();
 
 			if (!hasAlwaysItems && allNonAlwaysWidth <= availableWidth)
 			{
-				foreach (var materializedItem in _materializedItems)
+				foreach (var materializedItem in participatingItems)
 				{
 					if (materializedItem.Item.OverflowBehavior != OverflowBehaviors.Always)
 					{
@@ -828,11 +860,11 @@ namespace Files.Controls
 			else
 			{
 				var availableForItems = Math.Max(0, availableWidth - overflowWidth - spacing);
-				var requiredWidth = GetMaterializedWidth(x => x.Item.OverflowBehavior == OverflowBehaviors.Never, spacing);
+				var requiredWidth = GetMaterializedWidth(participatingItems, static item => item.Item.OverflowBehavior == OverflowBehaviors.Never, spacing);
 				var optionalWidth = Math.Max(0, availableForItems - requiredWidth);
 				var optionalCount = 0;
 
-				foreach (var materializedItem in _materializedItems)
+				foreach (var materializedItem in participatingItems)
 				{
 					if (materializedItem.Item.OverflowBehavior == OverflowBehaviors.Never)
 					{
@@ -860,6 +892,8 @@ namespace Files.Controls
 				}
 			}
 
+			visibleItems = NormalizeToolbarItems(participatingItems.Where(item => visibleItems.Contains(item.Item)).Select(static item => item.Item)).ToHashSet();
+			overflowItems = NormalizeToolbarItems(overflowItems);
 			_itemsPanel?.SetVisibleChildren(_materializedItems.Where(item => visibleItems.Contains(item.Item)).Select(item => item.Host));
 			foreach (var materializedItem in _materializedItems)
 			{
@@ -911,11 +945,61 @@ namespace Files.Controls
 			_overflowMenuDirty = false;
 		}
 
-		private double GetMaterializedWidth(Func<MaterializedToolbarItem, bool> predicate, double spacing)
+		private static List<MaterializedToolbarItem> NormalizeMaterializedItems(IEnumerable<MaterializedToolbarItem> items)
+		{
+			var normalized = new List<MaterializedToolbarItem>();
+			MaterializedToolbarItem? pendingSeparator = null;
+			foreach (var item in items)
+			{
+				if (item.Item.ItemType == ToolbarItemTypes.Separator)
+				{
+					pendingSeparator = normalized.Count > 0 ? item : null;
+
+					continue;
+				}
+
+				if (pendingSeparator is not null)
+				{
+					normalized.Add(pendingSeparator);
+					pendingSeparator = null;
+				}
+
+				normalized.Add(item);
+			}
+
+			return normalized;
+		}
+
+		private static List<ToolbarItem> NormalizeToolbarItems(IEnumerable<ToolbarItem> items)
+		{
+			var normalized = new List<ToolbarItem>();
+			ToolbarItem? pendingSeparator = null;
+			foreach (var item in items)
+			{
+				if (item.ItemType == ToolbarItemTypes.Separator)
+				{
+					pendingSeparator = normalized.Count > 0 ? item : null;
+
+					continue;
+				}
+
+				if (pendingSeparator is not null)
+				{
+					normalized.Add(pendingSeparator);
+					pendingSeparator = null;
+				}
+
+				normalized.Add(item);
+			}
+
+			return normalized;
+		}
+
+		private static double GetMaterializedWidth(IEnumerable<MaterializedToolbarItem> items, Func<MaterializedToolbarItem, bool> predicate, double spacing)
 		{
 			var width = 0d;
 			var count = 0;
-			foreach (var materializedItem in _materializedItems)
+			foreach (var materializedItem in items)
 			{
 				if (predicate(materializedItem))
 				{
