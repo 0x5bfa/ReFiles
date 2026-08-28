@@ -1,7 +1,7 @@
 % Copyright (c) Files Community
 % SPDX-License-Identifier: MPL-2.0
 
-\documentclass[11pt,a4paper,twoside,openright]{book}
+\documentclass[10pt,a4paper,twoside]{article}
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
@@ -9,14 +9,13 @@
 \usepackage{newtxmath}
 \usepackage{microtype}
 \usepackage[
-  inner=34mm,
-  outer=26mm,
-  top=28mm,
-  bottom=28mm,
-  headheight=14pt
+  inner=24mm,
+  outer=24mm,
+  top=22mm,
+  bottom=25mm,
+  footskip=12mm
 ]{geometry}
 \usepackage{enumitem}
-\usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
 
 \hypersetup{
@@ -26,43 +25,15 @@
   pdfkeywords={file manager, capabilities, storage providers, progressive browsing, WinUI, software architecture}
 }
 
-\setlength{\parindent}{1.5em}
+\setlength{\parindent}{1.25em}
 \setlength{\parskip}{0pt}
 \setlength{\emergencystretch}{3em}
 \clubpenalty=10000
 \widowpenalty=10000
 \displaywidowpenalty=10000
 \raggedbottom
-
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[LE]{\small\nouppercase{\leftmark}}
-\fancyhead[RO]{\small\nouppercase{\rightmark}}
-\fancyfoot[LE,RO]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-\fancypagestyle{plain}{
-  \fancyhf{}
-  \fancyfoot[LE,RO]{\thepage}
-  \renewcommand{\headrulewidth}{0pt}
-}
-
-\makeatletter
-\renewcommand{\cleardoublepage}{%
-  \clearpage
-  \if@twoside
-    \ifodd\c@page
-    \else
-      \hbox{}
-      \thispagestyle{empty}
-      \newpage
-      \if@twocolumn
-        \hbox{}
-        \newpage
-      \fi
-    \fi
-  \fi
-}
-\makeatother
+\pagestyle{plain}
+\setcounter{secnumdepth}{3}
 
 \newcommand{\thesistitle}{ReFiles: A Capability-Oriented Architecture for Responsive File Browsing Across Heterogeneous Storage Providers}
 \newcommand{\thesisauthor}{Tomoyuki Terashita}
@@ -71,54 +42,36 @@
 
 \begin{document}
 
-\hypersetup{pageanchor=false}
-\frontmatter
+\thispagestyle{plain}
+\begin{center}
+  \vspace*{9mm}
 
-\begin{titlepage}
-  \thispagestyle{empty}
+  {\fontsize{18}{22}\selectfont\thesistitle\par}
+  \vspace{9mm}
+
+  {\large\thesisauthor\par}
+  \vspace{2.5mm}
+  {\normalsize\thesisinstitute\par}
+  \vspace{1mm}
+  {\small\href{mailto:\thesisemail}{\thesisemail}\par}
+\end{center}
+
+\vspace{10mm}
+
+\begin{center}
+  \begin{minipage}{0.82\textwidth}
   \centering
-  \vspace*{0.12\textheight}
+  {\small\bfseries Abstract\par}
+  \vspace{24mm}
+  \end{minipage}
+\end{center}
 
-  {\Large\scshape A Technical Thesis\par}
-  \vspace{2.2cm}
+\vspace{3mm}
 
-  {\huge\bfseries\thesistitle\par}
-  \vspace{1.6cm}
+\section{Introduction}
+\label{section:introduction}
 
-  {\Large\thesisauthor\par}
-  \vspace{0.45cm}
-  {\large\thesisinstitute\par}
-  \vspace{0.2cm}
-  {\normalsize\href{mailto:\thesisemail}{\thesisemail}\par}
-
-  \vfill
-
-  {\large August 2026\par}
-\end{titlepage}
-
-\cleardoublepage
-
-\begin{titlepage}
-  \thispagestyle{empty}
-  \phantomsection
-  \addcontentsline{toc}{chapter}{Abstract}
-  \centering
-  \vspace*{\fill}
-  {\LARGE\bfseries Abstract\par}
-  \vspace*{\fill}
-\end{titlepage}
-
-\cleardoublepage
-
-\tableofcontents
-
-\mainmatter
-\hypersetup{pageanchor=true}
-
-\chapter{Introduction}
-\label{chapter:introduction}
-
-\section{The File Manager as a Systems Problem}
+\subsection{The File Manager as a Systems Problem}
 
 A graphical file manager appears simple because its most visible operations are familiar: list a directory,
 open an item, copy or move it, and show a preview. Underneath that interface, however, a modern file manager
@@ -148,12 +101,12 @@ isolation. Instead, it examines how these ideas can be combined into a practical
 browsing code works across heterogeneous providers while remaining responsive and explicit about resource
 ownership.
 
-\section{Architectural Challenges}
+\subsection{Architectural Challenges}
 
 Three challenges shape the design: heterogeneous provider behavior, progressive presentation at scale, and the
 lifetime of asynchronous and platform-bound resources.
 
-\subsection{Heterogeneous storage providers}
+\subsubsection{Heterogeneous storage providers}
 
 Storage providers share a small semantic core. They expose items with identities and names, resolve references,
 and usually offer some form of hierarchy or enumeration. Their optional behavior differs substantially. A local
@@ -174,7 +127,7 @@ a provider-specific factory, composed from multiple candidates, or wrapped with 
 caching. This approach preserves a small required storage contract while allowing provider differences to remain
 behind UI-independent interfaces.
 
-\subsection{Latency and progressive feedback}
+\subsubsection{Latency and progressive feedback}
 
 Directory browsing is a pipeline rather than one operation. A location is resolved, items are enumerated,
 storage models are projected into browse state, changes are published to presentation, UI models are created or
@@ -192,7 +145,7 @@ in-flight operation. Cancellation is useful but insufficient because a provider 
 after cancellation was requested. The receiving layer must additionally verify that the result still belongs to
 the active browse generation and the same item identity before publishing it.
 
-\subsection{Ownership across asynchronous and platform boundaries}
+\subsubsection{Ownership across asynchronous and platform boundaries}
 
 The file-manager domain contains many resources whose lifetime is not captured by ordinary managed references:
 streams, remote sessions, archive backends, cancellation registrations, Windows Shell objects, native buffers,
@@ -211,7 +164,7 @@ composition root. Models support asynchronous disposal, and platform integration
 wrappers that preserve thread, allocator, and ownership requirements. Long-running storage operations may cross
 an out-of-process boundary rather than sharing UI state directly.
 
-\section{Design Position}
+\subsection{Design Position}
 
 The central design position of this thesis is that responsive, provider-agnostic browsing requires three
 boundaries to align:
@@ -236,7 +189,7 @@ dispatcher-bound publication, localized display state, viewport information, and
 results into visual resources. This dependency direction allows the same storage and browsing semantics to be
 tested without constructing a WinUI visual tree.
 
-\section{Research Questions}
+\subsection{Research Questions}
 
 The thesis is organized around the following research questions:
 
@@ -254,7 +207,7 @@ model and provider case studies. RQ2 motivates deterministic browse scenarios, a
 measurements at the actual WinUI row-realization boundary. RQ3 is examined through lifetime contracts,
 fault-oriented tests, and scenarios in which work completes after its originating state has become stale.
 
-\section{Contributions}
+\subsection{Contributions}
 
 This thesis makes four practical contributions:
 
@@ -276,7 +229,7 @@ the same core model. These providers serve as vertical case studies: they vary i
 ownership, metadata availability, threading requirements, and supported operations, yet reuse the generic browse,
 property, thumbnail, preview, and presentation paths where the corresponding capabilities are available.
 
-\section{Evaluation Strategy}
+\subsection{Evaluation Strategy}
 
 The evaluation separates controlled architecture measurements from end-to-end platform scenarios. Isolated
 benchmarks measure cold and cached capability resolution, thumbnail-cache behavior, and browse
@@ -301,7 +254,7 @@ Useful baselines include progressive versus completion-gated publication, bounde
 callback per item, lazy versus eager capability creation, and cold versus cached capability resolution. These
 comparisons can isolate the effects of specific design choices using the same codebase and instrumentation.
 
-\section{Scope and Limitations}
+\subsection{Scope and Limitations}
 
 ReFiles is a Windows desktop application, and several case studies depend on Windows Shell and WinUI behavior.
 The architecture can express non-Windows providers, but this thesis does not claim platform-independent UI
@@ -318,7 +271,7 @@ Finally, capability composition reduces provider coupling but does not eliminate
 capability still requires a clear contract for absence, cancellation, concurrency, result ownership, priority,
 and composition. The approach moves these decisions into explicit boundaries; it does not make them automatic.
 
-\section{Thesis Overview}
+\subsection{Thesis Overview}
 
 The remainder of this thesis develops the capability model, progressive browsing pipeline, presentation boundary,
 and ownership rules in detail. It then describes the Windows, archive, and FTP implementations as case studies,

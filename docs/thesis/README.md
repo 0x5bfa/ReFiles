@@ -2,7 +2,7 @@
 
 # ReFiles thesis
 
-The thesis source is in `thesis.tex`. It uses a two-sided A4 book layout with mirrored margins. The title and abstract are isolated on right-hand pages, and the Introduction begins on a right-hand page with Arabic page numbering.
+The thesis source is in `thesis.tex`. It uses a two-sided A4 article layout. The first page places the title, author details, centered abstract area, and Introduction in the compact style of an arXiv paper.
 
 Build from the repository root with:
 
