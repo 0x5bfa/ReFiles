@@ -111,6 +111,24 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public CommandBindingViewModel DeleteCommand => _commandManager.GetBinding(CommandIds.Delete);
 
+	public CommandBindingViewModel MountCommand => _commandManager.GetBinding(CommandIds.Mount);
+
+	public CommandBindingViewModel BurnDiscImageCommand => _commandManager.GetBinding(CommandIds.BurnDiscImage);
+
+	public CommandBindingViewModel EmptyRecycleBinCommand => _commandManager.GetBinding(CommandIds.EmptyRecycleBin);
+
+	public CommandBindingViewModel RestoreAllRecycleBinItemsCommand => _commandManager.GetBinding(CommandIds.RestoreAllRecycleBinItems);
+
+	public CommandBindingViewModel RestoreRecycleBinItemsCommand => _commandManager.GetBinding(CommandIds.RestoreRecycleBinItems);
+
+	public CommandBindingViewModel CompressToZipCommand => _commandManager.GetBinding(CommandIds.CompressToZip);
+
+	public CommandBindingViewModel PinToQuickAccessCommand => _commandManager.GetBinding(CommandIds.PinToQuickAccess);
+
+	public CommandBindingViewModel AddToFavoritesCommand => _commandManager.GetBinding(CommandIds.AddToFavorites);
+
+	public CommandBindingViewModel CopyAsPathCommand => _commandManager.GetBinding(CommandIds.CopyAsPath);
+
 	public CommandBindingViewModel NewTabCommand => _commandManager.GetBinding(CommandIds.NewTab);
 
 	public CommandBindingViewModel CloseTabCommand => _commandManager.GetBinding(CommandIds.CloseTab);
@@ -198,6 +216,15 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			CutCommand,
 			PasteCommand,
 			DeleteCommand,
+			MountCommand,
+			BurnDiscImageCommand,
+			EmptyRecycleBinCommand,
+			RestoreAllRecycleBinItemsCommand,
+			RestoreRecycleBinItemsCommand,
+			CompressToZipCommand,
+			PinToQuickAccessCommand,
+			AddToFavoritesCommand,
+			CopyAsPathCommand,
 			SortItemsCommand,
 			GroupItemsCommand,
 			LayoutDetailsCommand,

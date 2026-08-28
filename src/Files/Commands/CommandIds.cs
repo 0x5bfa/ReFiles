@@ -43,6 +43,24 @@ public static class CommandIds
 
 	public static readonly CommandId Properties = new("files.item.properties");
 
+	public static readonly CommandId Mount = new("files.shell.mount");
+
+	public static readonly CommandId BurnDiscImage = new("files.shell.burn-disc-image");
+
+	public static readonly CommandId EmptyRecycleBin = new("files.shell.empty-recycle-bin");
+
+	public static readonly CommandId RestoreAllRecycleBinItems = new("files.shell.restore-all-recycle-bin-items");
+
+	public static readonly CommandId RestoreRecycleBinItems = new("files.shell.restore-recycle-bin-items");
+
+	public static readonly CommandId CompressToZip = new("files.shell.compress-to-zip");
+
+	public static readonly CommandId PinToQuickAccess = new("files.shell.pin-to-quick-access");
+
+	public static readonly CommandId AddToFavorites = new("files.shell.add-to-favorites");
+
+	public static readonly CommandId CopyAsPath = new("files.shell.copy-as-path");
+
 	public static readonly CommandId NewTab =
 		new("files.tab.new");
 

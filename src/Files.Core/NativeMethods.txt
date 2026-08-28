@@ -225,6 +225,7 @@ BHID_SFObject
 IContextMenu
 IContextMenu3
 IExplorerCommand
+IExplorerCommandState
 IEnumExplorerCommand
 IInitializeCommand
 CMINVOKECOMMANDINFOEX

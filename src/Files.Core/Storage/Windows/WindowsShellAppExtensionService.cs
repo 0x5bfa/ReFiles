@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Globalization;
@@ -197,15 +196,36 @@ public sealed class WindowsShellAppExtensionService
 		return await _source.Scheduler.InvokeOperationAsync(() => ShowShellPropertiesOnCurrentSta(resolvedSelection), cancellationToken).ConfigureAwait(false);
 	}
 
+	internal async Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetRegisteredCommandsAsync(IReadOnlyList<StorableReference> selection,
+		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+		ArgumentNullException.ThrowIfNull(registrations);
+
+		if (selection.Count is 0 || registrations.Count is 0 || await ResolveSelectionAsync(selection, cancellationToken).ConfigureAwait(false) is not { } resolvedSelection)
+		{
+			return [];
+		}
+
+		return await _source.Scheduler.InvokeOperationAsync(() => GetCommandsOnCurrentSta(resolvedSelection, registrations, cancellationToken), cancellationToken).ConfigureAwait(false);
+	}
+
 	private static IReadOnlyList<WindowsShellAppExtensionCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection, CancellationToken cancellationToken)
 	{
 		var registrations = WindowsFileExplorerAppExtensionCatalog.GetRegistrations(selection.ItemTypes);
+
+		return GetCommandsOnCurrentSta(selection, registrations, cancellationToken);
+	}
+
+	private static IReadOnlyList<WindowsShellAppExtensionCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection,
+		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
+	{
 		if (registrations.Count is 0)
 		{
 			return [];
 		}
 
-		var shellItemArray = CreateShellItemArray(selection.Locators);
+		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
 		var commands = new List<WindowsShellAppExtensionCommand>(registrations.Count);
 		foreach (var registration in registrations)
 		{
@@ -243,14 +263,20 @@ public sealed class WindowsShellAppExtensionService
 			}
 		}
 
-		var shellItemArray = CreateShellItemArray(selection.Locators);
+		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
+		var invokeResult = command.Invoke(shellItemArray, null!);
+		if (invokeResult != HRESULT.E_NOTIMPL)
+		{
+			return invokeResult.Succeeded;
+		}
 
-		return command.Invoke(shellItemArray, null!).Succeeded;
+		return command is IObjectWithSelection objectWithSelection && command is IExecuteCommand executeCommand
+			&& objectWithSelection.SetSelection(shellItemArray).Succeeded && executeCommand.Execute().Succeeded;
 	}
 
 	private static bool ShowShellPropertiesOnCurrentSta(WindowsShellResolvedSelection selection)
 	{
-		var shellItemArray = CreateShellItemArray(selection.Locators);
+		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
 		var bindResult = shellItemArray.BindToHandler<IDataObject>(null, PInvoke.BHID_DataObject, out var dataObject);
 
 		return bindResult.Succeeded && dataObject is not null && PInvoke.SHMultiFileProperties(dataObject, 0).Succeeded;
@@ -260,7 +286,7 @@ public sealed class WindowsShellAppExtensionService
 		WindowsShellResolvedSelection selection, IReadOnlyList<WindowsShellPropertyPage> pages, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		var shellItemArray = CreateShellItemArray(selection.Locators);
+		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
 		if (shellItemArray.GetItemAt(0, out var primaryItem).Failed || primaryItem is null)
 		{
 			return WindowsShellPropertySheetReader.CreateEmpty(pages);
@@ -330,9 +356,27 @@ public sealed class WindowsShellAppExtensionService
 		cancellationToken.ThrowIfCancellationRequested();
 
 		var stateResult = command.GetState(selection, false, out var state);
+		if (stateResult == HRESULT.E_NOTIMPL && command is IExplorerCommandState stateCommand)
+		{
+			stateResult = stateCommand.GetState(selection, false, out var stateValue);
+			state = (_EXPCMDSTATE)stateValue;
+		}
+
 		if (stateResult.Value is PendingResult)
 		{
-			stateResult = command.GetState(selection, true, out state);
+			if (command is IExplorerCommandState slowStateCommand)
+			{
+				stateResult = slowStateCommand.GetState(selection, true, out var stateValue);
+				state = (_EXPCMDSTATE)stateValue;
+			}
+			else
+			{
+				stateResult = command.GetState(selection, true, out state);
+			}
+		}
+		else if (stateResult == HRESULT.E_NOTIMPL && WindowsShellCommandStorePropertyBag.TryCreate(token.VerbId) is not null)
+		{
+			stateResult = HRESULT.S_OK;
 		}
 
 		if (stateResult.Failed || state.HasFlag(_EXPCMDSTATE.ECS_HIDDEN))
@@ -439,9 +483,10 @@ public sealed class WindowsShellAppExtensionService
 
 		if (command is IInitializeCommand initializer && !string.IsNullOrEmpty(registration.VerbId))
 		{
+			var propertyBag = WindowsShellCommandStorePropertyBag.TryCreate(registration.VerbId);
 			fixed (char* verbId = registration.VerbId)
 			{
-				if (initializer.Initialize(new PCWSTR(verbId), null!).Failed)
+				if (initializer.Initialize(new PCWSTR(verbId), propertyBag!).Failed)
 				{
 					return null;
 				}
@@ -489,46 +534,6 @@ public sealed class WindowsShellAppExtensionService
 		path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
 
 		return string.IsNullOrWhiteSpace(path) ? (null, 0) : (path, iconIndex);
-	}
-
-	private static unsafe IShellItemArray CreateShellItemArray(IReadOnlyList<WindowsItemLocator> locators)
-	{
-		if (locators.Count is 0)
-		{
-			throw new ArgumentException("A Shell selection cannot be empty.", nameof(locators));
-		}
-
-		var handles = new MemoryHandle[locators.Count];
-		var itemIdLists = new nint[locators.Count];
-		var pinnedCount = 0;
-		try
-		{
-			for (var index = 0; index < locators.Count; index++)
-			{
-				if (locators[index].AbsolutePidl.IsEmpty)
-				{
-					throw new InvalidOperationException("A Windows Shell item does not have an absolute item ID list.");
-				}
-
-				handles[index] = locators[index].AbsolutePidl.Pin();
-				itemIdLists[index] = (nint)handles[index].Pointer;
-				pinnedCount++;
-			}
-
-			fixed (nint* itemIdListPointer = itemIdLists)
-			{
-				PInvoke.SHCreateShellItemArrayFromIDLists(checked((uint)itemIdLists.Length), (ITEMIDLIST**)itemIdListPointer, out var selection).ThrowOnFailure();
-
-				return selection;
-			}
-		}
-		finally
-		{
-			for (var index = 0; index < pinnedCount; index++)
-			{
-				handles[index].Dispose();
-			}
-		}
 	}
 
 	private static bool HasCommonParent(IReadOnlyList<WindowsItemLocator> locators)

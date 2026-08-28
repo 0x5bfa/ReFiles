@@ -1,14 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Windows.Win32;
-using Windows.Win32.Foundation;
 using Windows.Win32.UI.Shell;
-using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Storage.Windows;
 
@@ -18,16 +13,9 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsShellDefaultCommandInvoker
 {
-	private const uint FirstCommandId = 1;
-	private const uint LastCommandId = 0x7FFF;
 	private const uint NoDefaultCommand = uint.MaxValue;
-	private const uint CanonicalVerbUnicode = 0x00000004;
 	// CDefView adds EXPLORE; the Shell invocation helpers add DEFAULTONLY and OPTIMIZEFORINVOKE.
 	private const uint ExplorerDefaultQueryFlags = 0x00000001 | 0x00000004 | 0x00000800;
-	// Explorer requests synchronous Unicode invocation and records the item launch.
-	private const uint ExplorerDefaultInvokeMask = 0x00000100 | 0x00004000 | 0x04000000;
-	private const uint InvokePointMask = 0x20000000;
-	private const int CanonicalVerbBufferLength = 128;
 
 	private readonly WindowsStorageSource _source;
 
@@ -84,109 +72,33 @@ public sealed class WindowsShellDefaultCommandInvoker
 
 	private static WindowsShellDefaultCommand? GetDefaultCommandOnSta(IShellItem shellItem)
 	{
-		var contextMenu = CreateContextMenu(shellItem);
-		using var menu = CreateMenu();
-		contextMenu.QueryContextMenu(menu, 0, FirstCommandId, LastCommandId, ExplorerDefaultQueryFlags).ThrowOnFailure();
+		var contextMenu = WindowsShellContextMenuCommandHelper.Create(shellItem);
+		using var menu = WindowsShellContextMenuCommandHelper.CreateMenu();
+		contextMenu.QueryContextMenu(menu, 0, WindowsShellContextMenuCommandHelper.FirstCommandId, WindowsShellContextMenuCommandHelper.LastCommandId, ExplorerDefaultQueryFlags).ThrowOnFailure();
 		var commandId = PInvoke.GetMenuDefaultItem(menu, 0, 0);
 		if (commandId is NoDefaultCommand)
 		{
 			return null;
 		}
 
-		var commandOrdinal = commandId - FirstCommandId;
+		var commandOrdinal = commandId - WindowsShellContextMenuCommandHelper.FirstCommandId;
 
-		return new WindowsShellDefaultCommand(GetCanonicalVerb(contextMenu, commandOrdinal));
+		return new WindowsShellDefaultCommand(WindowsShellContextMenuCommandHelper.GetCanonicalVerb(contextMenu, commandOrdinal));
 	}
 
 	private static bool InvokeDefaultCommandOnSta(IShellItem shellItem, WindowsShellInvocationContext context)
 	{
-		var contextMenu = CreateContextMenu(shellItem);
-		using var menu = CreateMenu();
-		contextMenu.QueryContextMenu(menu, 0, FirstCommandId, LastCommandId, ExplorerDefaultQueryFlags).ThrowOnFailure();
+		var contextMenu = WindowsShellContextMenuCommandHelper.Create(shellItem);
+		using var menu = WindowsShellContextMenuCommandHelper.CreateMenu();
+		contextMenu.QueryContextMenu(menu, 0, WindowsShellContextMenuCommandHelper.FirstCommandId, WindowsShellContextMenuCommandHelper.LastCommandId, ExplorerDefaultQueryFlags).ThrowOnFailure();
 		var commandId = PInvoke.GetMenuDefaultItem(menu, 0, 0);
 		if (commandId is NoDefaultCommand)
 		{
 			return false;
 		}
 
-		InvokeCommand(contextMenu, commandId - FirstCommandId, context);
+		WindowsShellContextMenuCommandHelper.Invoke(contextMenu, commandId - WindowsShellContextMenuCommandHelper.FirstCommandId, context);
 
 		return true;
-	}
-
-	private static IContextMenu CreateContextMenu(IShellItem shellItem)
-	{
-		PInvoke.SHCreateShellItemArrayFromShellItem(shellItem, out IShellItemArray selection).ThrowOnFailure();
-		selection.BindToHandler<IContextMenu>(null, PInvoke.BHID_SFUIObject, out var contextMenu).ThrowOnFailure();
-
-		return contextMenu;
-	}
-
-	private static DestroyMenuSafeHandle CreateMenu()
-	{
-		var menu = PInvoke.CreatePopupMenu_SafeHandle();
-		if (menu.IsInvalid)
-		{
-			throw new Win32Exception(Marshal.GetLastPInvokeError());
-		}
-
-		return menu;
-	}
-
-	private static unsafe string? GetCanonicalVerb(IContextMenu contextMenu, uint commandOrdinal)
-	{
-		Span<char> buffer = stackalloc char[CanonicalVerbBufferLength];
-		fixed (char* bufferPointer = buffer)
-		{
-			var result = contextMenu.GetCommandString(commandOrdinal, CanonicalVerbUnicode, (PSTR)(byte*)bufferPointer, (uint)buffer.Length);
-			if (result.Failed)
-			{
-				return null;
-			}
-		}
-
-		var terminatorIndex = buffer.IndexOf('\0');
-		var verb = new string(terminatorIndex < 0 ? buffer : buffer[..terminatorIndex]);
-
-		return string.IsNullOrWhiteSpace(verb) ? null : verb;
-	}
-
-	private static unsafe void InvokeCommand(IContextMenu contextMenu, uint commandOrdinal, WindowsShellInvocationContext context)
-	{
-		var workingDirectory = context.WorkingDirectory;
-		var ansiWorkingDirectory = workingDirectory is null ? 0 : Marshal.StringToCoTaskMemAnsi(workingDirectory);
-
-		try
-		{
-			fixed (char* workingDirectoryPointer = workingDirectory)
-			{
-				var invoke = new CMINVOKECOMMANDINFOEX
-				{
-					cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX),
-					fMask = ExplorerDefaultInvokeMask,
-					hwnd = (HWND)context.OwnerWindowHandle,
-					lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal,
-					lpDirectory = (PCSTR)(byte*)ansiWorkingDirectory,
-					nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL,
-					lpDirectoryW = workingDirectoryPointer,
-				};
-
-				if (context.InvocationPoint is { } invocationPoint)
-				{
-					invoke.fMask |= InvokePointMask;
-					invoke.ptInvoke = new(invocationPoint.X, invocationPoint.Y);
-				}
-
-				ref var baseInvoke = ref Unsafe.As<CMINVOKECOMMANDINFOEX, CMINVOKECOMMANDINFO>(ref invoke);
-				contextMenu.InvokeCommand(baseInvoke).ThrowOnFailure();
-			}
-		}
-		finally
-		{
-			if (ansiWorkingDirectory is not 0)
-			{
-				Marshal.FreeCoTaskMem(ansiWorkingDirectory);
-			}
-		}
 	}
 }

@@ -15,6 +15,7 @@ public enum CommandStateInvalidation
 	ActiveTab = 1 << 5,
 	Pane = 1 << 6,
 	Clipboard = 1 << 7,
+	ContextualCommands = 1 << 8,
 	All = int.MaxValue,
 }
 

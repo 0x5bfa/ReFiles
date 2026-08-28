@@ -43,6 +43,7 @@
 			BorderBrush="Transparent"
 			BorderThickness="0"
 			CornerRadius="0"
+			OverflowButtonLabel="{localization:Localized ResourceKey=More}"
 			ToolbarSize="Small">
 			<controls:Toolbar.Items>
 				<controls:ToolbarItem
@@ -102,6 +103,78 @@
 						<KeyboardAccelerator Key="Delete" />
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.MountCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.MountCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.MountCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.MountCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Auto"
+					ThemedIcon="{x:Bind ViewModel.MountCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.BurnDiscImageCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.BurnDiscImageCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.BurnDiscImageCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.BurnDiscImageCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Auto"
+					ThemedIcon="{x:Bind ViewModel.BurnDiscImageCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.EmptyRecycleBinCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.EmptyRecycleBinCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.EmptyRecycleBinCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.EmptyRecycleBinCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Auto"
+					ThemedIcon="{x:Bind ViewModel.EmptyRecycleBinCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.RestoreAllRecycleBinItemsCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.RestoreAllRecycleBinItemsCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.RestoreAllRecycleBinItemsCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.RestoreAllRecycleBinItemsCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Auto"
+					ThemedIcon="{x:Bind ViewModel.RestoreAllRecycleBinItemsCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.RestoreRecycleBinItemsCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.RestoreRecycleBinItemsCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.RestoreRecycleBinItemsCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.RestoreRecycleBinItemsCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Auto"
+					ThemedIcon="{x:Bind ViewModel.RestoreRecycleBinItemsCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.CompressToZipCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.CompressToZipCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.CompressToZipCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.CompressToZipCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Always"
+					ThemedIcon="{x:Bind ViewModel.CompressToZipCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.PinToQuickAccessCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.PinToQuickAccessCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.PinToQuickAccessCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.PinToQuickAccessCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Always"
+					ThemedIcon="{x:Bind ViewModel.PinToQuickAccessCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.AddToFavoritesCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.AddToFavoritesCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.AddToFavoritesCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.AddToFavoritesCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Always"
+					ThemedIcon="{x:Bind ViewModel.AddToFavoritesCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.CopyAsPathCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.CopyAsPathCommand.IsEnabled, Mode=OneWay}"
+					IsVisible="{x:Bind ViewModel.CopyAsPathCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.CopyAsPathCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Always"
+					ThemedIcon="{x:Bind ViewModel.CopyAsPathCommand.IconData, Mode=OneWay}" />
 			</controls:Toolbar.Items>
 		</controls:Toolbar>
 
@@ -113,6 +186,7 @@
 			BorderBrush="Transparent"
 			BorderThickness="0"
 			CornerRadius="0"
+			OverflowButtonLabel="{localization:Localized ResourceKey=More}"
 			ToolbarSize="Small">
 			<controls:Toolbar.Items>
 				<controls:ToolbarItem

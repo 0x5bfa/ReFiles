@@ -54,6 +54,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly WindowsStorageSource? _windowsSource;
 	private readonly WindowsShellNewMenu? _shellNewMenu;
 	private readonly WindowsShellAppExtensionService? _shellAppExtensionService;
+	private readonly WindowsShellContextualCommandService? _shellContextualCommandService;
 	private readonly nint _ownerWindowHandle;
 
 	private readonly IUIDispatcher _dispatcher;
@@ -66,6 +67,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private BitmapImage? _locationIcon;
 	private CancellationTokenSource? _locationIconCancellation;
 	private CancellationTokenSource? _displaySettingsCancellation;
+	private CancellationTokenSource? _contextualCommandRefreshCancellation;
+	private IReadOnlyDictionary<string, WindowsShellContextualCommand> _contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
 
 	private bool _isApplyingUpdate;
 
@@ -197,6 +200,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			? new WindowsShellNewMenu(windowsSource.Scheduler)
 			: null;
 		_shellAppExtensionService = _windowsSource is { } shellSource ? new WindowsShellAppExtensionService(shellSource) : null;
+		_shellContextualCommandService = _windowsSource is { } contextualSource && ownerWindowHandle is not 0 ? new WindowsShellContextualCommandService(contextualSource) : null;
 		_ownerWindowHandle = ownerWindowHandle;
 		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
 		_viewMode = ToFolderViewMode(_browseAdapter.LayoutMode);
@@ -211,6 +215,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		await ApplyDisplaySettingsAsync(cancellationToken).ConfigureAwait(false);
 		await _browseAdapter.InitializeAsync(cancellationToken).ConfigureAwait(false);
+		QueueContextualCommandRefresh();
 	}
 
 	public Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default) =>
@@ -408,6 +413,34 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.InvokeAsync(selection.Select(static item => item.Reference).ToArray(), command, cancellationToken);
 	}
 
+	internal CommandState GetContextualCommandState(string commandId)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
+
+		return _contextualCommands.TryGetValue(commandId, out var command) ? new(true, command.IsEnabled && !IsLoading && !IsBusy) : new(false, false);
+	}
+
+	internal async Task<bool> InvokeContextualCommandAsync(string commandId, CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
+		if (_shellContextualCommandService is null || !_contextualCommands.TryGetValue(commandId, out var command) || _ownerWindowHandle is 0)
+		{
+			return false;
+		}
+
+		var location = (Location as FolderLocation)?.Folder;
+		var selection = SelectedItems.Select(static item => item.Reference).ToArray();
+		var context = new WindowsShellInvocationContext(_ownerWindowHandle, GetContextualCommandWorkingDirectory());
+		if (!await _shellContextualCommandService.InvokeAsync(location, selection, command, context, cancellationToken).ConfigureAwait(false))
+		{
+			return false;
+		}
+
+		await RefreshAsync(cancellationToken).ConfigureAwait(false);
+
+		return true;
+	}
+
 	internal Task<bool> ShowShellPropertiesAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(selection);
@@ -534,6 +567,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_appSettings.PropertyChanged -= AppSettings_PropertyChanged;
 		Interlocked.Exchange(ref _locationIconCancellation, null)?.Cancel();
 		Interlocked.Exchange(ref _displaySettingsCancellation, null)?.Cancel();
+		Interlocked.Exchange(ref _contextualCommandRefreshCancellation, null)?.Cancel();
 		_lifetime.Cancel();
 		try
 		{
@@ -990,6 +1024,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			CommandManager.RefreshStates(invalidation);
 		}
+
+		if (selectionSynchronized || args.Flags.HasFlag(BrowseUpdateFlags.Location) || args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Loading))
+		{
+			QueueContextualCommandRefresh();
+		}
 	}
 
 	private void SetSelectionCore(IEnumerable<BrowseItemViewModel> selectedItems)
@@ -998,6 +1037,102 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		_browseAdapter.SetSelection(selectedItems);
 		CommandManager.RefreshStates(CommandStateInvalidation.Selection);
+		QueueContextualCommandRefresh();
+	}
+
+	private void QueueContextualCommandRefresh()
+	{
+		if (!_dispatcher.HasThreadAccess)
+		{
+			if (Volatile.Read(ref _isDisposed) is 0)
+			{
+				_dispatcher.TryEnqueue(QueueContextualCommandRefresh);
+			}
+
+			return;
+		}
+
+		var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+		Interlocked.Exchange(ref _contextualCommandRefreshCancellation, cancellation)?.Cancel();
+		_contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
+		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+		if (_shellContextualCommandService is null || IsLoading)
+		{
+			Interlocked.CompareExchange(ref _contextualCommandRefreshCancellation, null, cancellation);
+			cancellation.Dispose();
+
+			return;
+		}
+
+		var location = (Location as FolderLocation)?.Folder;
+		var selection = SelectedItems.Select(static item => item.Reference).ToArray();
+		_ = LoadContextualCommandsAsync(location, selection, cancellation);
+	}
+
+	private async Task LoadContextualCommandsAsync(StorableReference? location, IReadOnlyList<StorableReference> selection, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			var commands = await _shellContextualCommandService!.GetCommandsAsync(location, selection, _ownerWindowHandle, cancellation.Token).ConfigureAwait(false);
+			if (cancellation.IsCancellationRequested || Volatile.Read(ref _isDisposed) is not 0)
+			{
+				return;
+			}
+
+			await ApplyContextualCommandsAsync(commands, cancellation).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			UiDiagnosticLog.Write("FolderBrowserViewModel", $"Contextual commands ERROR type={exception.GetType().Name}");
+		}
+		finally
+		{
+			Interlocked.CompareExchange(ref _contextualCommandRefreshCancellation, null, cancellation);
+			cancellation.Dispose();
+		}
+	}
+
+	private Task ApplyContextualCommandsAsync(IReadOnlyList<WindowsShellContextualCommand> commands, CancellationTokenSource cancellation)
+	{
+		if (_dispatcher.HasThreadAccess)
+		{
+			ApplyContextualCommands(commands, cancellation);
+
+			return Task.CompletedTask;
+		}
+
+		var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!_dispatcher.TryEnqueue(() =>
+		{
+			ApplyContextualCommands(commands, cancellation);
+			completion.SetResult();
+		}))
+		{
+			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected contextual command updates."));
+		}
+
+		return completion.Task;
+	}
+
+	private void ApplyContextualCommands(IReadOnlyList<WindowsShellContextualCommand> commands, CancellationTokenSource cancellation)
+	{
+		if (cancellation.IsCancellationRequested || !ReferenceEquals(_contextualCommandRefreshCancellation, cancellation) || Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
+		_contextualCommands = commands.ToDictionary(static command => command.Id, StringComparer.OrdinalIgnoreCase);
+		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+	}
+
+	private string? GetContextualCommandWorkingDirectory()
+	{
+		return Location is FolderLocation { Folder.LastKnownAddress: { } address } && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
+			? address.Value
+			: null;
 	}
 
 	private IReadOnlyList<string> GetSelectedFilePaths()

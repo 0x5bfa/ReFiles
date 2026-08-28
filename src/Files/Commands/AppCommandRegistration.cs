@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Commands.Handlers;
+using Files.Core.Storage.Windows;
 using Files.Localization;
 
 namespace Files.Commands;
@@ -49,6 +50,24 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.Paste, Strings.Paste, "App.ThemedIcons.Paste", Strings.Item, 40), static _ => new FileCommandHandler(CommandIds.Paste));
 		builder.Register(new(CommandIds.Delete, Strings.Delete, "App.ThemedIcons.Delete", Strings.Item, 50), static _ => new FileCommandHandler(CommandIds.Delete));
 		builder.Register(new(CommandIds.Properties, Strings.Properties, null, Strings.Item, 60, "\uE946"), static root => new PropertiesCommandHandler(root.ItemPropertiesService));
+		builder.Register(new(CommandIds.Mount, Strings.Mount, "App.ThemedIcons.File", Strings.Item, 70),
+			static _ => new ContextualShellCommandHandler(CommandIds.Mount, WindowsShellContextualCommandIds.Mount));
+		builder.Register(new(CommandIds.BurnDiscImage, Strings.BurnDiscImage, "App.ThemedIcons.File", Strings.Item, 80),
+			static _ => new ContextualShellCommandHandler(CommandIds.BurnDiscImage, WindowsShellContextualCommandIds.BurnDiscImage));
+		builder.Register(new(CommandIds.EmptyRecycleBin, Strings.EmptyRecycleBin, "App.ThemedIcons.Delete", Strings.Item, 90),
+			static _ => new ContextualShellCommandHandler(CommandIds.EmptyRecycleBin, WindowsShellContextualCommandIds.EmptyRecycleBin));
+		builder.Register(new(CommandIds.RestoreAllRecycleBinItems, Strings.RestoreAllItems, "App.ThemedIcons.RestoreDeleted", Strings.Item, 100),
+			static _ => new ContextualShellCommandHandler(CommandIds.RestoreAllRecycleBinItems, WindowsShellContextualCommandIds.RestoreAllRecycleBinItems));
+		builder.Register(new(CommandIds.RestoreRecycleBinItems, Strings.RestoreSelectedItems, "App.ThemedIcons.RestoreDeleted", Strings.Item, 110),
+			static _ => new ContextualShellCommandHandler(CommandIds.RestoreRecycleBinItems, WindowsShellContextualCommandIds.RestoreRecycleBinItems));
+		builder.Register(new(CommandIds.CompressToZip, Strings.CompressToZip, "App.ThemedIcons.Zip", Strings.Item, 120),
+			static _ => new ContextualShellCommandHandler(CommandIds.CompressToZip, WindowsShellContextualCommandIds.CompressToZip));
+		builder.Register(new(CommandIds.PinToQuickAccess, Strings.PinToQuickAccess, "App.ThemedIcons.Folder", Strings.Item, 130),
+			static _ => new ContextualShellCommandHandler(CommandIds.PinToQuickAccess, WindowsShellContextualCommandIds.PinToQuickAccess));
+		builder.Register(new(CommandIds.AddToFavorites, Strings.AddToFavorites, "App.ThemedIcons.Tag", Strings.Item, 140),
+			static _ => new ContextualShellCommandHandler(CommandIds.AddToFavorites, WindowsShellContextualCommandIds.AddToFavorites));
+		builder.Register(new(CommandIds.CopyAsPath, Strings.CopyAsPath, "App.ThemedIcons.CopyAsPath", Strings.Item, 150),
+			static _ => new ContextualShellCommandHandler(CommandIds.CopyAsPath, WindowsShellContextualCommandIds.CopyAsPath));
 	}
 
 	private static void RegisterDisplay(CommandRegistryBuilder builder)

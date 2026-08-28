@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Buffers;
 using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.CompilerServices;
@@ -45,7 +44,7 @@ public sealed class WindowsShellContextMenuSession
 			return false;
 		}
 
-		var selection = CreateShellItemArray(target.AbsolutePidls);
+		var selection = WindowsShellItemArrayFactory.Create(target.AbsolutePidls);
 		selection.BindToHandler<IContextMenu>(null, PInvoke.BHID_SFUIObject, out var contextMenu).ThrowOnFailure();
 		using var menu = PInvoke.CreatePopupMenu_SafeHandle();
 		if (menu.IsInvalid)
@@ -92,41 +91,6 @@ public sealed class WindowsShellContextMenuSession
 			sessionHandle.Free();
 			_contextMenu2 = null;
 			_contextMenu3 = null;
-		}
-	}
-
-	private static unsafe IShellItemArray CreateShellItemArray(IReadOnlyList<ReadOnlyMemory<byte>> absolutePidls)
-	{
-		var handles = new MemoryHandle[absolutePidls.Count];
-		var itemIdLists = new nint[absolutePidls.Count];
-		var pinnedCount = 0;
-		try
-		{
-			for (var index = 0; index < absolutePidls.Count; index++)
-			{
-				if (absolutePidls[index].IsEmpty)
-				{
-					throw new InvalidOperationException("A Windows Shell context-menu item does not have an absolute item ID list.");
-				}
-
-				handles[index] = absolutePidls[index].Pin();
-				itemIdLists[index] = (nint)handles[index].Pointer;
-				pinnedCount++;
-			}
-
-			fixed (nint* itemIdListPointer = itemIdLists)
-			{
-				PInvoke.SHCreateShellItemArrayFromIDLists(checked((uint)itemIdLists.Length), (ITEMIDLIST**)itemIdListPointer, out var selection).ThrowOnFailure();
-
-				return selection;
-			}
-		}
-		finally
-		{
-			for (var index = 0; index < pinnedCount; index++)
-			{
-				handles[index].Dispose();
-			}
 		}
 	}
 

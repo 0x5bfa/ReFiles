@@ -24,6 +24,24 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel DeleteCommand { get; }
 
+	public CommandBindingViewModel MountCommand { get; }
+
+	public CommandBindingViewModel BurnDiscImageCommand { get; }
+
+	public CommandBindingViewModel EmptyRecycleBinCommand { get; }
+
+	public CommandBindingViewModel RestoreAllRecycleBinItemsCommand { get; }
+
+	public CommandBindingViewModel RestoreRecycleBinItemsCommand { get; }
+
+	public CommandBindingViewModel CompressToZipCommand { get; }
+
+	public CommandBindingViewModel PinToQuickAccessCommand { get; }
+
+	public CommandBindingViewModel AddToFavoritesCommand { get; }
+
+	public CommandBindingViewModel CopyAsPathCommand { get; }
+
 	public CommandBindingViewModel SortItemsCommand { get; }
 
 	public CommandBindingViewModel GroupItemsCommand { get; }
@@ -96,6 +114,15 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel cutCommand,
 		CommandBindingViewModel pasteCommand,
 		CommandBindingViewModel deleteCommand,
+		CommandBindingViewModel mountCommand,
+		CommandBindingViewModel burnDiscImageCommand,
+		CommandBindingViewModel emptyRecycleBinCommand,
+		CommandBindingViewModel restoreAllRecycleBinItemsCommand,
+		CommandBindingViewModel restoreRecycleBinItemsCommand,
+		CommandBindingViewModel compressToZipCommand,
+		CommandBindingViewModel pinToQuickAccessCommand,
+		CommandBindingViewModel addToFavoritesCommand,
+		CommandBindingViewModel copyAsPathCommand,
 		CommandBindingViewModel sortItemsCommand,
 		CommandBindingViewModel groupItemsCommand,
 		CommandBindingViewModel layoutDetailsCommand,
@@ -108,6 +135,15 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(cutCommand);
 		ArgumentNullException.ThrowIfNull(pasteCommand);
 		ArgumentNullException.ThrowIfNull(deleteCommand);
+		ArgumentNullException.ThrowIfNull(mountCommand);
+		ArgumentNullException.ThrowIfNull(burnDiscImageCommand);
+		ArgumentNullException.ThrowIfNull(emptyRecycleBinCommand);
+		ArgumentNullException.ThrowIfNull(restoreAllRecycleBinItemsCommand);
+		ArgumentNullException.ThrowIfNull(restoreRecycleBinItemsCommand);
+		ArgumentNullException.ThrowIfNull(compressToZipCommand);
+		ArgumentNullException.ThrowIfNull(pinToQuickAccessCommand);
+		ArgumentNullException.ThrowIfNull(addToFavoritesCommand);
+		ArgumentNullException.ThrowIfNull(copyAsPathCommand);
 		ArgumentNullException.ThrowIfNull(sortItemsCommand);
 		ArgumentNullException.ThrowIfNull(groupItemsCommand);
 		ArgumentNullException.ThrowIfNull(layoutDetailsCommand);
@@ -120,6 +156,15 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CutCommand = cutCommand;
 		PasteCommand = pasteCommand;
 		DeleteCommand = deleteCommand;
+		MountCommand = mountCommand;
+		BurnDiscImageCommand = burnDiscImageCommand;
+		EmptyRecycleBinCommand = emptyRecycleBinCommand;
+		RestoreAllRecycleBinItemsCommand = restoreAllRecycleBinItemsCommand;
+		RestoreRecycleBinItemsCommand = restoreRecycleBinItemsCommand;
+		CompressToZipCommand = compressToZipCommand;
+		PinToQuickAccessCommand = pinToQuickAccessCommand;
+		AddToFavoritesCommand = addToFavoritesCommand;
+		CopyAsPathCommand = copyAsPathCommand;
 		SortItemsCommand = sortItemsCommand;
 		GroupItemsCommand = groupItemsCommand;
 		LayoutDetailsCommand = layoutDetailsCommand;

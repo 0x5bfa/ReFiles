@@ -90,6 +90,16 @@
 	<data name="Paste" xml:space="preserve"><value>Paste</value></data>
 	<data name="Delete" xml:space="preserve"><value>Delete</value></data>
 	<data name="Properties" xml:space="preserve"><value>Properties</value></data>
+	<data name="Mount" xml:space="preserve"><value>Mount</value></data>
+	<data name="BurnDiscImage" xml:space="preserve"><value>Burn</value></data>
+	<data name="EmptyRecycleBin" xml:space="preserve"><value>Empty Recycle Bin</value></data>
+	<data name="RestoreAllItems" xml:space="preserve"><value>Restore all items</value></data>
+	<data name="RestoreSelectedItems" xml:space="preserve"><value>Restore selected items</value></data>
+	<data name="CompressToZip" xml:space="preserve"><value>Compress to ZIP file</value></data>
+	<data name="PinToQuickAccess" xml:space="preserve"><value>Pin to Quick access</value></data>
+	<data name="AddToFavorites" xml:space="preserve"><value>Add to favorites</value></data>
+	<data name="CopyAsPath" xml:space="preserve"><value>Copy as path</value></data>
+	<data name="More" xml:space="preserve"><value>More</value></data>
 	<data name="PropertiesTitleFormat" xml:space="preserve"><value>{0} Properties</value></data>
 	<data name="General" xml:space="preserve"><value>General</value></data>
 	<data name="Tools" xml:space="preserve"><value>Tools</value></data>
