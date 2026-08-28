@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -20,6 +21,7 @@ public sealed class WindowsShellContextualCommandService
 {
 	private const uint ContextMenuQueryFlags = 0x00000100 | 0x00000800;
 	private const string CommandStoreRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell";
+	private const string RestoreAllRecycleBinBackendId = "Windows.RecycleBin.RestoreAll";
 	private static readonly string[] _selectionExplorerCommandIds = ["Windows.Zip.Action", "Windows.PinToHome", "Windows.PinToHomeFile"];
 	private static readonly string[] _locationExplorerCommandIds = ["Windows.PinToHome"];
 	private static readonly IReadOnlyDictionary<string, string> _commandIdsByBackendId = CreateCommandIdMap();
@@ -52,6 +54,7 @@ public sealed class WindowsShellContextualCommandService
 		ArgumentNullException.ThrowIfNull(selection);
 
 		var commands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
+		var isRecycleBin = false;
 		if (selection.Count is not 0)
 		{
 			var appExtensionCommands = await _appExtensions.GetCommandsAsync(selection, cancellationToken).ConfigureAwait(false);
@@ -69,7 +72,7 @@ public sealed class WindowsShellContextualCommandService
 
 		if (location is not null && await ResolveLocatorAsync(location, cancellationToken).ConfigureAwait(false) is { } locationLocator)
 		{
-			var isRecycleBin = await _source.ShellItemResolver.InvokeOperationAsync(locationLocator, IsRecycleBin, cancellationToken).ConfigureAwait(false);
+			isRecycleBin = await _source.ShellItemResolver.InvokeOperationAsync(locationLocator, IsRecycleBin, cancellationToken).ConfigureAwait(false);
 			if (selection.Count is 0)
 			{
 				var registeredCommands = await GetRegisteredCommandsAsync([location], _locationExplorerCommandIds, cancellationToken).ConfigureAwait(false);
@@ -81,14 +84,17 @@ public sealed class WindowsShellContextualCommandService
 
 			if (isRecycleBin)
 			{
-				commands[WindowsShellContextualCommandIds.EmptyRecycleBin] = await GetEmptyRecycleBinCommandAsync(cancellationToken).ConfigureAwait(false);
+				var hasItems = await HasRecycleBinItemsAsync(cancellationToken).ConfigureAwait(false);
+				commands[WindowsShellContextualCommandIds.EmptyRecycleBin] = new(WindowsShellContextualCommandIds.EmptyRecycleBin, hasItems, new WindowsShellEmptyRecycleBinContextualCommandToken());
+				commands[WindowsShellContextualCommandIds.RestoreAllRecycleBinItems] = new(
+					WindowsShellContextualCommandIds.RestoreAllRecycleBinItems, hasItems, new WindowsShellCommandStoreContextualCommandToken(RestoreAllRecycleBinBackendId));
 				var backgroundCommands = await _source.ShellItemResolver.InvokeOperationAsync(
 					locationLocator, shellItem => GetFolderBackgroundCommands(shellItem, ownerWindowHandle), cancellationToken).ConfigureAwait(false);
 				AppendCommands(backgroundCommands, commands);
 			}
 		}
 
-		return commands.Values.ToArray();
+		return isRecycleBin ? commands.Values.Where(static command => IsRecycleBinCommand(command.Id)).ToArray() : commands.Values.ToArray();
 	}
 
 	/// <summary>
@@ -112,6 +118,7 @@ public sealed class WindowsShellContextualCommandService
 			WindowsShellAppExtensionContextualCommandToken appExtension => await _appExtensions.InvokeAsync(selection, appExtension.Command, cancellationToken).ConfigureAwait(false),
 			WindowsShellContextMenuContextualCommandToken contextMenu => await InvokeContextMenuCommandAsync(
 				location, selection, command.Id, contextMenu.TargetKind, context, cancellationToken).ConfigureAwait(false),
+			WindowsShellCommandStoreContextualCommandToken commandStore => await InvokeCommandStoreCommandAsync(location, commandStore.BackendId, context, cancellationToken).ConfigureAwait(false),
 			WindowsShellEmptyRecycleBinContextualCommandToken => await EmptyRecycleBinAsync(context, cancellationToken).ConfigureAwait(false),
 			_ => false,
 		};
@@ -165,6 +172,11 @@ public sealed class WindowsShellContextualCommandService
 	private static bool TryMapCommandId(string backendId, out string commandId)
 	{
 		return _commandIdsByBackendId.TryGetValue(backendId, out commandId!);
+	}
+
+	private static bool IsRecycleBinCommand(string commandId)
+	{
+		return commandId is WindowsShellContextualCommandIds.EmptyRecycleBin or WindowsShellContextualCommandIds.RestoreAllRecycleBinItems or WindowsShellContextualCommandIds.RestoreRecycleBinItems;
 	}
 
 	private async Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetRegisteredCommandsAsync(IReadOnlyList<StorableReference> selection,
@@ -293,17 +305,15 @@ public sealed class WindowsShellContextualCommandService
 		commands.TryAdd(commandId, new(commandId, isEnabled, new WindowsShellContextMenuContextualCommandToken(targetKind)));
 	}
 
-	private async Task<WindowsShellContextualCommand> GetEmptyRecycleBinCommandAsync(CancellationToken cancellationToken)
+	private async Task<bool> HasRecycleBinItemsAsync(CancellationToken cancellationToken)
 	{
-		var isEnabled = await _source.Scheduler.InvokeConcurrentAsync(
+		return await _source.Scheduler.InvokeConcurrentAsync(
 			() =>
 			{
 				var info = new SHQUERYRBINFO { cbSize = (uint)Marshal.SizeOf<SHQUERYRBINFO>() };
 
 				return PInvoke.SHQueryRecycleBin(null, ref info).Succeeded && info.i64NumItems > 0;
 			}, cancellationToken).ConfigureAwait(false);
-
-		return new(WindowsShellContextualCommandIds.EmptyRecycleBin, isEnabled, new WindowsShellEmptyRecycleBinContextualCommandToken());
 	}
 
 	private async Task<bool> InvokeContextMenuCommandAsync(StorableReference? location, IReadOnlyList<StorableReference> selection, string commandId,
@@ -330,6 +340,73 @@ public sealed class WindowsShellContextualCommandService
 			shellItem => targetKind is WindowsShellContextMenuTargetKind.LocationBackground
 				? InvokeFolderBackgroundCommand(shellItem, commandId, context)
 				: InvokeContextMenuCommand(WindowsShellContextMenuCommandHelper.Create(shellItem), commandId, context), cancellationToken).ConfigureAwait(false);
+	}
+
+	private async Task<bool> InvokeCommandStoreCommandAsync(StorableReference? location, string backendId, WindowsShellInvocationContext context, CancellationToken cancellationToken)
+	{
+		if (location is null || await ResolveLocatorAsync(location, cancellationToken).ConfigureAwait(false) is not { } locationLocator)
+		{
+			return false;
+		}
+
+		return await _source.Scheduler.InvokeOperationAsync(() => InvokeCommandStoreCommand(locationLocator, backendId, context), cancellationToken).ConfigureAwait(false);
+	}
+
+	private static unsafe bool InvokeCommandStoreCommand(WindowsItemLocator location, string backendId, WindowsShellInvocationContext context)
+	{
+		if (TryGetCommandStoreDelegateExecuteClassId(backendId) is not { } classId || WindowsShellCommandStorePropertyBag.TryCreate(backendId) is not { } propertyBag)
+		{
+			return false;
+		}
+
+		var createResult = PInvoke.CoCreateInstance(classId, null, CLSCTX.CLSCTX_INPROC_SERVER | CLSCTX.CLSCTX_LOCAL_SERVER, out IExecuteCommand? executeCommand);
+		if (createResult.Failed || executeCommand is not IInitializeCommand initializeCommand || executeCommand is not IObjectWithSelection objectWithSelection)
+		{
+			return false;
+		}
+
+		fixed (char* commandName = backendId)
+		{
+			if (initializeCommand.Initialize(new PCWSTR(commandName), propertyBag).Failed)
+			{
+				return false;
+			}
+		}
+
+		var shellItems = WindowsShellItemArrayFactory.Create([location]);
+		if (objectWithSelection.SetSelection(shellItems).Failed)
+		{
+			return false;
+		}
+
+		if (context.WorkingDirectory is { } workingDirectory)
+		{
+			_ = executeCommand.SetDirectory(workingDirectory);
+		}
+
+		if (context.InvocationPoint is { } invocationPoint)
+		{
+			_ = executeCommand.SetPosition(new System.Drawing.Point(invocationPoint.X, invocationPoint.Y));
+		}
+
+		_ = executeCommand.SetShowWindow((int)SHOW_WINDOW_CMD.SW_SHOWNORMAL);
+
+		return executeCommand.Execute().Succeeded;
+	}
+
+	private static Guid? TryGetCommandStoreDelegateExecuteClassId(string backendId)
+	{
+		try
+		{
+			using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+			using var commandKey = baseKey.OpenSubKey($@"{CommandStoreRegistryPath}\{backendId}\command");
+
+			return commandKey?.GetValue("DelegateExecute") is string classId && Guid.TryParse(classId, out var parsedClassId) ? parsedClassId : null;
+		}
+		catch (Exception exception) when (exception is IOException or System.Security.SecurityException or UnauthorizedAccessException)
+		{
+			return null;
+		}
 	}
 
 	private static bool InvokeFolderBackgroundCommand(IShellItem shellItem, string commandId, WindowsShellInvocationContext context)

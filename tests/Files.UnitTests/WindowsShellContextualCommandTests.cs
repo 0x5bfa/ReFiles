@@ -33,6 +33,13 @@ public sealed class WindowsShellContextualCommandTests
 
 			Assert.IsTrue(ids.Contains(WindowsShellContextualCommandIds.Mount), $"Discovered commands: {string.Join(", ", ids)}");
 			Assert.IsTrue(ids.Contains(WindowsShellContextualCommandIds.BurnDiscImage), $"Discovered commands: {string.Join(", ", ids)}");
+
+			var recycleBin = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.ShellAddressScheme, "shell:::{645FF040-5081-101B-9F08-00AA002F954E}"));
+			var recycleBinLocation = new StorableReference(source.SourceId, recycleBin.Id, recycleBin.Address);
+			var recycleBinIds = (await service.GetCommandsAsync(recycleBinLocation, [reference], 0)).Select(static command => command.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+			Assert.IsFalse(recycleBinIds.Contains(WindowsShellContextualCommandIds.Mount), $"Recycle Bin commands: {string.Join(", ", recycleBinIds)}");
+			Assert.IsFalse(recycleBinIds.Contains(WindowsShellContextualCommandIds.BurnDiscImage), $"Recycle Bin commands: {string.Join(", ", recycleBinIds)}");
 		}
 		finally
 		{
@@ -40,9 +47,9 @@ public sealed class WindowsShellContextualCommandTests
 		}
 	}
 
-	/// <summary>Verifies that the Recycle Bin location exposes its empty command even when no item is selected.</summary>
+	/// <summary>Verifies that the Recycle Bin location exposes its location commands even when no item is selected.</summary>
 	[TestMethod]
-	public async Task RecycleBinLocationExposesEmptyCommand()
+	public async Task RecycleBinLocationExposesLocationCommands()
 	{
 		await using var scheduler = new WindowsShellScheduler();
 		await using var source = new WindowsStorageSource(scheduler: scheduler);
@@ -51,8 +58,10 @@ public sealed class WindowsShellContextualCommandTests
 		var service = new WindowsShellContextualCommandService(source);
 
 		var commands = await service.GetCommandsAsync(location, [], 0);
+		var commandIds = commands.Select(static command => command.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-		Assert.IsTrue(commands.Any(static command => command.Id.Equals(WindowsShellContextualCommandIds.EmptyRecycleBin, StringComparison.OrdinalIgnoreCase)));
+		Assert.IsTrue(commandIds.Contains(WindowsShellContextualCommandIds.EmptyRecycleBin));
+		Assert.IsTrue(commandIds.Contains(WindowsShellContextualCommandIds.RestoreAllRecycleBinItems), $"Discovered commands: {string.Join(", ", commandIds)}");
 	}
 
 	/// <summary>Verifies the secondary contextual commands exposed for file-system folders and files.</summary>

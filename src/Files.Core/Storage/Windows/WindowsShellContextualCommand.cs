@@ -66,6 +66,8 @@ internal sealed record WindowsShellAppExtensionContextualCommandToken(WindowsShe
 
 internal sealed record WindowsShellContextMenuContextualCommandToken(WindowsShellContextMenuTargetKind TargetKind) : WindowsShellContextualCommandToken;
 
+internal sealed record WindowsShellCommandStoreContextualCommandToken(string BackendId) : WindowsShellContextualCommandToken;
+
 internal sealed record WindowsShellEmptyRecycleBinContextualCommandToken : WindowsShellContextualCommandToken;
 
 internal enum WindowsShellContextMenuTargetKind

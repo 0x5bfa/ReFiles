@@ -69,6 +69,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private CancellationTokenSource? _displaySettingsCancellation;
 	private CancellationTokenSource? _contextualCommandRefreshCancellation;
 	private IReadOnlyDictionary<string, WindowsShellContextualCommand> _contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
+	private bool _isContextualCommandRefreshPending;
 
 	private bool _isApplyingUpdate;
 
@@ -417,13 +418,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
 
-		return _contextualCommands.TryGetValue(commandId, out var command) ? new(true, command.IsEnabled && !IsLoading && !IsBusy) : new(false, false);
+		return _contextualCommands.TryGetValue(commandId, out var command) ? new(true, command.IsEnabled && !_isContextualCommandRefreshPending && !IsLoading && !IsBusy) : new(false, false);
 	}
 
 	internal async Task<bool> InvokeContextualCommandAsync(string commandId, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
-		if (_shellContextualCommandService is null || !_contextualCommands.TryGetValue(commandId, out var command) || _ownerWindowHandle is 0)
+
+		if (_shellContextualCommandService is null || _isContextualCommandRefreshPending || !_contextualCommands.TryGetValue(commandId, out var command) || _ownerWindowHandle is 0)
 		{
 			return false;
 		}
@@ -1054,9 +1056,20 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
 		Interlocked.Exchange(ref _contextualCommandRefreshCancellation, cancellation)?.Cancel();
-		_contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
+		_isContextualCommandRefreshPending = true;
 		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
-		if (_shellContextualCommandService is null || IsLoading)
+		if (_shellContextualCommandService is null)
+		{
+			_contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
+			_isContextualCommandRefreshPending = false;
+			CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+			Interlocked.CompareExchange(ref _contextualCommandRefreshCancellation, null, cancellation);
+			cancellation.Dispose();
+
+			return;
+		}
+
+		if (IsLoading)
 		{
 			Interlocked.CompareExchange(ref _contextualCommandRefreshCancellation, null, cancellation);
 			cancellation.Dispose();
@@ -1087,6 +1100,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		catch (Exception exception)
 		{
 			UiDiagnosticLog.Write("FolderBrowserViewModel", $"Contextual commands ERROR type={exception.GetType().Name}");
+			await CompleteContextualCommandRefreshAsync(cancellation).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -1125,6 +1139,41 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 
 		_contextualCommands = commands.ToDictionary(static command => command.Id, StringComparer.OrdinalIgnoreCase);
+		_isContextualCommandRefreshPending = false;
+		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+	}
+
+	private Task CompleteContextualCommandRefreshAsync(CancellationTokenSource cancellation)
+	{
+		if (_dispatcher.HasThreadAccess)
+		{
+			CompleteContextualCommandRefresh(cancellation);
+
+			return Task.CompletedTask;
+		}
+
+		var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		if (!_dispatcher.TryEnqueue(() =>
+		{
+			CompleteContextualCommandRefresh(cancellation);
+			completion.SetResult();
+		}))
+		{
+			completion.SetException(new InvalidOperationException("The Files UI dispatcher rejected contextual command completion."));
+		}
+
+		return completion.Task;
+	}
+
+	private void CompleteContextualCommandRefresh(CancellationTokenSource cancellation)
+	{
+		if (cancellation.IsCancellationRequested || !ReferenceEquals(_contextualCommandRefreshCancellation, cancellation) || Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
+		_contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
+		_isContextualCommandRefreshPending = false;
 		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
 	}
 
