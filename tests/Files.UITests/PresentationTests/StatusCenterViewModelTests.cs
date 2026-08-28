@@ -8,6 +8,7 @@ using Files.StorageOperations;
 using Files.ViewModels;
 using Files.Views;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
@@ -103,27 +104,172 @@ public sealed class StatusCenterViewModelTests
 		Assert.AreEqual("File: “large.iso”", item.CurrentItemText);
 		StringAssert.Contains(item.TransferText, "transferred");
 		Assert.IsTrue(item.IsExpanded);
-		Assert.IsTrue(item.ShowExpandedGraph);
-		Assert.IsFalse(item.ShowCompactProgress);
+		Assert.IsTrue(item.ShowExpandedDetails);
+		Assert.IsTrue(item.ShowRunningCompactProgress);
+		Assert.IsFalse(item.ShowPausedCompactProgress);
 
 		viewModel.ToggleExpanded(item.Id);
 		operation.Report(1, "large.iso", completedBytes: 60, totalBytes: 100, isByteProgressForWholeOperation: true);
 
 		Assert.IsFalse(item.IsExpanded);
-		Assert.IsFalse(item.ShowExpandedGraph);
-		Assert.IsTrue(item.ShowCompactProgress);
+		Assert.IsFalse(item.ShowExpandedDetails);
+		Assert.IsTrue(item.ShowRunningCompactProgress);
 	}
 
 	/// <summary>
-	/// Verifies that the concept card template realizes its graph and themed operation icon.
+	/// Verifies that pause and resume take effect only after the storage backend acknowledges each request.
 	/// </summary>
 	[UITestMethod]
-	public async Task RealizesExpandedOperationCardVisuals()
+	public void AcknowledgesPauseAndResumeBeforeChangingTheProjectedTransferState()
 	{
 		using var tracker = new StorageOperationTracker();
 		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
 		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
-		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true, destinationPath: @"D:\Backups");
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true, destinationPath: @"D:\Backups", canPause: true);
+		operation.Report(0, "large.iso", completedBytes: 25, totalBytes: 100, isByteProgressForWholeOperation: true);
+		var item = viewModel.Items[0];
+		var changedCount = 0;
+		tracker.Changed += (_, _) => changedCount++;
+
+		viewModel.TogglePaused(item.Id);
+
+		Assert.IsTrue(operation.IsPauseRequested);
+		Assert.IsTrue(item.IsRunning);
+		Assert.IsTrue(item.IsPausing);
+		Assert.IsFalse(item.IsPaused);
+		Assert.IsTrue(item.IsTransferring);
+		Assert.IsTrue(item.CanTogglePause);
+		Assert.AreEqual("Waiting for Windows to pause...", item.Detail);
+		Assert.AreEqual("Copying item 1 of 1 (25%)", item.Title);
+		Assert.IsTrue(item.ShowRunningCompactProgress);
+		Assert.IsFalse(item.ShowPausedCompactProgress);
+
+		operation.Report(0, "buffered.iso", completedBytes: 30, totalBytes: 100, isByteProgressForWholeOperation: true);
+
+		Assert.AreEqual(30d, item.ProgressPercentage, 0.01);
+		Assert.AreEqual("File: “buffered.iso”", item.CurrentItemText);
+		operation.AcknowledgePauseState(isPaused: true);
+		Assert.IsFalse(item.IsPausing);
+		Assert.IsTrue(item.IsPaused);
+		Assert.IsFalse(item.IsTransferring);
+		Assert.AreEqual("Paused copying item 1 of 1 (30%)", item.Title);
+		Assert.AreEqual("---", item.SpeedText);
+		Assert.IsFalse(item.ShowRunningCompactProgress);
+		Assert.IsTrue(item.ShowPausedCompactProgress);
+		var pausedPoints = item.SpeedGraphPoints.ToArray();
+		var pausedChangedCount = changedCount;
+
+		operation.Report(0, "buffered.iso", completedBytes: 40, totalBytes: 100, isByteProgressForWholeOperation: true);
+
+		CollectionAssert.AreEqual(pausedPoints, item.SpeedGraphPoints.ToArray());
+		Assert.AreEqual(pausedChangedCount, changedCount);
+		Assert.AreEqual(30d, item.ProgressPercentage, 0.01);
+		Assert.AreEqual("Paused copying item 1 of 1 (30%)", item.Title);
+		Assert.AreEqual("File: “buffered.iso”", item.CurrentItemText);
+
+		viewModel.TogglePaused(item.Id);
+
+		Assert.IsFalse(operation.IsPauseRequested);
+		Assert.IsTrue(item.IsResuming);
+		Assert.IsTrue(item.IsPaused);
+		Assert.IsFalse(item.IsTransferring);
+		Assert.AreEqual("Waiting for Windows to resume...", item.Detail);
+		Assert.IsFalse(item.ShowRunningCompactProgress);
+		Assert.IsTrue(item.ShowPausedCompactProgress);
+		operation.AcknowledgePauseState(isPaused: false);
+		Assert.IsFalse(item.IsResuming);
+		Assert.IsFalse(item.IsPaused);
+		Assert.IsTrue(item.IsTransferring);
+		Assert.IsTrue(item.ShowRunningCompactProgress);
+		Assert.IsFalse(item.ShowPausedCompactProgress);
+		Assert.AreEqual("Copying item 1 of 1 (30%)", item.Title);
+
+		operation.Report(0, "large.iso", completedBytes: 40, totalBytes: 100, isByteProgressForWholeOperation: true);
+
+		Assert.AreEqual("Copying item 1 of 1 (40%)", item.Title);
+		Assert.AreEqual("---", item.SpeedText);
+	}
+
+	/// <summary>
+	/// Verifies that unacknowledged pause and resume requests can be retracted while Windows is blocked.
+	/// </summary>
+	[UITestMethod]
+	public void RetractsUnacknowledgedPauseAndResumeRequests()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true, destinationPath: @"D:\Backups", canPause: true);
+		var item = viewModel.Items[0];
+
+		viewModel.TogglePaused(item.Id);
+		Assert.IsTrue(item.IsPausing);
+
+		viewModel.TogglePaused(item.Id);
+		Assert.IsFalse(operation.IsPauseRequested);
+		Assert.IsFalse(item.IsPausing);
+		Assert.IsTrue(item.IsTransferring);
+
+		viewModel.TogglePaused(item.Id);
+		operation.AcknowledgePauseState(isPaused: true);
+		Assert.IsTrue(item.IsPaused);
+
+		viewModel.TogglePaused(item.Id);
+		Assert.IsTrue(item.IsResuming);
+
+		viewModel.TogglePaused(item.Id);
+		Assert.IsTrue(operation.IsPauseRequested);
+		Assert.IsFalse(item.IsResuming);
+		Assert.IsTrue(item.IsPaused);
+	}
+
+	/// <summary>
+	/// Verifies that cancellation remains visibly pending until the storage backend finishes aborting the operation.
+	/// </summary>
+	[UITestMethod]
+	public void PresentsCancellationAsPendingUntilTheOperationStops()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true, destinationPath: @"D:\Backups", canPause: true);
+		var item = viewModel.Items[0];
+		viewModel.TogglePaused(item.Id);
+		operation.AcknowledgePauseState(isPaused: true);
+
+		viewModel.Cancel(item.Id);
+
+		Assert.IsTrue(item.IsRunning);
+		Assert.IsTrue(item.IsPaused);
+		Assert.IsFalse(item.CanCancel);
+		Assert.IsFalse(item.CanTogglePause);
+		Assert.AreEqual("Waiting for Windows to cancel...", item.Detail);
+
+		operation.AcknowledgeCancellationRequest();
+
+		Assert.IsTrue(item.IsResuming);
+		Assert.IsTrue(item.IsPaused);
+		Assert.AreEqual("Canceling...", item.Detail);
+		operation.AcknowledgePauseState(isPaused: false);
+		Assert.IsFalse(item.IsResuming);
+		Assert.IsFalse(item.IsPaused);
+
+		operation.MarkCanceled();
+
+		Assert.IsFalse(item.IsRunning);
+		Assert.IsTrue(item.IsCanceled);
+	}
+
+	/// <summary>
+	/// Verifies that the operation card realizes its progress bar and themed operation icon.
+	/// </summary>
+	[UITestMethod]
+	public async Task RealizesOperationCardProgressBarAndThemedIcon()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true, destinationPath: @"D:\Backups", canPause: true);
 		operation.Report(0, "large.iso", completedBytes: 50, totalBytes: 100, isByteProgressForWholeOperation: true);
 		var statusCenter = new StatusCenter { Width = 520, Height = 360, ViewModel = viewModel };
 		var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -137,8 +283,23 @@ public sealed class StatusCenterViewModelTests
 			Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(layoutReady.SetResult));
 			await layoutReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-			Assert.IsTrue(FindDescendants<SpeedGraph>(statusCenter).Any(static graph => graph.Visibility is Visibility.Visible && graph.ActualWidth > 0));
-			Assert.IsTrue(FindDescendants<ThemedIcon>(statusCenter).Any(static icon => icon.Visibility is Visibility.Visible));
+			var progressBar = FindDescendants<ProgressBar>(statusCenter).Single(static progressBar => progressBar.Visibility is Visibility.Visible && progressBar.ActualWidth > 0);
+			Assert.AreEqual(50d, progressBar.Value, 0.01);
+			var operationIcon = FindDescendants<ThemedIcon>(statusCenter).Single(static icon => icon.Visibility is Visibility.Visible);
+			Assert.IsTrue(operationIcon.IsEnabled);
+			Assert.IsTrue(FindDescendants<Button>(statusCenter).Any(static button => button.Visibility is Visibility.Visible
+				&& Microsoft.UI.Xaml.Automation.AutomationProperties.GetName(button) == "Pause"));
+
+			viewModel.TogglePaused(viewModel.Items.Single().Id);
+			Assert.IsTrue(viewModel.Items.Single().IsPausing);
+			operation.AcknowledgePauseState(isPaused: true);
+			var pauseReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(pauseReady.SetResult));
+			await pauseReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.IsFalse(operationIcon.IsEnabled);
+			var pausedProgressBar = FindDescendants<ProgressBar>(statusCenter).Single(static progressBar => progressBar.Visibility is Visibility.Visible);
+			Assert.AreEqual(50d, pausedProgressBar.Value, 0.01);
 		}
 		finally
 		{

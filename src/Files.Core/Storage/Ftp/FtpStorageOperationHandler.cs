@@ -53,8 +53,10 @@ public sealed class FtpStorageOperationHandler :
 	/// <param name="request">The operation request.</param>
 	/// <param name="progress">The optional progress receiver.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="operationControl">The optional cooperative operation control.</param>
 	/// <returns>The operation result.</returns>
-	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
+	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+		IStorageOperationControl? operationControl = null)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
@@ -142,7 +144,9 @@ public sealed class FtpStorageOperationHandler :
 		var destinationPath = await ResolveDestinationPathAsync(parent.Path, request.Name, request.ConflictBehavior, cancellationToken).ConfigureAwait(false);
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
-		await _source.Connection.ExecuteAsync(session => request.Kind is StorageItemKind.Folder ? session.CreateFolderAsync(destinationPath, cancellationToken) : session.CreateFileAsync(destinationPath, cancellationToken), cancellationToken).ConfigureAwait(false);
+		await _source.Connection.ExecuteAsync(
+			session => request.Kind is StorageItemKind.Folder ? session.CreateFolderAsync(destinationPath, cancellationToken) : session.CreateFileAsync(destinationPath, cancellationToken),
+			cancellationToken).ConfigureAwait(false);
 
 		var result = _source.CreateReference(destinationPath);
 		progress?.Report(new StorageOperationProgress(1, 1, result));

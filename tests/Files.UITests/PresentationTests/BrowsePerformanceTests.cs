@@ -630,10 +630,8 @@ public sealed class BrowsePerformanceTests
 	private sealed class NoOpStorageOperationService : IStorageOperationService
 	{
 		public bool CanHandle(StorageOperationRequest request) => false;
-		public ValueTask<StorageOperationResult> ExecuteAsync(
-			StorageOperationRequest request,
-			IProgress<StorageOperationProgress>? progress = null,
-			CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+			IStorageOperationControl? operationControl = null) => throw new NotSupportedException();
 	}
 
 	private sealed class PerformanceBrowseLocationResolver(

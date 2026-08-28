@@ -19,6 +19,9 @@ internal enum TrackedStorageOperationKind
 internal enum TrackedStorageOperationState
 {
 	Running,
+	Pausing,
+	Paused,
+	Resuming,
 	Succeeded,
 	Failed,
 	Canceled,
@@ -39,7 +42,9 @@ internal sealed record StorageOperationSnapshot(
 	TimeSpan? RemainingTime,
 	Exception? Error,
 	bool CanCancel,
+	bool CanPause,
 	bool IsCancellationRequested,
+	bool IsCancellationAcknowledged,
 	DateTimeOffset StartedAt,
 	DateTimeOffset? CompletedAt,
 	IReadOnlyList<Vector2> SpeedGraphPoints);
@@ -58,7 +63,7 @@ internal sealed class StorageOperationTracker : IDisposable
 	public event EventHandler? Changed;
 
 	public StorageOperationHandle StartOperation(TrackedStorageOperationKind kind, int totalItems, string? currentItemName, bool canCancel, CancellationToken cancellationToken = default,
-		string? destinationPath = null)
+		string? destinationPath = null, bool canPause = false)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(totalItems);
 
@@ -78,7 +83,7 @@ internal sealed class StorageOperationTracker : IDisposable
 				throw new ObjectDisposedException(nameof(StorageOperationTracker));
 			}
 
-			_operations.Add(id, new OperationState(id, kind, totalItems, currentItemName, destinationPath, canCancel, operationCancellation));
+			_operations.Add(id, new OperationState(id, kind, totalItems, currentItemName, destinationPath, canCancel, canPause, operationCancellation));
 			_operationOrder.Insert(0, id);
 		}
 
@@ -100,7 +105,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		CancellationTokenSource? cancellation;
 		lock (_syncRoot)
 		{
-			if (!_operations.TryGetValue(id, out var operation) || operation.State is not TrackedStorageOperationState.Running || !operation.CanCancel || operation.IsCancellationRequested)
+			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State) || !operation.CanCancel || operation.IsCancellationRequested)
 			{
 				return false;
 			}
@@ -125,11 +130,47 @@ internal sealed class StorageOperationTracker : IDisposable
 		return true;
 	}
 
+	public bool RequestPause(Guid id)
+	{
+		lock (_syncRoot)
+		{
+			if (!_operations.TryGetValue(id, out var operation) || operation.State is not (TrackedStorageOperationState.Running or TrackedStorageOperationState.Resuming) || !operation.CanPause
+				|| operation.IsCancellationRequested)
+			{
+				return false;
+			}
+
+			operation.RequestPause();
+		}
+
+		OnChanged();
+
+		return true;
+	}
+
+	public bool RequestResume(Guid id)
+	{
+		lock (_syncRoot)
+		{
+			if (!_operations.TryGetValue(id, out var operation) || operation.State is not (TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused) || !operation.CanPause
+				|| operation.IsCancellationRequested)
+			{
+				return false;
+			}
+
+			operation.RequestResume();
+		}
+
+		OnChanged();
+
+		return true;
+	}
+
 	public bool Remove(Guid id)
 	{
 		lock (_syncRoot)
 		{
-			if (!_operations.TryGetValue(id, out var operation) || operation.State is TrackedStorageOperationState.Running)
+			if (!_operations.TryGetValue(id, out var operation) || IsActiveState(operation.State))
 			{
 				return false;
 			}
@@ -151,7 +192,7 @@ internal sealed class StorageOperationTracker : IDisposable
 			for (var index = _operationOrder.Count - 1; index >= 0; index--)
 			{
 				var id = _operationOrder[index];
-				if (_operations[id].State is TrackedStorageOperationState.Running)
+				if (IsActiveState(_operations[id].State))
 				{
 					continue;
 				}
@@ -205,7 +246,12 @@ internal sealed class StorageOperationTracker : IDisposable
 
 		lock (_syncRoot)
 		{
-			if (!_operations.TryGetValue(id, out var operation) || operation.State is not TrackedStorageOperationState.Running)
+			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State))
+			{
+				return;
+			}
+
+			if (operation.IsCancellationAcknowledged || operation.State is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming)
 			{
 				return;
 			}
@@ -241,12 +287,61 @@ internal sealed class StorageOperationTracker : IDisposable
 		TransitionToTerminalState(id, TrackedStorageOperationState.Canceled, null);
 	}
 
+	internal bool IsPauseRequested(Guid id)
+	{
+		lock (_syncRoot)
+		{
+			return _operations.TryGetValue(id, out var operation) && operation.IsPauseRequested;
+		}
+	}
+
+	internal void AcknowledgePauseState(Guid id, bool isPaused)
+	{
+		bool changed;
+		lock (_syncRoot)
+		{
+			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State))
+			{
+				return;
+			}
+
+			changed = operation.AcknowledgePause(isPaused);
+		}
+
+		if (changed)
+		{
+			OnChanged();
+		}
+	}
+
+	internal void AcknowledgeCancellationRequest(Guid id)
+	{
+		bool changed;
+		lock (_syncRoot)
+		{
+			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State))
+			{
+				return;
+			}
+
+			changed = operation.AcknowledgeCancellation();
+		}
+
+		if (changed)
+		{
+			OnChanged();
+		}
+	}
+
+	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+		or TrackedStorageOperationState.Resuming;
+
 	private void TransitionToTerminalState(Guid id, TrackedStorageOperationState state, Exception? error)
 	{
 		CancellationTokenSource? cancellation;
 		lock (_syncRoot)
 		{
-			if (!_operations.TryGetValue(id, out var operation) || operation.State is not TrackedStorageOperationState.Running)
+			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State))
 			{
 				return;
 			}
@@ -308,6 +403,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		public TrackedStorageOperationKind Kind { get; }
 		public int TotalItems { get; }
 		public bool CanCancel { get; }
+		public bool CanPause { get; }
 		public DateTimeOffset StartedAt { get; }
 		public TrackedStorageOperationState State { get; set; }
 		public int CompletedItems { get; set; }
@@ -319,11 +415,14 @@ internal sealed class StorageOperationTracker : IDisposable
 		public double? BytesPerSecond { get; private set; }
 		public TimeSpan? RemainingTime { get; private set; }
 		public Exception? Error { get; set; }
+		public bool IsPauseRequested { get; private set; }
 		public bool IsCancellationRequested { get; set; }
+		public bool IsCancellationAcknowledged { get; private set; }
 		public DateTimeOffset? CompletedAt { get; set; }
 		public CancellationTokenSource? Cancellation { get; set; }
 
-		public OperationState(Guid id, TrackedStorageOperationKind kind, int totalItems, string? currentItemName, string? destinationPath, bool canCancel, CancellationTokenSource cancellation)
+		public OperationState(Guid id, TrackedStorageOperationKind kind, int totalItems, string? currentItemName, string? destinationPath, bool canCancel, bool canPause,
+			CancellationTokenSource cancellation)
 		{
 			Id = id;
 			Kind = kind;
@@ -331,6 +430,7 @@ internal sealed class StorageOperationTracker : IDisposable
 			CurrentItemName = currentItemName;
 			DestinationPath = destinationPath;
 			CanCancel = canCancel;
+			CanPause = canPause;
 			StartedAt = DateTimeOffset.Now;
 			State = TrackedStorageOperationState.Running;
 			Cancellation = cancellation;
@@ -341,11 +441,83 @@ internal sealed class StorageOperationTracker : IDisposable
 		public StorageOperationSnapshot CreateSnapshot()
 		{
 			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, DestinationPath, CompletedBytes, TotalBytes, IsByteProgressForWholeOperation, BytesPerSecond,
-				RemainingTime, Error, CanCancel, IsCancellationRequested, StartedAt, CompletedAt, _speedGraphPoints.ToArray());
+				RemainingTime, Error, CanCancel, CanPause, IsCancellationRequested, IsCancellationAcknowledged, StartedAt, CompletedAt, _speedGraphPoints.ToArray());
+		}
+
+		public void RequestPause()
+		{
+			IsPauseRequested = true;
+			State = State is TrackedStorageOperationState.Resuming ? TrackedStorageOperationState.Paused : TrackedStorageOperationState.Pausing;
+		}
+
+		public void RequestResume()
+		{
+			IsPauseRequested = false;
+			State = State is TrackedStorageOperationState.Pausing ? TrackedStorageOperationState.Running : TrackedStorageOperationState.Resuming;
+		}
+
+		public bool AcknowledgePause(bool isPaused)
+		{
+			var state = (isPaused, IsPauseRequested, IsCancellationAcknowledged) switch
+			{
+				(true, true, false) => TrackedStorageOperationState.Paused,
+				(true, _, _) => TrackedStorageOperationState.Resuming,
+				(false, true, false) => TrackedStorageOperationState.Pausing,
+				_ => TrackedStorageOperationState.Running,
+			};
+			if (State == state)
+			{
+				return false;
+			}
+
+			State = state;
+			BytesPerSecond = null;
+			RemainingTime = null;
+			ResetSpeedSamples();
+			ResetItemSpeedSamples();
+			_previousCompletedBytes = isPaused ? CompletedBytes : null;
+			_previousCompletedItems = isPaused ? CompletedItems : null;
+			var now = Stopwatch.GetTimestamp();
+			_previousProgressTimestamp = now;
+			_previousItemProgressTimestamp = now;
+
+			return true;
+		}
+
+		public bool AcknowledgeCancellation()
+		{
+			if (IsCancellationAcknowledged)
+			{
+				return false;
+			}
+
+			IsCancellationAcknowledged = true;
+			IsCancellationRequested = true;
+			IsPauseRequested = false;
+			if (State is TrackedStorageOperationState.Paused)
+			{
+				State = TrackedStorageOperationState.Resuming;
+			}
+			else if (State is TrackedStorageOperationState.Pausing)
+			{
+				State = TrackedStorageOperationState.Running;
+			}
+
+			BytesPerSecond = null;
+			RemainingTime = null;
+			ResetSpeedSamples();
+			ResetItemSpeedSamples();
+
+			return true;
 		}
 
 		public void UpdateTransferProgress(long? completedBytes, long? totalBytes, bool isByteProgressForWholeOperation)
 		{
+			if (State is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming)
+			{
+				return;
+			}
+
 			if (completedBytes is null || totalBytes is null || totalBytes <= 0)
 			{
 				CompletedBytes = null;
@@ -516,12 +688,14 @@ internal sealed class StorageOperationTracker : IDisposable
 	}
 }
 
-internal sealed class StorageOperationHandle
+internal sealed class StorageOperationHandle : IStorageOperationControl
 {
 	private readonly StorageOperationTracker _tracker;
 	private readonly Guid _id;
 
 	public CancellationToken CancellationToken { get; }
+
+	public bool IsPauseRequested => _tracker.IsPauseRequested(_id);
 
 	internal StorageOperationHandle(StorageOperationTracker tracker, Guid id, CancellationToken cancellationToken)
 	{
@@ -529,6 +703,10 @@ internal sealed class StorageOperationHandle
 		_id = id;
 		CancellationToken = cancellationToken;
 	}
+
+	public void AcknowledgePauseState(bool isPaused) => _tracker.AcknowledgePauseState(_id, isPaused);
+
+	public void AcknowledgeCancellationRequest() => _tracker.AcknowledgeCancellationRequest(_id);
 
 	public void Report(int completedItems, string? currentItemName, long? completedBytes = null, long? totalBytes = null, bool isByteProgressForWholeOperation = false)
 	{

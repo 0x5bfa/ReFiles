@@ -704,7 +704,8 @@ public sealed class BrowsePresentationPipelineTests
 	{
 		public bool CanHandle(StorageOperationRequest request) => false;
 
-		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default) =>
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+			IStorageOperationControl? operationControl = null) =>
 			throw new NotSupportedException();
 	}
 

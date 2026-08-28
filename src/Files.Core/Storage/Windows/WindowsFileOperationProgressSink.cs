@@ -21,12 +21,16 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	private readonly StorableReference _currentItem;
 	private readonly long? _totalBytes;
 	private readonly CancellationToken _cancellationToken;
+	private readonly IStorageOperationControl? _operationControl;
 	private long _lastReportTimestamp;
 	private long _lastCompletedBytes = -1;
+	private long _pausedTimerDuration;
+	private long _timerPausedTimestamp;
 	private long _timerStartedTimestamp;
 	private bool _receivedByteProgress;
 
-	internal WindowsFileOperationProgressSink(IProgress<StorageOperationProgress>? progress, StorableReference currentItem, long? totalBytes, CancellationToken cancellationToken)
+	internal WindowsFileOperationProgressSink(IProgress<StorageOperationProgress>? progress, StorableReference currentItem, long? totalBytes, CancellationToken cancellationToken,
+		IStorageOperationControl? operationControl)
 	{
 		ArgumentNullException.ThrowIfNull(currentItem);
 
@@ -39,6 +43,7 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 		_currentItem = currentItem;
 		_totalBytes = totalBytes;
 		_cancellationToken = cancellationToken;
+		_operationControl = operationControl;
 		_lastReportTimestamp = Stopwatch.GetTimestamp();
 		_timerStartedTimestamp = _lastReportTimestamp;
 	}
@@ -157,7 +162,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	/// <inheritdoc />
 	public HRESULT ResetTimer()
 	{
-		_timerStartedTimestamp = Stopwatch.GetTimestamp();
+		var now = Stopwatch.GetTimestamp();
+		Interlocked.Exchange(ref _timerStartedTimestamp, now);
+		Interlocked.Exchange(ref _pausedTimerDuration, 0);
+		Interlocked.Exchange(ref _timerPausedTimestamp, 0);
 
 		return HRESULT.S_OK;
 	}
@@ -165,19 +173,29 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	/// <inheritdoc />
 	public HRESULT PauseTimer()
 	{
+		PauseTimerCore();
+		_operationControl?.AcknowledgePauseState(isPaused: true);
+
 		return HRESULT.S_OK;
 	}
 
 	/// <inheritdoc />
 	public HRESULT ResumeTimer()
 	{
+		ResumeTimerCore();
+		_operationControl?.AcknowledgePauseState(isPaused: false);
+
 		return HRESULT.S_OK;
 	}
 
 	/// <inheritdoc />
 	public HRESULT GetMilliseconds(out ulong pullElapsed, out ulong pullRemaining)
 	{
-		pullElapsed = (ulong)Math.Max(0, Stopwatch.GetElapsedTime(_timerStartedTimestamp).TotalMilliseconds);
+		var now = Stopwatch.GetTimestamp();
+		var pausedAt = Volatile.Read(ref _timerPausedTimestamp);
+		var effectiveNow = pausedAt is 0 ? now : pausedAt;
+		var elapsedTimestamp = Math.Max(0, effectiveNow - Volatile.Read(ref _timerStartedTimestamp) - Volatile.Read(ref _pausedTimerDuration));
+		pullElapsed = (ulong)(elapsedTimestamp * 1000d / Stopwatch.Frequency);
 		pullRemaining = 0;
 
 		return HRESULT.S_OK;
@@ -191,14 +209,44 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 			return new HRESULT(PointerHResultValue);
 		}
 
-		*popstatus = _cancellationToken.IsCancellationRequested ? PDOPSTATUS.PDOPS_CANCELLED : PDOPSTATUS.PDOPS_RUNNING;
+		if (_cancellationToken.IsCancellationRequested)
+		{
+			_operationControl?.AcknowledgeCancellationRequest();
+			*popstatus = PDOPSTATUS.PDOPS_CANCELLED;
+
+			return HRESULT.S_OK;
+		}
+
+		var isPauseRequested = _operationControl?.IsPauseRequested is true;
+		*popstatus = isPauseRequested ? PDOPSTATUS.PDOPS_PAUSED : PDOPSTATUS.PDOPS_RUNNING;
 
 		return HRESULT.S_OK;
 	}
 
+	private void PauseTimerCore()
+	{
+		_ = Interlocked.CompareExchange(ref _timerPausedTimestamp, Stopwatch.GetTimestamp(), 0);
+	}
+
+	private void ResumeTimerCore()
+	{
+		var pausedAt = Interlocked.Exchange(ref _timerPausedTimestamp, 0);
+		if (pausedAt is not 0)
+		{
+			Interlocked.Add(ref _pausedTimerDuration, Math.Max(0, Stopwatch.GetTimestamp() - pausedAt));
+		}
+	}
+
 	private HRESULT GetCancellationResult()
 	{
-		return _cancellationToken.IsCancellationRequested ? new HRESULT(CanceledHResultValue) : HRESULT.S_OK;
+		if (!_cancellationToken.IsCancellationRequested)
+		{
+			return HRESULT.S_OK;
+		}
+
+		_operationControl?.AcknowledgeCancellationRequest();
+
+		return new HRESULT(CanceledHResultValue);
 	}
 
 	private void ReportEstimatedBytes(uint workTotal, uint workCompleted, bool force)

@@ -44,6 +44,14 @@ public sealed partial class StatusCenter : UserControl
 		}
 	}
 
+	private void PauseButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is Button { Tag: Guid operationId })
+		{
+			ViewModel?.TogglePaused(operationId);
+		}
+	}
+
 	private void RemoveButton_Click(object sender, RoutedEventArgs e)
 	{
 		if (sender is Button { Tag: Guid operationId })

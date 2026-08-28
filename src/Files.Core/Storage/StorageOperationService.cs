@@ -37,8 +37,10 @@ public sealed class StorageOperationService : IStorageOperationService
 	/// <param name="request">The operation request.</param>
 	/// <param name="progress">The optional progress receiver.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="operationControl">The optional cooperative operation control.</param>
 	/// <returns>The operation result.</returns>
-	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
+	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+		IStorageOperationControl? operationControl = null)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 		cancellationToken.ThrowIfCancellationRequested();
@@ -64,7 +66,7 @@ public sealed class StorageOperationService : IStorageOperationService
 
 		try
 		{
-			StorageOperationResult? result = await handler.ExecuteAsync(request, progress, cancellationToken).ConfigureAwait(false);
+			StorageOperationResult? result = await handler.ExecuteAsync(request, progress, cancellationToken, operationControl).ConfigureAwait(false);
 
 			return result ?? Failed(new InvalidOperationException($"Storage operation handler '{handler.GetType().FullName}' returned null."));
 		}

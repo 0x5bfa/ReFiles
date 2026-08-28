@@ -34,6 +34,9 @@
 	<data name="CopyingItemProgressFormat" xml:space="preserve"><value>Copying item {0} of {1} ({2}%)</value></data>
 	<data name="MovingItemProgressFormat" xml:space="preserve"><value>Moving item {0} of {1} ({2}%)</value></data>
 	<data name="DeletingItemProgressFormat" xml:space="preserve"><value>Deleting item {0} of {1} ({2}%)</value></data>
+	<data name="PausedCopyingItemProgressFormat" xml:space="preserve"><value>Paused copying item {0} of {1} ({2}%)</value></data>
+	<data name="PausedMovingItemProgressFormat" xml:space="preserve"><value>Paused moving item {0} of {1} ({2}%)</value></data>
+	<data name="PausedDeletingItemProgressFormat" xml:space="preserve"><value>Paused deleting item {0} of {1} ({2}%)</value></data>
 	<data name="CopyCompleted" xml:space="preserve"><value>Copy completed</value></data>
 	<data name="MoveCompleted" xml:space="preserve"><value>Move completed</value></data>
 	<data name="DeleteCompleted" xml:space="preserve"><value>Delete completed</value></data>
@@ -61,6 +64,9 @@
 	<data name="StorageOperationAboutOneHourRemaining" xml:space="preserve"><value>About an hour remaining</value></data>
 	<data name="StorageOperationHoursRemainingFormat" xml:space="preserve"><value>About {0} hours remaining</value></data>
 	<data name="StorageOperationFailed" xml:space="preserve"><value>The storage operation failed.</value></data>
+	<data name="PausingOperation" xml:space="preserve"><value>Waiting for Windows to pause...</value></data>
+	<data name="ResumingOperation" xml:space="preserve"><value>Waiting for Windows to resume...</value></data>
+	<data name="WaitingForCancellationOperation" xml:space="preserve"><value>Waiting for Windows to cancel...</value></data>
 	<data name="CancelingOperation" xml:space="preserve"><value>Canceling...</value></data>
 	<data name="ExpandDetails" xml:space="preserve"><value>Expand details</value></data>
 	<data name="CollapseDetails" xml:space="preserve"><value>Collapse details</value></data>
@@ -220,6 +226,8 @@
 	<data name="Close" xml:space="preserve"><value>Close</value></data>
 	<data name="Ok" xml:space="preserve"><value>OK</value></data>
 	<data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+	<data name="Pause" xml:space="preserve"><value>Pause</value></data>
+	<data name="Resume" xml:space="preserve"><value>Resume</value></data>
 	<data name="Apply" xml:space="preserve"><value>Apply</value></data>
 	<data name="Navigation" xml:space="preserve"><value>Navigation</value></data>
 	<data name="Item" xml:space="preserve"><value>Item</value></data>

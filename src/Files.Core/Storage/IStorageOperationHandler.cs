@@ -17,6 +17,8 @@ public interface IStorageOperationHandler
 	/// <param name="request">The operation request.</param>
 	/// <param name="progress">The optional progress receiver.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="operationControl">The optional cooperative operation control.</param>
 	/// <returns>The operation result.</returns>
-	ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default);
+	ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+		IStorageOperationControl? operationControl = null);
 }

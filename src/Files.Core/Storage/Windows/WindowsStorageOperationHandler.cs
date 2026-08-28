@@ -50,9 +50,11 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	/// <param name="request">The operation request.</param>
 	/// <param name="progress">The optional progress receiver.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="operationControl">The optional cooperative operation control.</param>
 	/// <returns>The operation result.</returns>
 	[SupportedOSPlatform("windows6.0.6000")]
-	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
+	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+		IStorageOperationControl? operationControl = null)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
@@ -72,11 +74,13 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 				CreateItemOperationRequest create =>
 					await ExecuteCreateAsync(create, progress, cancellationToken).ConfigureAwait(false),
 				CopyOperationRequest copy =>
-					await ExecuteTransferAsync(copy.Item, copy.DestinationFolder, copy.NewName, copy.ConflictBehavior, move: false, progress: progress, cancellationToken: cancellationToken).ConfigureAwait(false),
+					await ExecuteTransferAsync(copy.Item, copy.DestinationFolder, copy.NewName, copy.ConflictBehavior, move: false, progress: progress, cancellationToken: cancellationToken,
+						operationControl: operationControl).ConfigureAwait(false),
 				MoveOperationRequest move =>
-					await ExecuteTransferAsync(move.Item, move.DestinationFolder, move.NewName, move.ConflictBehavior, move: true, progress: progress, cancellationToken: cancellationToken).ConfigureAwait(false),
+					await ExecuteTransferAsync(move.Item, move.DestinationFolder, move.NewName, move.ConflictBehavior, move: true, progress: progress, cancellationToken: cancellationToken,
+						operationControl: operationControl).ConfigureAwait(false),
 				DeleteOperationRequest delete =>
-					await ExecuteDeleteAsync(delete, progress, cancellationToken).ConfigureAwait(false),
+					await ExecuteDeleteAsync(delete, progress, cancellationToken, operationControl).ConfigureAwait(false),
 				_ => Failed(new NotSupportedException($"The Windows storage handler cannot handle '{request.GetType().Name}'.")),
 			};
 		}
@@ -151,7 +155,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return new StorageOperationResult(true, resultItem);
 	}
 
-	private async ValueTask<StorageOperationResult> ExecuteTransferAsync(StorableReference itemReference, StorableReference destinationFolderReference, string? requestedName, StorageConflictBehavior conflictBehavior, bool move, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
+	private async ValueTask<StorageOperationResult> ExecuteTransferAsync(StorableReference itemReference, StorableReference destinationFolderReference, string? requestedName,
+		StorageConflictBehavior conflictBehavior, bool move, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken, IStorageOperationControl? operationControl)
 	{
 		var operationName = move ? "move" : "copy";
 		var item = await ResolveFileSystemItemAsync(itemReference, operationName, cancellationToken).ConfigureAwait(false);
@@ -188,7 +193,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		var outcome = await _source.ShellItemResolver
 			.InvokeOperationAsync(item.ParsingName, destinationFolder.ParsingName,
-				(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move, progress, itemReference, totalBytes, cancellationToken), cancellationToken)
+				(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, move, progress, itemReference, totalBytes, cancellationToken, operationControl), cancellationToken)
 			.ConfigureAwait(false);
 
 		if (!outcome.Succeeded)
@@ -202,7 +207,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return new StorageOperationResult(true, resultItem);
 	}
 
-	private async ValueTask<StorageOperationResult> ExecuteDeleteAsync(DeleteOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
+	private async ValueTask<StorageOperationResult> ExecuteDeleteAsync(DeleteOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken,
+		IStorageOperationControl? operationControl)
 	{
 		var resolved = await _source.ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
 		if (resolved is not WindowsStorable item)
@@ -212,7 +218,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 		var outcome = await _source.ShellItemResolver
-			.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently, progress, request.Item, cancellationToken), cancellationToken)
+			.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently, progress, request.Item, cancellationToken, operationControl), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
@@ -358,7 +364,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 
 	[SupportedOSPlatform("windows6.0.6000")]
 	private static ShellOperationOutcome ExecuteTransfer(IShellItem item, IShellItem destinationFolder, string destinationName, bool move, IProgress<StorageOperationProgress>? progress,
-		StorableReference itemReference, long? totalBytes, CancellationToken cancellationToken)
+		StorableReference itemReference, long? totalBytes, CancellationToken cancellationToken, IStorageOperationControl? operationControl)
 	{
 		var creation = CreateOperation(allowUndo: true);
 		if (!creation.Outcome.Succeeded)
@@ -375,14 +381,14 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			return Failure(result, $"The Windows Shell {(move ? "move" : "copy")} operation could not be queued.");
 		}
 
-		var progressSink = new WindowsFileOperationProgressSink(progress, itemReference, totalBytes, cancellationToken);
+		var progressSink = new WindowsFileOperationProgressSink(progress, itemReference, totalBytes, cancellationToken, operationControl);
 
 		return Perform(fileOperation, move ? "move" : "copy", progressSink, cancellationToken);
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
 	private static ShellOperationOutcome ExecuteDelete(IShellItem item, bool permanently, IProgress<StorageOperationProgress>? progress, StorableReference itemReference,
-		CancellationToken cancellationToken)
+		CancellationToken cancellationToken, IStorageOperationControl? operationControl)
 	{
 		var creation = CreateOperation(allowUndo: !permanently, recycleOnDelete: !permanently);
 		if (!creation.Outcome.Succeeded)
@@ -397,7 +403,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			return Failure(result, "The Windows Shell delete operation could not be queued.");
 		}
 
-		var progressSink = new WindowsFileOperationProgressSink(progress, itemReference, null, cancellationToken);
+		var progressSink = new WindowsFileOperationProgressSink(progress, itemReference, null, cancellationToken, operationControl);
 
 		return Perform(fileOperation, "delete", progressSink, cancellationToken);
 	}

@@ -52,6 +52,24 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 		_tracker.RequestCancellation(operationId);
 	}
 
+	public void TogglePaused(Guid operationId)
+	{
+		var item = Items.FirstOrDefault(candidate => candidate.Id == operationId);
+		if (item is null)
+		{
+			return;
+		}
+
+		if (item.IsPauseRequested)
+		{
+			_tracker.RequestResume(operationId);
+
+			return;
+		}
+
+		_tracker.RequestPause(operationId);
+	}
+
 	public void ToggleExpanded(Guid operationId)
 	{
 		Items.FirstOrDefault(item => item.Id == operationId)?.ToggleExpanded();
@@ -115,7 +133,7 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 
 	private void Refresh()
 	{
-		var snapshots = _tracker.GetSnapshot().OrderBy(static snapshot => snapshot.State is TrackedStorageOperationState.Running ? 0 : 1).ToArray();
+		var snapshots = _tracker.GetSnapshot().OrderBy(static snapshot => IsActiveState(snapshot.State) ? 0 : 1).ToArray();
 		var snapshotIds = snapshots.Select(static snapshot => snapshot.Id).ToHashSet();
 		for (var index = Items.Count - 1; index >= 0; index--)
 		{
@@ -151,6 +169,9 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(InProgressItemCount));
 		OnPropertyChanged(nameof(AverageProgressPercentage));
 	}
+
+	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+		or TrackedStorageOperationState.Resuming;
 }
 
 public sealed class StatusCenterItemViewModel : ObservableObject
@@ -165,6 +186,7 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 	private double _progressPercentage;
 	private bool _isRunning;
 	private bool _canCancel;
+	private bool _canPause;
 	private bool _isExpanded;
 	private TrackedStorageOperationKind _kind;
 	private TrackedStorageOperationState _state;
@@ -237,6 +259,12 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		private set => SetProperty(ref _canCancel, value);
 	}
 
+	public bool CanPause
+	{
+		get => _canPause;
+		private set => SetProperty(ref _canPause, value);
+	}
+
 	public bool CanRemove => !IsRunning;
 
 	public bool IsExpanded
@@ -249,8 +277,6 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 				OnPropertyChanged(nameof(ExpandGlyph));
 				OnPropertyChanged(nameof(ExpandAutomationName));
 				OnPropertyChanged(nameof(ShowExpandedDetails));
-				OnPropertyChanged(nameof(ShowExpandedGraph));
-				OnPropertyChanged(nameof(ShowCompactProgress));
 			}
 		}
 	}
@@ -258,6 +284,10 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 	public string ExpandGlyph => IsExpanded ? "\uE70E" : "\uE70D";
 
 	public string ExpandAutomationName => IsExpanded ? Strings.CollapseDetails.GetLocalized() : Strings.ExpandDetails.GetLocalized();
+
+	public string PauseGlyph => IsPauseRequested ? "\uE768" : "\uE769";
+
+	public string PauseAutomationName => IsPauseRequested ? Strings.Resume.GetLocalized() : Strings.Pause.GetLocalized();
 
 	public bool IsCopyOperation => _kind is TrackedStorageOperationKind.Copy;
 
@@ -277,6 +307,18 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	public bool IsCanceled => _state is TrackedStorageOperationState.Canceled;
 
+	public bool IsPauseRequested => _state is TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused;
+
+	public bool IsPausing => _state is TrackedStorageOperationState.Pausing;
+
+	public bool IsPaused => IsTransferPausedState(_state);
+
+	public bool IsResuming => _state is TrackedStorageOperationState.Resuming;
+
+	public bool IsTransferring => IsTransferActiveState(_state);
+
+	public bool CanTogglePause => IsRunning && CanPause;
+
 	public bool CanExpand => IsRunning;
 
 	public bool HasDetail => !string.IsNullOrWhiteSpace(Detail);
@@ -287,9 +329,9 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	public bool ShowExpandedDetails => IsRunning && IsExpanded;
 
-	public bool ShowExpandedGraph => ShowExpandedDetails && HasSpeedGraphPoints;
+	public bool ShowRunningCompactProgress => IsTransferring;
 
-	public bool ShowCompactProgress => IsRunning && (!IsExpanded || !HasSpeedGraphPoints);
+	public bool ShowPausedCompactProgress => IsPaused;
 
 	/// <summary>Gets the smoothed transfer-rate history for the operation.</summary>
 	public ObservableCollection<Vector2> SpeedGraphPoints { get; } = [];
@@ -338,21 +380,20 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		SpeedText = GetSpeedText(snapshot);
 		RemainingText = GetRemainingText(snapshot);
 		ProgressPercentage = GetProgressPercentage(snapshot);
-		IsRunning = snapshot.State is TrackedStorageOperationState.Running;
+		IsRunning = IsActiveState(snapshot.State);
 		if (wasRunning && !IsRunning)
 		{
 			IsExpanded = false;
 		}
 
 		CanCancel = IsRunning && snapshot.CanCancel && !snapshot.IsCancellationRequested;
+		CanPause = IsRunning && snapshot.CanPause && !snapshot.IsCancellationRequested;
 		NotifyPresentationStateChanged();
 		var hadSpeedGraphPoints = HasSpeedGraphPoints;
 		UpdateSpeedGraphPoints(snapshot.SpeedGraphPoints);
 		if (hadSpeedGraphPoints != HasSpeedGraphPoints)
 		{
 			OnPropertyChanged(nameof(HasSpeedGraphPoints));
-			OnPropertyChanged(nameof(ShowExpandedGraph));
-			OnPropertyChanged(nameof(ShowCompactProgress));
 		}
 	}
 
@@ -391,14 +432,29 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		OnPropertyChanged(nameof(IsSucceeded));
 		OnPropertyChanged(nameof(IsFailed));
 		OnPropertyChanged(nameof(IsCanceled));
+		OnPropertyChanged(nameof(IsPauseRequested));
+		OnPropertyChanged(nameof(IsPausing));
+		OnPropertyChanged(nameof(IsPaused));
+		OnPropertyChanged(nameof(IsResuming));
+		OnPropertyChanged(nameof(IsTransferring));
+		OnPropertyChanged(nameof(CanTogglePause));
+		OnPropertyChanged(nameof(PauseGlyph));
+		OnPropertyChanged(nameof(PauseAutomationName));
 		OnPropertyChanged(nameof(CanExpand));
 		OnPropertyChanged(nameof(HasDetail));
 		OnPropertyChanged(nameof(HasCurrentItemText));
 		OnPropertyChanged(nameof(HasRemainingText));
 		OnPropertyChanged(nameof(ShowExpandedDetails));
-		OnPropertyChanged(nameof(ShowExpandedGraph));
-		OnPropertyChanged(nameof(ShowCompactProgress));
+		OnPropertyChanged(nameof(ShowRunningCompactProgress));
+		OnPropertyChanged(nameof(ShowPausedCompactProgress));
 	}
+
+	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+		or TrackedStorageOperationState.Resuming;
+
+	private static bool IsTransferActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing;
+
+	private static bool IsTransferPausedState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming;
 
 	private static double GetProgressPercentage(StorageOperationSnapshot snapshot)
 	{
@@ -433,6 +489,11 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	private static string GetSpeedText(StorageOperationSnapshot snapshot)
 	{
+		if (IsTransferPausedState(snapshot.State))
+		{
+			return Strings.StorageOperationSpeedUnavailable.GetLocalized();
+		}
+
 		return snapshot.BytesPerSecond is > 0 and { } bytesPerSecond
 			? string.Format(CultureInfo.CurrentCulture, Strings.StorageOperationSpeedFormat.GetLocalized(), FormatBytes((long)bytesPerSecond))
 			: Strings.StorageOperationSpeedUnavailable.GetLocalized();
@@ -440,7 +501,7 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	private static string GetRemainingText(StorageOperationSnapshot snapshot)
 	{
-		if (snapshot.State is not TrackedStorageOperationState.Running || snapshot.RemainingTime is not { } remainingTime)
+		if (!IsTransferActiveState(snapshot.State) || snapshot.RemainingTime is not { } remainingTime)
 		{
 			return string.Empty;
 		}
@@ -476,7 +537,7 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	private static string GetProgressText(StorageOperationSnapshot snapshot)
 	{
-		if (snapshot.State is TrackedStorageOperationState.Running && snapshot.CompletedBytes is { } completedBytes && snapshot.TotalBytes is { } totalBytes)
+		if (IsActiveState(snapshot.State) && snapshot.CompletedBytes is { } completedBytes && snapshot.TotalBytes is { } totalBytes)
 		{
 			var completedText = FormatBytes(completedBytes);
 			var totalText = FormatBytes(totalBytes);
@@ -529,15 +590,18 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	private static string GetTitle(StorageOperationSnapshot snapshot)
 	{
-		if (snapshot.State is TrackedStorageOperationState.Running)
+		if (IsActiveState(snapshot.State))
 		{
 			var currentItemNumber = Math.Min(snapshot.CompletedItems + 1, snapshot.TotalItems);
 			var progressPercentage = (int)Math.Round(GetProgressPercentage(snapshot), MidpointRounding.AwayFromZero);
-			var format = snapshot.Kind switch
+			var format = (snapshot.Kind, IsTransferPausedState(snapshot.State)) switch
 			{
-				TrackedStorageOperationKind.Copy => Strings.CopyingItemProgressFormat.GetLocalized(),
-				TrackedStorageOperationKind.Move => Strings.MovingItemProgressFormat.GetLocalized(),
-				TrackedStorageOperationKind.Delete => Strings.DeletingItemProgressFormat.GetLocalized(),
+				(TrackedStorageOperationKind.Copy, false) => Strings.CopyingItemProgressFormat.GetLocalized(),
+				(TrackedStorageOperationKind.Move, false) => Strings.MovingItemProgressFormat.GetLocalized(),
+				(TrackedStorageOperationKind.Delete, false) => Strings.DeletingItemProgressFormat.GetLocalized(),
+				(TrackedStorageOperationKind.Copy, true) => Strings.PausedCopyingItemProgressFormat.GetLocalized(),
+				(TrackedStorageOperationKind.Move, true) => Strings.PausedMovingItemProgressFormat.GetLocalized(),
+				(TrackedStorageOperationKind.Delete, true) => Strings.PausedDeletingItemProgressFormat.GetLocalized(),
 				_ => throw new ArgumentOutOfRangeException(nameof(snapshot)),
 			};
 
@@ -573,7 +637,17 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 		if (snapshot.IsCancellationRequested)
 		{
-			return Strings.CancelingOperation.GetLocalized();
+			return snapshot.IsCancellationAcknowledged ? Strings.CancelingOperation.GetLocalized() : Strings.WaitingForCancellationOperation.GetLocalized();
+		}
+
+		if (snapshot.State is TrackedStorageOperationState.Pausing)
+		{
+			return Strings.PausingOperation.GetLocalized();
+		}
+
+		if (snapshot.State is TrackedStorageOperationState.Resuming)
+		{
+			return Strings.ResumingOperation.GetLocalized();
 		}
 
 		if (snapshot.State is TrackedStorageOperationState.Succeeded)

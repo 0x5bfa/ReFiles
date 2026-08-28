@@ -312,14 +312,15 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
 			itemNames,
 			canCancel: true,
-			async (index, progress, operationCancellation) =>
+			canPause: true,
+			async (index, progress, operationControl, operationCancellation) =>
 			{
 				await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, paths[index]), operationCancellation).ConfigureAwait(false);
 				StorageOperationRequest request = move
 					? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName)
 					: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName);
 
-				await ExecuteStorageOperationAsync(request, progress, operationCancellation).ConfigureAwait(false);
+				await ExecuteStorageOperationAsync(request, progress, operationCancellation, operationControl).ConfigureAwait(false);
 			},
 			cancellationToken,
 			itemByteCounts,
@@ -346,7 +347,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			TrackedStorageOperationKind.Delete,
 			itemNames,
 			canCancel: true,
-			(index, progress, operationCancellation) => ExecuteStorageOperationAsync(CreateDeleteRequest(selectedItems[index].Reference), progress, operationCancellation),
+			canPause: false,
+			(index, progress, operationControl, operationCancellation) => ExecuteStorageOperationAsync(CreateDeleteRequest(selectedItems[index].Reference), progress, operationCancellation, operationControl),
 			cancellationToken).ConfigureAwait(false);
 
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
@@ -1048,8 +1050,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return false;
 	}
 
-	private async Task ExecuteTrackedStorageOperationBatchAsync(TrackedStorageOperationKind kind, IReadOnlyList<string> itemNames, bool canCancel,
-		Func<int, IProgress<StorageOperationProgress>, CancellationToken, Task> execute, CancellationToken cancellationToken, IReadOnlyList<long>? itemByteCounts = null, string? destinationPath = null)
+	private async Task ExecuteTrackedStorageOperationBatchAsync(TrackedStorageOperationKind kind, IReadOnlyList<string> itemNames, bool canCancel, bool canPause,
+		Func<int, IProgress<StorageOperationProgress>, IStorageOperationControl, CancellationToken, Task> execute, CancellationToken cancellationToken,
+		IReadOnlyList<long>? itemByteCounts = null, string? destinationPath = null)
 	{
 		ArgumentNullException.ThrowIfNull(itemNames);
 
@@ -1067,7 +1070,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		var totalBatchBytes = itemByteCounts?.Aggregate(0L, static (total, itemBytes) => checked(total + itemBytes));
 		var completedBatchBytes = 0L;
-		var operation = _operationTracker.StartOperation(kind, itemNames.Count, itemNames[0], canCancel, cancellationToken, destinationPath);
+		var operation = _operationTracker.StartOperation(kind, itemNames.Count, itemNames[0], canCancel, cancellationToken, destinationPath, canPause);
 		try
 		{
 			for (var index = 0; index < itemNames.Count; index++)
@@ -1076,7 +1079,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				var currentItemBytes = itemByteCounts?[index];
 				operation.Report(index, itemNames[index], totalBatchBytes.HasValue ? completedBatchBytes : null, totalBatchBytes, totalBatchBytes.HasValue);
 				var progress = new StorageOperationBatchProgress(operation, index, itemNames[index], totalBatchBytes.HasValue ? completedBatchBytes : null, currentItemBytes, totalBatchBytes);
-				await execute(index, progress, operation.CancellationToken).ConfigureAwait(false);
+				await execute(index, progress, operation, operation.CancellationToken).ConfigureAwait(false);
 				completedBatchBytes += currentItemBytes ?? 0;
 				operation.Report(index + 1, itemNames[index], totalBatchBytes.HasValue ? completedBatchBytes : null, totalBatchBytes, totalBatchBytes.HasValue);
 			}
@@ -1097,14 +1100,15 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 	}
 
-	private async Task ExecuteStorageOperationAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
+	private async Task ExecuteStorageOperationAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken,
+		IStorageOperationControl? operationControl = null)
 	{
 		if (!_storageOperations.CanHandle(request))
 		{
 			throw new NotSupportedException($"No storage operation handler can handle '{request.GetType().Name}'.");
 		}
 
-		var result = await _storageOperations.ExecuteAsync(request, progress, cancellationToken).ConfigureAwait(false);
+		var result = await _storageOperations.ExecuteAsync(request, progress, cancellationToken, operationControl).ConfigureAwait(false);
 		if (!result.Succeeded)
 		{
 			throw result.Error ?? new IOException($"The storage operation '{request.GetType().Name}' failed.");

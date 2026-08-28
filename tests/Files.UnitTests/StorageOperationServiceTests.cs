@@ -98,6 +98,23 @@ public sealed class StorageOperationServiceTests
 	}
 
 	/// <summary>
+	/// Test case: forwards cooperative operation control to the selected handler.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ForwardsOperationControlToHandler()
+	{
+		var handler = new TestOperationHandler(canHandle: true);
+		var service = new StorageOperationService([handler]);
+		var operationControl = new TestOperationControl(isPauseRequested: true);
+
+		var result = await service.ExecuteAsync(CreateRenameRequest(), operationControl: operationControl);
+
+		Assert.IsTrue(result.Succeeded);
+		Assert.AreSame(operationControl, handler.OperationControl);
+	}
+
+	/// <summary>
 	/// Test case: requests reject unknown enum values.
 	/// </summary>
 	[TestMethod]
@@ -135,7 +152,8 @@ public sealed class StorageOperationServiceTests
 	{
 		public bool CanHandle(StorageOperationRequest request) => true;
 
-		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+			IStorageOperationControl? operationControl = null)
 		{
 			return ValueTask.FromResult<StorageOperationResult>(null!);
 		}
@@ -143,29 +161,46 @@ public sealed class StorageOperationServiceTests
 
 	private sealed class TestOperationHandler : IStorageOperationHandler
 	{
-		private readonly bool canHandle;
+		private readonly bool _canHandle;
 
-		private readonly Exception? exception;
+		private readonly Exception? _exception;
 
 		public int ExecuteCount { get; private set; }
 
+		public IStorageOperationControl? OperationControl { get; private set; }
+
 		public TestOperationHandler(bool canHandle, Exception? exception = null)
 		{
-			this.canHandle = canHandle;
-			this.exception = exception;
+			_canHandle = canHandle;
+			_exception = exception;
 		}
 
-		public bool CanHandle(StorageOperationRequest request) => canHandle;
+		public bool CanHandle(StorageOperationRequest request) => _canHandle;
 
-		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default)
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+			IStorageOperationControl? operationControl = null)
 		{
 			ExecuteCount++;
-			if (exception is not null)
+			OperationControl = operationControl;
+			if (_exception is not null)
 			{
-				throw exception;
+				throw _exception;
 			}
 
 			return ValueTask.FromResult(new StorageOperationResult(true, null));
+		}
+	}
+
+	private sealed class TestOperationControl(bool isPauseRequested) : IStorageOperationControl
+	{
+		public bool IsPauseRequested { get; } = isPauseRequested;
+
+		public void AcknowledgePauseState(bool isPaused)
+		{
+		}
+
+		public void AcknowledgeCancellationRequest()
+		{
 		}
 	}
 }
