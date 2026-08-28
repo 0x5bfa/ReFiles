@@ -10,17 +10,6 @@
 
 	<UserControl.Resources>
 		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-		<Style
-			x:Key="StatusCenterIconButtonStyle"
-			BasedOn="{StaticResource DefaultButtonStyle}"
-			TargetType="Button">
-			<Setter Property="Margin" Value="10" />
-			<Setter Property="Width" Value="30" />
-			<Setter Property="Height" Value="30" />
-			<Setter Property="Padding" Value="0" />
-			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="BorderBrush" Value="Transparent" />
-		</Style>
 	</UserControl.Resources>
 
 	<Grid>
@@ -29,28 +18,15 @@
 			<RowDefinition Height="*" />
 		</Grid.RowDefinitions>
 
-		<!--  Flyout title & Clear All button  -->
-		<Grid
-			Height="40"
-			Padding="16,0"
-			ColumnSpacing="8">
+		<Grid Height="40" Padding="16,0" ColumnSpacing="8">
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="*" />
 				<ColumnDefinition Width="Auto" />
 			</Grid.ColumnDefinitions>
 
-			<TextBlock
-				VerticalAlignment="Center"
-				Style="{StaticResource BodyStrongTextBlockStyle}"
-				Text="{localization:Localized ResourceKey=StatusCenter}" />
+			<TextBlock VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" Text="{localization:Localized ResourceKey=StatusCenter}" />
 
-			<Button
-				Grid.Column="1"
-				Height="24"
-				Padding="8,0"
-				VerticalAlignment="Center"
-				Click="ClearCompletedButton_Click"
-				IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}">
+			<Button Grid.Column="1" Height="24" Padding="8,0" VerticalAlignment="Center" Click="ClearCompletedButton_Click" IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}">
 				<TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{localization:Localized ResourceKey=ClearCompleted}" />
 			</Button>
 		</Grid>
@@ -71,208 +47,44 @@
 			</ListView.ItemContainerStyle>
 			<ListView.ItemTemplate>
 				<DataTemplate x:DataType="viewModels:StatusCenterItemViewModel">
-					<Border
-						Padding="12"
-						AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
-						Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-						BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-						BorderThickness="1"
-						CornerRadius="{StaticResource OverlayCornerRadius}">
-						<Grid>
-							<Grid.RowDefinitions>
-								<RowDefinition Height="Auto" />
-								<RowDefinition Height="Auto" />
-							</Grid.RowDefinitions>
-
-							<Grid ColumnSpacing="12">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="36" />
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-								</Grid.ColumnDefinitions>
-
-								<!--  Icon  -->
-								<Grid Width="36" Height="36">
-									<Border
-										Background="{ThemeResource AccentFillColorDefaultBrush}"
-										CornerRadius="18"
-										Opacity="0.14"
-										Visibility="{x:Bind IsTransferring, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<Border
-										Background="{ThemeResource TextFillColorSecondaryBrush}"
-										CornerRadius="18"
-										Opacity="0.12"
-										Visibility="{x:Bind IsPaused, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<Border
-										Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-										CornerRadius="18"
-										Visibility="{x:Bind IsSucceeded, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<Border
-										Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-										CornerRadius="18"
-										Visibility="{x:Bind IsFailed, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<Border
-										Background="{ThemeResource TextFillColorSecondaryBrush}"
-										CornerRadius="18"
-										Opacity="0.12"
-										Visibility="{x:Bind IsCanceled, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-									<controls:ThemedIcon
-										Data="{StaticResource App.ThemedIcons.Actions.Copying}"
-										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-										IconSize="18"
-										IsEnabled="{x:Bind IsTransferring, Mode=OneWay}"
-										Visibility="{x:Bind ShowCopyIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<controls:ThemedIcon
-										Data="{StaticResource App.ThemedIcons.Actions.Moving}"
-										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-										IconSize="18"
-										IsEnabled="{x:Bind IsTransferring, Mode=OneWay}"
-										Visibility="{x:Bind ShowMoveIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<controls:ThemedIcon
-										Data="{StaticResource App.ThemedIcons.Actions.Delete}"
-										Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-										IconSize="18"
-										IsEnabled="{x:Bind IsTransferring, Mode=OneWay}"
-										Visibility="{x:Bind ShowDeleteIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<FontIcon
-										FontSize="16"
-										Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-										Glyph="&#xE73E;"
-										Visibility="{x:Bind IsSucceeded, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<FontIcon
-										FontSize="16"
-										Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-										Glyph="&#xEA1F;"
-										Visibility="{x:Bind IsFailed, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									<FontIcon
-										FontSize="14"
-										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-										Glyph="&#xE711;"
-										Visibility="{x:Bind IsCanceled, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-								</Grid>
-
-								<!--  Operation title & destination  -->
-								<StackPanel
-									Grid.Column="1"
-									VerticalAlignment="Center"
-									Spacing="2">
-									<TextBlock
-										MaxLines="1"
-										Text="{x:Bind Title, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis" />
-									<TextBlock
-										FontSize="12"
-										Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-										MaxLines="1"
-										Text="{x:Bind Detail, Mode=OneWay}"
-										TextTrimming="CharacterEllipsis"
-										Visibility="{x:Bind HasDetail, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-								</StackPanel>
-
-								<!--  Pause, expand, and remove buttons  -->
-								<StackPanel
-									Grid.Column="2"
-									VerticalAlignment="Center"
-									Orientation="Horizontal"
-									Spacing="2">
-									<Button
-										AutomationProperties.Name="{x:Bind PauseAutomationName, Mode=OneWay}"
-										Click="PauseButton_Click"
-										Style="{StaticResource StatusCenterIconButtonStyle}"
-										Tag="{x:Bind Id}"
-										ToolTipService.ToolTip="{x:Bind PauseAutomationName, Mode=OneWay}"
-										Visibility="{x:Bind CanTogglePause, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<FontIcon FontSize="12" Glyph="{x:Bind PauseGlyph, Mode=OneWay}" />
-									</Button>
-									<Button
-										AutomationProperties.Name="{x:Bind ExpandAutomationName, Mode=OneWay}"
-										Click="ExpandButton_Click"
-										Style="{StaticResource StatusCenterIconButtonStyle}"
-										Tag="{x:Bind Id}"
-										ToolTipService.ToolTip="{x:Bind ExpandAutomationName, Mode=OneWay}"
-										Visibility="{x:Bind CanExpand, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<FontIcon FontSize="12" Glyph="{x:Bind ExpandGlyph, Mode=OneWay}" />
-									</Button>
-									<Button
-										AutomationProperties.Name="{localization:Localized ResourceKey=Close}"
-										Click="RemoveButton_Click"
-										Style="{StaticResource StatusCenterIconButtonStyle}"
-										Tag="{x:Bind Id}"
-										ToolTipService.ToolTip="{localization:Localized ResourceKey=Close}"
-										Visibility="{x:Bind CanRemove, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<FontIcon FontSize="14" Glyph="&#xE711;" />
-									</Button>
-								</StackPanel>
-							</Grid>
-
-							<!--  Progress report  -->
-							<Grid Grid.Row="1" Visibility="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-								<Grid.ColumnDefinitions>
-									<ColumnDefinition Width="*" />
-									<ColumnDefinition Width="Auto" />
-								</Grid.ColumnDefinitions>
-
-								<StackPanel
-									Padding="4,8,8,0"
-									VerticalAlignment="Center"
-									Spacing="6">
-
-									<!--  Progress bar  -->
-									<Grid>
-										<ProgressBar
-											Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-											Visibility="{x:Bind ShowRunningCompactProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-											Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
-										<ProgressBar
-											Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-											Visibility="{x:Bind ShowPausedCompactProgress, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-											Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
-									</Grid>
-
-									<!--  Status texts  -->
-									<StackPanel
-										Margin="0,4,0,0"
-										Spacing="2"
-										Visibility="{x:Bind ShowExpandedDetails, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-										<TextBlock
-											MaxLines="1"
-											Text="{x:Bind CurrentItemText, Mode=OneWay}"
-											TextTrimming="CharacterEllipsis"
-											Visibility="{x:Bind HasCurrentItemText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-										<TextBlock
-											FontSize="12"
-											Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-											Text="{x:Bind TransferText, Mode=OneWay}" />
-										<TextBlock
-											FontSize="12"
-											FontWeight="SemiBold"
-											Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-											Text="{x:Bind RemainingText, Mode=OneWay}"
-											Visibility="{x:Bind HasRemainingText, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-									</StackPanel>
-								</StackPanel>
-
-								<!--  Cancel button  -->
-								<Button
-									Grid.Column="1"
-									VerticalAlignment="Top"
-									AutomationProperties.Name="{localization:Localized ResourceKey=Cancel}"
-									Click="CancelButton_Click"
-									Style="{StaticResource StatusCenterIconButtonStyle}"
-									Tag="{x:Bind Id}"
-									ToolTipService.ToolTip="{localization:Localized ResourceKey=Cancel}"
-									Visibility="{x:Bind CanCancel, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-									<FontIcon FontSize="14" Glyph="&#xE711;" />
-								</Button>
-							</Grid>
-						</Grid>
-					</Border>
+					<controls:StorageOperationStatusItem
+						ActionInvoked="StatusItem_ActionInvoked"
+						ApplyToAllText="{x:Bind ApplyToAllText, Mode=OneWay}"
+						AvailableActions="{x:Bind AvailableActions, Mode=OneWay}"
+						CanApplyToAll="{x:Bind CanApplyToAll, Mode=OneWay}"
+						CanCancel="{x:Bind CanCancel, Mode=OneWay}"
+						CanPause="{x:Bind CanPause, Mode=OneWay}"
+						CancelButtonText="{x:Bind CancelButtonText, Mode=OneWay}"
+						CollapseButtonText="{x:Bind CollapseButtonText, Mode=OneWay}"
+						ContinueButtonText="{x:Bind ContinueButtonText, Mode=OneWay}"
+						CurrentItemText="{x:Bind CurrentItemText, Mode=OneWay}"
+						DeleteButtonText="{x:Bind DeleteButtonText, Mode=OneWay}"
+						Detail="{x:Bind Detail, Mode=OneWay}"
+						ExpandButtonText="{x:Bind ExpandButtonText, Mode=OneWay}"
+						InterruptionItemDetails="{x:Bind InterruptionItemDetails, Mode=OneWay}"
+						InterruptionItemName="{x:Bind InterruptionItemName, Mode=OneWay}"
+						InterruptionMessage="{x:Bind InterruptionMessage, Mode=OneWay}"
+						InterruptionTitle="{x:Bind InterruptionTitle, Mode=OneWay}"
+						IsExpanded="{x:Bind IsExpanded, Mode=OneWay}"
+						NoButtonText="{x:Bind NoButtonText, Mode=OneWay}"
+						OkButtonText="{x:Bind OkButtonText, Mode=OneWay}"
+						OperationKind="{x:Bind ControlKind, Mode=OneWay}"
+						PauseButtonText="{x:Bind PauseButtonText, Mode=OneWay}"
+						ProgressPercentage="{x:Bind ProgressPercentage, Mode=OneWay}"
+						RemainingText="{x:Bind RemainingText, Mode=OneWay}"
+						RemoveButtonText="{x:Bind RemoveButtonText, Mode=OneWay}"
+						ResumeButtonText="{x:Bind ResumeButtonText, Mode=OneWay}"
+						RetryButtonText="{x:Bind RetryButtonText, Mode=OneWay}"
+						SkipButtonText="{x:Bind SkipButtonText, Mode=OneWay}"
+						State="{x:Bind ControlState, Mode=OneWay}"
+						Tag="{x:Bind Id}"
+						Title="{x:Bind Title, Mode=OneWay}"
+						TransferText="{x:Bind TransferText, Mode=OneWay}"
+						YesButtonText="{x:Bind YesButtonText, Mode=OneWay}" />
 				</DataTemplate>
 			</ListView.ItemTemplate>
 		</ListView>
 
-		<!--  Label for no storage operations  -->
 		<TextBlock
 			Grid.Row="1"
 			HorizontalAlignment="Center"

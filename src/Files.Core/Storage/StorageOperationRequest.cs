@@ -15,6 +15,8 @@ public enum StorageConflictBehavior
 	Fail,
 	/// <summary>Generate a unique destination name.</summary>
 	GenerateUniqueName,
+	/// <summary>Request a user decision when the destination name already exists.</summary>
+	Prompt,
 }
 
 /// <summary>Specifies the kind of item to create.</summary>
@@ -92,7 +94,7 @@ public sealed record CreateItemOperationRequest : StorageOperationRequest
 
 	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
-		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName)
+		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName and not StorageConflictBehavior.Prompt)
 		{
 			throw new ArgumentOutOfRangeException(nameof(conflictBehavior));
 		}
@@ -141,7 +143,7 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 
 	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
-		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName)
+		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName and not StorageConflictBehavior.Prompt)
 		{
 			throw new ArgumentOutOfRangeException(nameof(conflictBehavior));
 		}
@@ -190,7 +192,7 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 
 	private static void ValidateConflictBehavior(StorageConflictBehavior conflictBehavior)
 	{
-		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName)
+		if (conflictBehavior is not StorageConflictBehavior.Fail and not StorageConflictBehavior.GenerateUniqueName and not StorageConflictBehavior.Prompt)
 		{
 			throw new ArgumentOutOfRangeException(nameof(conflictBehavior));
 		}

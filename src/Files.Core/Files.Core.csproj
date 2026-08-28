@@ -46,4 +46,8 @@
 		<None Update="PACKAGE.md" Pack="true" PackagePath="" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Files.UnitTests" />
+	</ItemGroup>
+
 </Project>

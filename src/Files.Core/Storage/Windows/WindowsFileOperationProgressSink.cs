@@ -27,7 +27,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	private long _pausedTimerDuration;
 	private long _timerPausedTimestamp;
 	private long _timerStartedTimestamp;
+	private int _itemResult;
 	private bool _receivedByteProgress;
+
+	internal HRESULT ItemResult => new(Volatile.Read(ref _itemResult));
 
 	internal WindowsFileOperationProgressSink(IProgress<StorageOperationProgress>? progress, StorableReference currentItem, long? totalBytes, CancellationToken cancellationToken,
 		IStorageOperationControl? operationControl)
@@ -113,25 +116,45 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	public HRESULT PreRenameItem(uint dwFlags, IShellItem psiItem, PCWSTR pszNewName) => GetCancellationResult();
 
 	/// <inheritdoc />
-	public HRESULT PostRenameItem(uint dwFlags, IShellItem psiItem, PCWSTR pszNewName, HRESULT hrRename, IShellItem psiNewlyCreated) => GetCancellationResult();
+	public HRESULT PostRenameItem(uint dwFlags, IShellItem psiItem, PCWSTR pszNewName, HRESULT hrRename, IShellItem psiNewlyCreated)
+	{
+		RecordItemResult(hrRename);
+
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PreMoveItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName) => GetCancellationResult();
 
 	/// <inheritdoc />
-	public HRESULT PostMoveItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName, HRESULT hrMove, IShellItem psiNewlyCreated) => GetCancellationResult();
+	public HRESULT PostMoveItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName, HRESULT hrMove, IShellItem psiNewlyCreated)
+	{
+		RecordItemResult(hrMove);
+
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PreCopyItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName) => GetCancellationResult();
 
 	/// <inheritdoc />
-	public HRESULT PostCopyItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName, HRESULT hrCopy, IShellItem psiNewlyCreated) => GetCancellationResult();
+	public HRESULT PostCopyItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName, HRESULT hrCopy, IShellItem psiNewlyCreated)
+	{
+		RecordItemResult(hrCopy);
+
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PreDeleteItem(uint dwFlags, IShellItem psiItem) => GetCancellationResult();
 
 	/// <inheritdoc />
-	public HRESULT PostDeleteItem(uint dwFlags, IShellItem psiItem, HRESULT hrDelete, IShellItem psiNewlyCreated) => GetCancellationResult();
+	public HRESULT PostDeleteItem(uint dwFlags, IShellItem psiItem, HRESULT hrDelete, IShellItem psiNewlyCreated)
+	{
+		RecordItemResult(hrDelete);
+
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PreNewItem(uint dwFlags, IShellItem psiDestinationFolder, PCWSTR pszNewName) => GetCancellationResult();
@@ -139,6 +162,8 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	/// <inheritdoc />
 	public HRESULT PostNewItem(uint dwFlags, IShellItem psiDestinationFolder, PCWSTR pszNewName, PCWSTR pszTemplateName, uint dwFileAttributes, HRESULT hrNew, IShellItem psiNewItem)
 	{
+		RecordItemResult(hrNew);
+
 		return GetCancellationResult();
 	}
 
@@ -247,6 +272,14 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 		_operationControl?.AcknowledgeCancellationRequest();
 
 		return new HRESULT(CanceledHResultValue);
+	}
+
+	private void RecordItemResult(HRESULT result)
+	{
+		if (result.Failed)
+		{
+			_ = Interlocked.CompareExchange(ref _itemResult, result.Value, HRESULT.S_OK.Value);
+		}
 	}
 
 	private void ReportEstimatedBytes(uint workTotal, uint workCompleted, bool force)

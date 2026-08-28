@@ -8,6 +8,7 @@ using Files.StorageOperations;
 using Files.ViewModels;
 using Files.Views;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -224,6 +225,79 @@ public sealed class StatusCenterViewModelTests
 	}
 
 	/// <summary>
+	/// Verifies that an interruption freezes the existing item and resumes it asynchronously after a decision.
+	/// </summary>
+	[UITestMethod]
+	public async Task PresentsAndResolvesInterruptionWithoutReplacingItem()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 3, "locked.iso", canCancel: true, destinationPath: @"D:\Backups", canPause: true);
+		operation.Report(0, "locked.iso", completedBytes: 25, totalBytes: 100, isByteProgressForWholeOperation: true);
+		var item = viewModel.Items.Single();
+		var interruption = new StorageOperationInterruption(StorageOperationInterruptionKind.InUse,
+			StorageOperationInterruptionResponses.Retry | StorageOperationInterruptionResponses.Skip | StorageOperationInterruptionResponses.Cancel, unchecked((int)0x80270027), "locked.iso",
+			@"D:\Backups");
+
+		var responseTask = operation.RequestInterruptionAsync(interruption, operation.CancellationToken).AsTask();
+
+		Assert.IsFalse(responseTask.IsCompleted);
+		Assert.AreSame(item, viewModel.Items.Single());
+		Assert.IsTrue(item.IsWaitingForUser);
+		Assert.AreEqual(StorageOperationStatusState.WaitingForUser, item.ControlState);
+		Assert.AreEqual("File in use", item.InterruptionTitle);
+		Assert.AreEqual("locked.iso", item.InterruptionItemName);
+		Assert.IsTrue(item.AvailableActions.HasFlag(StorageOperationStatusActions.Retry));
+		Assert.IsTrue(item.AvailableActions.HasFlag(StorageOperationStatusActions.Skip));
+		Assert.IsFalse(item.CanTogglePause);
+		Assert.IsFalse(item.CanCancel);
+		Assert.IsTrue(item.CanApplyToAll);
+
+		operation.Report(0, "advanced.iso", completedBytes: 50, totalBytes: 100, isByteProgressForWholeOperation: true);
+		Assert.AreEqual(25d, item.ProgressPercentage, 0.01);
+		Assert.AreEqual("locked.iso", item.InterruptionItemName);
+
+		viewModel.ResolveInterruption(item.Id, StorageOperationInterruptionDecision.Retry, applyToAll: false);
+		var response = await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+		Assert.AreEqual(StorageOperationInterruptionDecision.Retry, response.Decision);
+		Assert.AreSame(item, viewModel.Items.Single());
+		Assert.IsFalse(item.IsWaitingForUser);
+		Assert.AreEqual(StorageOperationStatusState.Running, item.ControlState);
+		Assert.IsTrue(item.CanTogglePause);
+	}
+
+	/// <summary>Verifies that apply-to-all decisions are scoped to the matching interruption family.</summary>
+	[TestMethod]
+	public async Task ReusesApplyToAllDecisionForMatchingInterruption()
+	{
+		using var tracker = new StorageOperationTracker();
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 3, "first.iso", canCancel: true);
+		var inUse = new StorageOperationInterruption(StorageOperationInterruptionKind.InUse,
+			StorageOperationInterruptionResponses.Retry | StorageOperationInterruptionResponses.Skip | StorageOperationInterruptionResponses.Cancel);
+
+		var firstResponseTask = operation.RequestInterruptionAsync(inUse, operation.CancellationToken).AsTask();
+		var operationId = tracker.GetSnapshot()[0].Id;
+		Assert.IsTrue(tracker.ResolveInterruption(operationId, new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Skip, applyToAll: true)));
+		var firstResponse = await firstResponseTask.WaitAsync(TimeSpan.FromSeconds(5));
+		var secondResponse = await operation.RequestInterruptionAsync(inUse, operation.CancellationToken);
+
+		Assert.AreEqual(StorageOperationInterruptionDecision.Skip, firstResponse.Decision);
+		Assert.AreEqual(StorageOperationInterruptionDecision.Skip, secondResponse.Decision);
+		Assert.IsTrue(secondResponse.ApplyToAll);
+		Assert.AreEqual(TrackedStorageOperationState.Running, tracker.GetSnapshot()[0].State);
+
+		var diskFull = new StorageOperationInterruption(StorageOperationInterruptionKind.DiskFull,
+			StorageOperationInterruptionResponses.Retry | StorageOperationInterruptionResponses.Skip | StorageOperationInterruptionResponses.Cancel);
+		var unrelatedResponseTask = operation.RequestInterruptionAsync(diskFull, operation.CancellationToken).AsTask();
+		Assert.IsFalse(unrelatedResponseTask.IsCompleted);
+		Assert.AreEqual(TrackedStorageOperationState.WaitingForUser, tracker.GetSnapshot()[0].State);
+		Assert.IsTrue(tracker.ResolveInterruption(operationId, new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Retry)));
+		Assert.AreEqual(StorageOperationInterruptionDecision.Retry, (await unrelatedResponseTask.WaitAsync(TimeSpan.FromSeconds(5))).Decision);
+	}
+
+	/// <summary>
 	/// Verifies that cancellation remains visibly pending until the storage backend finishes aborting the operation.
 	/// </summary>
 	[UITestMethod]
@@ -300,6 +374,51 @@ public sealed class StatusCenterViewModelTests
 			Assert.IsFalse(operationIcon.IsEnabled);
 			var pausedProgressBar = FindDescendants<ProgressBar>(statusCenter).Single(static progressBar => progressBar.Visibility is Visibility.Visible);
 			Assert.AreEqual(50d, pausedProgressBar.Value, 0.01);
+		}
+		finally
+		{
+			window.Content = null;
+			window.Close();
+		}
+	}
+
+	/// <summary>Verifies that an interruption swaps the same card to the exact response buttons.</summary>
+	[UITestMethod]
+	public async Task RealizesInterruptionButtonsInsideExistingCard()
+	{
+		using var tracker = new StorageOperationTracker();
+		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
+		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
+		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 2, "locked.iso", canCancel: true, destinationPath: @"D:\Backups", canPause: true);
+		var interruption = new StorageOperationInterruption(StorageOperationInterruptionKind.InUse,
+			StorageOperationInterruptionResponses.Retry | StorageOperationInterruptionResponses.Skip | StorageOperationInterruptionResponses.Cancel, itemName: "locked.iso");
+		var responseTask = operation.RequestInterruptionAsync(interruption, operation.CancellationToken).AsTask();
+		var statusCenter = new StatusCenter { Width = 520, Height = 420, ViewModel = viewModel };
+		var loaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		statusCenter.Loaded += (_, _) => loaded.TrySetResult();
+		var window = new Window { Content = statusCenter };
+		try
+		{
+			window.Activate();
+			await loaded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			var layoutReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(layoutReady.SetResult));
+			await layoutReady.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			var card = FindDescendants<StorageOperationStatusItem>(statusCenter).Single();
+			var visibleButtonNames = FindDescendants<Button>(card).Where(static button => button.Visibility is Visibility.Visible).Select(AutomationProperties.GetName).ToArray();
+			CollectionAssert.IsSubsetOf(new[] { "Try Again", "Skip", "Cancel" }, visibleButtonNames);
+			Assert.IsFalse(visibleButtonNames.Contains("Pause"));
+			Assert.IsFalse(FindDescendants<ProgressBar>(card).Any(static progressBar => progressBar.Visibility is Visibility.Visible));
+
+			viewModel.ResolveInterruption(viewModel.Items.Single().Id, StorageOperationInterruptionDecision.Retry, applyToAll: false);
+			await responseTask.WaitAsync(TimeSpan.FromSeconds(5));
+			var resumed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			Assert.IsTrue(UnitTestApp.TestDispatcherQueue.TryEnqueue(resumed.SetResult));
+			await resumed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.AreSame(card, FindDescendants<StorageOperationStatusItem>(statusCenter).Single());
+			Assert.IsTrue(FindDescendants<ProgressBar>(card).Any(static progressBar => progressBar.Visibility is Visibility.Visible));
 		}
 		finally
 		{

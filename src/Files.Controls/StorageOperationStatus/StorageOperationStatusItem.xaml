@@ -1,0 +1,160 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<UserControl
+	x:Class="Files.Controls.StorageOperationStatusItem"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:controls="using:Files.Controls">
+
+	<UserControl.Resources>
+		<Style x:Key="StatusItemIconButtonStyle" BasedOn="{StaticResource DefaultButtonStyle}" TargetType="Button">
+			<Setter Property="Width" Value="30" />
+			<Setter Property="Height" Value="30" />
+			<Setter Property="Padding" Value="0" />
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+		</Style>
+	</UserControl.Resources>
+
+	<Border
+		Padding="12"
+		AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+		Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+		BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+		BorderThickness="1"
+		CornerRadius="{StaticResource OverlayCornerRadius}">
+		<Grid>
+			<Grid.RowDefinitions>
+				<RowDefinition Height="Auto" />
+				<RowDefinition Height="Auto" />
+			</Grid.RowDefinitions>
+
+			<Grid ColumnSpacing="12">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="36" />
+					<ColumnDefinition Width="*" />
+					<ColumnDefinition Width="Auto" />
+				</Grid.ColumnDefinitions>
+
+				<Grid Width="36" Height="36">
+					<Border x:Name="ActiveIconBackground" Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="18" Opacity="0.14" />
+					<Border x:Name="DisabledIconBackground" Background="{ThemeResource TextFillColorSecondaryBrush}" CornerRadius="18" Opacity="0.12" />
+					<Border x:Name="SucceededIconBackground" Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}" CornerRadius="18" />
+					<Border x:Name="FailedIconBackground" Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}" CornerRadius="18" />
+					<Border x:Name="CanceledIconBackground" Background="{ThemeResource TextFillColorSecondaryBrush}" CornerRadius="18" Opacity="0.12" />
+
+					<controls:ThemedIcon x:Name="CopyIcon" Data="{StaticResource App.ThemedIcons.Actions.Copying}" Foreground="{ThemeResource AccentFillColorDefaultBrush}" IconSize="18" />
+					<controls:ThemedIcon x:Name="MoveIcon" Data="{StaticResource App.ThemedIcons.Actions.Moving}" Foreground="{ThemeResource AccentFillColorDefaultBrush}" IconSize="18" />
+					<controls:ThemedIcon x:Name="DeleteIcon" Data="{StaticResource App.ThemedIcons.Actions.Delete}" Foreground="{ThemeResource AccentFillColorDefaultBrush}" IconSize="18" />
+					<FontIcon x:Name="SucceededIcon" FontSize="16" Foreground="{ThemeResource SystemFillColorSuccessBrush}" Glyph="&#xE73E;" />
+					<FontIcon x:Name="FailedIcon" FontSize="16" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xEA1F;" />
+					<FontIcon x:Name="CanceledIcon" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Glyph="&#xE711;" />
+				</Grid>
+
+				<StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+					<TextBlock MaxLines="1" Text="{x:Bind Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+					<TextBlock
+						x:Name="DetailTextBlock"
+						FontSize="12"
+						Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+						MaxLines="1"
+						Text="{x:Bind Detail, Mode=OneWay}"
+						TextTrimming="CharacterEllipsis" />
+				</StackPanel>
+
+				<StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="2">
+					<Button x:Name="PauseButton" Click="PauseButton_Click" Style="{StaticResource StatusItemIconButtonStyle}">
+						<FontIcon x:Name="PauseGlyph" FontSize="12" />
+					</Button>
+					<Button x:Name="ExpandButton" Click="ExpandButton_Click" Style="{StaticResource StatusItemIconButtonStyle}">
+						<FontIcon x:Name="ExpandGlyph" FontSize="12" />
+					</Button>
+					<Button x:Name="RemoveButton" Click="RemoveButton_Click" Style="{StaticResource StatusItemIconButtonStyle}">
+						<FontIcon FontSize="14" Glyph="&#xE711;" />
+					</Button>
+				</StackPanel>
+			</Grid>
+
+			<Grid x:Name="ProgressPane" Grid.Row="1">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*" />
+					<ColumnDefinition Width="Auto" />
+				</Grid.ColumnDefinitions>
+
+				<StackPanel Padding="4,8,8,0" VerticalAlignment="Center" Spacing="6">
+					<Grid>
+						<ProgressBar x:Name="RunningProgressBar" Foreground="{ThemeResource AccentFillColorDefaultBrush}" Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
+						<ProgressBar x:Name="PausedProgressBar" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Value="{x:Bind ProgressPercentage, Mode=OneWay}" />
+					</Grid>
+
+					<StackPanel x:Name="ExpandedDetails" Margin="0,4,0,0" Spacing="2">
+						<TextBlock x:Name="CurrentItemTextBlock" MaxLines="1" Text="{x:Bind CurrentItemText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+						<TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind TransferText, Mode=OneWay}" />
+						<TextBlock
+							x:Name="RemainingTextBlock"
+							FontSize="12"
+							FontWeight="SemiBold"
+							Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+							Text="{x:Bind RemainingText, Mode=OneWay}" />
+					</StackPanel>
+				</StackPanel>
+
+				<Button
+					x:Name="ProgressCancelButton"
+					Grid.Column="1"
+					VerticalAlignment="Top"
+					AutomationProperties.Name="{x:Bind CancelButtonText, Mode=OneWay}"
+					Click="ProgressCancelButton_Click"
+					Style="{StaticResource StatusItemIconButtonStyle}"
+					ToolTipService.ToolTip="{x:Bind CancelButtonText, Mode=OneWay}">
+					<FontIcon FontSize="14" Glyph="&#xE711;" />
+				</Button>
+			</Grid>
+
+			<StackPanel x:Name="InterruptionPane" Grid.Row="1" Padding="4,12,4,0" Spacing="10">
+				<TextBlock FontWeight="SemiBold" Text="{x:Bind InterruptionTitle, Mode=OneWay}" TextWrapping="Wrap" />
+				<TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind InterruptionMessage, Mode=OneWay}" TextWrapping="Wrap" />
+
+				<Grid x:Name="InterruptionItemPanel" ColumnSpacing="10">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="28" />
+						<ColumnDefinition Width="*" />
+					</Grid.ColumnDefinitions>
+					<FontIcon VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Glyph="&#xE8A5;" />
+					<StackPanel Grid.Column="1" Spacing="2">
+						<TextBlock x:Name="InterruptionItemNameBlock" MaxLines="1" Text="{x:Bind InterruptionItemName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+						<TextBlock
+							x:Name="InterruptionItemDetailsBlock"
+							FontSize="12"
+							Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+							MaxLines="2"
+							Text="{x:Bind InterruptionItemDetails, Mode=OneWay}"
+							TextTrimming="CharacterEllipsis"
+							TextWrapping="Wrap" />
+					</StackPanel>
+				</Grid>
+
+				<CheckBox x:Name="ApplyToAllCheckBox" Content="{x:Bind ApplyToAllText, Mode=OneWay}" />
+
+				<StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+					<Button x:Name="ContinueButton" AutomationProperties.Name="{x:Bind ContinueButtonText, Mode=OneWay}" Click="ContinueButton_Click">
+						<StackPanel Orientation="Horizontal" Spacing="6">
+							<SymbolIcon Symbol="Admin" />
+							<TextBlock Text="{x:Bind ContinueButtonText, Mode=OneWay}" />
+						</StackPanel>
+					</Button>
+					<Button x:Name="DeleteResponseButton" AutomationProperties.Name="{x:Bind DeleteButtonText, Mode=OneWay}" Click="DeleteResponseButton_Click" Content="{x:Bind DeleteButtonText, Mode=OneWay}" />
+					<Button x:Name="RetryButton" AutomationProperties.Name="{x:Bind RetryButtonText, Mode=OneWay}" Click="RetryButton_Click" Content="{x:Bind RetryButtonText, Mode=OneWay}" />
+					<Button x:Name="YesButton" AutomationProperties.Name="{x:Bind YesButtonText, Mode=OneWay}" Click="YesButton_Click" Content="{x:Bind YesButtonText, Mode=OneWay}" />
+					<Button x:Name="OkButton" AutomationProperties.Name="{x:Bind OkButtonText, Mode=OneWay}" Click="OkButton_Click" Content="{x:Bind OkButtonText, Mode=OneWay}" />
+					<Button x:Name="SkipButton" AutomationProperties.Name="{x:Bind SkipButtonText, Mode=OneWay}" Click="SkipButton_Click" Content="{x:Bind SkipButtonText, Mode=OneWay}" />
+					<Button x:Name="NoButton" AutomationProperties.Name="{x:Bind NoButtonText, Mode=OneWay}" Click="NoButton_Click" Content="{x:Bind NoButtonText, Mode=OneWay}" />
+					<Button
+						x:Name="InterruptionCancelButton"
+						AutomationProperties.Name="{x:Bind CancelButtonText, Mode=OneWay}"
+						Click="InterruptionCancelButton_Click"
+						Content="{x:Bind CancelButtonText, Mode=OneWay}" />
+				</StackPanel>
+			</StackPanel>
+		</Grid>
+	</Border>
+</UserControl>

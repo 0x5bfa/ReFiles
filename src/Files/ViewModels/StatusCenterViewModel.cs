@@ -5,6 +5,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Numerics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Files.Controls;
+using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.StorageOperations;
@@ -78,6 +80,11 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 	public void Remove(Guid operationId)
 	{
 		_tracker.Remove(operationId);
+	}
+
+	public void ResolveInterruption(Guid operationId, StorageOperationInterruptionDecision decision, bool applyToAll)
+	{
+		_tracker.ResolveInterruption(operationId, new StorageOperationInterruptionResponse(decision, applyToAll));
 	}
 
 	public void Dispose()
@@ -171,7 +178,7 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 	}
 
 	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
-		or TrackedStorageOperationState.Resuming;
+		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
 }
 
 public sealed class StatusCenterItemViewModel : ObservableObject
@@ -188,8 +195,10 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 	private bool _canCancel;
 	private bool _canPause;
 	private bool _isExpanded;
+	private bool _canApplyToAll;
 	private TrackedStorageOperationKind _kind;
 	private TrackedStorageOperationState _state;
+	private StorageOperationInterruption? _interruption;
 
 	public Guid Id { get; }
 
@@ -265,6 +274,12 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		private set => SetProperty(ref _canPause, value);
 	}
 
+	public bool CanApplyToAll
+	{
+		get => _canApplyToAll;
+		private set => SetProperty(ref _canApplyToAll, value);
+	}
+
 	public bool CanRemove => !IsRunning;
 
 	public bool IsExpanded
@@ -315,11 +330,13 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 
 	public bool IsResuming => _state is TrackedStorageOperationState.Resuming;
 
+	public bool IsWaitingForUser => _state is TrackedStorageOperationState.WaitingForUser;
+
 	public bool IsTransferring => IsTransferActiveState(_state);
 
-	public bool CanTogglePause => IsRunning && CanPause;
+	public bool CanTogglePause => IsRunning && !IsWaitingForUser && CanPause;
 
-	public bool CanExpand => IsRunning;
+	public bool CanExpand => IsRunning && !IsWaitingForUser;
 
 	public bool HasDetail => !string.IsNullOrWhiteSpace(Detail);
 
@@ -332,6 +349,69 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 	public bool ShowRunningCompactProgress => IsTransferring;
 
 	public bool ShowPausedCompactProgress => IsPaused;
+
+	public StorageOperationStatusKind ControlKind => _kind switch
+	{
+		TrackedStorageOperationKind.Copy => StorageOperationStatusKind.Copy,
+		TrackedStorageOperationKind.Move => StorageOperationStatusKind.Move,
+		TrackedStorageOperationKind.Delete => StorageOperationStatusKind.Delete,
+		_ => throw new ArgumentOutOfRangeException(nameof(_kind)),
+	};
+
+	public StorageOperationStatusState ControlState => _state switch
+	{
+		TrackedStorageOperationState.Running => StorageOperationStatusState.Running,
+		TrackedStorageOperationState.Pausing => StorageOperationStatusState.Pausing,
+		TrackedStorageOperationState.Paused => StorageOperationStatusState.Paused,
+		TrackedStorageOperationState.Resuming => StorageOperationStatusState.Resuming,
+		TrackedStorageOperationState.WaitingForUser => StorageOperationStatusState.WaitingForUser,
+		TrackedStorageOperationState.Succeeded => StorageOperationStatusState.Succeeded,
+		TrackedStorageOperationState.Failed => StorageOperationStatusState.Failed,
+		TrackedStorageOperationState.Canceled => StorageOperationStatusState.Canceled,
+		_ => throw new ArgumentOutOfRangeException(nameof(_state)),
+	};
+
+	public StorageOperationStatusActions AvailableActions => _interruption?.AvailableResponses switch
+	{
+		{ } responses => MapAvailableActions(responses),
+		null => StorageOperationStatusActions.None,
+	};
+
+	public string InterruptionTitle => GetInterruptionTitle(_interruption);
+
+	public string InterruptionMessage => GetInterruptionMessage(_interruption);
+
+	public string InterruptionItemName => _interruption?.ItemName ?? string.Empty;
+
+	public string InterruptionItemDetails => _interruption?.DestinationPath ?? Detail;
+
+	public string PauseButtonText => Strings.Pause.GetLocalized();
+
+	public string ResumeButtonText => Strings.Resume.GetLocalized();
+
+	public string ExpandButtonText => Strings.ExpandDetails.GetLocalized();
+
+	public string CollapseButtonText => Strings.CollapseDetails.GetLocalized();
+
+	public string RemoveButtonText => Strings.Close.GetLocalized();
+
+	public string RetryButtonText => Strings.TryAgain.GetLocalized();
+
+	public string SkipButtonText => Strings.Skip.GetLocalized();
+
+	public string CancelButtonText => Strings.Cancel.GetLocalized();
+
+	public string ContinueButtonText => Strings.Continue.GetLocalized();
+
+	public string YesButtonText => Strings.Yes.GetLocalized();
+
+	public string NoButtonText => Strings.No.GetLocalized();
+
+	public string DeleteButtonText => Strings.Delete.GetLocalized();
+
+	public string OkButtonText => Strings.Ok.GetLocalized();
+
+	public string ApplyToAllText => Strings.DoThisForAllCurrentItems.GetLocalized();
 
 	/// <summary>Gets the smoothed transfer-rate history for the operation.</summary>
 	public ObservableCollection<Vector2> SpeedGraphPoints { get; } = [];
@@ -372,6 +452,7 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		var wasRunning = IsRunning;
 		_kind = snapshot.Kind;
 		_state = snapshot.State;
+		_interruption = snapshot.Interruption;
 		Title = GetTitle(snapshot);
 		Detail = GetDetail(snapshot);
 		ProgressText = GetProgressText(snapshot);
@@ -386,8 +467,9 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 			IsExpanded = false;
 		}
 
-		CanCancel = IsRunning && snapshot.CanCancel && !snapshot.IsCancellationRequested;
-		CanPause = IsRunning && snapshot.CanPause && !snapshot.IsCancellationRequested;
+		CanCancel = IsRunning && !IsWaitingForUser && snapshot.CanCancel && !snapshot.IsCancellationRequested;
+		CanPause = IsRunning && !IsWaitingForUser && snapshot.CanPause && !snapshot.IsCancellationRequested;
+		CanApplyToAll = snapshot.Interruption?.CanApplyToAll is true && snapshot.CompletedItems < snapshot.TotalItems - 1;
 		NotifyPresentationStateChanged();
 		var hadSpeedGraphPoints = HasSpeedGraphPoints;
 		UpdateSpeedGraphPoints(snapshot.SpeedGraphPoints);
@@ -436,6 +518,7 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		OnPropertyChanged(nameof(IsPausing));
 		OnPropertyChanged(nameof(IsPaused));
 		OnPropertyChanged(nameof(IsResuming));
+		OnPropertyChanged(nameof(IsWaitingForUser));
 		OnPropertyChanged(nameof(IsTransferring));
 		OnPropertyChanged(nameof(CanTogglePause));
 		OnPropertyChanged(nameof(PauseGlyph));
@@ -447,14 +530,99 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		OnPropertyChanged(nameof(ShowExpandedDetails));
 		OnPropertyChanged(nameof(ShowRunningCompactProgress));
 		OnPropertyChanged(nameof(ShowPausedCompactProgress));
+		OnPropertyChanged(nameof(ControlKind));
+		OnPropertyChanged(nameof(ControlState));
+		OnPropertyChanged(nameof(AvailableActions));
+		OnPropertyChanged(nameof(InterruptionTitle));
+		OnPropertyChanged(nameof(InterruptionMessage));
+		OnPropertyChanged(nameof(InterruptionItemName));
+		OnPropertyChanged(nameof(InterruptionItemDetails));
 	}
 
 	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
-		or TrackedStorageOperationState.Resuming;
+		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
 
 	private static bool IsTransferActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing;
 
 	private static bool IsTransferPausedState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming;
+
+	private static StorageOperationStatusActions MapAvailableActions(StorageOperationInterruptionResponses responses)
+	{
+		var actions = StorageOperationStatusActions.None;
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Retry))
+		{
+			actions |= StorageOperationStatusActions.Retry;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Skip))
+		{
+			actions |= StorageOperationStatusActions.Skip;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Cancel))
+		{
+			actions |= StorageOperationStatusActions.Cancel;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Continue))
+		{
+			actions |= StorageOperationStatusActions.Continue;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Yes))
+		{
+			actions |= StorageOperationStatusActions.Yes;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.No))
+		{
+			actions |= StorageOperationStatusActions.No;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Delete))
+		{
+			actions |= StorageOperationStatusActions.Delete;
+		}
+
+		if (responses.HasFlag(StorageOperationInterruptionResponses.Ok))
+		{
+			actions |= StorageOperationStatusActions.Ok;
+		}
+
+		return actions;
+	}
+
+	private static string GetInterruptionTitle(StorageOperationInterruption? interruption)
+	{
+		return interruption?.Kind switch
+		{
+			StorageOperationInterruptionKind.InUse => Strings.StorageOperationInUseTitle.GetLocalized(),
+			StorageOperationInterruptionKind.AccessDenied => Strings.StorageOperationAccessDeniedTitle.GetLocalized(),
+			StorageOperationInterruptionKind.ElevationRequired => Strings.StorageOperationElevationRequiredTitle.GetLocalized(),
+			StorageOperationInterruptionKind.DiskFull => Strings.StorageOperationDiskFullTitle.GetLocalized(),
+			StorageOperationInterruptionKind.NotFound => Strings.StorageOperationNotFoundTitle.GetLocalized(),
+			StorageOperationInterruptionKind.ReadOnly => Strings.StorageOperationReadOnlyTitle.GetLocalized(),
+			StorageOperationInterruptionKind.NameConflict => Strings.StorageOperationNameConflictTitle.GetLocalized(),
+			StorageOperationInterruptionKind.Unexpected => Strings.StorageOperationUnexpectedTitle.GetLocalized(),
+			_ => string.Empty,
+		};
+	}
+
+	private static string GetInterruptionMessage(StorageOperationInterruption? interruption)
+	{
+		return interruption?.Kind switch
+		{
+			StorageOperationInterruptionKind.InUse => Strings.StorageOperationInUseMessage.GetLocalized(),
+			StorageOperationInterruptionKind.AccessDenied => Strings.StorageOperationAccessDeniedMessage.GetLocalized(),
+			StorageOperationInterruptionKind.ElevationRequired => Strings.StorageOperationElevationRequiredMessage.GetLocalized(),
+			StorageOperationInterruptionKind.DiskFull => Strings.StorageOperationDiskFullMessage.GetLocalized(),
+			StorageOperationInterruptionKind.NotFound => Strings.StorageOperationNotFoundMessage.GetLocalized(),
+			StorageOperationInterruptionKind.ReadOnly => Strings.StorageOperationReadOnlyMessage.GetLocalized(),
+			StorageOperationInterruptionKind.NameConflict => Strings.StorageOperationNameConflictMessage.GetLocalized(),
+			StorageOperationInterruptionKind.Unexpected => Strings.StorageOperationUnexpectedMessage.GetLocalized(),
+			_ => string.Empty,
+		};
+	}
 
 	private static double GetProgressPercentage(StorageOperationSnapshot snapshot)
 	{

@@ -1,0 +1,134 @@
+<!--  Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0  -->
+<Page
+	x:Class="Files.ControlTests.Views.StorageOperationStatusPage"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:controls="using:Files.Controls"
+	xmlns:local="using:Files.ControlTests.Views">
+
+	<Page.Resources>
+		<Style TargetType="controls:StorageOperationStatusItem">
+			<Setter Property="ApplyToAllText" Value="Do this for all current items" />
+			<Setter Property="CancelButtonText" Value="Cancel" />
+			<Setter Property="CollapseButtonText" Value="Collapse details" />
+			<Setter Property="ContinueButtonText" Value="Continue" />
+			<Setter Property="DeleteButtonText" Value="Delete" />
+			<Setter Property="ExpandButtonText" Value="Expand details" />
+			<Setter Property="NoButtonText" Value="No" />
+			<Setter Property="OkButtonText" Value="OK" />
+			<Setter Property="PauseButtonText" Value="Pause" />
+			<Setter Property="RemoveButtonText" Value="Close" />
+			<Setter Property="ResumeButtonText" Value="Resume" />
+			<Setter Property="RetryButtonText" Value="Try Again" />
+			<Setter Property="SkipButtonText" Value="Skip" />
+			<Setter Property="YesButtonText" Value="Yes" />
+		</Style>
+	</Page.Resources>
+
+	<StackPanel Spacing="24">
+		<controls:SamplePanel Header="Interactive operation item">
+			<controls:SamplePanel.MainContent>
+				<controls:StorageOperationStatusItem
+					x:Name="InteractiveItem"
+					Title="Copying item 3 of 5 (64%)"
+					Width="520"
+					VerticalAlignment="Top"
+					ActionInvoked="InteractiveItem_ActionInvoked"
+					CanCancel="True"
+					CanPause="True"
+					CurrentItemText="File: “Windows11_InsiderPreview_Client_x64_en-gb_29634_1000.iso”"
+					Detail="to D:\Test destination"
+					IsExpanded="True"
+					OperationKind="Copy"
+					ProgressPercentage="64"
+					RemainingText="About 2 minutes remaining"
+					State="Running"
+					TransferText="3.2 GB of 5.0 GB transferred" />
+			</controls:SamplePanel.MainContent>
+			<controls:SamplePanel.SideContent>
+				<StackPanel Spacing="12">
+					<ComboBox
+						x:Name="InteractiveScenarioPicker"
+						Header="Scenario"
+						ItemsSource="{x:Bind Scenarios}"
+						SelectedIndex="0"
+						SelectionChanged="InteractiveScenarioPicker_SelectionChanged">
+						<ComboBox.ItemTemplate>
+							<DataTemplate x:DataType="local:StatusOperationScenario">
+								<TextBlock Text="{x:Bind Name}" />
+							</DataTemplate>
+						</ComboBox.ItemTemplate>
+					</ComboBox>
+					<Slider
+						x:Name="CardWidthSlider"
+						Header="Card width"
+						Maximum="720"
+						Minimum="320"
+						ValueChanged="CardWidthSlider_ValueChanged"
+						Value="520" />
+					<Slider
+						x:Name="TextSizeSlider"
+						Header="Text size"
+						Maximum="28"
+						Minimum="14"
+						ValueChanged="TextSizeSlider_ValueChanged"
+						Value="14" />
+					<ToggleSwitch
+						x:Name="RightToLeftToggle"
+						Header="Right-to-left"
+						Toggled="RightToLeftToggle_Toggled" />
+					<ToggleSwitch
+						x:Name="LongTextToggle"
+						Header="Long text stress"
+						Toggled="LongTextToggle_Toggled" />
+					<TextBox
+						x:Name="EventLog"
+						MinHeight="120"
+						AcceptsReturn="True"
+						Header="Action event log"
+						IsReadOnly="True"
+						TextWrapping="Wrap" />
+				</StackPanel>
+			</controls:SamplePanel.SideContent>
+		</controls:SamplePanel>
+
+		<controls:SamplePanel Header="All scnenarios">
+			<controls:SamplePanel.MainContent>
+				<ItemsRepeater ItemsSource="{x:Bind Scenarios}">
+					<ItemsRepeater.Layout>
+						<StackLayout Spacing="12" />
+					</ItemsRepeater.Layout>
+					<ItemsRepeater.ItemTemplate>
+						<DataTemplate x:DataType="local:StatusOperationScenario">
+							<StackPanel Spacing="6">
+								<TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
+								<controls:StorageOperationStatusItem
+									Title="{x:Bind Title}"
+									Width="520"
+									HorizontalAlignment="Left"
+									ActionInvoked="GalleryItem_ActionInvoked"
+									AvailableActions="{x:Bind AvailableActions}"
+									CanApplyToAll="{x:Bind CanApplyToAll}"
+									CanCancel="{x:Bind CanCancel}"
+									CanPause="{x:Bind CanPause}"
+									CurrentItemText="{x:Bind CurrentItemText}"
+									Detail="{x:Bind Detail}"
+									InterruptionItemDetails="{x:Bind InterruptionItemDetails}"
+									InterruptionItemName="{x:Bind InterruptionItemName}"
+									InterruptionMessage="{x:Bind InterruptionMessage}"
+									InterruptionTitle="{x:Bind InterruptionTitle}"
+									IsExpanded="{x:Bind IsExpanded}"
+									OperationKind="{x:Bind OperationKind}"
+									ProgressPercentage="{x:Bind ProgressPercentage}"
+									RemainingText="{x:Bind RemainingText}"
+									State="{x:Bind State}"
+									TransferText="{x:Bind TransferText}" />
+							</StackPanel>
+						</DataTemplate>
+					</ItemsRepeater.ItemTemplate>
+				</ItemsRepeater>
+			</controls:SamplePanel.MainContent>
+		</controls:SamplePanel>
+
+	</StackPanel>
+</Page>

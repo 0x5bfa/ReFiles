@@ -96,6 +96,7 @@
 						<NavigationViewItem Content="Omnibar" Tag="OmnibarPage" />
 						<NavigationViewItem Content="BreadcrumbBar" Tag="BreadcrumbBarPage" />
 						<NavigationViewItem Content="TableView" Tag="TableViewPage" />
+						<NavigationViewItem Content="Status Center" Tag="StorageOperationStatusPage" />
 					</NavigationViewItem.MenuItems>
 				</NavigationViewItem>
 			</NavigationView.MenuItems>

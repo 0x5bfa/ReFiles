@@ -56,6 +56,7 @@ namespace Files.ControlTests
 					nameof(OmnibarPage) => typeof(OmnibarPage),
 					nameof(BreadcrumbBarPage) => typeof(BreadcrumbBarPage),
 					nameof(TableViewPage) => typeof(TableViewPage),
+					nameof(StorageOperationStatusPage) => typeof(StorageOperationStatusPage),
 					_ => throw new InvalidOperationException("There's no applicable page associated with the given key."),
 				});
 

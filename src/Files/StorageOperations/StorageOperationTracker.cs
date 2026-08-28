@@ -22,6 +22,7 @@ internal enum TrackedStorageOperationState
 	Pausing,
 	Paused,
 	Resuming,
+	WaitingForUser,
 	Succeeded,
 	Failed,
 	Canceled,
@@ -40,6 +41,7 @@ internal sealed record StorageOperationSnapshot(
 	bool IsByteProgressForWholeOperation,
 	double? BytesPerSecond,
 	TimeSpan? RemainingTime,
+	StorageOperationInterruption? Interruption,
 	Exception? Error,
 	bool CanCancel,
 	bool CanPause,
@@ -125,6 +127,52 @@ internal sealed class StorageOperationTracker : IDisposable
 		{
 		}
 
+		OnChanged();
+
+		return true;
+	}
+
+	public bool ResolveInterruption(Guid id, StorageOperationInterruptionResponse response)
+	{
+		TaskCompletionSource<StorageOperationInterruptionResponse>? responseSource;
+		CancellationTokenSource? cancellation = null;
+		lock (_syncRoot)
+		{
+			if (!_operations.TryGetValue(id, out var operation) || operation.State is not TrackedStorageOperationState.WaitingForUser || operation.Interruption is null
+				|| operation.InterruptionResponseSource is null || !IsDecisionAvailable(operation.Interruption, response.Decision))
+			{
+				return false;
+			}
+
+			if (response.ApplyToAll && operation.Interruption.CanApplyToAll)
+			{
+				operation.RememberInterruptionResponse(operation.Interruption.Kind, response);
+			}
+
+			responseSource = operation.InterruptionResponseSource;
+			operation.ResumeFromInterruption();
+			if (response.Decision is StorageOperationInterruptionDecision.Cancel)
+			{
+				operation.IsCancellationRequested = true;
+				cancellation = operation.Cancellation;
+			}
+		}
+
+		if (cancellation is not null)
+		{
+			try
+			{
+				cancellation.Cancel();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+			catch (AggregateException)
+			{
+			}
+		}
+
+		responseSource.TrySetResult(response);
 		OnChanged();
 
 		return true;
@@ -251,7 +299,7 @@ internal sealed class StorageOperationTracker : IDisposable
 				return;
 			}
 
-			if (operation.IsCancellationAcknowledged || operation.State is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming)
+			if (operation.IsCancellationAcknowledged || operation.State is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser)
 			{
 				return;
 			}
@@ -333,12 +381,57 @@ internal sealed class StorageOperationTracker : IDisposable
 		}
 	}
 
+	internal ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(Guid id, StorageOperationInterruption interruption, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(interruption);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		Task<StorageOperationInterruptionResponse> responseTask;
+		lock (_syncRoot)
+		{
+			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State))
+			{
+				throw new InvalidOperationException("The storage operation cannot accept an interruption in its current state.");
+			}
+
+			if (operation.TryGetRememberedInterruptionResponse(interruption, out var rememberedResponse))
+			{
+				return ValueTask.FromResult(rememberedResponse);
+			}
+
+			responseTask = operation.BeginInterruption(interruption);
+		}
+
+		OnChanged();
+
+		return new ValueTask<StorageOperationInterruptionResponse>(responseTask.WaitAsync(cancellationToken));
+	}
+
 	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
-		or TrackedStorageOperationState.Resuming;
+		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
+
+	private static bool IsDecisionAvailable(StorageOperationInterruption interruption, StorageOperationInterruptionDecision decision)
+	{
+		var option = decision switch
+		{
+			StorageOperationInterruptionDecision.Retry => StorageOperationInterruptionResponses.Retry,
+			StorageOperationInterruptionDecision.Skip => StorageOperationInterruptionResponses.Skip,
+			StorageOperationInterruptionDecision.Cancel => StorageOperationInterruptionResponses.Cancel,
+			StorageOperationInterruptionDecision.Continue => StorageOperationInterruptionResponses.Continue,
+			StorageOperationInterruptionDecision.Yes => StorageOperationInterruptionResponses.Yes,
+			StorageOperationInterruptionDecision.No => StorageOperationInterruptionResponses.No,
+			StorageOperationInterruptionDecision.Delete => StorageOperationInterruptionResponses.Delete,
+			StorageOperationInterruptionDecision.Ok => StorageOperationInterruptionResponses.Ok,
+			_ => StorageOperationInterruptionResponses.None,
+		};
+
+		return interruption.AvailableResponses.HasFlag(option);
+	}
 
 	private void TransitionToTerminalState(Guid id, TrackedStorageOperationState state, Exception? error)
 	{
 		CancellationTokenSource? cancellation;
+		TaskCompletionSource<StorageOperationInterruptionResponse>? responseSource;
 		lock (_syncRoot)
 		{
 			if (!_operations.TryGetValue(id, out var operation) || !IsActiveState(operation.State))
@@ -358,8 +451,11 @@ internal sealed class StorageOperationTracker : IDisposable
 
 			cancellation = operation.Cancellation;
 			operation.Cancellation = null;
+			responseSource = operation.InterruptionResponseSource;
+			operation.ClearInterruption();
 		}
 
+		responseSource?.TrySetResult(new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Cancel));
 		cancellation?.Dispose();
 		OnChanged();
 	}
@@ -388,6 +484,7 @@ internal sealed class StorageOperationTracker : IDisposable
 	private sealed class OperationState
 	{
 		private readonly Queue<double> _itemSpeedSamples = new(SpeedSmoothingSampleCount);
+		private readonly Dictionary<StorageOperationInterruptionKind, StorageOperationInterruptionResponse> _rememberedInterruptionResponses = [];
 		private readonly List<Vector2> _speedGraphPoints = [];
 		private readonly Queue<double> _speedSamples = new(SpeedSmoothingSampleCount);
 		private bool _hasByteProgress;
@@ -414,6 +511,8 @@ internal sealed class StorageOperationTracker : IDisposable
 		public bool IsByteProgressForWholeOperation { get; set; }
 		public double? BytesPerSecond { get; private set; }
 		public TimeSpan? RemainingTime { get; private set; }
+		public StorageOperationInterruption? Interruption { get; private set; }
+		public TaskCompletionSource<StorageOperationInterruptionResponse>? InterruptionResponseSource { get; private set; }
 		public Exception? Error { get; set; }
 		public bool IsPauseRequested { get; private set; }
 		public bool IsCancellationRequested { get; set; }
@@ -441,7 +540,60 @@ internal sealed class StorageOperationTracker : IDisposable
 		public StorageOperationSnapshot CreateSnapshot()
 		{
 			return new StorageOperationSnapshot(Id, Kind, State, CompletedItems, TotalItems, CurrentItemName, DestinationPath, CompletedBytes, TotalBytes, IsByteProgressForWholeOperation, BytesPerSecond,
-				RemainingTime, Error, CanCancel, CanPause, IsCancellationRequested, IsCancellationAcknowledged, StartedAt, CompletedAt, _speedGraphPoints.ToArray());
+				RemainingTime, Interruption, Error, CanCancel, CanPause, IsCancellationRequested, IsCancellationAcknowledged, StartedAt, CompletedAt, _speedGraphPoints.ToArray());
+		}
+
+		public Task<StorageOperationInterruptionResponse> BeginInterruption(StorageOperationInterruption interruption)
+		{
+			if (InterruptionResponseSource is not null)
+			{
+				throw new InvalidOperationException("The storage operation is already waiting for an interruption response.");
+			}
+
+			Interruption = interruption;
+			InterruptionResponseSource = new TaskCompletionSource<StorageOperationInterruptionResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+			State = TrackedStorageOperationState.WaitingForUser;
+			IsPauseRequested = false;
+			BytesPerSecond = null;
+			RemainingTime = null;
+			ResetSpeedSamples();
+			ResetItemSpeedSamples();
+
+			return InterruptionResponseSource.Task;
+		}
+
+		public void ClearInterruption()
+		{
+			Interruption = null;
+			InterruptionResponseSource = null;
+		}
+
+		public void RememberInterruptionResponse(StorageOperationInterruptionKind kind, StorageOperationInterruptionResponse response)
+		{
+			_rememberedInterruptionResponses[kind] = response;
+		}
+
+		public void ResumeFromInterruption()
+		{
+			ClearInterruption();
+			State = TrackedStorageOperationState.Running;
+			var now = Stopwatch.GetTimestamp();
+			_previousProgressTimestamp = now;
+			_previousItemProgressTimestamp = now;
+			_previousCompletedBytes = CompletedBytes;
+			_previousCompletedItems = CompletedItems;
+		}
+
+		public bool TryGetRememberedInterruptionResponse(StorageOperationInterruption interruption, out StorageOperationInterruptionResponse response)
+		{
+			if (_rememberedInterruptionResponses.TryGetValue(interruption.Kind, out response) && IsDecisionAvailable(interruption, response.Decision))
+			{
+				return true;
+			}
+
+			response = default;
+
+			return false;
 		}
 
 		public void RequestPause()
@@ -707,6 +859,11 @@ internal sealed class StorageOperationHandle : IStorageOperationControl
 	public void AcknowledgePauseState(bool isPaused) => _tracker.AcknowledgePauseState(_id, isPaused);
 
 	public void AcknowledgeCancellationRequest() => _tracker.AcknowledgeCancellationRequest(_id);
+
+	public ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
+	{
+		return _tracker.RequestInterruptionAsync(_id, interruption, cancellationToken);
+	}
 
 	public void Report(int completedItems, string? currentItemName, long? completedBytes = null, long? totalBytes = null, bool isByteProgressForWholeOperation = false)
 	{

@@ -84,6 +84,84 @@ public sealed class WindowsStorageOperationTests
 	}
 
 	/// <summary>
+	/// Test case: a destination conflict is reported through operation control and can be skipped without changing either item.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task DestinationConflictCanBeSkippedThroughOperationControl()
+	{
+		var rootPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ConflictOperationTests-{Guid.NewGuid():N}");
+		var destinationPath = Path.Combine(rootPath, "destination");
+		var sourcePath = Path.Combine(rootPath, "conflict.txt");
+		var existingPath = Path.Combine(destinationPath, "conflict.txt");
+		Directory.CreateDirectory(destinationPath);
+		File.WriteAllText(sourcePath, "source");
+		File.WriteAllText(existingPath, "destination");
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var sourceReference = await ResolveReferenceAsync(source, sourcePath);
+			var destinationReference = await ResolveReferenceAsync(source, destinationPath);
+			var service = new StorageOperationService([new WindowsStorageOperationHandler(source)]);
+			var control = new DecisionOperationControl(new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.No));
+
+			var result = await service.ExecuteAsync(new CopyOperationRequest(sourceReference, destinationReference, conflictBehavior: StorageConflictBehavior.Prompt), operationControl: control);
+
+			Assert.IsTrue(result.Succeeded, result.Error?.ToString());
+			Assert.IsTrue(result.Skipped);
+			Assert.AreEqual("source", File.ReadAllText(sourcePath));
+			Assert.AreEqual("destination", File.ReadAllText(existingPath));
+			Assert.AreEqual(1, control.Interruptions.Count);
+			Assert.AreEqual(StorageOperationInterruptionKind.NameConflict, control.Interruptions[0].Kind);
+			Assert.IsTrue(control.Interruptions[0].AvailableResponses.HasFlag(StorageOperationInterruptionResponses.Yes));
+			Assert.IsTrue(control.Interruptions[0].AvailableResponses.HasFlag(StorageOperationInterruptionResponses.No));
+		}
+		finally
+		{
+			Directory.Delete(rootPath, recursive: true);
+		}
+	}
+
+	/// <summary>
+	/// Test case: a sharing violation is surfaced as an in-use interruption and can be skipped.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task LockedSourceCanBeSkippedThroughOperationControl()
+	{
+		var rootPath = Path.Combine(Path.GetTempPath(), $"Files.Core.LockedOperationTests-{Guid.NewGuid():N}");
+		var destinationPath = Path.Combine(rootPath, "destination");
+		var sourcePath = Path.Combine(rootPath, "locked.bin");
+		Directory.CreateDirectory(destinationPath);
+		File.WriteAllBytes(sourcePath, new byte[1024 * 1024]);
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var sourceReference = await ResolveReferenceAsync(source, sourcePath);
+			var destinationReference = await ResolveReferenceAsync(source, destinationPath);
+			var service = new StorageOperationService([new WindowsStorageOperationHandler(source)]);
+			var control = new DecisionOperationControl(new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Skip));
+			using var lockStream = new FileStream(sourcePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+			var result = await service.ExecuteAsync(new CopyOperationRequest(sourceReference, destinationReference), operationControl: control);
+
+			Assert.IsTrue(result.Succeeded, result.Error?.ToString());
+			Assert.IsTrue(result.Skipped);
+			Assert.AreEqual(1, control.Interruptions.Count);
+			Assert.AreEqual(StorageOperationInterruptionKind.InUse, control.Interruptions[0].Kind);
+			Assert.IsFalse(File.Exists(Path.Combine(destinationPath, "locked.bin")));
+		}
+		finally
+		{
+			Directory.Delete(rootPath, recursive: true);
+		}
+	}
+
+	/// <summary>
 	/// Test case: cancellation requested by a running progress sink aborts the shell copy.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
@@ -306,6 +384,28 @@ public sealed class WindowsStorageOperationTests
 		public void Report(T value)
 		{
 			report(value);
+		}
+	}
+
+	private sealed class DecisionOperationControl(StorageOperationInterruptionResponse response) : IStorageOperationControl
+	{
+		public List<StorageOperationInterruption> Interruptions { get; } = [];
+
+		public bool IsPauseRequested => false;
+
+		public void AcknowledgePauseState(bool isPaused)
+		{
+		}
+
+		public void AcknowledgeCancellationRequest()
+		{
+		}
+
+		public ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
+		{
+			Interruptions.Add(interruption);
+
+			return ValueTask.FromResult(response);
 		}
 	}
 

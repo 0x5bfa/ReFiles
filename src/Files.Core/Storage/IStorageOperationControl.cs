@@ -18,4 +18,16 @@ public interface IStorageOperationControl
 
 	/// <summary>Records that the storage backend observed the cancellation request.</summary>
 	void AcknowledgeCancellationRequest();
+
+	/// <summary>Waits asynchronously for a response to an operation interruption.</summary>
+	/// <param name="interruption">The interruption that requires a decision.</param>
+	/// <param name="cancellationToken">The token used to cancel the response wait.</param>
+	/// <returns>The selected interruption response.</returns>
+	ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(interruption);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return ValueTask.FromResult(new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Cancel));
+	}
 }

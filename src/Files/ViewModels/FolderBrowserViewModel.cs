@@ -322,8 +322,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			{
 				await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, paths[index]), operationCancellation).ConfigureAwait(false);
 				StorageOperationRequest request = move
-					? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName)
-					: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.GenerateUniqueName);
+					? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.Prompt)
+					: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.Prompt);
 
 				await ExecuteStorageOperationAsync(request, progress, operationCancellation, operationControl).ConfigureAwait(false);
 			},
