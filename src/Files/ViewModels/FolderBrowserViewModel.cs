@@ -144,6 +144,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool CanShowNew => !IsLoading && !IsBusy && _shellNewMenu is not null && TryGetCurrentFileSystemFolder(out _);
 
+	internal bool SupportsItemSelection => Location is not null and not HomeLocation;
+
+	internal bool CanSelectAllItems => SupportsItemSelection && !IsBusy && Items.Count > SelectedKeys.Count;
+
+	internal bool CanInvertItemSelection => SupportsItemSelection && !IsBusy && Items.Count is not 0;
+
+	internal bool CanClearItemSelection => SupportsItemSelection && !IsBusy && SelectedKeys.Count is not 0;
+
 	public string LocationText => _browseAdapter.LocationText;
 
 	public BrowseLocation? Location => _pane.Location;
@@ -280,6 +288,37 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems) =>
 		SetSelectionCore(selectedItems);
+
+	internal void SelectAllItems()
+	{
+		if (!CanSelectAllItems)
+		{
+			return;
+		}
+
+		SetSelectionCore(Items);
+	}
+
+	internal void InvertItemSelection()
+	{
+		if (!CanInvertItemSelection)
+		{
+			return;
+		}
+
+		var selectedKeys = SelectedKeys.ToHashSet();
+		SetSelectionCore(Items.Where(item => !selectedKeys.Contains(item.Reference.GetKey())));
+	}
+
+	internal void ClearItemSelection()
+	{
+		if (!CanClearItemSelection)
+		{
+			return;
+		}
+
+		SetSelectionCore([]);
+	}
 
 	public async Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
 	{

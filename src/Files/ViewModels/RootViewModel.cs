@@ -111,6 +111,12 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public CommandBindingViewModel DeleteCommand => _commandManager.GetBinding(CommandIds.Delete);
 
+	public CommandBindingViewModel SelectAllCommand => _commandManager.GetBinding(CommandIds.SelectAll);
+
+	public CommandBindingViewModel InvertSelectionCommand => _commandManager.GetBinding(CommandIds.InvertSelection);
+
+	public CommandBindingViewModel ClearSelectionCommand => _commandManager.GetBinding(CommandIds.ClearSelection);
+
 	public CommandBindingViewModel MountCommand => _commandManager.GetBinding(CommandIds.Mount);
 
 	public CommandBindingViewModel BurnDiscImageCommand => _commandManager.GetBinding(CommandIds.BurnDiscImage);
@@ -216,6 +222,9 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			CutCommand,
 			PasteCommand,
 			DeleteCommand,
+			SelectAllCommand,
+			InvertSelectionCommand,
+			ClearSelectionCommand,
 			MountCommand,
 			BurnDiscImageCommand,
 			EmptyRecycleBinCommand,

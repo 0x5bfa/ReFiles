@@ -111,6 +111,11 @@
 	<data name="Cut" xml:space="preserve"><value>Cut</value></data>
 	<data name="Paste" xml:space="preserve"><value>Paste</value></data>
 	<data name="Delete" xml:space="preserve"><value>Delete</value></data>
+	<data name="Selection" xml:space="preserve"><value>Selection</value></data>
+	<data name="SelectionOptions" xml:space="preserve"><value>Selection options</value></data>
+	<data name="SelectAll" xml:space="preserve"><value>Select all</value></data>
+	<data name="InvertSelection" xml:space="preserve"><value>Invert selection</value></data>
+	<data name="ClearSelection" xml:space="preserve"><value>Clear selection</value></data>
 	<data name="Properties" xml:space="preserve"><value>Properties</value></data>
 	<data name="Mount" xml:space="preserve"><value>Mount</value></data>
 	<data name="BurnDiscImage" xml:space="preserve"><value>Burn</value></data>

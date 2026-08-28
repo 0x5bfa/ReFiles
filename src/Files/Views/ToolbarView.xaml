@@ -192,6 +192,45 @@
 			ToolbarSize="Small">
 			<controls:Toolbar.Items>
 				<controls:ToolbarItem
+					IsVisible="{x:Bind ViewModel.SelectAllCommand.IsVisible, Mode=OneWay}"
+					ItemType="FlyoutButton"
+					Label="{localization:Localized ResourceKey=SelectionOptions}"
+					OverflowBehavior="Never"
+					ThemedIcon="{StaticResource App.ThemedIcons.SelectMode}">
+					<controls:ToolbarItem.Flyout>
+						<MenuFlyout Placement="Bottom">
+							<MenuFlyoutItem
+								AccessKey="A"
+								Command="{x:Bind ViewModel.SelectAllCommand.Command}"
+								IsEnabled="{x:Bind ViewModel.SelectAllCommand.IsEnabled, Mode=OneWay}"
+								KeyboardAcceleratorTextOverride="Ctrl+A"
+								Text="{x:Bind ViewModel.SelectAllCommand.Label, Mode=OneWay}">
+								<MenuFlyoutItem.Icon>
+									<controls:ThemedIcon Data="{x:Bind ViewModel.SelectAllCommand.IconData, Mode=OneWay}" />
+								</MenuFlyoutItem.Icon>
+							</MenuFlyoutItem>
+							<MenuFlyoutItem
+								AccessKey="I"
+								Command="{x:Bind ViewModel.InvertSelectionCommand.Command}"
+								IsEnabled="{x:Bind ViewModel.InvertSelectionCommand.IsEnabled, Mode=OneWay}"
+								Text="{x:Bind ViewModel.InvertSelectionCommand.Label, Mode=OneWay}">
+								<MenuFlyoutItem.Icon>
+									<controls:ThemedIcon Data="{x:Bind ViewModel.InvertSelectionCommand.IconData, Mode=OneWay}" />
+								</MenuFlyoutItem.Icon>
+							</MenuFlyoutItem>
+							<MenuFlyoutItem
+								AccessKey="C"
+								Command="{x:Bind ViewModel.ClearSelectionCommand.Command}"
+								IsEnabled="{x:Bind ViewModel.ClearSelectionCommand.IsEnabled, Mode=OneWay}"
+								Text="{x:Bind ViewModel.ClearSelectionCommand.Label, Mode=OneWay}">
+								<MenuFlyoutItem.Icon>
+									<controls:ThemedIcon Data="{x:Bind ViewModel.ClearSelectionCommand.IconData, Mode=OneWay}" />
+								</MenuFlyoutItem.Icon>
+							</MenuFlyoutItem>
+						</MenuFlyout>
+					</controls:ToolbarItem.Flyout>
+				</controls:ToolbarItem>
+				<controls:ToolbarItem
 					IsEnabled="{x:Bind ViewModel.SortItemsCommand.IsEnabled, Mode=OneWay}"
 					ItemType="FlyoutButton"
 					Label="{localization:Localized ResourceKey=Sort}"

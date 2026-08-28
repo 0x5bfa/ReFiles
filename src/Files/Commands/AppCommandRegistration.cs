@@ -14,6 +14,7 @@ public static class AppCommandRegistration
 		var builder = new CommandRegistryBuilder();
 		RegisterNavigation(builder);
 		RegisterFileOperations(builder);
+		RegisterSelection(builder);
 		RegisterLayout(builder);
 		RegisterDisplay(builder);
 		RegisterWindow(builder);
@@ -68,6 +69,14 @@ public static class AppCommandRegistration
 			static _ => new ContextualShellCommandHandler(CommandIds.AddToFavorites, WindowsShellContextualCommandIds.AddToFavorites));
 		builder.Register(new(CommandIds.CopyAsPath, Strings.CopyAsPath, "App.ThemedIcons.CopyAsPath", Strings.Item, 150),
 			static _ => new ContextualShellCommandHandler(CommandIds.CopyAsPath, WindowsShellContextualCommandIds.CopyAsPath));
+	}
+
+	private static void RegisterSelection(CommandRegistryBuilder builder)
+	{
+		builder.Register(new(CommandIds.SelectAll, Strings.SelectAll, "App.ThemedIcons.SelectAll", Strings.Selection, 10), static _ => new SelectionCommandHandler(CommandIds.SelectAll));
+		builder.Register(new(CommandIds.InvertSelection, Strings.InvertSelection, "App.ThemedIcons.SelectInvert", Strings.Selection, 20),
+			static _ => new SelectionCommandHandler(CommandIds.InvertSelection));
+		builder.Register(new(CommandIds.ClearSelection, Strings.ClearSelection, "App.ThemedIcons.SelectNone", Strings.Selection, 30), static _ => new SelectionCommandHandler(CommandIds.ClearSelection));
 	}
 
 	private static void RegisterDisplay(CommandRegistryBuilder builder)

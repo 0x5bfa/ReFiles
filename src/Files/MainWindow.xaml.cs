@@ -23,12 +23,14 @@ namespace Files;
 
 public sealed partial class MainWindow : Window
 {
+	private static readonly Guid _mainWindowPersistedStateId = new("179e024a-24ec-4911-b93b-14e5b0a1856a");
 	private readonly RootView _rootView;
 	private readonly AppWindow _appWindow;
 	private readonly Action _activateSession;
 	private readonly Func<Task> _closeAsync;
 	private readonly Func<Task> _createWindowAsync;
 	private readonly ItemPropertiesService _itemPropertiesService;
+	private readonly bool _persistPlacement;
 	private int _closeStarted;
 	private int _isDisposed;
 
@@ -40,6 +42,7 @@ public sealed partial class MainWindow : Window
 		AppSettingsService appSettings,
 		IWindowsShellPreviewSessionFactory? windowsShellPreviewSessions,
 		CommandRegistry commandRegistry,
+		bool persistPlacement,
 		Action activateSession,
 		Func<Task> closeAsync,
 		Func<Task> createWindowAsync)
@@ -87,6 +90,13 @@ public sealed partial class MainWindow : Window
 		_rootView.NewWindowRequested += RootView_NewWindowRequested;
 
 		_appWindow = AppWindow;
+		_persistPlacement = persistPlacement;
+		if (_persistPlacement)
+		{
+			_appWindow.PlacementRestorationBehavior = PlacementRestorationBehavior.AllowShowMaximized | PlacementRestorationBehavior.AllowShowArranged;
+			_appWindow.PersistedStateId = _mainWindowPersistedStateId;
+		}
+
 		_appWindow.Closing += AppWindow_Closing;
 		Activated += MainWindow_Activated;
 	}
@@ -158,6 +168,7 @@ public sealed partial class MainWindow : Window
 
 	private async Task CompleteCloseAsync()
 	{
+		SaveWindowPlacement();
 		await _rootView.DisposeAsync().ConfigureAwait(true);
 		try
 		{
@@ -171,6 +182,23 @@ public sealed partial class MainWindow : Window
 		{
 			Dispose();
 			Close();
+		}
+	}
+
+	private void SaveWindowPlacement()
+	{
+		if (!_persistPlacement)
+		{
+			return;
+		}
+
+		try
+		{
+			_appWindow.SaveCurrentPlacement();
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to save the window placement: {exception}");
 		}
 	}
 }

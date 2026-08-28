@@ -181,6 +181,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 	private readonly IList<object> _selectedItems;
 	private readonly FolderBrowserViewModel _viewModel;
 	private readonly KeyboardAccelerator _propertiesAccelerator = new() { Key = VirtualKey.Enter, Modifiers = VirtualKeyModifiers.Menu };
+	private readonly KeyboardAccelerator _selectAllAccelerator = new() { Key = VirtualKey.A, Modifiers = VirtualKeyModifiers.Control };
 	private readonly HashSet<int> _realizedIndices = [];
 	private readonly ListViewBase? _listView;
 	private readonly ListViewBase? _itemsControl;
@@ -209,6 +210,8 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
+		_selectAllAccelerator.Invoked += SelectAllAccelerator_Invoked;
+		_element.KeyboardAccelerators.Add(_selectAllAccelerator);
 		listView.DoubleTapped += ListView_DoubleTapped;
 		listView.ContextRequested += Element_ContextRequested;
 		listView.SelectionChanged += ListView_SelectionChanged;
@@ -236,6 +239,8 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
+		_selectAllAccelerator.Invoked += SelectAllAccelerator_Invoked;
+		_element.KeyboardAccelerators.Add(_selectAllAccelerator);
 		rowsHost.RowChanging += RowsHost_RowChanging;
 		selectionHost.ItemInvoked += SelectionHost_ItemInvoked;
 		selectionHost.SelectionChanged += SelectionHost_SelectionChanged;
@@ -285,6 +290,8 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		_propertiesAccelerator.Invoked -= PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Remove(_propertiesAccelerator);
+		_selectAllAccelerator.Invoked -= SelectAllAccelerator_Invoked;
+		_element.KeyboardAccelerators.Remove(_selectAllAccelerator);
 		_realizedIndices.Clear();
 		UiDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
 	}
@@ -343,6 +350,17 @@ internal sealed class FolderViewInteractionSession : IDisposable
 	{
 		args.Handled = true;
 		await _viewModel.CommandManager.ExecuteAsync(CommandIds.Properties);
+	}
+
+	private async void SelectAllAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!_viewModel.CommandManager.CanExecute(CommandIds.SelectAll, null))
+		{
+			return;
+		}
+
+		args.Handled = true;
+		await _viewModel.CommandManager.ExecuteAsync(CommandIds.SelectAll);
 	}
 
 	private void Element_ContextRequested(UIElement sender, ContextRequestedEventArgs e)

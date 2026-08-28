@@ -24,6 +24,12 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel DeleteCommand { get; }
 
+	public CommandBindingViewModel SelectAllCommand { get; }
+
+	public CommandBindingViewModel InvertSelectionCommand { get; }
+
+	public CommandBindingViewModel ClearSelectionCommand { get; }
+
 	public CommandBindingViewModel MountCommand { get; }
 
 	public CommandBindingViewModel BurnDiscImageCommand { get; }
@@ -114,6 +120,9 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel cutCommand,
 		CommandBindingViewModel pasteCommand,
 		CommandBindingViewModel deleteCommand,
+		CommandBindingViewModel selectAllCommand,
+		CommandBindingViewModel invertSelectionCommand,
+		CommandBindingViewModel clearSelectionCommand,
 		CommandBindingViewModel mountCommand,
 		CommandBindingViewModel burnDiscImageCommand,
 		CommandBindingViewModel emptyRecycleBinCommand,
@@ -135,6 +144,9 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(cutCommand);
 		ArgumentNullException.ThrowIfNull(pasteCommand);
 		ArgumentNullException.ThrowIfNull(deleteCommand);
+		ArgumentNullException.ThrowIfNull(selectAllCommand);
+		ArgumentNullException.ThrowIfNull(invertSelectionCommand);
+		ArgumentNullException.ThrowIfNull(clearSelectionCommand);
 		ArgumentNullException.ThrowIfNull(mountCommand);
 		ArgumentNullException.ThrowIfNull(burnDiscImageCommand);
 		ArgumentNullException.ThrowIfNull(emptyRecycleBinCommand);
@@ -156,6 +168,9 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CutCommand = cutCommand;
 		PasteCommand = pasteCommand;
 		DeleteCommand = deleteCommand;
+		SelectAllCommand = selectAllCommand;
+		InvertSelectionCommand = invertSelectionCommand;
+		ClearSelectionCommand = clearSelectionCommand;
 		MountCommand = mountCommand;
 		BurnDiscImageCommand = burnDiscImageCommand;
 		EmptyRecycleBinCommand = emptyRecycleBinCommand;

@@ -412,6 +412,83 @@ public sealed class BrowsePresentationPipelineTests
 	}
 
 	/// <summary>
+	/// Verifies that the selection commands follow the active folder selection.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task SelectionCommandsFollowActiveFolderSelection()
+	{
+		var resolver = new PresentationBrowseLocationResolver(3, static (_, _) => ValueTask.CompletedTask);
+		var paneFactory = new BrowsePaneSessionFactory(() => new BrowseSession(resolver), static session => new BrowsePreviewModel(session));
+		await using var window = new WindowSession(paneFactory);
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		using var operationTracker = new StorageOperationTracker();
+		var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, AppCommandRegistration.Build());
+		RootViewModel root;
+		try
+		{
+			root = new RootViewModel(window, presentationFactory);
+		}
+		catch (TypeInitializationException exception) when (exception.InnerException is COMException { HResult: unchecked((int)0x80040154) })
+		{
+			Assert.Inconclusive("The WinAppSDK resource manager is unavailable in this test host.");
+
+			return;
+		}
+
+		await using var rootLifetime = root;
+		await window.OpenTabAsync(HomeLocation.Instance);
+		dispatcher.DrainAll();
+		await root.InitializeAsync();
+		dispatcher.DrainAll();
+
+		Assert.IsFalse(root.SelectAllCommand.IsVisible);
+		var browser = root.ActiveFolderBrowser;
+		Assert.IsNotNull(browser);
+
+		await browser.NavigateToReferenceAsync(CreateReference("selection-folder"));
+		dispatcher.DrainAll();
+
+		Assert.IsTrue(root.SelectAllCommand.IsVisible);
+		Assert.IsTrue(root.SelectAllCommand.IsEnabled);
+		Assert.IsTrue(root.InvertSelectionCommand.IsEnabled);
+		Assert.IsFalse(root.ClearSelectionCommand.IsEnabled);
+
+		var selectAllResult = await root.SelectAllCommand.ExecuteAsync();
+		dispatcher.DrainAll();
+
+		Assert.AreEqual(CommandExecutionStatus.Succeeded, selectAllResult.Status);
+		Assert.AreEqual(3, browser.SelectedItems.Count);
+		Assert.IsFalse(root.SelectAllCommand.IsEnabled);
+		Assert.IsTrue(root.ClearSelectionCommand.IsEnabled);
+
+		var invertAllResult = await root.InvertSelectionCommand.ExecuteAsync();
+		dispatcher.DrainAll();
+
+		Assert.AreEqual(CommandExecutionStatus.Succeeded, invertAllResult.Status);
+		Assert.IsEmpty(browser.SelectedItems);
+		Assert.IsFalse(root.ClearSelectionCommand.IsEnabled);
+
+		var firstItem = browser.Items[0];
+		browser.SetSelection([firstItem]);
+		dispatcher.DrainAll();
+		var invertOneResult = await root.InvertSelectionCommand.ExecuteAsync();
+		dispatcher.DrainAll();
+
+		Assert.AreEqual(CommandExecutionStatus.Succeeded, invertOneResult.Status);
+		Assert.AreEqual(2, browser.SelectedItems.Count);
+		Assert.IsFalse(browser.SelectedItems.Contains(firstItem));
+
+		var clearResult = await root.ClearSelectionCommand.ExecuteAsync();
+		dispatcher.DrainAll();
+
+		Assert.AreEqual(CommandExecutionStatus.Succeeded, clearResult.Status);
+		Assert.IsEmpty(browser.SelectedItems);
+	}
+
+	/// <summary>
 	/// Verifies that canceling a previous command waits for its call to finish.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>

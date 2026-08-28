@@ -41,6 +41,15 @@ public static class CommandIds
 	public static readonly CommandId Delete =
 		new("files.item.delete");
 
+	public static readonly CommandId SelectAll =
+		new("files.selection.select-all");
+
+	public static readonly CommandId InvertSelection =
+		new("files.selection.invert");
+
+	public static readonly CommandId ClearSelection =
+		new("files.selection.clear");
+
 	public static readonly CommandId Properties = new("files.item.properties");
 
 	public static readonly CommandId Mount = new("files.shell.mount");

@@ -60,11 +60,11 @@ public partial class App : Application
 		_runtime = currentRuntime;
 		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
-		await CreateWindowAsync().ConfigureAwait(true);
+		await CreateWindowAsync(persistPlacement: true).ConfigureAwait(true);
 		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
-	private async Task CreateWindowAsync()
+	private async Task CreateWindowAsync(bool persistPlacement)
 	{
 		if (_runtime is not { } runtime)
 		{
@@ -91,9 +91,10 @@ public partial class App : Application
 				_settings,
 				runtime.WindowsShellPreviewSessions,
 				_commandRegistry,
+				persistPlacement,
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),
 				() => CloseWindowAsync(coreWindow.Id, mainWindow),
-				CreateWindowAsync);
+				() => CreateWindowAsync(persistPlacement: false));
 			mainWindow.ApplyTheme(_settings.ThemeMode);
 			lock (_windowsLock)
 			{
