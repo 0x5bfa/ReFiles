@@ -5,6 +5,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
 using System.Management;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Windows.Win32;
 using Windows.Win32.Storage.FileSystem;
@@ -35,6 +36,11 @@ internal static unsafe class WindowsPreviousVersionProvider
 
 	private static IReadOnlyList<WindowsShellPreviousVersion> ReadLocalVersions(string path, CancellationToken cancellationToken)
 	{
+		if (!RuntimeFeature.IsDynamicCodeSupported)
+		{
+			return [];
+		}
+
 		try
 		{
 			var fullPath = Path.GetFullPath(path);

@@ -14,7 +14,7 @@ The repository solution is [`../../Files.slnx`](../../Files.slnx). It currently 
 - `src/FilesLauncher`
 - unit, benchmark, UI, and accessibility test projects.
 
-Supported solution platforms are `x64`, `x86`, and `arm64`; individual test/build workflows may intentionally target only a subset.
+Supported solution platforms are `x64` and `arm64`; individual test/build workflows may intentionally target only a subset.
 
 ## Typical validation
 
@@ -28,6 +28,16 @@ git diff --check
 ```
 
 For application/control changes, also build the affected WinUI project and run the relevant UI/control/accessibility tests described under [`../testing/`](../testing/strategy.md).
+
+## Native AOT
+
+Enable Windows Developer Mode, then run the following command from the repository root to publish, register, and launch the x64 Native AOT app:
+
+```powershell
+.\build\Publish-Aot.ps1
+```
+
+Pass `-Platform arm64` to publish for ARM64, or `-NoLaunch` to publish and register without launching the app.
 
 ## Warnings and compatibility analysis
 

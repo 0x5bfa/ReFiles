@@ -7,7 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Files.Views;
 
-public sealed class DetailsColumnTemplateSelector : DataTemplateSelector
+public sealed partial class DetailsColumnTemplateSelector : DataTemplateSelector
 {
 	public DataTemplate? PrimaryColumnTemplate { get; set; }
 

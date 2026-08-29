@@ -9,7 +9,7 @@ namespace Files.Localization;
 /// <summary>
 /// Resolves an application string resource for use in XAML.
 /// </summary>
-public sealed class LocalizedExtension : MarkupExtension
+public sealed partial class LocalizedExtension : MarkupExtension
 {
 	/// <summary>
 	/// Gets or sets the resource key to resolve.

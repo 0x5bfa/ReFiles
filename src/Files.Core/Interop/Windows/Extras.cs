@@ -107,19 +107,14 @@ namespace Windows.Win32
 		[LibraryImport("shlwapi.dll", EntryPoint = "SHCreateStreamOnFileEx", StringMarshalling = StringMarshalling.Utf16)]
 		public static partial int SHCreateStreamOnFileExRaw(string fileName, uint mode, uint attributes, [MarshalAs(UnmanagedType.Bool)] bool create, nint templateStream, out nint stream);
 
-		// NOTE:
-		//  CsWin32 doesn't generate SetWindowLong on other than x86 and vice versa.
-		//  For more info, visit https://github.com/microsoft/CsWin32/issues/882
 		/// <summary>Sets a window long value using the pointer-sized Windows API.</summary>
 		/// <param name="hWnd">The target window handle.</param>
 		/// <param name="nIndex">The value index.</param>
 		/// <param name="dwNewLong">The new value.</param>
 		/// <returns>The previous value.</returns>
-		public static unsafe nint SetWindowLongPtr(HWND hWnd, WINDOW_LONG_PTR_INDEX nIndex, nint dwNewLong)
+		public static nint SetWindowLongPtr(HWND hWnd, WINDOW_LONG_PTR_INDEX nIndex, nint dwNewLong)
 		{
-			return sizeof(nint) is 4
-				? (nint)_SetWindowLong(hWnd, (int)nIndex, (int)dwNewLong)
-				: _SetWindowLongPtr(hWnd, (int)nIndex, dwNewLong);
+			return _SetWindowLongPtr(hWnd, (int)nIndex, dwNewLong);
 		}
 
 		/// <summary>Refreshes the Recycle Bin icon.</summary>
@@ -150,9 +145,6 @@ namespace Windows.Win32
 			uint inputBufferLength,
 			void* outputBuffer,
 			uint outputBufferLength);
-
-		[LibraryImport("User32", EntryPoint = "SetWindowLongW")]
-		private static partial int _SetWindowLong(nint hWnd, int nIndex, int dwNewLong);
 
 		[LibraryImport("User32", EntryPoint = "SetWindowLongPtrW")]
 		private static partial nint _SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);

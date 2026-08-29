@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Run": {
+      "commandName": "MsixPackage"
+      //"nativeDebugging": true
+    }
+  }
+}
