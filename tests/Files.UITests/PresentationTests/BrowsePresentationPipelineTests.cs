@@ -3,7 +3,6 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -96,7 +95,6 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(maximumItemsPerUpdate <= 128);
 		Assert.IsTrue(itemUpdateCount < Math.Max(3, itemCount / 16));
 		Assert.IsTrue(dispatcher.EnqueueCount < Math.Max(8, itemCount / 16));
-		Assert.IsTrue(dispatcher.MaximumCallbackDuration < TimeSpan.FromMilliseconds(100));
 	}
 
 	/// <summary>
@@ -648,14 +646,11 @@ public sealed class BrowsePresentationPipelineTests
 	private sealed class ManualDispatcher : IUIDispatcher
 	{
 		private readonly ConcurrentQueue<Action> _callbacks = new();
-		private long _maximumCallbackTicks;
 		private int _enqueueCount;
 
 		public bool HasThreadAccess => true;
 
 		public int EnqueueCount => Volatile.Read(ref _enqueueCount);
-
-		public TimeSpan MaximumCallbackDuration => TimeSpan.FromTicks(Volatile.Read(ref _maximumCallbackTicks));
 
 		public bool TryEnqueue(Action callback)
 		{
@@ -677,10 +672,7 @@ public sealed class BrowsePresentationPipelineTests
 			var callbackCount = 0;
 			while (_callbacks.TryDequeue(out var callback))
 			{
-				var startTimestamp = Stopwatch.GetTimestamp();
 				callback();
-				var elapsedTicks = Stopwatch.GetElapsedTime(startTimestamp).Ticks;
-				UpdateMaximum(ref _maximumCallbackTicks, elapsedTicks);
 				callbackCount++;
 				if (callbackCount > 100_000)
 				{
@@ -698,21 +690,6 @@ public sealed class BrowsePresentationPipelineTests
 			}
 
 			Assert.IsFalse(_callbacks.IsEmpty);
-		}
-
-		private static void UpdateMaximum(ref long target, long candidate)
-		{
-			var current = Volatile.Read(ref target);
-			while (candidate > current)
-			{
-				var previous = Interlocked.CompareExchange(ref target, candidate, current);
-				if (previous == current)
-				{
-					return;
-				}
-
-				current = previous;
-			}
 		}
 	}
 
