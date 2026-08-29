@@ -25,6 +25,8 @@ public sealed class WindowsShellContextualCommandService
 	private static readonly string[] _selectionExplorerCommandIds = ["Windows.Zip.Action", "Windows.PinToHome", "Windows.PinToHomeFile"];
 	private static readonly string[] _locationExplorerCommandIds = ["Windows.PinToHome"];
 	private static readonly IReadOnlyDictionary<string, string> _commandIdsByBackendId = CreateCommandIdMap();
+	private static readonly Lazy<IReadOnlyList<WindowsFileExplorerAppExtensionRegistration>> _selectionRegisteredCommands = new(() => GetCommandStoreRegistrations(_selectionExplorerCommandIds));
+	private static readonly Lazy<IReadOnlyList<WindowsFileExplorerAppExtensionRegistration>> _locationRegisteredCommands = new(() => GetCommandStoreRegistrations(_locationExplorerCommandIds));
 	private readonly WindowsStorageSource _source;
 	private readonly WindowsShellAppExtensionService _appExtensions;
 
@@ -58,9 +60,9 @@ public sealed class WindowsShellContextualCommandService
 		if (selection.Count is not 0)
 		{
 			var appExtensionCommands = await _appExtensions.GetCommandsAsync(selection, cancellationToken).ConfigureAwait(false);
-			AppendAppExtensionCommands(appExtensionCommands, commands);
-			var registeredCommands = await GetRegisteredCommandsAsync(selection, _selectionExplorerCommandIds, cancellationToken).ConfigureAwait(false);
-			AppendAppExtensionCommands(registeredCommands, commands);
+			AppendAppExtensionCommands(appExtensionCommands, WindowsShellContextualCommandScope.Selection, commands);
+			var registeredCommands = await GetRegisteredCommandsAsync(selection, _selectionRegisteredCommands.Value, cancellationToken).ConfigureAwait(false);
+			AppendAppExtensionCommands(registeredCommands, WindowsShellContextualCommandScope.Selection, commands);
 
 			if (await ResolveLocatorsAsync(selection, cancellationToken).ConfigureAwait(false) is { } selectionLocators)
 			{
@@ -75,8 +77,8 @@ public sealed class WindowsShellContextualCommandService
 			isRecycleBin = await _source.ShellItemResolver.InvokeOperationAsync(locationLocator, IsRecycleBin, cancellationToken).ConfigureAwait(false);
 			if (selection.Count is 0)
 			{
-				var registeredCommands = await GetRegisteredCommandsAsync([location], _locationExplorerCommandIds, cancellationToken).ConfigureAwait(false);
-				AppendAppExtensionCommands(registeredCommands, commands);
+				var registeredCommands = await GetRegisteredCommandsAsync([location], _locationRegisteredCommands.Value, cancellationToken).ConfigureAwait(false);
+				AppendAppExtensionCommands(registeredCommands, WindowsShellContextualCommandScope.All, commands);
 				var locationCommands = await _source.Scheduler.InvokeOperationAsync(
 					() => GetContextMenuCommands(WindowsShellItemArrayFactory.Create([locationLocator]), WindowsShellContextMenuTargetKind.LocationItem), cancellationToken).ConfigureAwait(false);
 				AppendCommands(locationCommands, commands);
@@ -85,9 +87,11 @@ public sealed class WindowsShellContextualCommandService
 			if (isRecycleBin)
 			{
 				var hasItems = await HasRecycleBinItemsAsync(cancellationToken).ConfigureAwait(false);
-				commands[WindowsShellContextualCommandIds.EmptyRecycleBin] = new(WindowsShellContextualCommandIds.EmptyRecycleBin, hasItems, new WindowsShellEmptyRecycleBinContextualCommandToken());
+				commands[WindowsShellContextualCommandIds.EmptyRecycleBin] = new(
+					WindowsShellContextualCommandIds.EmptyRecycleBin, hasItems, WindowsShellContextualCommandScope.Location, new WindowsShellEmptyRecycleBinContextualCommandToken());
 				commands[WindowsShellContextualCommandIds.RestoreAllRecycleBinItems] = new(
-					WindowsShellContextualCommandIds.RestoreAllRecycleBinItems, hasItems, new WindowsShellCommandStoreContextualCommandToken(RestoreAllRecycleBinBackendId));
+					WindowsShellContextualCommandIds.RestoreAllRecycleBinItems, hasItems, WindowsShellContextualCommandScope.Location,
+					new WindowsShellCommandStoreContextualCommandToken(RestoreAllRecycleBinBackendId));
 				var backgroundCommands = await _source.ShellItemResolver.InvokeOperationAsync(
 					locationLocator, shellItem => GetFolderBackgroundCommands(shellItem, ownerWindowHandle), cancellationToken).ConfigureAwait(false);
 				AppendCommands(backgroundCommands, commands);
@@ -129,6 +133,7 @@ public sealed class WindowsShellContextualCommandService
 		var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		AddBackendIds(map, WindowsShellContextualCommandIds.Mount, "mount", "Windows.mount", "{2D233648-EEAF-450A-A306-4B1239AD6BBF}");
 		AddBackendIds(map, WindowsShellContextualCommandIds.BurnDiscImage, "burn", "Windows.DiscImage.burn", "{5A6D5871-AD2A-4E06-8637-065A8062CF01}");
+		AddBackendIds(map, WindowsShellContextualCommandIds.SetDesktopBackground, "setdesktopwallpaper", "Windows.setdesktopwallpaper", "{11BE41DE-F344-4A34-8507-3BB93653F162}");
 		AddBackendIds(map, WindowsShellContextualCommandIds.EmptyRecycleBin, "empty", "emptyrecyclebin", "Windows.RecycleBin.Empty");
 		AddBackendIds(map, WindowsShellContextualCommandIds.RestoreAllRecycleBinItems, "restoreall", "Windows.RecycleBin.RestoreAll", "{F123C134-68E1-427B-B1BE-87CD57C73E7C}");
 		AddBackendIds(map, WindowsShellContextualCommandIds.RestoreRecycleBinItems, "restore", "restoreitems", "undelete", "Windows.RecycleBin.RestoreItems", "{C565921A-1E6E-11E0-BA70-462ADFD72085}");
@@ -148,16 +153,17 @@ public sealed class WindowsShellContextualCommandService
 		}
 	}
 
-	private static void AppendAppExtensionCommands(IEnumerable<WindowsShellAppExtensionCommand> source, IDictionary<string, WindowsShellContextualCommand> destination)
+	private static void AppendAppExtensionCommands(IEnumerable<WindowsShellAppExtensionCommand> source, WindowsShellContextualCommandScope scope,
+		IDictionary<string, WindowsShellContextualCommand> destination)
 	{
 		foreach (var command in source)
 		{
 			if (TryMapCommandId(command.Id, out var commandId))
 			{
-				destination.TryAdd(commandId, new(commandId, command.IsEnabled, new WindowsShellAppExtensionContextualCommandToken(command)));
+				destination.TryAdd(commandId, new(commandId, command.IsEnabled, scope, new WindowsShellAppExtensionContextualCommandToken(command)));
 			}
 
-			AppendAppExtensionCommands(command.Children, destination);
+			AppendAppExtensionCommands(command.Children, scope, destination);
 		}
 	}
 
@@ -180,11 +186,14 @@ public sealed class WindowsShellContextualCommandService
 	}
 
 	private async Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetRegisteredCommandsAsync(IReadOnlyList<StorableReference> selection,
-		IReadOnlyList<string> backendIds, CancellationToken cancellationToken)
+		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
 	{
-		var registrations = backendIds.Select(TryGetCommandStoreRegistration).OfType<WindowsFileExplorerAppExtensionRegistration>().ToArray();
-
 		return await _appExtensions.GetRegisteredCommandsAsync(selection, registrations, cancellationToken).ConfigureAwait(false);
+	}
+
+	private static IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> GetCommandStoreRegistrations(IEnumerable<string> backendIds)
+	{
+		return backendIds.Select(TryGetCommandStoreRegistration).OfType<WindowsFileExplorerAppExtensionRegistration>().ToArray();
 	}
 
 	private static WindowsFileExplorerAppExtensionRegistration? TryGetCommandStoreRegistration(string backendId)
@@ -302,7 +311,13 @@ public sealed class WindowsShellContextualCommandService
 		}
 
 		var isEnabled = !item.fState.HasFlag(MENU_ITEM_STATE.MFS_DISABLED);
-		commands.TryAdd(commandId, new(commandId, isEnabled, new WindowsShellContextMenuContextualCommandToken(targetKind)));
+		var scope = targetKind switch
+		{
+			WindowsShellContextMenuTargetKind.Selection => WindowsShellContextualCommandScope.Selection,
+			WindowsShellContextMenuTargetKind.LocationItem => WindowsShellContextualCommandScope.All,
+			_ => WindowsShellContextualCommandScope.Location,
+		};
+		commands.TryAdd(commandId, new(commandId, isEnabled, scope, new WindowsShellContextMenuContextualCommandToken(targetKind)));
 	}
 
 	private async Task<bool> HasRecycleBinItemsAsync(CancellationToken cancellationToken)

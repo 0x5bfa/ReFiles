@@ -117,6 +117,7 @@
 	<data name="InvertSelection" xml:space="preserve"><value>Invert selection</value></data>
 	<data name="ClearSelection" xml:space="preserve"><value>Clear selection</value></data>
 	<data name="Properties" xml:space="preserve"><value>Properties</value></data>
+	<data name="SetAsDesktopBackground" xml:space="preserve"><value>Set as desktop background</value></data>
 	<data name="Mount" xml:space="preserve"><value>Mount</value></data>
 	<data name="BurnDiscImage" xml:space="preserve"><value>Burn</value></data>
 	<data name="EmptyRecycleBin" xml:space="preserve"><value>Empty Recycle Bin</value></data>

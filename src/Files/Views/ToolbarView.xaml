@@ -104,6 +104,15 @@
 					</controls:ToolbarItem.KeyboardAccelerators>
 				</controls:ToolbarItem>
 				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.SetDesktopBackgroundCommand.Command}"
+					IsEnabled="{x:Bind ViewModel.SetDesktopBackgroundCommand.IsEnabled, Mode=OneWay}"
+					IsLabelVisible="True"
+					IsVisible="{x:Bind ViewModel.SetDesktopBackgroundCommand.IsVisible, Mode=OneWay}"
+					ItemType="Button"
+					Label="{x:Bind ViewModel.SetDesktopBackgroundCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Auto"
+					ThemedIcon="{x:Bind ViewModel.SetDesktopBackgroundCommand.IconData, Mode=OneWay}" />
+				<controls:ToolbarItem
 					Command="{x:Bind ViewModel.MountCommand.Command}"
 					IsEnabled="{x:Bind ViewModel.MountCommand.IsEnabled, Mode=OneWay}"
 					IsVisible="{x:Bind ViewModel.MountCommand.IsVisible, Mode=OneWay}"

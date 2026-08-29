@@ -34,6 +34,8 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel BurnDiscImageCommand { get; }
 
+	public CommandBindingViewModel SetDesktopBackgroundCommand { get; }
+
 	public CommandBindingViewModel EmptyRecycleBinCommand { get; }
 
 	public CommandBindingViewModel RestoreAllRecycleBinItemsCommand { get; }
@@ -123,6 +125,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel selectAllCommand,
 		CommandBindingViewModel invertSelectionCommand,
 		CommandBindingViewModel clearSelectionCommand,
+		CommandBindingViewModel setDesktopBackgroundCommand,
 		CommandBindingViewModel mountCommand,
 		CommandBindingViewModel burnDiscImageCommand,
 		CommandBindingViewModel emptyRecycleBinCommand,
@@ -147,6 +150,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(selectAllCommand);
 		ArgumentNullException.ThrowIfNull(invertSelectionCommand);
 		ArgumentNullException.ThrowIfNull(clearSelectionCommand);
+		ArgumentNullException.ThrowIfNull(setDesktopBackgroundCommand);
 		ArgumentNullException.ThrowIfNull(mountCommand);
 		ArgumentNullException.ThrowIfNull(burnDiscImageCommand);
 		ArgumentNullException.ThrowIfNull(emptyRecycleBinCommand);
@@ -171,6 +175,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		SelectAllCommand = selectAllCommand;
 		InvertSelectionCommand = invertSelectionCommand;
 		ClearSelectionCommand = clearSelectionCommand;
+		SetDesktopBackgroundCommand = setDesktopBackgroundCommand;
 		MountCommand = mountCommand;
 		BurnDiscImageCommand = burnDiscImageCommand;
 		EmptyRecycleBinCommand = emptyRecycleBinCommand;

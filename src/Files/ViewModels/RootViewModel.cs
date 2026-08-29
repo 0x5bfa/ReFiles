@@ -121,6 +121,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public CommandBindingViewModel BurnDiscImageCommand => _commandManager.GetBinding(CommandIds.BurnDiscImage);
 
+	public CommandBindingViewModel SetDesktopBackgroundCommand => _commandManager.GetBinding(CommandIds.SetDesktopBackground);
+
 	public CommandBindingViewModel EmptyRecycleBinCommand => _commandManager.GetBinding(CommandIds.EmptyRecycleBin);
 
 	public CommandBindingViewModel RestoreAllRecycleBinItemsCommand => _commandManager.GetBinding(CommandIds.RestoreAllRecycleBinItems);
@@ -225,6 +227,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			SelectAllCommand,
 			InvertSelectionCommand,
 			ClearSelectionCommand,
+			SetDesktopBackgroundCommand,
 			MountCommand,
 			BurnDiscImageCommand,
 			EmptyRecycleBinCommand,

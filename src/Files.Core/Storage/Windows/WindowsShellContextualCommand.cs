@@ -14,6 +14,9 @@ public static class WindowsShellContextualCommandIds
 	/// <summary>Burns a disc image.</summary>
 	public const string BurnDiscImage = "windows.discimage.burn";
 
+	/// <summary>Sets the selected image as the desktop background.</summary>
+	public const string SetDesktopBackground = "windows.setdesktopwallpaper";
+
 	/// <summary>Empties the Recycle Bin.</summary>
 	public const string EmptyRecycleBin = "windows.recyclebin.empty";
 
@@ -49,15 +52,38 @@ public sealed class WindowsShellContextualCommand
 	/// <summary>Gets a value indicating whether the command can currently be invoked.</summary>
 	public bool IsEnabled { get; }
 
-	internal WindowsShellContextualCommand(string id, bool isEnabled, WindowsShellContextualCommandToken token)
+	/// <summary>Gets the context whose changes can affect this command.</summary>
+	public WindowsShellContextualCommandScope Scope { get; }
+
+	internal WindowsShellContextualCommand(string id, bool isEnabled, WindowsShellContextualCommandScope scope, WindowsShellContextualCommandToken token)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(id);
 		ArgumentNullException.ThrowIfNull(token);
 
 		Id = id;
 		IsEnabled = isEnabled;
+		Scope = scope;
 		Token = token;
 	}
+}
+
+/// <summary>
+/// Identifies the browsing context whose changes can affect a contextual Windows Shell command.
+/// </summary>
+[Flags]
+public enum WindowsShellContextualCommandScope
+{
+	/// <summary>The command is not affected by the browsing context.</summary>
+	None = 0,
+
+	/// <summary>The command depends on the selected items.</summary>
+	Selection = 1 << 0,
+
+	/// <summary>The command depends on the current location.</summary>
+	Location = 1 << 1,
+
+	/// <summary>The command can depend on the selection or current location.</summary>
+	All = Selection | Location,
 }
 
 internal abstract record WindowsShellContextualCommandToken;

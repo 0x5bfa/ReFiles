@@ -47,6 +47,34 @@ public sealed class WindowsShellContextualCommandTests
 		}
 	}
 
+	/// <summary>Verifies that an image selection exposes the desktop background command registered by the Shell.</summary>
+	[TestMethod]
+	public async Task ImageSelectionExposesSetDesktopBackgroundCommand()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ContextualCommandTests-{Guid.NewGuid():N}");
+		var imagePath = Path.Combine(directoryPath, "sample.jpg");
+		Directory.CreateDirectory(directoryPath);
+		await File.WriteAllBytesAsync(imagePath, []);
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var image = await ResolveReferenceAsync(source, imagePath);
+			var service = new WindowsShellContextualCommandService(source);
+
+			var command = (await service.GetCommandsAsync(null, [image], 0))
+				.Single(static command => command.Id.Equals(WindowsShellContextualCommandIds.SetDesktopBackground, StringComparison.OrdinalIgnoreCase));
+
+			Assert.AreEqual(WindowsShellContextualCommandScope.Selection, command.Scope);
+			Assert.IsTrue(command.IsEnabled);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
 	/// <summary>Verifies that the Recycle Bin location exposes its location commands even when no item is selected.</summary>
 	[TestMethod]
 	public async Task RecycleBinLocationExposesLocationCommands()

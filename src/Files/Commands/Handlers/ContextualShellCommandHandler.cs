@@ -3,18 +3,19 @@
 
 namespace Files.Commands.Handlers;
 
-internal sealed class ContextualShellCommandHandler(CommandId id, string shellCommandId) : ICommandHandler
+internal sealed class ContextualShellCommandHandler(CommandId id, string shellCommandId, bool hideWhenShellDisabled = false) : ICommandHandler
 {
 	public CommandId Id => id;
 
+	internal string ShellCommandId => shellCommandId;
+
 	public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.RejectWhileRunning;
 
-	public CommandStateInvalidation StateDependencies => CommandStateInvalidation.Selection | CommandStateInvalidation.Loading |
-		CommandStateInvalidation.Location | CommandStateInvalidation.ContextualCommands;
+	public CommandStateInvalidation StateDependencies => CommandStateInvalidation.ContextualCommands;
 
 	public CommandState GetState(CommandContext context)
 	{
-		return context.ActiveFolderBrowser?.GetContextualCommandState(shellCommandId) ?? new(false, false);
+		return context.ActiveFolderBrowser?.GetContextualCommandState(shellCommandId, hideWhenShellDisabled) ?? new(false, false);
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)

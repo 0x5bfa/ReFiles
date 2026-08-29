@@ -56,6 +56,8 @@ public static class CommandIds
 
 	public static readonly CommandId BurnDiscImage = new("files.shell.burn-disc-image");
 
+	public static readonly CommandId SetDesktopBackground = new("files.shell.set-desktop-background");
+
 	public static readonly CommandId EmptyRecycleBin = new("files.shell.empty-recycle-bin");
 
 	public static readonly CommandId RestoreAllRecycleBinItems = new("files.shell.restore-all-recycle-bin-items");

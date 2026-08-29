@@ -60,6 +60,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly IUIDispatcher _dispatcher;
 
 	private readonly CancellationTokenSource _lifetime = new();
+	private readonly HashSet<string> _pendingContextualCommandIds = new(StringComparer.OrdinalIgnoreCase);
 
 	private CollectionViewSource _itemsViewSource;
 
@@ -68,8 +69,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private CancellationTokenSource? _locationIconCancellation;
 	private CancellationTokenSource? _displaySettingsCancellation;
 	private CancellationTokenSource? _contextualCommandRefreshCancellation;
+	private Task _contextualCommandRefreshTask = Task.CompletedTask;
+	private StorableReference? _contextualCommandRefreshLocation;
+	private IReadOnlyList<StorableReference> _contextualCommandRefreshSelection = [];
 	private IReadOnlyDictionary<string, WindowsShellContextualCommand> _contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
-	private bool _isContextualCommandRefreshPending;
 
 	private bool _isApplyingUpdate;
 
@@ -462,24 +465,34 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.InvokeAsync(selection.Select(static item => item.Reference).ToArray(), command, cancellationToken);
 	}
 
-	internal CommandState GetContextualCommandState(string commandId)
+	internal CommandState GetContextualCommandState(string commandId, bool hideWhenShellDisabled)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
 
-		return _contextualCommands.TryGetValue(commandId, out var command) ? new(true, command.IsEnabled && !_isContextualCommandRefreshPending && !IsLoading && !IsBusy) : new(false, false);
+		if (!_contextualCommands.TryGetValue(commandId, out var command))
+		{
+			return new(false, false);
+		}
+
+		return new(!hideWhenShellDisabled || command.IsEnabled, command.IsEnabled);
 	}
 
 	internal async Task<bool> InvokeContextualCommandAsync(string commandId, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(commandId);
 
-		if (_shellContextualCommandService is null || _isContextualCommandRefreshPending || !_contextualCommands.TryGetValue(commandId, out var command) || _ownerWindowHandle is 0)
+		if (_shellContextualCommandService is null || _ownerWindowHandle is 0)
 		{
 			return false;
 		}
 
-		var location = (Location as FolderLocation)?.Folder;
-		var selection = SelectedItems.Select(static item => item.Reference).ToArray();
+		if (!await WaitForContextualCommandRefreshAsync(commandId, cancellationToken) || !_contextualCommands.TryGetValue(commandId, out var command) || !command.IsEnabled || IsLoading || IsBusy)
+		{
+			return false;
+		}
+
+		var location = _contextualCommandRefreshLocation;
+		var selection = _contextualCommandRefreshSelection.ToArray();
 		var context = new WindowsShellInvocationContext(_ownerWindowHandle, GetContextualCommandWorkingDirectory());
 		if (!await _shellContextualCommandService.InvokeAsync(location, selection, command, context, cancellationToken).ConfigureAwait(false))
 		{
@@ -1075,9 +1088,17 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			CommandManager.RefreshStates(invalidation);
 		}
 
-		if (selectionSynchronized || args.Flags.HasFlag(BrowseUpdateFlags.Location) || args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Loading))
+		var contextualCommandScope = selectionSynchronized ? WindowsShellContextualCommandScope.Selection : WindowsShellContextualCommandScope.None;
+		if (args.Flags.HasFlag(BrowseUpdateFlags.Location) || args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Loading))
 		{
-			QueueContextualCommandRefresh();
+			contextualCommandScope = WindowsShellContextualCommandScope.All;
+		}
+
+		if (contextualCommandScope is not WindowsShellContextualCommandScope.None)
+		{
+			var coalesceMatchingRequest = selectionSynchronized && !args.Flags.HasFlag(BrowseUpdateFlags.Location) && !args.Flags.HasFlag(BrowseUpdateFlags.Items)
+				&& wasLoading == _browseAdapter.IsLoading;
+			QueueContextualCommandRefresh(contextualCommandScope, coalesceMatchingRequest: coalesceMatchingRequest);
 		}
 	}
 
@@ -1085,32 +1106,42 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		ArgumentNullException.ThrowIfNull(selectedItems);
 
-		_browseAdapter.SetSelection(selectedItems);
+		var selection = selectedItems.ToArray();
+		_browseAdapter.SetSelection(selection);
 		CommandManager.RefreshStates(CommandStateInvalidation.Selection);
-		QueueContextualCommandRefresh();
+		QueueContextualCommandRefresh(WindowsShellContextualCommandScope.Selection, selection.Select(static item => item.Reference).ToArray(), coalesceMatchingRequest: true);
 	}
 
-	private void QueueContextualCommandRefresh()
+	private void QueueContextualCommandRefresh(WindowsShellContextualCommandScope scope = WindowsShellContextualCommandScope.All,
+		IReadOnlyList<StorableReference>? selectionOverride = null, bool coalesceMatchingRequest = false)
 	{
 		if (!_dispatcher.HasThreadAccess)
 		{
 			if (Volatile.Read(ref _isDisposed) is 0)
 			{
-				_dispatcher.TryEnqueue(QueueContextualCommandRefresh);
+				_dispatcher.TryEnqueue(() => QueueContextualCommandRefresh(scope, selectionOverride, coalesceMatchingRequest));
 			}
 
 			return;
 		}
 
+		var location = (Location as FolderLocation)?.Folder;
+		var selection = selectionOverride ?? SelectedItems.Select(static item => item.Reference).ToArray();
+		if (coalesceMatchingRequest && IsSameContextualCommandRequest(location, selection) && !_contextualCommandRefreshTask.IsCompleted)
+		{
+			return;
+		}
+
+		_contextualCommandRefreshLocation = location;
+		_contextualCommandRefreshSelection = selection;
+
 		var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
 		Interlocked.Exchange(ref _contextualCommandRefreshCancellation, cancellation)?.Cancel();
-		_isContextualCommandRefreshPending = true;
-		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+		MarkContextualCommandsPending(scope);
 		if (_shellContextualCommandService is null)
 		{
-			_contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
-			_isContextualCommandRefreshPending = false;
-			CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+			ApplyContextualCommands([], cancellation);
+			_contextualCommandRefreshTask = Task.CompletedTask;
 			Interlocked.CompareExchange(ref _contextualCommandRefreshCancellation, null, cancellation);
 			cancellation.Dispose();
 
@@ -1119,15 +1150,35 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		if (IsLoading)
 		{
+			_contextualCommandRefreshTask = Task.CompletedTask;
 			Interlocked.CompareExchange(ref _contextualCommandRefreshCancellation, null, cancellation);
 			cancellation.Dispose();
 
 			return;
 		}
 
-		var location = (Location as FolderLocation)?.Folder;
-		var selection = SelectedItems.Select(static item => item.Reference).ToArray();
-		_ = LoadContextualCommandsAsync(location, selection, cancellation);
+		_contextualCommandRefreshTask = LoadContextualCommandsAsync(location, selection, cancellation);
+	}
+
+	private bool IsSameContextualCommandRequest(StorableReference? location, IReadOnlyList<StorableReference> selection)
+	{
+		return Equals(_contextualCommandRefreshLocation, location) && _contextualCommandRefreshSelection.SequenceEqual(selection);
+	}
+
+	private async Task<bool> WaitForContextualCommandRefreshAsync(string commandId, CancellationToken cancellationToken)
+	{
+		while (_pendingContextualCommandIds.Contains(commandId))
+		{
+			var refreshTask = _contextualCommandRefreshTask;
+			if (refreshTask.IsCompleted)
+			{
+				return false;
+			}
+
+			await refreshTask.WaitAsync(cancellationToken);
+		}
+
+		return true;
 	}
 
 	private async Task LoadContextualCommandsAsync(StorableReference? location, IReadOnlyList<StorableReference> selection, CancellationTokenSource cancellation)
@@ -1186,9 +1237,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			return;
 		}
 
-		_contextualCommands = commands.ToDictionary(static command => command.Id, StringComparer.OrdinalIgnoreCase);
-		_isContextualCommandRefreshPending = false;
-		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+		var nextCommands = commands.ToDictionary(static command => command.Id, StringComparer.OrdinalIgnoreCase);
+		var changedCommandIds = GetChangedContextualCommandIds(_contextualCommands, nextCommands, _pendingContextualCommandIds);
+		_contextualCommands = nextCommands;
+		_pendingContextualCommandIds.Clear();
+		CommandManager.RefreshContextualStates(changedCommandIds);
 	}
 
 	private Task CompleteContextualCommandRefreshAsync(CancellationTokenSource cancellation)
@@ -1220,9 +1273,41 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			return;
 		}
 
-		_contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
-		_isContextualCommandRefreshPending = false;
-		CommandManager.RefreshStates(CommandStateInvalidation.ContextualCommands);
+		ApplyContextualCommands([], cancellation);
+	}
+
+	private void MarkContextualCommandsPending(WindowsShellContextualCommandScope scope)
+	{
+		foreach (var command in _contextualCommands.Values)
+		{
+			if ((command.Scope & scope) is not WindowsShellContextualCommandScope.None)
+			{
+				_pendingContextualCommandIds.Add(command.Id);
+			}
+		}
+	}
+
+	private static IReadOnlySet<string> GetChangedContextualCommandIds(IReadOnlyDictionary<string, WindowsShellContextualCommand> currentCommands,
+		IReadOnlyDictionary<string, WindowsShellContextualCommand> nextCommands, IEnumerable<string> pendingCommandIds)
+	{
+		var changedCommandIds = pendingCommandIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+		foreach (var pair in currentCommands)
+		{
+			if (!nextCommands.TryGetValue(pair.Key, out var nextCommand) || pair.Value.IsEnabled != nextCommand.IsEnabled || pair.Value.Scope != nextCommand.Scope)
+			{
+				changedCommandIds.Add(pair.Key);
+			}
+		}
+
+		foreach (var commandId in nextCommands.Keys)
+		{
+			if (!currentCommands.ContainsKey(commandId))
+			{
+				changedCommandIds.Add(commandId);
+			}
+		}
+
+		return changedCommandIds;
 	}
 
 	private string? GetContextualCommandWorkingDirectory()

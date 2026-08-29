@@ -1,8 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.ViewModels;
+using Files.Commands.Handlers;
 using Files.Infrastructure;
+using Files.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace Files.Commands;
@@ -78,6 +79,36 @@ public sealed class WindowCommandManager : IDisposable
 			if ((pair.Value.StateDependencies & reasons) is not 0)
 			{
 				_bindings[pair.Key].UpdateState(pair.Value.GetState(context));
+			}
+		}
+	}
+
+	internal void RefreshContextualStates(IEnumerable<string> shellCommandIds)
+	{
+		ArgumentNullException.ThrowIfNull(shellCommandIds);
+
+		var commandIds = shellCommandIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+		if (Volatile.Read(ref _isDisposed) is not 0 || commandIds.Count is 0)
+		{
+			return;
+		}
+
+		if (!_dispatcher.HasThreadAccess)
+		{
+			if (!_dispatcher.TryEnqueue(() => RefreshContextualStates(commandIds)))
+			{
+				throw new InvalidOperationException("The Files UI dispatcher rejected contextual command state updates.");
+			}
+
+			return;
+		}
+
+		var context = new CommandContext(_root);
+		foreach (var pair in _handlers)
+		{
+			if (pair.Value is ContextualShellCommandHandler handler && commandIds.Contains(handler.ShellCommandId))
+			{
+				_bindings[pair.Key].UpdateState(handler.GetState(context));
 			}
 		}
 	}

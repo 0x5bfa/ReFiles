@@ -51,6 +51,8 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.Paste, Strings.Paste, "App.ThemedIcons.Paste", Strings.Item, 40), static _ => new FileCommandHandler(CommandIds.Paste));
 		builder.Register(new(CommandIds.Delete, Strings.Delete, "App.ThemedIcons.Delete", Strings.Item, 50), static _ => new FileCommandHandler(CommandIds.Delete));
 		builder.Register(new(CommandIds.Properties, Strings.Properties, null, Strings.Item, 60, "\uE946"), static root => new PropertiesCommandHandler(root.ItemPropertiesService));
+		builder.Register(new(CommandIds.SetDesktopBackground, Strings.SetAsDesktopBackground, "App.ThemedIcons.SetWallpaper.16", Strings.Item, 65),
+			static _ => new ContextualShellCommandHandler(CommandIds.SetDesktopBackground, WindowsShellContextualCommandIds.SetDesktopBackground, hideWhenShellDisabled: true));
 		builder.Register(new(CommandIds.Mount, Strings.Mount, "App.ThemedIcons.File", Strings.Item, 70),
 			static _ => new ContextualShellCommandHandler(CommandIds.Mount, WindowsShellContextualCommandIds.Mount));
 		builder.Register(new(CommandIds.BurnDiscImage, Strings.BurnDiscImage, "App.ThemedIcons.File", Strings.Item, 80),
