@@ -20,6 +20,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	private const string FileIdentityPrefix = "winfs:v1:";
 	private const string AddressPrefix = "winshell-address:v1:";
 	private const FileOptions BackupSemantics = (FileOptions)0x02000000;
+	private const uint DriveCdRom = 5;
 	private const int VolumePathBufferLength = 261;
 
 	private readonly ConcurrentDictionary<string, uint> _volumeSerialNumbers = new(StringComparer.OrdinalIgnoreCase);
@@ -28,7 +29,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
-		if (fileSystemPath is not null && TryGetFileId(fileSystemPath, out var fileId))
+		if (fileSystemPath is not null && !IsOpticalDrive(fileSystemPath) && TryGetFileId(fileSystemPath, out var fileId))
 		{
 			if (fileId.NumberOfLinks <= 1)
 			{
@@ -66,6 +67,13 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	private bool TryGetFileId(string fileSystemPath, out WindowsFileId fileId)
 	{
 		return TryGetFileIdByName(fileSystemPath, out fileId) || TryGetFileIdByHandle(fileSystemPath, out fileId);
+	}
+
+	private static bool IsOpticalDrive(string fileSystemPath)
+	{
+		var root = Path.GetPathRoot(fileSystemPath);
+
+		return root is not null && PInvoke.GetDriveType(root) is DriveCdRom;
 	}
 
 	private unsafe bool TryGetFileIdByName(string fileSystemPath, out WindowsFileId fileId)
