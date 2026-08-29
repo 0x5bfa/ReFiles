@@ -103,6 +103,46 @@ public sealed class WindowsPropertyTests
 	}
 
 	/// <summary>
+	/// Test case: windows property reader preserves the stored Shell PIDL when reading formatted values.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task WindowsPropertyReaderUsesStoredPidlForFormattedValues()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		var filePath = Path.Combine(directoryPath, "properties.bin");
+		File.WriteAllBytes(filePath, new byte[37]);
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var resolved = Assert.IsInstanceOfType<WindowsStorable>(await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath)));
+			var descriptor = resolved.Descriptor with { Locator = new WindowsItemLocator(resolved.Locator.AbsolutePidl, @"Z:\missing\properties.bin") };
+			var coreModel = resolved.Factory.Create(descriptor);
+			var capabilityRegistry = new CapabilityBuilder()
+				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
+				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
+				.Build();
+
+			using var model = new StorableModelFactory(capabilityRegistry).Create(source, coreModel);
+			var propertySource = model.Get<IPropertySource>();
+			Assert.IsNotNull(propertySource);
+
+			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(["System.Size"], includeFormattedValues: true));
+			var size = Assert.IsInstanceOfType<FormattedPropertyValue>(properties["System.Size"]);
+
+			Assert.AreEqual((ulong)37, size.RawValue);
+			Assert.IsFalse(string.IsNullOrWhiteSpace(size.DisplayText));
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	/// <summary>
 	/// Test case: windows property reader reads shell details property.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

@@ -388,29 +388,31 @@ internal static unsafe class WindowsShellColumnReader
 		return null;
 	}
 
-	internal static unsafe IReadOnlyDictionary<string, object?> ReadValues(string parsingName, IReadOnlyList<string> propertyIds, CancellationToken cancellationToken)
+	internal static unsafe WindowsShellPropertyDetails ReadPropertyDetails(IShellItem shellItem, IReadOnlyList<string> propertyIds, bool includeFormattedValues, CancellationToken cancellationToken)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
+		ArgumentNullException.ThrowIfNull(shellItem);
+
 		ArgumentNullException.ThrowIfNull(propertyIds);
 
-		var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+		var rawValues = new Dictionary<string, object?>(StringComparer.Ordinal);
+		var displayValues = new Dictionary<string, string>(StringComparer.Ordinal);
 		if (propertyIds.Count is 0)
 		{
-			return new ReadOnlyDictionary<string, object?>(values);
+			return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
 
 		ITEMIDLIST* absolutePidl = null;
-		var parseResult = PInvoke.SHParseDisplayName(parsingName, null, out absolutePidl, 0, out _);
-		if (parseResult.Failed || absolutePidl is null)
+		var itemListResult = PInvoke.SHGetIDListFromObject(shellItem, out absolutePidl);
+		if (itemListResult.Failed || absolutePidl is null)
 		{
 			if (absolutePidl is not null)
 			{
 				PInvoke.CoTaskMemFree(absolutePidl);
 			}
 
-			return new ReadOnlyDictionary<string, object?>(values);
+			return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 		}
 
 		try
@@ -419,12 +421,12 @@ internal static unsafe class WindowsShellColumnReader
 			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
 			if (parentBindResult.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
 			{
-				return new ReadOnlyDictionary<string, object?>(values);
+				return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 			}
 
 			if (parentFolder is not IShellFolder2 parentFolder2)
 			{
-				return new ReadOnlyDictionary<string, object?>(values);
+				return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 			}
 
 			foreach (var propertyId in propertyIds)
@@ -445,70 +447,33 @@ internal static unsafe class WindowsShellColumnReader
 						continue;
 					}
 
-					values[propertyId] = ReadVariantValue(variant);
+					rawValues[propertyId] = ReadVariantValue(variant);
 				}
 				finally
 				{
 					variant.Dispose();
 				}
 			}
-		}
-		finally
-		{
-			PInvoke.CoTaskMemFree(absolutePidl);
-		}
 
-		return new ReadOnlyDictionary<string, object?>(values);
-	}
-
-	internal static unsafe IReadOnlyDictionary<string, string> ReadDisplayValues(string parsingName, IReadOnlyList<string> propertyIds, CancellationToken cancellationToken)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
-		ArgumentNullException.ThrowIfNull(propertyIds);
-
-		var values = new Dictionary<string, string>(StringComparer.Ordinal);
-		var remainingPropertyIds = new HashSet<string>(propertyIds, StringComparer.Ordinal);
-		if (remainingPropertyIds.Count is 0)
-		{
-			return new ReadOnlyDictionary<string, string>(values);
-		}
-
-		cancellationToken.ThrowIfCancellationRequested();
-
-		ITEMIDLIST* absolutePidl = null;
-		var parseResult = PInvoke.SHParseDisplayName(parsingName, null, out absolutePidl, 0, out _);
-		if (parseResult.Failed || absolutePidl is null)
-		{
-			if (absolutePidl is not null)
+			if (!includeFormattedValues)
 			{
-				PInvoke.CoTaskMemFree(absolutePidl);
+				return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 			}
 
-			return new ReadOnlyDictionary<string, string>(values);
-		}
-
-		try
-		{
-			var shellFolderId = typeof(IShellFolder).GUID;
-			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
-			if (parentBindResult.Failed || parentObject is not IShellFolder2 parentFolder || childPidl is null)
-			{
-				return new ReadOnlyDictionary<string, string>(values);
-			}
-
+			var remainingPropertyIds = new HashSet<string>(propertyIds, StringComparer.Ordinal);
 			for (uint index = 0; index < MaximumColumnCount && remainingPropertyIds.Count is not 0; index++)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 
 				var headerDetails = default(SHELLDETAILS);
-				var headerResult = parentFolder.GetDetailsOf(null, index, &headerDetails);
+				var headerResult = parentFolder2.GetDetailsOf(null, index, &headerDetails);
 				if (headerResult.Failed)
 				{
 					break;
 				}
 
 				TryReadDisplayName(&headerDetails.str, null, out _);
-				if (parentFolder.MapColumnToSCID(index, out var propertyKey).Failed)
+				if (parentFolder2.MapColumnToSCID(index, out var propertyKey).Failed)
 				{
 					continue;
 				}
@@ -520,10 +485,10 @@ internal static unsafe class WindowsShellColumnReader
 				}
 
 				var itemDetails = default(SHELLDETAILS);
-				var itemResult = parentFolder.GetDetailsOf(childPidl, index, &itemDetails);
+				var itemResult = parentFolder2.GetDetailsOf(childPidl, index, &itemDetails);
 				if (itemResult.Succeeded && TryReadDisplayName(&itemDetails.str, childPidl, out var displayText))
 				{
-					values[propertyId] = displayText;
+					displayValues[propertyId] = displayText;
 				}
 			}
 		}
@@ -532,7 +497,7 @@ internal static unsafe class WindowsShellColumnReader
 			PInvoke.CoTaskMemFree(absolutePidl);
 		}
 
-		return new ReadOnlyDictionary<string, string>(values);
+		return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 	}
 
 	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName, CancellationToken cancellationToken)
@@ -685,6 +650,7 @@ internal static unsafe class WindowsShellColumnReader
 				VarEnum.VT_R4 => variant.As<float>(),
 				VarEnum.VT_R8 => variant.As<double>(),
 				VarEnum.VT_BOOL => variant.As<bool>(),
+				VarEnum.VT_DATE => variant.As<DateTime>(),
 				VarEnum.VT_BSTR or VarEnum.VT_LPSTR or VarEnum.VT_LPWSTR => variant.As<string>(),
 				VarEnum.VT_DECIMAL => variant.As<decimal>(),
 				VarEnum.VT_CLSID => variant.As<Guid>(),
@@ -738,3 +704,5 @@ internal static unsafe class WindowsShellColumnReader
 		return checked((int)index);
 	}
 }
+
+internal readonly record struct WindowsShellPropertyDetails(IReadOnlyDictionary<string, object?> RawValues, IReadOnlyDictionary<string, string> DisplayValues);

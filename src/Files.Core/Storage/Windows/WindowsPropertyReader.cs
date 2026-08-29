@@ -94,66 +94,54 @@ public sealed class WindowsPropertyReader : IPropertyReader
 
 		return source.ShellItemResolver.InvokeConcurrentAsync(
 			((WindowsStorable)item).Locator,
-			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, item.ParsingName, request, cancellationToken)),
+			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)),
 			cancellationToken);
 	}
 
-	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, string parsingName, PropertyRequest request, CancellationToken cancellationToken)
+	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, PropertyRequest request, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (shellItem is not IShellItem2 shellItem2)
+		var details = WindowsShellColumnReader.ReadPropertyDetails(shellItem, request.PropertyIds, request.IncludeFormattedValues, cancellationToken);
+		var properties = new Dictionary<string, object?>(details.RawValues, StringComparer.Ordinal);
+		if (shellItem is IShellItem2 shellItem2)
 		{
-			return EmptyProperties.Instance;
-		}
-
-		var properties = new Dictionary<string, object?>(StringComparer.Ordinal);
-		var detailsPropertyIds = new List<string>();
-
-		foreach (var propertyId in request.PropertyIds)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-
-			switch (propertyId)
+			foreach (var propertyId in request.PropertyIds)
 			{
-				case ItemTypeText:
-					AddString(shellItem2, _itemTypeTextKey, ItemTypeText, properties);
-					break;
-				case Size:
-					AddUInt64(shellItem2, _sizeKey, Size, properties);
-					break;
-				case DateModified:
-					AddFileTime(shellItem2, _dateModifiedKey, DateModified, properties);
-					break;
-				case DateCreated:
-					AddFileTime(shellItem2, _dateCreatedKey, DateCreated, properties);
-					break;
-				case HomeIsPinned:
-					AddBool(shellItem2, _homeIsPinnedKey, HomeIsPinned, properties);
-					break;
-				default:
-					if (!AddProperty(shellItem2, propertyId, properties))
-					{
-						detailsPropertyIds.Add(propertyId);
-					}
+				cancellationToken.ThrowIfCancellationRequested();
 
-					break;
-			}
-		}
+				if (properties.ContainsKey(propertyId))
+				{
+					continue;
+				}
 
-		if (detailsPropertyIds.Count is not 0)
-		{
-			var detailsProperties = WindowsShellColumnReader.ReadValues(parsingName, detailsPropertyIds, cancellationToken);
-			foreach (var property in detailsProperties)
-			{
-				properties[property.Key] = property.Value;
+				switch (propertyId)
+				{
+					case ItemTypeText:
+						AddString(shellItem2, _itemTypeTextKey, ItemTypeText, properties);
+						break;
+					case Size:
+						AddUInt64(shellItem2, _sizeKey, Size, properties);
+						break;
+					case DateModified:
+						AddFileTime(shellItem2, _dateModifiedKey, DateModified, properties);
+						break;
+					case DateCreated:
+						AddFileTime(shellItem2, _dateCreatedKey, DateCreated, properties);
+						break;
+					case HomeIsPinned:
+						AddBool(shellItem2, _homeIsPinnedKey, HomeIsPinned, properties);
+						break;
+					default:
+						AddProperty(shellItem2, propertyId, properties);
+						break;
+				}
 			}
 		}
 
 		if (request.IncludeFormattedValues)
 		{
-			var displayValues = WindowsShellColumnReader.ReadDisplayValues(parsingName, request.PropertyIds, cancellationToken);
-			foreach (var displayValue in displayValues)
+			foreach (var displayValue in details.DisplayValues)
 			{
 				properties.TryGetValue(displayValue.Key, out var rawValue);
 				properties[displayValue.Key] = new FormattedPropertyValue(rawValue, displayValue.Value);
@@ -308,12 +296,6 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	}
 
 	private sealed record PropertyEntry(StorableReference Reference, IReadOnlyDictionary<string, object?> Properties);
-
-	private static class EmptyProperties
-	{
-		public static IReadOnlyDictionary<string, object?> Instance { get; }
-			= new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
-	}
 
 	private static class EmptyResults
 	{
