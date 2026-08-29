@@ -28,6 +28,8 @@ using Files.ViewModels;
 using Files.Views;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using OwlCore.Storage;
@@ -40,9 +42,14 @@ namespace Files.UITests;
 [TestClass]
 public sealed class BrowsePerformanceTests
 {
+	private const int DefaultStressIterationCount = 5;
+	private const int DefaultStressItemCount = 512;
+	private const int MaximumStressIterationCount = 250;
+	private const int MaximumStressItemCount = 44_000;
 	private const int VirtualizationSafetyLimit = 200;
 	private static readonly TimeSpan FirstContentTimeout = TimeSpan.FromSeconds(15);
 	private static readonly TimeSpan NavigationTimeout = TimeSpan.FromSeconds(60);
+	private static readonly TimeSpan StressUiTimeout = TimeSpan.FromSeconds(30);
 
 	public TestContext TestContext { get; set; } = null!;
 
@@ -91,6 +98,101 @@ public sealed class BrowsePerformanceTests
 		var outputPath = await BrowsePerformanceResultWriter.WriteAsync("browse-real-folder", results);
 		TestContext.AddResultFile(outputPath);
 		TestContext.WriteLine($"Real-folder performance results: {outputPath}");
+	}
+
+	/// <summary>Exercises selection, virtualization, layout switching, multiple views, and teardown ordering under repeated load.</summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	[TestCategory("Stress")]
+	public async Task FolderViewInteractionAndLifetimeStress()
+	{
+		var iterationCount = ReadBoundedPositiveInt32("FILES_UI_STRESS_ITERATIONS", DefaultStressIterationCount, MaximumStressIterationCount);
+		var itemCount = ReadBoundedPositiveInt32("FILES_UI_STRESS_ITEMS", DefaultStressItemCount, MaximumStressItemCount);
+		var viewModes = new[] { FolderViewMode.Details, FolderViewMode.List, FolderViewMode.Grid, FolderViewMode.Cards, FolderViewMode.Columns };
+		var random = new Random(0xF01DE5);
+		for (var iteration = 0; iteration < iterationCount; iteration++)
+		{
+			WriteStressProgress(iteration, "creating environment");
+			var primaryEnvironment = await FolderViewStressEnvironment.CreateAsync(itemCount);
+			FolderViewStressEnvironment? secondaryEnvironment = null;
+			PerformanceWindowHost? primaryHost = null;
+			PerformanceWindowHost? secondaryHost = null;
+			try
+			{
+				secondaryEnvironment = await FolderViewStressEnvironment.CreateAsync(itemCount);
+				var primaryBrowser = new FolderBrowser { ViewModel = primaryEnvironment.Folder };
+				var secondaryBrowser = new FolderBrowser { ViewModel = secondaryEnvironment.Folder };
+				primaryHost = await PerformanceWindowHost.ShowAsync(primaryBrowser);
+				secondaryHost = await PerformanceWindowHost.ShowAsync(secondaryBrowser);
+				WriteStressProgress(iteration, "windows loaded");
+				foreach (var viewMode in viewModes)
+				{
+					WriteStressProgress(iteration, $"switching to {viewMode}");
+					await primaryEnvironment.Folder.SetViewModeAsync(viewMode);
+					await secondaryEnvironment.Folder.SetViewModeAsync(viewMode);
+					await primaryEnvironment.Folder.SetItemSizeAsync(1 + ((iteration + (int)viewMode) % 5));
+					await secondaryEnvironment.Folder.SetItemSizeAsync(1 + ((iteration + (int)viewMode + 2) % 5));
+					await WaitForUiIdleAsync(StressUiTimeout);
+					var primaryList = await WaitForDescendantAsync<ListViewBase>(primaryBrowser);
+					var secondaryList = await WaitForDescendantAsync<ListViewBase>(secondaryBrowser);
+					var selectionMode = (RectangleSelectionMode)((iteration + (int)viewMode) % 3);
+					var baseline = primaryEnvironment.Folder.SelectedItems.Cast<object>().ToArray();
+					var intersections = CreateRandomSelection(random, primaryEnvironment.Folder.Items, maximumCount: 16);
+					var expectedSelection = new RectangleSelectionModel(baseline, selectionMode).GetSelection(intersections);
+					ApplyRectangleSelection(primaryList, expectedSelection);
+					await WaitForSelectionAsync(primaryEnvironment.Folder, expectedSelection.Cast<BrowseItemViewModel>());
+					var secondarySelection = CreateRandomSelection(random, secondaryEnvironment.Folder.Items, maximumCount: 16);
+					ApplyRectangleSelection(secondaryList, secondarySelection);
+					await WaitForSelectionAsync(secondaryEnvironment.Folder, secondarySelection.Cast<BrowseItemViewModel>());
+
+					primaryList.ScrollIntoView(primaryEnvironment.Folder.Items[random.Next(primaryEnvironment.Folder.Items.Count)]);
+					secondaryList.ScrollIntoView(secondaryEnvironment.Folder.Items[random.Next(secondaryEnvironment.Folder.Items.Count)]);
+					await primaryEnvironment.Folder.SetSortAsync("System.ItemNameDisplay", iteration % 2 is 0 ? ViewSortDirection.Ascending : ViewSortDirection.Descending);
+					await secondaryEnvironment.Folder.SetGroupingAsync(viewMode is FolderViewMode.Cards ? "System.ItemTypeText" : null, ViewSortDirection.Ascending);
+					await WaitForUiIdleAsync(StressUiTimeout);
+					WriteStressProgress(iteration, $"completed {viewMode}");
+				}
+
+				var primarySelectionHost = FindDescendant<RectangleSelectionHost>(primaryBrowser);
+				Assert.IsNotNull(primarySelectionHost);
+				await primaryHost.CloseAsync();
+				WriteStressProgress(iteration, "primary window closed");
+				Assert.AreEqual(0, primarySelectionHost.TargetCount, $"Primary selection targets leaked at iteration {iteration}.");
+				await primaryEnvironment.DisposeAsync();
+
+				WriteStressProgress(iteration, "updating remaining selection");
+				var remainingList = await WaitForDescendantAsync<ListViewBase>(secondaryBrowser);
+				var finalSelection = CreateRandomSelection(random, secondaryEnvironment.Folder.Items, maximumCount: 8);
+				ApplyRectangleSelection(remainingList, finalSelection);
+				await WaitForSelectionAsync(secondaryEnvironment.Folder, finalSelection.Cast<BrowseItemViewModel>());
+				WriteStressProgress(iteration, "remaining selection updated");
+				var secondarySelectionHost = FindDescendant<RectangleSelectionHost>(secondaryBrowser);
+				Assert.IsNotNull(secondarySelectionHost);
+
+				await secondaryHost.CloseAsync();
+				WriteStressProgress(iteration, "secondary window closed");
+				Assert.AreEqual(0, secondarySelectionHost.TargetCount, $"Secondary selection targets leaked at iteration {iteration}.");
+				await secondaryEnvironment.DisposeAsync();
+			}
+			finally
+			{
+				if (primaryHost is not null)
+				{
+					await primaryHost.CloseAsync();
+				}
+
+				if (secondaryHost is not null)
+				{
+					await secondaryHost.CloseAsync();
+				}
+
+				await primaryEnvironment.DisposeAsync();
+				if (secondaryEnvironment is not null)
+				{
+					await secondaryEnvironment.DisposeAsync();
+				}
+			}
+		}
 	}
 
 	private static async Task<BrowsePerformanceResult> RunSyntheticScenarioAsync(SyntheticBrowseScenario scenario)
@@ -269,6 +371,138 @@ public sealed class BrowsePerformanceTests
 
 	private static int ReadPositiveInt32(string name, int fallback) => int.TryParse(Environment.GetEnvironmentVariable(name), out var value) && value > 0 ? value : fallback;
 
+	private static void ApplyRectangleSelection(ListViewBase target, IEnumerable<object> selection)
+	{
+		RectangleSelection.BeginSelectionUpdate([target]);
+		try
+		{
+			target.SelectedItems.Clear();
+			foreach (var item in selection)
+			{
+				target.SelectedItems.Add(item);
+			}
+		}
+		finally
+		{
+			RectangleSelection.EndSelectionUpdate([target]);
+		}
+
+		RectangleSelection.RaiseSelectionUpdated([target]);
+	}
+
+	private static HashSet<object> CreateRandomSelection(Random random, IReadOnlyList<BrowseItemViewModel> items, int maximumCount)
+	{
+		var selection = new HashSet<object>();
+		var count = random.Next(0, Math.Min(maximumCount, items.Count) + 1);
+		for (var index = 0; index < count; index++)
+		{
+			selection.Add(items[random.Next(items.Count)]);
+		}
+
+		return selection;
+	}
+
+	private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+	{
+		if (root is T match)
+		{
+			return match;
+		}
+
+		var pending = new Queue<DependencyObject>();
+		pending.Enqueue(root);
+		while (pending.TryDequeue(out var current))
+		{
+			var childCount = VisualTreeHelper.GetChildrenCount(current);
+			for (var index = 0; index < childCount; index++)
+			{
+				var child = VisualTreeHelper.GetChild(current, index);
+				if (child is T childMatch)
+				{
+					return childMatch;
+				}
+
+				pending.Enqueue(child);
+			}
+		}
+
+		return null;
+	}
+
+	private static int ReadBoundedPositiveInt32(string name, int fallback, int maximum)
+	{
+		var value = Environment.GetEnvironmentVariable(name);
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return fallback;
+		}
+
+		if (!int.TryParse(value, out var result) || result < 1 || result > maximum)
+		{
+			throw new InvalidOperationException($"{name} must be between 1 and {maximum}.");
+		}
+
+		return result;
+	}
+
+	private static async Task<T> WaitForDescendantAsync<T>(DependencyObject root) where T : FrameworkElement
+	{
+		var started = Stopwatch.GetTimestamp();
+		while (Stopwatch.GetElapsedTime(started) < NavigationTimeout)
+		{
+			if (FindDescendant<T>(root) is { IsLoaded: true } descendant)
+			{
+				return descendant;
+			}
+
+			await WaitForUiIdleAsync(StressUiTimeout);
+		}
+
+		throw new AssertFailedException($"A loaded {typeof(T).Name} descendant was not found before the timeout.");
+	}
+
+	private static async Task WaitForSelectionAsync(FolderBrowserViewModel folder, IEnumerable<BrowseItemViewModel> expectedItems)
+	{
+		var expectedKeys = expectedItems.Select(static item => item.Reference.GetKey()).ToHashSet();
+		var started = Stopwatch.GetTimestamp();
+		while (Stopwatch.GetElapsedTime(started) < NavigationTimeout)
+		{
+			if (expectedKeys.SetEquals(folder.SelectedKeys))
+			{
+				return;
+			}
+
+			await WaitForUiIdleAsync(StressUiTimeout);
+		}
+
+		Assert.Fail($"Expected {expectedKeys.Count} selected browse items, but observed {folder.SelectedKeys.Count}.");
+	}
+
+	private static Task WaitForUnloadedAsync(FrameworkElement element)
+	{
+		if (!element.IsLoaded)
+		{
+			return Task.CompletedTask;
+		}
+
+		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		RoutedEventHandler? handler = null;
+		handler = (_, _) =>
+		{
+			element.Unloaded -= handler;
+			completion.TrySetResult(true);
+		};
+		element.Unloaded += handler;
+
+		return completion.Task.WaitAsync(TimeSpan.FromSeconds(10));
+	}
+
+	private static void WriteStressProgress(int iteration, string phase)
+	{
+		Console.WriteLine($"Folder view stress iteration {iteration}: {phase}.");
+		Console.Out.Flush();
+	}
+
 	private static async Task WaitForPresentedItemsAsync(FolderBrowserViewModel folder, int expectedCount)
 	{
 		var started = Stopwatch.GetTimestamp();
@@ -279,11 +513,11 @@ public sealed class BrowsePerformanceTests
 				Assert.Fail($"Expected {expectedCount} presented items, but observed {folder.Items.Count} before the timeout.");
 			}
 
-			await WaitForUiIdleAsync();
+			await WaitForUiIdleAsync(StressUiTimeout);
 		}
 	}
 
-	private static async Task WaitForUiIdleAsync()
+	private static async Task WaitForUiIdleAsync(TimeSpan? timeout = null)
 	{
 		var idle = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		if (!UnitTestApp.TestDispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => idle.TrySetResult(true)))
@@ -291,11 +525,80 @@ public sealed class BrowsePerformanceTests
 			throw new InvalidOperationException("Could not enqueue a UI-idle marker.");
 		}
 
-		await idle.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		await idle.Task.WaitAsync(timeout ?? TimeSpan.FromSeconds(5));
 		await Task.Yield();
 	}
 
 	private readonly record struct SyntheticBrowseScenario(string Name, int ItemCount, bool EnablePropertyEnrichment);
+
+	private sealed class FolderViewStressEnvironment : IAsyncDisposable
+	{
+		private readonly WindowSession _window;
+		private readonly PerformanceStorageWorkspace _workspace;
+		private readonly StorageOperationTracker _operationTracker;
+		private readonly RootViewModel _root;
+		private int _isDisposed;
+
+		public FolderBrowserViewModel Folder { get; }
+
+		private FolderViewStressEnvironment(WindowSession window, PerformanceStorageWorkspace workspace, StorageOperationTracker operationTracker, RootViewModel root, FolderBrowserViewModel folder)
+		{
+			_window = window;
+			_workspace = workspace;
+			_operationTracker = operationTracker;
+			_root = root;
+			Folder = folder;
+		}
+
+		public static async Task<FolderViewStressEnvironment> CreateAsync(int itemCount)
+		{
+			var resolver = new PerformanceBrowseLocationResolver(itemCount, static (_, _) => ValueTask.CompletedTask, null);
+			var paneFactory = new BrowsePaneSessionFactory(() => new BrowseSession(resolver), static session => new BrowsePreviewModel(session));
+			var window = new WindowSession(paneFactory);
+			var workspace = new PerformanceStorageWorkspace();
+			var operationTracker = new StorageOperationTracker();
+			RootViewModel? root = null;
+			try
+			{
+				await window.OpenTabAsync(HomeLocation.Instance);
+				var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
+				var appSettings = new AppSettingsService(new Dictionary<string, object>());
+				var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
+				root = new RootViewModel(window, presentationFactory);
+				await root.InitializeAsync().WaitAsync(NavigationTimeout);
+				var folder = root.ActiveFolderBrowser ?? throw new InvalidOperationException("The stress window does not have an active folder browser.");
+				await WaitForPresentedItemsAsync(folder, itemCount);
+
+				return new FolderViewStressEnvironment(window, workspace, operationTracker, root, folder);
+			}
+			catch
+			{
+				if (root is not null)
+				{
+					await root.DisposeAsync();
+				}
+
+				await window.DisposeAsync();
+				await workspace.DisposeAsync();
+				operationTracker.Dispose();
+
+				throw;
+			}
+		}
+
+		public async ValueTask DisposeAsync()
+		{
+			if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+			{
+				return;
+			}
+
+			await _root.DisposeAsync();
+			await _window.DisposeAsync();
+			await _workspace.DisposeAsync();
+			_operationTracker.Dispose();
+		}
+	}
 
 	private sealed class BrowseMeasurementRecorder : IDisposable
 	{
@@ -582,8 +885,14 @@ public sealed class BrowsePerformanceTests
 	private sealed class PerformanceWindowHost : IDisposable
 	{
 		private readonly Window _window;
+		private readonly FrameworkElement _content;
+		private bool _isClosed;
 
-		private PerformanceWindowHost(Window window) => _window = window;
+		private PerformanceWindowHost(Window window, FrameworkElement content)
+		{
+			_window = window;
+			_content = content;
+		}
 
 		public static async Task<PerformanceWindowHost> ShowAsync(FrameworkElement content)
 		{
@@ -608,11 +917,32 @@ public sealed class BrowsePerformanceTests
 
 			await WaitForUiIdleAsync();
 
-			return new PerformanceWindowHost(window);
+			return new PerformanceWindowHost(window, content);
+		}
+
+		public async Task CloseAsync()
+		{
+			if (_isClosed)
+			{
+				return;
+			}
+
+			_isClosed = true;
+			var unloaded = WaitForUnloadedAsync(_content);
+			_window.Content = null;
+			await unloaded;
+			_window.Close();
+			await WaitForUiIdleAsync(StressUiTimeout);
 		}
 
 		public void Dispose()
 		{
+			if (_isClosed)
+			{
+				return;
+			}
+
+			_isClosed = true;
 			_window.Content = null;
 			_window.Close();
 		}

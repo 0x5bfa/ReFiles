@@ -286,8 +286,17 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	public void UpdateViewport(BrowseViewport viewport) =>
 		_browseAdapter.UpdateViewport(viewport);
 
-	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems) =>
+	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)
+	{
+		ArgumentNullException.ThrowIfNull(selectedItems);
+
+		if (Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
 		SetSelectionCore(selectedItems);
+	}
 
 	internal void SelectAllItems()
 	{

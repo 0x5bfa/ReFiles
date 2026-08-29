@@ -35,6 +35,9 @@ namespace Files.UITests;
 [TestClass]
 public sealed class BrowsePresentationPipelineTests
 {
+	private const int DefaultDisposalStressIterationCount = 20;
+	private const int MaximumDisposalStressIterationCount = 1_000;
+
 	/// <summary>
 	/// Verifies that the first rows are presented before item enumeration completes.
 	/// </summary>
@@ -254,6 +257,57 @@ public sealed class BrowsePresentationPipelineTests
 			{
 				await adapter.DisposeAsync();
 			}
+		}
+	}
+
+	/// <summary>
+	/// Verifies that disposal at different enumeration checkpoints cancels loading and suppresses queued presentation callbacks.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	[TestCategory("Stress")]
+	public async Task DisposalAtEnumerationCheckpointsSuppressesLateUpdates()
+	{
+		var iterationCount = ReadDisposalStressIterationCount();
+		var checkpoints = new[] { 0, 31, 127, 255 };
+		for (var iteration = 0; iteration < iterationCount; iteration++)
+		{
+			var checkpoint = checkpoints[iteration % checkpoints.Length];
+			var enumerationPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			var enumerationRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			var resolver = new PresentationBrowseLocationResolver(256, async (index, cancellationToken) =>
+			{
+				if (index == checkpoint)
+				{
+					enumerationPaused.TrySetResult(true);
+					await enumerationRelease.Task.WaitAsync(cancellationToken);
+				}
+			});
+			var session = new BrowseSession(resolver);
+			await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+			await using var workspace = new PresentationStorageWorkspace();
+			var dispatcher = new ManualDispatcher();
+			var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+			var disposalStarted = false;
+			var lateUpdateCount = 0;
+			adapter.Updated += (_, _) =>
+			{
+				if (disposalStarted)
+				{
+					lateUpdateCount++;
+				}
+			};
+
+			var initialization = adapter.InitializeAsync();
+			await enumerationPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			disposalStarted = true;
+			var disposal = adapter.DisposeAsync().AsTask();
+			enumerationRelease.TrySetResult(true);
+			await Assert.ThrowsAsync<OperationCanceledException>(async () => await initialization);
+			await disposal.WaitAsync(TimeSpan.FromSeconds(5));
+			dispatcher.DrainAll();
+
+			Assert.AreEqual(0, lateUpdateCount, $"Observed a late update at iteration {iteration} and checkpoint {checkpoint}.");
 		}
 	}
 
@@ -519,6 +573,22 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.AreEqual(CommandExecutionStatus.Succeeded, results[1].Status);
 		Assert.AreEqual(2, handler.InvocationCount);
 		Assert.AreEqual(1, handler.MaximumConcurrency);
+	}
+
+	private static int ReadDisposalStressIterationCount()
+	{
+		var value = Environment.GetEnvironmentVariable("FILES_DISPOSAL_STRESS_ITERATIONS");
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return DefaultDisposalStressIterationCount;
+		}
+
+		if (!int.TryParse(value, out var iterationCount) || iterationCount < 1 || iterationCount > MaximumDisposalStressIterationCount)
+		{
+			throw new InvalidOperationException($"FILES_DISPOSAL_STRESS_ITERATIONS must be between 1 and {MaximumDisposalStressIterationCount}.");
+		}
+
+		return iterationCount;
 	}
 
 	private static BrowsePresentationText CreateText()

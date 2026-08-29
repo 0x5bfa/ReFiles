@@ -15,6 +15,9 @@ namespace Files.UITests.Views;
 [TestClass]
 public sealed class RectangleSelectionHostTests
 {
+	private const int DefaultStressIterationCount = 25;
+	private const int MaximumStressIterationCount = 1_000;
+
 	/// <summary>
 	/// Verifies that attached targets register with and unregister from their nearest host.
 	/// </summary>
@@ -118,6 +121,62 @@ public sealed class RectangleSelectionHostTests
 		await WaitForDispatcherAsync();
 	}
 
+	/// <summary>
+	/// Verifies that repeated target registration, selection updates, and window teardown release every target.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	[TestCategory("Stress")]
+	public async Task RepeatedTargetLifetimesReleaseSelectionState()
+	{
+		var iterationCount = ReadStressIterationCount();
+		for (var iteration = 0; iteration < iterationCount; iteration++)
+		{
+			var items = Enumerable.Range(0, 32).Select(static index => $"Item {index}").ToArray();
+			var listView = new ListView { ItemsSource = items, SelectionMode = ListViewSelectionMode.Extended };
+			var gridView = new GridView { ItemsSource = items, SelectionMode = ListViewSelectionMode.Extended };
+			var tableView = new TableView { ItemsSource = items };
+			RectangleSelection.SetIsTarget(listView, true);
+			RectangleSelection.SetIsTarget(gridView, true);
+			RectangleSelection.SetIsTarget(tableView, true);
+			var content = new StackPanel();
+			content.Children.Add(listView);
+			content.Children.Add(gridView);
+			content.Children.Add(tableView);
+			var host = new RectangleSelectionHost { Content = content };
+			var window = new Window { Content = host };
+			try
+			{
+				var loaded = WaitForLoadedAsync(host);
+				window.Activate();
+				await loaded;
+				await WaitForDispatcherAsync();
+				Assert.AreEqual(3, host.TargetCount, $"Target registration mismatch at iteration {iteration}.");
+
+				var tableListView = (ListViewBase)tableView.RowsHost!.Element;
+				var targets = new[] { listView, gridView, tableListView };
+				RectangleSelection.BeginSelectionUpdate(targets);
+				foreach (var target in targets)
+				{
+					target.SelectedItems.Add(items[iteration % items.Length]);
+					target.SelectedItems.Add(items[(iteration + 7) % items.Length]);
+				}
+
+				RectangleSelection.EndSelectionUpdate(targets);
+				RectangleSelection.RaiseSelectionUpdated(targets);
+				var unloaded = Task.WhenAll(WaitForUnloadedAsync(host), WaitForUnloadedAsync(listView), WaitForUnloadedAsync(gridView), WaitForUnloadedAsync(tableView));
+				window.Content = null;
+				await unloaded;
+				await WaitForDispatcherAsync();
+				Assert.AreEqual(0, host.TargetCount, $"Selection targets leaked at iteration {iteration}.");
+			}
+			finally
+			{
+				window.Close();
+			}
+		}
+	}
+
 	private static async Task WaitForDispatcherAsync()
 	{
 		var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -161,5 +220,21 @@ public sealed class RectangleSelectionHostTests
 		element.Unloaded += handler;
 
 		return completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+	}
+
+	private static int ReadStressIterationCount()
+	{
+		var value = Environment.GetEnvironmentVariable("FILES_UI_STRESS_ITERATIONS");
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return DefaultStressIterationCount;
+		}
+
+		if (!int.TryParse(value, out var iterationCount) || iterationCount < 1 || iterationCount > MaximumStressIterationCount)
+		{
+			throw new InvalidOperationException($"FILES_UI_STRESS_ITERATIONS must be between 1 and {MaximumStressIterationCount}.");
+		}
+
+		return iterationCount;
 	}
 }

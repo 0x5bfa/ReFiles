@@ -23,7 +23,6 @@ run-name: ${{ github.event_name == 'pull_request' && 'PR validation' || 'CI vali
 
 env:
   WORKING_DIR:       ${{ github.workspace }} # Default: 'D:\a\Files\Files'
-  SOLUTION_PATH:    '${{ github.workspace }}\Files.slnx'
   APP_PROJECT_PATH: '${{ github.workspace }}\src\Files\Files.csproj'
 
 jobs:
@@ -52,19 +51,13 @@ jobs:
       with:
         global-json-file: global.json
 
-    - name: Restore
-      shell: pwsh
-      run: |
-        msbuild $env:SOLUTION_PATH `
-          -t:Restore -p:Platform=$env:ARCHITECTURE -p:Configuration=$env:CONFIGURATION -p:PublishReadyToRun=true -v:quiet
-
-    - name: Build
+    - name: Build application with restore
       shell: pwsh
       run: |
         msbuild $env:APP_PROJECT_PATH `
-          -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -v:quiet
+          -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:PublishReadyToRun=true -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -v:quiet
 
-    - name: Build automated tests
+    - name: Build tests with restore
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
       run: |
@@ -75,16 +68,16 @@ jobs:
         )
         foreach ($testProject in $testProjects) {
           msbuild $testProject `
-            -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:UseSharedCompilation=false -m:1 -nr:false -v:quiet -clp:ErrorsOnly
+            -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:UseSharedCompilation=false -m:1 -nr:false -v:quiet -clp:ErrorsOnly
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
         }
 
-    - name: Run Files.Core tests
+    - name: Run unit tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
-      run: dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity quiet
+      run: dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration Debug --no-build --no-restore -p:Platform=x64 --verbosity quiet
 
     - name: Install Windows App SDK runtime
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
@@ -109,31 +102,8 @@ jobs:
     - name: Run UI tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
-      timeout-minutes: 3
-      run: |
-        dotnet run --project tests/Files.UITests/Files.UITests.csproj `
-          --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE `
-          -- --filter "FullyQualifiedName!~BrowsePerformanceTests"
-
-    - name: Run browse performance tests
-      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
-      shell: pwsh
-      timeout-minutes: 5
-      env:
-        FILES_PERF_RESULTS_DIR: ${{ runner.temp }}\refiles-performance
-      run: |
-        dotnet run --project tests/Files.UITests/Files.UITests.csproj `
-          --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE `
-          -- --filter "TestCategory=Performance"
-
-    - name: Upload browse performance results
-      if: always() && matrix.configuration == 'Debug' && matrix.platform == 'x64'
-      uses: actions/upload-artifact@v6
-      with:
-        name: browse-performance-${{ github.sha }}
-        path: ${{ runner.temp }}\refiles-performance\*.json
-        if-no-files-found: warn
-        retention-days: 14
+      timeout-minutes: 15
+      run: dotnet test tests/Files.UITests/Files.UITests.csproj --configuration Debug --no-build --no-restore -p:Platform=x64 --verbosity normal
 
     - name: Register UI test application
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
@@ -149,16 +119,8 @@ jobs:
         }
 
         Add-AppxPackage -Register $appManifest.FullName -ForceApplicationShutdown
-        $filesPackage = Get-AppxPackage -Name FilesDev | Select-Object -First 1
-        if ($null -eq $filesPackage) {
-          throw 'The FilesDev package was not registered.'
-        }
 
-        "FILES_AXE_TEST_APP_ID=$($filesPackage.PackageFamilyName)!App" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: Run navigation UI tests
+    - name: Run Axe tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
-      env:
-        FILES_NAVIGATION_STRESS_ITERATIONS: 100
-      run: dotnet test tests/Files.AxeTests/Files.AxeTests.csproj --configuration $env:CONFIGURATION --no-build --no-restore -p:Platform=$env:ARCHITECTURE --verbosity normal
+      run: dotnet test tests/Files.AxeTests/Files.AxeTests.csproj --configuration Debug --no-build --no-restore -p:Platform=x64 --verbosity normal

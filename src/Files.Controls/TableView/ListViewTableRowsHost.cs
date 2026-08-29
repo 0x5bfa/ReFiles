@@ -14,6 +14,7 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 
 	private ScrollViewer? _scrollViewer;
 	private DataTemplate? _groupHeaderTemplate;
+	private bool _isUpdatingItemsSource;
 
 	/// <summary>Gets the adapted list control.</summary>
 	public ListViewBase View { get; }
@@ -25,7 +26,18 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 	public object? ItemsSource
 	{
 		get => View.ItemsSource;
-		set => View.ItemsSource = value;
+		set
+		{
+			_isUpdatingItemsSource = true;
+			try
+			{
+				View.ItemsSource = value;
+			}
+			finally
+			{
+				_isUpdatingItemsSource = false;
+			}
+		}
 	}
 
 	/// <inheritdoc />
@@ -155,7 +167,10 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 
 	private void View_SelectionChanged(object sender, SelectionChangedEventArgs e)
 	{
-		SelectionChanged?.Invoke(this, EventArgs.Empty);
+		if (!_isUpdatingItemsSource)
+		{
+			SelectionChanged?.Invoke(this, EventArgs.Empty);
+		}
 	}
 
 	private void View_SizeChanged(object sender, SizeChangedEventArgs e)

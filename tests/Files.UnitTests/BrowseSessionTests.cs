@@ -18,6 +18,11 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class BrowseSessionTests
 {
+	private const int DefaultFaultStressIterationCount = 20;
+	private const int DefaultLiveChangeStressIterationCount = 100;
+	private const int MaximumFaultStressIterationCount = 1_000;
+	private const int MaximumLiveChangeStressIterationCount = 5_000;
+
 	/// <summary>
 	/// Test case: publishes sorted enumeration in ranges.
 	/// </summary>
@@ -325,6 +330,62 @@ public sealed class BrowseSessionTests
 		Assert.IsFalse(currentCore.IsDisposed);
 		Assert.IsTrue(partialCores.All(static core => core.IsDisposed));
 		Assert.IsNotNull(session.Error);
+	}
+
+	/// <summary>
+	/// Test case: repeated provider failures roll back partial batches and leave the session able to recover.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	[TestCategory("Stress")]
+	public async Task RepeatedProviderFailuresRollbackAndRecover()
+	{
+		var iterationCount = ReadFaultStressIterationCount();
+		var factory = new TestModelFactory();
+		var current = factory.CreateModel("current", "Current", out var currentCore);
+		var resolver = new TestBrowseLocationResolver([current]);
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(current.Reference));
+		for (var iteration = 0; iteration < iterationCount; iteration++)
+		{
+			var partialCores = new List<DisposableStorable>();
+			resolver.Items.Clear();
+			for (var index = 0; index < 40; index++)
+			{
+				resolver.Items.Add(factory.CreateModel($"partial-{iteration:D4}-{index:D2}", $"Partial {iteration:D4}-{index:D2}", out var partialCore));
+				partialCores.Add(partialCore);
+			}
+
+			resolver.Exception = (iteration % 3) switch
+			{
+				0 => new UnauthorizedAccessException("access denied"),
+				1 => new IOException("provider disconnected"),
+				_ => new InvalidOperationException("provider failed"),
+			};
+			Exception? observedError = null;
+			try
+			{
+				await session.RefreshAsync();
+			}
+			catch (Exception error)
+			{
+				observedError = error;
+			}
+
+			Assert.AreSame(resolver.Exception, observedError, $"Unexpected provider error at iteration {iteration}.");
+			Assert.AreSame(current, session.Items.Single(), $"Current state changed after failure iteration {iteration}.");
+			Assert.IsTrue(partialCores.All(static core => core.DisposeCount is 1), $"Partial items leaked after failure iteration {iteration}.");
+		}
+
+		var recovered = factory.CreateModel("recovered", "Recovered", out var recoveredCore);
+		resolver.Items.Clear();
+		resolver.Items.Add(recovered);
+		resolver.Exception = null;
+		await session.RefreshAsync();
+
+		Assert.AreSame(recovered, session.Items.Single());
+		Assert.AreEqual(1, currentCore.DisposeCount);
+		Assert.IsFalse(recoveredCore.IsDisposed);
 	}
 
 	/// <summary>
@@ -816,6 +877,59 @@ public sealed class BrowseSessionTests
 	}
 
 	/// <summary>
+	/// Test case: rapid create, rename, and delete bursts preserve order and dispose every transient item once.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	[TestCategory("Stress")]
+	public async Task RapidLiveChangeBurstsPreserveOrderAndLifetime()
+	{
+		var iterationCount = ReadLiveChangeStressIterationCount();
+		var factory = new TestModelFactory();
+		var source = new TestFolderChangeSource();
+		var locationModel = factory.CreateModel("folder", "Folder", out _, source);
+		var createdModels = new StorableModel[iterationCount];
+		var renamedModels = new StorableModel[iterationCount];
+		var createdCores = new DisposableStorable[iterationCount];
+		var renamedCores = new DisposableStorable[iterationCount];
+		var renamedReferences = new StorableReference[iterationCount];
+		var resolvedModels = new Dictionary<string, IStorableModel>(StringComparer.Ordinal);
+		for (var iteration = 0; iteration < iterationCount; iteration++)
+		{
+			createdModels[iteration] = factory.CreateModel($"burst-{iteration:D5}", $"Created {iteration:D5}", out createdCores[iteration]);
+			renamedModels[iteration] = factory.CreateModel($"burst-{iteration:D5}", $"Renamed {iteration:D5}", out renamedCores[iteration]);
+			renamedReferences[iteration] = new StorableReference(createdModels[iteration].Reference.SourceId, createdModels[iteration].Reference.ItemId, new StorageAddress("test", $"renamed-{iteration:D5}"));
+			resolvedModels[createdModels[iteration].Reference.LastKnownAddress!.Value] = createdModels[iteration];
+			resolvedModels[renamedReferences[iteration].LastKnownAddress!.Value] = renamedModels[iteration];
+		}
+
+		var resolver = CreateIncrementalResolver(locationModel, createdModels[0], createdModels[0].Reference,
+			itemResolver: (reference, _) => ValueTask.FromResult(resolvedModels[reference.LastKnownAddress!.Value]));
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		const int burstSize = 16;
+		for (var burstStart = 0; burstStart < iterationCount; burstStart += burstSize)
+		{
+			var burstEnd = Math.Min(iterationCount, burstStart + burstSize);
+			for (var iteration = burstStart; iteration < burstEnd; iteration++)
+			{
+				source.RaiseChange(new FolderChange(FolderChangeKind.Created, createdModels[iteration].Reference, null, RequiresRefresh: false));
+				source.RaiseChange(new FolderChange(FolderChangeKind.Renamed, renamedReferences[iteration], createdModels[iteration].Reference, RequiresRefresh: false));
+				source.RaiseChange(new FolderChange(FolderChangeKind.Deleted, null, renamedReferences[iteration], RequiresRefresh: false));
+			}
+
+			await WaitUntilAsync(
+				() => session.Items.Count is 0
+					&& createdCores[burstStart..burstEnd].All(static core => core.DisposeCount is 1)
+					&& renamedCores[burstStart..burstEnd].All(static core => core.DisposeCount is 1),
+				TimeSpan.FromSeconds(10));
+		}
+
+		Assert.IsTrue(createdCores.All(static core => core.DisposeCount is 1));
+		Assert.IsTrue(renamedCores.All(static core => core.DisposeCount is 1));
+	}
+
+	/// <summary>
 	/// Test case: incomplete change falls back to full refresh.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
@@ -1282,10 +1396,42 @@ public sealed class BrowseSessionTests
 		return resolver;
 	}
 
-	private static async Task WaitUntilAsync(Func<bool> condition)
+	private static int ReadFaultStressIterationCount()
 	{
-		var timeout = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-		while (!condition() && DateTime.UtcNow < timeout)
+		var value = Environment.GetEnvironmentVariable("FILES_FAULT_STRESS_ITERATIONS");
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return DefaultFaultStressIterationCount;
+		}
+
+		if (!int.TryParse(value, out var iterationCount) || iterationCount < 1 || iterationCount > MaximumFaultStressIterationCount)
+		{
+			throw new InvalidOperationException($"FILES_FAULT_STRESS_ITERATIONS must be between 1 and {MaximumFaultStressIterationCount}.");
+		}
+
+		return iterationCount;
+	}
+
+	private static int ReadLiveChangeStressIterationCount()
+	{
+		var value = Environment.GetEnvironmentVariable("FILES_LIVE_CHANGE_STRESS_ITERATIONS");
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return DefaultLiveChangeStressIterationCount;
+		}
+
+		if (!int.TryParse(value, out var iterationCount) || iterationCount < 1 || iterationCount > MaximumLiveChangeStressIterationCount)
+		{
+			throw new InvalidOperationException($"FILES_LIVE_CHANGE_STRESS_ITERATIONS must be between 1 and {MaximumLiveChangeStressIterationCount}.");
+		}
+
+		return iterationCount;
+	}
+
+	private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan? timeout = null)
+	{
+		var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(5));
+		while (!condition() && DateTime.UtcNow < deadline)
 		{
 			await Task.Delay(10).ConfigureAwait(false);
 		}

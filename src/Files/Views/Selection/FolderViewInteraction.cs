@@ -401,10 +401,12 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 	private void UpdateViewModelSelection()
 	{
-		if (!_synchronizingSelection && !_viewModel.IsApplyingUpdate)
+		if (_isDisposed || !_element.IsLoaded || _synchronizingSelection || _viewModel.IsApplyingUpdate)
 		{
-			_viewModel.SetSelection(_selectedItems.OfType<BrowseItemViewModel>());
+			return;
 		}
+
+		_viewModel.SetSelection(_selectedItems.OfType<BrowseItemViewModel>());
 	}
 
 	private void TrackRealizedRow(int index, bool inRecycleQueue)

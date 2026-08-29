@@ -86,16 +86,18 @@
 		</DataTemplate>
 	</UserControl.Resources>
 
-	<controls:RectangleSelectionHost>
+	<controls:RectangleSelectionHost HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 		<controls:TableView
 			x:Name="ItemTable"
+			Margin="8,0,0,0"
+			HorizontalAlignment="Left"
 			controls:RectangleSelection.IsTarget="True"
+			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}"
 			ColumnTemplateSelector="{StaticResource DetailsColumnTemplateSelector}"
 			ColumnsSource="{x:Bind ViewModel.DetailsColumns, Mode=OneWay}"
 			GroupHeaderTemplate="{StaticResource DetailsGroupHeaderTemplate}"
 			ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
-			RowHeight="{x:Bind ViewModel.DetailsRowHeight, Mode=OneWay}"
-			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
+			RowHeight="{x:Bind ViewModel.DetailsRowHeight, Mode=OneWay}" />
 	</controls:RectangleSelectionHost>
 
 </UserControl>
