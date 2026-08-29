@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows System RE"
+  short_description: "Confirm Windows behavior from local RE artifacts"
+  default_prompt: "Use $windows-system-re to confirm how Windows implements this behavior."
