@@ -43,19 +43,19 @@
 			<GridView.ItemTemplate>
 				<DataTemplate x:DataType="vm:BrowseItemViewModel">
 					<StackPanel
-						Width="{Binding ViewModel.GridItemSize, ElementName=Root}"
-						MinHeight="{Binding ViewModel.GridItemSize, ElementName=Root}"
+						Width="{x:Bind LayoutMetrics.GridItemSize, Mode=OneWay}"
+						MinHeight="{x:Bind LayoutMetrics.GridItemSize, Mode=OneWay}"
 						Padding="10"
 						AutomationProperties.Name="{x:Bind DisplayName}"
 						Spacing="8">
 						<Grid
-							Width="{Binding ViewModel.GridThumbnailSize, ElementName=Root}"
-							Height="{Binding ViewModel.GridThumbnailSize, ElementName=Root}"
+							Width="{x:Bind LayoutMetrics.GridThumbnailSize, Mode=OneWay}"
+							Height="{x:Bind LayoutMetrics.GridThumbnailSize, Mode=OneWay}"
 							HorizontalAlignment="Center">
 							<FontIcon
 								HorizontalAlignment="Center"
 								VerticalAlignment="Center"
-								FontSize="{Binding ViewModel.GridDefaultIconSize, ElementName=Root}"
+								FontSize="{x:Bind LayoutMetrics.GridDefaultIconSize, Mode=OneWay}"
 								Glyph="&#xE8B7;"
 								Opacity="{x:Bind DefaultIconOpacity, Mode=OneWay}"
 								Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />

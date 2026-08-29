@@ -47,6 +47,8 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 	public IReadOnlyDictionary<string, object?> Properties => _properties;
 
+	internal BrowseItemLayoutMetrics LayoutMetrics { get; private set; }
+
 	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference, bool isHidden = false, bool showFileExtensions = true)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -57,11 +59,19 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		IsFolder = isFolder;
 		IsHidden = isHidden;
 		Reference = reference;
+		LayoutMetrics = new BrowseItemLayoutMetrics();
 	}
 
 	internal void SetThumbnail(BitmapImage? value)
 	{
 		Thumbnail = value;
+	}
+
+	internal void SetLayoutMetrics(BrowseItemLayoutMetrics value)
+	{
+		ArgumentNullException.ThrowIfNull(value);
+
+		LayoutMetrics = value;
 	}
 
 	partial void OnThumbnailChanged(BitmapImage? value)
@@ -202,5 +212,55 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		}
 
 		return name[..^extension.Length];
+	}
+}
+
+internal sealed class BrowseItemLayoutMetrics : ObservableObject
+{
+	private double _layoutSize;
+
+	public double LayoutSize => _layoutSize;
+
+	public double DetailsRowHeight => 28 + ((LayoutSize - 1) * 8);
+
+	public double ListThumbnailSize => 24 + ((LayoutSize - 1) * 8);
+
+	public double ListItemHeight => ListThumbnailSize + 12;
+
+	public double CardsThumbnailSize => 48 + ((LayoutSize - 1) * 12);
+
+	public double CardsItemHeight => CardsThumbnailSize + 24;
+
+	public double GridItemSize => 104 + ((LayoutSize - 1) * 28);
+
+	public double GridThumbnailSize => GridItemSize - 44;
+
+	public double GridDefaultIconSize => GridThumbnailSize * 0.57;
+
+	internal BrowseItemLayoutMetrics(double? itemSize = null)
+	{
+		_layoutSize = NormalizeLayoutSize(itemSize);
+	}
+
+	internal void Update(double? itemSize)
+	{
+		if (!SetProperty(ref _layoutSize, NormalizeLayoutSize(itemSize), nameof(LayoutSize)))
+		{
+			return;
+		}
+
+		OnPropertyChanged(nameof(DetailsRowHeight));
+		OnPropertyChanged(nameof(ListThumbnailSize));
+		OnPropertyChanged(nameof(ListItemHeight));
+		OnPropertyChanged(nameof(CardsThumbnailSize));
+		OnPropertyChanged(nameof(CardsItemHeight));
+		OnPropertyChanged(nameof(GridItemSize));
+		OnPropertyChanged(nameof(GridThumbnailSize));
+		OnPropertyChanged(nameof(GridDefaultIconSize));
+	}
+
+	private static double NormalizeLayoutSize(double? itemSize)
+	{
+		return Math.Clamp(Math.Round(itemSize ?? 3), 1, 5);
 	}
 }

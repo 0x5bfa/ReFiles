@@ -4,20 +4,21 @@
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:controls="using:Files.Controls"
+	xmlns:vm="using:Files.ViewModels"
 	xmlns:views="using:Files.Views"
 	x:Name="Root">
 
 	<UserControl.Resources>
-		<DataTemplate x:Key="NavigationSidebarFlyoutItemTemplate">
+		<DataTemplate x:Key="NavigationSidebarFlyoutItemTemplate" x:DataType="vm:NavigationItemViewModel">
 			<controls:SidebarItem
-				AutomationProperties.Name="{Binding Text}"
-				Icon="{Binding Icon, Mode=OneWay}"
-				IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
-				Item="{Binding}"
-				MenuItemsSource="{Binding MenuItemsSource, Mode=OneWay}"
-				SelectsOnInvoked="{Binding SelectsOnInvoked, Mode=OneWay}"
-				Text="{Binding Text, Mode=OneWay}"
-				ToolTip="{Binding ToolTip, Mode=OneWay}" />
+				AutomationProperties.Name="{x:Bind Text}"
+				Icon="{x:Bind Icon, Mode=OneWay}"
+				IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+				Item="{x:Bind}"
+				MenuItemsSource="{x:Bind MenuItemsSource, Mode=OneWay}"
+				SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneWay}"
+				Text="{x:Bind Text, Mode=OneWay}"
+				ToolTip="{x:Bind ToolTip, Mode=OneWay}" />
 		</DataTemplate>
 		<DataTemplate x:Key="NavigationSidebarItemTemplate" x:DataType="controls:FlatSidebarItem">
 			<controls:SidebarItem

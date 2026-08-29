@@ -3,6 +3,7 @@
 	x:Class="Files.ItemProperties.CustomizePropertyView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:itemProperties="using:Files.ItemProperties"
 	xmlns:localization="using:Files.Localization"
 	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	Loaded="UserControl_Loaded">
@@ -26,9 +27,14 @@
 					<ComboBox
 						x:Name="FolderKindComboBox"
 						HorizontalAlignment="Stretch"
-						DisplayMemberPath="DisplayName"
 						ItemsSource="{x:Bind FolderKinds}"
-						SelectionChanged="FolderKindComboBox_SelectionChanged" />
+						SelectionChanged="FolderKindComboBox_SelectionChanged">
+						<ComboBox.ItemTemplate>
+							<DataTemplate x:DataType="itemProperties:FolderKindOption">
+								<TextBlock Text="{x:Bind DisplayName}" />
+							</DataTemplate>
+						</ComboBox.ItemTemplate>
+					</ComboBox>
 					<CheckBox
 						x:Name="ApplyToSubfoldersCheckBox"
 						Click="ApplyToSubfoldersCheckBox_Click"

@@ -18,7 +18,7 @@
 				Style="{ThemeResource TitleTextBlockStyle}"
 				Text="{localization:Localized ResourceKey=About}" />
 
-			<wctcontrols:SettingsCard Description="{x:Bind VersionDescription, Mode=OneWay}" Header="{x:Bind AppName, Mode=OneWay}">
+			<wctcontrols:SettingsCard Description="{x:Bind VersionDescription, Mode=OneTime}" Header="{x:Bind AppName, Mode=OneTime}">
 				<wctcontrols:SettingsCard.HeaderIcon>
 					<FontIcon Glyph="&#xE946;" />
 				</wctcontrols:SettingsCard.HeaderIcon>

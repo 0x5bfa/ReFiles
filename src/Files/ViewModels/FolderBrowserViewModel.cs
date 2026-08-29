@@ -101,23 +101,23 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool ShowFileExtensions => _appSettings.ShowFileExtensions;
 
-	public double LayoutSize => Math.Clamp(Math.Round(ViewSettings.ItemSize ?? 3), 1, 5);
+	public double LayoutSize => _browseAdapter.ItemLayoutMetrics.LayoutSize;
 
-	public double DetailsRowHeight => 28 + ((LayoutSize - 1) * 8);
+	public double DetailsRowHeight => _browseAdapter.ItemLayoutMetrics.DetailsRowHeight;
 
-	public double ListThumbnailSize => 24 + ((LayoutSize - 1) * 8);
+	public double ListThumbnailSize => _browseAdapter.ItemLayoutMetrics.ListThumbnailSize;
 
-	public double ListItemHeight => ListThumbnailSize + 12;
+	public double ListItemHeight => _browseAdapter.ItemLayoutMetrics.ListItemHeight;
 
-	public double CardsThumbnailSize => 48 + ((LayoutSize - 1) * 12);
+	public double CardsThumbnailSize => _browseAdapter.ItemLayoutMetrics.CardsThumbnailSize;
 
-	public double CardsItemHeight => CardsThumbnailSize + 24;
+	public double CardsItemHeight => _browseAdapter.ItemLayoutMetrics.CardsItemHeight;
 
-	public double GridItemSize => 104 + ((LayoutSize - 1) * 28);
+	public double GridItemSize => _browseAdapter.ItemLayoutMetrics.GridItemSize;
 
-	public double GridThumbnailSize => GridItemSize - 44;
+	public double GridThumbnailSize => _browseAdapter.ItemLayoutMetrics.GridThumbnailSize;
 
-	public double GridDefaultIconSize => GridThumbnailSize * 0.57;
+	public double GridDefaultIconSize => _browseAdapter.ItemLayoutMetrics.GridDefaultIconSize;
 
 	public FolderViewMode ViewMode
 	{

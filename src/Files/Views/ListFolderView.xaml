@@ -43,7 +43,7 @@
 			<ListView.ItemTemplate>
 				<DataTemplate x:DataType="vm:BrowseItemViewModel">
 					<Grid
-						MinHeight="{Binding ViewModel.ListItemHeight, ElementName=Root}"
+						MinHeight="{x:Bind LayoutMetrics.ListItemHeight, Mode=OneWay}"
 						Padding="12,6"
 						ColumnSpacing="12">
 						<Grid.ColumnDefinitions>
@@ -52,14 +52,14 @@
 							<ColumnDefinition Width="120" />
 						</Grid.ColumnDefinitions>
 						<Grid
-							Width="{Binding ViewModel.ListThumbnailSize, ElementName=Root}"
-							Height="{Binding ViewModel.ListThumbnailSize, ElementName=Root}"
+							Width="{x:Bind LayoutMetrics.ListThumbnailSize, Mode=OneWay}"
+							Height="{x:Bind LayoutMetrics.ListThumbnailSize, Mode=OneWay}"
 							HorizontalAlignment="Center"
 							VerticalAlignment="Center">
 							<FontIcon
 								HorizontalAlignment="Center"
 								VerticalAlignment="Center"
-								FontSize="{Binding ViewModel.ListThumbnailSize, ElementName=Root}"
+								FontSize="{x:Bind LayoutMetrics.ListThumbnailSize, Mode=OneWay}"
 								Glyph="&#xE8B7;"
 								Opacity="{x:Bind DefaultIconOpacity, Mode=OneWay}"
 								Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />

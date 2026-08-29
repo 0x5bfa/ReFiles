@@ -4,6 +4,7 @@
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:localization="using:Files.Localization"
+	xmlns:views="using:Files.Views"
 	xmlns:wctcontrols="using:CommunityToolkit.WinUI.Controls"
 	Loaded="GeneralSettingsView_Loaded"
 	Unloaded="GeneralSettingsView_Unloaded">
@@ -47,9 +48,14 @@
 				<ComboBox
 					x:Name="LanguagePicker"
 					MinWidth="220"
-					DisplayMemberPath="Label"
-					ItemsSource="{x:Bind Languages, Mode=OneWay}"
-					SelectionChanged="LanguagePicker_SelectionChanged" />
+					ItemsSource="{x:Bind Languages, Mode=OneTime}"
+					SelectionChanged="LanguagePicker_SelectionChanged">
+					<ComboBox.ItemTemplate>
+						<DataTemplate x:DataType="views:LanguageOption">
+							<TextBlock Text="{x:Bind Label}" />
+						</DataTemplate>
+					</ComboBox.ItemTemplate>
+				</ComboBox>
 			</wctcontrols:SettingsCard>
 
 			<InfoBar

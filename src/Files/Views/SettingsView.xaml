@@ -33,10 +33,10 @@
 			CanResizePane="False"
 			DisplayMode="Expanded"
 			FooterMenuItemTemplate="{StaticResource SettingsNavigationItemTemplate}"
-			FooterMenuItemsSource="{x:Bind FooterNavigationItems, Mode=OneWay}"
+			FooterMenuItemsSource="{x:Bind FooterNavigationItems, Mode=OneTime}"
 			ItemInvoked="SettingsNavigation_ItemInvoked"
 			MenuItemTemplate="{StaticResource SettingsNavigationItemTemplate}"
-			MenuItemsSource="{x:Bind NavigationItems, Mode=OneWay}"
+			MenuItemsSource="{x:Bind NavigationItems, Mode=OneTime}"
 			OpenPaneLength="220"
 			PaneBackgroundBrush="{ThemeResource ControlFillColorTransparentBrush}"
 			SupportsExpansion="False">

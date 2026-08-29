@@ -28,6 +28,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly IUIDispatcher _dispatcher;
 	private readonly IBrowsePrefetchCoordinator _prefetch;
 	private readonly BrowsePresentationText _text;
+	private readonly BrowseItemLayoutMetrics _itemLayoutMetrics;
 	private readonly CancellationTokenSource _lifetime = new();
 	private readonly SemaphoreSlim _thumbnailDecodeGate = new(2);
 	private readonly Lock _thumbnailTaskLock = new();
@@ -72,6 +73,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
 		_text = text ?? BrowsePresentationText.CreateLocalized();
 		_viewSettings = _pane.BrowseSession.ViewSettings;
+		_itemLayoutMetrics = new BrowseItemLayoutMetrics(_viewSettings.ItemSize);
 
 		SelectedKeys = Array.Empty<StorableKey>();
 		LocationText = _text.Home;
@@ -101,6 +103,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	public bool CanGoUp => _pane.CanGoUp;
 
 	public BrowseViewSettings ViewSettings => _viewSettings;
+
+	public BrowseItemLayoutMetrics ItemLayoutMetrics => _itemLayoutMetrics;
 
 	public ViewLayoutMode LayoutMode => ViewSettings.LayoutMode;
 
@@ -809,6 +813,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			ErrorMessage = state.ErrorMessage;
 			LocationText = state.LocationText;
 			_viewSettings = state.ViewSettings;
+			_itemLayoutMetrics.Update(_viewSettings.ItemSize);
 		}
 
 		if (selection is not null)
@@ -1680,6 +1685,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
 	{
 		var viewModel = new BrowseItemViewModel(item.Name, item is IFolderModel, item.Reference, item.IsHidden, _pane.BrowseSession.DisplaySettings.ShowFileExtensions);
+		viewModel.SetLayoutMetrics(_itemLayoutMetrics);
 		var itemViewModelCount = Interlocked.Increment(ref _diagnosticItemViewModelCount);
 		if (itemViewModelCount is 1)
 		{

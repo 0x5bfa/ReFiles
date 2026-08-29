@@ -44,7 +44,7 @@
 				<DataTemplate x:DataType="vm:BrowseItemViewModel">
 					<Grid
 						Width="288"
-						MinHeight="{Binding ViewModel.CardsItemHeight, ElementName=Root}"
+						MinHeight="{x:Bind LayoutMetrics.CardsItemHeight, Mode=OneWay}"
 						Padding="10"
 						AutomationProperties.Name="{x:Bind DisplayName}"
 						ColumnSpacing="12">
@@ -53,8 +53,8 @@
 							<ColumnDefinition Width="*" />
 						</Grid.ColumnDefinitions>
 						<Grid
-							Width="{Binding ViewModel.CardsThumbnailSize, ElementName=Root}"
-							Height="{Binding ViewModel.CardsThumbnailSize, ElementName=Root}"
+							Width="{x:Bind LayoutMetrics.CardsThumbnailSize, Mode=OneWay}"
+							Height="{x:Bind LayoutMetrics.CardsThumbnailSize, Mode=OneWay}"
 							HorizontalAlignment="Center"
 							VerticalAlignment="Center">
 							<FontIcon
