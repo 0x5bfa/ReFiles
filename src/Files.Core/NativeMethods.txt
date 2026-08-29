@@ -447,7 +447,12 @@ IPropertyStore
 IPropertyDescription
 IPropertyDescriptionList
 PSGetPropertyDescription
+PSGetPropertyDescriptionListFromString
 PKEY_PropList_FullDetails
+FOLDERTYPEID_Generic
+IKnownFolder
+IKnownFolderManager
+KnownFolderManager
 NetShareEnum
 NetApiBufferFree
 SHARE_INFO_503

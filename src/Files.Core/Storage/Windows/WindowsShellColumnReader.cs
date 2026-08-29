@@ -1,13 +1,17 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
+using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.SystemServices;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
+using Windows.Win32.UI.Shell.PropertiesSystem;
 
 namespace Files.Core.Storage.Windows;
 
@@ -16,6 +20,14 @@ internal static unsafe class WindowsShellColumnReader
 	private const int HeaderBufferLength = 256;
 
 	private const uint MaximumColumnCount = 1024;
+
+	private const string FolderTypesRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderTypes";
+
+	private const string ColumnListValueName = "ColumnList";
+
+	private static readonly IReadOnlyDictionary<string, int> _emptyColumnWidths = new ReadOnlyDictionary<string, int>(new Dictionary<string, int>(StringComparer.Ordinal));
+
+	private static readonly ConcurrentDictionary<Guid, IReadOnlyDictionary<string, int>> _folderTypeColumnWidths = new();
 
 	internal static WindowsShellColumnSet Read(IShellItem shellItem, string parsingName, CancellationToken cancellationToken = default)
 	{
@@ -93,8 +105,11 @@ internal static unsafe class WindowsShellColumnReader
 
 		var shellColumnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
 		cancellationToken.ThrowIfCancellationRequested();
+		var isFileSystemFolder = shellItem.GetAttributes(SFGAO_FLAGS.SFGAO_FILESYSTEM, out var attributes).Succeeded && (attributes & SFGAO_FLAGS.SFGAO_FILESYSTEM) != 0;
+		var defaultColumnWidths = isFileSystemFolder ? GetFolderTypeColumnWidths(parsingName) : _emptyColumnWidths;
+		cancellationToken.ThrowIfCancellationRequested();
 
-		if (TryReadViewColumns(folder, shellColumnSet, cancellationToken, out var viewColumnSet))
+		if (TryReadViewColumns(folder, shellColumnSet, defaultColumnWidths, cancellationToken, out var viewColumnSet))
 		{
 			return viewColumnSet;
 		}
@@ -104,7 +119,12 @@ internal static unsafe class WindowsShellColumnReader
 		return shellColumnSet;
 	}
 
-	private static bool TryReadViewColumns(IShellFolder folder, WindowsShellColumnSet shellColumnSet, CancellationToken cancellationToken, out WindowsShellColumnSet columnSet)
+	private static bool TryReadViewColumns(
+		IShellFolder folder,
+		WindowsShellColumnSet shellColumnSet,
+		IReadOnlyDictionary<string, int> defaultColumnWidths,
+		CancellationToken cancellationToken,
+		out WindowsShellColumnSet columnSet)
 	{
 		columnSet = shellColumnSet;
 		cancellationToken.ThrowIfCancellationRequested();
@@ -195,7 +215,7 @@ internal static unsafe class WindowsShellColumnReader
 				displayName = legacyColumn?.DisplayName ?? entry.PropertyId;
 			}
 
-			var headerWidthCharacters = GetColumnWidthCharacters(columnInfo, infoResult.Succeeded, legacyColumn);
+			var headerWidthCharacters = GetColumnWidthCharacters(entry.PropertyId, columnInfo, infoResult.Succeeded, legacyColumn, defaultColumnWidths);
 			var isVisible = infoResult.Succeeded
 				? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_VISIBLE)
 				: visiblePropertyIds.Contains(entry.PropertyId);
@@ -251,14 +271,102 @@ internal static unsafe class WindowsShellColumnReader
 		return false;
 	}
 
-	private static int GetColumnWidthCharacters(CM_COLUMNINFO columnInfo, bool hasColumnInfo, WindowsShellColumn? legacyColumn)
+	private static int GetColumnWidthCharacters(string propertyId, CM_COLUMNINFO columnInfo, bool hasColumnInfo, WindowsShellColumn? legacyColumn, IReadOnlyDictionary<string, int> defaultColumnWidths)
 	{
 		if (hasColumnInfo && columnInfo.uWidth is > 0 and < 4096)
 		{
 			return Math.Max(1, (int)Math.Round(columnInfo.uWidth / 8d));
 		}
 
+		if (hasColumnInfo && columnInfo.uDefaultWidth is > 0 and < 4096)
+		{
+			return Math.Max(1, (int)Math.Round(columnInfo.uDefaultWidth / 8d));
+		}
+
+		if (defaultColumnWidths.TryGetValue(propertyId, out var widthCharacters))
+		{
+			return widthCharacters;
+		}
+
 		return legacyColumn?.HeaderWidthCharacters is > 0 ? legacyColumn.HeaderWidthCharacters : 0;
+	}
+
+	private static IReadOnlyDictionary<string, int> GetFolderTypeColumnWidths(string parsingName)
+	{
+		var folderTypeId = GetFolderTypeId(parsingName);
+		var widths = _folderTypeColumnWidths.GetOrAdd(folderTypeId, ReadFolderTypeColumnWidths);
+		if (widths.Count is 0 && folderTypeId != PInvoke.FOLDERTYPEID_Generic)
+		{
+			return _folderTypeColumnWidths.GetOrAdd(PInvoke.FOLDERTYPEID_Generic, ReadFolderTypeColumnWidths);
+		}
+
+		return widths;
+	}
+
+	private static Guid GetFolderTypeId(string parsingName)
+	{
+		try
+		{
+			var manager = KnownFolderManager.CreateInstance<IKnownFolderManager>();
+			if (manager.FindFolderFromPath(parsingName, FFFP_MODE.FFFP_EXACTMATCH, out var knownFolder).Succeeded && knownFolder.GetFolderType(out var folderTypeId).Succeeded)
+			{
+				return folderTypeId;
+			}
+		}
+		catch (COMException)
+		{
+		}
+
+		return PInvoke.FOLDERTYPEID_Generic;
+	}
+
+	private static IReadOnlyDictionary<string, int> ReadFolderTypeColumnWidths(Guid folderTypeId)
+	{
+		var widths = new Dictionary<string, int>(StringComparer.Ordinal);
+		var topViewPath = $@"{FolderTypesRegistryPath}\{folderTypeId:B}\TopViews\{Guid.Empty:B}";
+		using var topViewKey = Registry.LocalMachine.OpenSubKey(topViewPath);
+		if (topViewKey?.GetValue(ColumnListValueName) is not string columnList || string.IsNullOrWhiteSpace(columnList))
+		{
+			return widths;
+		}
+
+		var interfaceId = typeof(IPropertyDescriptionList).GUID;
+		var result = PInvoke.PSGetPropertyDescriptionListFromString(columnList, in interfaceId, out void* descriptionsPointer);
+		if (result.Failed || descriptionsPointer is null)
+		{
+			if (descriptionsPointer is not null)
+			{
+				ComInterfaceMarshaller<IPropertyDescriptionList>.Free(descriptionsPointer);
+			}
+
+			return widths;
+		}
+
+		try
+		{
+			var descriptions = ComInterfaceMarshaller<IPropertyDescriptionList>.ConvertToManaged(descriptionsPointer);
+			if (descriptions is null || descriptions.GetCount(out var count).Failed || count > MaximumColumnCount)
+			{
+				return widths;
+			}
+
+			for (var index = 0u; index < count; index++)
+			{
+				if (descriptions.GetAt<IPropertyDescription>(index, out var description).Failed || description is null || description.GetPropertyKey(out var propertyKey).Failed
+					|| description.GetDefaultColumnWidth(out var widthCharacters).Failed || widthCharacters is 0 or >= 4096)
+				{
+					continue;
+				}
+
+				widths[GetPropertyId(propertyKey)] = checked((int)widthCharacters);
+			}
+
+			return widths;
+		}
+		finally
+		{
+			ComInterfaceMarshaller<IPropertyDescriptionList>.Free(descriptionsPointer);
+		}
 	}
 
 	private static int? MapColumnIndex(int? sourceIndex, IReadOnlyList<WindowsShellColumn> sourceColumns, IReadOnlyList<WindowsShellColumn> targetColumns)
