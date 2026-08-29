@@ -58,9 +58,9 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.BurnDiscImage, Strings.BurnDiscImage, "App.ThemedIcons.File", Strings.Item, 80),
 			static _ => new ContextualShellCommandHandler(CommandIds.BurnDiscImage, WindowsShellContextualCommandIds.BurnDiscImage));
 		builder.Register(new(CommandIds.EmptyRecycleBin, Strings.EmptyRecycleBin, "App.ThemedIcons.Delete", Strings.Item, 90),
-			static _ => new ContextualShellCommandHandler(CommandIds.EmptyRecycleBin, WindowsShellContextualCommandIds.EmptyRecycleBin));
+			static _ => new ContextualShellCommandHandler(CommandIds.EmptyRecycleBin, WindowsShellContextualCommandIds.EmptyRecycleBin, hideWhenShellDisabled: true));
 		builder.Register(new(CommandIds.RestoreAllRecycleBinItems, Strings.RestoreAllItems, "App.ThemedIcons.RestoreDeleted", Strings.Item, 100),
-			static _ => new ContextualShellCommandHandler(CommandIds.RestoreAllRecycleBinItems, WindowsShellContextualCommandIds.RestoreAllRecycleBinItems));
+			static _ => new ContextualShellCommandHandler(CommandIds.RestoreAllRecycleBinItems, WindowsShellContextualCommandIds.RestoreAllRecycleBinItems, hideWhenShellDisabled: true));
 		builder.Register(new(CommandIds.RestoreRecycleBinItems, Strings.RestoreSelectedItems, "App.ThemedIcons.RestoreDeleted", Strings.Item, 110),
 			static _ => new ContextualShellCommandHandler(CommandIds.RestoreRecycleBinItems, WindowsShellContextualCommandIds.RestoreRecycleBinItems));
 		builder.Register(new(CommandIds.CompressToZip, Strings.CompressToZip, "App.ThemedIcons.Zip", Strings.Item, 120),

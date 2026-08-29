@@ -11,28 +11,39 @@ namespace Files.UnitTests;
 [DoNotParallelize]
 public sealed class WindowsShellContextualCommandTests
 {
-	/// <summary>Verifies that an ISO selection exposes the mounted-disc commands registered by the Shell.</summary>
+	/// <summary>Verifies that mounted-disc commands are exposed only for a single ISO selection.</summary>
 	[TestMethod]
-	public async Task IsoSelectionExposesMountAndBurnCommands()
+	public async Task IsoSelectionsExposeMountAndBurnCommandsOnlyForSingleSelection()
 	{
 		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ContextualCommandTests-{Guid.NewGuid():N}");
 		var isoPath = Path.Combine(directoryPath, "sample.iso");
+		var secondIsoPath = Path.Combine(directoryPath, "second.iso");
+		var textPath = Path.Combine(directoryPath, "sample.txt");
 		Directory.CreateDirectory(directoryPath);
 		await File.WriteAllBytesAsync(isoPath, []);
+		await File.WriteAllBytesAsync(secondIsoPath, []);
+		await File.WriteAllTextAsync(textPath, "content");
 
 		try
 		{
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, isoPath));
-			var reference = new StorableReference(source.SourceId, item.Id, item.Address);
+			var reference = await ResolveReferenceAsync(source, isoPath);
+			var secondIso = await ResolveReferenceAsync(source, secondIsoPath);
+			var text = await ResolveReferenceAsync(source, textPath);
 			var service = new WindowsShellContextualCommandService(source);
 
 			var commands = await service.GetCommandsAsync(null, [reference], 0);
 			var ids = commands.Select(static command => command.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+			var multipleIsoIds = (await service.GetCommandsAsync(null, [reference, secondIso], 0)).Select(static command => command.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+			var mixedSelectionIds = (await service.GetCommandsAsync(null, [reference, text], 0)).Select(static command => command.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
 			Assert.IsTrue(ids.Contains(WindowsShellContextualCommandIds.Mount), $"Discovered commands: {string.Join(", ", ids)}");
 			Assert.IsTrue(ids.Contains(WindowsShellContextualCommandIds.BurnDiscImage), $"Discovered commands: {string.Join(", ", ids)}");
+			Assert.IsFalse(multipleIsoIds.Contains(WindowsShellContextualCommandIds.Mount), $"Multiple ISO commands: {string.Join(", ", multipleIsoIds)}");
+			Assert.IsFalse(multipleIsoIds.Contains(WindowsShellContextualCommandIds.BurnDiscImage), $"Multiple ISO commands: {string.Join(", ", multipleIsoIds)}");
+			Assert.IsFalse(mixedSelectionIds.Contains(WindowsShellContextualCommandIds.Mount), $"Mixed selection commands: {string.Join(", ", mixedSelectionIds)}");
+			Assert.IsFalse(mixedSelectionIds.Contains(WindowsShellContextualCommandIds.BurnDiscImage), $"Mixed selection commands: {string.Join(", ", mixedSelectionIds)}");
 
 			var recycleBin = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.ShellAddressScheme, "shell:::{645FF040-5081-101B-9F08-00AA002F954E}"));
 			var recycleBinLocation = new StorableReference(source.SourceId, recycleBin.Id, recycleBin.Address);

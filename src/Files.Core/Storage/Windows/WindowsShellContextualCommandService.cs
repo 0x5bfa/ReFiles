@@ -22,6 +22,7 @@ public sealed class WindowsShellContextualCommandService
 	private const uint ContextMenuQueryFlags = 0x00000100 | 0x00000800;
 	private const string CommandStoreRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell";
 	private const string RestoreAllRecycleBinBackendId = "Windows.RecycleBin.RestoreAll";
+	private static readonly HashSet<string> _singleSelectionCommandIds = new(StringComparer.OrdinalIgnoreCase) { WindowsShellContextualCommandIds.Mount, WindowsShellContextualCommandIds.BurnDiscImage };
 	private static readonly string[] _selectionExplorerCommandIds = ["Windows.Zip.Action", "Windows.PinToHome", "Windows.PinToHomeFile"];
 	private static readonly string[] _locationExplorerCommandIds = ["Windows.PinToHome"];
 	private static readonly IReadOnlyDictionary<string, string> _commandIdsByBackendId = CreateCommandIdMap();
@@ -98,6 +99,8 @@ public sealed class WindowsShellContextualCommandService
 			}
 		}
 
+		RemoveSingleSelectionCommands(commands, selection.Count);
+
 		return isRecycleBin ? commands.Values.Where(static command => IsRecycleBinCommand(command.Id)).ToArray() : commands.Values.ToArray();
 	}
 
@@ -116,6 +119,11 @@ public sealed class WindowsShellContextualCommandService
 		ArgumentNullException.ThrowIfNull(selection);
 		ArgumentNullException.ThrowIfNull(command);
 		ArgumentNullException.ThrowIfNull(context);
+
+		if (selection.Count is not 1 && _singleSelectionCommandIds.Contains(command.Id))
+		{
+			return false;
+		}
 
 		return command.Token switch
 		{
@@ -183,6 +191,19 @@ public sealed class WindowsShellContextualCommandService
 	private static bool IsRecycleBinCommand(string commandId)
 	{
 		return commandId is WindowsShellContextualCommandIds.EmptyRecycleBin or WindowsShellContextualCommandIds.RestoreAllRecycleBinItems or WindowsShellContextualCommandIds.RestoreRecycleBinItems;
+	}
+
+	private static void RemoveSingleSelectionCommands(IDictionary<string, WindowsShellContextualCommand> commands, int selectionCount)
+	{
+		if (selectionCount is 1)
+		{
+			return;
+		}
+
+		foreach (var commandId in _singleSelectionCommandIds)
+		{
+			commands.Remove(commandId);
+		}
 	}
 
 	private async Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetRegisteredCommandsAsync(IReadOnlyList<StorableReference> selection,
