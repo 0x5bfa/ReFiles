@@ -80,7 +80,7 @@
 							<!-- <ColumnDefinition Width="320" /> -->
 						</Grid.ColumnDefinitions>
 
-						<views:PaneHost ViewModel="{x:Bind ViewModel.ActiveTab, Mode=OneWay}" />
+						<views:PaneHost x:Name="PaneHostView" ViewModel="{x:Bind ViewModel.ActiveTab, Mode=OneWay}" />
 
 						<!--
 						<views:PreviewPane

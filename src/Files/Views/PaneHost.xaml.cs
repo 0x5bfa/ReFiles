@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Collections.Specialized;
+using CommunityToolkit.WinUI;
 using Files.Controls;
 using Files.ViewModels;
 using Files.Core.Sessions;
@@ -32,6 +33,18 @@ public sealed partial class PaneHost : UserControl
 		InitializeComponent();
 		Loaded += PaneHost_Loaded;
 		Unloaded += PaneHost_Unloaded;
+	}
+
+	internal bool FocusActiveFolderView()
+	{
+		if (ViewModel?.ActivePane is not { } activePane || !_paneViews.TryGetValue(activePane.Id, out var paneView))
+		{
+			return false;
+		}
+
+		var itemsView = paneView.FindDescendant<ListViewBase>();
+
+		return itemsView?.Focus(FocusState.Pointer) is true;
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

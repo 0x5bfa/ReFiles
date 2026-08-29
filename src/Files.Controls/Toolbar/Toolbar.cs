@@ -89,6 +89,7 @@ namespace Files.Controls
 
 			if (_overflowButton is not null)
 			{
+				_overflowButton.AllowFocusOnInteraction = AllowFocusOnInteraction;
 				_overflowButton.Label = OverflowButtonLabel;
 			}
 
@@ -582,6 +583,7 @@ namespace Files.Controls
 		private void SetCommonItemProperties(FrameworkElement element, ToolbarItem item)
 		{
 			ApplyToolbarItemSize(element);
+			element.AllowFocusOnInteraction = AllowFocusOnInteraction;
 			element.Visibility = item.IsVisible ? Visibility.Visible : Visibility.Collapsed;
 			element.HorizontalAlignment = HorizontalAlignment.Center;
 			element.VerticalAlignment = VerticalAlignment.Center;

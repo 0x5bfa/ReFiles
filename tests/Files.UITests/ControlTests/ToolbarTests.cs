@@ -22,6 +22,38 @@ namespace Files.UITests.ControlTests;
 public sealed class ToolbarTests
 {
 	/// <summary>
+	/// Verifies that materialized controls inherit the toolbar's pointer focus behavior.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task MaterializedItemsInheritPointerFocusBehavior()
+	{
+		var items = new ObservableCollection<ToolbarItem>
+		{
+			new() { ItemType = ToolbarItemTypes.Button, Label = "Back" },
+			new() { ItemType = ToolbarItemTypes.ToggleButton, Label = "Sidebar" },
+		};
+		var toolbar = new Toolbar { AllowFocusOnInteraction = false, Items = items, Width = 480 };
+		var window = new Window { Content = toolbar };
+		try
+		{
+			var loaded = WaitForLoadedAsync(toolbar);
+			window.Activate();
+			await loaded;
+			await WaitForDispatcherAsync();
+
+			var itemsPanel = GetNamedDescendant<ToolbarItemsPanel>(toolbar, Toolbar.ToolbarItemsPanelPartName);
+			var controls = itemsPanel.Children.Cast<ContentPresenter>().Select(static presenter => (FrameworkElement)presenter.Content).ToArray();
+			Assert.IsTrue(controls.All(static control => !control.AllowFocusOnInteraction));
+			Assert.IsFalse(GetNamedDescendant<ToolbarFlyoutButton>(toolbar, Toolbar.OverflowButtonPartName).AllowFocusOnInteraction);
+		}
+		finally
+		{
+			window.Close();
+		}
+	}
+
+	/// <summary>
 	/// Verifies that navigation-style unloads and width changes do not replace materialized toolbar controls.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>

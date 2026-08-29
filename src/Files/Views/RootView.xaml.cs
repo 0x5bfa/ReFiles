@@ -32,6 +32,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		_viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		// PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
+		NavigationToolbarView.FolderViewFocusRequested += NavigationToolbarView_FolderViewFocusRequested;
 		Loaded += RootView_Loaded;
 	}
 
@@ -65,6 +66,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		Loaded -= RootView_Loaded;
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
+		NavigationToolbarView.FolderViewFocusRequested -= NavigationToolbarView_FolderViewFocusRequested;
 		// await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
 		await _viewModel.DisposeAsync();
@@ -72,6 +74,9 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 	private void TabStrip_NewWindowRequested(object? sender, EventArgs e) =>
 		NewWindowRequested?.Invoke(this, e);
+
+	private void NavigationToolbarView_FolderViewFocusRequested(object? sender, EventArgs e) =>
+		PaneHostView.FocusActiveFolderView();
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{

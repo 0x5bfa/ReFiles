@@ -7,8 +7,10 @@ using Files.Core.Browsing;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.ViewModels;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 
@@ -30,9 +32,12 @@ public sealed partial class NavigationToolbar : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
+	internal event EventHandler? FolderViewFocusRequested;
+
 	public NavigationToolbar()
 	{
 		InitializeComponent();
+		NavigationButtons.AddHandler(PointerReleasedEvent, new PointerEventHandler(NavigationButtons_PointerReleased), true);
 		Unloaded += NavigationToolbar_Unloaded;
 	}
 
@@ -147,6 +152,17 @@ public sealed partial class NavigationToolbar : UserControl
 		PathOmnibar.FocusTextBox();
 	}
 
+	private void NavigationButtons_PointerReleased(object sender, PointerRoutedEventArgs e)
+	{
+		var pointerUpdateKind = e.GetCurrentPoint(NavigationButtons).Properties.PointerUpdateKind;
+		if ((e.Pointer.PointerDeviceType is PointerDeviceType.Mouse && pointerUpdateKind is not PointerUpdateKind.LeftButtonReleased) || !IsNavigationButtonSource(e.OriginalSource as DependencyObject))
+		{
+			return;
+		}
+
+		DispatcherQueue.TryEnqueue(() => FolderViewFocusRequested?.Invoke(this, EventArgs.Empty));
+	}
+
 	private async void BreadcrumbChild_Click(object sender, RoutedEventArgs e)
 	{
 		if (sender is not MenuFlyoutItem { Tag: NavigationToolbarBreadcrumbItem item } || ViewModel is not { } viewModel)
@@ -161,6 +177,19 @@ public sealed partial class NavigationToolbar : UserControl
 	{
 		_breadcrumbFlyoutCancellation?.Cancel();
 		_breadcrumbFlyoutCancellation = null;
+	}
+
+	private bool IsNavigationButtonSource(DependencyObject? source)
+	{
+		for (var current = source; current is not null && !ReferenceEquals(current, NavigationButtons); current = VisualTreeHelper.GetParent(current))
+		{
+			if (current is ButtonBase)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private static IconElement CreateBreadcrumbChildIcon(NavigationToolbarBreadcrumbItem item)
