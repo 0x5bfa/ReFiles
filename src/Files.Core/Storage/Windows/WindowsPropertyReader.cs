@@ -150,6 +150,16 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			}
 		}
 
+		if (request.IncludeFormattedValues)
+		{
+			var displayValues = WindowsShellColumnReader.ReadDisplayValues(parsingName, request.PropertyIds, cancellationToken);
+			foreach (var displayValue in displayValues)
+			{
+				properties.TryGetValue(displayValue.Key, out var rawValue);
+				properties[displayValue.Key] = new FormattedPropertyValue(rawValue, displayValue.Value);
+			}
+		}
+
 		return new ReadOnlyDictionary<string, object?>(properties);
 	}
 

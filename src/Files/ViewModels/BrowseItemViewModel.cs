@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Controls;
+using Files.Core.Capabilities.Properties;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Localization;
@@ -153,6 +154,11 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 		if (_properties.TryGetValue(propertyId, out var value))
 		{
+			if (value is FormattedPropertyValue formattedValue)
+			{
+				return formattedValue.DisplayText;
+			}
+
 			var text = FormatPropertyValue(value);
 			if (!string.IsNullOrWhiteSpace(text))
 			{

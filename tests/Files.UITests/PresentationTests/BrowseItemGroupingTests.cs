@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Capabilities.Properties;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Files.ViewModels;
@@ -66,6 +67,24 @@ public sealed class BrowseItemGroupingTests
 		var groups = BrowseItemGrouping.Create([huge, medium, small, tiny], BrowseDisplayPropertyIds.Size, ViewSortDirection.Ascending, Text);
 
 		CollectionAssert.AreEqual(new[] {"Tiny", "Small", "Medium", "Huge"}, groups.Select(static group => group.Title).ToArray());
+	}
+
+	/// <summary>
+	/// Verifies that Shell-formatted text is displayed while grouping continues to use the raw value.
+	/// </summary>
+	[TestMethod]
+	public void FormattedPropertiesUseDisplayTextAndRawValues()
+	{
+		var image = CreateItem("image", "Image.png", isFolder: false, (BrowseDisplayPropertyIds.Type, new FormattedPropertyValue(".png", "PNG File")));
+		var medium = CreateItem("medium", "Medium.bin", isFolder: false, (BrowseDisplayPropertyIds.Size, new FormattedPropertyValue(2L * 1024 * 1024, "2,048 KB")));
+
+		var typeGroups = BrowseItemGrouping.Create([image], BrowseDisplayPropertyIds.Type, ViewSortDirection.Ascending, Text);
+		var sizeGroups = BrowseItemGrouping.Create([medium], BrowseDisplayPropertyIds.Size, ViewSortDirection.Ascending, Text);
+
+		Assert.AreEqual("PNG File", image.GetDisplayText(BrowseDisplayPropertyIds.Type));
+		Assert.AreEqual("2,048 KB", medium.GetDisplayText(BrowseDisplayPropertyIds.Size));
+		Assert.AreEqual("PNG File", typeGroups.Single().Title);
+		Assert.AreEqual("Medium", sizeGroups.Single().Title);
 	}
 
 	private static BrowseItemViewModel CreateItem(string id, string name, bool isFolder, params (string PropertyId, object? Value)[] properties)

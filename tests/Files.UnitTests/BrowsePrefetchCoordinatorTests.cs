@@ -119,11 +119,11 @@ public sealed class BrowsePrefetchCoordinatorTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
 		var firstProperties = new TestPropertySource
 		{
-			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = 20L,}),
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = new FormattedPropertyValue(20L, "1 KB"),}),
 		};
 		var secondProperties = new TestPropertySource
 		{
-			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = 10L,}),
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = new FormattedPropertyValue(10L, "2 KB"),}),
 		};
 		var firstThumbnail = new TestThumbnailSource
 		{
@@ -157,7 +157,9 @@ public sealed class BrowsePrefetchCoordinatorTests
 		Assert.AreSame(second, session.Items[0]);
 		Assert.AreSame(first, session.Items[1]);
 		Assert.IsTrue(session.TryGetPresentation(first.Reference.GetKey(), out var presentation));
-		Assert.AreEqual(20L, presentation.Properties["System.Size"]);
+		var size = Assert.IsInstanceOfType<FormattedPropertyValue>(presentation.Properties["System.Size"]);
+		Assert.AreEqual(20L, size.RawValue);
+		Assert.AreEqual("1 KB", size.DisplayText);
 		CollectionAssert.AreEqual(new byte[] {1}, presentation.Thumbnail!.Content.ToArray());
 	}
 

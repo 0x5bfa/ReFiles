@@ -11,9 +11,16 @@ public sealed record PropertyRequest
 	/// <summary>Gets the unique property identifiers requested by the consumer.</summary>
 	public IReadOnlyList<string> PropertyIds { get; }
 
+	internal bool IncludeFormattedValues { get; }
+
 	/// <summary>Initializes a property request.</summary>
 	/// <param name="propertyIds">The unique property identifiers to request.</param>
 	public PropertyRequest(IEnumerable<string> propertyIds)
+		: this(propertyIds, includeFormattedValues: false)
+	{
+	}
+
+	internal PropertyRequest(IEnumerable<string> propertyIds, bool includeFormattedValues)
 	{
 		ArgumentNullException.ThrowIfNull(propertyIds);
 
@@ -29,5 +36,6 @@ public sealed record PropertyRequest
 		}
 
 		PropertyIds = Array.AsReadOnly(values);
+		IncludeFormattedValues = includeFormattedValues;
 	}
 }

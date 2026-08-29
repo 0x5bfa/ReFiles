@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Capabilities.Properties;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 
@@ -58,7 +59,12 @@ internal sealed class BrowsePresentationStore
 		{
 			var key = item.Reference.GetKey();
 
-			return _entries.TryGetValue(key, out var entry) && ReferenceEquals(entry.Item, item) && entry.Presentation.Properties.TryGetValue(propertyId, out var value) ? value : null;
+			if (!_entries.TryGetValue(key, out var entry) || !ReferenceEquals(entry.Item, item) || !entry.Presentation.Properties.TryGetValue(propertyId, out var value))
+			{
+				return null;
+			}
+
+			return value is FormattedPropertyValue formattedValue ? formattedValue.RawValue : value;
 		}
 	}
 

@@ -4,6 +4,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using Files.Core.Capabilities.Properties;
 using Files.Core.ViewSettings;
 using Files.Localization;
 
@@ -137,7 +138,7 @@ internal static class BrowseItemGrouping
 			return MissingKey(text);
 		}
 
-		var localDate = value switch
+		var localDate = GetRawValue(value) switch
 		{
 			DateTimeOffset dateTimeOffset => dateTimeOffset.ToLocalTime().Date,
 			DateTime dateTime => dateTime.ToLocalTime().Date,
@@ -158,7 +159,7 @@ internal static class BrowseItemGrouping
 			return new(BrowseItemGroupKind.Folder, text.Folders, 0);
 		}
 
-		if (!item.Properties.TryGetValue(BrowseDisplayPropertyIds.Size, out var value) || !TryGetSize(value, out var size))
+		if (!item.Properties.TryGetValue(BrowseDisplayPropertyIds.Size, out var value) || !TryGetSize(GetRawValue(value), out var size))
 		{
 			return MissingKey(text);
 		}
@@ -181,11 +182,11 @@ internal static class BrowseItemGrouping
 			return new(BrowseItemGroupKind.Folder, text.Folders, string.Empty);
 		}
 
-		if (item.Properties.TryGetValue(BrowseDisplayPropertyIds.Type, out var value) && value is not null && !string.IsNullOrWhiteSpace(Convert.ToString(value, CultureInfo.CurrentCulture)))
+		if (item.Properties.TryGetValue(BrowseDisplayPropertyIds.Type, out var value) && value is not null && !string.IsNullOrWhiteSpace(GetDisplayText(value)))
 		{
-			var title = Convert.ToString(value, CultureInfo.CurrentCulture)!;
+			var title = GetDisplayText(value)!;
 
-			return new(BrowseItemGroupKind.Normal, title, title);
+			return new(BrowseItemGroupKind.Normal, title, GetRawValue(value) ?? title);
 		}
 
 		var extension = Path.GetExtension(item.Name);
@@ -206,13 +207,23 @@ internal static class BrowseItemGrouping
 			return MissingKey(text);
 		}
 
-		var title = Convert.ToString(value, CultureInfo.CurrentCulture);
+		var title = GetDisplayText(value);
 		if (string.IsNullOrWhiteSpace(title))
 		{
 			return MissingKey(text);
 		}
 
-		return new(BrowseItemGroupKind.Normal, title, value);
+		return new(BrowseItemGroupKind.Normal, title, GetRawValue(value) ?? title);
+	}
+
+	private static object? GetRawValue(object? value)
+	{
+		return value is FormattedPropertyValue formattedValue ? formattedValue.RawValue : value;
+	}
+
+	private static string? GetDisplayText(object value)
+	{
+		return value is FormattedPropertyValue formattedValue ? formattedValue.DisplayText : Convert.ToString(value, CultureInfo.CurrentCulture);
 	}
 
 	private static GroupKey MissingKey(BrowseGroupingText text)

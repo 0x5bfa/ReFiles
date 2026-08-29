@@ -62,6 +62,47 @@ public sealed class WindowsPropertyTests
 	}
 
 	/// <summary>
+	/// Test case: windows property reader includes Shell-formatted display text when requested.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task WindowsPropertyReaderIncludesShellFormattedDisplayTextWhenRequested()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		var filePath = Path.Combine(directoryPath, "properties.bin");
+		var content = new byte[1_463_984];
+		File.WriteAllBytes(filePath, content);
+
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
+
+			var capabilityRegistry = new CapabilityBuilder()
+				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
+				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
+				.Build();
+
+			using var model = new StorableModelFactory(capabilityRegistry).Create(source, coreModel);
+			var propertySource = model.Get<IPropertySource>();
+			Assert.IsNotNull(propertySource);
+
+			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(["System.Size"], includeFormattedValues: true));
+			var size = Assert.IsInstanceOfType<FormattedPropertyValue>(properties["System.Size"]);
+
+			Assert.AreEqual((ulong)content.Length, size.RawValue);
+			Assert.IsFalse(string.IsNullOrWhiteSpace(size.DisplayText));
+			Assert.AreNotEqual(content.Length.ToString(), size.DisplayText);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
+	/// <summary>
 	/// Test case: windows property reader reads shell details property.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

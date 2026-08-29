@@ -52,7 +52,7 @@ internal static unsafe class WindowsShellColumnReader
 			}
 
 			var propertyId = GetPropertyId(propertyKey);
-			var displayName = ReadDisplayName(ref details.str);
+			var displayName = TryReadDisplayName(&details.str, null, out var headerText) ? headerText : string.Empty;
 			if (string.IsNullOrWhiteSpace(displayName))
 			{
 				displayName = propertyId;
@@ -353,6 +353,80 @@ internal static unsafe class WindowsShellColumnReader
 		return new ReadOnlyDictionary<string, object?>(values);
 	}
 
+	internal static unsafe IReadOnlyDictionary<string, string> ReadDisplayValues(string parsingName, IReadOnlyList<string> propertyIds, CancellationToken cancellationToken)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
+		ArgumentNullException.ThrowIfNull(propertyIds);
+
+		var values = new Dictionary<string, string>(StringComparer.Ordinal);
+		var remainingPropertyIds = new HashSet<string>(propertyIds, StringComparer.Ordinal);
+		if (remainingPropertyIds.Count is 0)
+		{
+			return new ReadOnlyDictionary<string, string>(values);
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		ITEMIDLIST* absolutePidl = null;
+		var parseResult = PInvoke.SHParseDisplayName(parsingName, null, out absolutePidl, 0, out _);
+		if (parseResult.Failed || absolutePidl is null)
+		{
+			if (absolutePidl is not null)
+			{
+				PInvoke.CoTaskMemFree(absolutePidl);
+			}
+
+			return new ReadOnlyDictionary<string, string>(values);
+		}
+
+		try
+		{
+			var shellFolderId = typeof(IShellFolder).GUID;
+			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
+			if (parentBindResult.Failed || parentObject is not IShellFolder2 parentFolder || childPidl is null)
+			{
+				return new ReadOnlyDictionary<string, string>(values);
+			}
+
+			for (uint index = 0; index < MaximumColumnCount && remainingPropertyIds.Count is not 0; index++)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+
+				var headerDetails = default(SHELLDETAILS);
+				var headerResult = parentFolder.GetDetailsOf(null, index, &headerDetails);
+				if (headerResult.Failed)
+				{
+					break;
+				}
+
+				TryReadDisplayName(&headerDetails.str, null, out _);
+				if (parentFolder.MapColumnToSCID(index, out var propertyKey).Failed)
+				{
+					continue;
+				}
+
+				var propertyId = GetPropertyId(propertyKey);
+				if (!remainingPropertyIds.Remove(propertyId))
+				{
+					continue;
+				}
+
+				var itemDetails = default(SHELLDETAILS);
+				var itemResult = parentFolder.GetDetailsOf(childPidl, index, &itemDetails);
+				if (itemResult.Succeeded && TryReadDisplayName(&itemDetails.str, childPidl, out var displayText))
+				{
+					values[propertyId] = displayText;
+				}
+			}
+		}
+		finally
+		{
+			PInvoke.CoTaskMemFree(absolutePidl);
+		}
+
+		return new ReadOnlyDictionary<string, string>(values);
+	}
+
 	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName, CancellationToken cancellationToken)
 	{
 		var directBindResult = shellItem.BindToHandler(null, PInvoke.BHID_SFObject, out IShellFolder? directFolder);
@@ -402,13 +476,20 @@ internal static unsafe class WindowsShellColumnReader
 		}
 	}
 
-	private static string ReadDisplayName(ref STRRET displayName)
+	private static bool TryReadDisplayName(STRRET* displayName, ITEMIDLIST* pidl, out string value)
 	{
 		Span<char> buffer = stackalloc char[HeaderBufferLength];
-		var result = PInvoke.StrRetToBuf(ref displayName, null, buffer);
+		HRESULT result;
+		fixed (char* bufferPointer = buffer)
+		{
+			result = PInvoke.StrRetToBuf(displayName, pidl, new PWSTR(bufferPointer), checked((uint)buffer.Length));
+		}
+
 		if (result.Failed)
 		{
-			return string.Empty;
+			value = string.Empty;
+
+			return false;
 		}
 
 		var terminatorIndex = buffer.IndexOf('\0');
@@ -417,7 +498,9 @@ internal static unsafe class WindowsShellColumnReader
 			buffer = buffer[..terminatorIndex];
 		}
 
-		return buffer.ToString();
+		value = buffer.ToString();
+
+		return true;
 	}
 
 	private static string GetPropertyId(PROPERTYKEY propertyKey)

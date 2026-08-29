@@ -255,7 +255,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"First property load started work={request.Id}");
 			}
 
-			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(propertyIds), cancellationToken).ConfigureAwait(false);
+			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(propertyIds, includeFormattedValues: true), cancellationToken).ConfigureAwait(false);
 			if (IsCurrent(request, cancellationToken) && _target is not null)
 			{
 				await _target.PublishPropertiesAsync(request.Generation, item, properties, cancellationToken).ConfigureAwait(false);
