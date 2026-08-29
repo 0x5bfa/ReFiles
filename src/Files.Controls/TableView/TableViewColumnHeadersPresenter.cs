@@ -77,7 +77,7 @@ public sealed partial class TableViewColumnHeadersPresenter : Panel
 			desiredHeight = Math.Max(desiredHeight, Children[index].DesiredSize.Height);
 		}
 
-		return new(layout.ContentWidth, desiredHeight);
+		return new(layout.ColumnsWidth, desiredHeight);
 	}
 
 	protected override Size ArrangeOverride(Size finalSize)
@@ -93,7 +93,7 @@ public sealed partial class TableViewColumnHeadersPresenter : Panel
 			Children[index].Arrange(new Rect(layout.GetOffset(index), 0, layout.GetWidth(index), finalSize.Height));
 		}
 
-		return new(Math.Max(finalSize.Width, layout.ContentWidth), finalSize.Height);
+		return new(Math.Max(finalSize.Width, layout.ColumnsWidth), finalSize.Height);
 	}
 }
 

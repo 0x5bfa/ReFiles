@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using CommunityToolkit.WinUI;
 using Files.Controls;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -49,6 +50,46 @@ public sealed class RectangleSelectionHostTests
 			content.Children.Remove(gridView);
 			await unloaded;
 			Assert.AreEqual(2, host.TargetCount);
+		}
+		finally
+		{
+			window.Close();
+		}
+	}
+
+	/// <summary>
+	/// Verifies that a table and its rows viewport stretch while headers and row items retain their inset content width.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task TableRowsUseInsetWithoutConstrainingViewportWidth()
+	{
+		var table = new TableView { Height = 320, ItemsSource = new[] { "one", "two" }, Width = 800 };
+		table.Columns.Add(new TableViewTextColumn { ColumnWidth = 240, Header = "Name" });
+		var window = new Window { Content = table };
+		try
+		{
+			var loaded = WaitForLoadedAsync(table);
+			window.Activate();
+			await loaded;
+			await WaitForDispatcherAsync();
+			table.UpdateLayout();
+
+			var rowsView = table.RowsHost?.Element as ListViewBase;
+			Assert.IsNotNull(rowsView);
+			var row = rowsView.ContainerFromIndex(0) as ListViewItem;
+			Assert.IsNotNull(row);
+			var header = table.FindDescendant<TableViewColumnHeadersPresenter>();
+			Assert.IsNotNull(header);
+			Assert.AreEqual(HorizontalAlignment.Stretch, table.HorizontalAlignment);
+			Assert.AreEqual(HorizontalAlignment.Stretch, rowsView.HorizontalAlignment);
+			Assert.AreEqual(new Thickness(), rowsView.Margin);
+			Assert.AreEqual(HorizontalAlignment.Left, header.HorizontalAlignment);
+			Assert.AreEqual(new Thickness(8, 0, 0, 0), header.Margin);
+			Assert.AreEqual(HorizontalAlignment.Left, row.HorizontalAlignment);
+			Assert.AreEqual(new Thickness(8, 0, 0, 0), row.Margin);
+			Assert.AreEqual(table.ActualWidth, rowsView.ActualWidth, 1);
+			Assert.IsTrue(row.ActualWidth + row.Margin.Left < rowsView.ActualWidth);
 		}
 		finally
 		{

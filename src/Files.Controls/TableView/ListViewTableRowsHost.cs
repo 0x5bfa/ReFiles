@@ -183,8 +183,9 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 	{
 		if (args.ItemContainer is Control container)
 		{
-			container.HorizontalAlignment = HorizontalAlignment.Stretch;
+			container.HorizontalAlignment = HorizontalAlignment.Left;
 			container.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+			container.Margin = new(8, 0, 0, 0);
 			container.Padding = new(0);
 			container.VerticalContentAlignment = VerticalAlignment.Stretch;
 		}

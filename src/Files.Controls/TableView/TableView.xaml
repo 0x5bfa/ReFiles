@@ -42,6 +42,7 @@
 								<local:TableViewColumnHeadersPresenter
 									x:Name="PART_ColumnHeadersPresenter"
 									Height="{TemplateBinding ColumnHeaderHeight}"
+									Margin="8,0,0,0"
 									HorizontalAlignment="Left" />
 							</ScrollViewer>
 						</Border>

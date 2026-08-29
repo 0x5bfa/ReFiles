@@ -92,7 +92,7 @@ public sealed partial class TableViewRow : Panel, ITableViewRow
 			desiredHeight = Math.Max(desiredHeight, cell.DesiredSize.Height);
 		}
 
-		return new(_layout.ContentWidth, desiredHeight);
+		return new(_layout.ColumnsWidth, desiredHeight);
 	}
 
 	protected override Size ArrangeOverride(Size finalSize)
@@ -110,7 +110,7 @@ public sealed partial class TableViewRow : Panel, ITableViewRow
 			cell.Arrange(new Rect(_layout.GetOffset(index) + indentation, 0, width, finalSize.Height));
 		}
 
-		return new(Math.Max(finalSize.Width, _layout.ContentWidth), finalSize.Height);
+		return new(Math.Max(finalSize.Width, _layout.ColumnsWidth), finalSize.Height);
 	}
 
 	private void TableViewRow_Unloaded(object sender, RoutedEventArgs e)

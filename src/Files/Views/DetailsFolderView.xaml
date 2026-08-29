@@ -89,8 +89,6 @@
 	<controls:RectangleSelectionHost HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 		<controls:TableView
 			x:Name="ItemTable"
-			Margin="8,0,0,0"
-			HorizontalAlignment="Left"
 			controls:RectangleSelection.IsTarget="True"
 			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}"
 			ColumnTemplateSelector="{StaticResource DetailsColumnTemplateSelector}"
