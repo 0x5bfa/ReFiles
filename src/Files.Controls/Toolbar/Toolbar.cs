@@ -1161,7 +1161,7 @@ namespace Files.Controls
 			}
 		}
 
-		private sealed class ToolbarContentHost : ContentControl, IToolbarItemSet
+		private sealed partial class ToolbarContentHost : ContentControl, IToolbarItemSet
 		{
 			public ToolbarContentHost()
 			{

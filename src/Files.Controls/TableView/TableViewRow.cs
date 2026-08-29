@@ -8,7 +8,7 @@ namespace Files.Controls;
 /// <summary>
 /// Displays one recyclable read-only table row.
 /// </summary>
-public sealed class TableViewRow : Panel, ITableViewRow
+public sealed partial class TableViewRow : Panel, ITableViewRow
 {
 	private readonly Dictionary<ITableViewColumn, FrameworkElement> _cells = new(ReferenceEqualityComparer.Instance);
 	private IReadOnlyList<ITableViewColumn> _columns = Array.Empty<ITableViewColumn>();

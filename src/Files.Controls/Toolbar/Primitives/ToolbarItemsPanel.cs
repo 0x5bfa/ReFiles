@@ -8,7 +8,7 @@ namespace Files.Controls.Primitives
 	/// <summary>
 	/// Measures all toolbar controls while arranging only controls selected for the primary row.
 	/// </summary>
-	public sealed class ToolbarItemsPanel : Panel
+	public sealed partial class ToolbarItemsPanel : Panel
 	{
 		private readonly HashSet<UIElement> _visibleChildren = [];
 

@@ -17,7 +17,7 @@ namespace Files.Controls;
 /// <summary>
 /// Renders an operation-rate history against progress using Windows Composition.
 /// </summary>
-public sealed class SpeedGraph : Control
+public sealed partial class SpeedGraph : Control
 {
 	private const int AxisSampleWindow = 37;
 	private const float GraphBottomInset = 4f;

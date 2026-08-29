@@ -10,6 +10,7 @@ namespace Files.ViewModels;
 /// <summary>
 /// Describes one column rendered by the details folder view.
 /// </summary>
+[WinRT.GeneratedBindableCustomProperty]
 public sealed partial class DetailsColumnViewModel : ObservableObject
 {
 	/// <summary>Gets the stable property identifier.</summary>

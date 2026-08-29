@@ -191,7 +191,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public void SetLayoutSize(double value)
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || _activeFolderBrowser is not { } browser)
+		if (Volatile.Read(ref _isDisposed) is not 0 || _activeFolderBrowser is not { Location: not null } browser)
 		{
 			return;
 		}

@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
+[WinRT.GeneratedBindableCustomProperty]
 public sealed partial class NavigationItemViewModel : ObservableObject
 {
 	private const double FolderIconFontSize = 14;

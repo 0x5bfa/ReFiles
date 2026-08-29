@@ -6,6 +6,7 @@ namespace Files.Controls
 	/// <summary>
 	/// Per-row wrapper used by the sidebar's virtualized ItemsRepeater. Carries the row's tree depth and section-gap flags so the underlying data items don't have to.
 	/// </summary>
+	[WinRT.GeneratedBindableCustomProperty]
 	public sealed partial class FlatSidebarItem : INotifyPropertyChanged
 	{
 		private static readonly PropertyChangedEventArgs _sectionGapMarginChangedArgs = new(nameof(SectionGapMargin));

@@ -55,7 +55,7 @@ jobs:
       shell: pwsh
       run: |
         msbuild $env:APP_PROJECT_PATH `
-          -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -v:quiet
+          -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -p:CsWinRTAotWarningLevel=1 -v:quiet
 
     - name: Build tests with restore
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
@@ -119,6 +119,14 @@ jobs:
         }
 
         Add-AppxPackage -Register $appManifest.FullName -ForceApplicationShutdown
+        [xml] $manifest = Get-Content $appManifest.FullName -Raw
+        $package = Get-AppxPackage -Name $manifest.Package.Identity.Name | Sort-Object Version -Descending | Select-Object -First 1
+        if ($null -eq $package) {
+          throw "The registered package '$($manifest.Package.Identity.Name)' was not found."
+        }
+
+        $applicationId = $manifest.Package.Applications.Application.Id
+        "FILES_AXE_TEST_APP_ID=$($package.PackageFamilyName)!$applicationId" >> $env:GITHUB_ENV
 
     - name: Run Axe tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'

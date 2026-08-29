@@ -13,7 +13,8 @@ using Windows.UI;
 
 namespace Files.Controls;
 
-internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
+[WinRT.GeneratedWinRTExposedType]
+internal sealed partial class ThemedIconVisualSource : IAnimatedVisualSource2
 {
 	private const string AccentBrushKey = "ThemedIconAccentBrush";
 	private const string AccentContrastBrushKey = "ThemedIconAccentContrastBrush";
@@ -414,7 +415,8 @@ internal sealed class ThemedIconVisualSource : IAnimatedVisualSource2
 
 	private sealed record LayerDefinition(string PathData, IconVariant Variant, ThemedIconLayerType LayerType, double Opacity);
 
-	private sealed class ThemedIconAnimatedVisual : IAnimatedVisual
+	[WinRT.GeneratedWinRTExposedType]
+	private sealed partial class ThemedIconAnimatedVisual : IAnimatedVisual
 	{
 		private readonly IReadOnlyList<CanvasGeometry> _geometries;
 

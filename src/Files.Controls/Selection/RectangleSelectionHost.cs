@@ -18,7 +18,7 @@ namespace Files.Controls;
 /// </summary>
 [TemplatePart(Name = SelectionLayerPartName, Type = typeof(Canvas))]
 [TemplatePart(Name = SelectionRectanglePartName, Type = typeof(Rectangle))]
-public sealed class RectangleSelectionHost : ContentControl
+public sealed partial class RectangleSelectionHost : ContentControl
 {
 	private const double AutoScrollEdgeSize = 48;
 	private const int AutoScrollIntervalMilliseconds = 16;

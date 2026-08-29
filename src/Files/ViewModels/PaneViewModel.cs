@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
 
+[WinRT.GeneratedBindableCustomProperty]
 public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private readonly PaneSession _pane;

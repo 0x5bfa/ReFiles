@@ -10,7 +10,7 @@ namespace Files.Controls;
 /// <summary>
 /// Arranges column headers using the layout shared with table rows.
 /// </summary>
-public sealed class TableViewColumnHeadersPresenter : Panel
+public sealed partial class TableViewColumnHeadersPresenter : Panel
 {
 	private TableView? _owner;
 
@@ -97,7 +97,7 @@ public sealed class TableViewColumnHeadersPresenter : Panel
 	}
 }
 
-internal sealed class TableViewColumnHeader : Grid
+internal sealed partial class TableViewColumnHeader : Grid
 {
 	private const string DragDataKey = "Files.Controls.TableViewColumn";
 
