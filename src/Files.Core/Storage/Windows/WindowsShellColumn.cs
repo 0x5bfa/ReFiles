@@ -162,7 +162,7 @@ public sealed class WindowsShellColumnSet
 
 		var columnArray = columns.ToArray();
 		All = Array.AsReadOnly(columnArray);
-		DefaultVisible = Array.AsReadOnly(columnArray.Where(static column => column.IsVisibleByDefault && !column.IsHidden && !column.IsSecondaryUi).ToArray());
+		DefaultVisible = Array.AsReadOnly(columnArray.Where(static column => column.IsVisibleByDefault && !column.IsHidden).ToArray());
 		DefaultSortColumnIndex = defaultSortColumnIndex;
 		DefaultDisplayColumnIndex = defaultDisplayColumnIndex;
 	}

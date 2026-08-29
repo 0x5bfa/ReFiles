@@ -1375,7 +1375,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private static IReadOnlyList<DetailsColumnViewModel> CreateDetailsColumns(WindowsShellColumnSet columnSet, BrowseViewSettings settings)
 	{
 		var availableColumns = columnSet.All
-			.Where(static column => !column.IsHidden && !column.IsSecondaryUi)
+			.Where(static column => !column.IsHidden)
 			.GroupBy(static column => column.PropertyId, StringComparer.Ordinal)
 			.ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
 		var selectedColumns = new List<WindowsShellColumn>();
@@ -1430,11 +1430,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private static double GetDefaultColumnWidth(WindowsShellColumn column)
 	{
-		var width = column.HeaderWidthCharacters is > 0
+		return column.HeaderWidthCharacters is > 0
 			? column.HeaderWidthCharacters * 8d
 			: 120d;
-
-		return Math.Clamp(width, 72d, 320d);
 	}
 
 	private static IReadOnlyList<DetailsColumnViewModel> CreateFallbackColumns()

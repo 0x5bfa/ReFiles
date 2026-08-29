@@ -36,6 +36,10 @@ public sealed class WindowsShellColumnTests
 			Assert.IsTrue(columnSet.All.All(static column => column.PropertyId.Length > 0 && column.DisplayName.Length > 0));
 			Assert.IsTrue(columnSet.All.All(static column => Enum.IsDefined(column.Type)));
 			Assert.IsTrue(columnSet.All.Any(static column => column.Type is not WindowsShellColumnType.Default));
+			Assert.IsTrue(columnSet.DefaultVisible.Any(static column => column.PropertyId.Equals("System.ItemTypeText", StringComparison.Ordinal) && column.HeaderWidthCharacters > 0));
+			CollectionAssert.AreEqual(
+				columnSet.All.Where(static column => column.IsVisibleByDefault && !column.IsHidden).Select(static column => column.PropertyId).ToArray(),
+				columnSet.DefaultVisible.Select(static column => column.PropertyId).ToArray());
 		}
 		finally
 		{
