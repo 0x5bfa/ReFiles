@@ -53,6 +53,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private ColumnCache? _columnCache;
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
 	private BrowseViewSettings _viewSettings;
+	private BrowseViewSettings _prefetchViewSettings;
+	private BrowseViewport? _lastViewport;
+	private long _prefetchGeneration;
 	private long _appliedItemsVersion = -1;
 	private long _diagnosticLongestDrainTicks;
 	private long _thumbnailApplyVersion;
@@ -78,6 +81,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
 		_text = text ?? BrowsePresentationText.CreateLocalized();
 		_viewSettings = _pane.BrowseSession.ViewSettings;
+		_prefetchViewSettings = _viewSettings;
+		_prefetchGeneration = _pane.BrowseSession.Generation;
 		_itemLayoutMetrics = new BrowseItemLayoutMetrics(_viewSettings.ItemSize);
 
 		SelectedKeys = Array.Empty<StorableKey>();
@@ -310,8 +315,22 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		EnsureActive();
 
+		BrowseViewSettings settings;
+		var generation = _pane.BrowseSession.Generation;
+		lock (_pendingLock)
+		{
+			_lastViewport = viewport;
+			if (_prefetchGeneration != generation)
+			{
+				_prefetchGeneration = generation;
+				_prefetchViewSettings = _pane.BrowseSession.ViewSettings;
+			}
+
+			settings = _prefetchViewSettings;
+		}
+
 		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"UpdateViewport first={viewport.FirstVisibleIndex} visible={viewport.VisibleCount} lookAhead={viewport.LookAheadCount}");
-		_prefetch.UpdateViewport(viewport, _pane.BrowseSession.ViewSettings, _pane.BrowseSession.Generation);
+		_prefetch.UpdateViewport(viewport, settings, generation);
 	}
 
 	public async ValueTask UpdateLayoutModeAsync(ViewLayoutMode mode, CancellationToken cancellationToken = default)
@@ -573,6 +592,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var session = _pane.BrowseSession;
 		lock (_pendingLock)
 		{
+			if (_prefetchGeneration != session.Generation || Volatile.Read(ref _isApplyingDefaultColumns) is 0)
+			{
+				_prefetchGeneration = session.Generation;
+				_prefetchViewSettings = session.ViewSettings;
+			}
+
 			_pendingState = new PendingState(session.Generation, session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 		}
 
@@ -1398,6 +1423,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 							settings.ItemSize,
 							settings.GroupPropertyId,
 							settings.GroupDirection);
+						UpdatePrefetchSettings(nextSettings, load.Generation);
 						await session.UpdateViewSettingsAsync(nextSettings, load.Token).ConfigureAwait(false);
 					}
 					finally
@@ -1437,6 +1463,35 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			load.Dispose();
+		}
+	}
+
+	private void UpdatePrefetchSettings(BrowseViewSettings settings, long generation)
+	{
+		BrowseViewport? viewport;
+		lock (_pendingLock)
+		{
+			if (Volatile.Read(ref _isDisposed) is not 0 || _pane.BrowseSession.Generation != generation)
+			{
+				return;
+			}
+
+			_prefetchGeneration = generation;
+			_prefetchViewSettings = settings;
+			viewport = _lastViewport;
+		}
+
+		if (viewport is null)
+		{
+			return;
+		}
+
+		try
+		{
+			_prefetch.UpdateViewport(viewport, settings, generation);
+		}
+		catch (ObjectDisposedException)
+		{
 		}
 	}
 

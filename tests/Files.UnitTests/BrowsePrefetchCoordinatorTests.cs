@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Browsing;
+using Files.Core.Capabilities;
 using Files.Core.Capabilities.Changes;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
+using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using OwlCore.Storage;
 
 namespace Files.UnitTests;
 
@@ -210,11 +213,180 @@ public sealed class BrowsePrefetchCoordinatorTests
 	}
 
 	/// <summary>
-	/// Test case: item append does not cancel active prefetch.
+	/// Test case: unrelated session state changes do not replace explicit prefetch settings.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
-	public async Task ItemAppendDoesNotCancelActivePrefetch()
+	public async Task UnrelatedStateChangeKeepsExplicitPrefetchSettings()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertySource = new TestPropertySource
+		{
+			Handler = async (_, cancellationToken) =>
+			{
+				entered.TrySetResult(true);
+				try
+				{
+					await release.Task.WaitAsync(cancellationToken);
+				}
+				catch (OperationCanceledException)
+				{
+					cancelled.TrySetResult(true);
+					throw;
+				}
+
+				return new Dictionary<string, object?> { ["System.Size"] = 1L };
+			},
+		};
+		var item = factory.CreateModel("item", "Item", out _, propertySource: propertySource);
+		var resolver = new TestBrowseLocationResolver([item])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
+			await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			await session.UpdateDisplaySettingsAsync(new BrowseDisplaySettings(showHiddenItems: true));
+			await Task.Delay(TimeSpan.FromMilliseconds(250));
+
+			Assert.IsFalse(cancelled.Task.IsCompleted);
+			release.TrySetResult(true);
+			await WaitUntilAsync(() => session.TryGetPresentation(item.Reference.GetKey(), out var presentation) && presentation.Properties.ContainsKey("System.Size"));
+		}
+		finally
+		{
+			release.TrySetResult(true);
+		}
+	}
+
+	/// <summary>
+	/// Test case: an expanding initial viewport does not discard active prefetch work.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ExpandingViewportPreservesActivePrefetch()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var firstPropertySource = new TestPropertySource
+		{
+			Handler = async (_, cancellationToken) =>
+			{
+				entered.TrySetResult(true);
+				try
+				{
+					await release.Task.WaitAsync(cancellationToken);
+				}
+				catch (OperationCanceledException)
+				{
+					cancelled.TrySetResult(true);
+					throw;
+				}
+
+				return new Dictionary<string, object?> { ["System.Size"] = 1L };
+			},
+		};
+		var secondPropertySource = new TestPropertySource
+		{
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = 2L }),
+		};
+		var first = factory.CreateModel("first", "First", out _, propertySource: firstPropertySource);
+		var second = factory.CreateModel("second", "Second", out _, propertySource: secondPropertySource);
+		var resolver = new TestBrowseLocationResolver([first, second])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, 1, lookAheadCount: 0), settings, session.Generation);
+			await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			coordinator.UpdateViewport(new BrowseViewport(0, 2, lookAheadCount: 0), settings, session.Generation);
+			await Task.Delay(TimeSpan.FromMilliseconds(250));
+
+			Assert.IsFalse(cancelled.Task.IsCompleted);
+			release.TrySetResult(true);
+			await WaitUntilAsync(() => session.TryGetPresentation(first.Reference.GetKey(), out var firstPresentation)
+				&& firstPresentation.Properties.ContainsKey("System.Size")
+				&& session.TryGetPresentation(second.Reference.GetKey(), out var secondPresentation)
+				&& secondPresentation.Properties.ContainsKey("System.Size"));
+		}
+		finally
+		{
+			release.TrySetResult(true);
+		}
+	}
+
+	/// <summary>
+	/// Test case: presentation results are published while folder enumeration is still active.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PublishesPresentationDuringEnumeration()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var enumerationRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var items = Enumerable.Range(0, 33)
+			.Select(index => factory.CreateModel(
+				$"item-{index:D2}",
+				$"Item {index:D2}",
+				out _,
+				propertySource: new TestPropertySource
+				{
+					Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = 1L }),
+				}))
+			.ToArray();
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+			BeforeYieldAsync = (index, cancellationToken) => index is 32
+				? new ValueTask(enumerationRelease.Task.WaitAsync(cancellationToken))
+				: ValueTask.CompletedTask,
+		};
+		using var session = new BrowseSession(resolver);
+		var navigation = session.NavigateAsync(new FolderLocation(locationModel.Reference)).AsTask();
+
+		try
+		{
+			await WaitUntilAsync(() => session.Items.Count is 32);
+			await using var coordinator = new BrowsePrefetchCoordinator(session);
+			var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+			coordinator.UpdateViewport(new BrowseViewport(0, 1, lookAheadCount: 0), settings, session.Generation);
+
+			await WaitUntilAsync(() => session.TryGetPresentation(session.Items[0].Reference.GetKey(), out var presentation) && presentation.Properties.ContainsKey("System.Size"));
+			Assert.IsFalse(navigation.IsCompleted);
+		}
+		finally
+		{
+			enumerationRelease.TrySetResult(true);
+			await navigation;
+		}
+	}
+
+	/// <summary>
+	/// Test case: an item appended after the requested viewport does not cancel active prefetch.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ItemAppendAfterViewportDoesNotCancelActivePrefetch()
 	{
 		var factory = new TestModelFactory();
 		var source = new TestFolderChangeSource();
@@ -241,7 +413,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 			},
 		};
 		var first = factory.CreateModel("first", "First", out _, propertySource: propertySource);
-		var appended = factory.CreateModel("appended", "Appended", out _);
+		var appended = factory.CreateModel("appended", "Zppended", out _);
 		var resolver = new TestBrowseLocationResolver([first])
 		{
 			LocationModelFactory = _ => locationModel,
@@ -414,6 +586,93 @@ public sealed class BrowsePrefetchCoordinatorTests
 
 		Assert.AreEqual(1, thumbnailSource.CallCount);
 		propertyRelease.TrySetResult(true);
+	}
+
+	/// <summary>
+	/// Test case: batched property results are published in first-page-sized increments.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PublishesBatchedPropertiesIncrementally()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var secondBatchStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var secondBatchRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var reader = new TestBatchedPropertyReader();
+		reader.Handler = async (contexts, cancellationToken) =>
+		{
+			if (reader.CallCount is 2)
+			{
+				secondBatchStarted.TrySetResult(true);
+				await secondBatchRelease.Task.WaitAsync(cancellationToken);
+			}
+
+			return contexts.ToDictionary(
+				static context => context.Reference,
+				static _ => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["System.Size"] = 1L });
+		};
+		var items = Enumerable.Range(0, 40).Select(index => CreateBatchedModel(factory, reader, $"item-{index:D2}", $"Item {index:D2}")).ToArray();
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, items.Length, lookAheadCount: 0), settings, session.Generation);
+			await secondBatchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.IsTrue(session.Items.Take(32).All(item => session.TryGetPresentation(item.Reference.GetKey(), out var presentation) && presentation.Properties.ContainsKey("System.Size")));
+			Assert.IsTrue(session.Items.Skip(32).All(item => !session.TryGetPresentation(item.Reference.GetKey(), out var presentation) || !presentation.Properties.ContainsKey("System.Size")));
+			secondBatchRelease.TrySetResult(true);
+			await WaitUntilAsync(() => session.Items.All(item => session.TryGetPresentation(item.Reference.GetKey(), out var presentation) && presentation.Properties.ContainsKey("System.Size")));
+		}
+		finally
+		{
+			secondBatchRelease.TrySetResult(true);
+		}
+
+		CollectionAssert.AreEqual(new[] { 32, 8 }, reader.BatchSizes.ToArray());
+	}
+
+	/// <summary>
+	/// Test case: expanding a viewport only fetches properties for newly included items.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ExpandingViewportDoesNotReloadPrefetchedProperties()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var reader = new TestBatchedPropertyReader
+		{
+			Handler = (contexts, _) => ValueTask.FromResult<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>>(contexts.ToDictionary(
+				static context => context.Reference,
+				static _ => (IReadOnlyDictionary<string, object?>)new Dictionary<string, object?> { ["System.Size"] = 1L })),
+		};
+		var items = Enumerable.Range(0, 3).Select(index => CreateBatchedModel(factory, reader, $"item-{index}", $"Item {index}")).ToArray();
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		for (var visibleCount = 1; visibleCount <= items.Length; visibleCount++)
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, visibleCount, lookAheadCount: 0), settings, session.Generation);
+			var visibleItem = session.Items[visibleCount - 1];
+			await WaitUntilAsync(() => session.TryGetPresentation(visibleItem.Reference.GetKey(), out var presentation) && presentation.Properties.ContainsKey("System.Size"));
+		}
+
+		CollectionAssert.AreEqual(new[] { 1, 1, 1 }, reader.BatchSizes.ToArray());
 	}
 
 	/// <summary>
@@ -703,6 +962,43 @@ public sealed class BrowsePrefetchCoordinatorTests
 		}
 
 		Assert.IsTrue(condition());
+	}
+
+	private static StorableModel CreateBatchedModel(TestModelFactory factory, IPropertyReader reader, string id, string name)
+	{
+		var coreModel = new DisposableStorable(id, name);
+		var reference = new StorableReference(factory.Source.SourceId, id, new StorageAddress("test", id));
+		var context = new ItemContext(factory.Source, coreModel, reference);
+		var registry = new CapabilityBuilder().Add<IPropertySource>(new PropertySourceFactory(reader)).Build();
+
+		return new StorableModel(coreModel, reference, registry.CreateCapabilities(context));
+	}
+
+	private sealed class TestBatchedPropertyReader : IPropertyReader
+	{
+		private int _callCount;
+
+		public int CallCount => Volatile.Read(ref _callCount);
+
+		public ConcurrentQueue<int> BatchSizes { get; } = new();
+
+		public Func<
+			IReadOnlyList<ItemContext>,
+			CancellationToken,
+			ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>>>? Handler { get; set; }
+
+		public bool CanRead(ItemContext context) => true;
+
+		public ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
+			PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default)
+		{
+			Interlocked.Increment(ref _callCount);
+			BatchSizes.Enqueue(contexts.Count);
+
+			return Handler is null
+				? ValueTask.FromResult<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>>(new Dictionary<StorableReference, IReadOnlyDictionary<string, object?>>())
+				: Handler(contexts, cancellationToken);
+		}
 	}
 
 	private sealed class BoundedPropertySource(Task release) : IPropertySource

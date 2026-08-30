@@ -93,11 +93,11 @@ public sealed class BrowseSessionTests
 	}
 
 	/// <summary>
-	/// Test case: applies requested sort after progressive enumeration.
+	/// Test case: sorts the first page and applies the requested sort after progressive enumeration.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
-	public async Task AppliesRequestedSortAfterProgressiveEnumeration()
+	public async Task SortsFirstPageDuringProgressiveEnumeration()
 	{
 		var factory = new TestModelFactory();
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
@@ -126,8 +126,8 @@ public sealed class BrowseSessionTests
 		var navigation = session.NavigateAsync(new FolderLocation(locationModel.Reference)).AsTask();
 
 		await providerPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
-		Assert.AreEqual("Item 599", session.Items[0].Name);
-		Assert.AreEqual("Item 568", session.Items[^1].Name);
+		Assert.AreEqual("Item 568", session.Items[0].Name);
+		Assert.AreEqual("Item 599", session.Items[^1].Name);
 		providerRelease.TrySetResult(true);
 		await navigation;
 

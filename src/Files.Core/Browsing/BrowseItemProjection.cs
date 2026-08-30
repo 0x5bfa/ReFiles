@@ -61,6 +61,27 @@ internal sealed class BrowseItemProjection
 		}
 	}
 
+	internal bool TryApplyToCurrent(StorableKey key, IStorableModel expectedModel, Func<bool> apply)
+	{
+		ArgumentNullException.ThrowIfNull(expectedModel);
+		ArgumentNullException.ThrowIfNull(apply);
+
+		lock (_syncRoot)
+		{
+			return _modelsByKey.TryGetValue(key, out var currentModel) && ReferenceEquals(currentModel, expectedModel) && apply();
+		}
+	}
+
+	internal void InvokeLocked(Action action)
+	{
+		ArgumentNullException.ThrowIfNull(action);
+
+		lock (_syncRoot)
+		{
+			action();
+		}
+	}
+
 	public IReadOnlyList<IStorableModel> SortItems(IReadOnlyList<IStorableModel> models)
 	{
 		ArgumentNullException.ThrowIfNull(models);

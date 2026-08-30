@@ -19,6 +19,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private const int DefaultThumbnailSize = 96;
 	private const int DetailsThumbnailSize = 16;
 	private const int MaxConcurrentPrefetchPerLane = 2;
+	private const int MaximumPropertyBatchSize = 32;
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
 	private static readonly TimeSpan ItemsChangedRestartDelay = TimeSpan.FromMilliseconds(100);
 
@@ -32,14 +33,20 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private readonly Timer _restartTimer;
 	private readonly Task _propertyWorkerTask;
 	private readonly Task _thumbnailWorkerTask;
+	private readonly Dictionary<IStorableModel, HashSet<string>> _prefetchedPropertyIds = new(ReferenceEqualityComparer.Instance);
 	private CancellationTokenSource? _propertyCancellation;
 	private CancellationTokenSource? _thumbnailCancellation;
+	private PrefetchRequest? _activePropertyRequest;
+	private PrefetchRequest? _activeThumbnailRequest;
+	private PrefetchRequest? _latestRequest;
 	private BrowseViewport? _lastViewport;
 	private BrowseViewSettings _lastSettings;
+	private BrowseViewSettings _lastObservedSessionSettings;
 	private long _workIdCounter;
 	private long _latestWorkId;
 	private long _lastRequestedGeneration;
 	private long _lastObservedItemsVersion;
+	private long _prefetchedPropertiesGeneration;
 	private int _diagnosticPropertyRequestCount;
 	private int _diagnosticThumbnailRequestCount;
 	private int _diagnosticViewportUpdateCount;
@@ -57,6 +64,8 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		_target = session as IBrowsePrefetchTarget;
 		_thumbnailSize = thumbnailSize;
 		_lastSettings = session.ViewSettings;
+		_lastObservedSessionSettings = session.ViewSettings;
+		_prefetchedPropertiesGeneration = session.Generation;
 		_lastObservedItemsVersion = session.ItemsVersion;
 		_propertyRequests = CreateRequestChannel();
 		_thumbnailRequests = CreateRequestChannel();
@@ -85,11 +94,18 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			_lastViewport = viewport;
 			_lastSettings = settings;
 			_lastRequestedGeneration = browseGeneration;
+			if (_prefetchedPropertiesGeneration != browseGeneration)
+			{
+				_prefetchedPropertyIds.Clear();
+				_prefetchedPropertiesGeneration = browseGeneration;
+			}
+
 			var workId = checked(++_workIdCounter);
 			_latestWorkId = workId;
 			request = new PrefetchRequest(workId, browseGeneration, viewport, settings, _session.Items);
-			propertyCancellation = _propertyCancellation;
-			thumbnailCancellation = _thumbnailCancellation;
+			_latestRequest = request;
+			propertyCancellation = ShouldPreserveExpandingViewport(_activePropertyRequest, request) ? null : _propertyCancellation;
+			thumbnailCancellation = ShouldPreserveExpandingViewport(_activeThumbnailRequest, request) ? null : _thumbnailCancellation;
 		}
 
 		Cancel(propertyCancellation);
@@ -187,6 +203,11 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			foreach (var itemIndex in indices)
 			{
 				var item = request.Items[itemIndex];
+				if (!NeedsPropertyPrefetch(item, propertyIds, request.Generation))
+				{
+					continue;
+				}
+
 				if (item.Get<IPropertySource>() is not IBatchedPropertySource batchedSource)
 				{
 					individualItems.Add(item);
@@ -320,37 +341,48 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			return;
 		}
 
-		try
+		for (var offset = 0; offset < items.Count; offset += MaximumPropertyBatchSize)
 		{
-			Interlocked.Increment(ref _diagnosticPropertyRequestCount);
-			var contexts = items.Select(static item => item.Context).ToArray();
-			var propertiesByReference = await reader.GetPropertiesAsync(propertyRequest, contexts, cancellationToken).ConfigureAwait(false);
-			foreach (var item in items)
+			if (!IsCurrent(request, cancellationToken))
 			{
-				if (!IsCurrent(request, cancellationToken))
-				{
-					return;
-				}
+				return;
+			}
 
-				if (propertiesByReference.TryGetValue(item.Context.Reference, out var properties) && _target is not null)
+			var batchSize = Math.Min(MaximumPropertyBatchSize, items.Count - offset);
+			var batch = items.Skip(offset).Take(batchSize).ToArray();
+			try
+			{
+				Interlocked.Increment(ref _diagnosticPropertyRequestCount);
+				var contexts = batch.Select(static item => item.Context).ToArray();
+				var propertiesByReference = await reader.GetPropertiesAsync(propertyRequest, contexts, cancellationToken).ConfigureAwait(false);
+				foreach (var item in batch)
 				{
-					await _target.PublishPropertiesAsync(request.Generation, item.Item, properties, cancellationToken).ConfigureAwait(false);
+					if (!IsCurrent(request, cancellationToken))
+					{
+						return;
+					}
+
+					if (propertiesByReference.TryGetValue(item.Context.Reference, out var properties) && _target is not null)
+					{
+						await _target.PublishPropertiesAsync(request.Generation, item.Item, properties, cancellationToken).ConfigureAwait(false);
+						MarkPropertiesPrefetched(item.Item, propertyRequest.PropertyIds, request.Generation);
+					}
 				}
 			}
-		}
-		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-		{
-			throw;
-		}
-		catch
-		{
-			// Prefetch is best effort; the foreground consumer can retry.
+			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+			{
+				throw;
+			}
+			catch
+			{
+				// Prefetch is best effort; the foreground consumer can retry.
+			}
 		}
 	}
 
 	private async ValueTask PrefetchPropertiesAsync(IStorableModel item, PropertyRequest propertyRequest, PrefetchRequest request, CancellationToken cancellationToken)
 	{
-		if (!IsCurrent(request, cancellationToken) || item.Get<IPropertySource>() is not { } propertySource)
+		if (!IsCurrent(request, cancellationToken) || !NeedsPropertyPrefetch(item, propertyRequest.PropertyIds, request.Generation) || item.Get<IPropertySource>() is not { } propertySource)
 		{
 			return;
 		}
@@ -367,6 +399,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			if (IsCurrent(request, cancellationToken) && _target is not null)
 			{
 				await _target.PublishPropertiesAsync(request.Generation, item, properties, cancellationToken).ConfigureAwait(false);
+				MarkPropertiesPrefetched(item, propertyRequest.PropertyIds, request.Generation);
 			}
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -444,10 +477,12 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			if (propertyLane)
 			{
 				_propertyCancellation = cancellation;
+				_activePropertyRequest = request;
 			}
 			else
 			{
 				_thumbnailCancellation = cancellation;
+				_activeThumbnailRequest = request;
 			}
 
 			return cancellation;
@@ -461,10 +496,12 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			if (propertyLane && ReferenceEquals(_propertyCancellation, cancellation))
 			{
 				_propertyCancellation = null;
+				_activePropertyRequest = null;
 			}
 			else if (!propertyLane && ReferenceEquals(_thumbnailCancellation, cancellation))
 			{
 				_thumbnailCancellation = null;
+				_activeThumbnailRequest = null;
 			}
 		}
 	}
@@ -478,8 +515,53 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 
 		lock (_syncRoot)
 		{
-			return !_isDisposed && request.Id == _latestWorkId;
+			return !_isDisposed;
 		}
+	}
+
+	private bool NeedsPropertyPrefetch(IStorableModel item, IReadOnlyList<string> propertyIds, long generation)
+	{
+		lock (_syncRoot)
+		{
+			return _prefetchedPropertiesGeneration != generation
+				|| !_prefetchedPropertyIds.TryGetValue(item, out var prefetchedIds)
+				|| propertyIds.Any(propertyId => !prefetchedIds.Contains(propertyId));
+		}
+	}
+
+	private void MarkPropertiesPrefetched(IStorableModel item, IReadOnlyList<string> propertyIds, long generation)
+	{
+		lock (_syncRoot)
+		{
+			if (_isDisposed || _prefetchedPropertiesGeneration != generation)
+			{
+				return;
+			}
+
+			if (!_prefetchedPropertyIds.TryGetValue(item, out var prefetchedIds))
+			{
+				prefetchedIds = new HashSet<string>(StringComparer.Ordinal);
+				_prefetchedPropertyIds.Add(item, prefetchedIds);
+			}
+
+			prefetchedIds.UnionWith(propertyIds);
+		}
+	}
+
+	private static bool ShouldPreserveExpandingViewport(PrefetchRequest? activeRequest, PrefetchRequest nextRequest)
+	{
+		if (activeRequest is null || activeRequest.Generation != nextRequest.Generation || !Equals(activeRequest.Settings, nextRequest.Settings))
+		{
+			return false;
+		}
+
+		var activeViewport = activeRequest.Viewport;
+		var nextViewport = nextRequest.Viewport;
+
+		return activeViewport.FirstVisibleIndex == nextViewport.FirstVisibleIndex
+			&& activeViewport.LookAheadCount == nextViewport.LookAheadCount
+			&& activeViewport.Dpi == nextViewport.Dpi
+			&& nextViewport.VisibleCount > activeViewport.VisibleCount;
 	}
 
 	private void OnSessionStateChanged(object? sender, EventArgs args)
@@ -490,13 +572,22 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		lock (_syncRoot)
 		{
 			generation = _session.Generation;
-			if (_isDisposed || _lastViewport is not { } currentViewport || (Equals(_lastSettings, _session.ViewSettings) && _lastRequestedGeneration == generation))
+			if (_isDisposed || _lastViewport is not { } currentViewport)
+			{
+				return;
+			}
+
+			var sessionSettings = _session.ViewSettings;
+			var generationChanged = _lastRequestedGeneration != generation;
+			var settingsChanged = !Equals(_lastObservedSessionSettings, sessionSettings);
+			_lastObservedSessionSettings = sessionSettings;
+			if (!generationChanged && (!settingsChanged || Equals(_lastSettings, sessionSettings)))
 			{
 				return;
 			}
 
 			viewport = currentViewport;
-			settings = _session.ViewSettings;
+			settings = sessionSettings;
 		}
 
 		TryUpdateViewport(viewport, settings, generation);
@@ -531,7 +622,9 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				return;
 			}
 
-			if (_propertyCancellation is not null || _thumbnailCancellation is not null)
+			if ((_propertyCancellation is not null || _thumbnailCancellation is not null)
+				&& _latestRequest is { } latestRequest
+				&& ViewportItemsMatch(latestRequest, _session.Items))
 			{
 				_restartTimer.Change(ItemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
 
@@ -539,7 +632,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			}
 
 			viewport = currentViewport;
-			settings = _session.ViewSettings;
+			settings = _lastSettings;
 			generation = _session.Generation;
 		}
 
@@ -634,6 +727,19 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		{
 			yield return index;
 		}
+	}
+
+	private static bool ViewportItemsMatch(PrefetchRequest request, IReadOnlyList<IStorableModel> currentItems)
+	{
+		foreach (var index in EnumerateIndices(request.Items.Count, request.Viewport))
+		{
+			if (index >= currentItems.Count || !ReferenceEquals(request.Items[index], currentItems[index]))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private sealed record PrefetchRequest(long Id, long Generation, BrowseViewport Viewport, BrowseViewSettings Settings, IReadOnlyList<IStorableModel> Items);
