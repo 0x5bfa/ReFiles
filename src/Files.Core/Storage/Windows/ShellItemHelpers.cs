@@ -21,7 +21,11 @@ internal static unsafe class ShellItemHelpers
 		return CreateDescriptor(CreateDescriptorData(shellItem), itemIdReader);
 	}
 
-	public static WindowsStorableDescriptorData CreateDescriptorData(IShellItem shellItem)
+	public static WindowsStorableDescriptorData CreateDescriptorData(
+		IShellItem shellItem,
+		WindowsItemLocator? parentFolder = null,
+		ReadOnlyMemory<byte> absolutePidl = default,
+		ReadOnlyMemory<byte> relativePidl = default)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 
@@ -42,9 +46,17 @@ internal static unsafe class ShellItemHelpers
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
 
-		var absolutePidl = CopyAbsolutePidl(shellItem);
+		if (absolutePidl.IsEmpty)
+		{
+			absolutePidl = CopyAbsolutePidl(shellItem);
+		}
 
-		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName), snapshot);
+		if (parentFolder is not null && relativePidl.IsEmpty)
+		{
+			relativePidl = GetLastId(absolutePidl);
+		}
+
+		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName, relativePidl.IsEmpty ? null : parentFolder, relativePidl), snapshot);
 	}
 
 	public static WindowsStorableDescriptor CreateDescriptor(WindowsStorableDescriptorData data, IWindowsItemIdReader itemIdReader)
@@ -134,5 +146,49 @@ internal static unsafe class ShellItemHelpers
 		}
 
 		return 0;
+	}
+
+	internal static unsafe ReadOnlyMemory<byte> CopyPidl(ITEMIDLIST* pidl)
+	{
+		if (pidl is null)
+		{
+			return ReadOnlyMemory<byte>.Empty;
+		}
+
+		var size = GetPidlSize(pidl);
+		if (size is 0)
+		{
+			return ReadOnlyMemory<byte>.Empty;
+		}
+
+		var bytes = GC.AllocateUninitializedArray<byte>(size);
+		Marshal.Copy((IntPtr)pidl, bytes, 0, size);
+
+		return bytes;
+	}
+
+	private static ReadOnlyMemory<byte> GetLastId(ReadOnlyMemory<byte> absolutePidl)
+	{
+		var span = absolutePidl.Span;
+		var offset = 0;
+		var lastOffset = -1;
+		while (offset <= span.Length - sizeof(ushort))
+		{
+			var itemSize = BitConverter.ToUInt16(span.Slice(offset, sizeof(ushort)));
+			if (itemSize is 0)
+			{
+				return lastOffset < 0 ? ReadOnlyMemory<byte>.Empty : absolutePidl[lastOffset..];
+			}
+
+			if (itemSize < sizeof(ushort) || itemSize > span.Length - offset)
+			{
+				return ReadOnlyMemory<byte>.Empty;
+			}
+
+			lastOffset = offset;
+			offset += itemSize;
+		}
+
+		return ReadOnlyMemory<byte>.Empty;
 	}
 }

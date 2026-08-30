@@ -172,7 +172,7 @@ internal sealed unsafe class WindowsShellItemResolver
 		return shellItem is null ? default! : action(shellItem);
 	}
 
-	private static unsafe IShellItem? TryCreateFromPidl(ReadOnlyMemory<byte> absolutePidl)
+	internal static unsafe IShellItem? TryCreateFromPidl(ReadOnlyMemory<byte> absolutePidl)
 	{
 		if (absolutePidl.IsEmpty)
 		{

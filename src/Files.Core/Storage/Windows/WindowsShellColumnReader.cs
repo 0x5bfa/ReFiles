@@ -429,75 +429,161 @@ internal static unsafe class WindowsShellColumnReader
 				return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 			}
 
-			foreach (var propertyId in propertyIds)
-			{
-				cancellationToken.ThrowIfCancellationRequested();
+			var propertyKeys = ResolvePropertyKeys(propertyIds, cancellationToken);
+			var displayColumns = includeFormattedValues ? ResolveDisplayColumns(parentFolder2, propertyIds, cancellationToken) : null;
 
-				if (!TryGetPropertyKey(propertyId, out var propertyKey))
-				{
-					continue;
-				}
-
-				ComVariant variant = default;
-				try
-				{
-					var result = parentFolder2.GetDetailsEx(in *childPidl, in propertyKey, out variant);
-					if (result.Failed)
-					{
-						continue;
-					}
-
-					rawValues[propertyId] = ReadVariantValue(variant);
-				}
-				finally
-				{
-					variant.Dispose();
-				}
-			}
-
-			if (!includeFormattedValues)
-			{
-				return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
-			}
-
-			var remainingPropertyIds = new HashSet<string>(propertyIds, StringComparer.Ordinal);
-			for (uint index = 0; index < MaximumColumnCount && remainingPropertyIds.Count is not 0; index++)
-			{
-				cancellationToken.ThrowIfCancellationRequested();
-
-				var headerDetails = default(SHELLDETAILS);
-				var headerResult = parentFolder2.GetDetailsOf(null, index, &headerDetails);
-				if (headerResult.Failed)
-				{
-					break;
-				}
-
-				TryReadDisplayName(&headerDetails.str, null, out _);
-				if (parentFolder2.MapColumnToSCID(index, out var propertyKey).Failed)
-				{
-					continue;
-				}
-
-				var propertyId = GetPropertyId(propertyKey);
-				if (!remainingPropertyIds.Remove(propertyId))
-				{
-					continue;
-				}
-
-				var itemDetails = default(SHELLDETAILS);
-				var itemResult = parentFolder2.GetDetailsOf(childPidl, index, &itemDetails);
-				if (itemResult.Succeeded && TryReadDisplayName(&itemDetails.str, childPidl, out var displayText))
-				{
-					displayValues[propertyId] = displayText;
-				}
-			}
+			return ReadPropertyDetailsCore(parentFolder2, childPidl, propertyKeys, displayColumns, cancellationToken);
 		}
 		finally
 		{
 			PInvoke.CoTaskMemFree(absolutePidl);
 		}
+	}
+
+	internal static IReadOnlyList<WindowsShellPropertyDetails> ReadPropertyDetails(
+		IShellFolder2 parentFolder,
+		IReadOnlyList<ReadOnlyMemory<byte>> relativePidls,
+		IReadOnlyList<string> propertyIds,
+		bool includeFormattedValues,
+		CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(parentFolder);
+		ArgumentNullException.ThrowIfNull(relativePidls);
+		ArgumentNullException.ThrowIfNull(propertyIds);
+
+		var propertyKeys = ResolvePropertyKeys(propertyIds, cancellationToken);
+		var displayColumns = includeFormattedValues ? ResolveDisplayColumns(parentFolder, propertyIds, cancellationToken) : null;
+		var results = new WindowsShellPropertyDetails[relativePidls.Count];
+		for (var index = 0; index < relativePidls.Count; index++)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			var relativePidl = relativePidls[index];
+			if (relativePidl.IsEmpty)
+			{
+				results[index] = CreateEmptyPropertyDetails();
+
+				continue;
+			}
+
+			fixed (byte* relativePidlBytes = relativePidl.Span)
+			{
+				results[index] = ReadPropertyDetailsCore(parentFolder, (ITEMIDLIST*)relativePidlBytes, propertyKeys, displayColumns, cancellationToken);
+			}
+		}
+
+		return Array.AsReadOnly(results);
+	}
+
+	internal static IShellFolder2? TryGetFolder(IShellItem shellItem, string parsingName, CancellationToken cancellationToken)
+	{
+		return TryGetFolder2(shellItem, parsingName, cancellationToken);
+	}
+
+	internal static int? FindColumnIndex(IShellFolder2 folder, string propertyId, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(folder);
+
+		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
+
+		var columns = ResolveDisplayColumns(folder, [propertyId], cancellationToken);
+
+		return columns.TryGetValue(propertyId, out var index) && index <= int.MaxValue ? checked((int)index) : null;
+	}
+
+	private static WindowsShellPropertyDetails CreateEmptyPropertyDetails()
+	{
+		return new WindowsShellPropertyDetails(
+			new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>(StringComparer.Ordinal)),
+			new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.Ordinal)));
+	}
+
+	private static unsafe WindowsShellPropertyDetails ReadPropertyDetailsCore(
+		IShellFolder2 parentFolder,
+		ITEMIDLIST* childPidl,
+		IReadOnlyList<(string PropertyId, PROPERTYKEY Key)> propertyKeys,
+		IReadOnlyDictionary<string, uint>? displayColumns,
+		CancellationToken cancellationToken)
+	{
+		var rawValues = new Dictionary<string, object?>(StringComparer.Ordinal);
+		var displayValues = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var property in propertyKeys)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			ComVariant variant = default;
+			try
+			{
+				var result = parentFolder.GetDetailsEx(in *childPidl, in property.Key, out variant);
+				if (result.Succeeded)
+				{
+					rawValues[property.PropertyId] = ReadVariantValue(variant);
+				}
+			}
+			finally
+			{
+				variant.Dispose();
+			}
+		}
+
+		if (displayColumns is not null)
+		{
+			foreach (var column in displayColumns)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				var itemDetails = default(SHELLDETAILS);
+				var itemResult = parentFolder.GetDetailsOf(childPidl, column.Value, &itemDetails);
+				if (itemResult.Succeeded && TryReadDisplayName(&itemDetails.str, childPidl, out var displayText))
+				{
+					displayValues[column.Key] = displayText;
+				}
+			}
+		}
 
 		return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
+	}
+
+	private static IReadOnlyList<(string PropertyId, PROPERTYKEY Key)> ResolvePropertyKeys(IReadOnlyList<string> propertyIds, CancellationToken cancellationToken)
+	{
+		var propertyKeys = new List<(string PropertyId, PROPERTYKEY Key)>(propertyIds.Count);
+		foreach (var propertyId in propertyIds)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			if (TryGetPropertyKey(propertyId, out var propertyKey))
+			{
+				propertyKeys.Add((propertyId, propertyKey));
+			}
+		}
+
+		return propertyKeys;
+	}
+
+	private static unsafe IReadOnlyDictionary<string, uint> ResolveDisplayColumns(IShellFolder2 parentFolder, IReadOnlyList<string> propertyIds, CancellationToken cancellationToken)
+	{
+		var remainingPropertyIds = new HashSet<string>(propertyIds, StringComparer.Ordinal);
+		var displayColumns = new Dictionary<string, uint>(StringComparer.Ordinal);
+		for (uint index = 0; index < MaximumColumnCount && remainingPropertyIds.Count is not 0; index++)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			var headerDetails = default(SHELLDETAILS);
+			var headerResult = parentFolder.GetDetailsOf(null, index, &headerDetails);
+			if (headerResult.Failed)
+			{
+				break;
+			}
+
+			TryReadDisplayName(&headerDetails.str, null, out _);
+			if (parentFolder.MapColumnToSCID(index, out var propertyKey).Failed)
+			{
+				continue;
+			}
+
+			var propertyId = GetPropertyId(propertyKey);
+			if (remainingPropertyIds.Remove(propertyId))
+			{
+				displayColumns[propertyId] = index;
+			}
+		}
+
+		return new ReadOnlyDictionary<string, uint>(displayColumns);
 	}
 
 	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName, CancellationToken cancellationToken)

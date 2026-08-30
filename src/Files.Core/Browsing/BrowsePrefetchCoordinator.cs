@@ -181,14 +181,41 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			}
 
 			var indices = EnumerateIndices(request.Items.Count, request.Viewport).ToArray();
+			var propertyRequest = new PropertyRequest(propertyIds, includeFormattedValues: true);
+			var batchedSources = new Dictionary<IPropertyReader, List<(IStorableModel Item, ItemContext Context)>>(ReferenceEqualityComparer.Instance);
+			var individualItems = new List<IStorableModel>();
+			foreach (var itemIndex in indices)
+			{
+				var item = request.Items[itemIndex];
+				if (item.Get<IPropertySource>() is not IBatchedPropertySource batchedSource)
+				{
+					individualItems.Add(item);
+
+					continue;
+				}
+
+				if (!batchedSources.TryGetValue(batchedSource.Reader, out var items))
+				{
+					items = [];
+					batchedSources.Add(batchedSource.Reader, items);
+				}
+
+				items.Add((item, batchedSource.Context));
+			}
+
+			foreach (var batch in batchedSources)
+			{
+				await PrefetchPropertyBatchAsync(batch.Key, batch.Value, propertyRequest, request, cancellation.Token).ConfigureAwait(false);
+			}
+
 			await Parallel.ForEachAsync(
-				indices,
+				individualItems,
 				new ParallelOptions
 				{
 					MaxDegreeOfParallelism = MaxConcurrentPrefetchPerLane,
 					CancellationToken = cancellation.Token,
 				},
-				(itemIndex, token) => PrefetchPropertiesAsync(request.Items[itemIndex], propertyIds, request, token)).ConfigureAwait(false);
+				(item, token) => PrefetchPropertiesAsync(item, propertyRequest, request, token)).ConfigureAwait(false);
 			CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Property viewport completed work={request.Id} items={indices.Length}");
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -240,7 +267,47 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private async ValueTask PrefetchPropertiesAsync(IStorableModel item, IReadOnlyList<string> propertyIds, PrefetchRequest request, CancellationToken cancellationToken)
+	private async ValueTask PrefetchPropertyBatchAsync(
+		IPropertyReader reader,
+		IReadOnlyList<(IStorableModel Item, ItemContext Context)> items,
+		PropertyRequest propertyRequest,
+		PrefetchRequest request,
+		CancellationToken cancellationToken)
+	{
+		if (!IsCurrent(request, cancellationToken))
+		{
+			return;
+		}
+
+		try
+		{
+			Interlocked.Increment(ref _diagnosticPropertyRequestCount);
+			var contexts = items.Select(static item => item.Context).ToArray();
+			var propertiesByReference = await reader.GetPropertiesAsync(propertyRequest, contexts, cancellationToken).ConfigureAwait(false);
+			foreach (var item in items)
+			{
+				if (!IsCurrent(request, cancellationToken))
+				{
+					return;
+				}
+
+				if (propertiesByReference.TryGetValue(item.Context.Reference, out var properties) && _target is not null)
+				{
+					await _target.PublishPropertiesAsync(request.Generation, item.Item, properties, cancellationToken).ConfigureAwait(false);
+				}
+			}
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch
+		{
+			// Prefetch is best effort; the foreground consumer can retry.
+		}
+	}
+
+	private async ValueTask PrefetchPropertiesAsync(IStorableModel item, PropertyRequest propertyRequest, PrefetchRequest request, CancellationToken cancellationToken)
 	{
 		if (!IsCurrent(request, cancellationToken) || item.Get<IPropertySource>() is not { } propertySource)
 		{
@@ -255,7 +322,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"First property load started work={request.Id}");
 			}
 
-			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest(propertyIds, includeFormattedValues: true), cancellationToken).ConfigureAwait(false);
+			var properties = await propertySource.GetPropertiesAsync(propertyRequest, cancellationToken).ConfigureAwait(false);
 			if (IsCurrent(request, cancellationToken) && _target is not null)
 			{
 				await _target.PublishPropertiesAsync(request.Generation, item, properties, cancellationToken).ConfigureAwait(false);

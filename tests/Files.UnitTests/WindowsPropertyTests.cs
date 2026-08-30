@@ -204,6 +204,7 @@ public sealed class WindowsPropertyTests
 			Assert.IsNotNull(pane);
 			var session = pane.BrowseSession;
 			Assert.AreEqual(32, session.Items.Count);
+			Assert.IsTrue(session.Items.All(static item => item.GetCoreModel() is WindowsStorable windowsItem && windowsItem.Locator.ParentFolder is not null && !windowsItem.Locator.RelativePidl.IsEmpty));
 			ViewColumnSettings[] columns =
 			[
 				new ViewColumnSettings("System.Size", 120, 0),

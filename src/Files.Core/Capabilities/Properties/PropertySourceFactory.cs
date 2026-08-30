@@ -6,6 +6,13 @@ using Files.Core.Capabilities;
 
 namespace Files.Core.Capabilities.Properties;
 
+internal interface IBatchedPropertySource
+{
+	ItemContext Context { get; }
+
+	IPropertyReader Reader { get; }
+}
+
 /// <summary>
 /// Binds a shared property reader to one item.
 /// </summary>
@@ -34,10 +41,14 @@ public sealed class PropertySourceFactory : ICapabilityFactory<IPropertySource>
 			: null;
 	}
 
-	private sealed class BoundPropertySource : IPropertySource
+	private sealed class BoundPropertySource : IPropertySource, IBatchedPropertySource
 	{
 		private readonly IPropertyReader _reader;
 		private readonly ItemContext _context;
+
+		ItemContext IBatchedPropertySource.Context => _context;
+
+		IPropertyReader IBatchedPropertySource.Reader => _reader;
 
 		public BoundPropertySource(IPropertyReader reader, ItemContext context)
 		{

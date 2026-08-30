@@ -68,34 +68,102 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var startTimestamp = Stopwatch.GetTimestamp();
 		CoreDiagnosticLog.Write("WindowsPropertyReader", $"GetProperties START propertyCount={request.PropertyIds.Count} contextCount={contexts.Count}");
 
-		var tasks = contexts.Where(CanRead).Select(context => ReadOneAsync(request, context, cancellationToken)).ToArray();
+		var readableContexts = contexts.Where(CanRead).ToArray();
 
-		if (tasks.Length is 0)
+		if (readableContexts.Length is 0)
 		{
 			CoreDiagnosticLog.Write("WindowsPropertyReader", $"GetProperties END readableContexts=0 elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 			return EmptyResults.Instance;
 		}
 
-		var entries = await Task.WhenAll(tasks).ConfigureAwait(false);
+		var parentGroups = new Dictionary<WindowsItemLocator, List<ItemContext>>(ReferenceEqualityComparer.Instance);
+		var tasks = new List<Task<PropertyEntry[]>>();
+		foreach (var context in readableContexts)
+		{
+			var item = (WindowsStorable)context.CoreModel;
+			if (item.Locator.ParentFolder is not { } parentFolder || item.Locator.RelativePidl.IsEmpty)
+			{
+				tasks.Add(ReadOneAsync(request, context, cancellationToken));
+
+				continue;
+			}
+
+			if (!parentGroups.TryGetValue(parentFolder, out var group))
+			{
+				group = [];
+				parentGroups.Add(parentFolder, group);
+			}
+
+			group.Add(context);
+		}
+
+		foreach (var group in parentGroups)
+		{
+			tasks.Add(ReadGroupAsync(request, group.Key, group.Value, cancellationToken));
+		}
+
+		var entries = (await Task.WhenAll(tasks).ConfigureAwait(false)).SelectMany(static group => group).ToArray();
 
 		var results = entries.ToDictionary(static entry => entry.Reference, static entry => entry.Properties);
 		CoreDiagnosticLog.Write(
 			"WindowsPropertyReader",
-			$"GetProperties END readableContexts={tasks.Length} resultCount={results.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			$"GetProperties END readableContexts={readableContexts.Length} parentGroups={parentGroups.Count} resultCount={results.Count} " +
+			$"elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 		return new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(results);
 	}
 
-	private static Task<PropertyEntry> ReadOneAsync(PropertyRequest request, ItemContext context, CancellationToken cancellationToken)
+	private static Task<PropertyEntry[]> ReadOneAsync(PropertyRequest request, ItemContext context, CancellationToken cancellationToken)
 	{
 		var source = (WindowsStorageSource)context.Source;
 		var item = (WindowsStorable)context.CoreModel;
 
 		return source.ShellItemResolver.InvokeConcurrentAsync(
-			((WindowsStorable)item).Locator,
-			shellItem => new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)),
+			item.Locator,
+			shellItem => new[] { new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)) },
 			cancellationToken);
+	}
+
+	private static Task<PropertyEntry[]> ReadGroupAsync(PropertyRequest request, WindowsItemLocator parentFolder, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken)
+	{
+		var source = (WindowsStorageSource)contexts[0].Source;
+
+		return source.ShellItemResolver.InvokeConcurrentAsync(
+			parentFolder,
+			shellItem => ReadGroupOnCurrentSta(shellItem, request, contexts, cancellationToken),
+			cancellationToken);
+	}
+
+	private static PropertyEntry[] ReadGroupOnCurrentSta(IShellItem parentShellItem, PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken)
+	{
+		var parentFolder = WindowsShellColumnReader.TryGetFolder(parentShellItem, ((WindowsStorable)contexts[0].CoreModel).Locator.ParentFolder!.ParsingName, cancellationToken);
+		if (parentFolder is null)
+		{
+			return contexts.Select(context => ReadOneOnCurrentSta(request, context, cancellationToken)).ToArray();
+		}
+
+		var relativePidls = contexts.Select(static context => ((WindowsStorable)context.CoreModel).Locator.RelativePidl).ToArray();
+		var details = WindowsShellColumnReader.ReadPropertyDetails(parentFolder, relativePidls, request.PropertyIds, request.IncludeFormattedValues, cancellationToken);
+		var entries = new PropertyEntry[contexts.Count];
+		for (var index = 0; index < contexts.Count; index++)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			var context = contexts[index];
+			var item = (WindowsStorable)context.CoreModel;
+			var shellItem = HasAllProperties(details[index], request) ? null : WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
+			entries[index] = new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, details[index], cancellationToken));
+		}
+
+		return entries;
+	}
+
+	private static PropertyEntry ReadOneOnCurrentSta(PropertyRequest request, ItemContext context, CancellationToken cancellationToken)
+	{
+		var item = (WindowsStorable)context.CoreModel;
+		var shellItem = WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
+
+		return new PropertyEntry(context.Reference, shellItem is null ? EmptyProperties.Instance : ReadPropertiesCore(shellItem, request, cancellationToken));
 	}
 
 	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem shellItem, PropertyRequest request, CancellationToken cancellationToken)
@@ -103,6 +171,12 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		cancellationToken.ThrowIfCancellationRequested();
 
 		var details = WindowsShellColumnReader.ReadPropertyDetails(shellItem, request.PropertyIds, request.IncludeFormattedValues, cancellationToken);
+
+		return ReadPropertiesCore(shellItem, request, details, cancellationToken);
+	}
+
+	private static IReadOnlyDictionary<string, object?> ReadPropertiesCore(IShellItem? shellItem, PropertyRequest request, WindowsShellPropertyDetails details, CancellationToken cancellationToken)
+	{
 		var properties = new Dictionary<string, object?>(details.RawValues, StringComparer.Ordinal);
 		if (shellItem is IShellItem2 shellItem2)
 		{
@@ -149,6 +223,19 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		}
 
 		return new ReadOnlyDictionary<string, object?>(properties);
+	}
+
+	private static bool HasAllProperties(WindowsShellPropertyDetails details, PropertyRequest request)
+	{
+		foreach (var propertyId in request.PropertyIds)
+		{
+			if (!details.RawValues.ContainsKey(propertyId))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	private static unsafe void AddString(IShellItem2 item, PROPERTYKEY key, string propertyId, Dictionary<string, object?> properties)
@@ -296,6 +383,12 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	}
 
 	private sealed record PropertyEntry(StorableReference Reference, IReadOnlyDictionary<string, object?> Properties);
+
+	private static class EmptyProperties
+	{
+		public static IReadOnlyDictionary<string, object?> Instance { get; }
+			= new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>());
+	}
 
 	private static class EmptyResults
 	{

@@ -252,6 +252,7 @@ E_NOINTERFACE
 E_FAIL
 IShellFolder
 IShellFolder2
+_SHCONTF
 IShellView
 IColumnManager
 CM_COLUMNINFO

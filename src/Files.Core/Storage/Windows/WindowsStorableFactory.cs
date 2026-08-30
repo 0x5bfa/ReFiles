@@ -144,6 +144,7 @@ internal sealed class WindowsStorableFactory
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
+		var parentFolder = new WindowsItemLocator(descriptor.Locator.AbsolutePidl, descriptor.Locator.ParsingName);
 		var enumerationStartTimestamp = Stopwatch.GetTimestamp();
 		var batchCount = 0;
 		var itemCount = 0;
@@ -163,7 +164,7 @@ internal sealed class WindowsStorableFactory
 		{
 			var scheduledProducer = _resolver.InvokeConcurrentAsync(
 				descriptor.Locator,
-				shellItem => EnumerateChildrenOnCurrentSta(shellItem, batches.Writer, enumerationCancellation.Token),
+				shellItem => EnumerateChildrenOnCurrentSta(shellItem, parentFolder, batches.Writer, enumerationCancellation.Token),
 				enumerationCancellation.Token);
 			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
@@ -271,6 +272,20 @@ internal sealed class WindowsStorableFactory
 		return descriptors;
 	}
 
+	private static ReadOnlyMemory<byte> CombinePidls(ReadOnlyMemory<byte> parentPidl, ReadOnlyMemory<byte> relativePidl)
+	{
+		if (parentPidl.Length < sizeof(ushort) || relativePidl.Length < sizeof(ushort))
+		{
+			throw new InvalidOperationException("The Shell returned an invalid item identifier.");
+		}
+
+		var absolutePidl = GC.AllocateUninitializedArray<byte>(checked(parentPidl.Length + relativePidl.Length - sizeof(ushort)));
+		parentPidl.Span[..^sizeof(ushort)].CopyTo(absolutePidl);
+		relativePidl.Span.CopyTo(absolutePidl.AsSpan(parentPidl.Length - sizeof(ushort)));
+
+		return absolutePidl;
+	}
+
 	private async Task<WindowsStorable?> TryCreateFromItemIdCoreAsync(string itemId, StorageAddress? lastKnownAddress, CancellationToken cancellationToken)
 	{
 		if (_itemIdReader.TryGetParsingName(itemId, out var parsingName))
@@ -328,7 +343,11 @@ internal sealed class WindowsStorableFactory
 		return null;
 	}
 
-	private static unsafe bool EnumerateChildrenOnCurrentSta(IShellItem shellItem, ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer, CancellationToken cancellationToken)
+	private static unsafe bool EnumerateChildrenOnCurrentSta(
+		IShellItem shellItem,
+		WindowsItemLocator parentFolder,
+		ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer,
+		CancellationToken cancellationToken)
 	{
 		var enumerationStartTimestamp = Stopwatch.GetTimestamp();
 		var batchCount = 0;
@@ -341,16 +360,29 @@ internal sealed class WindowsStorableFactory
 		using var cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>>)state!).TryComplete(), writer);
 		try
 		{
-			var bindResult = shellItem.BindToHandler(null, PInvoke.BHID_EnumItems, out IEnumShellItems? enumerator);
-			bindResult.ThrowOnFailure();
+			var folder = WindowsShellColumnReader.TryGetFolder(shellItem, parentFolder.ParsingName, cancellationToken);
+			if (folder is null)
+			{
+				throw new InvalidOperationException("The Shell item returned no folder interface.");
+			}
 
+			var enumerationFlags = _SHCONTF.SHCONTF_FOLDERS | _SHCONTF.SHCONTF_NONFOLDERS | _SHCONTF.SHCONTF_INCLUDEHIDDEN;
+			var enumerationResult = folder.EnumObjects(HWND.Null, (uint)enumerationFlags, out IEnumIDList? enumerator);
+			if (enumerationResult == HRESULT.S_FALSE)
+			{
+				writer.TryComplete();
+
+				return true;
+			}
+
+			enumerationResult.ThrowOnFailure();
 			if (enumerator is null)
 			{
 				throw new InvalidOperationException("The Shell folder returned no item enumerator.");
 			}
 
 			var batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
-			var children = new IShellItem[EnumerationBatchSize];
+			var childPidls = stackalloc ITEMIDLIST*[EnumerationBatchSize];
 
 			while (true)
 			{
@@ -364,8 +396,7 @@ internal sealed class WindowsStorableFactory
 				}
 
 				var nextStartTimestamp = Stopwatch.GetTimestamp();
-				uint fetched = 0;
-				var result = enumerator.Next((uint)children.Length, children, &fetched);
+				var result = enumerator.Next(EnumerationBatchSize, childPidls, out var fetched);
 				nextCallCount++;
 				nextDuration += Stopwatch.GetElapsedTime(nextStartTimestamp);
 
@@ -381,32 +412,56 @@ internal sealed class WindowsStorableFactory
 				}
 
 				var fetchedCount = checked((int)fetched);
-				for (var index = 0; index < fetchedCount; index++)
+				try
 				{
-					var child = children[index];
-					children[index] = null!;
-					var descriptorStartTimestamp = Stopwatch.GetTimestamp();
-					batch.Add(ShellItemHelpers.CreateDescriptorData(child));
-					descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
-					itemCount++;
-
-					if (batch.Count >= EnumerationBatchSize)
+					for (var index = 0; index < fetchedCount; index++)
 					{
-						batchCount++;
-						var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
-						if (!WriteBatch(writer, batch, cancellationToken))
+						cancellationToken.ThrowIfCancellationRequested();
+						var childPidl = childPidls[index];
+						if (childPidl is null)
 						{
-							return false;
+							continue;
 						}
 
-						channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
-						batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
+						var relativePidl = ShellItemHelpers.CopyPidl(childPidl);
+						var absolutePidl = CombinePidls(parentFolder.AbsolutePidl, relativePidl);
+						fixed (byte* absolutePidlBytes = absolutePidl.Span)
+						{
+							var createResult = PInvoke.SHCreateItemFromIDList(in *(ITEMIDLIST*)absolutePidlBytes, out IShellItem child);
+							createResult.ThrowOnFailure();
+							var descriptorStartTimestamp = Stopwatch.GetTimestamp();
+							batch.Add(ShellItemHelpers.CreateDescriptorData(child, parentFolder, absolutePidl, relativePidl));
+							descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
+						}
+
+						itemCount++;
+						if (batch.Count >= EnumerationBatchSize)
+						{
+							batchCount++;
+							var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
+							if (!WriteBatch(writer, batch, cancellationToken))
+							{
+								return false;
+							}
+
+							channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
+							batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
+						}
+
+						PInvoke.CoTaskMemFree(childPidl);
+						childPidls[index] = null;
 					}
 				}
-
-				for (var index = fetchedCount; index < children.Length; index++)
+				finally
 				{
-					children[index] = null!;
+					for (var index = 0; index < fetchedCount; index++)
+					{
+						if (childPidls[index] is not null)
+						{
+							PInvoke.CoTaskMemFree(childPidls[index]);
+							childPidls[index] = null;
+						}
+					}
 				}
 			}
 
