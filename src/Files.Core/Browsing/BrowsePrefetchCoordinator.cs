@@ -242,16 +242,13 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		try
 		{
 			var requestedThumbnailSize = request.Settings.LayoutMode is ViewLayoutMode.Details ? DetailsThumbnailSize : _thumbnailSize;
-			var thumbnailMode = request.Settings.LayoutMode is ViewLayoutMode.Details ? ThumbnailMode.Icon : ThumbnailMode.PreferContent;
 			var indices = EnumerateIndices(request.Items.Count, request.Viewport).ToArray();
-			await Parallel.ForEachAsync(
-				indices,
-				new ParallelOptions
-				{
-					MaxDegreeOfParallelism = MaxConcurrentPrefetchPerLane,
-					CancellationToken = cancellation.Token,
-				},
-				(itemIndex, token) => PrefetchThumbnailAsync(request.Items[itemIndex], requestedThumbnailSize, thumbnailMode, request, token)).ConfigureAwait(false);
+			await ProcessThumbnailPassAsync(indices, requestedThumbnailSize, ThumbnailMode.Icon, request, cancellation.Token).ConfigureAwait(false);
+			if (request.Settings.LayoutMode is not ViewLayoutMode.Details && IsCurrent(request, cancellation.Token))
+			{
+				await ProcessThumbnailPassAsync(indices, requestedThumbnailSize, ThumbnailMode.PreferContent, request, cancellation.Token).ConfigureAwait(false);
+			}
+
 			CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail viewport completed work={request.Id} items={indices.Length}");
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -265,6 +262,50 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		{
 			EndLaneWork(cancellation, propertyLane: false);
 		}
+	}
+
+	private async Task ProcessThumbnailPassAsync(int[] indices, int requestedThumbnailSize, ThumbnailMode thumbnailMode, PrefetchRequest request, CancellationToken cancellationToken)
+	{
+		var activeLoads = new List<PendingThumbnailLoad>(MaxConcurrentPrefetchPerLane);
+		var completedLoads = new Dictionary<int, ThumbnailPrefetchResult?>();
+		var nextLoadIndex = 0;
+		var nextPublishIndex = 0;
+
+		Task<ThumbnailPrefetchResult?> StartLoad(int sequence)
+		{
+			var item = request.Items[indices[sequence]];
+
+			return LoadThumbnailAsync(item, requestedThumbnailSize, thumbnailMode, request, cancellationToken).AsTask();
+		}
+
+		while (nextLoadIndex < indices.Length && activeLoads.Count < MaxConcurrentPrefetchPerLane)
+		{
+			activeLoads.Add(new PendingThumbnailLoad(nextLoadIndex, StartLoad(nextLoadIndex)));
+			nextLoadIndex++;
+		}
+
+		while (activeLoads.Count is not 0)
+		{
+			var completedTask = await Task.WhenAny(activeLoads.Select(static load => load.LoadTask)).ConfigureAwait(false);
+			var completedLoadIndex = activeLoads.FindIndex(load => ReferenceEquals(load.LoadTask, completedTask));
+			var completedLoad = activeLoads[completedLoadIndex];
+			activeLoads.RemoveAt(completedLoadIndex);
+			completedLoads.Add(completedLoad.Sequence, await completedTask.ConfigureAwait(false));
+
+			if (nextLoadIndex < indices.Length && IsCurrent(request, cancellationToken))
+			{
+				activeLoads.Add(new PendingThumbnailLoad(nextLoadIndex, StartLoad(nextLoadIndex)));
+				nextLoadIndex++;
+			}
+
+			while (completedLoads.Remove(nextPublishIndex, out var completedResult))
+			{
+				await PublishThumbnailAsync(completedResult, request, cancellationToken).ConfigureAwait(false);
+				nextPublishIndex++;
+			}
+		}
+
+		CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail pass completed work={request.Id} mode={thumbnailMode} items={indices.Length}");
 	}
 
 	private async ValueTask PrefetchPropertyBatchAsync(
@@ -338,11 +379,12 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 	}
 
-	private async ValueTask PrefetchThumbnailAsync(IStorableModel item, int requestedThumbnailSize, ThumbnailMode thumbnailMode, PrefetchRequest request, CancellationToken cancellationToken)
+	private async ValueTask<ThumbnailPrefetchResult?> LoadThumbnailAsync(
+		IStorableModel item, int requestedThumbnailSize, ThumbnailMode thumbnailMode, PrefetchRequest request, CancellationToken cancellationToken)
 	{
 		if (!IsCurrent(request, cancellationToken) || item.Get<IThumbnailSource>() is not { } thumbnailSource)
 		{
-			return;
+			return null;
 		}
 
 		try
@@ -354,14 +396,34 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			}
 
 			var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, thumbnailMode, request.Viewport.Dpi), cancellationToken).ConfigureAwait(false);
-			if (thumbnail is not null && IsCurrent(request, cancellationToken) && _target is not null)
-			{
-				await _target.PublishThumbnailAsync(request.Generation, item, thumbnail, cancellationToken).ConfigureAwait(false);
-			}
+
+			return thumbnail is null ? null : new ThumbnailPrefetchResult(item, thumbnail);
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
-			throw;
+			return null;
+		}
+		catch
+		{
+			// Prefetch is best effort; the foreground consumer can retry.
+
+			return null;
+		}
+	}
+
+	private async ValueTask PublishThumbnailAsync(ThumbnailPrefetchResult? result, PrefetchRequest request, CancellationToken cancellationToken)
+	{
+		if (result is null || !IsCurrent(request, cancellationToken) || _target is null)
+		{
+			return;
+		}
+
+		try
+		{
+			await _target.PublishThumbnailAsync(request.Generation, result.Item, result.Thumbnail, cancellationToken).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
 		}
 		catch
 		{
@@ -575,4 +637,8 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	}
 
 	private sealed record PrefetchRequest(long Id, long Generation, BrowseViewport Viewport, BrowseViewSettings Settings, IReadOnlyList<IStorableModel> Items);
+
+	private sealed record PendingThumbnailLoad(int Sequence, Task<ThumbnailPrefetchResult?> LoadTask);
+
+	private sealed record ThumbnailPrefetchResult(IStorableModel Item, ThumbnailResult Thumbnail);
 }

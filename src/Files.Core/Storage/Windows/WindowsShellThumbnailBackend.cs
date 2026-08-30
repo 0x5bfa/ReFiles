@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using Files.Core.Capabilities.Thumbnails;
@@ -57,6 +58,12 @@ public sealed class WindowsShellThumbnailBackend
 
 	private const int MaximumThumbnailSize = 1024;
 
+	// SHGFI packs the overlay into iIcon; IImageList expects INDEXTOOVERLAYMASK in its draw flags.
+	private const uint ImageListDrawTransparent = 0x00000001;
+	private const int ImageListOverlayMaskShift = 8;
+	private const uint ShellImageIndexMask = 0x00FFFFFF;
+	private const int ShellOverlayIndexShift = 24;
+
 	private static readonly Guid _clsidLocalThumbnailCache =
 		new("50EF4544-AC9F-4A8E-B21B-8A26180DB13F");
 
@@ -67,6 +74,10 @@ public sealed class WindowsShellThumbnailBackend
 
 	[ThreadStatic]
 	private static global::Windows.Win32.UI.Shell.IThumbnailCache? _threadThumbnailCache;
+	[ThreadStatic]
+	private static Dictionary<int, IImageList>? _threadSystemImageLists;
+
+	private readonly ConcurrentDictionary<SystemIconCacheKey, byte[]> _systemIconCache = new();
 
 	internal unsafe WindowsThumbnailPayload? GetThumbnail(IShellItem shellItem, WindowsItemLocator locator, ThumbnailRequest request, CancellationToken cancellationToken)
 	{
@@ -78,15 +89,15 @@ public sealed class WindowsShellThumbnailBackend
 		var requestedSize = request.RequestedPixelSize;
 		WindowsThumbnailPayload? payload = request.Mode switch
 		{
-			ThumbnailMode.Icon => TryGetIcon(shellItem, locator, requestedSize, cancellationToken),
+			ThumbnailMode.Icon => TryGetIcon(locator, requestedSize, cancellationToken),
 			ThumbnailMode.Content => TryGetContent(shellItem, locator, requestedSize, cancellationToken),
 			ThumbnailMode.PreferContent => TryGetContent(shellItem, locator, requestedSize, cancellationToken)
-				?? TryGetIcon(shellItem, locator, requestedSize, cancellationToken),
+				?? TryGetIcon(locator, requestedSize, cancellationToken),
 			_ => throw new ArgumentOutOfRangeException(nameof(request.Mode)),
 		};
 
-		return payload is null
-			? null
+		return payload is null || payload.IncludesOverlay
+			? payload
 			: CompleteWithOverlay(payload, locator, requestedSize, cancellationToken);
 	}
 
@@ -131,8 +142,14 @@ public sealed class WindowsShellThumbnailBackend
 		return TryExtractLegacyThumbnail(locator, requestedSize, cancellationToken) ?? lowQualityPayload;
 	}
 
-	private static WindowsThumbnailPayload? TryGetIcon(IShellItem shellItem, WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
+	private WindowsThumbnailPayload? TryGetIcon(WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
+		var systemIcon = TryRenderSystemImageListIcon(locator, requestedSize, cancellationToken);
+		if (systemIcon is not null)
+		{
+			return systemIcon;
+		}
+
 		var imageFactory = TryCreateImageFactory(locator);
 		if (imageFactory is not null)
 		{
@@ -300,6 +317,98 @@ public sealed class WindowsShellThumbnailBackend
 		}
 	}
 
+	private unsafe WindowsThumbnailPayload? TryRenderSystemImageListIcon(WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
+	{
+		if (requestedSize <= 0 || !TryGetSystemImageListIndex(locator, out var imageIndex, out var overlayIndex))
+		{
+			return null;
+		}
+
+		var imageListId = GetSystemImageListId(requestedSize);
+		var drawFlags = ImageListDrawTransparent | (overlayIndex << ImageListOverlayMaskShift);
+		var cacheKey = new SystemIconCacheKey(imageListId, imageIndex, drawFlags, requestedSize);
+		if (_systemIconCache.TryGetValue(cacheKey, out var cachedIcon))
+		{
+			return new WindowsThumbnailPayload(cachedIcon, "image/png", IsFallback: true, IncludesOverlay: true);
+		}
+
+		var imageList = GetThreadSystemImageList(imageListId);
+		if (imageList is null)
+		{
+			return null;
+		}
+
+		var iconResult = UI_Controls_IImageList_Extensions.GetIcon(imageList, imageIndex, drawFlags, out var icon);
+		using (icon)
+		{
+			if (iconResult.Failed || icon.IsInvalid)
+			{
+				return null;
+			}
+
+			var encodedIcon = WindowsThumbnailRenderer.EncodeHIcon(icon, requestedSize, cancellationToken);
+			if (encodedIcon is null)
+			{
+				return null;
+			}
+
+			_systemIconCache.TryAdd(cacheKey, encodedIcon);
+
+			return new WindowsThumbnailPayload(encodedIcon, "image/png", IsFallback: true, IncludesOverlay: true);
+		}
+	}
+
+	private static unsafe bool TryGetSystemImageListIndex(WindowsItemLocator locator, out int imageIndex, out uint overlayIndex)
+	{
+		var fileInfo = default(SHFILEINFOW);
+		var flags = SHGFI_FLAGS.SHGFI_PIDL | SHGFI_FLAGS.SHGFI_SYSICONINDEX | SHGFI_FLAGS.SHGFI_OVERLAYINDEX;
+		if (!locator.AbsolutePidl.IsEmpty)
+		{
+			fixed (byte* pidlBytes = locator.AbsolutePidl.Span)
+			{
+				if (PInvoke.SHGetFileInfo(new PCWSTR((char*)pidlBytes), default, &fileInfo, (uint)sizeof(SHFILEINFOW), flags) is 0)
+				{
+					imageIndex = 0;
+					overlayIndex = 0;
+
+					return false;
+				}
+			}
+		}
+		else if (PInvoke.SHGetFileInfo(locator.ParsingName, default, ref fileInfo, flags & ~SHGFI_FLAGS.SHGFI_PIDL) is 0)
+		{
+			imageIndex = 0;
+			overlayIndex = 0;
+
+			return false;
+		}
+
+		var packedIndex = unchecked((uint)fileInfo.iIcon);
+		imageIndex = checked((int)(packedIndex & ShellImageIndexMask));
+		overlayIndex = packedIndex >> ShellOverlayIndexShift;
+
+		return true;
+	}
+
+	private static IImageList? GetThreadSystemImageList(int imageListId)
+	{
+		_threadSystemImageLists ??= [];
+		if (_threadSystemImageLists.TryGetValue(imageListId, out var imageList))
+		{
+			return imageList;
+		}
+
+		var result = PInvoke.SHGetImageList<IImageList>(imageListId, out imageList);
+		if (result.Failed || imageList is null)
+		{
+			return null;
+		}
+
+		_threadSystemImageLists.Add(imageListId, imageList);
+
+		return imageList;
+	}
+
 	private static unsafe WindowsThumbnailPayload? TryExtractLegacyThumbnail(WindowsItemLocator locator, int requestedSize, CancellationToken cancellationToken)
 	{
 		if (!TryGetShellChildInterface<IExtractImage>(locator, out var extractImage, out var pidl))
@@ -422,9 +531,9 @@ public sealed class WindowsShellThumbnailBackend
 		}
 	}
 
-	private static WindowsThumbnailPayload CreateBgraPayload(WindowsBitmapData bitmap, bool isFallback)
+	private static WindowsThumbnailPayload CreateBgraPayload(WindowsBitmapData bitmap, bool isFallback, bool includesOverlay = false)
 	{
-		return new WindowsThumbnailPayload(bitmap.Pixels, "application/octet-stream", isFallback, ThumbnailContentFormat.Bgra8, bitmap.Width, bitmap.Height);
+		return new WindowsThumbnailPayload(bitmap.Pixels, "application/octet-stream", isFallback, ThumbnailContentFormat.Bgra8, bitmap.Width, bitmap.Height, includesOverlay);
 	}
 
 	private static unsafe bool TryGetOverlayIcon(WindowsItemLocator locator, int requestedSize, out DestroyIconSafeHandle? overlayIcon)
@@ -455,13 +564,7 @@ public sealed class WindowsShellThumbnailBackend
 			return false;
 		}
 
-		var imageListId = requestedSize switch
-		{
-			<= 16 => ShellImageListSmall,
-			<= 32 => ShellImageListLarge,
-			<= 48 => ShellImageListExtraLarge,
-			_ => ShellImageListJumbo,
-		};
+		var imageListId = GetSystemImageListId(requestedSize);
 		var imageListResult = PInvoke.SHGetImageList<IImageList>(imageListId, out var imageList);
 		if (imageListResult.Failed || imageList is null)
 		{
@@ -485,6 +588,17 @@ public sealed class WindowsShellThumbnailBackend
 		overlayIcon = icon;
 
 		return true;
+	}
+
+	private static int GetSystemImageListId(int requestedSize)
+	{
+		return requestedSize switch
+		{
+			<= 16 => ShellImageListSmall,
+			<= 32 => ShellImageListLarge,
+			<= 48 => ShellImageListExtraLarge,
+			_ => ShellImageListJumbo,
+		};
 	}
 
 	private static unsafe bool TryGetShellChildInterface<T>(WindowsItemLocator locator, out T result, out ITEMIDLIST* pidl)
@@ -557,6 +671,8 @@ public sealed class WindowsShellThumbnailBackend
 			}
 		}
 	}
+
+	private readonly record struct SystemIconCacheKey(int ImageListId, int ImageIndex, uint DrawFlags, int RequestedSize);
 }
 
 internal sealed record WindowsThumbnailPayload(
@@ -565,4 +681,5 @@ internal sealed record WindowsThumbnailPayload(
 	bool IsFallback,
 	ThumbnailContentFormat Format = ThumbnailContentFormat.EncodedImage,
 	int PixelWidth = 0,
-	int PixelHeight = 0);
+	int PixelHeight = 0,
+	bool IncludesOverlay = false);

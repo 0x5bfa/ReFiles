@@ -18,9 +18,6 @@ namespace Files.UnitTests;
 [DoNotParallelize]
 public sealed class WindowsThumbnailTests
 {
-	private static readonly byte[] PngSignature = [
-		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-
 	private static readonly byte[] OnePixelPng = [
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
 		0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
@@ -33,11 +30,11 @@ public sealed class WindowsThumbnailTests
 		0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82];
 
 	/// <summary>
-	/// Test case: windows shell thumbnail is cached as independent png streams.
+	/// Test case: windows shell icons are cached as encoded PNG images.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
-	public async Task WindowsShellThumbnailIsCachedAsIndependentPngStreams()
+	public async Task WindowsShellIconIsCachedAsEncodedPng()
 	{
 		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ThumbnailTests-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(directoryPath);
@@ -66,14 +63,16 @@ public sealed class WindowsThumbnailTests
 
 			var first = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(96, ThumbnailMode.Icon));
 			Assert.IsNotNull(first);
+			Assert.AreEqual(ThumbnailContentFormat.EncodedImage, first.Format);
 			Assert.AreEqual("image/png", first.ContentType);
+			CollectionAssert.AreEqual(OnePixelPng.AsSpan(0, 8).ToArray(), first.Content.Span[..8].ToArray());
 			var firstContent = first.Content.ToArray();
-			CollectionAssert.AreEqual(PngSignature, firstContent[..PngSignature.Length]);
 
 			File.Delete(filePath);
 
 			var second = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(96, ThumbnailMode.Icon));
 			Assert.IsNotNull(second);
+			Assert.AreEqual(ThumbnailContentFormat.EncodedImage, second.Format);
 			CollectionAssert.AreEqual(firstContent, second.Content.ToArray());
 		}
 		finally

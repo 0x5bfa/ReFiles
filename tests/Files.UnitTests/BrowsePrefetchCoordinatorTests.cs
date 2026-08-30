@@ -417,6 +417,144 @@ public sealed class BrowsePrefetchCoordinatorTests
 	}
 
 	/// <summary>
+	/// Test case: publishes system icons before loading content thumbnails.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PublishesSystemIconsBeforeLoadingContentThumbnails()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var contentStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var contentRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var thumbnailSource = new TestThumbnailSource
+		{
+			Handler = async (request, cancellationToken) =>
+			{
+				if (request.Mode is ThumbnailMode.Icon)
+				{
+					return new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: true);
+				}
+
+				contentStarted.TrySetResult(true);
+				await contentRelease.Task.WaitAsync(cancellationToken);
+
+				return new ThumbnailResult(new byte[] { 2 }, "image/png", isFallback: false);
+			},
+		};
+		var item = factory.CreateModel("item", "Item", out _, thumbnailSource: thumbnailSource);
+		var resolver = new TestBrowseLocationResolver([item])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		var publishedContent = new ConcurrentQueue<byte>();
+		session.ItemPresentationChanged += (_, args) =>
+		{
+			if ((args.Changed & BrowseItemPresentationChangeFlags.Thumbnail) is not 0 && args.Presentation.Thumbnail is { } thumbnail)
+			{
+				publishedContent.Enqueue(thumbnail.Content.Span[0]);
+			}
+		};
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+		var settings = new BrowseViewSettings(layoutMode: ViewLayoutMode.Grid);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, 1), settings, session.Generation);
+			await contentStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			CollectionAssert.AreEqual(new byte[] { 1 }, publishedContent.ToArray());
+			contentRelease.TrySetResult(true);
+			await WaitUntilAsync(() => publishedContent.Count is 2);
+		}
+		finally
+		{
+			contentRelease.TrySetResult(true);
+		}
+
+		CollectionAssert.AreEqual(new byte[] { 1, 2 }, publishedContent.ToArray());
+		CollectionAssert.AreEqual(new[] { ThumbnailMode.Icon, ThumbnailMode.PreferContent }, thumbnailSource.Requests.Select(static request => request.Mode).ToArray());
+	}
+
+	/// <summary>
+	/// Test case: publishes concurrently loaded thumbnails in sorted display order.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PublishesThumbnailsInSortedDisplayOrder()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var firstStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var firstRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var secondCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var thirdStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var firstThumbnail = new TestThumbnailSource
+		{
+			Handler = async (_, cancellationToken) =>
+			{
+				firstStarted.TrySetResult(true);
+				await firstRelease.Task.WaitAsync(cancellationToken);
+
+				return new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: false);
+			},
+		};
+		var secondThumbnail = new TestThumbnailSource
+		{
+			Handler = (_, _) =>
+			{
+				secondCompleted.TrySetResult(true);
+
+				return ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] { 2 }, "image/png", isFallback: false));
+			},
+		};
+		var thirdThumbnail = new TestThumbnailSource
+		{
+			Handler = (_, _) =>
+			{
+				thirdStarted.TrySetResult(true);
+
+				return ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] { 3 }, "image/png", isFallback: false));
+			},
+		};
+		var third = factory.CreateModel("third", "Gamma", out _, thumbnailSource: thirdThumbnail);
+		var second = factory.CreateModel("second", "Beta", out _, thumbnailSource: secondThumbnail);
+		var first = factory.CreateModel("first", "Alpha", out _, thumbnailSource: firstThumbnail);
+		var resolver = new TestBrowseLocationResolver([third, second, first])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		CollectionAssert.AreEqual(new[] { first, second, third }, session.Items.ToArray());
+		var publishedKeys = new ConcurrentQueue<StorableKey>();
+		session.ItemPresentationChanged += (_, args) =>
+		{
+			if ((args.Changed & BrowseItemPresentationChangeFlags.Thumbnail) is not 0)
+			{
+				publishedKeys.Enqueue(args.Key);
+			}
+		};
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(0, 3), session.ViewSettings, session.Generation);
+			await Task.WhenAll(firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(5)), secondCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5)), thirdStarted.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+			Assert.AreEqual(0, publishedKeys.Count);
+			firstRelease.TrySetResult(true);
+			await WaitUntilAsync(() => publishedKeys.Count is 3);
+		}
+		finally
+		{
+			firstRelease.TrySetResult(true);
+		}
+
+		CollectionAssert.AreEqual(new[] { first.Reference.GetKey(), second.Reference.GetKey(), third.Reference.GetKey() }, publishedKeys.ToArray());
+	}
+
+	/// <summary>
 	/// Test case: viewport bursts keep prefetch concurrency bounded.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
