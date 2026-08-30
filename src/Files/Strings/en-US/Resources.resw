@@ -99,6 +99,9 @@
 	<data name="FolderPathRequired" xml:space="preserve"><value>A folder path is required.</value></data>
 	<data name="ItemCountSingle" xml:space="preserve"><value>{0} item</value></data>
 	<data name="ItemCountPlural" xml:space="preserve"><value>{0} items</value></data>
+	<data name="SelectedItemCountSingle" xml:space="preserve"><value>{0} item selected</value></data>
+	<data name="SelectedItemCountPlural" xml:space="preserve"><value>{0} items selected</value></data>
+	<data name="SelectedItemsWithSizeFormat" xml:space="preserve"><value>{0}  {1}</value></data>
 	<data name="NotFolderFormat" xml:space="preserve"><value>The location '{0}' is not a folder.</value></data>
 	<data name="Back" xml:space="preserve"><value>Back</value></data>
 	<data name="ToggleSidebar" xml:space="preserve"><value>Toggle the sidebar</value></data>

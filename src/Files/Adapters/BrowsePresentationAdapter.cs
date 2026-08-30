@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.Globalization;
 using Files.Infrastructure;
 using Files.ViewModels;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Properties;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Data;
@@ -21,8 +23,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 {
 	private const int MaxItemsPerDrain = 1_024;
 	private const int MaxPropertiesPerDrain = 128;
+	private const int MaximumStatusBarSizeItemCount = 99;
 	private const int MaxThumbnailsPerDrain = 8;
 	private const int MaxDecodedFallbackThumbnails = 128;
+	private const string SizePropertyId = "System.Size";
+	private static readonly PropertyRequest StatusBarSizePropertyRequest = new([SizePropertyId]);
 	private static readonly TimeSpan UiDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly BrowsePaneSession _pane;
@@ -32,6 +37,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly BrowsePresentationText _text;
 	private readonly BrowseItemLayoutMetrics _itemLayoutMetrics;
 	private readonly CancellationTokenSource _lifetime = new();
+	private readonly Lock _statusBarSizeLock = new();
+	private readonly HashSet<StatusBarSizeLoad> _statusBarSizeLoads = [];
 	private readonly SemaphoreSlim _thumbnailDecodeGate = new(2);
 	private readonly Lock _thumbnailTaskLock = new();
 	private readonly HashSet<Task> _thumbnailTasks = [];
@@ -48,14 +55,19 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private PendingState? _pendingState;
 	private PendingColumns? _pendingColumns;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
+	private PendingStatusBarSize? _pendingStatusBarSize;
 	private LocationNavigation? _locationNavigation;
 	private ColumnLoad? _columnLoad;
 	private ColumnCache? _columnCache;
+	private StatusBarSizeLoad? _currentStatusBarSizeLoad;
 	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
 	private BrowseViewSettings _viewSettings;
 	private BrowseViewSettings _prefetchViewSettings;
+	private ulong? _selectedSize;
 	private BrowseViewport? _lastViewport;
 	private long _prefetchGeneration;
+	private long _statusBarGeneration;
+	private long _statusBarVersion;
 	private long _appliedItemsVersion = -1;
 	private long _diagnosticLongestDrainTicks;
 	private long _thumbnailApplyVersion;
@@ -83,6 +95,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_viewSettings = _pane.BrowseSession.ViewSettings;
 		_prefetchViewSettings = _viewSettings;
 		_prefetchGeneration = _pane.BrowseSession.Generation;
+		_statusBarGeneration = _pane.BrowseSession.Generation;
 		_itemLayoutMetrics = new BrowseItemLayoutMetrics(_viewSettings.ItemSize);
 
 		SelectedKeys = Array.Empty<StorableKey>();
@@ -118,9 +131,23 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	public ViewLayoutMode LayoutMode => ViewSettings.LayoutMode;
 
-	public string StatusText =>
-		ErrorMessage
-		?? string.Format(CultureInfo.CurrentCulture, _items.Count is 1 ? _text.ItemCountSingle : _text.ItemCountPlural, _items.Count);
+	public string StatusText
+	{
+		get
+		{
+			if (ErrorMessage is not null)
+			{
+				return ErrorMessage;
+			}
+
+			if (SelectedKeys.Count is 0)
+			{
+				return _text.StatusBar.FormatItemCount(_items.Count);
+			}
+
+			return _text.StatusBar.FormatSelectedItemCount(SelectedKeys.Count, _selectedSize);
+		}
+	}
 
 	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 
@@ -537,6 +564,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_columnCache = null;
 		}
 
+		StatusBarSizeLoad[] statusBarSizeLoads;
+		lock (_statusBarSizeLock)
+		{
+			_currentStatusBarSizeLoad?.Cancel();
+			_currentStatusBarSizeLoad = null;
+			statusBarSizeLoads = _statusBarSizeLoads.ToArray();
+		}
+
 		Task? locationNavigationTask;
 		lock (_locationNavigationLock)
 		{
@@ -545,7 +580,18 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 		columnLoad?.Cancel();
 		_lifetime.Cancel();
-		await Task.WhenAll(ObserveBackgroundTaskAsync(columnLoad?.Task), ObserveBackgroundTaskAsync(locationNavigationTask)).ConfigureAwait(false);
+		var backgroundTasks = new List<Task>
+		{
+			ObserveBackgroundTaskAsync(columnLoad?.Task),
+			ObserveBackgroundTaskAsync(locationNavigationTask),
+		};
+		backgroundTasks.AddRange(statusBarSizeLoads.Select(static load => ObserveBackgroundTaskAsync(load.Task)));
+		await Task.WhenAll(backgroundTasks).ConfigureAwait(false);
+		foreach (var load in statusBarSizeLoads)
+		{
+			load.Dispose();
+		}
+
 		Task[] thumbnailTasks;
 		lock (_thumbnailTaskLock)
 		{
@@ -573,6 +619,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingState = null;
 			_pendingColumns = null;
 			_pendingSelection = null;
+			_pendingStatusBarSize = null;
 		}
 
 		Updated = null;
@@ -590,6 +637,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void Pane_StateChanged(object? sender, EventArgs args)
 	{
 		var session = _pane.BrowseSession;
+		InvalidateStatusBarSizeForGeneration(session.Generation);
 		lock (_pendingLock)
 		{
 			if (_prefetchGeneration != session.Generation || Volatile.Read(ref _isApplyingDefaultColumns) is 0)
@@ -730,6 +778,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		PendingState? state;
 		PendingColumns? columns;
 		IReadOnlyList<StorableKey>? selection;
+		PendingStatusBarSize? statusBarSize;
 		KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] properties;
 		KeyValuePair<StorableKey, ThumbnailResult?>[] thumbnails;
 		lock (_pendingLock)
@@ -745,6 +794,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingColumns = null;
 			selection = _pendingSelection;
 			_pendingSelection = null;
+			statusBarSize = _pendingStatusBarSize;
+			_pendingStatusBarSize = null;
 			properties = TakePendingPropertiesLocked();
 			thumbnails = TakePendingThumbnailsLocked();
 			_drainQueued = false;
@@ -852,9 +903,24 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_itemLayoutMetrics.Update(_viewSettings.ItemSize);
 		}
 
+		var statusBarSelectionRefreshed = false;
 		if (selection is not null)
 		{
 			SelectedKeys = selection;
+			UpdateStatusBarSelection(selection, _pane.BrowseSession.Generation);
+			statusBarSelectionRefreshed = true;
+		}
+		else if (SelectedKeys.Count is > 0 and <= MaximumStatusBarSizeItemCount && (appliedChanges.Count is not 0 || properties.Any(property => SelectedKeys.Contains(property.Key))))
+		{
+			UpdateStatusBarSelection(SelectedKeys, _pane.BrowseSession.Generation);
+			statusBarSelectionRefreshed = true;
+		}
+
+		var statusBarSizeApplied = false;
+		if (statusBarSize is not null && IsStatusBarSizeResultCurrent(statusBarSize))
+		{
+			_selectedSize = statusBarSize.Size;
+			statusBarSizeApplied = true;
 		}
 
 		var flags = BrowseUpdateFlags.None;
@@ -882,6 +948,16 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		if (selection is not null)
 		{
 			flags |= BrowseUpdateFlags.Selection;
+		}
+
+		if (statusBarSizeApplied)
+		{
+			flags |= BrowseUpdateFlags.Status;
+		}
+
+		if (statusBarSelectionRefreshed)
+		{
+			flags |= BrowseUpdateFlags.Status;
 		}
 
 		if (state is not null)
@@ -1067,7 +1143,215 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		lock (_pendingLock)
 		{
-			return _pendingProperties.Count is not 0 || _pendingThumbnails.Count is not 0;
+			return _pendingProperties.Count is not 0 || _pendingThumbnails.Count is not 0 || _pendingStatusBarSize is not null;
+		}
+	}
+
+	private void InvalidateStatusBarSizeForGeneration(long generation)
+	{
+		StatusBarSizeLoad? previousLoad;
+		PendingStatusBarSize pendingSize;
+		lock (_statusBarSizeLock)
+		{
+			if (_statusBarGeneration == generation)
+			{
+				return;
+			}
+
+			_statusBarGeneration = generation;
+			var version = checked(++_statusBarVersion);
+			previousLoad = _currentStatusBarSizeLoad;
+			_currentStatusBarSizeLoad = null;
+			pendingSize = new PendingStatusBarSize(generation, version, null);
+		}
+
+		previousLoad?.Cancel();
+		QueuePendingStatusBarSize(pendingSize);
+	}
+
+	private void UpdateStatusBarSelection(IReadOnlyList<StorableKey> selectedKeys, long generation)
+	{
+		ArgumentNullException.ThrowIfNull(selectedKeys);
+
+		_selectedSize = null;
+		StatusBarSizeLoad? previousLoad;
+		StatusBarSizeLoad? nextLoad = null;
+		lock (_statusBarSizeLock)
+		{
+			_statusBarGeneration = generation;
+			var version = checked(++_statusBarVersion);
+			previousLoad = _currentStatusBarSizeLoad;
+			_currentStatusBarSizeLoad = null;
+			if (Volatile.Read(ref _isDisposed) is 0 && selectedKeys.Count is > 0 and <= MaximumStatusBarSizeItemCount)
+			{
+				nextLoad = new StatusBarSizeLoad(generation, version, _lifetime.Token);
+				_currentStatusBarSizeLoad = nextLoad;
+				_statusBarSizeLoads.Add(nextLoad);
+			}
+		}
+
+		previousLoad?.Cancel();
+		if (nextLoad is null)
+		{
+			return;
+		}
+
+		var selection = selectedKeys.ToArray();
+		nextLoad.Start(cancellationToken => LoadStatusBarSizeAsync(nextLoad, selection, cancellationToken));
+		_ = TrackStatusBarSizeLoadAsync(nextLoad);
+	}
+
+	private async Task LoadStatusBarSizeAsync(StatusBarSizeLoad load, IReadOnlyList<StorableKey> selectedKeys, CancellationToken cancellationToken)
+	{
+		ulong totalSize = 0;
+		foreach (var key in selectedKeys)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var size = await GetStatusBarItemSizeAsync(key, cancellationToken).ConfigureAwait(false);
+			if (size is null)
+			{
+				return;
+			}
+
+			try
+			{
+				totalSize = checked(totalSize + size.Value);
+			}
+			catch (OverflowException)
+			{
+				return;
+			}
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+		if (!IsStatusBarSizeLoadCurrent(load))
+		{
+			return;
+		}
+
+		QueuePendingStatusBarSize(new PendingStatusBarSize(load.Generation, load.Version, totalSize));
+	}
+
+	private async ValueTask<ulong?> GetStatusBarItemSizeAsync(StorableKey key, CancellationToken cancellationToken)
+	{
+		var session = _pane.BrowseSession;
+		if (session.TryGetPresentation(key, out var presentation) && presentation.Properties.TryGetValue(SizePropertyId, out var cachedValue) && TryGetSize(cachedValue, out var cachedSize))
+		{
+			return cachedSize;
+		}
+
+		if (!session.TryGet(key, out var item) || item.Get<IPropertySource>() is not { } propertySource)
+		{
+			return null;
+		}
+
+		var properties = await propertySource.GetPropertiesAsync(StatusBarSizePropertyRequest, cancellationToken).ConfigureAwait(false);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return properties.TryGetValue(SizePropertyId, out var value) && TryGetSize(value, out var size) ? size : null;
+	}
+
+	private void QueuePendingStatusBarSize(PendingStatusBarSize pendingSize)
+	{
+		lock (_pendingLock)
+		{
+			if (_pendingStatusBarSize is null || _pendingStatusBarSize.Version <= pendingSize.Version)
+			{
+				_pendingStatusBarSize = pendingSize;
+			}
+		}
+
+		ScheduleDrain();
+	}
+
+	private bool IsStatusBarSizeLoadCurrent(StatusBarSizeLoad load)
+	{
+		lock (_statusBarSizeLock)
+		{
+			return Volatile.Read(ref _isDisposed) is 0 && ReferenceEquals(_currentStatusBarSizeLoad, load) && _statusBarVersion == load.Version && _statusBarGeneration == load.Generation;
+		}
+	}
+
+	private bool IsStatusBarSizeResultCurrent(PendingStatusBarSize result)
+	{
+		if (_pane.BrowseSession.Generation != result.Generation)
+		{
+			return false;
+		}
+
+		lock (_statusBarSizeLock)
+		{
+			return _statusBarVersion == result.Version && _statusBarGeneration == result.Generation;
+		}
+	}
+
+	private async Task TrackStatusBarSizeLoadAsync(StatusBarSizeLoad load)
+	{
+		try
+		{
+			await load.Task.ConfigureAwait(false);
+		}
+		catch
+		{
+			// Status bar size enrichment is best effort.
+		}
+		finally
+		{
+			lock (_statusBarSizeLock)
+			{
+				_statusBarSizeLoads.Remove(load);
+				if (ReferenceEquals(_currentStatusBarSizeLoad, load))
+				{
+					_currentStatusBarSizeLoad = null;
+				}
+			}
+
+			load.Dispose();
+		}
+	}
+
+	private static bool TryGetSize(object? value, out ulong size)
+	{
+		value = value is FormattedPropertyValue formattedValue ? formattedValue.RawValue : value;
+		switch (value)
+		{
+			case byte byteValue:
+				size = byteValue;
+
+				return true;
+			case ushort ushortValue:
+				size = ushortValue;
+
+				return true;
+			case uint uintValue:
+				size = uintValue;
+
+				return true;
+			case ulong ulongValue:
+				size = ulongValue;
+
+				return true;
+			case sbyte sbyteValue when sbyteValue >= 0:
+				size = (ulong)sbyteValue;
+
+				return true;
+			case short shortValue when shortValue >= 0:
+				size = (ulong)shortValue;
+
+				return true;
+			case int intValue when intValue >= 0:
+				size = (ulong)intValue;
+
+				return true;
+			case long longValue when longValue >= 0:
+				size = (ulong)longValue;
+
+				return true;
+			default:
+				size = 0;
+
+				return false;
 		}
 	}
 
@@ -2033,6 +2317,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private sealed record PendingState(long Generation, bool IsLoading, string? ErrorMessage, string LocationText, BrowseViewSettings ViewSettings);
 
+	private sealed record PendingStatusBarSize(long Generation, long Version, ulong? Size);
+
 	private sealed record LocationNavigation(BrowseLocation Location, Task Task);
 
 	private sealed record ColumnCache(FolderBrowseLocationContext Context, long Generation, WindowsShellColumnSet? ColumnSet);
@@ -2077,6 +2363,69 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			return hash.ToHashCode();
+		}
+	}
+
+	private sealed class StatusBarSizeLoad : IDisposable
+	{
+		private readonly CancellationTokenSource _cancellation;
+		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private int _isDisposed;
+
+		public long Generation { get; }
+
+		public long Version { get; }
+
+		public Task Task => _completion.Task;
+
+		public StatusBarSizeLoad(long generation, long version, CancellationToken lifetimeToken)
+		{
+			Generation = generation;
+			Version = version;
+			_cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
+		}
+
+		public void Start(Func<CancellationToken, Task> action)
+		{
+			ArgumentNullException.ThrowIfNull(action);
+
+			_ = RunAsync(action);
+		}
+
+		public void Cancel()
+		{
+			try
+			{
+				_cancellation.Cancel();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+		}
+
+		public void Dispose()
+		{
+			if (Interlocked.Exchange(ref _isDisposed, 1) is 0)
+			{
+				_cancellation.Dispose();
+			}
+		}
+
+		private async Task RunAsync(Func<CancellationToken, Task> action)
+		{
+			try
+			{
+				await Task.Run(() => action(_cancellation.Token), _cancellation.Token).ConfigureAwait(false);
+				_completion.TrySetResult(true);
+			}
+			catch (OperationCanceledException exception)
+			{
+				_completion.TrySetCanceled(exception.CancellationToken);
+			}
+			catch (Exception exception)
+			{
+				_completion.TrySetException(exception);
+			}
 		}
 	}
 

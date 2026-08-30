@@ -139,6 +139,206 @@ public sealed class BrowsePresentationPipelineTests
 	}
 
 	/// <summary>
+	/// Verifies that selected item sizes are added after the bounded property read completes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task StatusTextAddsSelectedSizeAfterPropertyReadCompletes()
+	{
+		var propertyRequested = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertyRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertiesReturned = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var returnedPropertyCount = 0;
+		var resolver = new PresentationBrowseLocationResolver(
+			2,
+			static (_, _) => ValueTask.CompletedTask,
+			async (index, _, _) =>
+			{
+				propertyRequested.TrySetResult(true);
+				await propertyRelease.Task;
+				if (Interlocked.Increment(ref returnedPropertyCount) is 2)
+				{
+					propertiesReturned.TrySetResult(true);
+				}
+
+				object value = index is 0 ? new FormattedPropertyValue(1_024UL, "1 KB") : 2_048UL;
+
+				return new Dictionary<string, object?>
+				{
+					["System.Size"] = value,
+				};
+			});
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+		adapter.SetSelection(adapter.Items);
+		dispatcher.DrainAll();
+		await propertyRequested.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+		Assert.AreEqual("2 items selected", adapter.StatusText);
+
+		propertyRelease.TrySetResult(true);
+		await propertiesReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		await dispatcher.WaitForWorkAsync(TimeSpan.FromSeconds(5));
+		dispatcher.DrainAll();
+
+		Assert.AreEqual("2 items selected  3.00 KB", adapter.StatusText);
+	}
+
+	/// <summary>
+	/// Verifies that the status bar omits the size when any selected item does not expose it.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task StatusTextOmitsUnavailableSelectionSize()
+	{
+		var propertiesReturned = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var returnedPropertyCount = 0;
+		var resolver = new PresentationBrowseLocationResolver(
+			2,
+			static (_, _) => ValueTask.CompletedTask,
+			(index, _, _) =>
+			{
+				if (Interlocked.Increment(ref returnedPropertyCount) is 2)
+				{
+					propertiesReturned.TrySetResult(true);
+				}
+
+				IReadOnlyDictionary<string, object?> properties = index is 0
+					? new Dictionary<string, object?> { ["System.Size"] = 1_024UL }
+					: new Dictionary<string, object?>();
+
+				return ValueTask.FromResult(properties);
+			});
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+		adapter.SetSelection(adapter.Items);
+		dispatcher.DrainAll();
+		await propertiesReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+		Assert.AreEqual("2 items selected", adapter.StatusText);
+	}
+
+	/// <summary>
+	/// Verifies the Explorer-compatible selection limit for status bar size reads.
+	/// </summary>
+	/// <param name="selectedItemCount">The number of items to select.</param>
+	/// <param name="shouldReadSizes">Whether the selected item sizes should be read.</param>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	[DataRow(99, true)]
+	[DataRow(100, false)]
+	public async Task StatusTextLimitsSizeReadsToExplorerSelectionRange(int selectedItemCount, bool shouldReadSizes)
+	{
+		var propertiesReturned = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertyReadCount = 0;
+		var resolver = new PresentationBrowseLocationResolver(
+			100,
+			static (_, _) => ValueTask.CompletedTask,
+			(_, _, _) =>
+			{
+				if (Interlocked.Increment(ref propertyReadCount) == selectedItemCount)
+				{
+					propertiesReturned.TrySetResult(true);
+				}
+
+				return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = 1UL });
+			});
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+		adapter.SetSelection(adapter.Items.Take(selectedItemCount));
+		dispatcher.DrainAll();
+
+		if (shouldReadSizes)
+		{
+			await propertiesReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			await dispatcher.WaitForWorkAsync(TimeSpan.FromSeconds(5));
+			dispatcher.DrainAll();
+
+			Assert.AreEqual("99 items selected  99 bytes", adapter.StatusText);
+			Assert.AreEqual(99, propertyReadCount);
+
+			return;
+		}
+
+		Assert.AreEqual("100 items selected", adapter.StatusText);
+		Assert.AreEqual(0, propertyReadCount);
+	}
+
+	/// <summary>
+	/// Verifies that changing the selection cancels the previous status bar size read.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task StatusTextCancelsPreviousSelectionSizeRead()
+	{
+		var firstReadStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var firstReadCanceled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var secondReadReturned = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new PresentationBrowseLocationResolver(
+			2,
+			static (_, _) => ValueTask.CompletedTask,
+			async (index, _, cancellationToken) =>
+			{
+				if (index is 0)
+				{
+					firstReadStarted.TrySetResult(true);
+					try
+					{
+						await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+					}
+					catch (OperationCanceledException)
+					{
+						firstReadCanceled.TrySetResult(true);
+
+						throw;
+					}
+				}
+
+				secondReadReturned.TrySetResult(true);
+
+				return new Dictionary<string, object?> { ["System.Size"] = 2_048UL };
+			});
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+
+		await adapter.InitializeAsync();
+		dispatcher.DrainAll();
+		adapter.SetSelection([adapter.Items[0]]);
+		dispatcher.DrainAll();
+		await firstReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+		adapter.SetSelection([adapter.Items[1]]);
+		dispatcher.DrainAll();
+		await firstReadCanceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		await secondReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		await dispatcher.WaitForWorkAsync(TimeSpan.FromSeconds(5));
+		dispatcher.DrainAll();
+
+		Assert.AreEqual("1 item selected  2.00 KB", adapter.StatusText);
+	}
+
+	/// <summary>
 	/// Verifies that pending items from a canceled navigation generation are discarded.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
@@ -592,7 +792,10 @@ public sealed class BrowsePresentationPipelineTests
 
 	private static BrowsePresentationText CreateText()
 	{
-		return new BrowsePresentationText("Home", "{0} item", "{0} items", "{0} is not a folder");
+		return new BrowsePresentationText(
+			"Home",
+			new BrowseStatusBarText("{0} item", "{0} items", "{0} item selected", "{0} items selected", "{0}  {1}", "{0} {1}", ["bytes", "KB", "MB", "GB", "TB", "PB"]),
+			"{0} is not a folder");
 	}
 
 	private static StorableReference CreateReference(string itemId)
