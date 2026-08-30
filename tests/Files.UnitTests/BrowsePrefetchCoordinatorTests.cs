@@ -478,6 +478,43 @@ public sealed class BrowsePrefetchCoordinatorTests
 	}
 
 	/// <summary>
+	/// Test case: equivalent thumbnail payloads do not produce repeated presentation changes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task DoesNotPublishEquivalentThumbnailTwice()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var item = factory.CreateModel("item", "Item", out _);
+		var resolver = new TestBrowseLocationResolver([item])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		var thumbnailChanges = 0;
+		session.ItemPresentationChanged += (_, args) =>
+		{
+			if ((args.Changed & BrowseItemPresentationChangeFlags.Thumbnail) is not 0)
+			{
+				thumbnailChanges++;
+			}
+		};
+		var target = (IBrowsePrefetchTarget)session;
+		var first = await target.PublishThumbnailAsync(session.Generation, item, new ThumbnailResult(new byte[] { 1, 2, 3 }, "image/png", isFallback: true), CancellationToken.None);
+		var duplicate = await target.PublishThumbnailAsync(session.Generation, item, new ThumbnailResult(new byte[] { 1, 2, 3 }, "image/png", isFallback: true), CancellationToken.None);
+		var replacement = await target.PublishThumbnailAsync(session.Generation, item, new ThumbnailResult(new byte[] { 4, 5, 6 }, "image/png", isFallback: false), CancellationToken.None);
+
+		Assert.IsTrue(first);
+		Assert.IsTrue(duplicate);
+		Assert.IsTrue(replacement);
+		Assert.AreEqual(2, thumbnailChanges);
+		Assert.IsTrue(session.TryGetPresentation(item.Reference.GetKey(), out var presentation));
+		CollectionAssert.AreEqual(new byte[] { 4, 5, 6 }, presentation.Thumbnail!.Content.ToArray());
+	}
+
+	/// <summary>
 	/// Test case: publishes concurrently loaded thumbnails in sorted display order.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

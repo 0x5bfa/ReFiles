@@ -22,6 +22,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private const int MaxItemsPerDrain = 1_024;
 	private const int MaxPropertiesPerDrain = 128;
 	private const int MaxThumbnailsPerDrain = 8;
+	private const int MaxDecodedFallbackThumbnails = 128;
 	private static readonly TimeSpan UiDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly BrowsePaneSession _pane;
@@ -34,6 +35,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly SemaphoreSlim _thumbnailDecodeGate = new(2);
 	private readonly Lock _thumbnailTaskLock = new();
 	private readonly HashSet<Task> _thumbnailTasks = [];
+	private readonly Dictionary<StorableKey, ThumbnailApplyState> _thumbnailApplyStates = [];
+	private readonly Dictionary<ThumbnailResult, Lazy<Task<Microsoft.UI.Xaml.Media.ImageSource>>> _fallbackThumbnailDecodeCache = new(ThumbnailResultContentComparer.Instance);
 	private readonly Lock _pendingLock = new();
 	private readonly LinkedList<PendingItemBatch> _pendingItemBatches = new();
 	private readonly Dictionary<StorableKey, ThumbnailResult?> _pendingThumbnails = [];
@@ -52,6 +55,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private BrowseViewSettings _viewSettings;
 	private long _appliedItemsVersion = -1;
 	private long _diagnosticLongestDrainTicks;
+	private long _thumbnailApplyVersion;
 	private int _diagnosticDrainSequence;
 	private int _diagnosticDispatcherEnqueueCount;
 	private int _diagnosticItemViewModelCount;
@@ -534,6 +538,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			await Task.WhenAll(thumbnailTasks).ConfigureAwait(false);
 		}
 
+		lock (_thumbnailTaskLock)
+		{
+			_thumbnailApplyStates.Clear();
+			_fallbackThumbnailDecodeCache.Clear();
+		}
+
 		_lifetime.Dispose();
 		_thumbnailDecodeGate.Dispose();
 		lock (_pendingLock)
@@ -825,6 +835,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var flags = BrowseUpdateFlags.None;
 		if (appliedChanges.Count is not 0)
 		{
+			PruneThumbnailApplyStates();
 			flags |= BrowseUpdateFlags.Items | BrowseUpdateFlags.Status;
 		}
 
@@ -1035,26 +1046,19 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private async Task ApplyThumbnailAsync(StorableKey key, ThumbnailResult? thumbnail)
+	private async Task ApplyThumbnailAsync(StorableKey key, BrowseItemViewModel target, ThumbnailResult? thumbnail, long version)
 	{
 		try
 		{
-			if (!TryGetItemViewModel(key, out var item))
-			{
-				RequeueThumbnailIfCurrent(key, thumbnail);
-
-				return;
-			}
-
 			var image = thumbnail is null ? null : await DecodeThumbnailAsync(thumbnail).ConfigureAwait(true);
 			if (Volatile.Read(ref _isDisposed) is not 0)
 			{
 				return;
 			}
 
-			if (TryGetItemViewModel(key, out item))
+			if (TryGetItemViewModel(key, out var current) && ReferenceEquals(current, target) && IsThumbnailApplyCurrent(key, target, version))
 			{
-				item.SetThumbnail(image);
+				target.SetThumbnail(image);
 				if (image is not null)
 				{
 					var displayCount = Interlocked.Increment(ref _diagnosticThumbnailDisplayCount);
@@ -1066,11 +1070,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 				return;
 			}
-
-			RequeueThumbnailIfCurrent(key, thumbnail);
 		}
 		catch
 		{
+			RemoveThumbnailApplyState(key, version);
 			// Thumbnail decoding is best effort.
 		}
 	}
@@ -1082,7 +1085,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			return;
 		}
 
-		Task task;
+		if (!TryGetItemViewModel(key, out var target))
+		{
+			RequeueThumbnailIfCurrent(key, thumbnail);
+
+			return;
+		}
+
+		long version;
 		lock (_thumbnailTaskLock)
 		{
 			if (Volatile.Read(ref _isDisposed) is not 0)
@@ -1090,7 +1100,18 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return;
 			}
 
-			task = ApplyThumbnailAsync(key, thumbnail);
+			if (_thumbnailApplyStates.TryGetValue(key, out var state) && ReferenceEquals(state.Target, target) && AreEquivalent(state.Thumbnail, thumbnail))
+			{
+				return;
+			}
+
+			version = checked(++_thumbnailApplyVersion);
+			_thumbnailApplyStates[key] = new ThumbnailApplyState(version, target, thumbnail);
+		}
+
+		var task = ApplyThumbnailAsync(key, target, thumbnail, version);
+		lock (_thumbnailTaskLock)
+		{
 			_thumbnailTasks.Add(task);
 		}
 
@@ -1116,7 +1137,88 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private async Task<Microsoft.UI.Xaml.Media.ImageSource> DecodeThumbnailAsync(ThumbnailResult thumbnail)
+	private bool IsThumbnailApplyCurrent(StorableKey key, BrowseItemViewModel target, long version)
+	{
+		lock (_thumbnailTaskLock)
+		{
+			return _thumbnailApplyStates.TryGetValue(key, out var state) && state.Version == version && ReferenceEquals(state.Target, target);
+		}
+	}
+
+	private void RemoveThumbnailApplyState(StorableKey key, long version)
+	{
+		lock (_thumbnailTaskLock)
+		{
+			if (_thumbnailApplyStates.TryGetValue(key, out var state) && state.Version == version)
+			{
+				_thumbnailApplyStates.Remove(key);
+			}
+		}
+	}
+
+	private void PruneThumbnailApplyStates()
+	{
+		KeyValuePair<StorableKey, ThumbnailApplyState>[] states;
+		lock (_thumbnailTaskLock)
+		{
+			states = _thumbnailApplyStates.ToArray();
+		}
+
+		foreach (var state in states)
+		{
+			if (!TryGetItemViewModel(state.Key, out var current) || !ReferenceEquals(current, state.Value.Target))
+			{
+				RemoveThumbnailApplyState(state.Key, state.Value.Version);
+			}
+		}
+	}
+
+	private Task<Microsoft.UI.Xaml.Media.ImageSource> DecodeThumbnailAsync(ThumbnailResult thumbnail)
+	{
+		if (!thumbnail.IsFallback)
+		{
+			return DecodeThumbnailCoreAsync(thumbnail);
+		}
+
+		Lazy<Task<Microsoft.UI.Xaml.Media.ImageSource>> decode;
+		lock (_thumbnailTaskLock)
+		{
+			if (!_fallbackThumbnailDecodeCache.TryGetValue(thumbnail, out decode!))
+			{
+				if (_fallbackThumbnailDecodeCache.Count >= MaxDecodedFallbackThumbnails)
+				{
+					_fallbackThumbnailDecodeCache.Clear();
+				}
+
+				decode = new Lazy<Task<Microsoft.UI.Xaml.Media.ImageSource>>(() => DecodeThumbnailCoreAsync(thumbnail), LazyThreadSafetyMode.ExecutionAndPublication);
+				_fallbackThumbnailDecodeCache.Add(thumbnail, decode);
+			}
+		}
+
+		return ObserveFallbackThumbnailDecodeAsync(thumbnail, decode);
+	}
+
+	private async Task<Microsoft.UI.Xaml.Media.ImageSource> ObserveFallbackThumbnailDecodeAsync(ThumbnailResult thumbnail, Lazy<Task<Microsoft.UI.Xaml.Media.ImageSource>> decode)
+	{
+		try
+		{
+			return await decode.Value.ConfigureAwait(true);
+		}
+		catch
+		{
+			lock (_thumbnailTaskLock)
+			{
+				if (_fallbackThumbnailDecodeCache.TryGetValue(thumbnail, out var current) && ReferenceEquals(current, decode))
+				{
+					_fallbackThumbnailDecodeCache.Remove(thumbnail);
+				}
+			}
+
+			throw;
+		}
+	}
+
+	private async Task<Microsoft.UI.Xaml.Media.ImageSource> DecodeThumbnailCoreAsync(ThumbnailResult thumbnail)
 	{
 		await _thumbnailDecodeGate.WaitAsync(_lifetime.Token).ConfigureAwait(true);
 		try
@@ -1145,6 +1247,21 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		ScheduleDrain();
+	}
+
+	private static bool AreEquivalent(ThumbnailResult? current, ThumbnailResult? candidate)
+	{
+		if (ReferenceEquals(current, candidate))
+		{
+			return true;
+		}
+
+		if (current is null || candidate is null)
+		{
+			return false;
+		}
+
+		return ThumbnailResultContentComparer.Instance.Equals(current, candidate);
 	}
 
 	private bool TryGetItemViewModel(StorableKey key, out BrowseItemViewModel item)
@@ -1714,14 +1831,25 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 			else
 			{
-				viewModel.SetThumbnail(null);
+				ClearThumbnail(viewModel, key);
 			}
 		}
 		else
 		{
 			viewModel.SetProperties(BrowseItemViewModel.EmptyProperties);
-			viewModel.SetThumbnail(null);
+			ClearThumbnail(viewModel, key);
 		}
+	}
+
+	private void ClearThumbnail(BrowseItemViewModel viewModel, StorableKey key)
+	{
+		lock (_thumbnailTaskLock)
+		{
+			var version = checked(++_thumbnailApplyVersion);
+			_thumbnailApplyStates[key] = new ThumbnailApplyState(version, viewModel, null);
+		}
+
+		viewModel.SetThumbnail(null);
 	}
 
 	private void QueuePendingThumbnail(StorableKey key, ThumbnailResult thumbnail)
@@ -1853,6 +1981,49 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private sealed record LocationNavigation(BrowseLocation Location, Task Task);
 
 	private sealed record ColumnCache(FolderBrowseLocationContext Context, long Generation, WindowsShellColumnSet? ColumnSet);
+
+	private sealed record ThumbnailApplyState(long Version, BrowseItemViewModel Target, ThumbnailResult? Thumbnail);
+
+	private sealed class ThumbnailResultContentComparer : IEqualityComparer<ThumbnailResult>
+	{
+		public static ThumbnailResultContentComparer Instance { get; } = new();
+
+		public bool Equals(ThumbnailResult? left, ThumbnailResult? right)
+		{
+			if (ReferenceEquals(left, right))
+			{
+				return true;
+			}
+
+			if (left is null || right is null)
+			{
+				return false;
+			}
+
+			return left.IsFallback == right.IsFallback
+				&& left.Format == right.Format
+				&& left.PixelWidth == right.PixelWidth
+				&& left.PixelHeight == right.PixelHeight
+				&& string.Equals(left.ContentType, right.ContentType, StringComparison.Ordinal)
+				&& left.Content.Span.SequenceEqual(right.Content.Span);
+		}
+
+		public int GetHashCode(ThumbnailResult value)
+		{
+			var hash = new HashCode();
+			hash.Add(value.IsFallback);
+			hash.Add(value.Format);
+			hash.Add(value.PixelWidth);
+			hash.Add(value.PixelHeight);
+			hash.Add(value.ContentType, StringComparer.Ordinal);
+			foreach (var contentByte in value.Content.Span)
+			{
+				hash.Add(contentByte);
+			}
+
+			return hash.ToHashCode();
+		}
+	}
 
 	private sealed class ColumnLoad : IDisposable
 	{

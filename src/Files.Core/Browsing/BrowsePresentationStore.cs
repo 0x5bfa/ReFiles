@@ -29,27 +29,40 @@ internal sealed class BrowsePresentationStore
 		return false;
 	}
 
-	internal BrowseItemPresentation Update(StorableKey key, IStorableModel item, IReadOnlyDictionary<string, object?>? properties, ThumbnailResult? thumbnail, bool updateProperties, bool updateThumbnail)
+	internal BrowseItemPresentation UpdateProperties(StorableKey key, IStorableModel item, IReadOnlyDictionary<string, object?> properties)
 	{
 		lock (_lock)
 		{
 			var current = _entries.TryGetValue(key, out var entry) && ReferenceEquals(entry.Item, item) ? entry.Presentation : new BrowseItemPresentation();
-			var nextProperties = current.Properties;
-			if (updateProperties)
+			var mergedProperties = new Dictionary<string, object?>(current.Properties, StringComparer.Ordinal);
+			foreach (var pair in properties)
 			{
-				var mergedProperties = new Dictionary<string, object?>(current.Properties, StringComparer.Ordinal);
-				foreach (var pair in properties!)
-				{
-					mergedProperties[pair.Key] = pair.Value;
-				}
-
-				nextProperties = mergedProperties;
+				mergedProperties[pair.Key] = pair.Value;
 			}
 
-			var next = new BrowseItemPresentation(nextProperties, updateThumbnail ? thumbnail : current.Thumbnail);
+			var next = new BrowseItemPresentation(mergedProperties, current.Thumbnail);
 			_entries[key] = new Entry(item, next);
 
 			return next;
+		}
+	}
+
+	internal bool TryUpdateThumbnail(StorableKey key, IStorableModel item, ThumbnailResult thumbnail, out BrowseItemPresentation presentation)
+	{
+		lock (_lock)
+		{
+			var current = _entries.TryGetValue(key, out var entry) && ReferenceEquals(entry.Item, item) ? entry.Presentation : new BrowseItemPresentation();
+			if (AreEquivalent(current.Thumbnail, thumbnail))
+			{
+				presentation = current;
+
+				return false;
+			}
+
+			presentation = new BrowseItemPresentation(current.Properties, thumbnail);
+			_entries[key] = new Entry(item, presentation);
+
+			return true;
 		}
 	}
 
@@ -125,6 +138,26 @@ internal sealed class BrowsePresentationStore
 		{
 			_entries.Remove(key);
 		}
+	}
+
+	private static bool AreEquivalent(ThumbnailResult? current, ThumbnailResult candidate)
+	{
+		if (ReferenceEquals(current, candidate))
+		{
+			return true;
+		}
+
+		if (current is null)
+		{
+			return false;
+		}
+
+		return current.IsFallback == candidate.IsFallback
+			&& current.Format == candidate.Format
+			&& current.PixelWidth == candidate.PixelWidth
+			&& current.PixelHeight == candidate.PixelHeight
+			&& string.Equals(current.ContentType, candidate.ContentType, StringComparison.Ordinal)
+			&& current.Content.Span.SequenceEqual(candidate.Content.Span);
 	}
 
 	internal sealed class Snapshot
