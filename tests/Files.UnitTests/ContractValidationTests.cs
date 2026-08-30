@@ -25,6 +25,8 @@ public sealed class ContractValidationTests
 		Assert.Throws<ArgumentException>(() => new PropertyRequest(["System.Size", "System.Size"]));
 		Assert.Throws<ArgumentException>(() => new PropertyRequest(["System.Size", " "]));
 		Assert.Throws<ArgumentException>(() => new ThumbnailResult(ReadOnlyMemory<byte>.Empty, "image/png", false));
+		Assert.Throws<ArgumentException>(() => new ThumbnailResult(new byte[3], "application/octet-stream", false, ThumbnailContentFormat.Bgra8, 1, 1));
+		Assert.Throws<ArgumentException>(() => new ThumbnailResult(new byte[4], "image/png", false, ThumbnailContentFormat.EncodedImage, 1, 1));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new StreamPreviewResult(new MemoryStream(), "text/plain", contentLength: -1));
 	}
 

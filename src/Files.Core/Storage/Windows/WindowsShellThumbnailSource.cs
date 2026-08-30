@@ -42,7 +42,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 
 			return payload is null
 				? null
-				: new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback);
+				: new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback, payload.Format, payload.PixelWidth, payload.PixelHeight);
 		}
 		catch (Exception exception)
 		{

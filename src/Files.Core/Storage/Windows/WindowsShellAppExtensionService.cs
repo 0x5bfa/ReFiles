@@ -311,7 +311,7 @@ public sealed class WindowsShellAppExtensionService
 		}
 
 		var payload = _thumbnailBackend.GetThumbnail(shellItem, locator, new ThumbnailRequest(48, ThumbnailMode.Icon), cancellationToken);
-		var icon = payload is null ? null : new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback);
+		var icon = payload is null ? null : new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback, payload.Format, payload.PixelWidth, payload.PixelHeight);
 
 		return (description, icon);
 	}

@@ -451,6 +451,7 @@ IPropertyDescriptionList
 PSGetPropertyDescription
 PSGetPropertyDescriptionListFromString
 PKEY_PropList_FullDetails
+PKEY_ThumbnailCacheId
 FOLDERTYPEID_Generic
 IKnownFolder
 IKnownFolderManager

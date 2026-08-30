@@ -25,7 +25,7 @@ public sealed record BrowseItemPresentation
 		Properties = new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>(properties ?? new Dictionary<string, object?>(), StringComparer.Ordinal));
 		Thumbnail = thumbnail is null
 			? null
-			: new ThumbnailResult(thumbnail.Content.ToArray(), thumbnail.ContentType, thumbnail.IsFallback);
+			: new ThumbnailResult(thumbnail.Content.ToArray(), thumbnail.ContentType, thumbnail.IsFallback, thumbnail.Format, thumbnail.PixelWidth, thumbnail.PixelHeight);
 	}
 }
 

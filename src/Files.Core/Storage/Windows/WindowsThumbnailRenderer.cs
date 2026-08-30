@@ -29,6 +29,13 @@ internal static unsafe class WindowsThumbnailRenderer
 
 	public static byte[]? EncodeHBitmap(HBITMAP bitmap, CancellationToken cancellationToken, bool forceOpaque = false)
 	{
+		var rendered = RenderHBitmap(bitmap, cancellationToken, forceOpaque);
+
+		return rendered is null ? null : EncodeBgra(rendered.Pixels, rendered.Width, rendered.Height, cancellationToken);
+	}
+
+	public static WindowsBitmapData? RenderHBitmap(HBITMAP bitmap, CancellationToken cancellationToken, bool forceOpaque = false)
+	{
 		if (bitmap.IsNull)
 		{
 			return null;
@@ -68,7 +75,7 @@ internal static unsafe class WindowsThumbnailRenderer
 			SetOpaqueAlpha(bgra);
 		}
 
-		return EncodeBgra(bgra, width, height, cancellationToken);
+		return new WindowsBitmapData(bgra, width, height);
 	}
 
 	public static byte[]? EncodeHBitmap(SafeHandle bitmap, CancellationToken cancellationToken, bool forceOpaque = false)
@@ -86,6 +93,31 @@ internal static unsafe class WindowsThumbnailRenderer
 			bitmap.DangerousAddRef(ref addedReference);
 
 			return EncodeHBitmap((HBITMAP)bitmap.DangerousGetHandle(), cancellationToken, forceOpaque);
+		}
+		finally
+		{
+			if (addedReference)
+			{
+				bitmap.DangerousRelease();
+			}
+		}
+	}
+
+	public static WindowsBitmapData? RenderHBitmap(SafeHandle bitmap, CancellationToken cancellationToken, bool forceOpaque = false)
+	{
+		ArgumentNullException.ThrowIfNull(bitmap);
+
+		if (bitmap.IsInvalid)
+		{
+			return null;
+		}
+
+		var addedReference = false;
+		try
+		{
+			bitmap.DangerousAddRef(ref addedReference);
+
+			return RenderHBitmap((HBITMAP)bitmap.DangerousGetHandle(), cancellationToken, forceOpaque);
 		}
 		finally
 		{
@@ -156,6 +188,30 @@ internal static unsafe class WindowsThumbnailRenderer
 		}
 
 		compositedPng = encoded;
+
+		return true;
+	}
+
+	public static bool TryCompositeOverlay(WindowsBitmapData bitmap, SafeHandle overlayIcon, out WindowsBitmapData compositedBitmap, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(bitmap);
+		ArgumentNullException.ThrowIfNull(overlayIcon);
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		compositedBitmap = bitmap;
+		if (overlayIcon.IsInvalid || bitmap.Width <= 0 || bitmap.Height <= 0 || bitmap.Width != bitmap.Height || bitmap.Pixels.Length != checked(bitmap.Width * bitmap.Height * 4))
+		{
+			return false;
+		}
+
+		var overlayBgra = RenderHIcon(overlayIcon, bitmap.Width, cancellationToken);
+		if (overlayBgra is null || overlayBgra.Length != bitmap.Pixels.Length)
+		{
+			return false;
+		}
+
+		compositedBitmap = new WindowsBitmapData(CompositeBgra(bitmap.Pixels, overlayBgra), bitmap.Width, bitmap.Height);
 
 		return true;
 	}
@@ -602,3 +658,5 @@ internal static unsafe class WindowsThumbnailRenderer
 		return token;
 	}
 }
+
+internal sealed record WindowsBitmapData(byte[] Pixels, int Width, int Height);

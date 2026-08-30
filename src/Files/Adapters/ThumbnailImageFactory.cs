@@ -1,10 +1,13 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Capabilities.Thumbnails;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using System.Buffers;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics.Imaging;
 
 namespace Files.Adapters;
 
@@ -26,6 +29,26 @@ internal static class ThumbnailImageFactory
 		using var randomAccessStream = managedStream.AsRandomAccessStream();
 		var image = new BitmapImage();
 		await image.SetSourceAsync(randomAccessStream);
+
+		return image;
+	}
+
+	public static async Task<ImageSource> CreateAsync(ThumbnailResult thumbnail)
+	{
+		ArgumentNullException.ThrowIfNull(thumbnail);
+
+		if (thumbnail.Format is ThumbnailContentFormat.EncodedImage)
+		{
+			return await CreateAsync(thumbnail.Content);
+		}
+
+		var pixels = MemoryMarshal.TryGetArray(thumbnail.Content, out ArraySegment<byte> segment) && segment.Array is { } array
+			? array.AsBuffer(segment.Offset, segment.Count)
+			: thumbnail.Content.ToArray().AsBuffer();
+		using var straightBitmap = SoftwareBitmap.CreateCopyFromBuffer(pixels, BitmapPixelFormat.Bgra8, thumbnail.PixelWidth, thumbnail.PixelHeight, BitmapAlphaMode.Straight);
+		using var premultipliedBitmap = SoftwareBitmap.Convert(straightBitmap, BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+		var image = new SoftwareBitmapSource();
+		await image.SetBitmapAsync(premultipliedBitmap);
 
 		return image;
 	}

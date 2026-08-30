@@ -166,6 +166,24 @@ public sealed class MemoryThumbnailCacheTests
 		Assert.AreEqual("image/test", entry.ContentType);
 	}
 
+	/// <summary>
+	/// Test case: cache entries preserve raw thumbnail layout metadata.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task CacheEntryPreservesRawThumbnailLayout()
+	{
+		var cache = new MemoryThumbnailCache();
+		var key = CreateKey("raw-item", 2);
+		await cache.SetAsync(key, new ThumbnailCacheEntry(new byte[16], "application/octet-stream", false, ThumbnailContentFormat.Bgra8, 2, 2));
+
+		var entry = await cache.GetAsync(key);
+		Assert.IsNotNull(entry);
+		Assert.AreEqual(ThumbnailContentFormat.Bgra8, entry.Format);
+		Assert.AreEqual(2, entry.PixelWidth);
+		Assert.AreEqual(2, entry.PixelHeight);
+	}
+
 	private static ThumbnailCacheKey CreateKey(string itemId, int size)
 		=> new(new StorageSourceId("test"), itemId, size, ThumbnailMode.Content);
 

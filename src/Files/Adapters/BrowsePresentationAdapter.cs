@@ -1116,12 +1116,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private async Task<Microsoft.UI.Xaml.Media.Imaging.BitmapImage> DecodeThumbnailAsync(ThumbnailResult thumbnail)
+	private async Task<Microsoft.UI.Xaml.Media.ImageSource> DecodeThumbnailAsync(ThumbnailResult thumbnail)
 	{
 		await _thumbnailDecodeGate.WaitAsync(_lifetime.Token).ConfigureAwait(true);
 		try
 		{
-			return await ThumbnailImageFactory.CreateAsync(thumbnail.Content).ConfigureAwait(true);
+			return await ThumbnailImageFactory.CreateAsync(thumbnail).ConfigureAwait(true);
 		}
 		finally
 		{

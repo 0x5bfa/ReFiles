@@ -9,7 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 
@@ -64,7 +64,7 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 	private bool _isDrive;
 	private bool _isInitialized;
 	private bool _hasPropertyPageChanges;
-	private BitmapImage? _icon;
+	private ImageSource? _icon;
 
 	public string WindowTitle
 	{
@@ -94,7 +94,7 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public string Location { get; }
 
-	public BitmapImage? Icon
+	public ImageSource? Icon
 	{
 		get => _icon;
 		private set
@@ -532,7 +532,7 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		OnPropertyChanged(nameof(HasChanges));
 	}
 
-	internal void SetGeneralShellProperties(string? description, BitmapImage? icon)
+	internal void SetGeneralShellProperties(string? description, ImageSource? icon)
 	{
 		if (!string.IsNullOrWhiteSpace(description))
 		{

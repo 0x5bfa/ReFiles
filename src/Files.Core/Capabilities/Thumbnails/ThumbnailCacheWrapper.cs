@@ -112,7 +112,7 @@ public sealed class ThumbnailCacheWrapper : ICapabilityWrapper<IThumbnailSource>
 				return null;
 			}
 
-			var entry = new ThumbnailCacheEntry(result.Content.ToArray(), result.ContentType, result.IsFallback);
+			var entry = new ThumbnailCacheEntry(result.Content.ToArray(), result.ContentType, result.IsFallback, result.Format, result.PixelWidth, result.PixelHeight);
 			await _cache.TrySetAsync(key, entry, invalidationVersion, sharedOperation).ConfigureAwait(false);
 
 			return entry.CreateResult();

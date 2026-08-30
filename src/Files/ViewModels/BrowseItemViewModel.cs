@@ -10,7 +10,7 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Localization;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 
 namespace Files.ViewModels;
 
@@ -34,7 +34,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	public StorableReference Reference { get; private set; }
 
 	[ObservableProperty]
-	public partial BitmapImage? Thumbnail { get; set; }
+	public partial ImageSource? Thumbnail { get; set; }
 
 	public string Kind => (IsFolder ? Strings.Folder : Strings.File).GetLocalized();
 
@@ -63,7 +63,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		LayoutMetrics = new BrowseItemLayoutMetrics();
 	}
 
-	internal void SetThumbnail(BitmapImage? value)
+	internal void SetThumbnail(ImageSource? value)
 	{
 		Thumbnail = value;
 	}
@@ -75,7 +75,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		LayoutMetrics = value;
 	}
 
-	partial void OnThumbnailChanged(BitmapImage? value)
+	partial void OnThumbnailChanged(ImageSource? value)
 	{
 		OnPropertyChanged(nameof(DefaultIconVisibility));
 	}
