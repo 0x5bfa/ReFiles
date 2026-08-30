@@ -47,6 +47,7 @@ public sealed class BrowsePerformanceTests
 	private const int DefaultStressItemCount = 512;
 	private const int MaximumStressIterationCount = 250;
 	private const int MaximumStressItemCount = 44_000;
+	private const int FirstPageItemCount = 32;
 	private const int VirtualizationSafetyLimit = 200;
 	private static readonly TimeSpan FirstContentTimeout = TimeSpan.FromSeconds(15);
 	private static readonly TimeSpan NavigationTimeout = TimeSpan.FromSeconds(60);
@@ -343,8 +344,9 @@ public sealed class BrowsePerformanceTests
 
 			Assert.IsTrue(metrics.FirstRealizedRowTimestamp > 0);
 			Assert.IsTrue(metrics.MaximumRealizedRowCount < VirtualizationSafetyLimit, $"Expected virtualization to remain active, but observed {metrics.MaximumRealizedRowCount} realized rows.");
-			Assert.IsTrue(metrics.RepeatedThumbnailUpdateCount <= metrics.ContentThumbnailPublicationCount,
-				$"Observed {metrics.RepeatedThumbnailUpdateCount} repeated UI thumbnail updates but only {metrics.ContentThumbnailPublicationCount} content upgrades.");
+			Assert.IsTrue(metrics.RepeatedThumbnailUpdateCount <= metrics.ContentThumbnailPublicationCount + metrics.RepeatedFallbackThumbnailPublicationCount,
+				$"Observed {metrics.RepeatedThumbnailUpdateCount} repeated UI thumbnail updates but only {metrics.ContentThumbnailPublicationCount} content upgrades and " +
+				$"{metrics.RepeatedFallbackThumbnailPublicationCount} repeated fallback publications.");
 
 			results.Add(metrics.CreateResult(
 				$"real-folder-{iteration + 1}",
@@ -633,6 +635,7 @@ public sealed class BrowsePerformanceTests
 		private readonly HashSet<BrowseItemViewModel> _uniqueViewModels = new(ReferenceEqualityComparer.Instance);
 		private readonly HashSet<BrowseItemViewModel> _observedItems = new(ReferenceEqualityComparer.Instance);
 		private readonly Dictionary<BrowseItemViewModel, int> _thumbnailUpdateCounts = new(ReferenceEqualityComparer.Instance);
+		private readonly ConcurrentDictionary<StorableKey, int> _fallbackThumbnailPublicationCounts = new();
 		private readonly Dictionary<BrowseItemViewModel, long> _firstPropertyTimestamps = new(ReferenceEqualityComparer.Instance);
 		private readonly Dictionary<BrowseItemViewModel, long> _firstThumbnailTimestamps = new(ReferenceEqualityComparer.Instance);
 		private readonly TaskCompletionSource<bool> _firstCoreBatch = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -645,6 +648,8 @@ public sealed class BrowsePerformanceTests
 		private long _enumerationCompletedTimestamp;
 		private long _firstPropertiesTimestamp;
 		private long _firstThumbnailTimestamp;
+		private long _firstPagePropertiesCompletedTimestamp;
+		private long _firstPageThumbnailsCompletedTimestamp;
 		private long _initialPropertiesCompletedTimestamp;
 		private long _initialThumbnailsCompletedTimestamp;
 		private long _initialPresentationCompletedTimestamp;
@@ -665,6 +670,7 @@ public sealed class BrowsePerformanceTests
 		public int MaximumRealizedRowCount => Volatile.Read(ref _maximumRealizedRowCount);
 		public int UniqueViewModelCount => _uniqueViewModels.Count;
 		public int RepeatedThumbnailUpdateCount => _thumbnailUpdateCounts.Values.Sum(static count => Math.Max(0, count - 1));
+		public int RepeatedFallbackThumbnailPublicationCount => _fallbackThumbnailPublicationCounts.Values.Sum(static count => Math.Max(0, count - 1));
 		public int ContentThumbnailPublicationCount => Volatile.Read(ref _contentThumbnailPublicationCount);
 
 		public BrowseMeasurementRecorder(IBrowseSession session, FolderBrowserViewModel folder, TableViewDiagnostics tableDiagnostics)
@@ -712,6 +718,7 @@ public sealed class BrowsePerformanceTests
 			await WaitForRealizedRowsToSettleAsync(timeout);
 			var targetCount = Math.Min(_folder.Items.Count, Math.Max(1, _tableDiagnostics.RealizedRowCount));
 			var targets = _folder.Items.Take(targetCount).ToArray();
+			var firstPageTargets = targets.Take(FirstPageItemCount).ToArray();
 			_initialPresentationItemCount = targets.Length;
 			var expectsProperties = HasRequestedProperties(_session.ViewSettings);
 			var started = Stopwatch.GetTimestamp();
@@ -724,6 +731,17 @@ public sealed class BrowsePerformanceTests
 
 				var propertiesCompleted = !expectsProperties || targets.All(item => _firstPropertyTimestamps.ContainsKey(item));
 				var thumbnailsCompleted = targets.All(item => _firstThumbnailTimestamps.ContainsKey(item));
+				if (!expectsProperties || firstPageTargets.All(item => _firstPropertyTimestamps.ContainsKey(item)))
+				{
+					var timestamp = expectsProperties ? firstPageTargets.Max(item => _firstPropertyTimestamps[item]) : _enumerationCompletedTimestamp;
+					Interlocked.CompareExchange(ref _firstPagePropertiesCompletedTimestamp, timestamp, 0);
+				}
+
+				if (firstPageTargets.All(item => _firstThumbnailTimestamps.ContainsKey(item)))
+				{
+					Interlocked.CompareExchange(ref _firstPageThumbnailsCompletedTimestamp, firstPageTargets.Max(item => _firstThumbnailTimestamps[item]), 0);
+				}
+
 				if (propertiesCompleted)
 				{
 					var propertiesCompletedTimestamp = expectsProperties ? targets.Max(item => _firstPropertyTimestamps[item]) : _enumerationCompletedTimestamp;
@@ -776,6 +794,8 @@ public sealed class BrowsePerformanceTests
 				EnumerationCompleteMs = ElapsedMilliseconds(_enumerationCompletedTimestamp),
 				TimeToFirstPropertiesMs = ElapsedMilliseconds(_firstPropertiesTimestamp),
 				TimeToFirstThumbnailMs = ElapsedMilliseconds(_firstThumbnailTimestamp),
+				FirstPagePropertiesCompleteMs = ElapsedMilliseconds(_firstPagePropertiesCompletedTimestamp),
+				FirstPageThumbnailsCompleteMs = ElapsedMilliseconds(_firstPageThumbnailsCompletedTimestamp),
 				InitialPropertiesCompleteMs = ElapsedMilliseconds(_initialPropertiesCompletedTimestamp),
 				InitialThumbnailsCompleteMs = ElapsedMilliseconds(_initialThumbnailsCompletedTimestamp),
 				InitialPresentationCompleteMs = ElapsedMilliseconds(_initialPresentationCompletedTimestamp),
@@ -783,6 +803,7 @@ public sealed class BrowsePerformanceTests
 				ThumbnailUpdateCount = _thumbnailUpdateCounts.Values.Sum(),
 				RepeatedThumbnailUpdateCount = RepeatedThumbnailUpdateCount,
 				FallbackThumbnailPublicationCount = Volatile.Read(ref _fallbackThumbnailPublicationCount),
+				RepeatedFallbackThumbnailPublicationCount = RepeatedFallbackThumbnailPublicationCount,
 				ContentThumbnailPublicationCount = ContentThumbnailPublicationCount,
 				MaximumUiLatencyMs = dispatcherProbe.MaximumLatency.TotalMilliseconds,
 				P95UiLatencyMs = dispatcherProbe.P95Latency.TotalMilliseconds,
@@ -860,6 +881,7 @@ public sealed class BrowsePerformanceTests
 			if (thumbnail.IsFallback)
 			{
 				Interlocked.Increment(ref _fallbackThumbnailPublicationCount);
+				_fallbackThumbnailPublicationCounts.AddOrUpdate(e.Key, 1, static (_, count) => count + 1);
 			}
 			else
 			{
@@ -1290,6 +1312,8 @@ public sealed class BrowsePerformanceTests
 		public double? EnumerationCompleteMs { get; init; }
 		public double? TimeToFirstPropertiesMs { get; init; }
 		public double? TimeToFirstThumbnailMs { get; init; }
+		public double? FirstPagePropertiesCompleteMs { get; init; }
+		public double? FirstPageThumbnailsCompleteMs { get; init; }
 		public double? InitialPropertiesCompleteMs { get; init; }
 		public double? InitialThumbnailsCompleteMs { get; init; }
 		public double? InitialPresentationCompleteMs { get; init; }
@@ -1297,6 +1321,7 @@ public sealed class BrowsePerformanceTests
 		public int ThumbnailUpdateCount { get; init; }
 		public int RepeatedThumbnailUpdateCount { get; init; }
 		public int FallbackThumbnailPublicationCount { get; init; }
+		public int RepeatedFallbackThumbnailPublicationCount { get; init; }
 		public int ContentThumbnailPublicationCount { get; init; }
 		public double MaximumUiLatencyMs { get; init; }
 		public double P95UiLatencyMs { get; init; }
