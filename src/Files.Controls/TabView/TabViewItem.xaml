@@ -90,7 +90,7 @@
 							Translation="0,0,16">
 
 							<Grid.ColumnDefinitions>
-								<ColumnDefinition x:Name="IconColumn" Width="Auto" />
+								<ColumnDefinition x:Name="IconColumn" Width="{ThemeResource TabViewItemHeaderIconColumnWidth}" />
 								<ColumnDefinition Width="*" />
 								<ColumnDefinition Width="Auto" />
 							</Grid.ColumnDefinitions>
