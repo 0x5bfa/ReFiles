@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Runtime.CompilerServices;
+using Files.Core.ViewSettings;
 using OwlCore.Storage;
 
 namespace Files.Core.Storage.Windows;
@@ -50,5 +51,10 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 				yield return Factory.Create(descriptor);
 			}
 		}
+	}
+
+	internal Task<IReadOnlyList<WindowsStorable>?> SortChildrenAsync(IReadOnlyList<WindowsStorable> items, string? propertyId, ViewSortDirection direction, CancellationToken cancellationToken)
+	{
+		return WindowsShellItemSorter.SortAsync(Factory.Resolver, Descriptor, items, propertyId, direction, cancellationToken);
 	}
 }

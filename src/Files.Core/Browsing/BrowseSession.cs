@@ -214,7 +214,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			}
 
 			var sortStartTimestamp = Stopwatch.GetTimestamp();
-			var finalSortChanges = nextProjection.Sort();
+			var finalSortChanges = await SortProjectionAsync(nextLocationContext, nextProjection, nextViewSettings, cancellationToken).ConfigureAwait(false);
 			PublishItemsChanged(finalSortChanges);
 			CoreDiagnosticLog.Write(
 				"BrowseSession",
@@ -1036,8 +1036,14 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			}
 
 			var previousLayoutMode = ViewSettings.LayoutMode;
-			var changes = Volatile.Read(ref _itemProjection).UpdateSort(settings);
+			var context = Volatile.Read(ref _activeContext)!.Context;
+			var projection = Volatile.Read(ref _itemProjection);
+			var changes = projection.UpdateSort(settings, deferSort: context is IBrowseLocationItemSorter);
 			ViewSettings = settings;
+			if (context is IBrowseLocationItemSorter)
+			{
+				changes = await SortProjectionAsync(context, projection, settings, cancellationToken).ConfigureAwait(false);
+			}
 			if (previousLayoutMode != settings.LayoutMode)
 			{
 				clearedThumbnails = _presentationStore.ClearThumbnails();
@@ -1294,7 +1300,14 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 					return;
 				}
 
-				var changes = Volatile.Read(ref _itemProjection).RefreshSort();
+				var context = Volatile.Read(ref _activeContext);
+				if (context is null)
+				{
+					return;
+				}
+
+				var projection = Volatile.Read(ref _itemProjection);
+				var changes = await SortProjectionAsync(context.Context, projection, ViewSettings, cancellation.Token).ConfigureAwait(false);
 				PublishItemsChanged(changes);
 			}
 			finally
@@ -1339,6 +1352,24 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		}
 
 		return task;
+	}
+
+	private static async ValueTask<BrowseItemChangeSet> SortProjectionAsync(
+		IBrowseLocationContext context,
+		BrowseItemProjection projection,
+		BrowseViewSettings settings,
+		CancellationToken cancellationToken)
+	{
+		if (context is IBrowseLocationItemSorter sorter)
+		{
+			var sortedItems = await sorter.SortItemsAsync(projection.Items, settings, cancellationToken).ConfigureAwait(false);
+			if (sortedItems is not null)
+			{
+				return projection.ApplyExternalOrder(sortedItems);
+			}
+		}
+
+		return projection.RefreshSort();
 	}
 
 	private void PublishItemsChanged(BrowseItemChangeSet changeSet)

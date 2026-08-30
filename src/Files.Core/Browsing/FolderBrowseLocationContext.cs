@@ -6,13 +6,14 @@ using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
+using Files.Core.ViewSettings;
 
 namespace Files.Core.Browsing;
 
 /// <summary>
 /// Keeps a resolved folder model alive for the duration of a browse location.
 /// </summary>
-public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver
+public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter
 {
 	private readonly FolderLocation _location;
 
@@ -27,6 +28,21 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 
 	/// <inheritdoc />
 	public IStorableModel LocationModel => _folderModel;
+
+	/// <summary>Initializes a folder browse context and takes ownership of the folder model.</summary>
+	/// <param name="location">The folder location.</param>
+	/// <param name="folderModel">The folder model.</param>
+	/// <param name="workspace">The storage workspace.</param>
+	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IStorageWorkspace workspace)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+		ArgumentNullException.ThrowIfNull(folderModel);
+		ArgumentNullException.ThrowIfNull(workspace);
+
+		_location = location;
+		_folderModel = folderModel;
+		_workspace = workspace;
+	}
 
 	/// <summary>
 	/// Gets the Windows Shell columns exposed by this folder when the folder is backed by Windows Shell.
@@ -43,21 +59,6 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 
 		return await folder.GetColumnsAsync(cancellationToken).ConfigureAwait(false);
-	}
-
-	/// <summary>Initializes a folder browse context and takes ownership of the folder model.</summary>
-	/// <param name="location">The folder location.</param>
-	/// <param name="folderModel">The folder model.</param>
-	/// <param name="workspace">The storage workspace.</param>
-	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IStorageWorkspace workspace)
-	{
-		ArgumentNullException.ThrowIfNull(location);
-		ArgumentNullException.ThrowIfNull(folderModel);
-		ArgumentNullException.ThrowIfNull(workspace);
-
-		_location = location;
-		_folderModel = folderModel;
-		_workspace = workspace;
 	}
 
 	/// <inheritdoc />
@@ -89,5 +90,36 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 
 		GC.SuppressFinalize(this);
+	}
+
+	async ValueTask<IReadOnlyList<IStorableModel>?> IBrowseLocationItemSorter.SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
+		{
+			return null;
+		}
+
+		var windowsItems = new WindowsStorable[items.Count];
+		var modelsByCoreModel = new Dictionary<WindowsStorable, IStorableModel>(ReferenceEqualityComparer.Instance);
+		for (var index = 0; index < items.Count; index++)
+		{
+			if (items[index].GetCoreModel() is not WindowsStorable windowsItem)
+			{
+				return null;
+			}
+
+			windowsItems[index] = windowsItem;
+			modelsByCoreModel.Add(windowsItem, items[index]);
+		}
+
+		var sortedItems = await folder.SortChildrenAsync(windowsItems, settings.SortPropertyId, settings.SortDirection, cancellationToken).ConfigureAwait(false);
+		if (sortedItems is null)
+		{
+			return null;
+		}
+
+		return Array.AsReadOnly(sortedItems.Select(item => modelsByCoreModel[item]).ToArray());
 	}
 }

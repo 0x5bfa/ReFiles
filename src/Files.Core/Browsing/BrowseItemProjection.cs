@@ -20,6 +20,7 @@ internal sealed class BrowseItemProjection
 	private IComparer<IStorableModel> _comparer;
 	private string? _sortPropertyId;
 	private ViewSortDirection _sortDirection;
+	private bool _isExternallySorted;
 	private bool _isSorted = true;
 	private bool _snapshotDirty;
 
@@ -108,9 +109,10 @@ internal sealed class BrowseItemProjection
 				return BrowseItemChangeSet.Empty;
 			}
 
-			var index = FindInsertionIndex(model);
+			var index = _isExternallySorted ? _orderedItems.Count : FindInsertionIndex(model);
 			_modelsByKey.Add(key, model);
 			_orderedItems.Insert(index, model);
+			_isSorted = !_isExternallySorted;
 			RebuildIndices();
 			UpdateSnapshot();
 
@@ -129,6 +131,11 @@ internal sealed class BrowseItemProjection
 
 		lock (_syncRoot)
 		{
+			if (_isExternallySorted)
+			{
+				preserveInputOrder = true;
+			}
+
 			var incomingKeys = new HashSet<StorableKey>();
 			foreach (var model in models)
 			{
@@ -156,6 +163,11 @@ internal sealed class BrowseItemProjection
 					_modelsByKey.Add(model.Reference.GetKey(), model);
 					_orderedItems.Add(model);
 					previousItem = model;
+				}
+
+				if (_isExternallySorted)
+				{
+					_isSorted = false;
 				}
 
 				RebuildIndices();
@@ -215,7 +227,49 @@ internal sealed class BrowseItemProjection
 	{
 		lock (_syncRoot)
 		{
+			if (_isExternallySorted)
+			{
+				_isExternallySorted = false;
+				_isSorted = _orderedItems.Count < 2;
+			}
+
 			return SortCore();
+		}
+	}
+
+	public BrowseItemChangeSet ApplyExternalOrder(IReadOnlyList<IStorableModel> models)
+	{
+		ArgumentNullException.ThrowIfNull(models);
+
+		lock (_syncRoot)
+		{
+			var orderedKeys = new HashSet<StorableKey>();
+			var isValidOrder = models.Count == _orderedItems.Count;
+			foreach (var model in models)
+			{
+				var key = model.Reference.GetKey();
+				isValidOrder &= orderedKeys.Add(key) && _modelsByKey.TryGetValue(key, out var current) && ReferenceEquals(current, model);
+			}
+
+			if (!isValidOrder)
+			{
+				throw new InvalidOperationException("The external order must contain every projected item exactly once.");
+			}
+
+			var previousKeys = _orderedItems.Select(static item => item.Reference.GetKey()).ToArray();
+			_orderedItems.Clear();
+			_orderedItems.AddRange(models);
+			_isExternallySorted = true;
+			_isSorted = true;
+			RebuildIndices();
+			if (previousKeys.SequenceEqual(_orderedItems.Select(static item => item.Reference.GetKey())))
+			{
+				return BrowseItemChangeSet.Empty;
+			}
+
+			UpdateSnapshot();
+
+			return new BrowseItemChangeSet([new BrowseItemsReset(GetSnapshotLocked())]);
 		}
 	}
 
@@ -276,8 +330,15 @@ internal sealed class BrowseItemProjection
 			}
 
 			_orderedItems[previousIndex] = replacement;
-			_orderedItems.Sort(_comparer);
-			_isSorted = true;
+			if (!_isExternallySorted)
+			{
+				_orderedItems.Sort(_comparer);
+				_isSorted = true;
+			}
+			else
+			{
+				_isSorted = false;
+			}
 			RebuildIndices();
 			var currentIndex = FindItemIndex(replacementKey);
 			UpdateSnapshot();
@@ -317,6 +378,7 @@ internal sealed class BrowseItemProjection
 			_orderedItems.Clear();
 			_orderedItems.AddRange(nextModels);
 			_orderedItems.Sort(_comparer);
+			_isExternallySorted = false;
 			_isSorted = true;
 			_modelsByKey.Clear();
 			foreach (var pair in nextByKey)
@@ -331,7 +393,7 @@ internal sealed class BrowseItemProjection
 		}
 	}
 
-	public BrowseItemChangeSet UpdateSort(BrowseViewSettings settings)
+	public BrowseItemChangeSet UpdateSort(BrowseViewSettings settings, bool deferSort = false)
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 
@@ -345,7 +407,12 @@ internal sealed class BrowseItemProjection
 			_sortPropertyId = settings.SortPropertyId;
 			_sortDirection = settings.SortDirection;
 			_comparer = CreateComparer(settings, _propertyValueGetter);
+			_isExternallySorted = false;
 			_isSorted = _orderedItems.Count < 2;
+			if (deferSort)
+			{
+				return BrowseItemChangeSet.Empty;
+			}
 
 			return SortCore();
 		}
@@ -355,6 +422,7 @@ internal sealed class BrowseItemProjection
 	{
 		lock (_syncRoot)
 		{
+			_isExternallySorted = false;
 			_isSorted = _orderedItems.Count < 2;
 
 			return SortCore();
