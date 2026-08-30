@@ -19,7 +19,8 @@ namespace Files.Adapters;
 
 internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 {
-	private const int MaxItemsPerDrain = 128;
+	private const int MaxItemsPerDrain = 1_024;
+	private const int MaxPropertiesPerDrain = 128;
 	private const int MaxThumbnailsPerDrain = 8;
 	private static readonly TimeSpan UiDrainBudget = TimeSpan.FromMilliseconds(4);
 
@@ -998,7 +999,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] TakePendingPropertiesLocked()
 	{
-		var properties = _pendingProperties.Take(MaxItemsPerDrain).ToArray();
+		var properties = _pendingProperties.Take(MaxPropertiesPerDrain).ToArray();
 		foreach (var property in properties)
 		{
 			_pendingProperties.Remove(property.Key);

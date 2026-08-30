@@ -35,6 +35,7 @@ namespace Files.UITests;
 public sealed class BrowsePresentationPipelineTests
 {
 	private const int DefaultDisposalStressIterationCount = 20;
+	private const int MaximumItemsPerUpdate = 1_024;
 	private const int MaximumDisposalStressIterationCount = 1_000;
 
 	/// <summary>
@@ -92,7 +93,7 @@ public sealed class BrowsePresentationPipelineTests
 
 		Assert.AreEqual(itemCount, adapter.Items.Count);
 		Assert.AreEqual(itemCount, adapter.CreatedItemViewModelCount);
-		Assert.IsTrue(maximumItemsPerUpdate <= 128);
+		Assert.IsTrue(maximumItemsPerUpdate <= MaximumItemsPerUpdate);
 		Assert.IsTrue(itemUpdateCount < Math.Max(3, itemCount / 16));
 		Assert.IsTrue(dispatcher.EnqueueCount < Math.Max(8, itemCount / 16));
 	}
