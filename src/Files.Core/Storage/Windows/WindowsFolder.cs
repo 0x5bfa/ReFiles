@@ -4,6 +4,7 @@
 using System.Runtime.CompilerServices;
 using Files.Core.ViewSettings;
 using OwlCore.Storage;
+using Windows.Win32.Foundation;
 
 namespace Files.Core.Storage.Windows;
 
@@ -31,6 +32,14 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 	/// <returns>An asynchronous sequence of child items.</returns>
 	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
+		await foreach (var item in GetItemsAsync(type, 0, cancellationToken).ConfigureAwait(false))
+		{
+			yield return item;
+		}
+	}
+
+	internal async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
 		cancellationToken.ThrowIfCancellationRequested();
 
 		if (type is StorableType.None)
@@ -38,7 +47,7 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 			yield break;
 		}
 
-		await foreach (var descriptor in Factory .EnumerateChildrenAsync(Descriptor, cancellationToken) .ConfigureAwait(false))
+		await foreach (var descriptor in Factory.EnumerateChildrenAsync(Descriptor, new HWND(ownerWindowHandle), cancellationToken).ConfigureAwait(false))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 

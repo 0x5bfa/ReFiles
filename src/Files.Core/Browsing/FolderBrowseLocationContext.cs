@@ -7,13 +7,14 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
+using OwlCore.Storage;
 
 namespace Files.Core.Browsing;
 
 /// <summary>
 /// Keeps a resolved folder model alive for the duration of a browse location.
 /// </summary>
-public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter
+public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext
 {
 	private readonly FolderLocation _location;
 
@@ -90,6 +91,19 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 
 		GC.SuppressFinalize(this);
+	}
+
+	async IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+		var items = ownerWindowHandle is not 0 && _folderModel is FolderModel folderModel
+			? folderModel.GetItemsAsync(StorableType.All, ownerWindowHandle, cancellationToken)
+			: _folderModel.GetItemsAsync(cancellationToken: cancellationToken);
+		await foreach (var item in items.ConfigureAwait(false))
+		{
+			yield return item;
+		}
 	}
 
 	async ValueTask<IReadOnlyList<IStorableModel>?> IBrowseLocationItemSorter.SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken)

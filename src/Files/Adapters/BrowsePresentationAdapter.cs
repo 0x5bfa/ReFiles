@@ -35,6 +35,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly IUIDispatcher _dispatcher;
 	private readonly IBrowsePrefetchCoordinator _prefetch;
 	private readonly BrowsePresentationText _text;
+	private readonly nint _ownerWindowHandle;
 	private readonly BrowseItemLayoutMetrics _itemLayoutMetrics;
 	private readonly CancellationTokenSource _lifetime = new();
 	private readonly Lock _statusBarSizeLock = new();
@@ -81,7 +82,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private int _isApplyingDefaultColumns;
 	private int _isDisposed;
 
-	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null)
+	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
+		nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 		ArgumentNullException.ThrowIfNull(workspace);
@@ -92,6 +94,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_dispatcher = dispatcher;
 		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
 		_text = text ?? BrowsePresentationText.CreateLocalized();
+		_ownerWindowHandle = ownerWindowHandle;
 		_viewSettings = _pane.BrowseSession.ViewSettings;
 		_prefetchViewSettings = _viewSettings;
 		_prefetchGeneration = _pane.BrowseSession.Generation;
@@ -274,7 +277,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			await _pane.GoBackAsync(linkedCancellation.Token).ConfigureAwait(false);
+			await _pane.GoBackAsync(linkedCancellation.Token, _ownerWindowHandle).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -291,7 +294,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			await _pane.GoForwardAsync(linkedCancellation.Token).ConfigureAwait(false);
+			await _pane.GoForwardAsync(linkedCancellation.Token, _ownerWindowHandle).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -308,7 +311,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			await _pane.GoUpAsync(linkedCancellation.Token).ConfigureAwait(false);
+			await _pane.GoUpAsync(linkedCancellation.Token, _ownerWindowHandle).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -325,7 +328,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			await _pane.RefreshAsync(linkedCancellation.Token).ConfigureAwait(false);
+			await _pane.RefreshAsync(linkedCancellation.Token, _ownerWindowHandle).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -2219,7 +2222,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return Task.CompletedTask;
 			}
 
-			var task = _pane.NavigateAsync(location, cancellationToken: _lifetime.Token).AsTask();
+			var task = _pane.NavigateAsync(location, cancellationToken: _lifetime.Token, ownerWindowHandle: _ownerWindowHandle).AsTask();
 			navigation = new LocationNavigation(location, task);
 			_locationNavigation = navigation;
 		}

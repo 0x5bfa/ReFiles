@@ -4,6 +4,7 @@
 using System.Runtime.CompilerServices;
 using Files.Core.Capabilities;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using OwlCore.Storage;
 
 namespace Files.Core.Models;
@@ -44,11 +45,9 @@ public sealed class FolderModel : StorableModel, IFolderModel
 	/// <returns>The child item models.</returns>
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
-		ThrowIfDisposed();
-
-		await foreach (var item in _folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
+		await foreach (var item in GetItemsCoreAsync(type, 0, cancellationToken).ConfigureAwait(false))
 		{
-			yield return _modelFactory.Create(_source, item);
+			yield return item;
 		}
 	}
 
@@ -80,5 +79,26 @@ public sealed class FolderModel : StorableModel, IFolderModel
 
 		await model.DisposeAsync().ConfigureAwait(false);
 		throw new InvalidOperationException($"The parent of '{Reference.ItemId}' is not a folder.");
+	}
+
+	internal async IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
+		await foreach (var item in GetItemsCoreAsync(type, ownerWindowHandle, cancellationToken).ConfigureAwait(false))
+		{
+			yield return item;
+		}
+	}
+
+	private async IAsyncEnumerable<IStorableModel> GetItemsCoreAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)
+	{
+		ThrowIfDisposed();
+
+		var items = ownerWindowHandle is not 0 && _folder is WindowsFolder windowsFolder
+			? windowsFolder.GetItemsAsync(type, ownerWindowHandle, cancellationToken)
+			: _folder.GetItemsAsync(type, cancellationToken);
+		await foreach (var item in items.ConfigureAwait(false))
+		{
+			yield return _modelFactory.Create(_source, item);
+		}
 	}
 }

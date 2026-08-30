@@ -99,3 +99,10 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 	/// <param name="anchorKey">The selection anchor key.</param>
 	void SetSelection(IEnumerable<StorableKey> selectedKeys, StorableKey? focusedKey, StorableKey? anchorKey);
 }
+
+internal interface IInteractiveBrowseSession
+{
+	ValueTask NavigateAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken = default);
+
+	ValueTask RefreshAsync(nint ownerWindowHandle, CancellationToken cancellationToken = default);
+}

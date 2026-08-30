@@ -262,7 +262,8 @@ internal sealed class TestBrowseLocationResolver : IBrowseLocationResolver
 
 internal sealed class TestBrowseLocationContext :
 	IBrowseLocationContext,
-	IBrowseLocationItemResolver
+	IBrowseLocationItemResolver,
+	IInteractiveBrowseLocationContext
 {
 	private readonly IReadOnlyList<IStorableModel> _items;
 
@@ -289,6 +290,8 @@ internal sealed class TestBrowseLocationContext :
 	public BrowseLocation Location { get; }
 
 	public IStorableModel? LocationModel => _locationModel;
+
+	public nint? EnumerationOwnerWindowHandle { get; private set; }
 
 	public bool IsDisposed => Volatile.Read(ref _isDisposed) != 0;
 
@@ -381,6 +384,13 @@ internal sealed class TestBrowseLocationContext :
 		}
 
 		return ValueTask.CompletedTask;
+	}
+
+	IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, CancellationToken cancellationToken)
+	{
+		EnumerationOwnerWindowHandle = ownerWindowHandle;
+
+		return GetItemsAsync(cancellationToken);
 	}
 }
 

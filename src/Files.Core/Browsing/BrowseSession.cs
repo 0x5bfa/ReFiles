@@ -13,7 +13,7 @@ using System.Diagnostics;
 namespace Files.Core.Browsing;
 
 /// <summary>Coordinates navigation, item enumeration, selection, and presentation for one browse tab.</summary>
-public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
+public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInteractiveBrowseSession
 {
 	private const int InitialEnumerationBatchSize = 32;
 	private const int EnumerationBatchSize = 256;
@@ -109,7 +109,17 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 	}
 
 	/// <inheritdoc />
-	public async ValueTask NavigateAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	public ValueTask NavigateAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	{
+		return NavigateAsync(location, 0, cancellationToken);
+	}
+
+	ValueTask IInteractiveBrowseSession.NavigateAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
+	{
+		return NavigateAsync(location, ownerWindowHandle, cancellationToken);
+	}
+
+	private async ValueTask NavigateAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
 		ArgumentNullException.ThrowIfNull(location);
@@ -119,7 +129,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 
 		try
 		{
-			await NavigateCoreAsync(location, navigation.Token).ConfigureAwait(false);
+			await NavigateCoreAsync(location, ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -127,7 +137,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 		}
 	}
 
-	private async ValueTask NavigateCoreAsync(BrowseLocation location, CancellationToken cancellationToken)
+	private async ValueTask NavigateCoreAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
 	{
 		var propertySortTask = CancelPendingPropertySort();
 		if (propertySortTask is not null)
@@ -172,7 +182,10 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			var targetBatchSize = InitialEnumerationBatchSize;
 			var firstItemReturned = false;
 			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
-			await foreach (var item in nextLocationContext.GetItemsAsync(cancellationToken).ConfigureAwait(false))
+			var nextItemSequence = ownerWindowHandle is not 0 && nextLocationContext is IInteractiveBrowseLocationContext interactiveContext
+				? interactiveContext.GetItemsAsync(ownerWindowHandle, cancellationToken)
+				: nextLocationContext.GetItemsAsync(cancellationToken);
+			await foreach (var item in nextItemSequence.ConfigureAwait(false))
 			{
 				if (ShouldHideItem(DisplaySettings, item))
 				{
@@ -377,6 +390,15 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 			: NavigateAsync(Location, cancellationToken);
 	}
 
+	ValueTask IInteractiveBrowseSession.RefreshAsync(nint ownerWindowHandle, CancellationToken cancellationToken)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
+
+		return Location is null
+			? ValueTask.CompletedTask
+			: NavigateAsync(Location, ownerWindowHandle, cancellationToken);
+	}
+
 	private async ValueTask ProcessPendingChangesAsync(CancellationToken cancellationToken)
 	{
 		var currentContext = Volatile.Read(ref _activeContext);
@@ -490,7 +512,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget
 				return;
 			}
 
-			await NavigateCoreAsync(currentContext.Context.Location, cancellationToken).ConfigureAwait(false);
+			await NavigateCoreAsync(currentContext.Context.Location, 0, cancellationToken).ConfigureAwait(false);
 		}
 		finally
 		{

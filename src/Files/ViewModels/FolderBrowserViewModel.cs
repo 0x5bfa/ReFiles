@@ -203,7 +203,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_operationTracker = operationTracker;
 		_appSettings = appSettings;
 		_dispatcher = dispatcher;
-		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher);
+		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, ownerWindowHandle: ownerWindowHandle);
 		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
 		_shellNewMenu = _windowsSource is { } windowsSource
 			? new WindowsShellNewMenu(windowsSource.Scheduler)

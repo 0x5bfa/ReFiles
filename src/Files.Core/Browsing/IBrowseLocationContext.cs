@@ -21,3 +21,8 @@ public interface IBrowseLocationContext : IAsyncDisposable
 	/// <returns>An asynchronous sequence of items.</returns>
 	IAsyncEnumerable<IStorableModel> GetItemsAsync(CancellationToken cancellationToken = default);
 }
+
+internal interface IInteractiveBrowseLocationContext
+{
+	IAsyncEnumerable<IStorableModel> GetItemsAsync(nint ownerWindowHandle, CancellationToken cancellationToken = default);
+}

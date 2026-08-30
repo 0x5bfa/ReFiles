@@ -47,6 +47,25 @@ public sealed class SessionTests
 	}
 
 	/// <summary>
+	/// Test case: interactive pane navigation passes its owner only to that enumeration.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task InteractivePaneNavigationPassesOwnerOnlyToInteractiveEnumeration()
+	{
+		var resolver = new TestBrowseLocationResolver([]);
+		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
+		var pane = GetBrowsePane(paneOwner);
+		var ownerWindowHandle = (nint)1234;
+
+		await pane.NavigateAsync(HomeLocation.Instance);
+		await pane.NavigateAsync(new SearchLocation("interactive"), cancellationToken: default, ownerWindowHandle: ownerWindowHandle);
+
+		Assert.IsNull(resolver.OpenedContexts[0].EnumerationOwnerWindowHandle);
+		Assert.AreEqual(ownerWindowHandle, resolver.OpenedContexts[1].EnumerationOwnerWindowHandle);
+	}
+
+	/// <summary>
 	/// Test case: pane restores bounded history around current entry.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

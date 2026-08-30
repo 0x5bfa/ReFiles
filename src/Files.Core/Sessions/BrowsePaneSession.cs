@@ -83,8 +83,9 @@ public sealed class BrowsePaneSession : IPaneContentSession
 	/// <param name="location">The target location.</param>
 	/// <param name="mode">The history update mode.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="ownerWindowHandle">The native owner for UI shown while enumerating, or zero to suppress such UI.</param>
 	/// <returns>A task that represents the navigation.</returns>
-	public async ValueTask NavigateAsync(BrowseLocation location, PaneNavigationMode mode = PaneNavigationMode.Push, CancellationToken cancellationToken = default)
+	public async ValueTask NavigateAsync(BrowseLocation location, PaneNavigationMode mode = PaneNavigationMode.Push, CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(location);
 
@@ -99,7 +100,10 @@ public sealed class BrowsePaneSession : IPaneContentSession
 		try
 		{
 			EnsureActive();
-			await NavigateAndCommitAsync(location, () => { if (mode is PaneNavigationMode.Push) { History.Push(location); } else { History.Replace(location); } }, navigation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(location, () =>
+			{
+				if (mode is PaneNavigationMode.Push) { History.Push(location); } else { History.Replace(location); }
+			}, ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -109,8 +113,9 @@ public sealed class BrowsePaneSession : IPaneContentSession
 
 	/// <summary>Navigates to the previous history entry.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="ownerWindowHandle">The native owner for UI shown while enumerating, or zero to suppress such UI.</param>
 	/// <returns><see langword="true"/> when navigation completed.</returns>
-	public async ValueTask<bool> GoBackAsync(CancellationToken cancellationToken = default)
+	public async ValueTask<bool> GoBackAsync(CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
 		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
@@ -123,7 +128,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 				return false;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), navigation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 
 			return Equals(BrowseSession.Location, target);
 		}
@@ -135,8 +140,9 @@ public sealed class BrowsePaneSession : IPaneContentSession
 
 	/// <summary>Navigates to the following history entry.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="ownerWindowHandle">The native owner for UI shown while enumerating, or zero to suppress such UI.</param>
 	/// <returns><see langword="true"/> when navigation completed.</returns>
-	public async ValueTask<bool> GoForwardAsync(CancellationToken cancellationToken = default)
+	public async ValueTask<bool> GoForwardAsync(CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
 		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
@@ -149,7 +155,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 				return false;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), navigation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.TryMoveTo(targetIndex, target), ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 
 			return Equals(BrowseSession.Location, target);
 		}
@@ -161,8 +167,9 @@ public sealed class BrowsePaneSession : IPaneContentSession
 
 	/// <summary>Navigates to the current location's parent.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="ownerWindowHandle">The native owner for UI shown while enumerating, or zero to suppress such UI.</param>
 	/// <returns><see langword="true"/> when a parent was available and navigation completed.</returns>
-	public async ValueTask<bool> GoUpAsync(CancellationToken cancellationToken = default)
+	public async ValueTask<bool> GoUpAsync(CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
 		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
@@ -178,7 +185,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 					return false;
 				}
 
-				await NavigateAndCommitAsync(parentLocation, () => History.Push(parentLocation), navigation.Token).ConfigureAwait(false);
+				await NavigateAndCommitAsync(parentLocation, () => History.Push(parentLocation), ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 
 				return Equals(BrowseSession.Location, parentLocation);
 			}
@@ -197,7 +204,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 			await using (parent.ConfigureAwait(false))
 			{
 				var target = new FolderLocation(parent.Reference);
-				await NavigateAndCommitAsync(target, () => History.Push(target), navigation.Token).ConfigureAwait(false);
+				await NavigateAndCommitAsync(target, () => History.Push(target), ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 
 				return Equals(BrowseSession.Location, target);
 			}
@@ -234,7 +241,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 				return;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.Restore(restoredHistory), navigation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.Restore(restoredHistory), 0, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -244,8 +251,9 @@ public sealed class BrowsePaneSession : IPaneContentSession
 
 	/// <summary>Refreshes the current location.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <param name="ownerWindowHandle">The native owner for UI shown while enumerating, or zero to suppress such UI.</param>
 	/// <returns>A task that represents the refresh.</returns>
-	public async ValueTask RefreshAsync(CancellationToken cancellationToken = default)
+	public async ValueTask RefreshAsync(CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		using var navigation = BeginNavigation(cancellationToken);
 		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
@@ -253,7 +261,14 @@ public sealed class BrowsePaneSession : IPaneContentSession
 		try
 		{
 			EnsureActive();
-			await BrowseSession.RefreshAsync(navigation.Token).ConfigureAwait(false);
+			if (ownerWindowHandle is not 0 && BrowseSession is IInteractiveBrowseSession interactiveSession)
+			{
+				await interactiveSession.RefreshAsync(ownerWindowHandle, navigation.Token).ConfigureAwait(false);
+			}
+			else
+			{
+				await BrowseSession.RefreshAsync(navigation.Token).ConfigureAwait(false);
+			}
 		}
 		finally
 		{
@@ -279,14 +294,21 @@ public sealed class BrowsePaneSession : IPaneContentSession
 		}
 	}
 
-	private async Task NavigateAndCommitAsync(BrowseLocation target, Action commitHistory, CancellationToken cancellationToken)
+	private async Task NavigateAndCommitAsync(BrowseLocation target, Action commitHistory, nint ownerWindowHandle, CancellationToken cancellationToken)
 	{
 		var previousGeneration = BrowseSession.Generation;
 		var completed = false;
 
 		try
 		{
-			await BrowseSession.NavigateAsync(target, cancellationToken).ConfigureAwait(false);
+			if (ownerWindowHandle is not 0 && BrowseSession is IInteractiveBrowseSession interactiveSession)
+			{
+				await interactiveSession.NavigateAsync(target, ownerWindowHandle, cancellationToken).ConfigureAwait(false);
+			}
+			else
+			{
+				await BrowseSession.NavigateAsync(target, cancellationToken).ConfigureAwait(false);
+			}
 			completed = true;
 		}
 		finally

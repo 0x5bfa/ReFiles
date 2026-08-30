@@ -21,6 +21,8 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal sealed class WindowsStorableFactory
 {
+	private const int CanceledHResultValue = unchecked((int)0x800704C7);
+
 	private const int EnumerationBatchSize = 32;
 
 	private const int EnumerationBufferSize = 4;
@@ -140,7 +142,8 @@ internal sealed class WindowsStorableFactory
 			cancellationToken);
 	}
 
-	internal async IAsyncEnumerable<WindowsStorableDescriptor> EnumerateChildrenAsync(WindowsStorableDescriptor descriptor, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	internal async IAsyncEnumerable<WindowsStorableDescriptor> EnumerateChildrenAsync(WindowsStorableDescriptor descriptor, HWND ownerWindow,
+		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
@@ -164,7 +167,7 @@ internal sealed class WindowsStorableFactory
 		{
 			var scheduledProducer = _resolver.InvokeConcurrentAsync(
 				descriptor.Locator,
-				shellItem => EnumerateChildrenOnCurrentSta(shellItem, parentFolder, batches.Writer, enumerationCancellation.Token),
+				shellItem => EnumerateChildrenOnCurrentSta(shellItem, parentFolder, ownerWindow, batches.Writer, enumerationCancellation.Token),
 				enumerationCancellation.Token);
 			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
@@ -346,6 +349,7 @@ internal sealed class WindowsStorableFactory
 	private static unsafe bool EnumerateChildrenOnCurrentSta(
 		IShellItem shellItem,
 		WindowsItemLocator parentFolder,
+		HWND ownerWindow,
 		ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer,
 		CancellationToken cancellationToken)
 	{
@@ -367,7 +371,7 @@ internal sealed class WindowsStorableFactory
 			}
 
 			var enumerationFlags = _SHCONTF.SHCONTF_FOLDERS | _SHCONTF.SHCONTF_NONFOLDERS | _SHCONTF.SHCONTF_INCLUDEHIDDEN;
-			var enumerationResult = folder.EnumObjects(HWND.Null, (uint)enumerationFlags, out IEnumIDList? enumerator);
+			var enumerationResult = folder.EnumObjects(ownerWindow, (uint)enumerationFlags, out IEnumIDList? enumerator);
 			if (enumerationResult == HRESULT.S_FALSE)
 			{
 				writer.TryComplete();
@@ -375,7 +379,7 @@ internal sealed class WindowsStorableFactory
 				return true;
 			}
 
-			enumerationResult.ThrowOnFailure();
+			ThrowIfEnumerationFailed(enumerationResult, ownerWindow);
 			if (enumerator is null)
 			{
 				throw new InvalidOperationException("The Shell folder returned no item enumerator.");
@@ -406,7 +410,7 @@ internal sealed class WindowsStorableFactory
 					break;
 				}
 
-				result.ThrowOnFailure();
+				ThrowIfEnumerationFailed(result, ownerWindow);
 				if (fetched is 0)
 				{
 					break;
@@ -529,6 +533,16 @@ internal sealed class WindowsStorableFactory
 			writer.TryComplete(exception);
 			throw;
 		}
+	}
+
+	private static void ThrowIfEnumerationFailed(HRESULT result, HWND ownerWindow)
+	{
+		if (!ownerWindow.IsNull && result.Value is CanceledHResultValue)
+		{
+			throw new OperationCanceledException("The Windows Shell canceled folder enumeration.");
+		}
+
+		result.ThrowOnFailure();
 	}
 
 	private static bool IsMatchingItem(WindowsStorable? storable, string itemId)
