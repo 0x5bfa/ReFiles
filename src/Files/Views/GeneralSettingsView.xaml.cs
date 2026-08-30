@@ -11,7 +11,7 @@ public sealed partial class GeneralSettingsView : UserControl
 {
 	private readonly AppSettingsService _settings;
 
-	internal IReadOnlyList<LanguageOption> Languages { get; }
+	internal ObservableCollection<LanguageOption> Languages { get; }
 
 	internal GeneralSettingsView(AppSettingsService settings)
 	{

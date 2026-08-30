@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Localization;
+using Files.Settings;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -16,13 +17,18 @@ public sealed partial class SettingsView : UserControl
 	private readonly AppearanceSettingsView _appearanceView;
 	private readonly AboutSettingsView _aboutView;
 
-	internal IReadOnlyList<SettingsNavigationItem> NavigationItems { get; }
+	internal ObservableCollection<SettingsNavigationItem> NavigationItems { get; }
 
-	internal IReadOnlyList<SettingsNavigationItem> FooterNavigationItems { get; }
+	internal ObservableCollection<SettingsNavigationItem> FooterNavigationItems { get; }
 
-	public SettingsView()
+	public SettingsView() : this(((App)Application.Current).Settings)
 	{
-		var settings = ((App)Application.Current).Settings;
+	}
+
+	internal SettingsView(AppSettingsService settings)
+	{
+		ArgumentNullException.ThrowIfNull(settings);
+
 		_generalItem = new(SettingsPageKind.General, Strings.General.GetLocalized(), "\uE713");
 		_appearanceItem = new(SettingsPageKind.Appearance, Strings.Appearance.GetLocalized(), "\uE790");
 		_aboutItem = new(SettingsPageKind.About, Strings.About.GetLocalized(), "\uE946");

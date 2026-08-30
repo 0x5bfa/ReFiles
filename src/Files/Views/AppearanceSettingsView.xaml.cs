@@ -11,7 +11,7 @@ public sealed partial class AppearanceSettingsView : UserControl
 {
 	private readonly AppSettingsService _settings;
 
-	internal IReadOnlyList<ThemeOption> Themes { get; }
+	internal ObservableCollection<ThemeOption> Themes { get; }
 
 	internal AppearanceSettingsView(AppSettingsService settings)
 	{
