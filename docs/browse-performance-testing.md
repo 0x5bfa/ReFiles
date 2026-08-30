@@ -40,6 +40,9 @@ Each scenario records:
 - time to first presentation item;
 - time to first actually realized WinUI row;
 - time to enumeration completion;
+- time to the first property and thumbnail presentation update;
+- time until properties and thumbnails are ready for the initially realized items;
+- repeated thumbnail source updates, separated from fallback-to-content upgrades, that can indicate visible icon flashing;
 - maximum UI-dispatcher latency;
 - p95 UI-dispatcher latency;
 - UI stalls over 16, 50, and 100 ms;
@@ -125,6 +128,8 @@ $env:FILES_PERF_ITERATIONS = '5'
 $env:FILES_PERF_RESULTS_DIR = "$PWD\artifacts\performance"
 $env:FILES_PERF_ENVIRONMENT_NOTES = 'Warm-cache local developer run'
 ```
+
+To measure several folders in one run, set `FILES_PERF_REAL_FOLDERS` to a semicolon-separated list. It takes precedence over `FILES_PERF_REAL_FOLDER`.
 
 Then run the self-hosted UI test application with:
 

@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -85,16 +86,21 @@ public sealed class BrowsePerformanceTests
 	[TestCategory("RealFolderPerformance")]
 	public async Task RealFolderBrowsePerformance()
 	{
-		var folderPath = Environment.GetEnvironmentVariable("FILES_PERF_REAL_FOLDER");
-		if (string.IsNullOrWhiteSpace(folderPath))
+		var folderPaths = ReadRealFolderPaths();
+		if (folderPaths.Count is 0)
 		{
-			Assert.Inconclusive("Set FILES_PERF_REAL_FOLDER to opt into the machine-dependent real-folder performance scenario.");
+			Assert.Inconclusive("Set FILES_PERF_REAL_FOLDER or FILES_PERF_REAL_FOLDERS to opt into the machine-dependent real-folder performance scenario.");
 
 			return;
 		}
 
 		var iterations = ReadPositiveInt32("FILES_PERF_ITERATIONS", 3);
-		var results = await RunRealFolderScenarioAsync(folderPath, iterations);
+		var results = new List<BrowsePerformanceResult>();
+		foreach (var folderPath in folderPaths)
+		{
+			results.AddRange(await RunRealFolderScenarioAsync(folderPath, iterations));
+		}
+
 		var outputPath = await BrowsePerformanceResultWriter.WriteAsync("browse-real-folder", results);
 		TestContext.AddResultFile(outputPath);
 		TestContext.WriteLine($"Real-folder performance results: {outputPath}");
@@ -331,11 +337,14 @@ public sealed class BrowsePerformanceTests
 			await metrics.FirstCoreBatch.WaitAsync(FirstContentTimeout);
 			await metrics.FirstPresentedItem.WaitAsync(FirstContentTimeout);
 			await metrics.FirstRealizedRow.WaitAsync(FirstContentTimeout);
+			await metrics.WaitForInitialPresentationAsync(FirstContentTimeout);
 			await dispatcherProbe.StopAsync();
 			metrics.CaptureFinalState();
 
 			Assert.IsTrue(metrics.FirstRealizedRowTimestamp > 0);
 			Assert.IsTrue(metrics.MaximumRealizedRowCount < VirtualizationSafetyLimit, $"Expected virtualization to remain active, but observed {metrics.MaximumRealizedRowCount} realized rows.");
+			Assert.IsTrue(metrics.RepeatedThumbnailUpdateCount <= metrics.ContentThumbnailPublicationCount,
+				$"Observed {metrics.RepeatedThumbnailUpdateCount} repeated UI thumbnail updates but only {metrics.ContentThumbnailPublicationCount} content upgrades.");
 
 			results.Add(metrics.CreateResult(
 				$"real-folder-{iteration + 1}",
@@ -370,6 +379,22 @@ public sealed class BrowsePerformanceTests
 	}
 
 	private static int ReadPositiveInt32(string name, int fallback) => int.TryParse(Environment.GetEnvironmentVariable(name), out var value) && value > 0 ? value : fallback;
+
+	private static IReadOnlyList<string> ReadRealFolderPaths()
+	{
+		var configuredPaths = Environment.GetEnvironmentVariable("FILES_PERF_REAL_FOLDERS");
+		if (string.IsNullOrWhiteSpace(configuredPaths))
+		{
+			configuredPaths = Environment.GetEnvironmentVariable("FILES_PERF_REAL_FOLDER");
+		}
+
+		if (string.IsNullOrWhiteSpace(configuredPaths))
+		{
+			return [];
+		}
+
+		return configuredPaths.Split(Path.PathSeparator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+	}
 
 	private static void ApplyRectangleSelection(ListViewBase target, IEnumerable<object> selection)
 	{
@@ -606,6 +631,10 @@ public sealed class BrowsePerformanceTests
 		private readonly FolderBrowserViewModel _folder;
 		private readonly TableViewDiagnostics _tableDiagnostics;
 		private readonly HashSet<BrowseItemViewModel> _uniqueViewModels = new(ReferenceEqualityComparer.Instance);
+		private readonly HashSet<BrowseItemViewModel> _observedItems = new(ReferenceEqualityComparer.Instance);
+		private readonly Dictionary<BrowseItemViewModel, int> _thumbnailUpdateCounts = new(ReferenceEqualityComparer.Instance);
+		private readonly Dictionary<BrowseItemViewModel, long> _firstPropertyTimestamps = new(ReferenceEqualityComparer.Instance);
+		private readonly Dictionary<BrowseItemViewModel, long> _firstThumbnailTimestamps = new(ReferenceEqualityComparer.Instance);
 		private readonly TaskCompletionSource<bool> _firstCoreBatch = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		private readonly TaskCompletionSource<bool> _firstPresentedItem = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		private readonly TaskCompletionSource<bool> _firstRealizedRow = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -614,8 +643,17 @@ public sealed class BrowsePerformanceTests
 		private long _firstPresentedItemTimestamp;
 		private long _firstRealizedRowTimestamp;
 		private long _enumerationCompletedTimestamp;
+		private long _firstPropertiesTimestamp;
+		private long _firstThumbnailTimestamp;
+		private long _initialPropertiesCompletedTimestamp;
+		private long _initialThumbnailsCompletedTimestamp;
+		private long _initialPresentationCompletedTimestamp;
 		private int _collectionNotificationCount;
 		private int _maximumRealizedRowCount;
+		private int _initialPresentationItemCount;
+		private int _fallbackThumbnailPublicationCount;
+		private int _contentThumbnailPublicationCount;
+		private long _baselineGeneration;
 		private bool _started;
 
 		public Task FirstCoreBatch => _firstCoreBatch.Task;
@@ -626,6 +664,8 @@ public sealed class BrowsePerformanceTests
 		public int CollectionNotificationCount => Volatile.Read(ref _collectionNotificationCount);
 		public int MaximumRealizedRowCount => Volatile.Read(ref _maximumRealizedRowCount);
 		public int UniqueViewModelCount => _uniqueViewModels.Count;
+		public int RepeatedThumbnailUpdateCount => _thumbnailUpdateCounts.Values.Sum(static count => Math.Max(0, count - 1));
+		public int ContentThumbnailPublicationCount => Volatile.Read(ref _contentThumbnailPublicationCount);
 
 		public BrowseMeasurementRecorder(IBrowseSession session, FolderBrowserViewModel folder, TableViewDiagnostics tableDiagnostics)
 		{
@@ -643,10 +683,16 @@ public sealed class BrowsePerformanceTests
 
 			_started = true;
 			_startTimestamp = Stopwatch.GetTimestamp();
+			_baselineGeneration = _session.Generation;
 			_session.ItemsChanged += Session_ItemsChanged;
+			_session.ItemPresentationChanged += Session_ItemPresentationChanged;
 			_folder.Items.CollectionChanged += Items_CollectionChanged;
 			_tableDiagnostics.RowRealized += TableDiagnostics_RowRealized;
 			_tableDiagnostics.RealizedRowCountChanged += TableDiagnostics_RealizedRowCountChanged;
+			foreach (var item in _folder.Items)
+			{
+				ObserveItem(item);
+			}
 		}
 
 		public void MarkEnumerationCompleted() => Interlocked.CompareExchange(ref _enumerationCompletedTimestamp, Stopwatch.GetTimestamp(), 0);
@@ -659,6 +705,53 @@ public sealed class BrowsePerformanceTests
 			}
 
 			UpdateMaximumRealizedRows();
+		}
+
+		public async Task WaitForInitialPresentationAsync(TimeSpan timeout)
+		{
+			await WaitForRealizedRowsToSettleAsync(timeout);
+			var targetCount = Math.Min(_folder.Items.Count, Math.Max(1, _tableDiagnostics.RealizedRowCount));
+			var targets = _folder.Items.Take(targetCount).ToArray();
+			_initialPresentationItemCount = targets.Length;
+			var expectsProperties = HasRequestedProperties(_session.ViewSettings);
+			var started = Stopwatch.GetTimestamp();
+			while (true)
+			{
+				foreach (var target in targets)
+				{
+					RecordExistingPresentation(target);
+				}
+
+				var propertiesCompleted = !expectsProperties || targets.All(item => _firstPropertyTimestamps.ContainsKey(item));
+				var thumbnailsCompleted = targets.All(item => _firstThumbnailTimestamps.ContainsKey(item));
+				if (propertiesCompleted)
+				{
+					var propertiesCompletedTimestamp = expectsProperties ? targets.Max(item => _firstPropertyTimestamps[item]) : _enumerationCompletedTimestamp;
+					Interlocked.CompareExchange(ref _initialPropertiesCompletedTimestamp, propertiesCompletedTimestamp, 0);
+				}
+
+				if (thumbnailsCompleted)
+				{
+					Interlocked.CompareExchange(ref _initialThumbnailsCompletedTimestamp, targets.Max(item => _firstThumbnailTimestamps[item]), 0);
+				}
+
+				if (propertiesCompleted && thumbnailsCompleted)
+				{
+					var presentationCompletedTimestamp = Math.Max(_initialPropertiesCompletedTimestamp, _initialThumbnailsCompletedTimestamp);
+					Interlocked.CompareExchange(ref _initialPresentationCompletedTimestamp, presentationCompletedTimestamp, 0);
+
+					return;
+				}
+
+				if (Stopwatch.GetElapsedTime(started) >= timeout)
+				{
+					var propertyCount = targets.Count(static item => item.Properties.Count is not 0);
+					var thumbnailCount = targets.Count(static item => item.Thumbnail is not null);
+					Assert.Fail($"Initial presentation timed out: target={targets.Length}, properties={propertyCount}, thumbnails={thumbnailCount}.");
+				}
+
+				await WaitForUiIdleAsync(timeout);
+			}
 		}
 
 		public BrowsePerformanceResult CreateResult(
@@ -681,6 +774,16 @@ public sealed class BrowsePerformanceTests
 				TimeToFirstPresentedItemMs = ElapsedMilliseconds(_firstPresentedItemTimestamp),
 				TimeToFirstRealizedRowMs = ElapsedMilliseconds(_firstRealizedRowTimestamp),
 				EnumerationCompleteMs = ElapsedMilliseconds(_enumerationCompletedTimestamp),
+				TimeToFirstPropertiesMs = ElapsedMilliseconds(_firstPropertiesTimestamp),
+				TimeToFirstThumbnailMs = ElapsedMilliseconds(_firstThumbnailTimestamp),
+				InitialPropertiesCompleteMs = ElapsedMilliseconds(_initialPropertiesCompletedTimestamp),
+				InitialThumbnailsCompleteMs = ElapsedMilliseconds(_initialThumbnailsCompletedTimestamp),
+				InitialPresentationCompleteMs = ElapsedMilliseconds(_initialPresentationCompletedTimestamp),
+				InitialPresentationItemCount = _initialPresentationItemCount,
+				ThumbnailUpdateCount = _thumbnailUpdateCounts.Values.Sum(),
+				RepeatedThumbnailUpdateCount = RepeatedThumbnailUpdateCount,
+				FallbackThumbnailPublicationCount = Volatile.Read(ref _fallbackThumbnailPublicationCount),
+				ContentThumbnailPublicationCount = ContentThumbnailPublicationCount,
 				MaximumUiLatencyMs = dispatcherProbe.MaximumLatency.TotalMilliseconds,
 				P95UiLatencyMs = dispatcherProbe.P95Latency.TotalMilliseconds,
 				StallsOver16Ms = dispatcherProbe.CountOver(TimeSpan.FromMilliseconds(16)),
@@ -701,9 +804,14 @@ public sealed class BrowsePerformanceTests
 		public void Dispose()
 		{
 			_session.ItemsChanged -= Session_ItemsChanged;
+			_session.ItemPresentationChanged -= Session_ItemPresentationChanged;
 			_folder.Items.CollectionChanged -= Items_CollectionChanged;
 			_tableDiagnostics.RowRealized -= TableDiagnostics_RowRealized;
 			_tableDiagnostics.RealizedRowCountChanged -= TableDiagnostics_RealizedRowCountChanged;
+			foreach (var item in _observedItems)
+			{
+				item.PropertyChanged -= Item_PropertyChanged;
+			}
 		}
 
 		private void Session_ItemsChanged(object? sender, BrowseItemsChangedEventArgs e)
@@ -732,12 +840,30 @@ public sealed class BrowsePerformanceTests
 				foreach (var item in e.NewItems.OfType<BrowseItemViewModel>())
 				{
 					_uniqueViewModels.Add(item);
+					ObserveItem(item);
 				}
 			}
 
 			if (_folder.Items.Count is not 0 && Interlocked.CompareExchange(ref _firstPresentedItemTimestamp, Stopwatch.GetTimestamp(), 0) is 0)
 			{
 				_firstPresentedItem.TrySetResult(true);
+			}
+		}
+
+		private void Session_ItemPresentationChanged(object? sender, BrowseItemPresentationChangedEventArgs e)
+		{
+			if (!_started || _session.Generation == _baselineGeneration || (e.Changed & BrowseItemPresentationChangeFlags.Thumbnail) is 0 || e.Presentation.Thumbnail is not { } thumbnail)
+			{
+				return;
+			}
+
+			if (thumbnail.IsFallback)
+			{
+				Interlocked.Increment(ref _fallbackThumbnailPublicationCount);
+			}
+			else
+			{
+				Interlocked.Increment(ref _contentThumbnailPublicationCount);
 			}
 		}
 
@@ -757,6 +883,69 @@ public sealed class BrowsePerformanceTests
 
 		private void TableDiagnostics_RealizedRowCountChanged(object? sender, EventArgs e) => UpdateMaximumRealizedRows();
 
+		private void ObserveItem(BrowseItemViewModel item)
+		{
+			if (_observedItems.Add(item))
+			{
+				item.PropertyChanged += Item_PropertyChanged;
+				RecordExistingPresentation(item);
+			}
+		}
+
+		private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+		{
+			if (!_started || _session.Generation == _baselineGeneration || sender is not BrowseItemViewModel item || !_session.Contains(item.Reference.GetKey()))
+			{
+				return;
+			}
+
+			if (e.PropertyName is nameof(BrowseItemViewModel.Properties) && item.Properties.Count is not 0)
+			{
+				RecordProperties(item, Stopwatch.GetTimestamp());
+			}
+			else if (e.PropertyName is nameof(BrowseItemViewModel.Thumbnail) && item.Thumbnail is not null)
+			{
+				RecordThumbnail(item, Stopwatch.GetTimestamp());
+				_thumbnailUpdateCounts[item] = _thumbnailUpdateCounts.GetValueOrDefault(item) + 1;
+			}
+		}
+
+		private void RecordExistingPresentation(BrowseItemViewModel item)
+		{
+			if (_session.Generation == _baselineGeneration || !_session.Contains(item.Reference.GetKey()))
+			{
+				return;
+			}
+
+			var timestamp = Stopwatch.GetTimestamp();
+			if (item.Properties.Count is not 0)
+			{
+				RecordProperties(item, timestamp);
+			}
+
+			if (item.Thumbnail is not null)
+			{
+				RecordThumbnail(item, timestamp);
+				_thumbnailUpdateCounts.TryAdd(item, 1);
+			}
+		}
+
+		private void RecordProperties(BrowseItemViewModel item, long timestamp)
+		{
+			if (_firstPropertyTimestamps.TryAdd(item, timestamp))
+			{
+				Interlocked.CompareExchange(ref _firstPropertiesTimestamp, timestamp, 0);
+			}
+		}
+
+		private void RecordThumbnail(BrowseItemViewModel item, long timestamp)
+		{
+			if (_firstThumbnailTimestamps.TryAdd(item, timestamp))
+			{
+				Interlocked.CompareExchange(ref _firstThumbnailTimestamp, timestamp, 0);
+			}
+		}
+
 		private void UpdateMaximumRealizedRows()
 		{
 			var candidate = _tableDiagnostics.RealizedRowCount;
@@ -773,7 +962,32 @@ public sealed class BrowsePerformanceTests
 			}
 		}
 
+		private async Task WaitForRealizedRowsToSettleAsync(TimeSpan timeout)
+		{
+			var started = Stopwatch.GetTimestamp();
+			var previousCount = -1;
+			var stableSampleCount = 0;
+			while (stableSampleCount < 2)
+			{
+				await WaitForUiIdleAsync(timeout);
+				await Task.Delay(16);
+				var currentCount = _tableDiagnostics.RealizedRowCount;
+				stableSampleCount = currentCount > 0 && currentCount == previousCount ? stableSampleCount + 1 : 0;
+				previousCount = currentCount;
+				if (Stopwatch.GetElapsedTime(started) >= timeout)
+				{
+					Assert.Fail("Realized rows did not stabilize before the timeout.");
+				}
+			}
+		}
+
 		private double? ElapsedMilliseconds(long timestamp) => timestamp is 0 ? null : Stopwatch.GetElapsedTime(_startTimestamp, timestamp).TotalMilliseconds;
+
+		private static bool HasRequestedProperties(BrowseViewSettings settings)
+		{
+			return settings.Columns.Any(static column => column.IsVisible && !column.PropertyId.Equals("name", StringComparison.OrdinalIgnoreCase)
+				&& !column.PropertyId.Equals("System.ItemNameDisplay", StringComparison.Ordinal));
+		}
 	}
 
 	private sealed class MeasuringUiDispatcher : IUIDispatcher
@@ -1074,6 +1288,16 @@ public sealed class BrowsePerformanceTests
 		public double? TimeToFirstPresentedItemMs { get; init; }
 		public double? TimeToFirstRealizedRowMs { get; init; }
 		public double? EnumerationCompleteMs { get; init; }
+		public double? TimeToFirstPropertiesMs { get; init; }
+		public double? TimeToFirstThumbnailMs { get; init; }
+		public double? InitialPropertiesCompleteMs { get; init; }
+		public double? InitialThumbnailsCompleteMs { get; init; }
+		public double? InitialPresentationCompleteMs { get; init; }
+		public int InitialPresentationItemCount { get; init; }
+		public int ThumbnailUpdateCount { get; init; }
+		public int RepeatedThumbnailUpdateCount { get; init; }
+		public int FallbackThumbnailPublicationCount { get; init; }
+		public int ContentThumbnailPublicationCount { get; init; }
 		public double MaximumUiLatencyMs { get; init; }
 		public double P95UiLatencyMs { get; init; }
 		public int StallsOver16Ms { get; init; }
