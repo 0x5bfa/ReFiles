@@ -4,7 +4,7 @@
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
-/// Contains only apartment-neutral data needed to materialize a Windows Shell item.
+/// Contains the Shell identity and optional free-threaded item-store reference needed to materialize a Windows Shell item.
 /// </summary>
 internal sealed record WindowsItemLocator
 {
@@ -16,7 +16,9 @@ internal sealed record WindowsItemLocator
 
 	public ReadOnlyMemory<byte> RelativePidl { get; }
 
-	public WindowsItemLocator(ReadOnlyMemory<byte> absolutePidl, string parsingName, WindowsItemLocator? parentFolder = null, ReadOnlyMemory<byte> relativePidl = default)
+	internal WindowsShellItemStoreReference? ItemStoreReference { get; }
+
+	public WindowsItemLocator(ReadOnlyMemory<byte> absolutePidl, string parsingName, WindowsItemLocator? parentFolder = null, ReadOnlyMemory<byte> relativePidl = default, WindowsShellItemStoreReference? itemStoreReference = null)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
@@ -25,9 +27,15 @@ internal sealed record WindowsItemLocator
 			throw new ArgumentException("A relative PIDL requires a parent folder locator.", nameof(relativePidl));
 		}
 
+		if (itemStoreReference is not null && (parentFolder is null || relativePidl.IsEmpty))
+		{
+			throw new ArgumentException("An item-store reference requires a parent folder and relative PIDL.", nameof(itemStoreReference));
+		}
+
 		AbsolutePidl = absolutePidl;
 		ParentFolder = parentFolder;
 		ParsingName = parsingName;
 		RelativePidl = relativePidl;
+		ItemStoreReference = itemStoreReference;
 	}
 }

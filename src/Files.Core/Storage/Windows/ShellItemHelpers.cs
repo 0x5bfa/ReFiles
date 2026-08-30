@@ -25,7 +25,8 @@ internal static unsafe class ShellItemHelpers
 		IShellItem shellItem,
 		WindowsItemLocator? parentFolder = null,
 		ReadOnlyMemory<byte> absolutePidl = default,
-		ReadOnlyMemory<byte> relativePidl = default)
+		ReadOnlyMemory<byte> relativePidl = default,
+		WindowsShellItemStoreReference? itemStoreReference = null)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 
@@ -56,7 +57,7 @@ internal static unsafe class ShellItemHelpers
 			relativePidl = GetLastId(absolutePidl);
 		}
 
-		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName, relativePidl.IsEmpty ? null : parentFolder, relativePidl), snapshot);
+		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName, relativePidl.IsEmpty ? null : parentFolder, relativePidl, itemStoreReference), snapshot);
 	}
 
 	public static WindowsStorableDescriptor CreateDescriptor(WindowsStorableDescriptorData data, IWindowsItemIdReader itemIdReader)

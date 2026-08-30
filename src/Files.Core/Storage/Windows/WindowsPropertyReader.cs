@@ -151,7 +151,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			cancellationToken.ThrowIfCancellationRequested();
 			var context = contexts[index];
 			var item = (WindowsStorable)context.CoreModel;
-			var shellItem = HasAllProperties(details[index], request) ? null : WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
+			var shellItem = HasAllProperties(details[index], request) ? null : item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
 			entries[index] = new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, details[index], cancellationToken));
 		}
 

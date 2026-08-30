@@ -383,6 +383,7 @@ internal sealed class WindowsStorableFactory
 
 			var batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
 			var childPidls = stackalloc ITEMIDLIST*[EnumerationBatchSize];
+			var itemStore = WindowsShellItemStore.TryCreate(parentFolder.AbsolutePidl);
 
 			while (true)
 			{
@@ -425,14 +426,20 @@ internal sealed class WindowsStorableFactory
 
 						var relativePidl = ShellItemHelpers.CopyPidl(childPidl);
 						var absolutePidl = CombinePidls(parentFolder.AbsolutePidl, relativePidl);
-						fixed (byte* absolutePidlBytes = absolutePidl.Span)
+						var itemStoreReference = itemStore?.TryInsert(folder, childPidl);
+						var child = itemStoreReference?.TryGetItem(folder);
+						if (child is null)
 						{
-							var createResult = PInvoke.SHCreateItemFromIDList(in *(ITEMIDLIST*)absolutePidlBytes, out IShellItem child);
-							createResult.ThrowOnFailure();
-							var descriptorStartTimestamp = Stopwatch.GetTimestamp();
-							batch.Add(ShellItemHelpers.CreateDescriptorData(child, parentFolder, absolutePidl, relativePidl));
-							descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
+							fixed (byte* absolutePidlBytes = absolutePidl.Span)
+							{
+								var createResult = PInvoke.SHCreateItemFromIDList(in *(ITEMIDLIST*)absolutePidlBytes, out child);
+								createResult.ThrowOnFailure();
+							}
 						}
+
+						var descriptorStartTimestamp = Stopwatch.GetTimestamp();
+						batch.Add(ShellItemHelpers.CreateDescriptorData(child, parentFolder, absolutePidl, relativePidl, itemStoreReference));
+						descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
 
 						itemCount++;
 						if (batch.Count >= EnumerationBatchSize)

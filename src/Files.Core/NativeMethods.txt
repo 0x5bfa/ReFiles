@@ -221,6 +221,7 @@ CoTaskMemFree
 SHGetIDListFromObject
 ILIsParent
 SHCreateItemFromIDList
+SHCreateItemWithParent
 BHID_SFObject
 IContextMenu
 IContextMenu3
