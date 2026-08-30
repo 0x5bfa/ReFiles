@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using Files.Core.Data;
 using Files.Core.Capabilities;
@@ -13,6 +14,7 @@ using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.Localization;
 using OwlCore.Storage;
+using Windows.Storage.Provider;
 using Windows.Win32;
 
 namespace Files.ViewModels;
@@ -20,6 +22,8 @@ namespace Files.ViewModels;
 internal sealed class NavigationItemLoader
 {
 	private const string PinnedParsingName = "shell:::{3936E9E4-D92C-4EEE-A85A-BC16D5EA0819}";
+
+	private const string DesktopParsingName = "shell:Desktop";
 
 	private const string WslParsingName = "shell:::{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}";
 
@@ -56,7 +60,8 @@ internal sealed class NavigationItemLoader
 		{
 			TryLoadAddressSectionAsync(0, SidebarSectionType.Pinned, windowsSource, Strings.Pinned.GetLocalized(), PinnedParsingName, IsPinnedHomeItemAsync, cancellationToken),
 			TryLoadAddressSectionAsync(1, SidebarSectionType.Drives, windowsSource, Strings.Drives.GetLocalized(), _myComputerParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
-			TryLoadAddressSectionAsync(2, SidebarSectionType.WSL, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
+			TryLoadCloudDrivesSectionAsync(2, windowsSource, cancellationToken),
+			TryLoadAddressSectionAsync(3, SidebarSectionType.WSL, windowsSource, Strings.WSL.GetLocalized(), WslParsingName, static (_, _) => ValueTask.FromResult(true), cancellationToken),
 		};
 
 		while (pendingSections.Length > 0)
@@ -241,6 +246,52 @@ internal sealed class NavigationItemLoader
 		{
 			return false;
 		}
+	}
+
+	private async Task<NavigationSectionData?> TryLoadCloudDrivesSectionAsync(int order, WindowsStorageSource source, CancellationToken cancellationToken)
+	{
+		HashSet<string> syncRootPaths;
+		try
+		{
+			syncRootPaths = StorageProviderSyncRootManager.GetCurrentSyncRoots()
+				.Select(static root => root.Path?.Path)
+				.Where(static path => !string.IsNullOrWhiteSpace(path))
+				.Select(static path => Path.TrimEndingDirectorySeparator(path!))
+				.ToHashSet(StringComparer.OrdinalIgnoreCase);
+		}
+		catch (Exception exception)
+		{
+			UiDiagnosticLog.Write("NavigationItemLoader", $"Cloud roots ERROR type={exception.GetType().Name} message={exception.Message}");
+
+			return null;
+		}
+
+		if (syncRootPaths.Count is 0)
+		{
+			return null;
+		}
+
+		var section = await TryLoadAddressSectionAsync(
+			order,
+			SidebarSectionType.CloudDrives,
+			source,
+			Strings.CloudDrives.GetLocalized(),
+			DesktopParsingName,
+			(item, _) => ValueTask.FromResult(IsCloudDrive(item, syncRootPaths)),
+			cancellationToken).ConfigureAwait(false);
+
+		return section is { Items.Count: > 0 } ? section : null;
+	}
+
+	private static bool IsCloudDrive(IStorableModel item, IReadOnlySet<string> syncRootPaths)
+	{
+		var address = item.Reference.LastKnownAddress;
+		if (address is null || !address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase))
+		{
+			return false;
+		}
+
+		return syncRootPaths.Contains(Path.TrimEndingDirectorySeparator(address.Value));
 	}
 }
 
