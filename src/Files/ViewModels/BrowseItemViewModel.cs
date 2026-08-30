@@ -9,7 +9,6 @@ using Files.Core.Capabilities.Properties;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Localization;
-using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
 namespace Files.ViewModels;
@@ -40,10 +39,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 
 	public double IconOpacity => IsHidden ? 0.4 : 1;
 
-	public double DefaultIconOpacity => IsHidden ? 0.4 : 0.45;
-
-	public Visibility DefaultIconVisibility => Thumbnail is null ? Visibility.Visible : Visibility.Collapsed;
-
 	public string ReferenceText => Reference.LastKnownAddress?.Value ?? Reference.ItemId;
 
 	public IReadOnlyDictionary<string, object?> Properties => _properties;
@@ -73,11 +68,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		ArgumentNullException.ThrowIfNull(value);
 
 		LayoutMetrics = value;
-	}
-
-	partial void OnThumbnailChanged(ImageSource? value)
-	{
-		OnPropertyChanged(nameof(DefaultIconVisibility));
 	}
 
 	internal void SetProperties(IReadOnlyDictionary<string, object?> value)
@@ -127,7 +117,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		{
 			OnPropertyChanged(nameof(IsHidden));
 			OnPropertyChanged(nameof(IconOpacity));
-			OnPropertyChanged(nameof(DefaultIconOpacity));
 		}
 
 		if (referenceChanged)
@@ -241,8 +230,6 @@ internal sealed class BrowseItemLayoutMetrics : ObservableObject
 
 	public double GridThumbnailSize => GridItemSize - 44;
 
-	public double GridDefaultIconSize => GridThumbnailSize * 0.57;
-
 	internal BrowseItemLayoutMetrics(double? itemSize = null)
 	{
 		_layoutSize = NormalizeLayoutSize(itemSize);
@@ -262,7 +249,6 @@ internal sealed class BrowseItemLayoutMetrics : ObservableObject
 		OnPropertyChanged(nameof(CardsItemHeight));
 		OnPropertyChanged(nameof(GridItemSize));
 		OnPropertyChanged(nameof(GridThumbnailSize));
-		OnPropertyChanged(nameof(GridDefaultIconSize));
 	}
 
 	private static double NormalizeLayoutSize(double? itemSize)

@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Core.Sessions;
 using Files.Presentation;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 
 namespace Files.ViewModels;
 
@@ -29,7 +29,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	public string Title => FolderBrowser.LocationDisplayName;
 
-	public BitmapImage? Icon => FolderBrowser.LocationIcon;
+	public ImageSource? Icon => FolderBrowser.LocationIcon;
 
 	public string StatusText => FolderBrowser.StatusText;
 

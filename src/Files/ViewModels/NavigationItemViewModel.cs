@@ -6,6 +6,7 @@ using Files.Controls;
 using Files.Core.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Files.ViewModels;
@@ -50,7 +51,7 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 	public object ToolTip => Name;
 
 	[ObservableProperty]
-	public partial BitmapImage? Thumbnail { get; set; }
+	public partial ImageSource? Thumbnail { get; set; }
 
 	private NavigationItemViewModel(string name, StorableReference? reference, bool isHome, bool selectsOnInvoked, IconElement icon,
 		IEnumerable<NavigationItemViewModel>? children = null, bool prefersThumbnail = false)
@@ -87,7 +88,7 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 		return new(name, reference, false, true, new FontIcon { FontSize = FolderIconFontSize, Glyph = FolderIconGlyph }, prefersThumbnail: true);
 	}
 
-	internal void SetThumbnail(BitmapImage? value)
+	internal void SetThumbnail(ImageSource? value)
 	{
 		Thumbnail = value;
 		if (!_prefersThumbnail || value is null)

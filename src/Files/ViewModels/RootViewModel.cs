@@ -9,6 +9,7 @@ using Files.Commands;
 using Files.Controls;
 using Files.Infrastructure;
 using Files.Localization;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Presentation;
@@ -734,7 +735,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 				}
 
 				await SetNavigationThumbnailOnUiAsync(viewModel, thumbnail).ConfigureAwait(false);
-				UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail END name={item.Name} bytes={thumbnail.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail END name={item.Name} bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			}
 			finally
 			{
@@ -751,7 +752,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private Task SetNavigationThumbnailOnUiAsync(NavigationItemViewModel viewModel, byte[] thumbnail)
+	private Task SetNavigationThumbnailOnUiAsync(NavigationItemViewModel viewModel, ThumbnailResult thumbnail)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{
@@ -779,11 +780,11 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		return completion.Task;
 	}
 
-	private static async Task SetNavigationThumbnailAsync(NavigationItemViewModel viewModel, byte[] thumbnail)
+	private static async Task SetNavigationThumbnailAsync(NavigationItemViewModel viewModel, ThumbnailResult thumbnail)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		viewModel.SetThumbnail(await ThumbnailImageFactory .CreateAsync(thumbnail) .ConfigureAwait(true));
-		UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail decode END bytes={thumbnail.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		viewModel.SetThumbnail(await ThumbnailImageFactory.CreateAsync(thumbnail).ConfigureAwait(true));
+		UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail decode END bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private void ReportNavigationLoadError(Exception exception)

@@ -103,7 +103,7 @@ public sealed partial class NavigationToolbar : UserControl
 			args.Flyout.Items.Clear();
 			foreach (var child in children)
 			{
-				var menuItem = new MenuFlyoutItem { Icon = CreateBreadcrumbChildIcon(child), Tag = child, Text = child.Text };
+				var menuItem = new MenuFlyoutItem { Icon = await CreateBreadcrumbChildIconAsync(child), Tag = child, Text = child.Text };
 				menuItem.Click += BreadcrumbChild_Click;
 				args.Flyout.Items.Add(menuItem);
 			}
@@ -192,16 +192,16 @@ public sealed partial class NavigationToolbar : UserControl
 		return false;
 	}
 
-	private static IconElement CreateBreadcrumbChildIcon(NavigationToolbarBreadcrumbItem item)
+	private static async Task<IconElement> CreateBreadcrumbChildIconAsync(NavigationToolbarBreadcrumbItem item)
 	{
-		if (item.ThumbnailData.IsEmpty)
+		if (item.Thumbnail is not { } thumbnail)
 		{
 			return new FontIcon { Glyph = FolderIconGlyph };
 		}
 
 		try
 		{
-			return new ImageIcon { Height = BreadcrumbIconSize, Source = ThumbnailImageFactory.Create(item.ThumbnailData), Width = BreadcrumbIconSize };
+			return new ImageIcon { Height = BreadcrumbIconSize, Source = await ThumbnailImageFactory.CreateAsync(thumbnail), Width = BreadcrumbIconSize };
 		}
 		catch (Exception error)
 		{

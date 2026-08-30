@@ -11,7 +11,7 @@ using Files.Core.Browsing;
 using Files.Presentation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 
 namespace Files.ViewModels;
 
@@ -49,7 +49,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 
 	public string Title => IsSettings ? Strings.Settings.GetLocalized() : ActivePane?.Title ?? Strings.NewTab.GetLocalized();
 
-	public BitmapImage? Icon => ActivePane?.Icon;
+	public ImageSource? Icon => ActivePane?.Icon;
 
 	public IconSource? IconSource => IsSettings ? CreateSettingsIconSource() : Icon is { } icon ? new ImageIconSource { ImageSource = icon } : null;
 

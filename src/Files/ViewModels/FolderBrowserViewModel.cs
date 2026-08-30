@@ -22,7 +22,7 @@ using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 using OwlCore.Storage;
 using Windows.Foundation;
 using Windows.Win32;
@@ -65,7 +65,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private CollectionViewSource _itemsViewSource;
 
 	private string? _operationError;
-	private BitmapImage? _locationIcon;
+	private ImageSource? _locationIcon;
 	private CancellationTokenSource? _locationIconCancellation;
 	private CancellationTokenSource? _displaySettingsCancellation;
 	private CancellationTokenSource? _contextualCommandRefreshCancellation;
@@ -120,8 +120,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public double GridThumbnailSize => _browseAdapter.ItemLayoutMetrics.GridThumbnailSize;
 
-	public double GridDefaultIconSize => _browseAdapter.ItemLayoutMetrics.GridDefaultIconSize;
-
 	public FolderViewMode ViewMode
 	{
 		get => _viewMode;
@@ -161,7 +159,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public string LocationDisplayName => _pane.BrowseSession.Context?.LocationModel?.Name ?? LocationText;
 
-	public BitmapImage? LocationIcon => _locationIcon;
+	public ImageSource? LocationIcon => _locationIcon;
 
 	public bool IsLoading => _browseAdapter.IsLoading;
 
@@ -784,8 +782,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 						continue;
 					}
 
-					var thumbnailData = await LoadBreadcrumbThumbnailAsync(root, cancellationToken).ConfigureAwait(false);
-					items.Add(new NavigationToolbarBreadcrumbItem(root.Name, new FolderLocation(root.Reference), false, thumbnailData));
+					var thumbnail = await LoadBreadcrumbThumbnailAsync(root, cancellationToken).ConfigureAwait(false);
+					items.Add(new NavigationToolbarBreadcrumbItem(root.Name, new FolderLocation(root.Reference), false, thumbnail));
 				}
 				finally
 				{
@@ -815,8 +813,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 					continue;
 				}
 
-				var thumbnailData = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
-				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new FolderLocation(child.Reference), false, thumbnailData));
+				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
+				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new FolderLocation(child.Reference), false, thumbnail));
 			}
 			finally
 			{
@@ -845,8 +843,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				}
 
 				var entryPath = ArchiveEntryPath.Combine(location.EntryPath, child.Name);
-				var thumbnailData = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
-				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new ArchiveLocation(location.Archive, entryPath), false, thumbnailData));
+				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
+				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new ArchiveLocation(location.Archive, entryPath), false, thumbnail));
 			}
 			finally
 			{
@@ -862,18 +860,16 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return _windowsSource is not null && await _windowsSource.IsShellDesktopAsync(location.Folder, cancellationToken).ConfigureAwait(false);
 	}
 
-	private static async Task<ReadOnlyMemory<byte>> LoadBreadcrumbThumbnailAsync(IStorableModel model, CancellationToken cancellationToken)
+	private static async Task<ThumbnailResult?> LoadBreadcrumbThumbnailAsync(IStorableModel model, CancellationToken cancellationToken)
 	{
 		if (model.Get<IThumbnailSource>() is not { } source)
 		{
-			return ReadOnlyMemory<byte>.Empty;
+			return null;
 		}
 
 		try
 		{
-			var result = await source.GetThumbnailAsync(new ThumbnailRequest(BreadcrumbThumbnailSize, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
-
-			return result is null ? ReadOnlyMemory<byte>.Empty : result.Content.ToArray();
+			return await source.GetThumbnailAsync(new ThumbnailRequest(BreadcrumbThumbnailSize, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 		{
@@ -883,7 +879,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail failed for '{model.Reference.ItemId}': {error.GetType().Name}");
 
-			return ReadOnlyMemory<byte>.Empty;
+			return null;
 		}
 	}
 
@@ -941,7 +937,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				OnPropertyChanged(nameof(CardsItemHeight));
 				OnPropertyChanged(nameof(GridItemSize));
 				OnPropertyChanged(nameof(GridThumbnailSize));
-				OnPropertyChanged(nameof(GridDefaultIconSize));
 				refreshItemsViewSource = true;
 			}
 
@@ -1499,7 +1494,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				return;
 			}
 
-			await SetLocationIconOnUiAsync(result.Content, generation, cancellation).ConfigureAwait(false);
+			await SetLocationIconOnUiAsync(result, generation, cancellation).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 		{
@@ -1515,11 +1510,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 	}
 
-	private Task SetLocationIconOnUiAsync(ReadOnlyMemory<byte> encodedImage, long generation, CancellationTokenSource cancellation)
+	private Task SetLocationIconOnUiAsync(ThumbnailResult thumbnail, long generation, CancellationTokenSource cancellation)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{
-			return SetLocationIconAsync(encodedImage, generation, cancellation);
+			return SetLocationIconAsync(thumbnail, generation, cancellation);
 		}
 
 		var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1527,7 +1522,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			try
 			{
-				await SetLocationIconAsync(encodedImage, generation, cancellation);
+				await SetLocationIconAsync(thumbnail, generation, cancellation);
 				completion.SetResult(true);
 			}
 			catch (Exception exception)
@@ -1542,14 +1537,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return completion.Task;
 	}
 
-	private async Task SetLocationIconAsync(ReadOnlyMemory<byte> encodedImage, long generation, CancellationTokenSource cancellation)
+	private async Task SetLocationIconAsync(ThumbnailResult thumbnail, long generation, CancellationTokenSource cancellation)
 	{
 		if (!IsCurrentLocationIcon(generation, cancellation))
 		{
 			return;
 		}
 
-		var image = await ThumbnailImageFactory.CreateAsync(encodedImage).ConfigureAwait(true);
+		var image = await ThumbnailImageFactory.CreateAsync(thumbnail).ConfigureAwait(true);
 		if (!IsCurrentLocationIcon(generation, cancellation))
 		{
 			return;

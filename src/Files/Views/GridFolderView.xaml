@@ -52,13 +52,6 @@
 							Width="{x:Bind LayoutMetrics.GridThumbnailSize, Mode=OneWay}"
 							Height="{x:Bind LayoutMetrics.GridThumbnailSize, Mode=OneWay}"
 							HorizontalAlignment="Center">
-							<FontIcon
-								HorizontalAlignment="Center"
-								VerticalAlignment="Center"
-								FontSize="{x:Bind LayoutMetrics.GridDefaultIconSize, Mode=OneWay}"
-								Glyph="&#xE8B7;"
-								Opacity="{x:Bind DefaultIconOpacity, Mode=OneWay}"
-								Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />
 							<Image
 								Opacity="{x:Bind IconOpacity, Mode=OneWay}"
 								Source="{x:Bind Thumbnail, Mode=OneWay}"

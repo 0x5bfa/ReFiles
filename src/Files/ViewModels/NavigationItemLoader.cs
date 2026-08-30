@@ -76,7 +76,7 @@ internal sealed class NavigationItemLoader
 		UiDiagnosticLog.Write("NavigationItemLoader", $"LoadSections END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
-	public async ValueTask<byte[]?> LoadThumbnailAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	public async ValueTask<ThumbnailResult?> LoadThumbnailAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail START id={reference.ItemId}");
@@ -88,12 +88,12 @@ internal sealed class NavigationItemLoader
 				return null;
 			}
 
-			var result = await source.GetThumbnailAsync(new ThumbnailRequest(ThumbnailSize, ThumbnailMode.PreferContent), cancellationToken).ConfigureAwait(false);
+			var result = await source.GetThumbnailAsync(new ThumbnailRequest(ThumbnailSize, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
 			UiDiagnosticLog.Write(
 				"NavigationItemLoader",
 				$"LoadThumbnail END id={reference.ItemId} bytes={result?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
-			return result?.Content.ToArray();
+			return result;
 		}
 		catch (OperationCanceledException)
 		{

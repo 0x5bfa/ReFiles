@@ -57,13 +57,6 @@
 							Height="{x:Bind LayoutMetrics.CardsThumbnailSize, Mode=OneWay}"
 							HorizontalAlignment="Center"
 							VerticalAlignment="Center">
-							<FontIcon
-								HorizontalAlignment="Center"
-								VerticalAlignment="Center"
-								FontSize="40"
-								Glyph="&#xE8B7;"
-								Opacity="{x:Bind DefaultIconOpacity, Mode=OneWay}"
-								Visibility="{x:Bind DefaultIconVisibility, Mode=OneWay}" />
 							<Image
 								Opacity="{x:Bind IconOpacity, Mode=OneWay}"
 								Source="{x:Bind Thumbnail, Mode=OneWay}"
