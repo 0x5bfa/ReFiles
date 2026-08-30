@@ -64,7 +64,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	private CollectionViewSource _itemsViewSource;
 
-	private string? _operationError;
+	private string? _browseErrorMessage;
 	private ImageSource? _locationIcon;
 	private CancellationTokenSource? _locationIconCancellation;
 	private CancellationTokenSource? _displaySettingsCancellation;
@@ -163,7 +163,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool IsLoading => _browseAdapter.IsLoading;
 
-	public bool IsFolderEmpty => !IsLoading && Location is not null && Items.Count is 0 && _operationError is null && _browseAdapter.ErrorMessage is null;
+	public bool IsFolderEmpty => !IsLoading && Location is not null && Items.Count is 0 && _browseAdapter.ErrorMessage is null;
 
 	public bool IsBusy => _browseAdapter.IsBusy;
 
@@ -175,10 +175,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool CanRefresh => !IsLoading;
 
-	public string StatusText =>
-		_operationError
-		?? _browseAdapter.ErrorMessage
-		?? _browseAdapter.StatusText;
+	public string StatusText => _browseAdapter.StatusText;
+
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	internal FolderBrowserViewModel(BrowsePaneSession pane, IStorageWorkspace workspace, IStorageOperationService storageOperations, StorageOperationTracker operationTracker,
 		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0)
@@ -600,16 +599,12 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		ArgumentNullException.ThrowIfNull(exception);
 
-		_operationError = exception.Message;
-		OnPropertyChanged(nameof(StatusText));
-		OnPropertyChanged(nameof(IsFolderEmpty));
+		OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(exception.Message));
 	}
 
 	public void ReportOperationCanceled()
 	{
-		_operationError = Strings.OperationCanceled.GetLocalized();
-		OnPropertyChanged(nameof(StatusText));
-		OnPropertyChanged(nameof(IsFolderEmpty));
+		OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(Strings.OperationCanceled.GetLocalized()));
 	}
 
 	public void Dispose()
@@ -917,7 +912,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		var itemCountBefore = Items.Count;
 		var wasLoading = _wasLoading;
 		var wasBusy = _wasBusy;
-		var hadOperationError = _operationError is not null;
+		var browseErrorMessage = _browseAdapter.ErrorMessage;
+		var browseErrorChanged = !string.Equals(_browseErrorMessage, browseErrorMessage, StringComparison.Ordinal);
+		_browseErrorMessage = browseErrorMessage;
 		_wasLoading = _browseAdapter.IsLoading;
 		_wasBusy = _browseAdapter.IsBusy;
 		_isApplyingUpdate = true;
@@ -984,11 +981,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				QueueGroupRefresh();
 			}
 
-			if (args.Flags is not BrowseUpdateFlags.None)
-			{
-				_operationError = null;
-			}
-
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Columns))
 			{
 				OnPropertyChanged(nameof(DetailsColumns));
@@ -1029,19 +1021,23 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				OnPropertyChanged(nameof(CanGoUp));
 			}
 
-			if (hadOperationError || args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Status))
+			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) || args.Flags.HasFlag(BrowseUpdateFlags.Status))
 			{
 				OnPropertyChanged(nameof(StatusText));
 			}
 
-			var folderEmptyStateChanged = hadOperationError
-				|| args.Flags.HasFlag(BrowseUpdateFlags.Items)
+			var folderEmptyStateChanged = args.Flags.HasFlag(BrowseUpdateFlags.Items)
 				|| args.Flags.HasFlag(BrowseUpdateFlags.Loading)
 				|| args.Flags.HasFlag(BrowseUpdateFlags.Location)
 				|| args.Flags.HasFlag(BrowseUpdateFlags.Status);
 			if (folderEmptyStateChanged)
 			{
 				OnPropertyChanged(nameof(IsFolderEmpty));
+			}
+
+			if (browseErrorChanged && browseErrorMessage is not null)
+			{
+				OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(browseErrorMessage));
 			}
 		}
 		finally

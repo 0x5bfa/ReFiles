@@ -44,8 +44,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	private readonly SemaphoreSlim _navigationThumbnailGate = new(4);
 
-	private string? _operationError;
-
 	private SidebarDisplayMode _sidebarDisplayMode = SidebarDisplayMode.Expanded;
 
 	private int _isDisposed;
@@ -178,7 +176,9 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public PreviewPaneViewModel? ActivePreview => ActiveTab?.ActivePane?.Preview;
 
-	public string StatusText => _operationError ?? ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
+	public string StatusText => ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
+
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	internal bool CanReopenTab
 	{
@@ -499,8 +499,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		ArgumentNullException.ThrowIfNull(exception);
 
-		_operationError = exception.Message;
-		OnPropertyChanged(nameof(StatusText));
+		OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(exception.Message));
 	}
 
 	public void Dispose()
@@ -525,6 +524,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		foreach (var tab in _tabViewModels.Values.ToArray())
 		{
 			tab.PropertyChanged -= TabViewModel_PropertyChanged;
+			tab.OperationErrorReported -= TabViewModel_OperationErrorReported;
 			await tab.DisposeAsync();
 		}
 
@@ -865,6 +865,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
+	private void TabViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e) => OperationErrorReported?.Invoke(this, e);
+
 	private void RefreshFromCore()
 	{
 		if (Volatile.Read(ref _isDisposed) is not 0 || _isRefreshing)
@@ -883,6 +885,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			{
 				var removedTab = _tabViewModels[removedId];
 				removedTab.PropertyChanged -= TabViewModel_PropertyChanged;
+				removedTab.OperationErrorReported -= TabViewModel_OperationErrorReported;
 				removedTab.Dispose();
 				_tabViewModels.Remove(removedId);
 			}
@@ -893,6 +896,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 				{
 					var tabViewModel = _presentationFactory.CreateTab(coreTab, _commandManager);
 					tabViewModel.PropertyChanged += TabViewModel_PropertyChanged;
+					tabViewModel.OperationErrorReported += TabViewModel_OperationErrorReported;
 					_tabViewModels[coreTab.Id] = tabViewModel;
 				}
 			}
@@ -906,7 +910,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 				: -1;
 			TabStrip.SetActiveTabIndex(activeTabIndex);
 
-			_operationError = null;
 			OnPropertyChanged(nameof(ActiveTab));
 			OnPropertyChanged(nameof(ActiveFolderBrowser));
 			OnPropertyChanged(nameof(ActivePreview));

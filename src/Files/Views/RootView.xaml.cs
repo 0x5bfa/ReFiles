@@ -14,7 +14,10 @@ namespace Files.Views;
 public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposable
 {
 	private readonly RootViewModel _viewModel;
+	private readonly Queue<string> _pendingErrorMessages = [];
 
+	private Task _showErrorDialogsTask = Task.CompletedTask;
+	private OperationErrorDialog? _activeErrorDialog;
 	private bool _isLoaded;
 
 	private int _isDisposed;
@@ -30,6 +33,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		InitializeComponent();
 		_viewModel = viewModel;
 		_viewModel.PropertyChanged += ViewModel_PropertyChanged;
+		_viewModel.OperationErrorReported += ViewModel_OperationErrorReported;
 		// PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested += NavigationToolbarView_FolderViewFocusRequested;
@@ -65,8 +69,12 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		Loaded -= RootView_Loaded;
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+		_viewModel.OperationErrorReported -= ViewModel_OperationErrorReported;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested -= NavigationToolbarView_FolderViewFocusRequested;
+		_pendingErrorMessages.Clear();
+		_activeErrorDialog?.Hide();
+		await _showErrorDialogsTask;
 		// await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
 		await _viewModel.DisposeAsync();
@@ -83,6 +91,49 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		if (e.PropertyName is null or nameof(RootViewModel.ActiveTab))
 		{
 			UpdateActiveTabPresentation();
+		}
+	}
+
+	private void ViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e)
+	{
+		if ((_activeErrorDialog is not null && string.Equals(_activeErrorDialog.Message, e.Message, StringComparison.Ordinal)) || _pendingErrorMessages.Contains(e.Message))
+		{
+			return;
+		}
+
+		_pendingErrorMessages.Enqueue(e.Message);
+		StartShowingErrorDialogs();
+	}
+
+	private void StartShowingErrorDialogs()
+	{
+		if (!_isLoaded || XamlRoot is null || !_showErrorDialogsTask.IsCompleted || Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
+		_showErrorDialogsTask = ShowErrorDialogsAsync();
+	}
+
+	private async Task ShowErrorDialogsAsync()
+	{
+		while (Volatile.Read(ref _isDisposed) is 0 && _pendingErrorMessages.TryDequeue(out var message))
+		{
+			_activeErrorDialog = new OperationErrorDialog(message) { XamlRoot = XamlRoot };
+			try
+			{
+				await _activeErrorDialog.ShowAsync();
+			}
+			catch (Exception exception)
+			{
+				UiDiagnosticLog.Write("RootView", $"Error dialog failed type={exception.GetType().Name}");
+
+				return;
+			}
+			finally
+			{
+				_activeErrorDialog = null;
+			}
 		}
 	}
 
@@ -109,6 +160,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 
 		_isLoaded = true;
+		StartShowingErrorDialogs();
 		UpdateActiveTabPresentation();
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("RootView", "Loaded START");

@@ -33,8 +33,6 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 
 	private int _refreshQueued;
 
-	private string? _operationError;
-
 	private bool _isRefreshing;
 
 	public Guid Id => _tab.Id;
@@ -53,7 +51,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 
 	public IconSource? IconSource => IsSettings ? CreateSettingsIconSource() : Icon is { } icon ? new ImageIconSource { ImageSource = icon } : null;
 
-	public string StatusText => _operationError ?? (IsSettings ? string.Empty : ActivePane?.FolderBrowser.StatusText ?? Strings.NoPane.GetLocalized());
+	public string StatusText => IsSettings ? string.Empty : ActivePane?.FolderBrowser.StatusText ?? Strings.NoPane.GetLocalized();
 
 	public bool IsLoading => ActivePane?.IsLoading ?? false;
 
@@ -84,6 +82,8 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 	public CommandBindingViewModel ReopenTabCommand => _commandManager.GetBinding(CommandIds.ReopenTab);
 
 	public BrowseLocation? Location => ActivePane?.FolderBrowser.Location;
+
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	internal TabViewModel(TabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
@@ -152,8 +152,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 	{
 		ArgumentNullException.ThrowIfNull(exception);
 
-		_operationError = exception.Message;
-		OnPropertyChanged(nameof(StatusText));
+		OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(exception.Message));
 	}
 
 	public void Dispose()
@@ -175,6 +174,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 		foreach (var pane in _paneViewModels.Values.ToArray())
 		{
 			pane.PropertyChanged -= PaneViewModel_PropertyChanged;
+			pane.OperationErrorReported -= PaneViewModel_OperationErrorReported;
 			await pane.DisposeAsync();
 		}
 
@@ -221,6 +221,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 			{
 				var removedPane = _paneViewModels[removedId];
 				removedPane.PropertyChanged -= PaneViewModel_PropertyChanged;
+				removedPane.OperationErrorReported -= PaneViewModel_OperationErrorReported;
 				removedPane.Dispose();
 				_paneViewModels.Remove(removedId);
 			}
@@ -231,6 +232,7 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 				{
 					var paneViewModel = _presentationFactory.CreatePane(corePane, _commandManager);
 					paneViewModel.PropertyChanged += PaneViewModel_PropertyChanged;
+					paneViewModel.OperationErrorReported += PaneViewModel_OperationErrorReported;
 					_paneViewModels[corePane.Id] = paneViewModel;
 				}
 			}
@@ -243,7 +245,6 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 
 			ObservableCollectionSynchronizer.Synchronize(Panes, orderedPanes);
 
-			_operationError = null;
 			OnPropertyChanged(nameof(ActivePane));
 			OnPropertyChanged(nameof(SplitOrientation));
 			OnPropertyChanged(nameof(Title));
@@ -300,6 +301,8 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 				break;
 		}
 	}
+
+	private void PaneViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e) => OperationErrorReported?.Invoke(this, e);
 
 	private static IconSource CreateSettingsIconSource()
 	{

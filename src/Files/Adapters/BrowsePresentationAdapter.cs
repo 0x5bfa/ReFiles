@@ -135,11 +135,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		get
 		{
-			if (ErrorMessage is not null)
-			{
-				return ErrorMessage;
-			}
-
 			if (SelectedKeys.Count is 0)
 			{
 				return _text.StatusBar.FormatItemCount(_items.Count);

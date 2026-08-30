@@ -139,6 +139,29 @@ public sealed class BrowsePresentationPipelineTests
 	}
 
 	/// <summary>
+	/// Verifies that navigation errors do not replace the item count in the status bar.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[TestMethod]
+	public async Task StatusTextKeepsItemCountWhenNavigationFails()
+	{
+		const string errorMessage = "Navigation failed.";
+		var resolver = new PresentationBrowseLocationResolver(1, static (_, _) => ValueTask.FromException(new InvalidOperationException(errorMessage)));
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		dispatcher.DrainAll();
+
+		await Assert.ThrowsAsync<InvalidOperationException>(async () => await adapter.InitializeAsync());
+		dispatcher.DrainAll();
+
+		Assert.AreEqual(errorMessage, adapter.ErrorMessage);
+		Assert.AreEqual("0 items", adapter.StatusText);
+	}
+
+	/// <summary>
 	/// Verifies that selected item sizes are added after the bounded property read completes.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
@@ -662,6 +685,51 @@ public sealed class BrowsePresentationPipelineTests
 		dispatcher.DrainAll();
 
 		Assert.IsTrue(stateCalls.Count > callsBeforeNavigation);
+	}
+
+	/// <summary>
+	/// Verifies that pane operation errors are reported without replacing the status bar text.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test operation.</returns>
+	[UITestMethod]
+	public async Task OperationErrorsAreReportedWithoutReplacingStatusText()
+	{
+		const string errorMessage = "Operation failed.";
+		var resolver = new PresentationBrowseLocationResolver(1, static (_, _) => ValueTask.CompletedTask);
+		var paneFactory = new BrowsePaneSessionFactory(() => new BrowseSession(resolver), static session => new BrowsePreviewModel(session));
+		await using var window = new WindowSession(paneFactory);
+		await using var workspace = new PresentationStorageWorkspace();
+		var dispatcher = new ManualDispatcher();
+		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		using var operationTracker = new StorageOperationTracker();
+		var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, AppCommandRegistration.Build());
+		RootViewModel root;
+		try
+		{
+			root = new RootViewModel(window, presentationFactory);
+		}
+		catch (TypeInitializationException exception) when (exception.InnerException is COMException { HResult: unchecked((int)0x80040154) })
+		{
+			Assert.Inconclusive("The WinAppSDK resource manager is unavailable in this test host.");
+
+			return;
+		}
+
+		await using var rootLifetime = root;
+		string? reportedMessage = null;
+		root.OperationErrorReported += (_, args) => reportedMessage = args.Message;
+		await window.OpenTabAsync(HomeLocation.Instance);
+		dispatcher.DrainAll();
+		await root.InitializeAsync();
+		dispatcher.DrainAll();
+
+		var statusText = root.StatusText;
+		var browser = root.ActiveFolderBrowser;
+		Assert.IsNotNull(browser);
+		browser.ReportOperationError(new InvalidOperationException(errorMessage));
+
+		Assert.AreEqual(errorMessage, reportedMessage);
+		Assert.AreEqual(statusText, root.StatusText);
 	}
 
 	/// <summary>

@@ -43,6 +43,8 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	public bool CanRefresh => FolderBrowser.CanRefresh;
 
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
+
 	internal PaneViewModel(PaneSession pane, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
@@ -58,6 +60,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 		FolderBrowser = presentationFactory.CreateFolderBrowser(browsePane, commandManager);
 		// Preview = presentationFactory.CreatePreviewPane(browsePane);
 		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
+		FolderBrowser.OperationErrorReported += FolderBrowser_OperationErrorReported;
 	}
 
 	public void SetActive(bool value)
@@ -82,9 +85,12 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		FolderBrowser.PropertyChanged -= FolderBrowser_PropertyChanged;
+		FolderBrowser.OperationErrorReported -= FolderBrowser_OperationErrorReported;
 		// Preview.Dispose();
 		await FolderBrowser.DisposeAsync().ConfigureAwait(false);
 	}
+
+	private void FolderBrowser_OperationErrorReported(object? sender, OperationErrorEventArgs e) => OperationErrorReported?.Invoke(this, e);
 
 	private void FolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
