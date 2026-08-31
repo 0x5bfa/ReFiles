@@ -19,6 +19,8 @@ unsafe partial class Helpers
 			return HRESULT.E_INVALIDARG;
 		}
 
+		*factory = null;
+
 		try
 		{
 			*factory = (IActivationFactory_unmanaged*)Module.GetActivationFactory(MarshalString.FromAbi((IntPtr)activatableClassId));

@@ -3,7 +3,7 @@
 
 #include "OpenInFolder.h"
 
-OpenInFolder::OpenInFolder() : m_hwnd(NULL)
+OpenInFolder::OpenInFolder()
 {
 	m_shellWindows = winrt::create_instance<IShellWindows>(CLSID_ShellWindows, CLSCTX_ALL);
 }
@@ -16,37 +16,32 @@ void OpenInFolder::SetWindow(HWND hwnd)
 void OpenInFolder::OnCreate()
 {
 	int numArgs = 0;
-	LPWSTR* szArglist = CommandLineToArgvW(GetCommandLine(), &numArgs);
-	WCHAR openDirectory[MAX_PATH];
+	LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &numArgs);
 
-	if (numArgs < 2)
+	if (arguments == nullptr || numArgs < 2)
 	{
-		LocalFree(szArglist);
-		return;
-	}
-	else
-	{
-		wsprintf(openDirectory, L"%s", szArglist[1]);
-	}
+		if (arguments != nullptr)
+			LocalFree(arguments);
 
-	LocalFree(szArglist);
-
-	IShellItem* psi;
-	PIDLIST_ABSOLUTE pidlDirectory = NULL;
-
-	if (!SUCCEEDED(SHCreateItemFromParsingName(openDirectory, NULL, IID_IShellItem, (void**)&psi)))
-	{
-		return;
-	}
-	if (!SUCCEEDED(SHGetIDListFromObject(psi, &pidlDirectory)))
-	{
-		psi->Release();
 		return;
 	}
 
-	psi->Release();
+	std::wstring openDirectory(arguments[1]);
+	LocalFree(arguments);
 
-	if (!SUCCEEDED(NotifyShellOfNavigation(pidlDirectory)))
+	if (openDirectory.empty())
+		return;
+
+	winrt::com_ptr<IShellItem> item;
+	if (FAILED(SHCreateItemFromParsingName(openDirectory.c_str(), nullptr, IID_PPV_ARGS(item.put()))))
+		return;
+
+	PIDLIST_ABSOLUTE rawDirectoryPidl = nullptr;
+	if (FAILED(SHGetIDListFromObject(item.get(), &rawDirectoryPidl)))
+		return;
+	wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE> directoryPidl(rawDirectoryPidl);
+
+	if (FAILED(NotifyShellOfNavigation(directoryPidl.get())))
 		return;
 }
 
@@ -76,9 +71,12 @@ HRESULT OpenInFolder::NotifyShellOfNavigation(PCIDLIST_ABSOLUTE pidl)
 	RETURN_IF_FAILED(InitVariantFromBuffer(pidl, ILGetSize(pidl), &pidlVariant));
 
 	wil::unique_variant empty;
-	RETURN_IF_FAILED(m_shellWindows->RegisterPending(GetCurrentThreadId(), &pidlVariant, &empty, SWC_BROWSER, &m_shellWindowCookie));
+	long shellWindowCookie = 0;
+	RETURN_IF_FAILED(m_shellWindows->RegisterPending(GetCurrentThreadId(), &pidlVariant, &empty, SWC_BROWSER, &shellWindowCookie));
 
-	m_shellWindows->OnNavigate(m_shellWindowCookie, &pidlVariant);
+	m_shellWindowCookie = shellWindowCookie;
+	m_shellWindowRegistered = true;
+	m_shellWindows->OnNavigate(shellWindowCookie, &pidlVariant);
 	//m_shellWindows->OnActivated(m_shellWindowCookie, VARIANT_TRUE);
 
 	return S_OK;
@@ -86,19 +84,17 @@ HRESULT OpenInFolder::NotifyShellOfNavigation(PCIDLIST_ABSOLUTE pidl)
 
 void OpenInFolder::OnItemSelected(PIDLIST_ABSOLUTE pidl)
 {
-	IShellItem* item = NULL;
-	if (SUCCEEDED(SHCreateItemFromIDList(pidl, IID_IShellItem, (void**)&item)))
-	{
-		PWSTR pszPath = NULL;
-		if (SUCCEEDED(item->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &pszPath)))
-		{
-			m_selectedItem = pszPath;
-			PostMessage(m_hwnd, WM_CLOSE, 0, 0);
-			CoTaskMemFree(pszPath);
-		}
+	winrt::com_ptr<IShellItem> item;
+	if (FAILED(SHCreateItemFromIDList(pidl, IID_PPV_ARGS(item.put()))))
+		return;
 
-		item->Release();
-	}
+	PWSTR rawPath = nullptr;
+	if (FAILED(item->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &rawPath)))
+		return;
+
+	wil::unique_cotaskmem_string path(rawPath);
+	m_selectedItem = path.get();
+	PostMessage(m_hwnd, WM_CLOSE, 0, 0);
 }
 
 std::wstring OpenInFolder::GetResult()
@@ -108,6 +104,6 @@ std::wstring OpenInFolder::GetResult()
 
 OpenInFolder::~OpenInFolder()
 {
-	if (m_shellWindows)
+	if (m_shellWindows && m_shellWindowRegistered)
 		m_shellWindows->Revoke(m_shellWindowCookie);
 }

@@ -299,15 +299,15 @@ internal static unsafe class WindowsThumbnailRenderer
 			{
 				return null;
 			}
-		}
 
-		try
-		{
-			return EncodeImage((GpImage*)bitmap, encoderClsid, cancellationToken);
-		}
-		finally
-		{
-			PInvoke.GdipDisposeImage((GpImage*)bitmap);
+			try
+			{
+				return EncodeImage((GpImage*)bitmap, encoderClsid, cancellationToken);
+			}
+			finally
+			{
+				PInvoke.GdipDisposeImage((GpImage*)bitmap);
+			}
 		}
 	}
 

@@ -15,10 +15,15 @@
 		<EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
 		<PublishAot>true</PublishAot>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+		<OperationsOutputDirectory>$(MSBuildProjectDirectory)\..\Files.Operations\bin\$(Platform)\$(Configuration)\$(TargetFramework)\win-$([System.String]::Copy('$(Platform)').ToLowerInvariant())\</OperationsOutputDirectory>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<Manifest Include="app.manifest" />
+		<Content Remove="Assets\FilesOpenDialog\FilesLauncher.exe" />
+		<Content Include="Assets\FilesOpenDialog\FilesLauncher.exe">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 		<Content Update="Assets\**">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
@@ -36,12 +41,33 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
 		<ProjectReference Include="..\Files.Controls\Files.Controls.csproj" />
+		<ProjectReference Include="..\Files.Operations\Files.Operations.csproj" ReferenceOutputAssembly="false" Private="false" />
 		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\FilesLauncher\FilesLauncher.vcxproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" />
 		<AdditionalFiles Include="Strings\en-US\Resources.resw" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="Files.UITests" />
 	</ItemGroup>
+
+	<Target Name="CollectFilesOperationsPayload" DependsOnTargets="ResolveProjectReferences" Condition="'$(DesignTimeBuild)' != 'true'">
+		<ItemGroup>
+			<_FilesOperationsPayload Include="$(OperationsOutputDirectory)**\*.dll;$(OperationsOutputDirectory)**\*.exe;$(OperationsOutputDirectory)**\*.json;$(OperationsOutputDirectory)**\*.mui;$(OperationsOutputDirectory)**\*.winmd" />
+		</ItemGroup>
+		<Error Condition="!Exists('$(OperationsOutputDirectory)Files.Operations.exe')" Text="Files.Operations output was not produced at '$(OperationsOutputDirectory)'." />
+	</Target>
+
+	<Target Name="CopyFilesOperationsPayload" AfterTargets="CopyFilesToOutputDirectory" DependsOnTargets="CollectFilesOperationsPayload" Condition="'$(DesignTimeBuild)' != 'true'">
+		<Copy SourceFiles="@(_FilesOperationsPayload)" DestinationFiles="@(_FilesOperationsPayload->'$(OutDir)Files.Operations\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+	</Target>
+
+	<Target Name="AddFilesOperationsPackagePayload" BeforeTargets="_ComputeAppxPackagePayload" DependsOnTargets="CollectFilesOperationsPayload" Condition="'$(DesignTimeBuild)' != 'true'">
+		<ItemGroup>
+			<AppxPackagePayload Include="@(_FilesOperationsPayload)">
+				<TargetPath>Files.Operations\%(_FilesOperationsPayload.RecursiveDir)%(_FilesOperationsPayload.Filename)%(_FilesOperationsPayload.Extension)</TargetPath>
+			</AppxPackagePayload>
+		</ItemGroup>
+	</Target>
 
 </Project>

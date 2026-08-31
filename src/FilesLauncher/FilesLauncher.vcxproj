@@ -37,7 +37,7 @@
   <PropertyGroup Condition="'$(Configuration)'!='Debug'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <LinkIncremental>false</LinkIncremental>
@@ -56,10 +56,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <OutputFile>$(OutDir)FilesLauncher$(TargetExt)</OutputFile>
     </Link>
-    <PostBuildEvent>
-      <Command>
-        xcopy /s /y "$(ProjectDir)$(OutDir)*.exe" "$(ProjectDir)..\..\src\Files\Assets\FilesOpenDialog"</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -119,5 +115,12 @@
     <Error Condition="!Exists('..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.250325.1\build\native\Microsoft.Windows.ImplementationLibrary.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.ImplementationLibrary.1.0.250325.1\build\native\Microsoft.Windows.ImplementationLibrary.targets'))" />
     <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props'))" />
     <Error Condition="!Exists('..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets'))" />
+  </Target>
+  <Target Name="StageFilesLauncher" AfterTargets="Build">
+    <PropertyGroup>
+      <FilesLauncherStagingDirectory>$(MSBuildProjectDirectory)\..\Files\Assets\FilesOpenDialog</FilesLauncherStagingDirectory>
+    </PropertyGroup>
+    <MakeDir Directories="$(FilesLauncherStagingDirectory)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(FilesLauncherStagingDirectory)\FilesLauncher.exe" SkipUnchangedFiles="true" />
   </Target>
 </Project>

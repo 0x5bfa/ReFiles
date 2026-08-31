@@ -33,6 +33,7 @@
 	<ItemGroup>
 		<Page Remove="UnitTestApp.xaml" />
 		<ApplicationDefinition Include="UnitTestApp.xaml" />
+		<Compile Include="..\Files.PresentationTests\ItemActivationServiceTests.cs" Link="PresentationTests\ItemActivationServiceTests.cs" />
 		<ProjectCapability Include="TestContainer" />
 		<Manifest Include="$(ApplicationManifest)" />
 	</ItemGroup>

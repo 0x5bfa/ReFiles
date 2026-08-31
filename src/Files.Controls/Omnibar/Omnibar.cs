@@ -54,6 +54,7 @@ namespace Files.Controls
 
 		protected override void OnApplyTemplate()
 		{
+			UnhookTemplateParts();
 			base.OnApplyTemplate();
 
 			_textBox = GetTemplateChild(TemplatePartName_AutoSuggestBox) as TextBox
@@ -68,6 +69,7 @@ namespace Files.Controls
 				?? throw new MissingFieldException($"Could not find {TemplatePartName_SuggestionsListView} in the given {nameof(Omnibar)}'s style.");
 
 			PopulateModes();
+			RestoreCurrentModeTemplateState();
 
 			SizeChanged += Omnibar_SizeChanged;
 			_textBox.GettingFocus += AutoSuggestBox_GettingFocus;
@@ -92,7 +94,9 @@ namespace Files.Controls
 				return;
 			}
 
-			// Populate the modes
+			_modesHostGrid.Children.Clear();
+			_modesHostGrid.ColumnDefinitions.Clear();
+
 			foreach (var mode in Modes)
 			{
 				// Insert a divider
@@ -128,7 +132,7 @@ namespace Files.Controls
 				mode.IsTabStop = false;
 			}
 
-			var index = _modesHostGrid.Children.IndexOf(newMode);
+			var modesHostGrid = _modesHostGrid;
 
 			if (oldMode is not null)
 			{
@@ -137,14 +141,25 @@ namespace Files.Controls
 
 			DispatcherQueue.TryEnqueue(() =>
 			{
+				if (!ReferenceEquals(_modesHostGrid, modesHostGrid))
+				{
+					return;
+				}
+
+				var index = modesHostGrid.Children.IndexOf(newMode);
+				if (index is -1 || index >= modesHostGrid.ColumnDefinitions.Count)
+				{
+					return;
+				}
+
 				// Reset
-				foreach (var column in _modesHostGrid.ColumnDefinitions)
+				foreach (var column in modesHostGrid.ColumnDefinitions)
 				{
 					column.Width = GridLength.Auto;
 				}
 
 				// Expand the given mode
-				_modesHostGrid.ColumnDefinitions[index].Width = new(1, GridUnitType.Star);
+				modesHostGrid.ColumnDefinitions[index].Width = new(1, GridUnitType.Star);
 			});
 
 			var itemCount = Modes.Count;
@@ -257,6 +272,79 @@ namespace Files.Controls
 			if (_textChangeReason == OmnibarTextChangeReason.SuggestionChosen)
 			{
 				_textBox?.Select(_textBox.Text.Length, 0);
+			}
+		}
+
+		private void UnhookTemplateParts()
+		{
+			SizeChanged -= Omnibar_SizeChanged;
+			if (_textBox is not null)
+			{
+				_textBox.GettingFocus -= AutoSuggestBox_GettingFocus;
+				_textBox.GotFocus -= AutoSuggestBox_GotFocus;
+				_textBox.LosingFocus -= AutoSuggestBox_LosingFocus;
+				_textBox.LostFocus -= AutoSuggestBox_LostFocus;
+				_textBox.KeyDown -= AutoSuggestBox_KeyDown;
+				_textBox.TextChanged -= AutoSuggestBox_TextChanged;
+			}
+
+			if (_textBoxSuggestionsPopup is not null)
+			{
+				_textBoxSuggestionsPopup.GettingFocus -= AutoSuggestBoxSuggestionsPopup_GettingFocus;
+				_textBoxSuggestionsPopup.Opened -= AutoSuggestBoxSuggestionsPopup_Opened;
+			}
+
+			if (_textBoxSuggestionsListView is not null)
+			{
+				_textBoxSuggestionsListView.ItemClick -= AutoSuggestBoxSuggestionsListView_ItemClick;
+				_textBoxSuggestionsListView.SelectionChanged -= AutoSuggestBoxSuggestionsListView_SelectionChanged;
+			}
+
+			if (_modesHostGrid is not null)
+			{
+				_modesHostGrid.Children.Clear();
+				_modesHostGrid.ColumnDefinitions.Clear();
+			}
+
+			_textBox = null!;
+			_modesHostGrid = null!;
+			_textBoxSuggestionsPopup = null!;
+			_textBoxSuggestionsContainerBorder = null!;
+			_textBoxSuggestionsListView = null!;
+		}
+
+		private void RestoreCurrentModeTemplateState()
+		{
+			if (CurrentSelectedMode is not { } currentMode)
+			{
+				return;
+			}
+
+			_textBox.Text = currentMode.Text ?? string.Empty;
+			_textBox.PlaceholderText = currentMode.PlaceholderText ?? string.Empty;
+			_textBoxSuggestionsListView.ItemTemplate = currentMode.ItemTemplate;
+			_textBoxSuggestionsListView.ItemsSource = currentMode.ItemsSource;
+			currentMode.IsTabStop = false;
+
+			var currentModeIndex = _modesHostGrid.Children.IndexOf(currentMode);
+			if (currentModeIndex is not -1 && currentModeIndex < _modesHostGrid.ColumnDefinitions.Count)
+			{
+				_modesHostGrid.ColumnDefinitions[currentModeIndex].Width = new(1, GridUnitType.Star);
+			}
+
+			if (IsFocused)
+			{
+				VisualStateManager.GoToState(currentMode, "Focused", false);
+				VisualStateManager.GoToState(_textBox, "InputAreaVisible", false);
+			}
+			else if (currentMode.ContentOnInactive is not null)
+			{
+				VisualStateManager.GoToState(currentMode, "CurrentUnfocused", false);
+				VisualStateManager.GoToState(_textBox, "InputAreaCollapsed", false);
+			}
+			else
+			{
+				VisualStateManager.GoToState(_textBox, "InputAreaVisible", false);
 			}
 		}
 

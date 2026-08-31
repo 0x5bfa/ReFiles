@@ -9,13 +9,13 @@ flowchart TB
     Unit[Unit/Core contract tests]
     Integration[Windows/provider integration tests]
     Presentation[WinUI presentation/control tests]
-    Axe[Accessibility automation]
+    NavigationStress[Navigation stress automation]
     Bench[Deterministic benchmarks]
     Scenario[Real Windows/Shell performance scenarios]
 
     Unit --> Integration
     Unit --> Presentation
-    Presentation --> Axe
+    Presentation --> NavigationStress
     Unit --> Bench
     Presentation --> Scenario
 ```
@@ -25,7 +25,7 @@ flowchart TB
 - **Unit/Core tests:** deterministic model, ownership, navigation, capability, operation, archive/FTP logic using doubles.
 - **Windows integration:** actual temp files and Shell APIs for identity, enumeration, properties, thumbnails, scheduler, notifications, and file operations.
 - **UI tests:** presentation adapters, incremental collections, controls, realization/layout contracts, and app-facing behavior requiring WinUI.
-- **Axe/accessibility:** automation accessibility boundary.
+- **Navigation stress:** repeated full-process keyboard and path-entry automation. This suite does not run an Axe accessibility scan.
 - **Benchmarks:** deterministic CPU/allocation/notification architecture costs.
 - **Scenarios:** real Shell/disk/network/installed-handler performance or compatibility.
 

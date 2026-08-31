@@ -118,6 +118,8 @@ public sealed class WindowsShellPropertyPageTests
 		var drive = DriveInfo.GetDrives().FirstOrDefault(static drive => drive.DriveType is DriveType.CDRom && drive.IsReady);
 		if (drive is null)
 		{
+			Assert.Inconclusive("A mounted optical image is required for this integration test.");
+
 			return;
 		}
 

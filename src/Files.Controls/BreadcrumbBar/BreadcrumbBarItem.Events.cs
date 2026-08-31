@@ -1,6 +1,7 @@
 ﻿// Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
 
@@ -8,6 +9,18 @@ namespace Files.Controls
 {
 	public partial class BreadcrumbBarItem
 	{
+		private void ItemContentButton_PointerReleased(object sender, PointerRoutedEventArgs e)
+		{
+			// Let RightTapped drive the context menu without also navigating.
+			if (e.GetCurrentPoint(null).Properties.PointerUpdateKind is PointerUpdateKind.RightButtonReleased)
+			{
+				return;
+			}
+
+			OnItemClicked(e);
+			e.Handled = true;
+		}
+
 		private void ItemChevronButton_Click(object sender, RoutedEventArgs e)
 		{
 			FlyoutBase.ShowAttachedFlyout(_itemChevronButton);

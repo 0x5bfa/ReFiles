@@ -1,75 +1,74 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
-using System.Runtime.ExceptionServices;
-using System.Runtime.InteropServices;
-using Windows.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
 
 namespace Files.Operations;
 
-class Program
+internal static class Program
 {
-	internal static readonly TaskCompletionSource<bool> ExitSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
-	private static readonly CancellationTokenSource cancellationTokenSource = new();
-	private static readonly StreamWriter logWriter = new(Path.Combine(ApplicationData.Current.LocalFolder.Path, "debug_server.log"), append: true) { AutoFlush = true };
+	private static readonly CancellationTokenSource _cancellationTokenSource = new();
 
-	static async Task Main()
+	internal static TaskCompletionSource<bool> ExitSignal { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+	private static async Task Main()
 	{
-		AppDomain.CurrentDomain.FirstChanceException += OnFirstChanceException;
-
 		RO_REGISTRATION_COOKIE cookie = default;
+		var initializeResult = PInvoke.RoInitialize(RO_INIT_TYPE.RO_INIT_MULTITHREADED);
+		initializeResult.ThrowOnFailure();
 
-		_ = PInvoke.RoInitialize(RO_INIT_TYPE.RO_INIT_MULTITHREADED);
-
-		var classIds = typeof(Program).Assembly.GetTypes()
-			.Where(t => t.IsSealed && t.IsPublic && t.IsClass)
-			.Select(t => t.FullName!)
-			.Where(name => name.StartsWith("Files.Operations.", StringComparison.Ordinal))
-			.Select(name =>
-			{
-				if (PInvoke.WindowsCreateString(name, (uint)name.Length, out var classId) is HRESULT hr && hr.Value is not 0)
-				{
-					Marshal.ThrowExceptionForHR(hr);
-				}
-
-				return new HSTRING(classId.DangerousGetHandle());
-			})
-			.ToArray();
-
-		unsafe
-		{
-			delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>[] callbacks = new delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>[classIds.Length];
-			for (int i = 0; i < callbacks.Length; i++)
-			{
-				callbacks[i] = &Helpers.GetActivationFactory;
-			}
-
-			fixed (delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>* pCallbacks = callbacks)
-			{
-				if (PInvoke.RoRegisterActivationFactories(classIds, pCallbacks, out cookie) is HRESULT hr && hr.Value != 0)
-				{
-					Marshal.ThrowExceptionForHR(hr);
-				}
-			}
-		}
-
-		foreach (var str in classIds)
-		{
-			_ = PInvoke.WindowsDeleteString(str);
-		}
-
-		AppDomain.CurrentDomain.ProcessExit += (_, _) => cancellationTokenSource.Cancel();
+		var classIdHandles = new List<WindowsDeleteStringSafeHandle>();
 
 		try
 		{
-			await ExitSignal.Task.WaitAsync(cancellationTokenSource.Token);
-		}
-		catch (OperationCanceledException)
-		{
-			return;
+			var classNames = typeof(Program).Assembly.GetTypes()
+				.Where(t => t.IsSealed && t.IsPublic && t.IsClass)
+				.Select(t => t.FullName!)
+				.Where(name => name.StartsWith("Files.Operations.", StringComparison.Ordinal))
+				.ToArray();
+			classIdHandles.Capacity = classNames.Length;
+
+			foreach (var className in classNames)
+			{
+				var createStringResult = PInvoke.WindowsCreateString(className, checked((uint)className.Length), out var classId);
+				if (createStringResult.Failed)
+				{
+					classId.Dispose();
+					createStringResult.ThrowOnFailure();
+				}
+
+				classIdHandles.Add(classId);
+			}
+
+			var classIds = classIdHandles.Select(static classId => new HSTRING(classId.DangerousGetHandle())).ToArray();
+
+			unsafe
+			{
+				delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>[] callbacks = new delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>[classIds.Length];
+				for (int index = 0; index < callbacks.Length; index++)
+				{
+					callbacks[index] = &Helpers.GetActivationFactory;
+				}
+
+				fixed (delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>* pCallbacks = callbacks)
+				{
+					var registerResult = PInvoke.RoRegisterActivationFactories(classIds, pCallbacks, out cookie);
+					registerResult.ThrowOnFailure();
+				}
+			}
+
+			AppDomain.CurrentDomain.ProcessExit += (_, _) => _cancellationTokenSource.Cancel();
+
+			try
+			{
+				await ExitSignal.Task.WaitAsync(_cancellationTokenSource.Token);
+			}
+			catch (OperationCanceledException)
+			{
+				return;
+			}
 		}
 		finally
 		{
@@ -77,11 +76,13 @@ class Program
 			{
 				PInvoke.RoRevokeActivationFactories(cookie);
 			}
-		}
-	}
 
-	private static void OnFirstChanceException(object? sender, FirstChanceExceptionEventArgs e)
-	{
-		logWriter.WriteLine($"{DateTime.Now}|{e.Exception}");
+			foreach (var classId in classIdHandles)
+			{
+				classId.Dispose();
+			}
+
+			PInvoke.RoUninitialize();
+		}
 	}
 }

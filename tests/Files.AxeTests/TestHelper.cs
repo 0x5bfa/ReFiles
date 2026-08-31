@@ -8,7 +8,7 @@ using System.Windows.Automation;
 namespace Files.AxeTests;
 
 /// <summary>
-/// Provides shared UI automation helpers for Axe tests.
+/// Provides shared UI automation helpers for navigation stress tests.
 /// </summary>
 public static class TestHelper
 {

@@ -137,7 +137,7 @@ public sealed class AssemblyInitializer
 
 	private static IReadOnlyList<string> GetFilesAppIds()
 	{
-		var configuredAppIds = Environment.GetEnvironmentVariable("FILES_AXE_TEST_APP_ID");
+		var configuredAppIds = Environment.GetEnvironmentVariable("FILES_NAVIGATION_STRESS_APP_ID");
 		if (string.IsNullOrWhiteSpace(configuredAppIds))
 		{
 			return [DefaultFilesAppId];

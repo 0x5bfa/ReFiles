@@ -15,10 +15,10 @@
 
 class OpenInFolder
 {
-	HWND m_hwnd;
+	HWND m_hwnd{ nullptr };
 	winrt::com_ptr<IShellWindows> m_shellWindows;
-
-	long m_shellWindowCookie;
+	long m_shellWindowCookie{};
+	bool m_shellWindowRegistered{ false };
 
 	HRESULT NotifyShellOfNavigation(PCIDLIST_ABSOLUTE pidl);
 

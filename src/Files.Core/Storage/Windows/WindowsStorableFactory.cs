@@ -447,6 +447,11 @@ internal sealed class WindowsStorableFactory
 							}
 						}
 
+						if (child is null)
+						{
+							throw new InvalidOperationException("The Shell API returned no child item.");
+						}
+
 						var descriptorStartTimestamp = Stopwatch.GetTimestamp();
 						batch.Add(ShellItemHelpers.CreateDescriptorData(child, parentFolder, absolutePidl, relativePidl, itemStoreReference));
 						descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);

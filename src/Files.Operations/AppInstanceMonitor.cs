@@ -7,26 +7,75 @@ namespace Files.Operations;
 
 public sealed class AppInstanceMonitor
 {
-	private static int processCount = 0;
+	private static readonly object _syncRoot = new();
+	private static readonly HashSet<Process> _processes = [];
+	private static bool _isStopping;
 
+	/// <summary>
+	/// Keeps the operation server alive until the specified process exits.
+	/// </summary>
+	/// <param name="processId">The identifier of the process to monitor.</param>
 	public static void StartMonitor(int processId)
 	{
 		var process = Process.GetProcessById(processId);
-		Interlocked.Increment(ref processCount);
-		process.EnableRaisingEvents = true;
 		process.Exited += Process_Exited;
+
+		lock (_syncRoot)
+		{
+			if (_isStopping)
+			{
+				process.Exited -= Process_Exited;
+				process.Dispose();
+
+				throw new InvalidOperationException("The operation server is already stopping.");
+			}
+
+			_ = _processes.Add(process);
+		}
+
+		try
+		{
+			process.EnableRaisingEvents = true;
+		}
+		catch
+		{
+			ReleaseProcess(process);
+
+			throw;
+		}
 	}
 
 	private static void Process_Exited(object? sender, EventArgs e)
 	{
 		if (sender is Process process)
 		{
-			process.Dispose();
+			ReleaseProcess(process);
+		}
+	}
 
-			if (Interlocked.Decrement(ref processCount) == 0)
+	private static void ReleaseProcess(Process process)
+	{
+		var shouldStop = false;
+		lock (_syncRoot)
+		{
+			if (!_processes.Remove(process))
 			{
-				Program.ExitSignal.TrySetResult(true);
+				return;
 			}
+
+			if (_processes.Count is 0)
+			{
+				_isStopping = true;
+				shouldStop = true;
+			}
+		}
+
+		process.Exited -= Process_Exited;
+		process.Dispose();
+
+		if (shouldStop)
+		{
+			Program.ExitSignal.TrySetResult(true);
 		}
 	}
 }
