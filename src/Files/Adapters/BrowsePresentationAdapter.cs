@@ -53,6 +53,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private readonly Lock _itemsLock = new();
 	private readonly Dictionary<StorableKey, BrowseItemViewModel> _itemsByKey = [];
 	private readonly Lock _locationNavigationLock = new();
+	private readonly SemaphoreSlim _viewSettingsUpdateGate = new(1, 1);
 	private PendingState? _pendingState;
 	private PendingColumns? _pendingColumns;
 	private IReadOnlyList<StorableKey>? _pendingSelection;
@@ -198,6 +199,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+		if (WindowsShellLocation.IsWsl(path))
+		{
+			WslForegroundActivationGuard.Protect(_ownerWindowHandle);
+		}
 
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath START path={path}");
@@ -367,23 +373,25 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
-		if (currentSettings.LayoutMode == mode)
-		{
-			return;
-		}
-
-		var settings = new BrowseViewSettings(
-			mode,
-			currentSettings.Columns,
-			currentSettings.SortPropertyId,
-			currentSettings.SortDirection,
-			currentSettings.ItemSize,
-			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
-
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _viewSettingsUpdateGate.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			var currentSettings = _pane.BrowseSession.ViewSettings;
+			if (currentSettings.LayoutMode == mode)
+			{
+				return;
+			}
+
+			var settings = new BrowseViewSettings(mode, currentSettings.Columns, currentSettings.SortPropertyId, currentSettings.SortDirection, currentSettings.ItemSize,
+				currentSettings.GroupPropertyId, currentSettings.GroupDirection);
+
+			await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_viewSettingsUpdateGate.Release();
+		}
 	}
 
 	public async ValueTask UpdateItemSizeAsync(double itemSize, CancellationToken cancellationToken = default)
@@ -395,23 +403,25 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(itemSize));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
-		if (currentSettings.ItemSize == itemSize)
-		{
-			return;
-		}
-
-		var settings = new BrowseViewSettings(
-			currentSettings.LayoutMode,
-			currentSettings.Columns,
-			currentSettings.SortPropertyId,
-			currentSettings.SortDirection,
-			itemSize,
-			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
-
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _viewSettingsUpdateGate.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			var currentSettings = _pane.BrowseSession.ViewSettings;
+			if (currentSettings.ItemSize == itemSize)
+			{
+				return;
+			}
+
+			var settings = new BrowseViewSettings(currentSettings.LayoutMode, currentSettings.Columns, currentSettings.SortPropertyId, currentSettings.SortDirection, itemSize,
+				currentSettings.GroupPropertyId, currentSettings.GroupDirection);
+
+			await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_viewSettingsUpdateGate.Release();
+		}
 	}
 
 	public async ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default)
@@ -439,23 +449,26 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(columns);
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
 		var columnArray = columns.ToArray();
-		if (currentSettings.Columns.SequenceEqual(columnArray))
-		{
-			return;
-		}
-
-		var settings = new BrowseViewSettings(
-			currentSettings.LayoutMode,
-			columnArray,
-			currentSettings.SortPropertyId,
-			currentSettings.SortDirection,
-			currentSettings.ItemSize,
-			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _viewSettingsUpdateGate.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			var currentSettings = _pane.BrowseSession.ViewSettings;
+			if (currentSettings.Columns.SequenceEqual(columnArray))
+			{
+				return;
+			}
+
+			var settings = new BrowseViewSettings(currentSettings.LayoutMode, columnArray, currentSettings.SortPropertyId, currentSettings.SortDirection, currentSettings.ItemSize,
+				currentSettings.GroupPropertyId, currentSettings.GroupDirection);
+
+			await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_viewSettingsUpdateGate.Release();
+		}
 	}
 
 	public async ValueTask UpdateSortAsync(string propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
@@ -467,22 +480,25 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(direction));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
-		if (string.Equals(currentSettings.SortPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.SortDirection == direction)
-		{
-			return;
-		}
-
-		var settings = new BrowseViewSettings(
-			currentSettings.LayoutMode,
-			currentSettings.Columns,
-			propertyId,
-			direction,
-			currentSettings.ItemSize,
-			currentSettings.GroupPropertyId,
-			currentSettings.GroupDirection);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _viewSettingsUpdateGate.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			var currentSettings = _pane.BrowseSession.ViewSettings;
+			if (string.Equals(currentSettings.SortPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.SortDirection == direction)
+			{
+				return;
+			}
+
+			var settings = new BrowseViewSettings(currentSettings.LayoutMode, currentSettings.Columns, propertyId, direction, currentSettings.ItemSize, currentSettings.GroupPropertyId,
+				currentSettings.GroupDirection);
+
+			await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_viewSettingsUpdateGate.Release();
+		}
 	}
 
 	public async ValueTask UpdateGroupingAsync(string? propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
@@ -498,22 +514,25 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(direction));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
-		if (string.Equals(currentSettings.GroupPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.GroupDirection == direction)
-		{
-			return;
-		}
-
-		var settings = new BrowseViewSettings(
-			currentSettings.LayoutMode,
-			currentSettings.Columns,
-			currentSettings.SortPropertyId,
-			currentSettings.SortDirection,
-			currentSettings.ItemSize,
-			propertyId,
-			direction);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _viewSettingsUpdateGate.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			var currentSettings = _pane.BrowseSession.ViewSettings;
+			if (string.Equals(currentSettings.GroupPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.GroupDirection == direction)
+			{
+				return;
+			}
+
+			var settings = new BrowseViewSettings(currentSettings.LayoutMode, currentSettings.Columns, currentSettings.SortPropertyId, currentSettings.SortDirection,
+				currentSettings.ItemSize, propertyId, direction);
+
+			await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_viewSettingsUpdateGate.Release();
+		}
 	}
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)
@@ -578,6 +597,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 		columnLoad?.Cancel();
 		_lifetime.Cancel();
+		await _viewSettingsUpdateGate.WaitAsync().ConfigureAwait(false);
+		_viewSettingsUpdateGate.Dispose();
 		var backgroundTasks = new List<Task>
 		{
 			ObserveBackgroundTaskAsync(columnLoad?.Task),
@@ -635,6 +656,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void Pane_StateChanged(object? sender, EventArgs args)
 	{
 		var session = _pane.BrowseSession;
+		ProtectWslNavigation(session.Location);
 		InvalidateStatusBarSizeForGeneration(session.Generation);
 		lock (_pendingLock)
 		{
@@ -1694,23 +1716,29 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				var defaultColumns = CreateDefaultViewColumnSettings(columnSet);
 				if (defaultColumns.Count is not 0)
 				{
-					Interlocked.Exchange(ref _isApplyingDefaultColumns, 1);
+					await _viewSettingsUpdateGate.WaitAsync(load.Token).ConfigureAwait(false);
 					try
 					{
-						var nextSettings = new BrowseViewSettings(
-							settings.LayoutMode,
-							defaultColumns,
-							settings.SortPropertyId,
-							settings.SortDirection,
-							settings.ItemSize,
-							settings.GroupPropertyId,
-							settings.GroupDirection);
-						UpdatePrefetchSettings(nextSettings, load.Generation);
-						await session.UpdateViewSettingsAsync(nextSettings, load.Token).ConfigureAwait(false);
+						settings = session.ViewSettings;
+						if (settings.Columns.Count is 0)
+						{
+							Interlocked.Exchange(ref _isApplyingDefaultColumns, 1);
+							try
+							{
+								var nextSettings = new BrowseViewSettings(settings.LayoutMode, defaultColumns, settings.SortPropertyId, settings.SortDirection, settings.ItemSize,
+									settings.GroupPropertyId, settings.GroupDirection);
+								UpdatePrefetchSettings(nextSettings, load.Generation);
+								await session.UpdateViewSettingsAsync(nextSettings, load.Token).ConfigureAwait(false);
+							}
+							finally
+							{
+								Interlocked.Exchange(ref _isApplyingDefaultColumns, 0);
+							}
+						}
 					}
 					finally
 					{
-						Interlocked.Exchange(ref _isApplyingDefaultColumns, 0);
+						_viewSettingsUpdateGate.Release();
 					}
 
 					if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
@@ -2209,6 +2237,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 		cancellationToken.ThrowIfCancellationRequested();
 
+		ProtectWslNavigation(location);
+
 		LocationNavigation navigation;
 		lock (_locationNavigationLock)
 		{
@@ -2230,6 +2260,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_ = TrackLocationNavigationAsync(navigation);
 
 		return WaitForLocationNavigationAsync(navigation, cancellationToken);
+	}
+
+	private void ProtectWslNavigation(BrowseLocation? location)
+	{
+		if (location is FolderLocation { Folder.LastKnownAddress.Value: var parsingName } && WindowsShellLocation.IsWsl(parsingName))
+		{
+			WslForegroundActivationGuard.Protect(_ownerWindowHandle);
+		}
 	}
 
 	private static Task WaitForLocationNavigationAsync(LocationNavigation navigation, CancellationToken cancellationToken)

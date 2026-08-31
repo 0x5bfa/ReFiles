@@ -23,7 +23,7 @@
 		<PackageVersion Include="CommunityToolkit.WinUI.Helpers" Version="8.2.251219" />
 		<PackageVersion Include="CommunityToolkit.WinUI.Triggers" Version="8.2.251219" />
 		<PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.2" />
-		<PackageVersion Include="Microsoft.Extensions.DependencyInje nction" Version="10.0.2" />
+		<PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
 		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
 		<PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.2" />
 		<PackageVersion Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2270" />

@@ -41,9 +41,9 @@ to group your changes into a small number of commits which we can review one at 
 When completing a pull request, we will generally squash your changes into a single commit. Please
 let us know if your pull request needs to be merged as separate commits.
 
-## Running interaction tests (optional)
+## Running navigation stress tests (optional)
 Build the Files project for Debug x64 and register the generated `AppxManifest.xml` beside `Files.exe` with `Add-AppxPackage -Register`.
-The interaction tests use Windows UI Automation directly and do not require WinAppDriver.
+The navigation stress tests use Windows UI Automation directly and do not require WinAppDriver. Despite the historical project name, this suite does not run Axe accessibility scans.
 Run them from Test Explorer or with `dotnet test tests/Files.AxeTests/Files.AxeTests.csproj --configuration Debug -p:Platform=x64`.
 
 ## Review Process

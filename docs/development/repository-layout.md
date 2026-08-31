@@ -15,7 +15,7 @@ tests/
   Files.UnitTests/        Unit and Windows integration tests
   Files.Benchmarks/       Deterministic micro/architecture benchmarks
   Files.UITests/          WinUI test host and presentation/control tests
-  Files.AxeTests/         Accessibility automation boundary
+  Files.AxeTests/         Full-process navigation stress automation (historical name)
 docs/                     Current contributor technical documentation
 ```
 

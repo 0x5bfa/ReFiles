@@ -15,4 +15,8 @@
 		<PackageReference Include="PolySharp" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Files.UnitTests" />
+	</ItemGroup>
+
 </Project>

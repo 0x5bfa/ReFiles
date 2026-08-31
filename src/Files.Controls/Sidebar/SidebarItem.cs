@@ -26,10 +26,19 @@ namespace Files.Controls
 
 		private object? _defaultFlyoutItemTemplate;
 
-		// Owner callbacks and template-child handlers have separate lifetimes because a recycled row can load before its template is applied.
 		private bool _isWiredUp;
 
-		private bool _isTemplateWired;
+		private Border? _elementBorder;
+
+		private Border? _chevronContainer;
+
+		private ItemsRepeater? _flyoutChildrenPresenter;
+
+		private SidebarView? _callbackOwner;
+
+		private long? _displayModeCallbackToken;
+
+		private long? _selectedItemCallbackToken;
 
 		private DispatcherQueueTimer? _dragOverTimer;
 
@@ -69,6 +78,7 @@ namespace Files.Controls
 			DragStarting += SidebarItem_DragStarting;
 
 			Loaded += SidebarItem_Loaded;
+			Unloaded += SidebarItem_Unloaded;
 		}
 
 		public void HandleItemChange()
@@ -87,37 +97,38 @@ namespace Files.Controls
 		// Template-tied work runs here because Loaded can fire before template parts are available.
 		protected override void OnApplyTemplate()
 		{
+			UnhookTemplateParts();
 			base.OnApplyTemplate();
 
-			if (!_isTemplateWired)
+			_elementBorder = GetTemplateChild("ElementBorder") as Border;
+			if (_elementBorder is not null)
 			{
-				_isTemplateWired = true;
-				if (GetTemplateChild("ElementBorder") is Border border)
-				{
-					border.PointerEntered += ItemBorder_PointerEntered;
-					border.PointerExited += ItemBorder_PointerExited;
-					border.PointerCanceled += ItemBorder_PointerCanceled;
-					border.PointerPressed += ItemBorder_PointerPressed;
-					border.ContextRequested += ItemBorder_ContextRequested;
-					border.DoubleTapped += ItemBorder_DoubleTapped;
-					border.DragLeave += ItemBorder_DragLeave;
-					border.DragOver += ItemBorder_DragOver;
-					border.Drop += ItemBorder_Drop;
-					border.AllowDrop = true;
-					border.IsTabStop = false;
-				}
-				if (GetTemplateChild("ChevronContainer") is Border chevronContainer)
-				{
-					chevronContainer.PointerPressed += ChevronContainer_PointerPressed;
-				}
+				_elementBorder.PointerEntered += ItemBorder_PointerEntered;
+				_elementBorder.PointerExited += ItemBorder_PointerExited;
+				_elementBorder.PointerCanceled += ItemBorder_PointerCanceled;
+				_elementBorder.PointerPressed += ItemBorder_PointerPressed;
+				_elementBorder.ContextRequested += ItemBorder_ContextRequested;
+				_elementBorder.DoubleTapped += ItemBorder_DoubleTapped;
+				_elementBorder.DragLeave += ItemBorder_DragLeave;
+				_elementBorder.DragOver += ItemBorder_DragOver;
+				_elementBorder.Drop += ItemBorder_Drop;
+				_elementBorder.AllowDrop = true;
+				_elementBorder.IsTabStop = false;
+			}
 
-				if (GetTemplateChild("FlyoutChildrenPresenter") is ItemsRepeater flyoutRepeater)
-				{
-					flyoutRepeater.ElementPrepared += FlyoutChildrenPresenter_ElementPrepared;
-					_defaultFlyoutItemTemplate ??= flyoutRepeater.ItemTemplate;
-					flyoutRepeater.ItemsSource = MenuItemsSource;
-					UpdateFlyoutItemTemplate();
-				}
+			_chevronContainer = GetTemplateChild("ChevronContainer") as Border;
+			if (_chevronContainer is not null)
+			{
+				_chevronContainer.PointerPressed += ChevronContainer_PointerPressed;
+			}
+
+			_flyoutChildrenPresenter = GetTemplateChild("FlyoutChildrenPresenter") as ItemsRepeater;
+			if (_flyoutChildrenPresenter is not null)
+			{
+				_flyoutChildrenPresenter.ElementPrepared += FlyoutChildrenPresenter_ElementPrepared;
+				_defaultFlyoutItemTemplate = _flyoutChildrenPresenter.ItemTemplate;
+				_flyoutChildrenPresenter.ItemsSource = MenuItemsSource;
+				UpdateFlyoutItemTemplate();
 			}
 
 			if (Owner is null)
@@ -183,11 +194,17 @@ namespace Files.Controls
 			HandleItemChange();
 		}
 
+		private void SidebarItem_Unloaded(object sender, RoutedEventArgs e)
+		{
+			UnhookOwnerCallbacks();
+			_isWiredUp = false;
+		}
+
 		private void UpdateFlyoutChildrenSource()
 		{
-			if (GetTemplateChild("FlyoutChildrenPresenter") is ItemsRepeater flyoutRepeater)
+			if (_flyoutChildrenPresenter is not null)
 			{
-				flyoutRepeater.ItemsSource = MenuItemsSource;
+				_flyoutChildrenPresenter.ItemsSource = MenuItemsSource;
 			}
 		}
 
@@ -204,7 +221,7 @@ namespace Files.Controls
 				return;
 			}
 
-			Owner.RegisterPropertyChangedCallback(SidebarView.DisplayModeProperty, (sender, args) => { DisplayMode = Owner.DisplayMode; });
+			HookupOwnerCallbacks(Owner);
 			DisplayMode = Owner.DisplayMode;
 			// Force the initial visual state because assigning the default display mode does not invoke the callback.
 			if (!IsInFlyout)
@@ -212,8 +229,6 @@ namespace Files.Controls
 				VisualStateManager.GoToState(this, DisplayMode == SidebarDisplayMode.Compact ? "Compact" : "NonCompact", false);
 			}
 
-			// Static rows outside the repeaters still need selection updates.
-			Owner.RegisterPropertyChangedCallback(SidebarView.SelectedItemProperty, (sender, args) => { ReevaluateSelection(); });
 		}
 
 		private void HandleMenuItemsSourceChange(object? newValue)
@@ -236,19 +251,81 @@ namespace Files.Controls
 
 		private void UpdateFlyoutItemTemplate()
 		{
-			if (GetTemplateChild("FlyoutChildrenPresenter") is not ItemsRepeater flyoutRepeater)
+			if (_flyoutChildrenPresenter is null)
 			{
 				return;
 			}
 
 			if (MenuItemTemplateSelector is not null)
 			{
-				flyoutRepeater.ItemTemplate = MenuItemTemplateSelector;
+				_flyoutChildrenPresenter.ItemTemplate = MenuItemTemplateSelector;
 
 				return;
 			}
 
-			flyoutRepeater.ItemTemplate = MenuItemTemplate ?? _defaultFlyoutItemTemplate;
+			_flyoutChildrenPresenter.ItemTemplate = MenuItemTemplate ?? _defaultFlyoutItemTemplate;
+		}
+
+		private void HookupOwnerCallbacks(SidebarView owner)
+		{
+			if (ReferenceEquals(_callbackOwner, owner))
+			{
+				return;
+			}
+
+			UnhookOwnerCallbacks();
+			_callbackOwner = owner;
+			_displayModeCallbackToken = owner.RegisterPropertyChangedCallback(SidebarView.DisplayModeProperty, (sender, args) => { DisplayMode = owner.DisplayMode; });
+			_selectedItemCallbackToken = owner.RegisterPropertyChangedCallback(SidebarView.SelectedItemProperty, (sender, args) => { ReevaluateSelection(); });
+		}
+
+		private void UnhookOwnerCallbacks()
+		{
+			if (_callbackOwner is not null && _displayModeCallbackToken is { } displayModeCallbackToken)
+			{
+				_callbackOwner.UnregisterPropertyChangedCallback(SidebarView.DisplayModeProperty, displayModeCallbackToken);
+			}
+
+			if (_callbackOwner is not null && _selectedItemCallbackToken is { } selectedItemCallbackToken)
+			{
+				_callbackOwner.UnregisterPropertyChangedCallback(SidebarView.SelectedItemProperty, selectedItemCallbackToken);
+			}
+
+			_callbackOwner = null;
+			_displayModeCallbackToken = null;
+			_selectedItemCallbackToken = null;
+		}
+
+		private void UnhookTemplateParts()
+		{
+			if (_elementBorder is not null)
+			{
+				_elementBorder.PointerEntered -= ItemBorder_PointerEntered;
+				_elementBorder.PointerExited -= ItemBorder_PointerExited;
+				_elementBorder.PointerCanceled -= ItemBorder_PointerCanceled;
+				_elementBorder.PointerPressed -= ItemBorder_PointerPressed;
+				_elementBorder.ContextRequested -= ItemBorder_ContextRequested;
+				_elementBorder.DoubleTapped -= ItemBorder_DoubleTapped;
+				_elementBorder.DragLeave -= ItemBorder_DragLeave;
+				_elementBorder.DragOver -= ItemBorder_DragOver;
+				_elementBorder.Drop -= ItemBorder_Drop;
+			}
+
+			if (_chevronContainer is not null)
+			{
+				_chevronContainer.PointerPressed -= ChevronContainer_PointerPressed;
+			}
+
+			if (_flyoutChildrenPresenter is not null)
+			{
+				_flyoutChildrenPresenter.ElementPrepared -= FlyoutChildrenPresenter_ElementPrepared;
+				_flyoutChildrenPresenter.ItemsSource = null;
+			}
+
+			_elementBorder = null;
+			_chevronContainer = null;
+			_flyoutChildrenPresenter = null;
+			_defaultFlyoutItemTemplate = null;
 		}
 
 		private void UpdateCanDrag()

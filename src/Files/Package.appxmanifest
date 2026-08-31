@@ -31,54 +31,6 @@
 
     <Resources>
         <Resource Language="en-US" />
-        <Resource Language="af" />
-        <Resource Language="ar" />
-        <Resource Language="be-BY" />
-        <Resource Language="bg" />
-        <Resource Language="ca" />
-        <Resource Language="cs-CZ" />
-        <Resource Language="da" />
-        <Resource Language="de-DE" />
-        <Resource Language="el" />
-        <Resource Language="en-GB" />
-        <Resource Language="es-ES" />
-        <Resource Language="es-419" />
-        <Resource Language="fa-IR" />
-        <Resource Language="fi-FI" />
-        <Resource Language="fil-PH" />
-        <Resource Language="fr-FR" />
-        <Resource Language="he-IL" />
-        <Resource Language="hi-IN" />
-        <Resource Language="hr-HR" />
-        <Resource Language="hu-HU" />
-        <Resource Language="hy-AM" />
-        <Resource Language="id-ID" />
-        <Resource Language="it-IT" />
-        <Resource Language="ja-JP" />
-        <Resource Language="ka" />
-        <Resource Language="km-KH" />
-        <Resource Language="ko-KR" />
-        <Resource Language="lt-LT" />
-        <Resource Language="lv-LV" />        
-        <Resource Language="ms-MY" />
-        <Resource Language="nb-NO" />
-        <Resource Language="nl-NL" />
-        <Resource Language="pl-PL" />
-        <Resource Language="pt-BR" />
-        <Resource Language="pt-PT" />
-        <Resource Language="ro-RO" />
-        <Resource Language="ru-RU" />
-        <Resource Language="sk-SK" />
-        <Resource Language="sq-AL" />
-        <Resource Language="sr-Cyrl" />
-        <Resource Language="sv-SE" />
-        <Resource Language="ta" />
-        <Resource Language="th-TH" />
-        <Resource Language="tr-TR" />
-        <Resource Language="uk-UA" />
-        <Resource Language="vi" />
-        <Resource Language="zh-Hans" />
-        <Resource Language="zh-Hant" />
     </Resources>
 
     <Applications>

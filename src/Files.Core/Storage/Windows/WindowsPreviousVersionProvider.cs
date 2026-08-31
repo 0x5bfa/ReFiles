@@ -7,6 +7,7 @@ using System.IO;
 using System.Management;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.IO;
@@ -23,7 +24,10 @@ internal static unsafe class WindowsPreviousVersionProvider
 	private const int StatusPending = 0x00000103;
 	private const uint WaitObject0 = 0;
 	private const uint WaitTimeout = 258;
+	private const int CancelCompletionWaitMilliseconds = 1_000;
 	private const int WaitSliceMilliseconds = 100;
+	private const uint MaximumSnapshotCount = 4_096;
+	private const uint MaximumSnapshotPayloadSize = 1_048_576;
 	private const string SnapshotNameFormat = "'@GMT-'yyyy.MM.dd-HH.mm.ss";
 
 	internal static IReadOnlyList<WindowsShellPreviousVersion> Read(string path, CancellationToken cancellationToken)
@@ -132,26 +136,40 @@ internal static unsafe class WindowsPreviousVersionProvider
 		}
 
 		Span<byte> header = stackalloc byte[16];
-		if (IssueSnapshotControl(file, header, cancellationToken) is not 0)
+		var headerResult = IssueSnapshotControl(file, header, cancellationToken);
+		if (headerResult.Status is not 0 || headerResult.Information < (nuint)SnapshotHeaderSize || headerResult.Information > (nuint)header.Length)
 		{
 			return [];
 		}
 
 		var snapshotCount = BinaryPrimitives.ReadUInt32LittleEndian(header);
 		var payloadSize = BinaryPrimitives.ReadUInt32LittleEndian(header[8..]);
-		if (snapshotCount is 0 || payloadSize is 0 || payloadSize > int.MaxValue - SnapshotHeaderSize)
+		if (snapshotCount is 0 or > MaximumSnapshotCount || payloadSize is 0 or > MaximumSnapshotPayloadSize || payloadSize > int.MaxValue - SnapshotHeaderSize)
 		{
 			return [];
 		}
 
 		var output = new byte[checked((int)payloadSize + SnapshotHeaderSize)];
-		if (IssueSnapshotControl(file, output, cancellationToken) is not 0)
+		var snapshotResult = IssueSnapshotControl(file, output, cancellationToken);
+		if (snapshotResult.Status is not 0 || snapshotResult.Information < (nuint)SnapshotHeaderSize || snapshotResult.Information > (nuint)output.Length)
 		{
 			return [];
 		}
 
-		var returnedCount = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint))), snapshotCount);
-		var returnedSize = Math.Min(BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint) * 2)), payloadSize);
+		var returnedCount = BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint)));
+		var returnedSize = BinaryPrimitives.ReadUInt32LittleEndian(output.AsSpan(sizeof(uint) * 2));
+		if (returnedCount > snapshotCount || returnedCount > MaximumSnapshotCount || returnedSize == 0 || returnedSize > payloadSize || (returnedSize & 1) != 0 ||
+			returnedCount > returnedSize / sizeof(char))
+		{
+			return [];
+		}
+
+		var requiredResponseSize = (nuint)SnapshotHeaderSize + returnedSize;
+		if (requiredResponseSize > snapshotResult.Information)
+		{
+			return [];
+		}
+
 		var characters = MemoryMarshal.Cast<byte, char>(output.AsSpan(SnapshotHeaderSize, checked((int)returnedSize)));
 		var names = new List<string>(checked((int)returnedCount));
 		while (names.Count < returnedCount && !characters.IsEmpty)
@@ -167,24 +185,33 @@ internal static unsafe class WindowsPreviousVersionProvider
 			characters = characters[(terminator + 1)..];
 		}
 
-		return names;
+		return names.Count == returnedCount ? names : [];
 	}
 
-	private static int IssueSnapshotControl(SafeHandle file, Span<byte> output, CancellationToken cancellationToken)
+	private static SnapshotControlResult IssueSnapshotControl(SafeHandle file, Span<byte> output, CancellationToken cancellationToken)
 	{
-		using var completedEvent = PInvoke.CreateEvent(null, true, false, null);
+		var completedEvent = PInvoke.CreateEvent(null, true, false, null);
 		if (completedEvent.IsInvalid)
 		{
-			return Marshal.GetLastPInvokeError();
+			var error = Marshal.GetLastPInvokeError();
+			completedEvent.Dispose();
+
+			return new(error, 0);
 		}
 
-		var ioStatus = new IO_STATUS_BLOCK();
-		fixed (byte* outputPointer = output)
+		var request = new PendingSnapshotControl(completedEvent, output.Length);
+		try
 		{
-			var status = PInvoke.NtFsControlFile(file, completedEvent, 0, 0, &ioStatus, SnapshotControlCode, null, 0, outputPointer, checked((uint)output.Length));
+			var status = PInvoke.NtFsControlFile(file, request.CompletedEvent, 0, 0, request.IoStatus, SnapshotControlCode, null, 0, request.OutputBuffer, checked((uint)output.Length));
 			if (status is not StatusPending)
 			{
-				return status;
+				var result = new SnapshotControlResult(status, request.IoStatus->Information);
+				if (status is 0)
+				{
+					CopySnapshotControlOutput(request, output, result.Information);
+				}
+
+				return result;
 			}
 
 			var deadline = Environment.TickCount64 + (ProviderTimeoutSeconds * 1_000L);
@@ -192,36 +219,215 @@ internal static unsafe class WindowsPreviousVersionProvider
 			{
 				if (cancellationToken.IsCancellationRequested)
 				{
-					CancelAndWait(file, completedEvent);
+					if (!CancelAndWait(file, request.CompletedEvent))
+					{
+						request.DisposeWhenComplete();
+						request = null!;
+					}
+
 					cancellationToken.ThrowIfCancellationRequested();
 				}
 
 				var remainingMilliseconds = deadline - Environment.TickCount64;
 				if (remainingMilliseconds <= 0)
 				{
-					CancelAndWait(file, completedEvent);
+					if (!CancelAndWait(file, request.CompletedEvent))
+					{
+						request.DisposeWhenComplete();
+						request = null!;
+					}
 
-					return ErrorTimeout;
+					return new(ErrorTimeout, 0);
 				}
 
-				var waitResult = (uint)PInvoke.WaitForSingleObjectEx(completedEvent, checked((uint)Math.Min(WaitSliceMilliseconds, remainingMilliseconds)), false);
+				var waitResult = (uint)PInvoke.WaitForSingleObjectEx(request.CompletedEvent, checked((uint)Math.Min(WaitSliceMilliseconds, remainingMilliseconds)), false);
 				if (waitResult is WaitObject0)
 				{
-					return ioStatus.Status.Value;
+					var completedStatus = request.IoStatus->Status.Value;
+					var result = new SnapshotControlResult(completedStatus, request.IoStatus->Information);
+					if (completedStatus is 0)
+					{
+						CopySnapshotControlOutput(request, output, result.Information);
+					}
+
+					return result;
 				}
 
 				if (waitResult is not WaitTimeout)
 				{
-					return Marshal.GetLastPInvokeError();
+					var error = Marshal.GetLastPInvokeError();
+					if (!CancelAndWait(file, request.CompletedEvent))
+					{
+						request.DisposeWhenComplete();
+						request = null!;
+					}
+
+					return new(error, 0);
 				}
 			}
 		}
+		finally
+		{
+			request?.Dispose();
+		}
 	}
 
-	private static void CancelAndWait(SafeHandle file, SafeHandle completedEvent)
+	private static void CopySnapshotControlOutput(PendingSnapshotControl request, Span<byte> output, nuint information)
+	{
+		if (information <= (nuint)output.Length)
+		{
+			request.CopyTo(output, information);
+		}
+	}
+
+	private static bool CancelAndWait(SafeHandle file, SafeHandle completedEvent)
 	{
 		PInvoke.CancelIoEx(file, null);
-		PInvoke.WaitForSingleObjectEx(completedEvent, uint.MaxValue, false);
+
+		return (uint)PInvoke.WaitForSingleObjectEx(completedEvent, CancelCompletionWaitMilliseconds, false) is WaitObject0;
+	}
+
+	private readonly record struct SnapshotControlResult(int Status, nuint Information);
+
+	private sealed unsafe class PendingSnapshotControl : IDisposable
+	{
+		private readonly Lock _syncRoot = new();
+		private SafeHandle? _completedEvent;
+		private EventWaitHandle? _completionWaitHandle;
+		private RegisteredWaitHandle? _completionRegistration;
+		private void* _ioStatus;
+		private void* _outputBuffer;
+		private readonly int _outputLength;
+		private int _isDisposed;
+
+		public SafeHandle CompletedEvent => _completedEvent ?? throw new ObjectDisposedException(nameof(PendingSnapshotControl));
+
+		public IO_STATUS_BLOCK* IoStatus => (IO_STATUS_BLOCK*)_ioStatus;
+
+		public void* OutputBuffer => _outputBuffer;
+
+		public PendingSnapshotControl(SafeHandle completedEvent, int outputLength)
+		{
+			ArgumentNullException.ThrowIfNull(completedEvent);
+			ArgumentOutOfRangeException.ThrowIfNegative(outputLength);
+
+			_completedEvent = completedEvent;
+			_outputLength = outputLength;
+			try
+			{
+				_completionWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset)
+				{
+					SafeWaitHandle = new SafeWaitHandle(completedEvent.DangerousGetHandle(), ownsHandle: false),
+				};
+				_ioStatus = Allocate((nuint)sizeof(IO_STATUS_BLOCK));
+				_outputBuffer = Allocate((nuint)outputLength);
+				*IoStatus = default;
+			}
+			catch
+			{
+				Dispose();
+
+				throw;
+			}
+		}
+
+		public void CopyTo(Span<byte> destination, nuint byteCount)
+		{
+			if (destination.Length != _outputLength || byteCount > (nuint)_outputLength)
+			{
+				throw new ArgumentException("The snapshot-control output length changed.", nameof(destination));
+			}
+
+			new ReadOnlySpan<byte>(_outputBuffer, checked((int)byteCount)).CopyTo(destination);
+		}
+
+		public void DisposeWhenComplete()
+		{
+			var disposeAfterWait = false;
+			lock (_syncRoot)
+			{
+				if (_completionWaitHandle is null || _isDisposed != 0)
+				{
+					throw new ObjectDisposedException(nameof(PendingSnapshotControl));
+				}
+
+				try
+				{
+					_completionRegistration = ThreadPool.RegisterWaitForSingleObject(_completionWaitHandle, static (state, _) => ((PendingSnapshotControl)state!).DisposeFromCompletion(), this,
+						Timeout.Infinite, executeOnlyOnce: true);
+				}
+				catch
+				{
+					if ((uint)PInvoke.WaitForSingleObjectEx(CompletedEvent, uint.MaxValue, false) is not WaitObject0)
+					{
+						Environment.FailFast("A pending snapshot-control request could not be retained safely.");
+					}
+
+					disposeAfterWait = true;
+				}
+			}
+
+			if (disposeAfterWait)
+			{
+				DisposeCore();
+			}
+		}
+
+		public void Dispose()
+		{
+			DisposeCore();
+		}
+
+		private static void* Allocate(nuint byteCount)
+		{
+			var memory = NativeMemory.AllocZeroed(byteCount);
+
+			return memory is null ? throw new OutOfMemoryException() : memory;
+		}
+
+		private void DisposeFromCompletion()
+		{
+			lock (_syncRoot)
+			{
+				_completionRegistration = null;
+			}
+
+			DisposeCore();
+		}
+
+		private void DisposeCore()
+		{
+			RegisteredWaitHandle? completionRegistration;
+			EventWaitHandle? completionWaitHandle;
+			SafeHandle? completedEvent;
+			void* ioStatus;
+			void* outputBuffer;
+			lock (_syncRoot)
+			{
+				if (_isDisposed != 0)
+				{
+					return;
+				}
+
+				_isDisposed = 1;
+				completionRegistration = _completionRegistration;
+				_completionRegistration = null;
+				completionWaitHandle = _completionWaitHandle;
+				_completionWaitHandle = null;
+				completedEvent = _completedEvent;
+				_completedEvent = null;
+				ioStatus = _ioStatus;
+				_ioStatus = null;
+				outputBuffer = _outputBuffer;
+				_outputBuffer = null;
+			}
+
+			completionRegistration?.Unregister(null);
+			completionWaitHandle?.Dispose();
+			completedEvent?.Dispose();
+			NativeMemory.Free(ioStatus);
+			NativeMemory.Free(outputBuffer);
+		}
 	}
 
 	private static string BuildRemoteSnapshotItemPath(string sourcePath, string snapshotName)

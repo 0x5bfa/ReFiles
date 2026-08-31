@@ -1,13 +1,20 @@
 ﻿// Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Automation.Provider;
 
 namespace Files.Controls
 {
-	public partial class BreadcrumbBarItemAutomationPeer : FrameworkElementAutomationPeer, IInvokeProvider
+	public partial class BreadcrumbBarItemAutomationPeer : FrameworkElementAutomationPeer, IInvokeProvider, IExpandCollapseProvider
 	{
+		private BreadcrumbBarItem OwnerItem => (BreadcrumbBarItem)Owner;
+
+		public ExpandCollapseState ExpandCollapseState => !OwnerItem.SupportsExpandCollapse
+			? ExpandCollapseState.LeafNode
+			: OwnerItem.IsDropDownOpen ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed;
+
 		/// <summary>
 		/// Initializes a new instance of the BreadcrumbBarItemAutomationPeer class.
 		/// </summary>
@@ -16,15 +23,14 @@ namespace Files.Controls
 		{
 		}
 
-		// IAutomationPeerOverrides
-		protected override string GetLocalizedControlTypeCore()
-		{
-			return "breadcrumb bar item";
-		}
-
 		protected override object GetPatternCore(PatternInterface patternInterface)
 		{
-			if (patternInterface is PatternInterface.ExpandCollapse or PatternInterface.Invoke)
+			if (patternInterface is PatternInterface.Invoke)
+			{
+				return this;
+			}
+
+			if (patternInterface is PatternInterface.ExpandCollapse && OwnerItem.SupportsExpandCollapse)
 			{
 				return this;
 			}
@@ -56,6 +62,22 @@ namespace Files.Controls
 			}
 
 			item.OnItemClicked();
+		}
+
+		public void Collapse()
+		{
+			if (OwnerItem.SupportsExpandCollapse)
+			{
+				OwnerItem.CloseDropDown();
+			}
+		}
+
+		public void Expand()
+		{
+			if (OwnerItem.SupportsExpandCollapse)
+			{
+				OwnerItem.OpenDropDown();
+			}
 		}
 	}
 }

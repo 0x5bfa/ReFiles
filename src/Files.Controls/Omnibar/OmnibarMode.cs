@@ -18,6 +18,8 @@ namespace Files.Controls
 
 		private Button _modeButton = null!;
 
+		private long? _itemsSourceCallbackToken;
+
 		// Constructor
 
 		public OmnibarMode()
@@ -29,12 +31,19 @@ namespace Files.Controls
 
 		protected override void OnApplyTemplate()
 		{
+			UnhookTemplateParts();
 			base.OnApplyTemplate();
 
 			_modeButton = GetTemplateChild(TemplatePartName_ModeButton) as Button
 				?? throw new MissingFieldException($"Could not find {TemplatePartName_ModeButton} in the given {nameof(OmnibarMode)}'s style.");
 
-			RegisterPropertyChangedCallback(ItemsSourceProperty, (d, dp) => { if (_ownerRef is not null && _ownerRef.TryGetTarget(out var owner)) { owner.TryToggleIsSuggestionsPopupOpen(true); } });
+			_itemsSourceCallbackToken = RegisterPropertyChangedCallback(ItemsSourceProperty, (sender, args) =>
+			{
+				if (_ownerRef is not null && _ownerRef.TryGetTarget(out var owner))
+				{
+					owner.TryToggleIsSuggestionsPopupOpen(true);
+				}
+			});
 
 			Loaded += OmnibarMode_Loaded;
 			_modeButton.PointerEntered += ModeButton_PointerEntered;
@@ -91,6 +100,27 @@ namespace Files.Controls
 		public override string ToString()
 		{
 			return Name ?? string.Empty;
+		}
+
+		private void UnhookTemplateParts()
+		{
+			if (_itemsSourceCallbackToken is { } itemsSourceCallbackToken)
+			{
+				UnregisterPropertyChangedCallback(ItemsSourceProperty, itemsSourceCallbackToken);
+				_itemsSourceCallbackToken = null;
+			}
+
+			Loaded -= OmnibarMode_Loaded;
+			if (_modeButton is not null)
+			{
+				_modeButton.PointerEntered -= ModeButton_PointerEntered;
+				_modeButton.PointerPressed -= ModeButton_PointerPressed;
+				_modeButton.PointerReleased -= ModeButton_PointerReleased;
+				_modeButton.PointerExited -= ModeButton_PointerExited;
+				_modeButton.Click -= ModeButton_Click;
+			}
+
+			_modeButton = null!;
 		}
 
 		private void OmnibarMode_Loaded(object sender, RoutedEventArgs e)

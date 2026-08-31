@@ -148,7 +148,10 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var destinationPath = Path.Combine(parentPath, destinationName);
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
-		var outcome = await _source.ShellItemResolver.InvokeOperationAsync(parent.ParsingName, destinationFolder => ExecuteCreate(destinationFolder, destinationName, request.Kind), cancellationToken)
+		var outcome = await _source.ShellItemResolver.InvokeOperationAsync(
+			parent.ParsingName,
+			destinationFolder => ExecuteCreate(destinationFolder, parent.Id, destinationName, request.Kind),
+			cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
@@ -245,8 +248,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		{
 			var outcome = await _source.ShellItemResolver
 				.InvokeOperationAsync(item.ParsingName, destinationFolder.ParsingName,
-					(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, destinationPath, move, requireElevation, progress, itemReference, totalBytes,
-						cancellationToken, operationControl), cancellationToken)
+					(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, item.Id, destinationFolder.Id, destinationName, destinationPath, move, requireElevation, progress,
+						itemReference, totalBytes, cancellationToken, operationControl), cancellationToken)
 				.ConfigureAwait(false);
 			if (outcome.Succeeded)
 			{
@@ -314,7 +317,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		while (true)
 		{
 			var outcome = await _source.ShellItemResolver
-				.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently, requireElevation, progress, request.Item, cancellationToken, operationControl),
+				.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, item.Id, request.Permanently, requireElevation, progress, request.Item, cancellationToken, operationControl),
 					cancellationToken)
 				.ConfigureAwait(false);
 			if (outcome.Succeeded)
@@ -461,10 +464,10 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	[SupportedOSPlatform("windows6.0.6000")]
 	private static ShellOperationOutcome ExecuteRename(IShellItem shellItem, string expectedItemId, string newName)
 	{
-		var currentDescriptor = ShellItemHelpers.CreateDescriptor(shellItem, new WindowsItemIdReader());
-		if (!StringComparer.Ordinal.Equals(currentDescriptor.ItemId, expectedItemId))
+		var identityOutcome = VerifyItemIdentity(shellItem, expectedItemId, "rename target");
+		if (!identityOutcome.Succeeded)
 		{
-			return new ShellOperationOutcome(false, new IOException("The Windows Shell rename target no longer identifies the requested item."));
+			return identityOutcome;
 		}
 
 		var createResult = PInvoke.CoCreateInstance(typeof(FileOperation).GUID, null, CLSCTX.CLSCTX_LOCAL_SERVER, out IFileOperation? fileOperation);
@@ -503,8 +506,14 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteCreate(IShellItem destinationFolder, string name, StorageItemKind kind)
+	private static ShellOperationOutcome ExecuteCreate(IShellItem destinationFolder, string expectedDestinationFolderId, string name, StorageItemKind kind)
 	{
+		var identityOutcome = VerifyItemIdentity(destinationFolder, expectedDestinationFolderId, "creation destination folder");
+		if (!identityOutcome.Succeeded)
+		{
+			return identityOutcome;
+		}
+
 		var creation = CreateOperation(allowUndo: true);
 		if (!creation.Outcome.Succeeded)
 		{
@@ -528,9 +537,22 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteTransfer(IShellItem item, IShellItem destinationFolder, string destinationName, string destinationPath, bool move, bool requireElevation,
-		IProgress<StorageOperationProgress>? progress, StorableReference itemReference, long? totalBytes, CancellationToken cancellationToken, IStorageOperationControl? operationControl)
+	private static ShellOperationOutcome ExecuteTransfer(IShellItem item, IShellItem destinationFolder, string expectedItemId, string expectedDestinationFolderId, string destinationName,
+		string destinationPath, bool move, bool requireElevation, IProgress<StorageOperationProgress>? progress, StorableReference itemReference, long? totalBytes,
+		CancellationToken cancellationToken, IStorageOperationControl? operationControl)
 	{
+		var itemIdentityOutcome = VerifyItemIdentity(item, expectedItemId, "transfer source");
+		if (!itemIdentityOutcome.Succeeded)
+		{
+			return itemIdentityOutcome;
+		}
+
+		var destinationIdentityOutcome = VerifyItemIdentity(destinationFolder, expectedDestinationFolderId, "transfer destination folder");
+		if (!destinationIdentityOutcome.Succeeded)
+		{
+			return destinationIdentityOutcome;
+		}
+
 		var creation = CreateOperation(allowUndo: true, requireElevation: requireElevation);
 		if (!creation.Outcome.Succeeded)
 		{
@@ -552,9 +574,15 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	}
 
 	[SupportedOSPlatform("windows6.0.6000")]
-	private static ShellOperationOutcome ExecuteDelete(IShellItem item, bool permanently, bool requireElevation, IProgress<StorageOperationProgress>? progress, StorableReference itemReference,
-		CancellationToken cancellationToken, IStorageOperationControl? operationControl)
+	private static ShellOperationOutcome ExecuteDelete(IShellItem item, string expectedItemId, bool permanently, bool requireElevation, IProgress<StorageOperationProgress>? progress,
+		StorableReference itemReference, CancellationToken cancellationToken, IStorageOperationControl? operationControl)
 	{
+		var identityOutcome = VerifyItemIdentity(item, expectedItemId, "delete target");
+		if (!identityOutcome.Succeeded)
+		{
+			return identityOutcome;
+		}
+
 		var creation = CreateOperation(allowUndo: !permanently, recycleOnDelete: !permanently, requireElevation: requireElevation);
 		if (!creation.Outcome.Succeeded)
 		{
@@ -690,6 +718,17 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	private static ShellOperationOutcome Canceled(string operationName, CancellationToken cancellationToken)
 	{
 		return new ShellOperationOutcome(false, new OperationCanceledException($"The Windows Shell {operationName} operation was canceled.", cancellationToken));
+	}
+
+	private static ShellOperationOutcome VerifyItemIdentity(IShellItem shellItem, string expectedItemId, string targetName)
+	{
+		var currentDescriptor = ShellItemHelpers.CreateDescriptor(shellItem, new WindowsItemIdReader());
+		if (!StringComparer.Ordinal.Equals(currentDescriptor.ItemId, expectedItemId))
+		{
+			return new ShellOperationOutcome(false, new IOException($"The Windows Shell {targetName} no longer identifies the requested item."));
+		}
+
+		return new ShellOperationOutcome(true, null);
 	}
 
 	private static long? GetTransferByteCount(WindowsStorable item, string path)

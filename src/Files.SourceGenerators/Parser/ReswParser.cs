@@ -34,9 +34,7 @@ namespace Files.SourceGenerators.Parser
 				})
 				.Where(item => !string.IsNullOrEmpty(item.Key));
 
-			return keys is not null
-				? keys.OrderBy(item => item.Key)
-				: Enumerable.Empty<ParserItem>();
+			return keys.OrderBy(static item => item.Key, StringComparer.Ordinal);
 		}
 	}
 }

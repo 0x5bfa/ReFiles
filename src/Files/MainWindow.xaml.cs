@@ -153,7 +153,14 @@ public sealed partial class MainWindow : Window
 			return;
 		}
 
-		await CompleteCloseAsync().ConfigureAwait(true);
+		try
+		{
+			await CompleteCloseAsync().ConfigureAwait(true);
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to close: {exception}");
+		}
 	}
 
 	private Task CloseFromCommandAsync()
@@ -169,19 +176,42 @@ public sealed partial class MainWindow : Window
 	private async Task CompleteCloseAsync()
 	{
 		SaveWindowPlacement();
-		await _rootView.DisposeAsync().ConfigureAwait(true);
+		try
+		{
+			await _rootView.DisposeAsync().ConfigureAwait(true);
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to dispose the root view: {exception}");
+		}
+
 		try
 		{
 			await _closeAsync().ConfigureAwait(true);
 		}
 		catch (Exception exception)
 		{
-			Debug.WriteLine($"Files failed to shut down cleanly: {exception}");
+			Debug.WriteLine($"Files failed to close the core window: {exception}");
 		}
 		finally
 		{
-			Dispose();
-			Close();
+			try
+			{
+				Dispose();
+			}
+			catch (Exception exception)
+			{
+				Debug.WriteLine($"Files failed to dispose the window: {exception}");
+			}
+
+			try
+			{
+				Close();
+			}
+			catch (Exception exception)
+			{
+				Debug.WriteLine($"Files failed to close the window: {exception}");
+			}
 		}
 	}
 

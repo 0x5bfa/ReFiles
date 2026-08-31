@@ -12,19 +12,25 @@
 		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
 		<Deterministic>true</Deterministic>
 		<ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<BuildOutputTargetFolder>ref</BuildOutputTargetFolder>
+		<TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);AddReFilesCoreReferenceAssembly</TargetsForTfmSpecificBuildOutput>
+		<TargetsForTfmSpecificDebugSymbolsInPackage>$(TargetsForTfmSpecificDebugSymbolsInPackage);AddReFilesCoreDebugSymbols</TargetsForTfmSpecificDebugSymbolsInPackage>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<DebugType>portable</DebugType>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<!-- The COM source generator emits CS1591 for inherited members; source files still use the .editorconfig error rule. -->
-		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<!-- The COM source generator emits CS1591 for inherited members. -->
+		<!-- MSBuild pack cannot generate nuspec references for explicit ref assets (NuGet/Home#8684). -->
+		<WarningsNotAsErrors>$(WarningsNotAsErrors);CS1591;NU5131</WarningsNotAsErrors>
 		<PackageId>ReFiles.Core</PackageId>
+		<ReFilesCorePackageTargetFramework>net10.0-windows10.0.26100</ReFilesCorePackageTargetFramework>
 		<Title>ReFiles.Core</Title>
 		<Authors>Files Community</Authors>
-		<Version>0.1.0-alpha</Version>
+		<VersionPrefix>0.1.0</VersionPrefix>
+		<VersionSuffix>alpha</VersionSuffix>
 		<Description>UI-independent storage, browsing, capability, and Windows Shell foundation for ReFiles.</Description>
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
 		<PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
@@ -44,10 +50,58 @@
 	<ItemGroup>
 		<None Include="..\..\LICENSE-MPL" Pack="true" PackagePath="" />
 		<None Update="PACKAGE.md" Pack="true" PackagePath="" />
+		<None Include="bin\x64\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="runtimes\win-x64\lib\$(ReFilesCorePackageTargetFramework)\" />
+		<None Include="bin\arm64\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll" Pack="true" PackagePath="runtimes\win-arm64\lib\$(ReFilesCorePackageTargetFramework)\" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="Files.UnitTests" />
 	</ItemGroup>
+
+	<Target Name="AddReFilesCoreReferenceAssembly">
+		<PropertyGroup>
+			<_ReFilesCoreReferenceAssembly>$(MSBuildProjectDirectory)\obj\x64\$(Configuration)\$(TargetFramework)\ref\$(AssemblyName).dll</_ReFilesCoreReferenceAssembly>
+			<_ReFilesCoreDocumentationFile>$(MSBuildProjectDirectory)\bin\x64\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</_ReFilesCoreDocumentationFile>
+			<_ReFilesCoreX64Assembly>$(MSBuildProjectDirectory)\bin\x64\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll</_ReFilesCoreX64Assembly>
+			<_ReFilesCoreArm64Assembly>$(MSBuildProjectDirectory)\bin\arm64\$(Configuration)\$(TargetFramework)\$(AssemblyName).dll</_ReFilesCoreArm64Assembly>
+		</PropertyGroup>
+		<Error Condition="!Exists('$(_ReFilesCoreReferenceAssembly)')" Text="The x64 reference assembly required for packing was not found at '$(_ReFilesCoreReferenceAssembly)'." />
+		<Error Condition="!Exists('$(_ReFilesCoreDocumentationFile)')" Text="The XML documentation required for packing was not found at '$(_ReFilesCoreDocumentationFile)'." />
+		<Error Condition="!Exists('$(_ReFilesCoreX64Assembly)')" Text="The x64 implementation assembly required for packing was not found at '$(_ReFilesCoreX64Assembly)'." />
+		<Error Condition="!Exists('$(_ReFilesCoreArm64Assembly)')" Text="The ARM64 implementation assembly required for packing was not found at '$(_ReFilesCoreArm64Assembly)'." />
+		<ItemGroup>
+			<BuiltProjectOutputGroupOutput Remove="@(BuiltProjectOutputGroupOutput)" />
+			<DocumentationProjectOutputGroupOutput Remove="@(DocumentationProjectOutputGroupOutput)" />
+			<BuildOutputInPackage Include="$(_ReFilesCoreReferenceAssembly)">
+				<FinalOutputPath>$(_ReFilesCoreReferenceAssembly)</FinalOutputPath>
+				<TargetPath>$(AssemblyName).dll</TargetPath>
+			</BuildOutputInPackage>
+			<BuildOutputInPackage Include="$(_ReFilesCoreDocumentationFile)">
+				<FinalOutputPath>$(_ReFilesCoreDocumentationFile)</FinalOutputPath>
+				<TargetPath>$(AssemblyName).xml</TargetPath>
+			</BuildOutputInPackage>
+		</ItemGroup>
+	</Target>
+
+	<!-- Symbol target paths are relative to ref/<tfm>; move them beside the RID-specific assemblies. -->
+	<Target Name="AddReFilesCoreDebugSymbols">
+		<PropertyGroup>
+			<_ReFilesCoreX64Symbols>$(MSBuildProjectDirectory)\bin\x64\$(Configuration)\$(TargetFramework)\$(AssemblyName).pdb</_ReFilesCoreX64Symbols>
+			<_ReFilesCoreArm64Symbols>$(MSBuildProjectDirectory)\bin\arm64\$(Configuration)\$(TargetFramework)\$(AssemblyName).pdb</_ReFilesCoreArm64Symbols>
+		</PropertyGroup>
+		<Error Condition="!Exists('$(_ReFilesCoreX64Symbols)')" Text="The x64 symbols required for packing were not found at '$(_ReFilesCoreX64Symbols)'." />
+		<Error Condition="!Exists('$(_ReFilesCoreArm64Symbols)')" Text="The ARM64 symbols required for packing were not found at '$(_ReFilesCoreArm64Symbols)'." />
+		<ItemGroup>
+			<DebugSymbolsProjectOutputGroupOutput Remove="@(DebugSymbolsProjectOutputGroupOutput)" />
+			<TfmSpecificDebugSymbolsFile Include="$(_ReFilesCoreX64Symbols)">
+				<TargetFramework>$(TargetFramework)</TargetFramework>
+				<TargetPath>..\..\runtimes\win-x64\lib\$(ReFilesCorePackageTargetFramework)\$(AssemblyName).pdb</TargetPath>
+			</TfmSpecificDebugSymbolsFile>
+			<TfmSpecificDebugSymbolsFile Include="$(_ReFilesCoreArm64Symbols)">
+				<TargetFramework>$(TargetFramework)</TargetFramework>
+				<TargetPath>..\..\runtimes\win-arm64\lib\$(ReFilesCorePackageTargetFramework)\$(AssemblyName).pdb</TargetPath>
+			</TfmSpecificDebugSymbolsFile>
+		</ItemGroup>
+	</Target>
 
 </Project>

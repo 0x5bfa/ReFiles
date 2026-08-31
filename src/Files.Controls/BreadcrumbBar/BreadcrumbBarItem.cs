@@ -1,7 +1,6 @@
 ﻿// Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 
 namespace Files.Controls
@@ -24,6 +23,10 @@ namespace Files.Controls
 		private MenuFlyout _itemEllipsisDropDownMenuFlyout = null!;
 		private MenuFlyout _itemChevronDropDownMenuFlyout = null!;
 
+		internal bool SupportsExpandCollapse => !IsEllipsis && IsChevronVisible && _itemChevronButton is not null && _itemChevronDropDownMenuFlyout is not null;
+
+		internal bool IsDropDownOpen => _itemChevronDropDownMenuFlyout?.IsOpen is true;
+
 		// Constructor
 
 		public BreadcrumbBarItem()
@@ -35,6 +38,7 @@ namespace Files.Controls
 
 		protected override void OnApplyTemplate()
 		{
+			UnhookTemplateParts();
 			base.OnApplyTemplate();
 
 			_itemContentButton = GetTemplateChild(TemplatePartName_ItemContentButton) as Button
@@ -52,20 +56,7 @@ namespace Files.Controls
 			}
 
 			// Handle click event with PointerReleasedEvent to get PointerPoint
-			_itemContentButton.AddHandler( // Bypass "IsHandled = true" done in the base class
-				PointerReleasedEvent,
-				new PointerEventHandler((s, e) =>
-				{
-					// Skip right-button releases so RightTapped can drive the context menu without also navigating
-					if (e.GetCurrentPoint(null).Properties.PointerUpdateKind is PointerUpdateKind.RightButtonReleased)
-					{
-						return;
-					}
-
-					OnItemClicked(e);
-					e.Handled = true;
-				}),
-				handledEventsToo: true);
+			_itemContentButton.AddHandler(PointerReleasedEvent, new PointerEventHandler(ItemContentButton_PointerReleased), handledEventsToo: true);
 
 			_itemContentButton.PreviewKeyDown += ItemContentButton_PreviewKeyDown;
 			_itemChevronButton.Click += ItemChevronButton_Click;
@@ -112,6 +103,50 @@ namespace Files.Controls
 		public void SetOwner(BreadcrumbBar breadcrumbBar)
 		{
 			_ownerRef = new(breadcrumbBar);
+		}
+
+		internal void OpenDropDown()
+		{
+			if (SupportsExpandCollapse && _itemChevronButton is not null)
+			{
+				FlyoutBase.ShowAttachedFlyout(_itemChevronButton);
+			}
+		}
+
+		internal void CloseDropDown()
+		{
+			if (SupportsExpandCollapse && _itemChevronDropDownMenuFlyout is not null)
+			{
+				_itemChevronDropDownMenuFlyout.Hide();
+			}
+		}
+
+		private void UnhookTemplateParts()
+		{
+			if (_itemContentButton is not null)
+			{
+				_itemContentButton.RemoveHandler(PointerReleasedEvent, new PointerEventHandler(ItemContentButton_PointerReleased));
+				_itemContentButton.PreviewKeyDown -= ItemContentButton_PreviewKeyDown;
+			}
+
+			if (_itemChevronButton is not null)
+			{
+				_itemChevronButton.Click -= ItemChevronButton_Click;
+				_itemChevronButton.PreviewKeyDown -= ItemChevronButton_PreviewKeyDown;
+				_itemChevronButton.RightTapped -= ItemChevronButton_RightTapped;
+			}
+
+			if (_itemChevronDropDownMenuFlyout is not null)
+			{
+				_itemChevronDropDownMenuFlyout.Opening -= ChevronDropDownMenuFlyout_Opening;
+				_itemChevronDropDownMenuFlyout.Opened -= ChevronDropDownMenuFlyout_Opened;
+				_itemChevronDropDownMenuFlyout.Closed -= ChevronDropDownMenuFlyout_Closed;
+			}
+
+			_itemContentButton = null!;
+			_itemChevronButton = null!;
+			_itemEllipsisDropDownMenuFlyout = null!;
+			_itemChevronDropDownMenuFlyout = null!;
 		}
 	}
 }

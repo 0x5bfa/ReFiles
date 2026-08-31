@@ -1,6 +1,6 @@
 # UI and presentation tests
 
-`tests/Files.UITests` provides a WinUI test host and presentation/control test boundary. `tests/Files.AxeTests` covers accessibility automation.
+`tests/Files.UITests` provides a WinUI test host and presentation/control test boundary. The historically named `tests/Files.AxeTests` project currently covers full-process navigation stress automation, not Axe accessibility scans.
 
 ## Presentation tests
 
@@ -25,6 +25,8 @@ See [`performance-tests.md`](performance-tests.md) and [issue #5](https://github
 ## Accessibility
 
 UI changes that affect controls, focus, names, patterns, selection, or navigation should include/adjust accessibility coverage at the appropriate boundary. Do not rely only on visual inspection.
+
+The current navigation stress project verifies responsiveness through Windows UI Automation but does not replace a dedicated accessibility scanner.
 
 ## Avoid app-wide tests for local contracts
 

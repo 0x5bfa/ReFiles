@@ -51,20 +51,45 @@ jobs:
       with:
         global-json-file: global.json
 
+    - name: Restore native launcher packages
+      shell: pwsh
+      run: nuget restore src/FilesLauncher/packages.config -PackagesDirectory packages -NonInteractive
+
     - name: Build application with restore
       shell: pwsh
       run: |
         msbuild $env:APP_PROJECT_PATH `
           -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -p:CsWinRTAotWarningLevel=3 -v:quiet
 
-    - name: Build tests with restore
+    - name: Verify companion application payloads
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      run: |
+        $appManifest = Get-ChildItem "$env:WORKING_DIR\src\Files\bin\x64\Debug" -Filter AppxManifest.xml -Recurse | Where-Object { Test-Path (Join-Path $_.DirectoryName 'Files.exe') } | Select-Object -First 1
+        if ($null -eq $appManifest) {
+          throw 'The Files AppX manifest was not produced by the build.'
+        }
+
+        $requiredPayloads = @(
+          'Files.Operations\Files.Operations.exe',
+          'Files.Operations\Files.Operations.winmd',
+          'Assets\FilesOpenDialog\FilesLauncher.exe'
+        )
+        foreach ($relativePath in $requiredPayloads) {
+          if (!(Test-Path (Join-Path $appManifest.DirectoryName $relativePath))) {
+            throw "Required package payload '$relativePath' was not produced."
+          }
+        }
+
+    - name: Build tests with restore
       shell: pwsh
       run: |
         $testProjects = @(
           'tests/Files.UnitTests/Files.UnitTests.csproj',
           'tests/Files.UITests/Files.UITests.csproj',
-          'tests/Files.AxeTests/Files.AxeTests.csproj'
+          'tests/Files.AxeTests/Files.AxeTests.csproj',
+          'tests/Files.ControlTests/Files.ControlTests.csproj',
+          'tests/Files.Benchmarks/Files.Benchmarks.csproj'
         )
         foreach ($testProject in $testProjects) {
           msbuild $testProject `
@@ -77,6 +102,7 @@ jobs:
     - name: Run unit tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
+      timeout-minutes: 20
       run: dotnet test tests/Files.UnitTests/Files.UnitTests.csproj --configuration Debug --no-build --no-restore -p:Platform=x64 --verbosity quiet
 
     - name: Install Windows App SDK runtime
@@ -105,7 +131,7 @@ jobs:
       timeout-minutes: 15
       run: dotnet test tests/Files.UITests/Files.UITests.csproj --configuration Debug --no-build --no-restore -p:Platform=x64 --verbosity normal
 
-    - name: Register UI test application
+    - name: Register navigation stress test application
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
       run: |
@@ -126,9 +152,12 @@ jobs:
         }
 
         $applicationId = $manifest.Package.Applications.Application.Id
-        "FILES_AXE_TEST_APP_ID=$($package.PackageFamilyName)!$applicationId" >> $env:GITHUB_ENV
+        "FILES_NAVIGATION_STRESS_APP_ID=$($package.PackageFamilyName)!$applicationId" >> $env:GITHUB_ENV
 
-    - name: Run Axe tests
+    - name: Run navigation stress tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
+      timeout-minutes: 20
+      env:
+        FILES_NAVIGATION_STRESS_ITERATIONS: 10
       run: dotnet test tests/Files.AxeTests/Files.AxeTests.csproj --configuration Debug --no-build --no-restore -p:Platform=x64 --verbosity normal

@@ -69,10 +69,15 @@ namespace Files.Controls
 
 		partial void OnOwnerChanged(SidebarView? newValue)
 		{
-			if (newValue is not null)
+			if (newValue is null)
 			{
-				VisualStateManager.GoToState(this, newValue.SupportsExpansion ? "OwnerSupportsExpansion" : "OwnerDoesNotSupportExpansion", false);
+				UnhookOwnerCallbacks();
+
+				return;
 			}
+
+			HookupOwnerCallbacks(newValue);
+			VisualStateManager.GoToState(this, newValue.SupportsExpansion ? "OwnerSupportsExpansion" : "OwnerDoesNotSupportExpansion", false);
 		}
 
 		partial void OnIsSelectedChanged(bool newValue)

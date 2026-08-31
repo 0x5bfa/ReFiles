@@ -13,6 +13,8 @@ namespace Files.SourceGenerators.Generators
 	[Generator]
 	internal sealed class StringsPropertyGenerator : IIncrementalGenerator
 	{
+		private const string EnglishResourcePath = "en-US/Resources.resw";
+
 		/// <summary>
 		/// Initializes the generator and registers source output based on English resource files.
 		/// </summary>
@@ -21,52 +23,64 @@ namespace Files.SourceGenerators.Generators
 		{
 			var additionalFiles = context
 				.AdditionalTextsProvider
-				.Where(static file => IsEnglishResourceFile(file.Path));
+				.Where(static file => IsEnglishResourceFile(file.Path))
+				.Collect();
 
 			context.RegisterSourceOutput(additionalFiles, Execute);
-
-			var additionalFilePaths = additionalFiles
-				.Select(static (file, _) => file.Path)
-				.Collect();
-
-			context.RegisterSourceOutput(additionalFilePaths, ExecuteLocalizationExtensions);
-
-			var additionalFileNames = additionalFiles
-				.Select(static (file, _) => SystemIO.Path.GetFileNameWithoutExtension(file.Path))
-				.Collect();
-
-			context.RegisterSourceOutput(additionalFileNames, static (ctx, fileNames) =>
-			{
-				if (fileNames.Length <= 1)
-				{
-					return;
-				}
-
-				var duplicates = fileNames
-					.GroupBy(static name => name, StringComparer.OrdinalIgnoreCase)
-					.Where(static group => group.Count() > 1)
-					.Select(static group => group.Key);
-
-				foreach (string fileName in duplicates)
-				{
-					ctx.ReportDiagnostic(Diagnostic.Create(FSG1003, Location.None, fileName));
-				}
-			});
 		}
 
 		private static bool IsEnglishResourceFile(string path)
 		{
 			var normalizedPath = path.Replace('\\', '/');
+			var segments = normalizedPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
 
-			return normalizedPath.EndsWith("en-US/Resources.resw", StringComparison.OrdinalIgnoreCase);
+			return segments.Length >= 2
+				&& string.Equals(segments[segments.Length - 2], "en-US", StringComparison.OrdinalIgnoreCase)
+				&& string.Equals(segments[segments.Length - 1], "Resources.resw", StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
+		/// Generates localization sources for the collected resource files.
+		/// </summary>
+		/// <param name="ctx">The source production context.</param>
+		/// <param name="files">The additional text files.</param>
+		private static void Execute(SourceProductionContext ctx, ImmutableArray<AdditionalText> files)
+		{
+			if (files.IsDefaultOrEmpty)
+			{
+				return;
+			}
+
+			var orderedFiles = files
+				.OrderBy(static file => file.Path.Replace('\\', '/'), StringComparer.OrdinalIgnoreCase)
+				.ThenBy(static file => file.Path.Replace('\\', '/'), StringComparer.Ordinal)
+				.ToArray();
+			var duplicateFileNames = orderedFiles
+				.GroupBy(static file => SystemIO.Path.GetFileNameWithoutExtension(file.Path), StringComparer.OrdinalIgnoreCase)
+				.Where(static group => group.Count() > 1)
+				.Select(static group => group.Key)
+				.OrderBy(static fileName => fileName, StringComparer.OrdinalIgnoreCase)
+				.ThenBy(static fileName => fileName, StringComparer.Ordinal)
+				.ToArray();
+
+			foreach (var fileName in duplicateFileNames)
+			{
+				ctx.ReportDiagnostic(Diagnostic.Create(FSG1003, Location.None, fileName));
+			}
+
+			if (duplicateFileNames.Length is not 0)
+			{
+				return;
+			}
+
+			GenerateStrings(ctx, orderedFiles[0]);
+			GenerateLocalizationExtensions(ctx);
 		}
 
 		/// <summary>
 		/// Generates the constants for a resource file.
 		/// </summary>
-		/// <param name="ctx">The source production context.</param>
-		/// <param name="file">The additional text file.</param>
-		private static void Execute(SourceProductionContext ctx, AdditionalText file)
+		private static void GenerateStrings(SourceProductionContext ctx, AdditionalText file)
 		{
 			var fileName = SystemIO.Path.GetFileNameWithoutExtension(file.Path);
 			IReadOnlyList<ParserItem> keys;
@@ -89,7 +103,7 @@ namespace Files.SourceGenerators.Generators
 			var tabString = Spacing(1);
 
 			var sb = new StringBuilder(8000);
-			_ = sb.AppendFullHeader(file.Path);
+			_ = sb.AppendFullHeader(EnglishResourcePath);
 			_ = sb.AppendLine();
 			_ = sb.AppendLine($"namespace {StringsNamespace}");
 			_ = sb.AppendLine("{");
@@ -111,19 +125,11 @@ namespace Files.SourceGenerators.Generators
 			ctx.AddSource($"{StringsClassName}.{fileName}.g.cs", SourceText.From(sb.ToString(), Encoding.UTF8));
 		}
 
-		private static void ExecuteLocalizationExtensions(SourceProductionContext ctx, ImmutableArray<string> filePaths)
+		private static void GenerateLocalizationExtensions(SourceProductionContext ctx)
 		{
-			if (filePaths.IsDefaultOrEmpty)
-			{
-				return;
-			}
-
-			var sourcePath = filePaths
-				.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
-				.First();
 			var tabString = Spacing(1);
 			var sb = new StringBuilder(2400);
-			_ = sb.AppendFullHeader(sourcePath);
+			_ = sb.AppendFullHeader(EnglishResourcePath);
 			_ = sb.AppendLine();
 			_ = sb.AppendLine("#nullable enable");
 			_ = sb.AppendLine();

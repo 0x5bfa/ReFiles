@@ -3,13 +3,15 @@
 
 #include <iostream>
 #include <algorithm>
+#include <cwctype>
 #include <exdisp.h>
-#include <iostream>
+#include <initializer_list>
 #include <objbase.h>
 #include <propvarutil.h>
 #include <shtypes.h>
 #include <ShlObj_core.h>
 #include <ShObjIdl_core.h>
+#include <string_view>
 #include <vector>
 #include <wil/resource.h>
 
@@ -18,6 +20,7 @@
 // Link additional libraries
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "Propsys.lib")
+#pragma comment(lib, "Advapi32.lib")
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "uuid.lib")
 
@@ -26,48 +29,44 @@ constexpr auto ID_TIMEREXPIRED = 101;
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 bool OpenInExistingShellWindow(const TCHAR* folderPath);
 void RunFileExplorer(const TCHAR* openDirectory);
+bool RestoreFileExplorerDefaults();
 size_t strifind(const std::wstring& strHaystack, const std::wstring& strNeedle);
 bool comparei(std::wstring stringA, std::wstring stringB);
 std::string wstring_to_utf8_hex(const std::wstring& input);
-std::wstring str2wstr(const std::string& str);
+std::wstring QuoteCommandLineArgument(std::wstring_view argument);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int cmdShow)
 {
 	auto oleCleanup = wil::OleInitialize_failfast();
 
-	FILE* _debugStream = NULL;
-	PWSTR pszPath = NULL;
-	HRESULT hr = SHGetKnownFolderPath(FOLDERID_Desktop, 0, NULL, &pszPath);
-
-	if (SUCCEEDED(hr))
-	{
-		TCHAR debugPath[MAX_PATH];
-		swprintf(debugPath, _countof(debugPath) - 1, L"%s\\%s", pszPath, L"open_in_folder.txt");
-		//_wfreopen_s(&_debugStream, debugPath, L"w", stdout);
-		CoTaskMemFree(pszPath);
-	}
-
 	//Uncomment to attach debugger
 	//Sleep(10 * 1000);
 
 	int numArgs = 0;
-	bool withArgs = false;
-	LPWSTR* szArglist = CommandLineToArgvW(GetCommandLine(), &numArgs);
-	WCHAR openDirectory[MAX_PATH];
+	LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &numArgs);
+	std::wstring openDirectory;
+	if (arguments != nullptr && numArgs > 1)
+		openDirectory.assign(arguments[1]);
+	if (arguments != nullptr)
+		LocalFree(arguments);
 
-	if (numArgs > 1 && wcsnlen(szArglist[1], 1))
-	{
-		swprintf(openDirectory, _countof(openDirectory) - 1, L"%s", szArglist[1]);
+	const bool withArgs = !openDirectory.empty();
+	if (withArgs)
 		std::wcout << openDirectory << std::endl;
-		withArgs = true;
+
+	PWSTR rawLocalAppDataPath = nullptr;
+	if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DEFAULT, nullptr, &rawLocalAppDataPath)))
+	{
+		RunFileExplorer(withArgs ? openDirectory.c_str() : nullptr);
+
+		return 0;
 	}
 
-	LocalFree(szArglist);
-
-	WCHAR szBuf[MAX_PATH];
-	ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\Microsoft\\WindowsApps\\files-dev.exe", szBuf, MAX_PATH - 1);
-	std::wcout << szBuf << std::endl;
-	if (_waccess(szBuf, 0) == -1)
+	wil::unique_cotaskmem_string localAppDataPath(rawLocalAppDataPath);
+	std::wstring filesExecutablePath(localAppDataPath.get());
+	filesExecutablePath.append(L"\\Microsoft\\WindowsApps\\files-dev.exe");
+	std::wcout << filesExecutablePath << std::endl;
+	if (_waccess(filesExecutablePath.c_str(), 0) == -1)
 	{
 		std::cout << "Files has been uninstalled" << std::endl;
 
@@ -78,35 +77,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			(UINT)(MB_OK)
 		);
 
-		// Uninstall launcher
-		TCHAR szCmd[MAX_PATH];
-		swprintf(szCmd, _countof(szCmd) - 1, L"/c reg.exe import \"%s\"", L"%LocalAppData%\\Files\\UnsetFilesAsDefault.reg");
-		if (((int)ShellExecute(0, L"runas", L"cmd.exe", szCmd, 0, SW_HIDE) > 32))
-		{
+		if (RestoreFileExplorerDefaults())
 			std::cout << "Launcher unset as default" << std::endl;
-			swprintf(szCmd, _countof(szCmd) - 1, L"-command \"Start-Sleep -Seconds 5; $lfp = [System.Environment]::ExpandEnvironmentVariables('%%LocalAppData%%\\Files'); Remove-Item -Path $lfp -Recurse -Force\"");
-			if ((int)ShellExecute(0, 0, L"powershell.exe", szCmd, 0, SW_HIDE) > 32)
-			{
-				std::cout << "Launcher uninstalled" << std::endl;
-			}
-		}
 
-		// Run explorer
-		RunFileExplorer(withArgs ? openDirectory : NULL);
-
-		if (_debugStream)
-			fclose(_debugStream);
+		RunFileExplorer(withArgs ? openDirectory.c_str() : nullptr);
 
 		return 0;
 	}
 
 	if (withArgs)
 	{
-		if (OpenInExistingShellWindow(openDirectory))
+		if (OpenInExistingShellWindow(openDirectory.c_str()))
 		{
-			if (_debugStream)
-				fclose(_debugStream);
-
 			return 0;
 		}
 
@@ -137,12 +119,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		);
 
 		if (hwnd == NULL)
-		{
-			if (_debugStream)
-				fclose(_debugStream);
-
 			return 0;
-		}
 
 		SetTimer(hwnd, ID_TIMEREXPIRED, 500, NULL);
 
@@ -158,68 +135,131 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		auto item = openInFolder.GetResult();
 
-		TCHAR args[1024];
+		std::wstring commandLine = QuoteCommandLineArgument(filesExecutablePath);
 		if (item.empty())
 		{
 			std::wcout << L"No item selected" << std::endl;
-			//swprintf(args, _countof(args) - 1, L"-directory \"%s\"", openDirectory);
-			swprintf(args, _countof(args) - 1, L"\"%s\" -directory \"%s\"", szBuf, openDirectory);
+			commandLine.append(L" -directory ").append(QuoteCommandLineArgument(openDirectory));
 		}
 		else
 		{
 			std::wcout << L"Item: " << item << std::endl;
-			//swprintf(args, _countof(args) - 1, L"-select \"%s\"", item.c_str());
-			swprintf(args, _countof(args) - 1, L"\"%s\" -select \"%s\"", szBuf, item.c_str());
+			commandLine.append(L" -select ").append(QuoteCommandLineArgument(item));
 		}
 
-		std::wstring uriWithArgs = L"files-dev:?cmd=" + str2wstr(wstring_to_utf8_hex(args));
+		const std::string encodedCommandLine = wstring_to_utf8_hex(commandLine);
+		std::wstring uriWithArgs = L"files-dev:?cmd=";
+		uriWithArgs.append(encodedCommandLine.begin(), encodedCommandLine.end());
 
-		std::wcout << L"Invoking: " << args << L" = " << uriWithArgs << std::endl;
+		std::wcout << L"Invoking: " << commandLine << L" = " << uriWithArgs << std::endl;
 
-		SHELLEXECUTEINFO ShExecInfo = { 0 };
-		ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-		ShExecInfo.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
-		ShExecInfo.lpFile = uriWithArgs.c_str();
-		ShExecInfo.lpDirectory = openDirectory;
-		ShExecInfo.nShow = SW_SHOW;
+		SHELLEXECUTEINFO shellExecuteInfo{};
+		shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+		shellExecuteInfo.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+		shellExecuteInfo.lpFile = uriWithArgs.c_str();
+		shellExecuteInfo.lpDirectory = openDirectory.c_str();
+		shellExecuteInfo.nShow = SW_SHOW;
 
-		if (!ShellExecuteEx(&ShExecInfo))
+		if (!ShellExecuteEx(&shellExecuteInfo))
 		{
 			std::wcout << L"Protocol error: " << GetLastError() << std::endl;
-
-			//ShExecInfo.lpFile = L"files-dev.exe";
-			//ShExecInfo.lpParameters = args;
-			//if (!ShellExecuteEx(&ShExecInfo))
-			//{
-				//std::wcout << L"Command line error: " << GetLastError() << std::endl;
-			//}
 		}
 	}
 	else
 	{
 		std::wcout << L"Invoking: no arguments" << std::endl;
 
-		SHELLEXECUTEINFO ShExecInfo = { 0 };
-		ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-		ShExecInfo.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
-		ShExecInfo.lpFile = L"files-dev:";
-		ShExecInfo.nShow = SW_SHOW;
+		SHELLEXECUTEINFO shellExecuteInfo{};
+		shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+		shellExecuteInfo.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+		shellExecuteInfo.lpFile = L"files-dev:";
+		shellExecuteInfo.nShow = SW_SHOW;
 
-		if (!ShellExecuteEx(&ShExecInfo))
+		if (!ShellExecuteEx(&shellExecuteInfo))
 		{
 			std::wcout << L"Protocol error: " << GetLastError() << std::endl;
-			//ShExecInfo.lpFile = L"files-dev.exe";
-			//if (!ShellExecuteEx(&ShExecInfo))
-			//{
-				//std::wcout << L"Command line error: " << GetLastError() << std::endl;
-			//}
 		}
 	}
 
-	if (_debugStream)
-		fclose(_debugStream);
-
 	return 0;
+}
+
+bool RegistryCommandTargetsFilesLauncher(const wchar_t* subKey)
+{
+	DWORD valueSize = 0;
+	LSTATUS status = RegGetValueW(HKEY_CURRENT_USER, subKey, nullptr, RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ, nullptr, nullptr, &valueSize);
+	if (status != ERROR_SUCCESS || valueSize < sizeof(wchar_t))
+		return false;
+
+	std::vector<wchar_t> command((valueSize / sizeof(wchar_t)) + 1, L'\0');
+	status = RegGetValueW(HKEY_CURRENT_USER, subKey, nullptr, RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ, nullptr, command.data(), &valueSize);
+	if (status != ERROR_SUCCESS)
+		return false;
+
+	int argumentCount = 0;
+	LPWSTR* arguments = CommandLineToArgvW(command.data(), &argumentCount);
+	if (arguments == nullptr || argumentCount == 0)
+	{
+		if (arguments != nullptr)
+			LocalFree(arguments);
+
+		return false;
+	}
+
+	std::vector<wchar_t> executablePath(MAX_PATH);
+	while (true)
+	{
+		const DWORD pathLength = GetModuleFileNameW(nullptr, executablePath.data(), static_cast<DWORD>(executablePath.size()));
+		if (pathLength == 0)
+		{
+			LocalFree(arguments);
+
+			return false;
+		}
+
+		if (pathLength < executablePath.size())
+			break;
+
+		executablePath.resize(executablePath.size() * 2);
+	}
+
+	const bool targetsCurrentExecutable = CompareStringOrdinal(arguments[0], -1, executablePath.data(), -1, true) == CSTR_EQUAL;
+	LocalFree(arguments);
+
+	return targetsCurrentExecutable;
+}
+
+bool DeleteRegistryTreeIfOwned(const wchar_t* commandSubKey, std::initializer_list<const wchar_t*> emptyParentSubKeys)
+{
+	if (!RegistryCommandTargetsFilesLauncher(commandSubKey))
+		return false;
+
+	if (RegDeleteTreeW(HKEY_CURRENT_USER, commandSubKey) != ERROR_SUCCESS)
+		return false;
+
+	for (const wchar_t* parentSubKey : emptyParentSubKeys)
+		RegDeleteKeyW(HKEY_CURRENT_USER, parentSubKey);
+
+	return true;
+}
+
+bool RestoreFileExplorerDefaults()
+{
+	bool changed = false;
+	changed |= DeleteRegistryTreeIfOwned(L"Software\\Classes\\Folder\\shell\\open\\command", { L"Software\\Classes\\Folder\\shell\\open" });
+	changed |= DeleteRegistryTreeIfOwned(L"Software\\Classes\\Folder\\shell\\explore\\command", { L"Software\\Classes\\Folder\\shell\\explore" });
+	changed |= DeleteRegistryTreeIfOwned(
+		L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\shell\\opennewwindow\\command",
+		{
+			L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\shell\\opennewwindow",
+			L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\shell",
+			L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}",
+		});
+
+	if (changed)
+		SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+
+	return changed;
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -270,7 +310,7 @@ size_t strifind(const std::wstring& strHaystack, const std::wstring& strNeedle)
 	auto it = std::search(
 		strHaystack.begin(), strHaystack.end(),
 		strNeedle.begin(), strNeedle.end(),
-		[](wchar_t ch1, wchar_t ch2) { return std::toupper(ch1) == std::toupper(ch2); }
+		[](wchar_t ch1, wchar_t ch2) { return std::towupper(ch1) == std::towupper(ch2); }
 	);
 
 	return it != strHaystack.end() ? it - strHaystack.begin() : std::wstring::npos;
@@ -278,7 +318,7 @@ size_t strifind(const std::wstring& strHaystack, const std::wstring& strNeedle)
 
 bool comparei(std::wstring stringA, std::wstring stringB)
 {
-	auto toUpperW = [](wchar_t c) { return static_cast<wchar_t>(std::toupper(c)); };
+	auto toUpperW = [](wchar_t c) { return static_cast<wchar_t>(std::towupper(c)); };
 	transform(stringA.begin(), stringA.end(), stringA.begin(), toUpperW);
 	transform(stringB.begin(), stringB.end(), stringB.begin(), toUpperW);
 
@@ -289,55 +329,71 @@ std::string wstring_to_utf8_hex(const std::wstring& input)
 {
 	std::string output;
 
-	int cbNeeded = WideCharToMultiByte(CP_UTF8, 0, input.c_str(), -1, NULL, 0, NULL, NULL);
-	if (cbNeeded > 0)
-	{
-		char* utf8 = new char[cbNeeded];
-		if (WideCharToMultiByte(CP_UTF8, 0, input.c_str(), -1, utf8, cbNeeded, NULL, NULL) != 0)
-		{
-			for (char* p = utf8; *p; p++)
-			{
-				char onehex[5];
-				sprintf_s(onehex, sizeof(onehex), "%%%02.2X", (unsigned char)*p);
-				output.append(onehex);
-			}
-		}
+	const int cbNeeded = WideCharToMultiByte(CP_UTF8, 0, input.c_str(), static_cast<int>(input.size()), nullptr, 0, nullptr, nullptr);
+	if (cbNeeded <= 0)
+		return output;
 
-		delete[] utf8;
+	std::vector<char> utf8(cbNeeded);
+	if (WideCharToMultiByte(CP_UTF8, 0, input.c_str(), static_cast<int>(input.size()), utf8.data(), cbNeeded, nullptr, nullptr) == 0)
+		return output;
+
+	output.reserve(utf8.size() * 3);
+	for (const unsigned char value : utf8)
+	{
+		char onehex[4];
+		sprintf_s(onehex, sizeof(onehex), "%%%02X", value);
+		output.append(onehex);
 	}
 
 	return output;
 }
 
-std::wstring str2wstr(const std::string& str)
+std::wstring QuoteCommandLineArgument(std::wstring_view argument)
 {
-	int cbNeeded = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
-	if (cbNeeded > 0)
+	std::wstring quoted(1, L'"');
+	size_t backslashCount = 0;
+	for (const wchar_t character : argument)
 	{
-		std::wstring wstrTo(cbNeeded, 0);
-		MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], cbNeeded);
-		return wstrTo;
+		if (character == L'\\')
+		{
+			backslashCount++;
+			continue;
+		}
+
+		if (character == L'"')
+		{
+			quoted.append((backslashCount * 2) + 1, L'\\');
+			quoted.push_back(character);
+			backslashCount = 0;
+			continue;
+		}
+
+		quoted.append(backslashCount, L'\\');
+		backslashCount = 0;
+		quoted.push_back(character);
 	}
 
-	return L"";
+	quoted.append(backslashCount * 2, L'\\');
+	quoted.push_back(L'"');
+
+	return quoted;
 }
 
 void RunFileExplorer(const TCHAR* openDirectory)
 {
-	// Run explorer
-	SHELLEXECUTEINFO ShExecInfo = { 0 };
-	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-	ShExecInfo.lpFile = L"explorer.exe";
+	SHELLEXECUTEINFO shellExecuteInfo{};
+	shellExecuteInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	shellExecuteInfo.lpFile = L"explorer.exe";
+	std::wstring parameters;
 
-	if (openDirectory != NULL)
+	if (openDirectory != nullptr)
 	{
-		TCHAR args[1024];
-		swprintf(args, _countof(args) - 1, L"\"%s\"", openDirectory);
-		ShExecInfo.lpParameters = args;
+		parameters = QuoteCommandLineArgument(openDirectory);
+		shellExecuteInfo.lpParameters = parameters.c_str();
 	}
 
-	ShExecInfo.nShow = SW_SHOW;
-	ShellExecuteEx(&ShExecInfo);
+	shellExecuteInfo.nShow = SW_SHOW;
+	ShellExecuteEx(&shellExecuteInfo);
 }
 
 bool OpenInExistingShellWindow(const TCHAR* folderPath)
@@ -372,10 +428,20 @@ bool OpenInExistingShellWindow(const TCHAR* folderPath)
 		mustOpenInExplorer = it == supportedShellFolders.end();
 	}
 
-	IShellItem* psi;
-	PIDLIST_ABSOLUTE controlPanelCategoryViewPidl;
+	auto createPidl = [](const wchar_t* parsingName, wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE>& pidl) -> HRESULT
+	{
+		winrt::com_ptr<IShellItem> shellItem;
+		RETURN_IF_FAILED(SHCreateItemFromParsingName(parsingName, nullptr, IID_PPV_ARGS(shellItem.put())));
 
-	if (!SUCCEEDED(SHCreateItemFromParsingName(L"::{26EE0668-A00A-44D7-9371-BEB064C98683}", NULL, IID_IShellItem, (void**)&psi)))
+		PIDLIST_ABSOLUTE rawPidl = nullptr;
+		RETURN_IF_FAILED(SHGetIDListFromObject(shellItem.get(), &rawPidl));
+		pidl.reset(rawPidl);
+
+		return S_OK;
+	};
+
+	wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE> controlPanelCategoryViewPidl;
+	if (FAILED(createPidl(L"::{26EE0668-A00A-44D7-9371-BEB064C98683}", controlPanelCategoryViewPidl)))
 	{
 		if (mustOpenInExplorer)
 			RunFileExplorer(openDirectory.c_str());
@@ -383,94 +449,63 @@ bool OpenInExistingShellWindow(const TCHAR* folderPath)
 		return mustOpenInExplorer;
 	}
 
-	if (!SUCCEEDED(SHGetIDListFromObject(psi, &controlPanelCategoryViewPidl)))
-	{
-		psi->Release();
-		if (mustOpenInExplorer)
-			RunFileExplorer(openDirectory.c_str());
-
-		return mustOpenInExplorer;
-	}
-
-	psi->Release();
-
-	PIDLIST_ABSOLUTE targetFolderPidl;
-
-	if (!SUCCEEDED(SHCreateItemFromParsingName(openDirectory.c_str(), NULL, IID_IShellItem, (void**)&psi)))
+	wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE> targetFolderPidl;
+	if (FAILED(createPidl(openDirectory.c_str(), targetFolderPidl)))
 	{
 		if (mustOpenInExplorer)
 			RunFileExplorer(openDirectory.c_str());
 
 		return mustOpenInExplorer;
 	}
-
-	if (!SUCCEEDED(SHGetIDListFromObject(psi, &targetFolderPidl)))
-	{
-		psi->Release();
-		if (mustOpenInExplorer)
-			RunFileExplorer(openDirectory.c_str());
-
-		return mustOpenInExplorer;
-	}
-
-	psi->Release();
 
 	bool opened = false;
-	IShellWindows* shellWindows;
-	if (SUCCEEDED(CoCreateInstance(CLSID_ShellWindows, NULL, CLSCTX_LOCAL_SERVER, IID_IShellWindows, (void**)&shellWindows)))
+	winrt::com_ptr<IShellWindows> shellWindows;
+	if (SUCCEEDED(CoCreateInstance(CLSID_ShellWindows, nullptr, CLSCTX_LOCAL_SERVER, IID_PPV_ARGS(shellWindows.put()))))
 	{
-		VARIANT v;
-		V_VT(&v) = VT_I4;
-		IDispatch* item;
-		for (V_I4(&v) = 0; SUCCEEDED(shellWindows->Item(v, &item)) && item != NULL; V_I4(&v)++)
+		VARIANT index{};
+		V_VT(&index) = VT_I4;
+		for (V_I4(&index) = 0; ; V_I4(&index)++)
 		{
-			IServiceProvider* serv;
-			if (SUCCEEDED(item->QueryInterface(IID_IServiceProvider, (void**)&serv)))
+			winrt::com_ptr<IDispatch> item;
+			if (FAILED(shellWindows->Item(index, item.put())) || item == nullptr)
+				break;
+
+			winrt::com_ptr<IServiceProvider> serviceProvider;
+			if (FAILED(item->QueryInterface(IID_PPV_ARGS(serviceProvider.put()))))
+				continue;
+
+			winrt::com_ptr<IShellBrowser> shellBrowser;
+			if (FAILED(serviceProvider->QueryService(SID_STopLevelBrowser, IID_PPV_ARGS(shellBrowser.put()))))
+				continue;
+
+			winrt::com_ptr<IShellView> shellView;
+			if (FAILED(shellBrowser->QueryActiveShellView(shellView.put())))
+				continue;
+
+			winrt::com_ptr<IFolderView> folderView;
+			if (FAILED(shellView->QueryInterface(IID_PPV_ARGS(folderView.put()))))
+				continue;
+
+			winrt::com_ptr<IPersistFolder2> folder;
+			if (FAILED(folderView->GetFolder(IID_PPV_ARGS(folder.put()))))
+				continue;
+
+			PIDLIST_ABSOLUTE rawFolderPidl = nullptr;
+			if (FAILED(folder->GetCurFolder(&rawFolderPidl)))
+				continue;
+			wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE> folderPidl(rawFolderPidl);
+
+			if (!ILIsParent(folderPidl.get(), targetFolderPidl.get(), true) && !ILIsEqual(folderPidl.get(), controlPanelCategoryViewPidl.get()))
+				continue;
+
+			if (SUCCEEDED(shellBrowser->BrowseObject(targetFolderPidl.get(), SBSP_SAMEBROWSER | SBSP_ABSOLUTE)))
 			{
-				IShellBrowser* shellBrowser;
-				if (SUCCEEDED(serv->QueryService(SID_STopLevelBrowser, IID_IShellBrowser, (void**)&shellBrowser)))
-				{
-					IShellView* shellView;
-					if (SUCCEEDED(shellBrowser->QueryActiveShellView(&shellView)))
-					{
-						IFolderView* folderView;
-						if (SUCCEEDED(shellView->QueryInterface(IID_IFolderView, (void**)&folderView)))
-						{
-							IPersistFolder2* folder;
-							if (SUCCEEDED(folderView->GetFolder(IID_IPersistFolder2, (void**)&folder)))
-							{
-								PIDLIST_ABSOLUTE folderPidl;
-								if (SUCCEEDED(folder->GetCurFolder(&folderPidl)))
-								{
-									if (ILIsParent(folderPidl, targetFolderPidl, true) ||
-										ILIsEqual(folderPidl, controlPanelCategoryViewPidl))
-									{
-										if (SUCCEEDED(shellBrowser->BrowseObject(targetFolderPidl, SBSP_SAMEBROWSER | SBSP_ABSOLUTE)))
-										{
-											opened = true;
-											break;
-										}
-									}
-									CoTaskMemFree(folderPidl);
-								}
-								folder->Release();
-							}
-							folderView->Release();
-						}
-						shellView->Release();
-					}
-					shellBrowser->Release();
-				}
-				serv->Release();
+				opened = true;
+
+				break;
 			}
-			item->Release();
 		}
-
-		shellWindows->Release();
 	}
-
-	CoTaskMemFree(targetFolderPidl);
-	CoTaskMemFree(controlPanelCategoryViewPidl);
 
 	if (!opened && mustOpenInExplorer)
 		RunFileExplorer(openDirectory.c_str());

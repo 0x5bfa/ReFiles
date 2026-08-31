@@ -6,6 +6,10 @@ name: ReFiles.Core CD
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: Package version (for example, 0.1.0-alpha.1)
+        required: true
+        type: string
       publish:
         description: Publish the package to NuGet.org
         required: true
@@ -18,6 +22,9 @@ permissions:
 env:
   CORE_PROJECT_PATH: '${{ github.workspace }}\src\Files.Core\Files.Core.csproj'
   OUTPUT_DIR: '${{ github.workspace }}\artifacts\packages'
+  PACKAGE_VERSION: '${{ inputs.version }}'
+  BUILD_TFM: 'net10.0-windows10.0.26100.0'
+  PACKAGE_TFM: 'net10.0-windows10.0.26100'
 
 jobs:
   pack:
@@ -25,7 +32,6 @@ jobs:
     runs-on: windows-2025-vs2026
     env:
       CONFIGURATION: Release
-      PLATFORM: x64
 
     steps:
       - name: Checkout the repository
@@ -42,12 +48,162 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Build both package architectures
+        shell: pwsh
+        run: |
+          foreach ($platform in @('x64', 'arm64')) {
+            msbuild $env:CORE_PROJECT_PATH `
+              -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$platform `
+              -p:Version=$env:PACKAGE_VERSION -p:GeneratePackageOnBuild=false -p:ContinuousIntegrationBuild=true -v:quiet -clp:ErrorsOnly
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+          }
+
+          function Get-PeMachine([string] $path) {
+            $stream = [System.IO.File]::OpenRead($path)
+            try {
+              $reader = [System.IO.BinaryReader]::new($stream)
+              $stream.Position = 0x3c
+              $peOffset = $reader.ReadInt32()
+              $stream.Position = $peOffset + 4
+              return $reader.ReadUInt16()
+            }
+            finally {
+              $stream.Dispose()
+            }
+          }
+
+          $x64Assembly = '${{ github.workspace }}\src\Files.Core\bin\x64\Release\${{ env.BUILD_TFM }}\Files.Core.dll'
+          $arm64Assembly = '${{ github.workspace }}\src\Files.Core\bin\arm64\Release\${{ env.BUILD_TFM }}\Files.Core.dll'
+          if ((Get-PeMachine $x64Assembly) -ne 0x8664) {
+            throw 'The x64 Files.Core assembly does not have the expected PE machine.'
+          }
+          if ((Get-PeMachine $arm64Assembly) -ne 0xAA64) {
+            throw 'The ARM64 Files.Core assembly does not have the expected PE machine.'
+          }
+
       - name: Pack the project
         shell: pwsh
         run: |
           msbuild $env:CORE_PROJECT_PATH `
-            -restore -p:Configuration=$env:CONFIGURATION -p:Platform=$env:PLATFORM `
-            -p:PackageOutputPath=$env:OUTPUT_DIR -v:quiet -clp:ErrorsOnly
+            -t:Pack -p:NoBuild=true -p:Configuration=$env:CONFIGURATION -p:Platform=x64 `
+            -p:Version=$env:PACKAGE_VERSION -p:PackageVersion=$env:PACKAGE_VERSION -p:PackageOutputPath=$env:OUTPUT_DIR -v:quiet -clp:ErrorsOnly
+
+      - name: Validate package layout
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $packages = @(Get-ChildItem $env:OUTPUT_DIR -Filter '*.nupkg')
+          if ($packages.Count -ne 1) {
+            throw "Expected one nupkg, found $($packages.Count)."
+          }
+
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($packages[0].FullName)
+          try {
+            $entries = @($archive.Entries | ForEach-Object FullName)
+            $requiredEntries = @(
+              "ref/$env:PACKAGE_TFM/Files.Core.dll",
+              "runtimes/win-x64/lib/$env:PACKAGE_TFM/Files.Core.dll",
+              "runtimes/win-arm64/lib/$env:PACKAGE_TFM/Files.Core.dll"
+            )
+            foreach ($requiredEntry in $requiredEntries) {
+              if ($requiredEntry -notin $entries) {
+                throw "Required package asset '$requiredEntry' is missing."
+              }
+            }
+
+            $ridlessRuntimeAssets = @($entries | Where-Object { $_ -match '^lib/[^/]+/Files\.Core\.dll$' })
+            if ($ridlessRuntimeAssets.Count -ne 0) {
+              throw "RID-less runtime assets are not allowed: $($ridlessRuntimeAssets -join ', ')"
+            }
+          }
+          finally {
+            $archive.Dispose()
+          }
+
+          $symbolPackages = @(Get-ChildItem $env:OUTPUT_DIR -Filter '*.snupkg')
+          if ($symbolPackages.Count -ne 1) {
+            throw "Expected one snupkg, found $($symbolPackages.Count)."
+          }
+
+          $symbolArchive = [System.IO.Compression.ZipFile]::OpenRead($symbolPackages[0].FullName)
+          try {
+            $symbolEntries = @($symbolArchive.Entries | ForEach-Object FullName)
+            foreach ($rid in @('win-x64', 'win-arm64')) {
+              $requiredSymbol = "runtimes/$rid/lib/$env:PACKAGE_TFM/Files.Core.pdb"
+              if ($requiredSymbol -notin $symbolEntries) {
+                throw "Required symbol asset '$requiredSymbol' is missing."
+              }
+            }
+          }
+          finally {
+            $symbolArchive.Dispose()
+          }
+
+      - name: Validate x64 and ARM64 package consumers
+        shell: pwsh
+        run: |
+          $consumerDirectory = Join-Path $env:RUNNER_TEMP 'ReFiles.Core.PackageConsumer'
+          dotnet new classlib --name PackageConsumer --output $consumerDirectory --framework net10.0 --no-restore
+          $consumerProject = Join-Path $consumerDirectory 'PackageConsumer.csproj'
+          $projectText = (Get-Content $consumerProject -Raw).Replace('<TargetFramework>net10.0</TargetFramework>', "<TargetFramework>$env:BUILD_TFM</TargetFramework>`r`n    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>")
+          $packageVersion = [System.Security.SecurityElement]::Escape($env:PACKAGE_VERSION)
+          $projectText = $projectText.Replace('</Project>', "  <ItemGroup>`r`n    <PackageReference Include=`"ReFiles.Core`" Version=`"$packageVersion`" />`r`n  </ItemGroup>`r`n`r`n</Project>")
+          Set-Content $consumerProject $projectText
+          $consumerConfig = Join-Path $consumerDirectory 'NuGet.config'
+          $localPackageSource = [System.Security.SecurityElement]::Escape($env:OUTPUT_DIR)
+          $projectPackageSource = [System.Security.SecurityElement]::Escape((Join-Path $env:GITHUB_WORKSPACE 'src\Files\Assets\Libraries'))
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="Local Package" value="$localPackageSource" />
+              <add key="Project Packages" value="$projectPackageSource" />
+              <add key="NuGet Gallery" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+            <packageSourceMapping>
+              <packageSource key="Local Package"><package pattern="ReFiles.Core" /></packageSource>
+              <packageSource key="Project Packages"><package pattern="SevenZipSharp" /><package pattern="OwlCore.Storage" /></packageSource>
+              <packageSource key="NuGet Gallery"><package pattern="*" /></packageSource>
+            </packageSourceMapping>
+          </configuration>
+          "@ | Set-Content $consumerConfig
+
+          function Get-PeMachine([string] $path) {
+            $stream = [System.IO.File]::OpenRead($path)
+            try {
+              $reader = [System.IO.BinaryReader]::new($stream)
+              $stream.Position = 0x3c
+              $peOffset = $reader.ReadInt32()
+              $stream.Position = $peOffset + 4
+              return $reader.ReadUInt16()
+            }
+            finally {
+              $stream.Dispose()
+            }
+          }
+
+          $consumers = @(
+            @{ RuntimeIdentifier = 'win-x64'; PlatformTarget = 'x64'; ExpectedMachine = 0x8664 },
+            @{ RuntimeIdentifier = 'win-arm64'; PlatformTarget = 'ARM64'; ExpectedMachine = 0xAA64 }
+          )
+          foreach ($consumer in $consumers) {
+            dotnet restore $consumerProject --runtime $consumer.RuntimeIdentifier --configfile $consumerConfig --force-evaluate
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+            dotnet build $consumerProject --no-restore --configuration Release --runtime $consumer.RuntimeIdentifier -p:PlatformTarget=$consumer.PlatformTarget -p:TreatWarningsAsErrors=true --verbosity quiet
+            if ($LASTEXITCODE -ne 0) {
+              exit $LASTEXITCODE
+            }
+
+            $runtimeAssembly = Join-Path $consumerDirectory "bin\Release\$env:BUILD_TFM\$($consumer.RuntimeIdentifier)\Files.Core.dll"
+            if ((Get-PeMachine $runtimeAssembly) -ne $consumer.ExpectedMachine) {
+              throw "The $($consumer.RuntimeIdentifier) consumer selected the wrong Files.Core runtime asset."
+            }
+          }
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v6
@@ -84,5 +240,5 @@ jobs:
       - name: Publish package
         shell: pwsh
         run: |
-          dotnet nuget push artifacts\packages\*.nupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
-          dotnet nuget push artifacts\packages\*.snupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push artifacts\packages\*.nupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+          dotnet nuget push artifacts\packages\*.snupkg --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

@@ -38,6 +38,7 @@ LPARAM
 WM_*
 SetForegroundWindow
 GetForegroundWindow
+LockSetForegroundWindow
 GetDesktopWindow
 GetCurrentThreadId
 GetWindowThreadProcessId
@@ -166,6 +167,7 @@ GetMonitorInfo
 CLASS_E_CLASSNOTAVAILABLE
 E_INVALIDARG
 RoInitialize
+RoUninitialize
 RoRegisterActivationFactories
 RoRevokeActivationFactories
 WindowsCreateString
