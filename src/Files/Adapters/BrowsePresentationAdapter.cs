@@ -199,6 +199,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
+		if (WindowsShellLocation.IsWsl(path))
+		{
+			WslForegroundActivationGuard.Protect(_ownerWindowHandle);
+		}
+
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath START path={path}");
 
@@ -635,6 +640,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void Pane_StateChanged(object? sender, EventArgs args)
 	{
 		var session = _pane.BrowseSession;
+		ProtectWslNavigation(session.Location);
 		InvalidateStatusBarSizeForGeneration(session.Generation);
 		lock (_pendingLock)
 		{
@@ -2209,6 +2215,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 		cancellationToken.ThrowIfCancellationRequested();
 
+		ProtectWslNavigation(location);
+
 		LocationNavigation navigation;
 		lock (_locationNavigationLock)
 		{
@@ -2230,6 +2238,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_ = TrackLocationNavigationAsync(navigation);
 
 		return WaitForLocationNavigationAsync(navigation, cancellationToken);
+	}
+
+	private void ProtectWslNavigation(BrowseLocation? location)
+	{
+		if (location is FolderLocation { Folder.LastKnownAddress.Value: var parsingName } && WindowsShellLocation.IsWsl(parsingName))
+		{
+			WslForegroundActivationGuard.Protect(_ownerWindowHandle);
+		}
 	}
 
 	private static Task WaitForLocationNavigationAsync(LocationNavigation navigation, CancellationToken cancellationToken)

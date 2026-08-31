@@ -152,6 +152,7 @@ internal sealed class WindowsStorableFactory
 		var batchCount = 0;
 		var itemCount = 0;
 		var identityDuration = TimeSpan.Zero;
+		var enumerationOwnerWindow = GetEnumerationOwnerWindow(descriptor.Locator.ParsingName, ownerWindow);
 		CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Snapshot.Name} parsingName={descriptor.Locator.ParsingName}");
 
 		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize)
@@ -167,7 +168,7 @@ internal sealed class WindowsStorableFactory
 		{
 			var scheduledProducer = _resolver.InvokeConcurrentAsync(
 				descriptor.Locator,
-				shellItem => EnumerateChildrenOnCurrentSta(shellItem, parentFolder, ownerWindow, batches.Writer, enumerationCancellation.Token),
+				shellItem => EnumerateChildrenOnCurrentSta(shellItem, parentFolder, enumerationOwnerWindow, batches.Writer, enumerationCancellation.Token),
 				enumerationCancellation.Token);
 			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
@@ -259,6 +260,11 @@ internal sealed class WindowsStorableFactory
 		return descriptor.Snapshot.IsFolder
 			? new WindowsFolder(descriptor, this)
 			: new WindowsFile(descriptor, this);
+	}
+
+	internal static HWND GetEnumerationOwnerWindow(string parsingName, HWND requestedOwnerWindow)
+	{
+		return WindowsShellLocation.IsWsl(parsingName) ? HWND.Null : requestedOwnerWindow;
 	}
 
 	private WindowsStorableDescriptor[] CreateDescriptors(IReadOnlyList<WindowsStorableDescriptorData> items, CancellationToken cancellationToken)

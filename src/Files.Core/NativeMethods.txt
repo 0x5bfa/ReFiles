@@ -38,6 +38,7 @@ LPARAM
 WM_*
 SetForegroundWindow
 GetForegroundWindow
+LockSetForegroundWindow
 GetDesktopWindow
 GetCurrentThreadId
 GetWindowThreadProcessId

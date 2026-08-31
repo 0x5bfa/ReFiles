@@ -22,6 +22,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	private const FileOptions BackupSemantics = (FileOptions)0x02000000;
 	private const uint DriveCdRom = 5;
 	private const int VolumePathBufferLength = 261;
+	private const int MaximumCachedVolumeSerialNumbers = 64;
 
 	private readonly ConcurrentDictionary<string, uint> _volumeSerialNumbers = new(StringComparer.OrdinalIgnoreCase);
 
@@ -29,7 +30,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
-		if (fileSystemPath is not null && !IsOpticalDrive(fileSystemPath) && TryGetFileId(fileSystemPath, out var fileId))
+		if (fileSystemPath is not null && !WindowsShellLocation.IsWsl(parsingName) && !IsOpticalDrive(fileSystemPath) && TryGetFileId(fileSystemPath, out var fileId))
 		{
 			if (fileId.NumberOfLinks <= 1)
 			{
@@ -98,19 +99,6 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 	private bool TryGetVolumeSerialNumber(string fileSystemPath, out uint volumeSerialNumber)
 	{
-		var parentPath = Path.GetDirectoryName(fileSystemPath) ?? Path.GetPathRoot(fileSystemPath);
-		if (string.IsNullOrWhiteSpace(parentPath))
-		{
-			volumeSerialNumber = 0;
-
-			return false;
-		}
-
-		if (_volumeSerialNumbers.TryGetValue(parentPath, out volumeSerialNumber))
-		{
-			return true;
-		}
-
 		Span<char> volumePathBuffer = stackalloc char[VolumePathBufferLength];
 		if (!PInvoke.GetVolumePathName(fileSystemPath, volumePathBuffer))
 		{
@@ -121,12 +109,27 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 		var terminatorIndex = volumePathBuffer.IndexOf('\0');
 		var volumePath = volumePathBuffer[..(terminatorIndex < 0 ? volumePathBuffer.Length : terminatorIndex)].ToString();
+		if (string.IsNullOrWhiteSpace(volumePath))
+		{
+			volumeSerialNumber = 0;
+
+			return false;
+		}
+
+		if (_volumeSerialNumbers.TryGetValue(volumePath, out volumeSerialNumber))
+		{
+			return true;
+		}
+
 		if (!PInvoke.GetVolumeInformation(volumePath, [], out volumeSerialNumber, out _, out _, []))
 		{
 			return false;
 		}
 
-		_volumeSerialNumbers.TryAdd(parentPath, volumeSerialNumber);
+		if (_volumeSerialNumbers.Count < MaximumCachedVolumeSerialNumbers)
+		{
+			_volumeSerialNumbers.TryAdd(volumePath, volumeSerialNumber);
+		}
 
 		return true;
 	}
