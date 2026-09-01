@@ -260,11 +260,11 @@ public static unsafe class WindowsShellFolderCustomizationService
 
 			return HRESULT.S_OK;
 		}
-		catch (Exception exception) when (exception.HResult < 0)
+		catch (InvalidCastException exception) when (exception.HResult == HRESULT.E_NOINTERFACE.Value)
 		{
 			result = null;
 
-			return (HRESULT)exception.HResult;
+			return HRESULT.E_NOINTERFACE;
 		}
 	}
 
