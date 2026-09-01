@@ -7,8 +7,9 @@ using System.Runtime.InteropServices.Marshalling;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.DirectComposition;
 using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.System.Com.StructuredStorage;
 using Windows.Win32.System.IO;
-using Windows.Win32.System.Registry;
+using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 using Windows.Win32.UI.WindowsAndMessaging;
 
@@ -19,74 +20,24 @@ namespace Windows.Win32
 		/// <summary>Specifies the 32-bit ARGB pixel format used by Windows imaging APIs.</summary>
 		public const int PixelFormat32bppARGB = 2498570;
 
-		/// <summary>Creates a COM object using the raw ABI signature.</summary>
-		/// <param name="classId">The class identifier.</param>
-		/// <param name="outer">The controlling unknown, or zero.</param>
-		/// <param name="context">The activation context.</param>
-		/// <param name="interfaceId">The requested interface identifier.</param>
-		/// <param name="instance">Receives the created object pointer.</param>
-		/// <returns>The HRESULT returned by COM.</returns>
-		[LibraryImport("ole32.dll", EntryPoint = "CoCreateInstance")]
-		public static unsafe partial int CoCreateInstanceRaw(Guid* classId, nint outer, uint context, Guid* interfaceId, nint* instance);
-
-		/// <summary>Creates a COM object through a moniker using the raw ABI signature.</summary>
-		/// <param name="displayName">The moniker display name.</param>
-		/// <param name="bindOptions">The optional bind options.</param>
-		/// <param name="interfaceId">The requested interface identifier.</param>
-		/// <param name="instance">Receives the created object pointer.</param>
-		/// <returns>The HRESULT returned by COM.</returns>
-		[LibraryImport("ole32.dll", EntryPoint = "CoGetObject")]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		public static unsafe partial int CoGetObjectRaw(char* displayName, void* bindOptions, Guid* interfaceId, nint* instance);
-
-		/// <summary>Gets a Windows Runtime activation factory using the raw ABI signature.</summary>
-		/// <param name="activatableClassId">The runtime class name.</param>
-		/// <param name="interfaceId">The requested factory interface identifier.</param>
-		/// <param name="factory">Receives the activation factory pointer.</param>
-		/// <returns>The HRESULT returned by Windows Runtime activation.</returns>
-		[LibraryImport("combase.dll", EntryPoint = "RoGetActivationFactory")]
-		public static unsafe partial int RoGetActivationFactoryRaw(nint activatableClassId, Guid* interfaceId, nint* factory);
-
-		/// <summary>Creates a Shell item from a parsing name using the raw ABI signature.</summary>
-		/// <param name="parsingName">The item parsing name.</param>
-		/// <param name="bindContext">The optional bind context.</param>
-		/// <param name="interfaceId">The requested interface identifier.</param>
-		/// <param name="item">Receives the created item pointer.</param>
-		/// <returns>The HRESULT returned by the Shell.</returns>
-		[LibraryImport("shell32.dll", EntryPoint = "SHCreateItemFromParsingName")]
-		public static unsafe partial int SHCreateItemFromParsingNameRaw(char* parsingName, nint bindContext, Guid* interfaceId, nint* item);
-
 		[LibraryImport("Windows.Storage.dll", EntryPoint = "GetCachedIniForFolder")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static unsafe partial HRESULT GetCachedIniForFolderRaw(uint reserved, ITEMIDLIST* pidl, uint flags, nint* cachedProfile);
+		internal static unsafe partial HRESULT GetCachedIniForFolder(uint reserved, ITEMIDLIST* pidl, uint flags,
+			[MarshalUsing(typeof(UniqueComInterfaceMarshaller<ICachedIniUnknown>))] out ICachedIniUnknown cachedProfile);
 
 		[LibraryImport("Windows.Storage.dll", EntryPoint = "IsPathOwnedByCurrentUser", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static partial int IsPathOwnedByCurrentUser(string path);
 
-		[LibraryImport("shlwapi.dll", EntryPoint = "#626")]
+		[LibraryImport("shlwapi.dll", EntryPoint = "#626", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static unsafe partial HRESULT SHCreatePropertyBagOnCachedProfileSectionRaw(nint cachedProfile, char* section, uint mode, Guid* interfaceId, nint* propertyBag);
+		internal static partial HRESULT SHCreatePropertyBagOnCachedProfileSection([MarshalUsing(typeof(ComInterfaceMarshaller<ICachedPrivateProfile>))] ICachedPrivateProfile cachedProfile,
+			string section, uint mode, in Guid interfaceId, [MarshalUsing(typeof(UniqueComInterfaceMarshaller<IPropertyBag>))] out IPropertyBag propertyBag);
 
 		[LibraryImport("shlwapi.dll", EntryPoint = "SHGetViewStatePropertyBag", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static unsafe partial HRESULT SHGetViewStatePropertyBagRaw(ITEMIDLIST* pidl, string bagName, uint flags, Guid* interfaceId, nint* propertyBag);
-
-		[LibraryImport("propsys.dll", EntryPoint = "PSPropertyBag_Delete", StringMarshalling = StringMarshalling.Utf16)]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static partial HRESULT PSPropertyBagDeleteRaw(nint propertyBag, string propertyName);
-
-		[LibraryImport("propsys.dll", EntryPoint = "PSPropertyBag_ReadStr", StringMarshalling = StringMarshalling.Utf16)]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static unsafe partial HRESULT PSPropertyBagReadStringRaw(nint propertyBag, string propertyName, char* value, uint valueLength);
-
-		[LibraryImport("propsys.dll", EntryPoint = "PSPropertyBag_WriteStr", StringMarshalling = StringMarshalling.Utf16)]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static partial HRESULT PSPropertyBagWriteStringRaw(nint propertyBag, string propertyName, string value);
-
-		[LibraryImport("windows.storage.dll", EntryPoint = "SHGetAssocKeysForIDList")]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static unsafe partial uint SHGetAssocKeysForIDListRaw(ITEMIDLIST* pidl, HKEY* keys, uint capacity);
+		internal static unsafe partial HRESULT SHGetViewStatePropertyBag(ITEMIDLIST* pidl, string bagName, uint flags, in Guid interfaceId,
+			[MarshalUsing(typeof(UniqueComInterfaceMarshaller<IPropertyBag>))] out IPropertyBag propertyBag);
 
 		[LibraryImport("ext-ms-win-storage-sense-l1-1-0.dll", EntryPoint = "GetStorageInstanceCount")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
@@ -95,17 +46,6 @@ namespace Windows.Win32
 		[LibraryImport("ext-ms-win-storage-sense-l1-1-0.dll", EntryPoint = "GetStorageDeviceInfo")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static unsafe partial HRESULT GetStorageDeviceInfo(uint category, uint index, void* information);
-
-		/// <summary>Creates a stream for a file using the raw ABI signature.</summary>
-		/// <param name="fileName">The file path.</param>
-		/// <param name="mode">The desired access mode.</param>
-		/// <param name="attributes">The file attributes.</param>
-		/// <param name="create">Whether to create the file when it does not exist.</param>
-		/// <param name="templateStream">The optional template stream.</param>
-		/// <param name="stream">Receives the created stream pointer.</param>
-		/// <returns>The HRESULT returned by the Shell.</returns>
-		[LibraryImport("shlwapi.dll", EntryPoint = "SHCreateStreamOnFileEx", StringMarshalling = StringMarshalling.Utf16)]
-		public static partial int SHCreateStreamOnFileExRaw(string fileName, uint mode, uint attributes, [MarshalAs(UnmanagedType.Bool)] bool create, nint templateStream, out nint stream);
 
 		/// <summary>Sets a window long value using the pointer-sized Windows API.</summary>
 		/// <param name="hWnd">The target window handle.</param>

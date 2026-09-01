@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
+using Files.Core.Interop.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.Com;
+using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
 
@@ -17,7 +19,6 @@ public static unsafe class WindowsShellSecurityService
 {
 	private const uint PermissionsPage = 0;
 	private const uint AdvancedPermissionsPage = 1;
-	private static readonly Guid _interfaceId = new("74807F67-0058-440D-8600-65541A7FBBEA");
 
 	/// <summary>
 	/// Determines whether editing an object's DACL requires elevation for the current token.
@@ -71,47 +72,33 @@ public static unsafe class WindowsShellSecurityService
 		return !handle.IsInvalid;
 	}
 
-	private static void** GetVtable(void* instance)
-	{
-		return *(void***)instance;
-	}
-
-	private static void Release(void* instance)
-	{
-		if (instance is not null)
-		{
-			((delegate* unmanaged[Stdcall]<void*, uint>)GetVtable(instance)[2])(instance);
-		}
-	}
-
 	private static HRESULT ShowEditor(HWND owner, string path, uint page, bool elevate)
 	{
-		void* editor = null;
 		var classId = CLSID.CLSID_NTFSSecurityExt;
-		var interfaceId = _interfaceId;
-		var result = elevate
-			? WindowsElevationMoniker.Create(owner, classId, interfaceId, &editor)
-			: (HRESULT)PInvoke.CoCreateInstanceRaw(&classId, nint.Zero, (uint)CLSCTX.CLSCTX_INPROC_SERVER, &interfaceId, (nint*)&editor);
+		IElevatedNtfsSecurity? editor;
+		var result = elevate ? WindowsElevationMoniker.Create(owner, classId, out editor) : ComActivationNativeMethods.CoCreateInstance(classId, CLSCTX.CLSCTX_INPROC_SERVER, out editor);
 		if (result.Failed || editor is null)
 		{
-			Release(editor);
+			ReleaseComObject(editor);
 
 			return result.Failed ? result : HRESULT.E_FAIL;
 		}
 
-		var resourceName = Marshal.StringToBSTR(path);
-		var objectName = Marshal.StringToBSTR(path);
 		try
 		{
-			var openEditor = (delegate* unmanaged[Stdcall]<void*, nint, nint, nint, int, uint, HRESULT>)GetVtable(editor)[3];
-
-			return openEditor(editor, (nint)owner.Value, resourceName, objectName, Directory.Exists(path) ? 1 : 0, page);
+			return editor.OpenEditor(owner, path, path, Directory.Exists(path) ? 1u : 0u, page);
 		}
 		finally
 		{
-			Marshal.FreeBSTR(resourceName);
-			Marshal.FreeBSTR(objectName);
-			Release(editor);
+			ReleaseComObject(editor);
+		}
+	}
+
+	private static void ReleaseComObject(object? instance)
+	{
+		if (instance is ComObject comObject)
+		{
+			comObject.FinalRelease();
 		}
 	}
 }

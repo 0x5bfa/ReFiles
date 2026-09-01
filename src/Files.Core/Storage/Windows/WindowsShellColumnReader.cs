@@ -331,41 +331,59 @@ internal static unsafe class WindowsShellColumnReader
 		}
 
 		var interfaceId = typeof(IPropertyDescriptionList).GUID;
-		var result = PInvoke.PSGetPropertyDescriptionListFromString(columnList, in interfaceId, out void* descriptionsPointer);
-		if (result.Failed || descriptionsPointer is null)
+		var result = PInvoke.PSGetPropertyDescriptionListFromString(columnList, in interfaceId, out IPropertyDescriptionList descriptions);
+		if (result.Failed || descriptions is null)
 		{
-			if (descriptionsPointer is not null)
-			{
-				ComInterfaceMarshaller<IPropertyDescriptionList>.Free(descriptionsPointer);
-			}
+			ReleaseComObject(descriptions);
 
 			return widths;
 		}
 
 		try
 		{
-			var descriptions = ComInterfaceMarshaller<IPropertyDescriptionList>.ConvertToManaged(descriptionsPointer);
-			if (descriptions is null || descriptions.GetCount(out var count).Failed || count > MaximumColumnCount)
+			if (descriptions.GetCount(out var count).Failed || count > MaximumColumnCount)
 			{
 				return widths;
 			}
 
 			for (var index = 0u; index < count; index++)
 			{
-				if (descriptions.GetAt<IPropertyDescription>(index, out var description).Failed || description is null || description.GetPropertyKey(out var propertyKey).Failed
-					|| description.GetDefaultColumnWidth(out var widthCharacters).Failed || widthCharacters is 0 or >= 4096)
+				var itemResult = descriptions.GetAt<IPropertyDescription>(index, out var description);
+				if (itemResult.Failed || description is null)
 				{
+					ReleaseComObject(description);
+
 					continue;
 				}
 
-				widths[GetPropertyId(propertyKey)] = checked((int)widthCharacters);
+				try
+				{
+					if (description.GetPropertyKey(out var propertyKey).Failed || description.GetDefaultColumnWidth(out var widthCharacters).Failed || widthCharacters is 0 or >= 4096)
+					{
+						continue;
+					}
+
+					widths[GetPropertyId(propertyKey)] = checked((int)widthCharacters);
+				}
+				finally
+				{
+					ReleaseComObject(description);
+				}
 			}
 
 			return widths;
 		}
 		finally
 		{
-			ComInterfaceMarshaller<IPropertyDescriptionList>.Free(descriptionsPointer);
+			ReleaseComObject(descriptions);
+		}
+	}
+
+	private static void ReleaseComObject(object? instance)
+	{
+		if (instance is ComObject comObject)
+		{
+			comObject.FinalRelease();
 		}
 	}
 

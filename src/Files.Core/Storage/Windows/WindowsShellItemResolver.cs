@@ -181,11 +181,9 @@ internal sealed unsafe class WindowsShellItemResolver
 
 		fixed (byte* pidlBytes = absolutePidl.Span)
 		{
-			var interfaceId = typeof(IShellItem).GUID;
-			void* itemPointer = null;
-			var result = PInvoke.SHCreateItemFromIDList((ITEMIDLIST*)pidlBytes, &interfaceId, out object itemObject);
-
-			if (result.Failed || itemObject is not IShellItem shellItem)
+			ref readonly var pidl = ref *(ITEMIDLIST*)pidlBytes;
+			var result = PInvoke.SHCreateItemFromIDList<IShellItem>(in pidl, out var shellItem);
+			if (result.Failed || shellItem is null)
 			{
 				return null;
 			}

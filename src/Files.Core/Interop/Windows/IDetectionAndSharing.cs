@@ -26,7 +26,7 @@ public partial interface IDetectionAndSharing
 	/// <param name="value">The feature-specific value.</param>
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
-	int TurnOn(nint hwnd, DTSH_TYPE type, int value);
+	int TurnOn(HWND hwnd, DTSH_TYPE type, int value);
 
 	/// <summary>Gets the current Windows Firewall profile.</summary>
 	/// <param name="profile">Receives the profile value.</param>
@@ -50,7 +50,7 @@ public partial interface IDetectionAndSharing
 	/// <param name="value">The feature-specific value.</param>
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
-	int TurnOnForProfile(nint hwnd, /*NetFwProfileType2*/ int profile, DTSH_TYPE type, int value);
+	int TurnOnForProfile(HWND hwnd, /*NetFwProfileType2*/ int profile, DTSH_TYPE type, int value);
 }
 
 	/// <summary>Identifies a network discovery or file-sharing feature.</summary>

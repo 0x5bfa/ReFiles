@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
+using Files.Core.Interop.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.NetworkManagement.NetManagement;
@@ -23,17 +24,11 @@ public static unsafe class WindowsShellSharingService
 	private const uint DriveCdRom = 5;
 	private const uint ErrorMoreData = 234;
 	private const uint MaximumPreferredLength = uint.MaxValue;
-	private const uint OsDomainMember = 28;
 	private const string NetworkAndSharingCenterCanonicalName = "Microsoft.NetworkAndSharingCenter";
 	private const string NetworkAndSharingCenterPage = "Advanced";
-	private const string NetworkSharingLibrary = "ntshrui.dll";
-	private const string ShellLightweightUtilityLibrary = "shlwapi.dll";
 	private static readonly Guid _multiObjectElevationFactoryClassId = new("36F0BD14-D84D-468C-B79C-9990F3FA897F");
-	private static readonly Guid _multiObjectElevationFactoryInterfaceId = new("6FABDA16-031E-47E3-B2A2-2339C05CCB9E");
 	private static readonly Guid _openControlPanelClassId = new("06622D85-6856-4460-8DE1-A81921B41C4B");
-	private static readonly Guid _openControlPanelInterfaceId = new("D11AD862-66DE-4DF4-BF6C-1F5621996AF1");
 	private static readonly Guid _sharingConfigurationManagerClassId = new("49F371E1-8C5C-4D9C-9A3B-54A6827F513C");
-	private static readonly Guid _sharingConfigurationManagerInterfaceId = new("14AA4AB8-ABE3-4A07-A290-1D5DCCDD2FC2");
 	private static readonly Guid _sharingElevatedFactoryClassId = new("72A7994A-3092-4054-B6BE-08FF81AEEFFC");
 
 	/// <summary>
@@ -46,21 +41,17 @@ public static unsafe class WindowsShellSharingService
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-		if (!TryLoadExport(NetworkSharingLibrary, "ShowShareFolderUI", out var module, out var export))
+		try
+		{
+			return PInvoke.ShowShareFolderUI(owner, path);
+		}
+		catch (DllNotFoundException)
 		{
 			return HRESULT.E_FAIL;
 		}
-
-		try
+		catch (EntryPointNotFoundException)
 		{
-			fixed (char* pathPointer = path)
-			{
-				return ((delegate* unmanaged[Stdcall]<void*, char*, HRESULT>)export)(owner.Value, pathPointer);
-			}
-		}
-		finally
-		{
-			NativeLibrary.Free(module);
+			return HRESULT.E_FAIL;
 		}
 	}
 
@@ -74,48 +65,36 @@ public static unsafe class WindowsShellSharingService
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-		void* elevationFactory = null;
-		void* sharingManager = null;
-		var factoryClassId = _multiObjectElevationFactoryClassId;
-		var factoryInterfaceId = _multiObjectElevationFactoryInterfaceId;
-		var result = (HRESULT)PInvoke.CoCreateInstanceRaw(&factoryClassId, nint.Zero, (uint)CLSCTX.CLSCTX_INPROC_SERVER, &factoryInterfaceId, (nint*)&elevationFactory);
+		var result = ComActivationNativeMethods.CoCreateInstance(_multiObjectElevationFactoryClassId, CLSCTX.CLSCTX_INPROC_SERVER, out IMultiObjectElevationFactory? elevationFactory);
 		if (result.Failed || elevationFactory is null)
 		{
-			Release(elevationFactory);
+			ReleaseComObject(elevationFactory);
 
 			return result.Failed ? result : HRESULT.E_FAIL;
 		}
 
+		ISharingConfigurationUI? sharingManager = null;
 		try
 		{
-			var sharingElevatedFactoryClassId = _sharingElevatedFactoryClassId;
-			var prepareElevation = (delegate* unmanaged[Stdcall]<void*, void*, Guid*, HRESULT>)GetVtable(elevationFactory)[3];
-			result = prepareElevation(elevationFactory, owner.Value, &sharingElevatedFactoryClassId);
+			result = elevationFactory.Initialize(owner, in _sharingElevatedFactoryClassId);
 			if (result.Failed)
 			{
 				return result;
 			}
 
-			var sharingManagerClassId = _sharingConfigurationManagerClassId;
-			var sharingManagerInterfaceId = _sharingConfigurationManagerInterfaceId;
-			var createElevatedInstance = (delegate* unmanaged[Stdcall]<void*, Guid*, Guid*, void**, HRESULT>)GetVtable(elevationFactory)[5];
-			result = createElevatedInstance(elevationFactory, &sharingManagerClassId, &sharingManagerInterfaceId, &sharingManager);
+			var sharingManagerInterfaceId = typeof(ISharingConfigurationUI).GUID;
+			result = elevationFactory.CreateElevatedObject(in _sharingConfigurationManagerClassId, in sharingManagerInterfaceId, out sharingManager);
 			if (result.Failed || sharingManager is null)
 			{
 				return result.Failed ? result : HRESULT.E_FAIL;
 			}
 
-			fixed (char* pathPointer = path)
-			{
-				var showAdvancedSharing = (delegate* unmanaged[Stdcall]<void*, void*, char*, HRESULT>)GetVtable(sharingManager)[10];
-
-				return showAdvancedSharing(sharingManager, owner.Value, pathPointer);
-			}
+			return sharingManager.ShowAdvancedSharingConfigDialog(owner, path);
 		}
 		finally
 		{
-			Release(sharingManager);
-			Release(elevationFactory);
+			ReleaseComObject(sharingManager);
+			ReleaseComObject(elevationFactory);
 		}
 	}
 
@@ -125,30 +104,21 @@ public static unsafe class WindowsShellSharingService
 	/// <returns>The result returned by the Windows Control Panel host.</returns>
 	public static HRESULT OpenNetworkAndSharingCenter()
 	{
-		void* controlPanel = null;
-		var classId = _openControlPanelClassId;
-		var interfaceId = _openControlPanelInterfaceId;
-		var result = (HRESULT)PInvoke.CoCreateInstanceRaw(&classId, nint.Zero, (uint)CLSCTX.CLSCTX_ALL, &interfaceId, (nint*)&controlPanel);
+		var result = ComActivationNativeMethods.CoCreateInstance(_openControlPanelClassId, CLSCTX.CLSCTX_ALL, out IOpenControlPanel? controlPanel);
 		if (result.Failed || controlPanel is null)
 		{
-			Release(controlPanel);
+			ReleaseComObject(controlPanel);
 
 			return result.Failed ? result : HRESULT.E_FAIL;
 		}
 
 		try
 		{
-			fixed (char* namePointer = NetworkAndSharingCenterCanonicalName)
-			fixed (char* pagePointer = NetworkAndSharingCenterPage)
-			{
-				var open = (delegate* unmanaged[Stdcall]<void*, char*, char*, void*, HRESULT>)GetVtable(controlPanel)[3];
-
-				return open(controlPanel, namePointer, pagePointer, null);
-			}
+			return controlPanel.Open(NetworkAndSharingCenterCanonicalName, NetworkAndSharingCenterPage, null);
 		}
 		finally
 		{
-			Release(controlPanel);
+			ReleaseComObject(controlPanel);
 		}
 	}
 
@@ -202,21 +172,17 @@ public static unsafe class WindowsShellSharingService
 
 	private static bool CanShareFolder(string path)
 	{
-		if (!TryLoadExport(NetworkSharingLibrary, "CanShareFolder", out var module, out var export))
+		try
+		{
+			return PInvoke.CanShareFolder(path) == HRESULT.S_OK;
+		}
+		catch (DllNotFoundException)
 		{
 			return false;
 		}
-
-		try
+		catch (EntryPointNotFoundException)
 		{
-			fixed (char* pathPointer = path)
-			{
-				return ((delegate* unmanaged[Stdcall]<char*, HRESULT>)export)(pathPointer) == HRESULT.S_OK;
-			}
-		}
-		finally
-		{
-			NativeLibrary.Free(module);
+			return false;
 		}
 	}
 
@@ -236,11 +202,6 @@ public static unsafe class WindowsShellSharingService
 		return string.IsNullOrWhiteSpace(displayName) ? path : displayName;
 	}
 
-	private static void** GetVtable(void* instance)
-	{
-		return *(void***)instance;
-	}
-
 	private static bool IsDiskShare(SHARE_TYPE type)
 	{
 		return (type & ~SHARE_TYPE.STYPE_TEMPORARY) is SHARE_TYPE.STYPE_DISKTREE;
@@ -248,18 +209,17 @@ public static unsafe class WindowsShellSharingService
 
 	private static bool IsDomainMember()
 	{
-		if (!TryLoadExport(ShellLightweightUtilityLibrary, "IsOS", out var module, out var export))
+		try
+		{
+			return PInvoke.IsOS(OS.OS_DOMAINMEMBER);
+		}
+		catch (DllNotFoundException)
 		{
 			return false;
 		}
-
-		try
+		catch (EntryPointNotFoundException)
 		{
-			return ((delegate* unmanaged[Stdcall]<uint, BOOL>)export)(OsDomainMember);
-		}
-		finally
-		{
-			NativeLibrary.Free(module);
+			return false;
 		}
 	}
 
@@ -361,34 +321,12 @@ public static unsafe class WindowsShellSharingService
 		return shares;
 	}
 
-	private static void Release(void* instance)
+	private static void ReleaseComObject(object? instance)
 	{
-		if (instance is null)
+		if (instance is ComObject comObject)
 		{
-			return;
+			comObject.FinalRelease();
 		}
-
-		var release = (delegate* unmanaged[Stdcall]<void*, uint>)GetVtable(instance)[2];
-		release(instance);
-	}
-
-	private static bool TryLoadExport(string library, string name, out nint module, out nint export)
-	{
-		export = 0;
-		if (!NativeLibrary.TryLoad(library, typeof(WindowsShellSharingService).Assembly, DllImportSearchPath.System32, out module))
-		{
-			return false;
-		}
-
-		if (NativeLibrary.TryGetExport(module, name, out export))
-		{
-			return true;
-		}
-
-		NativeLibrary.Free(module);
-		module = 0;
-
-		return false;
 	}
 
 	private readonly record struct LocalShare(string Name, string Path);

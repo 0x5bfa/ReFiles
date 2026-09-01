@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Controls;
@@ -28,7 +29,6 @@ public static unsafe class WindowsVolumeLabelService
 	private const ushort ContinueResourceId = 50177;
 	private const ushort ShieldIconResourceId = 65534;
 	private static readonly Guid _mountPointRenameClassId = new("60173D16-A550-47F0-A14B-C6F9E4DA0831");
-	private static readonly Guid _mountPointRenameInterfaceId = new("92F8D886-AB61-4113-BD4F-2E894397386F");
 
 	/// <summary>
 	/// Gets the localized Shell display name for a drive root.
@@ -103,6 +103,14 @@ public static unsafe class WindowsVolumeLabelService
 		}
 	}
 
+	private static void ReleaseComObject(object? instance)
+	{
+		if (instance is ComObject comObject)
+		{
+			comObject.FinalRelease();
+		}
+	}
+
 	private static PCWSTR ResourcePointer(ushort resourceId)
 	{
 		return new PCWSTR((char*)resourceId);
@@ -110,10 +118,12 @@ public static unsafe class WindowsVolumeLabelService
 
 	private static void SetLabelElevated(HWND owner, string root, string label)
 	{
-		void* instance = null;
-		var classId = _mountPointRenameClassId;
-		var interfaceId = _mountPointRenameInterfaceId;
-		var result = WindowsElevationMoniker.Create(owner, classId, interfaceId, &instance);
+		var result = WindowsElevationMoniker.Create<IMountPointRename>(owner, _mountPointRenameClassId, out var instance);
+		if (result.Failed)
+		{
+			ReleaseComObject(instance);
+		}
+
 		ThrowOnFailureOrCancellation(result);
 		if (instance is null)
 		{
@@ -122,17 +132,12 @@ public static unsafe class WindowsVolumeLabelService
 
 		try
 		{
-			fixed (char* rootPointer = root)
-			fixed (char* labelPointer = label)
-			{
-				var rename = (delegate* unmanaged[Stdcall]<void*, PCWSTR, PCWSTR, HRESULT>)(*(void***)instance)[3];
-				result = rename(instance, new PCWSTR(rootPointer), new PCWSTR(labelPointer));
-				ThrowOnFailureOrCancellation(result);
-			}
+			result = instance.Rename(root, label);
+			ThrowOnFailureOrCancellation(result);
 		}
 		finally
 		{
-			((delegate* unmanaged[Stdcall]<void*, uint>)(*(void***)instance)[2])(instance);
+			ReleaseComObject(instance);
 		}
 	}
 

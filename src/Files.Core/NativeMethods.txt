@@ -449,7 +449,9 @@ IPropertyStore
 IPropertyDescription
 IPropertyDescriptionList
 PSGetPropertyDescription
-PSGetPropertyDescriptionListFromString
+PSPropertyBag_Delete
+PSPropertyBag_ReadStr
+PSPropertyBag_WriteStr
 PKEY_PropList_FullDetails
 PKEY_ThumbnailCacheId
 FOLDERTYPEID_Generic
@@ -463,6 +465,7 @@ NetUserEnum
 USER_INFO_23
 IsWellKnownSid
 LogonUser
+IsOS
 MessageBox
 IDsObjectPicker
 CLSID_DsObjectPicker

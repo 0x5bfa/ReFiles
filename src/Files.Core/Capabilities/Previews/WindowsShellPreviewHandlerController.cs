@@ -1,12 +1,18 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Runtime.Versioning;
+using Files.Core.Interop.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
+using Windows.Win32.System.Ole;
 using Windows.Win32.UI.Shell;
+using Windows.Win32.UI.Shell.PropertiesSystem;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -52,101 +58,71 @@ public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPrevie
 }
 
 [SupportedOSPlatform("windows6.0.6000")]
-internal sealed unsafe class WindowsShellPreviewHandlerController
-    : IWindowsPreviewHandlerController
+internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPreviewHandlerController
 {
-	private const uint StorageModeRead = 0;
-	private const int PreviewHandlerVisualsSetBackgroundColorSlot = 3;
-	private const int PreviewHandlerVisualsSetTextColorSlot = 5;
-
-	private static readonly Guid _iObjectWithSiteId =
-		new("00000118-0000-0000-C000-000000000046");
-	private static readonly Guid _iInitializeWithStreamId =
-		new("B824B49D-22AC-4161-AC8A-9916E5FA3A8");
-	private static readonly Guid _iInitializeWithItemId =
-		new("7F73BE3F-FB79-493C-A6C7-7EE14E245841");
-	private static readonly Guid _iInitializeWithFileId =
-		new("B7D14566-0509-4CCE-A71F-0A554233BD9B");
-	private static readonly Guid _iPreviewHandlerVisualsId =
-		new("196BF9A5-B346-4EF0-AA1E-5DCDB76768B8");
-
-	private void* _handler;
-	private void* _initializedStream;
-	private void* _initializedItem;
-	private void* _previewHandlerFrame;
+	private IPreviewHandler? _handler;
+	private IStream? _initializedStream;
+	private IShellItem? _initializedItem;
+	private WindowsPreviewHandlerFrame? _previewHandlerFrame;
 	private bool _didPreview;
 	private bool _didUnload;
 	private bool _isDisposed;
 
-	private WindowsShellPreviewHandlerController(void* handler)
+	private WindowsShellPreviewHandlerController(IPreviewHandler handler)
 	{
 		_handler = handler;
 	}
 
+	/// <summary>Creates a controller for an activated preview handler.</summary>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	/// <param name="activationContext">The COM activation context.</param>
+	/// <returns>The created controller.</returns>
 	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext)
 	{
-		void* handler = null;
-		var interfaceId = typeof(IPreviewHandler).GUID;
-		nint handlerHandle = 0;
-		HRESULT result;
-		Guid* classIdPointer = &handlerClsid;
-		Guid* interfaceIdPointer = &interfaceId;
-		result = (HRESULT)PInvoke.CoCreateInstanceRaw(classIdPointer, nint.Zero, activationContext, interfaceIdPointer, &handlerHandle);
-		handler = (void*)handlerHandle;
-
+		var result = ComActivationNativeMethods.CoCreateInstance<IPreviewHandler>(handlerClsid, (CLSCTX)activationContext, out var handler);
 		if (result.Failed || handler is null)
 		{
-			Release(handler);
+			ReleaseComObject(handler);
 			throw new COMException("The Windows preview handler could not be activated.", result.Value);
 		}
 
 		return new WindowsShellPreviewHandlerController(handler);
 	}
 
+	/// <inheritdoc />
 	public void SetSite()
 	{
 		EnsureActive();
-		if (!TryQuery(_iObjectWithSiteId, out var siteInterface))
+		if (!TryQueryInterface(_handler, out IObjectWithSite? siteInterface))
 		{
 			return;
 		}
 
-		var frame = WindowsPreviewHandlerFrame.Create();
-		try
-		{
-			CallSetSite(siteInterface, (void*)frame).ThrowOnFailure();
-			_previewHandlerFrame = (void*)frame;
-		}
-		catch
-		{
-			Release((void*)frame);
-			throw;
-		}
-		finally
-		{
-			Release(siteInterface);
-		}
+		var frame = new WindowsPreviewHandlerFrame();
+		siteInterface.SetSite(frame).ThrowOnFailure();
+		_previewHandlerFrame = frame;
 	}
 
+	/// <inheritdoc />
 	public bool TryInitializeWithStream(string fileSystemPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(fileSystemPath);
 
 		EnsureActive();
 
-		if (!TryQuery(_iInitializeWithStreamId, out var initializer))
+		if (!TryQueryInterface(_handler, out IInitializeWithStream? initializer))
 		{
 			return false;
 		}
 
-		void* stream = null;
+		IStream? stream = null;
 		try
 		{
-			var openResult = (HRESULT)PInvoke.SHCreateStreamOnFileExRaw(fileSystemPath, 0x00000040, 0, false, nint.Zero, out var streamHandle);
-			stream = (void*)streamHandle;
+			var openResult = PreviewHandlerNativeMethods.SHCreatePreviewStream(fileSystemPath, (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE), out var createdStream);
+			stream = createdStream;
 			openResult.ThrowOnFailure();
 
-			var initializeResult = CallInitializeWithStream(initializer, stream, 0);
+			var initializeResult = initializer.Initialize(stream, (uint)STGM.STGM_READ);
 			if (IsOptionalInitializationFailure(initializeResult))
 			{
 				return false;
@@ -160,37 +136,30 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		}
 		finally
 		{
-			Release(initializer);
-			Release(stream);
+			ReleaseComObject(stream);
 		}
 	}
 
+	/// <inheritdoc />
 	public bool TryInitializeWithItem(string parsingName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
 		EnsureActive();
 
-		if (!TryQuery(_iInitializeWithItemId, out var initializer))
+		if (!TryQueryInterface(_handler, out IInitializeWithItem? initializer))
 		{
 			return false;
 		}
 
-		void* item = null;
+		IShellItem? item = null;
 		try
 		{
-			var interfaceId = typeof(IShellItem).GUID;
-			nint itemHandle = 0;
-			HRESULT createResult;
-			fixed (char* parsingNamePointer = parsingName)
-			{
-				Guid* interfaceIdPointer = &interfaceId;
-				createResult = (HRESULT)PInvoke.SHCreateItemFromParsingNameRaw(parsingNamePointer, nint.Zero, interfaceIdPointer, &itemHandle);
-			}
-			item = (void*)itemHandle;
+			var createResult = PreviewHandlerNativeMethods.SHCreatePreviewItem(parsingName, out var createdItem);
+			item = createdItem;
 			createResult.ThrowOnFailure();
 
-			var initializeResult = CallInitializeWithItem(initializer, item, 0);
+			var initializeResult = initializer.Initialize(item, (uint)STGM.STGM_READ);
 			if (IsOptionalInitializationFailure(initializeResult))
 			{
 				return false;
@@ -204,76 +173,66 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		}
 		finally
 		{
-			Release(initializer);
-			Release(item);
+			ReleaseComObject(item);
 		}
 	}
 
+	/// <inheritdoc />
 	public bool TryInitializeWithFile(string fileSystemPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(fileSystemPath);
 
 		EnsureActive();
 
-		if (!TryQuery(_iInitializeWithFileId, out var initializer))
+		if (!TryQueryInterface(_handler, out IInitializeWithFile? initializer))
 		{
 			return false;
 		}
 
-		try
+		fixed (char* path = fileSystemPath)
 		{
-			fixed (char* path = fileSystemPath)
+			var initializeResult = initializer.Initialize(path, (uint)STGM.STGM_READ);
+			if (IsOptionalInitializationFailure(initializeResult))
 			{
-				var initializeResult = CallInitializeWithFile(initializer, path, StorageModeRead);
-				if (IsOptionalInitializationFailure(initializeResult))
-				{
-					return false;
-				}
-
-				initializeResult.ThrowOnFailure();
-
-				return true;
+				return false;
 			}
-		}
-		finally
-		{
-			Release(initializer);
+
+			initializeResult.ThrowOnFailure();
+
+			return true;
 		}
 	}
 
+	/// <inheritdoc />
 	public void SetWindow(nint windowHandle, WindowsPreviewBounds bounds)
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		CallSetWindow(_handler, (HWND)windowHandle, in rectangle).ThrowOnFailure();
+		_handler.SetWindow((HWND)windowHandle, &rectangle).ThrowOnFailure();
 	}
 
+	/// <inheritdoc />
 	public void SetBounds(WindowsPreviewBounds bounds)
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		CallSetRect(_handler, in rectangle).ThrowOnFailure();
+		_handler.SetRect(&rectangle).ThrowOnFailure();
 	}
 
+	/// <inheritdoc />
 	public void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground)
 	{
 		EnsureActive();
-		if (!TryQuery(_iPreviewHandlerVisualsId, out var visuals))
+		if (!TryQueryInterface(_handler, out IPreviewHandlerVisuals? visuals))
 		{
 			return;
 		}
 
-		try
-		{
-			CallSetColor(visuals, PreviewHandlerVisualsSetBackgroundColorSlot, ToColorRef(background)).ThrowOnFailure();
-			CallSetColor(visuals, PreviewHandlerVisualsSetTextColorSlot, ToColorRef(foreground)).ThrowOnFailure();
-		}
-		finally
-		{
-			Release(visuals);
-		}
+		visuals.SetBackgroundColor((COLORREF)ToColorRef(background)).ThrowOnFailure();
+		visuals.SetTextColor((COLORREF)ToColorRef(foreground)).ThrowOnFailure();
 	}
 
+	/// <inheritdoc />
 	public void DoPreview()
 	{
 		EnsureActive();
@@ -282,23 +241,28 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 			throw new InvalidOperationException("DoPreview can only be called once for a session.");
 		}
 
-		CallDoPreview(_handler).ThrowOnFailure();
+		_handler.DoPreview().ThrowOnFailure();
 		_didPreview = true;
 	}
 
+	/// <inheritdoc />
 	public void SetFocus()
 	{
 		EnsureActive();
-		CallSetFocus(_handler).ThrowOnFailure();
+		_handler.SetFocus().ThrowOnFailure();
 	}
 
+	/// <inheritdoc />
 	public nint QueryFocus()
 	{
 		EnsureActive();
+		HWND focus;
+		_handler.QueryFocus(&focus).ThrowOnFailure();
 
-		return CallQueryFocus(_handler);
+		return focus;
 	}
 
+	/// <inheritdoc />
 	public bool TryTranslateAccelerator(nint messagePointer)
 	{
 		if (messagePointer == 0)
@@ -307,7 +271,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		}
 
 		EnsureActive();
-		var result = CallTranslateAccelerator(_handler, (void*)messagePointer);
+		var result = _handler.TranslateAccelerator((MSG*)messagePointer);
 		if (result == HRESULT.S_FALSE)
 		{
 			return false;
@@ -318,6 +282,7 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		return true;
 	}
 
+	/// <inheritdoc />
 	public void Dispose()
 	{
 		if (_isDisposed)
@@ -327,21 +292,22 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 
 		_isDisposed = true;
 		var errors = new List<Exception>();
+		var handler = _handler;
 
-		if (_handler is not null)
+		if (handler is not null)
 		{
 			if (!_didUnload)
 			{
-				TryCleanup(() => CallUnload(_handler).ThrowOnFailure(), errors);
+				TryCleanup(() => handler.Unload().ThrowOnFailure(), errors);
 				_didUnload = true;
 			}
 
 			TryCleanup(SetSiteForCleanup, errors);
-			Release(_initializedStream);
+			ReleaseComObject(_initializedStream);
 			_initializedStream = null;
-			Release(_initializedItem);
+			ReleaseComObject(_initializedItem);
 			_initializedItem = null;
-			Release(_handler);
+			ReleaseComObject(handler);
 			_handler = null;
 		}
 
@@ -358,37 +324,20 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 
 	private void SetSiteForCleanup()
 	{
-		void* siteInterface = null;
 		try
 		{
-			if (TryQuery(_iObjectWithSiteId, out siteInterface))
+			if (TryQueryInterface(_handler!, out IObjectWithSite? siteInterface))
 			{
-				CallSetSite(siteInterface, null).ThrowOnFailure();
+				siteInterface.SetSite(null!).ThrowOnFailure();
 			}
 		}
 		finally
 		{
-			Release(siteInterface);
-			Release(_previewHandlerFrame);
 			_previewHandlerFrame = null;
 		}
 	}
 
-	private bool TryQuery(Guid interfaceId, out void* interfacePointer)
-	{
-		var result = CallQueryInterface(_handler, interfaceId, out interfacePointer);
-		if (result == HRESULT.E_NOINTERFACE)
-		{
-			interfacePointer = null;
-
-			return false;
-		}
-
-		result.ThrowOnFailure();
-
-		return true;
-	}
-
+	[MemberNotNull(nameof(_handler))]
 	private void EnsureActive()
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -432,127 +381,27 @@ internal sealed unsafe class WindowsShellPreviewHandlerController
 		}
 	}
 
-	private static void Release(void* pointer)
+	private static bool TryQueryInterface<T>(object instance, [NotNullWhen(true)] out T? result) where T : class
 	{
-		if (pointer is null)
+		try
 		{
-			return;
+			result = (T)instance;
+
+			return true;
 		}
+		catch (InvalidCastException exception) when (exception.HResult == HRESULT.E_NOINTERFACE.Value)
+		{
+			result = null;
 
-		var vtable = *(void***)pointer;
-		var release = (delegate* unmanaged[Stdcall]<void*, uint>)vtable[2];
-		_ = release(pointer);
+			return false;
+		}
 	}
 
-	private static HRESULT CallSetSite(void* pointer, void* site)
+	private static void ReleaseComObject(object? value)
 	{
-		var vtable = *(void***)pointer;
-		var setSite = (delegate* unmanaged[Stdcall]<void*, void*, HRESULT>)vtable[3];
-
-		return setSite(pointer, site);
-	}
-
-	private static HRESULT CallQueryInterface(void* pointer, Guid interfaceId, out void* resultPointer)
-	{
-		var vtable = *(void***)pointer;
-		var queryInterface = (delegate* unmanaged[Stdcall]<void*, Guid*, void**, HRESULT>)vtable[0];
-		void* queriedPointer = null;
-		var result = queryInterface(pointer, &interfaceId, &queriedPointer);
-		resultPointer = queriedPointer;
-
-		return result;
-	}
-
-	private static HRESULT CallSetWindow(void* pointer, HWND windowHandle, in RECT rectangle)
-	{
-		var vtable = *(void***)pointer;
-		var setWindow = (delegate* unmanaged[Stdcall]<void*, HWND, RECT*, HRESULT>)vtable[3];
-		var rectangleCopy = rectangle;
-
-		return setWindow(pointer, windowHandle, &rectangleCopy);
-	}
-
-	private static HRESULT CallSetRect(void* pointer, in RECT rectangle)
-	{
-		var vtable = *(void***)pointer;
-		var setRect = (delegate* unmanaged[Stdcall]<void*, RECT*, HRESULT>)vtable[4];
-		var rectangleCopy = rectangle;
-
-		return setRect(pointer, &rectangleCopy);
-	}
-
-	private static HRESULT CallDoPreview(void* pointer)
-	{
-		var vtable = *(void***)pointer;
-		var doPreview = (delegate* unmanaged[Stdcall]<void*, HRESULT>)vtable[5];
-
-		return doPreview(pointer);
-	}
-
-	private static HRESULT CallUnload(void* pointer)
-	{
-		var vtable = *(void***)pointer;
-		var unload = (delegate* unmanaged[Stdcall]<void*, HRESULT>)vtable[6];
-
-		return unload(pointer);
-	}
-
-	private static HRESULT CallSetFocus(void* pointer)
-	{
-		var vtable = *(void***)pointer;
-		var setFocus = (delegate* unmanaged[Stdcall]<void*, HRESULT>)vtable[7];
-
-		return setFocus(pointer);
-	}
-
-	private static nint CallQueryFocus(void* pointer)
-	{
-		var vtable = *(void***)pointer;
-		var queryFocus = (delegate* unmanaged[Stdcall]<void*, HWND*, HRESULT>)vtable[8];
-		HWND focus;
-		var result = queryFocus(pointer, &focus);
-		result.ThrowOnFailure();
-
-		return focus;
-	}
-
-	private static HRESULT CallTranslateAccelerator(void* pointer, void* message)
-	{
-		var vtable = *(void***)pointer;
-		var translate = (delegate* unmanaged[Stdcall]<void*, void*, HRESULT>)vtable[9];
-
-		return translate(pointer, message);
-	}
-
-	private static HRESULT CallInitializeWithStream(void* pointer, void* stream, uint mode)
-	{
-		var vtable = *(void***)pointer;
-		var initialize = (delegate* unmanaged[Stdcall]<void*, void*, uint, HRESULT>)vtable[3];
-
-		return initialize(pointer, stream, mode);
-	}
-
-	private static HRESULT CallInitializeWithItem(void* pointer, void* item, uint mode)
-	{
-		var vtable = *(void***)pointer;
-		var initialize = (delegate* unmanaged[Stdcall]<void*, void*, uint, HRESULT>)vtable[3];
-
-		return initialize(pointer, item, mode);
-	}
-
-	private static HRESULT CallInitializeWithFile(void* pointer, char* path, uint mode)
-	{
-		var vtable = *(void***)pointer;
-		var initialize = (delegate* unmanaged[Stdcall]<void*, char*, uint, HRESULT>)vtable[3];
-
-		return initialize(pointer, path, mode);
-	}
-
-	private static HRESULT CallSetColor(void* pointer, int slot, uint color)
-	{
-		var vtable = *(void***)pointer;
-		var setColor = (delegate* unmanaged[Stdcall]<void*, uint, HRESULT>)vtable[slot];
-
-		return setColor(pointer, color);
+		if (value is ComObject comObject)
+		{
+			comObject.FinalRelease();
+		}
 	}
 }
