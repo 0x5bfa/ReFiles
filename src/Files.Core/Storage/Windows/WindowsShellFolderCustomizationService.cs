@@ -4,6 +4,7 @@
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
+using Windows.Win32.System.Com.StructuredStorage;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 
@@ -20,8 +21,6 @@ public static unsafe class WindowsShellFolderCustomizationService
 	private const uint ProfileSectionReadWriteMode = 2;
 	private const string ShellPropertyBagName = "Shell";
 	private const string ViewStateSectionName = "ViewState";
-	private static readonly Guid _cachedPrivateProfileId = new("B57046BC-32E5-428A-9887-19F712B907BF");
-	private static readonly Guid _propertyBagId = new("55272A00-42CB-11CE-8135-00AA004BB851");
 
 	/// <summary>
 	/// Shows the Shell icon picker.
@@ -91,150 +90,102 @@ public static unsafe class WindowsShellFolderCustomizationService
 
 	internal static bool IsFolderKindInherited(string folderPath, string folderKind)
 	{
-		var bagResult = CreateViewStatePropertyBag(folderPath, out var propertyBag);
-		if (bagResult.Failed || propertyBag is 0)
+		var hr = CreateViewStatePropertyBag(folderPath, out var propertyBag);
+		if (hr.Failed || propertyBag is null)
 		{
-			Release(propertyBag);
-
 			return false;
 		}
 
-		try
-		{
-			Span<char> value = stackalloc char[MaximumPathLength];
-			fixed (char* valuePointer = value)
-			{
-				return PInvoke.PSPropertyBagReadStringRaw(propertyBag, "FolderType", valuePointer, checked((uint)value.Length)).Succeeded
-					&& value[0] is not '\0' && value.TrimEnd('\0').Equals(NormalizeFolderKind(folderKind), StringComparison.OrdinalIgnoreCase);
-			}
-		}
-		finally
-		{
-			Release(propertyBag);
-		}
+		Span<char> value = stackalloc char[MaximumPathLength];
+		hr = PInvoke.PSPropertyBag_ReadStr(propertyBag, "FolderType", value);
+
+		return hr.Succeeded && value[0] is not '\0' && value.TrimEnd('\0').Equals(NormalizeFolderKind(folderKind), StringComparison.OrdinalIgnoreCase);
 	}
 
 	internal static string ReadFolderKind(string folderPath, string fallback)
 	{
-		HRESULT bagResult;
-		nint propertyBag;
+		HRESULT hr;
+		IPropertyBag? propertyBag;
 		try
 		{
-			bagResult = CreateDesktopPropertyBag(folderPath, out propertyBag);
+			hr = CreateDesktopPropertyBag(folderPath, out propertyBag);
 		}
 		catch (EntryPointNotFoundException)
 		{
 			return fallback;
 		}
 
-		if (bagResult.Failed || propertyBag is 0)
+		if (hr.Failed || propertyBag is null)
 		{
-			Release(propertyBag);
-
 			return fallback;
 		}
 
-		try
-		{
-			Span<char> value = stackalloc char[MaximumPathLength];
-			fixed (char* valuePointer = value)
-			{
-				var readResult = PInvoke.PSPropertyBagReadStringRaw(propertyBag, "FolderType", valuePointer, checked((uint)value.Length));
+		Span<char> value = stackalloc char[MaximumPathLength];
+		hr = PInvoke.PSPropertyBag_ReadStr(propertyBag, "FolderType", value);
 
-				return readResult.Succeeded && value[0] is not '\0' ? value.TrimEnd('\0').ToString() : fallback;
-			}
-		}
-		finally
-		{
-			Release(propertyBag);
-		}
+		return hr.Succeeded && value[0] is not '\0' ? value.TrimEnd('\0').ToString() : fallback;
 	}
 
-	private static HRESULT CreateDesktopPropertyBag(string folderPath, out nint propertyBag)
+	private static HRESULT CreateDesktopPropertyBag(string folderPath, out IPropertyBag? propertyBag)
 	{
-		propertyBag = 0;
+		propertyBag = null;
 		if (PInvoke.IsPathOwnedByCurrentUser(folderPath) is 0)
 		{
 			return (HRESULT)unchecked((int)0x80070005);
 		}
 
 		ITEMIDLIST* absolutePidl = null;
-		var parseResult = PInvoke.SHParseDisplayName(folderPath, null, out absolutePidl, 0, out _);
-		if (parseResult.Failed || absolutePidl is null)
+		var hr = PInvoke.SHParseDisplayName(folderPath, null, out absolutePidl, 0, out _);
+		if (hr.Failed || absolutePidl is null)
 		{
 			if (absolutePidl is not null)
 			{
 				PInvoke.CoTaskMemFree(absolutePidl);
 			}
 
-			return parseResult.Failed ? parseResult : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_FAIL;
 		}
 
-		nint cachedProfileUnknown = 0;
 		try
 		{
-			var cachedResult = PInvoke.GetCachedIniForFolderRaw(0, absolutePidl, 0, &cachedProfileUnknown);
-			if (cachedResult.Failed || cachedProfileUnknown is 0)
+			hr = PInvoke.GetCachedIniForFolder(0, in *absolutePidl, 0, out var cachedProfile);
+			if (hr.Failed || cachedProfile is null)
 			{
-				return cachedResult.Failed ? cachedResult : HRESULT.E_FAIL;
+				return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
 			}
 
-			nint cachedProfile = 0;
-			var queryResult = QueryInterface(cachedProfileUnknown, _cachedPrivateProfileId, out cachedProfile);
-			if (queryResult.Failed || cachedProfile is 0)
-			{
-				Release(cachedProfile);
+			var propertyBagId = typeof(IPropertyBag).GUID;
+			hr = PInvoke.SHCreatePropertyBagOnCachedProfileSection(cachedProfile, ViewStateSectionName, ProfileSectionReadWriteMode, in propertyBagId, out propertyBag);
 
-				return queryResult.Failed ? queryResult : HRESULT.E_FAIL;
-			}
-
-			try
-			{
-				var propertyBagId = _propertyBagId;
-				nint createdPropertyBag = 0;
-				fixed (char* sectionName = ViewStateSectionName)
-				{
-					var createResult = PInvoke.SHCreatePropertyBagOnCachedProfileSectionRaw(cachedProfile, sectionName, ProfileSectionReadWriteMode, &propertyBagId, &createdPropertyBag);
-					propertyBag = createdPropertyBag;
-
-					return createResult;
-				}
-			}
-			finally
-			{
-				Release(cachedProfile);
-			}
+			return hr.Failed || propertyBag is not null ? hr : HRESULT.E_NOINTERFACE;
 		}
 		finally
 		{
-			Release(cachedProfileUnknown);
 			PInvoke.CoTaskMemFree(absolutePidl);
 		}
 	}
 
-	private static HRESULT CreateViewStatePropertyBag(string folderPath, out nint propertyBag)
+	private static HRESULT CreateViewStatePropertyBag(string folderPath, out IPropertyBag? propertyBag)
 	{
-		propertyBag = 0;
+		propertyBag = null;
 		ITEMIDLIST* absolutePidl = null;
-		var parseResult = PInvoke.SHParseDisplayName(folderPath, null, out absolutePidl, 0, out _);
-		if (parseResult.Failed || absolutePidl is null)
+		var hr = PInvoke.SHParseDisplayName(folderPath, null, out absolutePidl, 0, out _);
+		if (hr.Failed || absolutePidl is null)
 		{
 			if (absolutePidl is not null)
 			{
 				PInvoke.CoTaskMemFree(absolutePidl);
 			}
 
-			return parseResult.Failed ? parseResult : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_FAIL;
 		}
 
 		try
 		{
-			var propertyBagId = _propertyBagId;
-			nint createdPropertyBag = 0;
-			var createResult = PInvoke.SHGetViewStatePropertyBagRaw(absolutePidl, ShellPropertyBagName, InheritedPropertyBagFlags, &propertyBagId, &createdPropertyBag);
-			propertyBag = createdPropertyBag;
+			var propertyBagId = typeof(IPropertyBag).GUID;
+			hr = PInvoke.SHGetViewStatePropertyBag(in *absolutePidl, ShellPropertyBagName, InheritedPropertyBagFlags, in propertyBagId, out propertyBag);
 
-			return createResult;
+			return hr.Failed || propertyBag is not null ? hr : HRESULT.E_NOINTERFACE;
 		}
 		finally
 		{
@@ -242,12 +193,12 @@ public static unsafe class WindowsShellFolderCustomizationService
 		}
 	}
 
-	private static void DeleteCustomization(nint propertyBag)
+	private static void DeleteCustomization(IPropertyBag propertyBag)
 	{
-		_ = PInvoke.PSPropertyBagDeleteRaw(propertyBag, "FolderType");
-		_ = PInvoke.PSPropertyBagDeleteRaw(propertyBag, "Logo");
-		_ = PInvoke.PSPropertyBagDeleteRaw(propertyBag, "Mode");
-		_ = PInvoke.PSPropertyBagDeleteRaw(propertyBag, "Vid");
+		_ = PInvoke.PSPropertyBag_Delete(propertyBag, "FolderType");
+		_ = PInvoke.PSPropertyBag_Delete(propertyBag, "Logo");
+		_ = PInvoke.PSPropertyBag_Delete(propertyBag, "Mode");
+		_ = PInvoke.PSPropertyBag_Delete(propertyBag, "Vid");
 	}
 
 	private static string NormalizeFolderKind(string folderKind)
@@ -255,47 +206,23 @@ public static unsafe class WindowsShellFolderCustomizationService
 		return string.IsNullOrWhiteSpace(folderKind) ? "Generic" : folderKind;
 	}
 
-	private static HRESULT QueryInterface(nint instance, Guid interfaceId, out nint result)
-	{
-		result = 0;
-		var requestedInterfaceId = interfaceId;
-		nint queriedInterface = 0;
-		var queryInterface = (delegate* unmanaged[Stdcall]<nint, Guid*, nint*, HRESULT>)(*(nint**)instance)[0];
-		var queryResult = queryInterface(instance, &requestedInterfaceId, &queriedInterface);
-		result = queriedInterface;
-
-		return queryResult;
-	}
-
-	private static void Release(nint instance)
-	{
-		if (instance is not 0)
-		{
-			var release = (delegate* unmanaged[Stdcall]<nint, uint>)(*(nint**)instance)[2];
-			release(instance);
-		}
-	}
-
 	private static HRESULT UpdateInheritedFolderKind(string folderPath, string folderKind, bool applyToSubfolders)
 	{
-		var bagResult = CreateViewStatePropertyBag(folderPath, out var propertyBag);
-		if (bagResult.Failed || propertyBag is 0)
+		var hr = CreateViewStatePropertyBag(folderPath, out var propertyBag);
+		if (hr.Failed || propertyBag is null)
 		{
-			Release(propertyBag);
-
-			return bagResult.Failed ? bagResult : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_FAIL;
 		}
 
-		try
+		DeleteCustomization(propertyBag);
+		if (!applyToSubfolders)
 		{
-			DeleteCustomization(propertyBag);
+			return HRESULT.S_OK;
+		}
 
-			return applyToSubfolders ? PInvoke.PSPropertyBagWriteStringRaw(propertyBag, "FolderType", NormalizeFolderKind(folderKind)) : HRESULT.S_OK;
-		}
-		finally
-		{
-			Release(propertyBag);
-		}
+		hr = PInvoke.PSPropertyBag_WriteStr(propertyBag, "FolderType", NormalizeFolderKind(folderKind));
+
+		return hr;
 	}
 
 	private static void TouchDirectory(string folderPath)
@@ -323,35 +250,27 @@ public static unsafe class WindowsShellFolderCustomizationService
 
 	private static HRESULT WriteDesktopFolderKind(string folderPath, string folderKind)
 	{
-		HRESULT bagResult;
-		nint propertyBag;
+		HRESULT hr;
+		IPropertyBag? propertyBag;
 		try
 		{
-			bagResult = CreateDesktopPropertyBag(folderPath, out propertyBag);
+			hr = CreateDesktopPropertyBag(folderPath, out propertyBag);
 		}
 		catch (EntryPointNotFoundException)
 		{
 			return HRESULT.E_NOTIMPL;
 		}
 
-		if (bagResult.Failed || propertyBag is 0)
+		if (hr.Failed || propertyBag is null)
 		{
-			Release(propertyBag);
-
-			return bagResult.Failed ? bagResult : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_FAIL;
 		}
 
-		try
-		{
-			_ = PInvoke.PSPropertyBagDeleteRaw(propertyBag, "Mode");
-			_ = PInvoke.PSPropertyBagDeleteRaw(propertyBag, "Vid");
+		_ = PInvoke.PSPropertyBag_Delete(propertyBag, "Mode");
+		_ = PInvoke.PSPropertyBag_Delete(propertyBag, "Vid");
+		hr = PInvoke.PSPropertyBag_WriteStr(propertyBag, "FolderType", NormalizeFolderKind(folderKind));
 
-			return PInvoke.PSPropertyBagWriteStringRaw(propertyBag, "FolderType", NormalizeFolderKind(folderKind));
-		}
-		finally
-		{
-			Release(propertyBag);
-		}
+		return hr;
 	}
 
 	private static void WriteFolderAppearance(string folderPath, string picturePath, bool pictureChanged, string iconPath, int iconIndex, bool iconChanged)
@@ -359,15 +278,14 @@ public static unsafe class WindowsShellFolderCustomizationService
 		fixed (char* picturePointer = picturePath)
 		fixed (char* iconPointer = iconPath)
 		{
-			var settings = new SHFOLDERCUSTOMSETTINGS
-			{
-				dwSize = checked((uint)sizeof(SHFOLDERCUSTOMSETTINGS)),
-				dwMask = (pictureChanged ? PInvoke.FCSM_LOGO : 0) | (iconChanged ? PInvoke.FCSM_ICONFILE : 0),
-				pszLogo = new PWSTR(picturePointer),
-				pszIconFile = new PWSTR(iconPointer),
-				iIconIndex = iconIndex,
-			};
-			PInvoke.SHGetSetFolderCustomSettings(ref settings, folderPath, PInvoke.FCS_FORCEWRITE).ThrowOnFailure();
+			SHFOLDERCUSTOMSETTINGS settings = default;
+			settings.dwSize = checked((uint)sizeof(SHFOLDERCUSTOMSETTINGS));
+			settings.dwMask = (pictureChanged ? PInvoke.FCSM_LOGO : 0) | (iconChanged ? PInvoke.FCSM_ICONFILE : 0);
+			settings.pszLogo = picturePointer;
+			settings.pszIconFile = iconPointer;
+			settings.iIconIndex = iconIndex;
+			var hr = PInvoke.SHGetSetFolderCustomSettings(ref settings, folderPath, PInvoke.FCS_FORCEWRITE);
+			hr.ThrowOnFailure();
 		}
 	}
 }

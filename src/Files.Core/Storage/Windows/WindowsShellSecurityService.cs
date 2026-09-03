@@ -7,17 +7,17 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.Com;
+using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
 /// Opens the Windows NTFS access-control editors used by the Shell security property page.
 /// </summary>
-public static unsafe class WindowsShellSecurityService
+public static class WindowsShellSecurityService
 {
 	private const uint PermissionsPage = 0;
 	private const uint AdvancedPermissionsPage = 1;
-	private static readonly Guid _interfaceId = new("74807F67-0058-440D-8600-65541A7FBBEA");
 
 	/// <summary>
 	/// Determines whether editing an object's DACL requires elevation for the current token.
@@ -71,47 +71,34 @@ public static unsafe class WindowsShellSecurityService
 		return !handle.IsInvalid;
 	}
 
-	private static void** GetVtable(void* instance)
-	{
-		return *(void***)instance;
-	}
-
-	private static void Release(void* instance)
-	{
-		if (instance is not null)
-		{
-			((delegate* unmanaged[Stdcall]<void*, uint>)GetVtable(instance)[2])(instance);
-		}
-	}
-
 	private static HRESULT ShowEditor(HWND owner, string path, uint page, bool elevate)
 	{
-		void* editor = null;
-		var classId = CLSID.CLSID_NTFSSecurityExt;
-		var interfaceId = _interfaceId;
-		var result = elevate
-			? WindowsElevationMoniker.Create(owner, classId, interfaceId, &editor)
-			: (HRESULT)PInvoke.CoCreateInstanceRaw(&classId, nint.Zero, (uint)CLSCTX.CLSCTX_INPROC_SERVER, &interfaceId, (nint*)&editor);
-		if (result.Failed || editor is null)
+		var classId = typeof(CNtfsSecurityExtension).GUID;
+		IElevatedNtfsSecurity? editor;
+		HRESULT hr;
+		if (elevate)
 		{
-			Release(editor);
-
-			return result.Failed ? result : HRESULT.E_FAIL;
+			var interfaceId = typeof(IElevatedNtfsSecurity).GUID;
+			BIND_OPTS3 bindOptions = default;
+			bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+			bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
+			bindOptions.hwnd = owner;
+			hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object editorObject);
+			editor = editorObject as IElevatedNtfsSecurity;
+		}
+		else
+		{
+			hr = PInvoke.CoCreateInstance(in classId, null, CLSCTX.CLSCTX_INPROC_SERVER, out IElevatedNtfsSecurity createdEditor);
+			editor = createdEditor;
 		}
 
-		var resourceName = Marshal.StringToBSTR(path);
-		var objectName = Marshal.StringToBSTR(path);
-		try
+		if (hr.Failed || editor is null)
 		{
-			var openEditor = (delegate* unmanaged[Stdcall]<void*, nint, nint, nint, int, uint, HRESULT>)GetVtable(editor)[3];
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
+		}
 
-			return openEditor(editor, (nint)owner.Value, resourceName, objectName, Directory.Exists(path) ? 1 : 0, page);
-		}
-		finally
-		{
-			Marshal.FreeBSTR(resourceName);
-			Marshal.FreeBSTR(objectName);
-			Release(editor);
-		}
+		hr = editor.OpenEditor(owner, path, path, Directory.Exists(path) ? 1u : 0u, page);
+
+		return hr;
 	}
 }

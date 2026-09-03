@@ -1,6 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
+
 namespace Files.Core.Capabilities.Previews;
 
 /// <summary>Controls the lifetime and rendering surface of a Windows preview handler.</summary>
@@ -27,7 +30,7 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <summary>Associates the handler with its host window.</summary>
 	/// <param name="windowHandle">The host window handle.</param>
 	/// <param name="bounds">The preview bounds.</param>
-	void SetWindow(nint windowHandle, WindowsPreviewBounds bounds);
+	void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds);
 
 	/// <summary>Updates the preview bounds.</summary>
 	/// <param name="bounds">The preview bounds.</param>
@@ -46,12 +49,12 @@ public interface IWindowsPreviewHandlerController : IDisposable
 
 	/// <summary>Gets the window that currently has preview focus.</summary>
 	/// <returns>The focused window handle, or zero when no window has focus.</returns>
-	nint QueryFocus();
+	HWND QueryFocus();
 
 	/// <summary>Attempts to translate a keyboard message for the preview handler.</summary>
-	/// <param name="messagePointer">A pointer to the native message.</param>
+	/// <param name="message">The native message.</param>
 	/// <returns><see langword="true"/> when the message was handled.</returns>
-	bool TryTranslateAccelerator(nint messagePointer);
+	bool TryTranslateAccelerator(in MSG message);
 }
 
 /// <summary>Creates Windows preview handler controllers.</summary>

@@ -48,7 +48,7 @@ public readonly record struct WindowsPreviewColor(byte Red, byte Green, byte Blu
 public sealed record WindowsPreviewHost
 {
 	/// <summary>Gets the native host window handle.</summary>
-	public nint WindowHandle { get; }
+	public HWND WindowHandle { get; }
 
 	/// <summary>Gets the host bounds.</summary>
 	public WindowsPreviewBounds Bounds { get; }
@@ -56,14 +56,14 @@ public sealed record WindowsPreviewHost
 	/// <summary>Initializes a preview host.</summary>
 	/// <param name="windowHandle">The native host window handle.</param>
 	/// <param name="bounds">The host bounds.</param>
-	public WindowsPreviewHost(nint windowHandle, WindowsPreviewBounds bounds)
+	public WindowsPreviewHost(HWND windowHandle, WindowsPreviewBounds bounds)
 	{
-		if (windowHandle == 0)
+		if (windowHandle.IsNull)
 		{
 			throw new ArgumentException("A preview host window handle is required.", nameof(windowHandle));
 		}
 
-		if (!PInvoke.IsWindow((HWND)windowHandle))
+		if (!PInvoke.IsWindow(windowHandle))
 		{
 			throw new ArgumentException("The preview host window handle is not valid.", nameof(windowHandle));
 		}

@@ -1,10 +1,10 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using Windows.Win32.Foundation;
+using Windows.Win32.NetworkManagement.WindowsFirewall;
 
 namespace Windows.Win32.UI.Shell;
 
@@ -26,13 +26,13 @@ public partial interface IDetectionAndSharing
 	/// <param name="value">The feature-specific value.</param>
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
-	int TurnOn(nint hwnd, DTSH_TYPE type, int value);
+	HRESULT TurnOn(HWND hwnd, DTSH_TYPE type, int value);
 
 	/// <summary>Gets the current Windows Firewall profile.</summary>
 	/// <param name="profile">Receives the profile value.</param>
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
-	int GetCurrentFwProfile(out /*NetFwProfileType2*/ int profile);
+	HRESULT GetCurrentFwProfile(out NET_FW_PROFILE_TYPE2 profile);
 
 	/// <summary>Gets a sharing feature status for a specific firewall profile.</summary>
 	/// <param name="profile">The firewall profile.</param>
@@ -41,7 +41,7 @@ public partial interface IDetectionAndSharing
 	/// <param name="action">Receives the recommended action.</param>
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
-	int GetStatusForProfile(/*NetFwProfileType2*/ int profile, DTSH_TYPE type, out DTSH_STATE state, out DTSH_ACTION action);
+	HRESULT GetStatusForProfile(NET_FW_PROFILE_TYPE2 profile, DTSH_TYPE type, out DTSH_STATE state, out DTSH_ACTION action);
 
 	/// <summary>Turns on a sharing feature for a specific firewall profile.</summary>
 	/// <param name="hwnd">The owner window handle.</param>
@@ -50,10 +50,10 @@ public partial interface IDetectionAndSharing
 	/// <param name="value">The feature-specific value.</param>
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
-	int TurnOnForProfile(nint hwnd, /*NetFwProfileType2*/ int profile, DTSH_TYPE type, int value);
+	HRESULT TurnOnForProfile(HWND hwnd, NET_FW_PROFILE_TYPE2 profile, DTSH_TYPE type, int value);
 }
 
-	/// <summary>Identifies a network discovery or file-sharing feature.</summary>
+/// <summary>Identifies a network discovery or file-sharing feature.</summary>
 public enum DTSH_TYPE
 {
 	/// <summary>Network discovery.</summary>
@@ -62,7 +62,7 @@ public enum DTSH_TYPE
 	DTSH_FILE_SHARING = 1,
 }
 
-	/// <summary>Describes whether a sharing feature is enabled.</summary>
+/// <summary>Describes whether a sharing feature is enabled.</summary>
 public enum DTSH_STATE
 {
 	/// <summary>The feature is disabled.</summary>
@@ -71,7 +71,7 @@ public enum DTSH_STATE
 	DTSH_ON = 1,
 }
 
-	/// <summary>Identifies an action suggested by the sharing service.</summary>
+/// <summary>Identifies an action suggested by the sharing service.</summary>
 public enum DTSH_ACTION
 {
 	/// <summary>No action is required.</summary>

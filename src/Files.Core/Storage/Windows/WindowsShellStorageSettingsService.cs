@@ -48,7 +48,7 @@ public static class WindowsShellStorageSettingsService
 	/// </summary>
 	/// <param name="rootPath">The drive root to inspect.</param>
 	/// <returns><see langword="true"/> when the drive is present in the Storage Sense inventory.</returns>
-	public static unsafe bool SupportsDriveUsage(string rootPath)
+	public static bool SupportsDriveUsage(string rootPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
 
@@ -61,10 +61,11 @@ public static class WindowsShellStorageSettingsService
 		try
 		{
 			Span<byte> information = stackalloc byte[StorageDeviceInformationSize];
+			HRESULT hr;
 			for (uint category = 0; category < 2; category++)
 			{
-				uint count = 0;
-				if (PInvoke.GetStorageInstanceCount(category, &count).Failed)
+				hr = PInvoke.GetStorageInstanceCount(category, out var count);
+				if (hr.Failed)
 				{
 					continue;
 				}
@@ -74,18 +75,16 @@ public static class WindowsShellStorageSettingsService
 					information.Clear();
 					var informationSize = StorageDeviceInformationSize;
 					MemoryMarshal.Write(information, in informationSize);
-					fixed (byte* informationPointer = information)
+					hr = PInvoke.GetStorageDeviceInfo(category, index, information);
+					if (hr.Failed || MemoryMarshal.Read<int>(information[StorageDeviceStateOffset..]) is not 0)
 					{
-						if (PInvoke.GetStorageDeviceInfo(category, index, informationPointer).Failed || MemoryMarshal.Read<int>(information[StorageDeviceStateOffset..]) is not 0)
-						{
-							continue;
-						}
+						continue;
+					}
 
-						var enumeratedRoot = new string((char*)(informationPointer + StorageDeviceRootOffset), 0, StorageDeviceRootCapacity).TrimEnd('\0');
-						if (root.Equals(enumeratedRoot, StringComparison.OrdinalIgnoreCase))
-						{
-							return true;
-						}
+					var enumeratedRoot = new string(MemoryMarshal.Cast<byte, char>(information[StorageDeviceRootOffset..])[..StorageDeviceRootCapacity]).TrimEnd('\0');
+					if (root.Equals(enumeratedRoot, StringComparison.OrdinalIgnoreCase))
+					{
+						return true;
 					}
 				}
 			}

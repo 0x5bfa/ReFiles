@@ -111,7 +111,15 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return _scheduler.InvokeOperationAsync(() => { var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);  result.ThrowOnFailure(); return action(shellItem); }, cancellationToken);
+		return _scheduler.InvokeOperationAsync(
+			() =>
+			{
+				var hr = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
+				hr.ThrowOnFailure();
+
+				return action(shellItem);
+			},
+			cancellationToken);
 	}
 
 	public Task<T> InvokeOperationAsync<T>(string firstParsingName, string secondParsingName, Func<IShellItem, IShellItem, T> action, CancellationToken cancellationToken = default)
@@ -123,11 +131,11 @@ internal sealed unsafe class WindowsShellItemResolver
 		return _scheduler.InvokeOperationAsync(
 			() =>
 			{
-				var firstResult = PInvoke.SHCreateItemFromParsingName(firstParsingName, null, out IShellItem first);
-				firstResult.ThrowOnFailure();
+				var hr = PInvoke.SHCreateItemFromParsingName(firstParsingName, null, out IShellItem first);
+				hr.ThrowOnFailure();
 
-				var secondResult = PInvoke.SHCreateItemFromParsingName(secondParsingName, null, out IShellItem second);
-				secondResult.ThrowOnFailure();
+				hr = PInvoke.SHCreateItemFromParsingName(secondParsingName, null, out IShellItem second);
+				hr.ThrowOnFailure();
 
 				return action(first, second);
 			},
@@ -153,7 +161,15 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return _scheduler.InvokeAsync(() => { var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);  result.ThrowOnFailure(); return action(shellItem); }, cancellationToken);
+		return _scheduler.InvokeAsync(
+			() =>
+			{
+				var hr = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
+				hr.ThrowOnFailure();
+
+				return action(shellItem);
+			},
+			cancellationToken);
 	}
 
 	public Task<T> InvokeConcurrentAsync<T>(string parsingName, Func<IShellItem, T> action, CancellationToken cancellationToken = default)
@@ -161,7 +177,18 @@ internal sealed unsafe class WindowsShellItemResolver
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 		ArgumentNullException.ThrowIfNull(action);
 
-		return _scheduler.InvokeConcurrentAsync(() => { var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);  if (result.Failed) { return default!; }  return action(shellItem); }, cancellationToken);
+		return _scheduler.InvokeConcurrentAsync(
+			() =>
+			{
+				var hr = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
+				if (hr.Failed)
+				{
+					return default!;
+				}
+
+				return action(shellItem);
+			},
+			cancellationToken);
 	}
 
 	private static T InvokeCore<T>(WindowsItemLocator locator, Func<IShellItem, T> action)
@@ -181,11 +208,9 @@ internal sealed unsafe class WindowsShellItemResolver
 
 		fixed (byte* pidlBytes = absolutePidl.Span)
 		{
-			var interfaceId = typeof(IShellItem).GUID;
-			void* itemPointer = null;
-			var result = PInvoke.SHCreateItemFromIDList((ITEMIDLIST*)pidlBytes, &interfaceId, out object itemObject);
-
-			if (result.Failed || itemObject is not IShellItem shellItem)
+			ref readonly var pidl = ref *(ITEMIDLIST*)pidlBytes;
+			var hr = PInvoke.SHCreateItemFromIDList<IShellItem>(in pidl, out var shellItem);
+			if (hr.Failed || shellItem is null)
 			{
 				return null;
 			}
@@ -196,9 +221,9 @@ internal sealed unsafe class WindowsShellItemResolver
 
 	private static IShellItem? CreateFromParsingName(string parsingName)
 	{
-		var result = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
+		var hr = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem shellItem);
 
-		return result.Succeeded ? shellItem : null;
+		return hr.Succeeded ? shellItem : null;
 	}
 
 	private static bool AreSame(IShellItem first, IShellItem second)
@@ -217,7 +242,10 @@ internal sealed unsafe class WindowsShellItemResolver
 		fixed (byte* folderBytes = folderPidl.Span)
 		fixed (byte* itemBytes = itemPidl.Span)
 		{
-			return PInvoke.ILIsParent((ITEMIDLIST*)folderBytes, (ITEMIDLIST*)itemBytes, !recursive);
+			ref readonly var folder = ref *(ITEMIDLIST*)folderBytes;
+			ref readonly var item = ref *(ITEMIDLIST*)itemBytes;
+
+			return PInvoke.ILIsParent(in folder, in item, !recursive);
 		}
 	}
 }

@@ -9,6 +9,8 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.UnitTests;
 
@@ -145,12 +147,12 @@ public sealed class WindowsShellPreviewTests
 	{
 		Assert.Throws<ArgumentOutOfRangeException>(() => new WindowsPreviewBounds(0, 0, -1, 10));
 		Assert.Throws<ArgumentOutOfRangeException>(() => new WindowsPreviewBounds(0, 0, 10, -1));
-		Assert.Throws<ArgumentException>(() => new WindowsPreviewHost(0, new WindowsPreviewBounds(0, 0, 1, 1)));
+		Assert.Throws<ArgumentException>(() => new WindowsPreviewHost(HWND.Null, new WindowsPreviewBounds(0, 0, 1, 1)));
 
 		var desktop = PInvoke.GetDesktopWindow();
-		var host = new WindowsPreviewHost((desktop), new WindowsPreviewBounds(0, 0, 640, 480));
+		var host = new WindowsPreviewHost(desktop, new WindowsPreviewBounds(0, 0, 640, 480));
 
-		Assert.AreNotEqual(0, host.WindowHandle);
+		Assert.IsFalse(host.WindowHandle.IsNull);
 	}
 
 	/// <summary>
@@ -196,8 +198,10 @@ public sealed class WindowsShellPreviewTests
 		await session.SetBoundsAsync(new WindowsPreviewBounds(1, 2, 3, 4));
 		await session.SetThemeAsync(new WindowsPreviewColor(1, 2, 3), new WindowsPreviewColor(4, 5, 6));
 		await session.SetFocusAsync();
-		Assert.AreEqual((nint)123, await session.QueryFocusAsync());
-		Assert.IsTrue(await session.TryTranslateAcceleratorAsync((nint)1));
+		Assert.AreEqual((HWND)(nint)123, await session.QueryFocusAsync());
+		MSG message = default;
+		message.message = 1;
+		Assert.IsTrue(await session.TryTranslateAcceleratorAsync(in message));
 
 		await session.DisposeAsync();
 		Assert.AreEqual(WindowsShellPreviewSessionState.Disposed, concreteSession.State);
@@ -431,7 +435,7 @@ public sealed class WindowsShellPreviewTests
 			return FileResult;
 		}
 
-		public void SetWindow(nint windowHandle, WindowsPreviewBounds bounds)
+		public void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds)
 			=> order.Add("window");
 
 		public void SetBounds(WindowsPreviewBounds bounds)
@@ -451,13 +455,13 @@ public sealed class WindowsShellPreviewTests
 
 		public void SetFocus() => order.Add("focus");
 
-		public nint QueryFocus() => 123;
+		public HWND QueryFocus() => (HWND)(nint)123;
 
-		public bool TryTranslateAccelerator(nint messagePointer)
+		public bool TryTranslateAccelerator(in MSG message)
 		{
 			order.Add("translate");
 
-			return messagePointer != 0;
+			return message.message != 0;
 		}
 
 		public void Dispose()
