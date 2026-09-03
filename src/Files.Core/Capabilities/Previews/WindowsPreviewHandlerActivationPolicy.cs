@@ -11,6 +11,8 @@ public enum WindowsPreviewHandlerActivationContext : uint
 	InProcessServer = 0x1,
 	/// <summary>Activate a local-server preview handler.</summary>
 	LocalServer = 0x4,
+	/// <summary>Use the caller's impersonation token when activating the local server.</summary>
+	EnableCloaking = 0x100000,
 }
 
 /// <summary>Chooses the activation context for a preview handler.</summary>
@@ -28,7 +30,7 @@ public sealed class LocalServerWindowsPreviewHandlerActivationPolicy
 {
 	/// <summary>Gets the local-server activation context.</summary>
 	/// <param name="handlerClsid">The preview handler CLSID.</param>
-	/// <returns><see cref="WindowsPreviewHandlerActivationContext.LocalServer"/>.</returns>
+	/// <returns>A local-server activation context with cloaking enabled.</returns>
 	public WindowsPreviewHandlerActivationContext GetContext(Guid handlerClsid)
 	{
 		if (handlerClsid == Guid.Empty)
@@ -36,6 +38,6 @@ public sealed class LocalServerWindowsPreviewHandlerActivationPolicy
 			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
 		}
 
-		return WindowsPreviewHandlerActivationContext.LocalServer;
+		return WindowsPreviewHandlerActivationContext.LocalServer | WindowsPreviewHandlerActivationContext.EnableCloaking;
 	}
 }

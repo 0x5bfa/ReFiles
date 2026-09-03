@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
+using Files.Core.Capabilities;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
@@ -26,10 +27,22 @@ public sealed class WindowsPreviewTarget : IDisposable, IAsyncDisposable
 	/// <summary>Gets the stable reference of the preview target.</summary>
 	public StorableReference Reference => _model.Reference;
 
+	internal ItemContext? Context { get; }
+
 	/// <summary>Initializes a Windows preview target.</summary>
+	/// <remarks>Use the overload that accepts an <see cref="ItemContext"/> when the target will be activated by a Shell preview session.</remarks>
 	/// <param name="model">The item model to own.</param>
 	/// <param name="item">The Windows Shell item.</param>
 	public WindowsPreviewTarget(IStorableModel model, IWindowsStorable item)
+		: this(model, item, null)
+	{
+	}
+
+	/// <summary>Initializes a Windows preview target with the context required for activation-time policy checks.</summary>
+	/// <param name="model">The item model to own.</param>
+	/// <param name="item">The Windows Shell item.</param>
+	/// <param name="context">The context used to revalidate the target before handler activation, or <see langword="null"/> for a target that cannot be activated yet.</param>
+	public WindowsPreviewTarget(IStorableModel model, IWindowsStorable item, ItemContext? context)
 	{
 		ArgumentNullException.ThrowIfNull(model);
 		ArgumentNullException.ThrowIfNull(item);
@@ -39,8 +52,14 @@ public sealed class WindowsPreviewTarget : IDisposable, IAsyncDisposable
 			throw new InvalidDataException("The target model and Windows item have different identities.");
 		}
 
+		if (context is not null && (!context.Reference.Equals(model.Reference) || !ReferenceEquals(context.CoreModel, item)))
+		{
+			throw new InvalidDataException("The target context does not describe the owned Windows item.");
+		}
+
 		_model = model;
 		Item = item;
+		Context = context;
 	}
 
 	/// <summary>Synchronously disposes the target model.</summary>

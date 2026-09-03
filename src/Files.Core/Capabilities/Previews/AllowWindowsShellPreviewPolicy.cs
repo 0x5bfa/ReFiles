@@ -17,7 +17,7 @@ public sealed class AllowWindowsShellPreviewPolicy : IWindowsShellPreviewPolicy
 	{
 	}
 
-	/// <summary>Allows the specified preview handler.</summary>
+	/// <summary>Allows the specified preview handler without request-specific limits.</summary>
 	/// <param name="context">The item context.</param>
 	/// <param name="handlerClsid">The preview handler CLSID.</param>
 	/// <returns><see langword="null"/> because the handler is not blocked.</returns>
@@ -31,5 +31,26 @@ public sealed class AllowWindowsShellPreviewPolicy : IWindowsShellPreviewPolicy
 		}
 
 		return null;
+	}
+
+	/// <summary>Allows the specified preview handler.</summary>
+	/// <param name="request">The preview request.</param>
+	/// <param name="context">The item context.</param>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A completed task with no blocking reason.</returns>
+	public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, Guid handlerClsid, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(request);
+		ArgumentNullException.ThrowIfNull(context);
+
+		if (handlerClsid == Guid.Empty)
+		{
+			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return ValueTask.FromResult<PreviewBlockReason?>(null);
 	}
 }

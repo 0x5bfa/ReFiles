@@ -16,12 +16,20 @@ public sealed class WindowsShellPreviewResult : PreviewResult
 	/// <summary>Gets the preview handler CLSID.</summary>
 	public Guid HandlerClsid { get; }
 
-	/// <summary>Initializes a Windows Shell preview result.</summary>
+	internal PreviewRequest Request { get; }
+
+	/// <summary>Initializes a Windows Shell preview result that requires trusted content.</summary>
 	/// <param name="reference">The storage reference to preview.</param>
 	/// <param name="handlerClsid">The preview handler CLSID.</param>
 	public WindowsShellPreviewResult(StorableReference reference, Guid handlerClsid)
+		: this(reference, handlerClsid, new PreviewRequest())
+	{
+	}
+
+	internal WindowsShellPreviewResult(StorableReference reference, Guid handlerClsid, PreviewRequest request)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+		ArgumentNullException.ThrowIfNull(request);
 
 		if (handlerClsid == Guid.Empty)
 		{
@@ -30,5 +38,6 @@ public sealed class WindowsShellPreviewResult : PreviewResult
 
 		Reference = reference;
 		HandlerClsid = handlerClsid;
+		Request = request;
 	}
 }

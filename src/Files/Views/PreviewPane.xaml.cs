@@ -3,6 +3,7 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
@@ -12,6 +13,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
+using Windows.Graphics.Imaging;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -22,9 +24,13 @@ namespace Files.Views;
 public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDisposable
 {
 	private const int TextPreviewByteLimit = 256 * 1024;
+	private const int ImagePreviewByteLimit = 32 * 1024 * 1024;
+	private const ulong ImagePreviewPixelLimit = 100_000_000;
+	private const int ImagePreviewDecodeDimensionLimit = 4096;
 
 	private readonly SemaphoreSlim _renderGate = new(1, 1);
 	private readonly Lock _lifecycleLock = new();
+	private readonly long _visibilityChangedToken;
 
 	private PreviewPaneViewModel? _subscribedViewModel;
 	private IWindowsShellPreviewSession? _shellSession;
@@ -34,7 +40,9 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private HWND _previewHost;
 	private HWND _windowHandle;
+	private PreviewHostLayout? _appliedHostLayout;
 	private long _renderVersion;
+	private int _layoutUpdateQueued;
 	private int _isDisposed;
 
 	public static readonly DependencyProperty ViewModelProperty =
@@ -52,8 +60,12 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	{
 		InitializeComponent();
 		PreviewTitleBlock.Text = Strings.Preview.GetLocalized();
+		PreviewAnywayButton.Content = Strings.PreviewAnyway.GetLocalized();
 		Loaded += PreviewPane_Loaded;
 		Unloaded += PreviewPane_Unloaded;
+		GotFocus += PreviewPane_GotFocus;
+		PreviewSurface.LayoutUpdated += PreviewSurface_LayoutUpdated;
+		_visibilityChangedToken = RegisterPropertyChangedCallback(VisibilityProperty, PreviewPane_VisibilityChanged);
 	}
 
 	public void AttachWindow(Window window)
@@ -79,7 +91,10 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		{
 			Loaded -= PreviewPane_Loaded;
 			Unloaded -= PreviewPane_Unloaded;
+			GotFocus -= PreviewPane_GotFocus;
+			PreviewSurface.LayoutUpdated -= PreviewSurface_LayoutUpdated;
 			PreviewSurface.SizeChanged -= PreviewSurface_SizeChanged;
+			UnregisterPropertyChangedCallback(VisibilityProperty, _visibilityChangedToken);
 			SetSubscribedViewModel(null);
 		}
 
@@ -98,8 +113,9 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			return;
 		}
 
-		previewPane.SetSubscribedViewModel(previewPane.IsLoaded ? args.NewValue as PreviewPaneViewModel : null);
-		if (previewPane.IsLoaded)
+		var isActive = previewPane.IsLoaded && previewPane.Visibility is Visibility.Visible;
+		previewPane.SetSubscribedViewModel(isActive ? args.NewValue as PreviewPaneViewModel : null);
+		if (isActive)
 		{
 			previewPane.QueueRender();
 		}
@@ -109,25 +125,9 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	{
 		try
 		{
-			Task? cleanupTask;
-			lock (_lifecycleLock)
-			{
-				cleanupTask = _cleanupTask;
-			}
+			await WaitForCleanupAsync();
 
-			if (cleanupTask is not null)
-			{
-				await cleanupTask;
-				lock (_lifecycleLock)
-				{
-					if (_disposeTask is null && ReferenceEquals(_cleanupTask, cleanupTask))
-					{
-						_cleanupTask = null;
-					}
-				}
-			}
-
-			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded)
+			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || Visibility is not Visibility.Visible)
 			{
 				return;
 			}
@@ -138,6 +138,38 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		catch (Exception exception)
 		{
 			System.Diagnostics.Debug.WriteLine($"Preview loading failed: {exception}");
+		}
+	}
+
+	private async void PreviewPane_VisibilityChanged(DependencyObject sender, DependencyProperty property)
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded)
+		{
+			return;
+		}
+
+		try
+		{
+			if (Visibility is not Visibility.Visible)
+			{
+				SetSubscribedViewModel(null);
+				await BeginCleanupAsync();
+
+				return;
+			}
+
+			await WaitForCleanupAsync();
+			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || Visibility is not Visibility.Visible)
+			{
+				return;
+			}
+
+			SetSubscribedViewModel(ViewModel);
+			QueueRender();
+		}
+		catch (Exception exception)
+		{
+			System.Diagnostics.Debug.WriteLine($"Preview visibility change failed: {exception}");
 		}
 	}
 
@@ -156,14 +188,58 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private void PreviewSurface_SizeChanged(object sender, SizeChangedEventArgs e)
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0)
+		QueueShellLayoutUpdate();
+	}
+
+	private void PreviewSurface_LayoutUpdated(object? sender, object e)
+	{
+		QueueShellLayoutUpdate();
+	}
+
+	private async void PreviewPane_GotFocus(object sender, RoutedEventArgs e)
+	{
+		var session = _shellSession;
+		if (session is null || Volatile.Read(ref _isDisposed) is not 0)
 		{
 			return;
 		}
 
-		if (IsLoaded && ViewModel?.ShellResult is not null)
+		try
 		{
-			QueueRender();
+			await session.SetFocusAsync();
+		}
+		catch (ObjectDisposedException)
+		{
+		}
+		catch (Exception exception)
+		{
+			System.Diagnostics.Debug.WriteLine($"Preview focus transfer failed: {exception}");
+		}
+	}
+
+	private async void PreviewAnywayButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (ViewModel is not { } viewModel || !viewModel.CanPreviewUntrusted)
+		{
+			return;
+		}
+
+		PreviewAnywayButton.IsEnabled = false;
+		try
+		{
+			await viewModel.PreviewUntrustedAsync();
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception exception)
+		{
+			ShowStatus(Strings.PreviewFailed.GetLocalized(), isLoading: false);
+			System.Diagnostics.Debug.WriteLine($"Untrusted preview retry failed: {exception}");
+		}
+		finally
+		{
+			PreviewAnywayButton.IsEnabled = true;
 		}
 	}
 
@@ -188,11 +264,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName is nameof(PreviewPaneViewModel.Snapshot)
-			or nameof(PreviewPaneViewModel.Status)
-			or nameof(PreviewPaneViewModel.Result)
-			or nameof(PreviewPaneViewModel.StreamResult)
-			or nameof(PreviewPaneViewModel.ShellResult))
+		if (e.PropertyName is nameof(PreviewPaneViewModel.Snapshot))
 		{
 			QueueRender();
 		}
@@ -200,7 +272,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private void QueueRender()
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded)
+		if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || Visibility is not Visibility.Visible)
 		{
 			return;
 		}
@@ -237,11 +309,13 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	{
 		var cancellationToken = cancellationSource.Token;
 		var entered = false;
+		BrowsePreviewSnapshot? renderedSnapshot = null;
 		try
 		{
 			await _renderGate.WaitAsync(cancellationToken);
 			entered = true;
 			cancellationToken.ThrowIfCancellationRequested();
+
 			await DisposeShellSessionAsync(Interlocked.Exchange(ref _shellSession, null));
 			DestroyPreviewHost();
 			ClearRenderedContent();
@@ -259,6 +333,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			}
 
 			var snapshot = viewModel.Snapshot;
+			renderedSnapshot = snapshot;
 			switch (snapshot.Status)
 			{
 				case BrowsePreviewStatus.Empty:
@@ -287,6 +362,26 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 			ShowStatus(Strings.PreviewUnsupported.GetLocalized(), isLoading: false);
 		}
+		catch (WindowsShellPreviewBlockedException exception)
+		{
+			if (IsCurrentRender(version, cancellationToken))
+			{
+				await DisposeShellSessionAsync(Interlocked.Exchange(ref _shellSession, null));
+				DestroyPreviewHost();
+				if (!IsCurrentRender(version, cancellationToken))
+				{
+					return;
+				}
+
+				var reported = renderedSnapshot is not null && ViewModel is { } viewModel && viewModel.TryReportShellPreviewBlocked(renderedSnapshot, exception.Reason);
+				if (reported)
+				{
+					ShowStatus(exception.Reason is PreviewBlockReason.Untrusted ? Strings.PreviewUntrusted.GetLocalized() : Strings.PreviewBlocked.GetLocalized(), isLoading: false);
+				}
+
+				System.Diagnostics.Debug.WriteLine($"Preview activation was blocked: {exception.Reason}");
+			}
+		}
 		catch (OperationCanceledException)
 		{
 		}
@@ -294,7 +389,13 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		{
 			if (IsCurrentRender(version, cancellationToken))
 			{
+				await DisposeShellSessionAsync(Interlocked.Exchange(ref _shellSession, null));
 				DestroyPreviewHost();
+				if (!IsCurrentRender(version, cancellationToken))
+				{
+					return;
+				}
+
 				ShowStatus(Strings.PreviewFailed.GetLocalized(), isLoading: false);
 				System.Diagnostics.Debug.WriteLine($"Preview rendering failed: {exception}");
 			}
@@ -320,15 +421,38 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private async Task RenderStreamAsync(StreamPreviewResult result, long version, CancellationToken cancellationToken)
 	{
+		using var contentLease = result.AcquireContent();
+		var content = contentLease.Content;
 		if (IsImageContentType(result.ContentType))
 		{
-			if (result.Content.CanSeek)
+			if (content.CanSeek)
 			{
-				result.Content.Position = 0;
+				content.Position = 0;
+			}
+
+			var encodedImage = await ReadImageAsync(content, result.ContentLength, cancellationToken);
+			var dimensions = await ReadImageDimensionsAsync(encodedImage, cancellationToken);
+			if (dimensions.Width is 0 || dimensions.Height is 0 || (ulong)dimensions.Width * dimensions.Height > ImagePreviewPixelLimit)
+			{
+				throw new InvalidDataException("The preview image dimensions exceed the safe decoding limit.");
 			}
 
 			var bitmap = new BitmapImage();
-			await bitmap.SetSourceAsync(result.Content.AsRandomAccessStream());
+			if (dimensions.Width > ImagePreviewDecodeDimensionLimit || dimensions.Height > ImagePreviewDecodeDimensionLimit)
+			{
+				if (dimensions.Width >= dimensions.Height)
+				{
+					bitmap.DecodePixelWidth = ImagePreviewDecodeDimensionLimit;
+				}
+				else
+				{
+					bitmap.DecodePixelHeight = ImagePreviewDecodeDimensionLimit;
+				}
+			}
+
+			using var imageStream = new MemoryStream(encodedImage, writable: false);
+			using var randomAccessStream = imageStream.AsRandomAccessStream();
+			await bitmap.SetSourceAsync(randomAccessStream);
 			cancellationToken.ThrowIfCancellationRequested();
 
 			if (!IsCurrentRender(version, cancellationToken))
@@ -344,12 +468,12 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		if (IsTextContentType(result.ContentType))
 		{
-			if (result.Content.CanSeek)
+			if (content.CanSeek)
 			{
-				result.Content.Position = 0;
+				content.Position = 0;
 			}
 
-			var text = await ReadTextAsync(result.Content, cancellationToken);
+			var text = await ReadTextAsync(content, cancellationToken);
 			if (!IsCurrentRender(version, cancellationToken))
 			{
 				return;
@@ -374,7 +498,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		}
 
 		EnsurePreviewHost();
-		SetPreviewHostLayout(layout, show: true);
+		SetPreviewHostLayout(layout, show: false);
 		var host = new WindowsPreviewHost(_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height));
 		var session = await SessionFactory.CreateAsync(result, host, cancellationToken);
 		if (!IsCurrentRender(version, cancellationToken))
@@ -385,14 +509,76 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		}
 
 		_shellSession = session;
+		SetPreviewHostLayout(layout, show: true);
+		_appliedHostLayout = layout;
+	}
+
+	private void QueueShellLayoutUpdate()
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || _shellSession is null || _previewHost.IsNull)
+		{
+			return;
+		}
+
+		if (Interlocked.Exchange(ref _layoutUpdateQueued, 1) is not 0)
+		{
+			return;
+		}
+
+		if (!DispatcherQueue.TryEnqueue(() => _ = UpdateShellLayoutAsync()))
+		{
+			Interlocked.Exchange(ref _layoutUpdateQueued, 0);
+		}
+	}
+
+	private async Task UpdateShellLayoutAsync()
+	{
+		var entered = false;
+		var requiresFollowUp = false;
+		try
+		{
+			await _renderGate.WaitAsync();
+			entered = true;
+			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || _shellSession is not { } session || !TryGetHostLayout(out var layout) || _appliedHostLayout == layout)
+			{
+				return;
+			}
+
+			var previousLayout = _appliedHostLayout;
+			SetPreviewHostLayout(layout, show: true);
+			if (previousLayout is null || previousLayout.Value.Width != layout.Width || previousLayout.Value.Height != layout.Height)
+			{
+				await session.SetBoundsAsync(new WindowsPreviewBounds(0, 0, layout.Width, layout.Height));
+			}
+
+			_appliedHostLayout = layout;
+			requiresFollowUp = TryGetHostLayout(out var latestLayout) && _appliedHostLayout != latestLayout;
+		}
+		catch (ObjectDisposedException)
+		{
+		}
+		catch (Exception exception)
+		{
+			System.Diagnostics.Debug.WriteLine($"Preview layout update failed: {exception}");
+		}
+		finally
+		{
+			if (entered)
+			{
+				_renderGate.Release();
+			}
+
+			Interlocked.Exchange(ref _layoutUpdateQueued, 0);
+			if (requiresFollowUp)
+			{
+				QueueShellLayoutUpdate();
+			}
+		}
 	}
 
 	private bool IsCurrentRender(long version, CancellationToken cancellationToken)
 	{
-		return !cancellationToken.IsCancellationRequested
-			&& version == Volatile.Read(ref _renderVersion)
-			&& Volatile.Read(ref _isDisposed) is 0
-			&& IsLoaded;
+		return !cancellationToken.IsCancellationRequested && version == Volatile.Read(ref _renderVersion) && Volatile.Read(ref _isDisposed) is 0 && IsLoaded && Visibility is Visibility.Visible;
 	}
 
 	private void ClearRenderedContent()
@@ -403,6 +589,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		PreviewImage.Visibility = Visibility.Collapsed;
 		PreviewTextBlock.Text = string.Empty;
 		PreviewTextScroller.Visibility = Visibility.Collapsed;
+		PreviewAnywayButton.Visibility = Visibility.Collapsed;
 	}
 
 	private void ShowStatus(string text, bool isLoading)
@@ -410,6 +597,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		StatusTextBlock.Text = text;
 		LoadingIndicator.IsActive = isLoading;
 		LoadingIndicator.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
+		PreviewAnywayButton.Visibility = ViewModel?.CanPreviewUntrusted is true ? Visibility.Visible : Visibility.Collapsed;
 		StatusPanel.Visibility = Visibility.Visible;
 	}
 
@@ -430,19 +618,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			_previewHost = HWND.Null;
 		}
 
-		_previewHost = PInvoke.CreateWindowEx(
-			WINDOW_EX_STYLE.WS_EX_NOACTIVATE,
-			"STATIC",
-			null,
-			WINDOW_STYLE.WS_CHILD | WINDOW_STYLE.WS_VISIBLE,
-			0,
-			0,
-			1,
-			1,
-			_windowHandle,
-			null!,
-			null!,
-			null);
+		_previewHost = PInvoke.CreateWindowEx(WINDOW_EX_STYLE.WS_EX_NOPARENTNOTIFY, "STATIC", null, WINDOW_STYLE.WS_CHILD | WINDOW_STYLE.WS_CLIPCHILDREN, 0, 0, 1, 1, _windowHandle, null!, null!, null);
 
 		if (_previewHost.IsNull)
 		{
@@ -459,10 +635,19 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		if (PInvoke.IsWindow(_previewHost))
 		{
-			PInvoke.DestroyWindow(_previewHost);
+			if (!PInvoke.DestroyWindow(_previewHost))
+			{
+				var error = Marshal.GetLastPInvokeError();
+				System.Diagnostics.Debug.WriteLine($"Preview host destruction failed with Win32 error {error}.");
+				if (PInvoke.IsWindow(_previewHost))
+				{
+					return;
+				}
+			}
 		}
 
 		_previewHost = HWND.Null;
+		_appliedHostLayout = null;
 	}
 
 	private void SetPreviewHostLayout(PreviewHostLayout layout, bool show)
@@ -492,11 +677,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		var scale = xamlRoot.RasterizationScale;
 		var width = Math.Max(1, (int)Math.Round(PreviewSurface.ActualWidth * scale));
 		var height = Math.Max(1, (int)Math.Round(PreviewSurface.ActualHeight * scale));
-		layout = new PreviewHostLayout(
-			(int)Math.Round(point.X * scale),
-			(int)Math.Round(point.Y * scale),
-			width,
-			height);
+		layout = new PreviewHostLayout((int)Math.Round(point.X * scale), (int)Math.Round(point.Y * scale), width, height);
 
 		return true;
 	}
@@ -534,6 +715,46 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		return text;
 	}
 
+	private static async Task<byte[]> ReadImageAsync(Stream stream, long? contentLength, CancellationToken cancellationToken)
+	{
+		if (contentLength > ImagePreviewByteLimit)
+		{
+			throw new InvalidDataException("The encoded preview image exceeds the safe size limit.");
+		}
+
+		using var output = new MemoryStream();
+		var buffer = new byte[81920];
+		var length = 0;
+		while (true)
+		{
+			var read = await stream.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, ImagePreviewByteLimit - length + 1)), cancellationToken);
+			if (read is 0)
+			{
+				break;
+			}
+
+			length += read;
+			if (length > ImagePreviewByteLimit)
+			{
+				throw new InvalidDataException("The encoded preview image exceeds the safe size limit.");
+			}
+
+			output.Write(buffer, 0, read);
+		}
+
+		return output.ToArray();
+	}
+
+	private static async Task<(uint Width, uint Height)> ReadImageDimensionsAsync(byte[] encodedImage, CancellationToken cancellationToken)
+	{
+		using var imageStream = new MemoryStream(encodedImage, writable: false);
+		using var randomAccessStream = imageStream.AsRandomAccessStream();
+		var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return (decoder.OrientedPixelWidth, decoder.OrientedPixelHeight);
+	}
+
 	private static async Task DisposeShellSessionAsync(IWindowsShellPreviewSession? session)
 	{
 		if (session is null)
@@ -556,6 +777,29 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		lock (_lifecycleLock)
 		{
 			return _cleanupTask ??= CleanupPreviewAsync();
+		}
+	}
+
+	private async Task WaitForCleanupAsync()
+	{
+		Task? cleanupTask;
+		lock (_lifecycleLock)
+		{
+			cleanupTask = _cleanupTask;
+		}
+
+		if (cleanupTask is null)
+		{
+			return;
+		}
+
+		await cleanupTask;
+		lock (_lifecycleLock)
+		{
+			if (_disposeTask is null && ReferenceEquals(_cleanupTask, cleanupTask))
+			{
+				_cleanupTask = null;
+			}
 		}
 	}
 

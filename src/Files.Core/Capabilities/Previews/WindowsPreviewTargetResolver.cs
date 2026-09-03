@@ -44,7 +44,9 @@ public sealed class WindowsPreviewTargetResolver : IWindowsPreviewTargetResolver
 				throw new NotSupportedException("The resolved preview target is not a Windows Shell-backed file.");
 			}
 
-			return new WindowsPreviewTarget(model, windowsItem);
+			var source = _workspace.Sources.Single(source => source.SourceId == reference.SourceId);
+
+			return new WindowsPreviewTarget(model, windowsItem, new ItemContext(source, coreModel, model.Reference));
 		}
 		catch (Exception resolutionError)
 		{

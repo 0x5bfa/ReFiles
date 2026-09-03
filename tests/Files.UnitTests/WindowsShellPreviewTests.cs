@@ -8,6 +8,7 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
+using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -20,6 +21,27 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class WindowsShellPreviewTests
 {
+	/// <summary>Test case: default handler activation uses an out-of-process server with cloaking.</summary>
+	[TestMethod]
+	public void DefaultActivationPolicyUsesLocalServerWithCloaking()
+	{
+		var policy = new LocalServerWindowsPreviewHandlerActivationPolicy();
+
+		Assert.AreEqual(WindowsPreviewHandlerActivationContext.LocalServer | WindowsPreviewHandlerActivationContext.EnableCloaking, policy.GetContext(Guid.NewGuid()));
+	}
+
+	/// <summary>Verifies the exact registry value forms that opt a handler out of low-integrity isolation.</summary>
+	[TestMethod]
+	public void LowIntegrityOptOutAcceptsOnlyFourByteNonzeroDwordOrBinaryValues()
+	{
+		Assert.IsTrue(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(1, RegistryValueKind.DWord));
+		Assert.IsTrue(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(-1, RegistryValueKind.DWord));
+		Assert.IsTrue(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(new byte[] { 1, 0, 0, 0 }, RegistryValueKind.Binary));
+		Assert.IsFalse(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(0, RegistryValueKind.DWord));
+		Assert.IsFalse(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(new byte[] { 1 }, RegistryValueKind.Binary));
+		Assert.IsFalse(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled("1", RegistryValueKind.String));
+	}
+
 	/// <summary>
 	/// Test case: handler resolver caches positive and negative associations.
 	/// </summary>
@@ -187,13 +209,14 @@ public sealed class WindowsShellPreviewTests
 		};
 		var target = CreateTarget("item", "document.pdf");
 		var scheduler = new InlineScheduler();
-		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), scheduler, new FakeControllerFactory(controller));
+		var factory = new WindowsShellPreviewSessionFactory(
+			new FakeTargetResolver(target), scheduler, new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, AllowHandlerRegistrationValidator.Instance);
 
 		await using var session = await factory.CreateAsync(CreateResult(target.Reference), CreateHost());
 		var concreteSession = (WindowsShellPreviewSession)session;
 		Assert.AreEqual(WindowsShellPreviewSessionState.Previewing, concreteSession.State);
 
-		CollectionAssert.AreEqual(new[] {"site", "stream", "window", "bounds", "preview"}, order.ToArray());
+		CollectionAssert.AreEqual(new[] {"stream", "site", "window", "visuals", "preview"}, order.ToArray());
 
 		await session.SetBoundsAsync(new WindowsPreviewBounds(1, 2, 3, 4));
 		await session.SetThemeAsync(new WindowsPreviewColor(1, 2, 3), new WindowsPreviewColor(4, 5, 6));
@@ -224,13 +247,125 @@ public sealed class WindowsShellPreviewTests
 			FileResult = true,
 		};
 		var target = CreateTarget("item", "document.pdf");
-		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller));
+		var factory = new WindowsShellPreviewSessionFactory(
+			new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, AllowHandlerRegistrationValidator.Instance);
 
 		var session = await factory.CreateAsync(CreateResult(target.Reference), CreateHost());
 		await session.DisposeAsync();
 
-		CollectionAssert.AreEqual(new[] {"site", "stream", "item", "file", "window", "bounds", "preview", "dispose"}, order.ToArray());
+		CollectionAssert.AreEqual(new[] {"stream", "item", "file", "site", "window", "visuals", "preview", "dispose"}, order.ToArray());
 }
+
+	/// <summary>
+	/// Test case: session does not site a handler when every initializer fails.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task SessionDoesNotSetSiteWhenEveryInitializerFails()
+	{
+		var order = new List<string>();
+		var controller = new FakeController(order);
+		var target = CreateTarget("item", "document.pdf");
+		var factory = new WindowsShellPreviewSessionFactory(
+			new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, AllowHandlerRegistrationValidator.Instance);
+
+		await Assert.ThrowsAsync<NotSupportedException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
+
+		CollectionAssert.AreEqual(new[] {"stream", "item", "file", "dispose"}, order.ToArray());
+		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
+	}
+
+	/// <summary>
+	/// Test case: session creation revalidates policy on the preview STA immediately before activating the handler.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task SessionRevalidatesPolicyOnPreviewStaBeforeHandlerActivation()
+	{
+		var order = new List<string>();
+		var controller = new FakeController(order) { StreamResult = true };
+		var target = CreateTarget("item", "document.pdf", includeContext: true);
+		var request = new PreviewRequest(42, PreviewHydrationPolicy.AllowHydration);
+		var policy = new FakeShellPolicy { BlockReasonAfterFirstCheck = PreviewBlockReason.DisabledByPolicy };
+		var controllerFactory = new FakeControllerFactory(controller);
+		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), new InlineScheduler(), controllerFactory, policy, AllowHandlerRegistrationValidator.Instance);
+
+		var exception = await Assert.ThrowsAsync<WindowsShellPreviewBlockedException>(async () =>
+			await factory.CreateAsync(new WindowsShellPreviewResult(target.Reference, Guid.NewGuid(), request), CreateHost()));
+
+		Assert.AreEqual(PreviewBlockReason.DisabledByPolicy, exception.Reason);
+		Assert.AreEqual(2, policy.CallCount);
+		Assert.AreSame(request, policy.Request);
+		Assert.AreEqual(0, controllerFactory.CreateCount);
+		Assert.AreEqual(0, order.Count);
+		Assert.AreEqual(0, controller.DisposeCount);
+		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
+	}
+
+	/// <summary>
+	/// Test case: a Shell retry authorization cannot move to a different resolved target before controller activation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task AuthorizedShellResultRejectsDifferentResolvedTargetBeforeControllerActivation()
+	{
+		await using var authorizedTarget = CreateTarget("item", "document.pdf", fileSystemPath: @"C:\authorized\document.pdf");
+		var resolvedTarget = CreateTarget("item", "document.pdf", fileSystemPath: @"C:\replacement\document.pdf");
+		var request = new PreviewRequest(42, PreviewHydrationPolicy.LocalOnly, new PreviewTrustAuthorization(authorizedTarget.Context!));
+		var result = new WindowsShellPreviewResult(authorizedTarget.Reference, Guid.NewGuid(), request);
+		var controller = new FakeController([]) { StreamResult = true };
+		var controllerFactory = new FakeControllerFactory(controller);
+		var factory = new WindowsShellPreviewSessionFactory(
+			new FakeTargetResolver(resolvedTarget), new InlineScheduler(), controllerFactory, new TargetBoundShellPolicy(), AllowHandlerRegistrationValidator.Instance);
+
+		var exception = await Assert.ThrowsAsync<WindowsShellPreviewBlockedException>(async () => await factory.CreateAsync(result, CreateHost()));
+
+		Assert.AreEqual(PreviewBlockReason.Untrusted, exception.Reason);
+		Assert.AreEqual(0, controllerFactory.CreateCount);
+		Assert.AreEqual(0, controller.DisposeCount);
+		Assert.IsTrue(((FakeWindowsFile)resolvedTarget.Item).IsDisposed);
+	}
+
+	/// <summary>
+	/// Test case: session creation rejects a handler whose current registration no longer matches the result.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task SessionRejectsHandlerThatIsNoLongerRegisteredForTheItem()
+	{
+		var order = new List<string>();
+		var controller = new FakeController(order) { StreamResult = true };
+		var target = CreateTarget("item", "document.pdf", includeContext: true);
+		var validator = new FixedHandlerRegistrationValidator(false);
+		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, validator);
+
+		var exception = await Assert.ThrowsAsync<WindowsShellPreviewBlockedException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
+
+		Assert.AreEqual(PreviewBlockReason.DisabledByPolicy, exception.Reason);
+		Assert.AreEqual(1, validator.CallCount);
+		Assert.AreEqual(0, order.Count);
+		Assert.AreEqual(0, controller.DisposeCount);
+		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
+	}
+
+	/// <summary>
+	/// Test case: a target without policy context is rejected before activating the handler.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task SessionRejectsTargetWithoutPolicyContext()
+	{
+		var order = new List<string>();
+		var controller = new FakeController(order) { StreamResult = true };
+		var target = CreateTarget("item", "document.pdf", includeContext: false);
+		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller));
+
+		var exception = await Assert.ThrowsAsync<WindowsShellPreviewBlockedException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
+
+		Assert.AreEqual(PreviewBlockReason.DisabledByPolicy, exception.Reason);
+		Assert.AreEqual(0, order.Count);
+		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
+	}
 
 	/// <summary>
 	/// Test case: session failure cleans controller and resolved target.
@@ -246,7 +381,8 @@ public sealed class WindowsShellPreviewTests
 			ThrowOnPreview = true,
 		};
 		var target = CreateTarget("item", "document.pdf");
-		var factory = new WindowsShellPreviewSessionFactory(new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller));
+		var factory = new WindowsShellPreviewSessionFactory(
+			new FakeTargetResolver(target), new InlineScheduler(), new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, AllowHandlerRegistrationValidator.Instance);
 
 		await Assert.ThrowsAsync<InvalidOperationException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
 
@@ -304,14 +440,15 @@ public sealed class WindowsShellPreviewTests
 	private static WindowsPreviewHost CreateHost()
 		=> new(PInvoke.GetDesktopWindow(), new WindowsPreviewBounds(0, 0, 640, 480));
 
-	private static WindowsPreviewTarget CreateTarget(string id, string name)
+	private static WindowsPreviewTarget CreateTarget(string id, string name, bool includeContext = true, string? fileSystemPath = null)
 	{
 		var source = new TestStorageSource();
-		var item = new FakeWindowsFile(id, name);
+		var item = new FakeWindowsFile(id, name, fileSystemPath);
 		var reference = new StorableReference(source.SourceId, item.Id);
-		var model = new StorableModel(item, reference, CapabilityRegistry.Empty.CreateCapabilities(new ItemContext(source, item, reference)));
+		var context = new ItemContext(source, item, reference);
+		var model = new StorableModel(item, reference, CapabilityRegistry.Empty.CreateCapabilities(context));
 
-		return new WindowsPreviewTarget(model, item);
+		return new WindowsPreviewTarget(model, item, includeContext ? context : null);
 	}
 
 	private sealed class FakeAssociation : IWindowsPreviewHandlerAssociation
@@ -350,8 +487,50 @@ public sealed class WindowsShellPreviewTests
 	{
 		public PreviewBlockReason? BlockReason { get; set; }
 
+		public PreviewBlockReason? BlockReasonAfterFirstCheck { get; set; }
+
+		public int CallCount { get; private set; }
+
+		public PreviewRequest? Request { get; private set; }
+
 		public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid)
-			=> BlockReason;
+		{
+			CallCount++;
+
+			return BlockReason;
+		}
+
+		public PreviewBlockReason? GetBlockReason(PreviewRequest request, ItemContext context, Guid handlerClsid)
+		{
+			Request = request;
+			CallCount++;
+
+			return CallCount > 1 ? BlockReasonAfterFirstCheck ?? BlockReason : BlockReason;
+		}
+
+		public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, Guid handlerClsid, CancellationToken cancellationToken = default)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			return ValueTask.FromResult(GetBlockReason(request, context, handlerClsid));
+		}
+	}
+
+	private sealed class TargetBoundShellPolicy : IWindowsShellPreviewPolicy
+	{
+		public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid) => PreviewBlockReason.Untrusted;
+
+		public PreviewBlockReason? GetBlockReason(PreviewRequest request, ItemContext context, Guid handlerClsid)
+		{
+			return request.TrustAuthorization?.AppliesTo(context) is true ? null : PreviewBlockReason.Untrusted;
+		}
+
+		public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, Guid handlerClsid, CancellationToken cancellationToken = default)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			return ValueTask.FromResult(GetBlockReason(request, context, handlerClsid));
+		}
 	}
 
 	private sealed class AllowPreviewPolicy : IPreviewStreamAccessPolicy
@@ -362,19 +541,19 @@ public sealed class WindowsShellPreviewTests
 
 	private sealed class FakeTargetResolver : IWindowsPreviewTargetResolver
 	{
-		private WindowsPreviewTarget target;
+		private WindowsPreviewTarget _target;
 
 		public FakeTargetResolver(WindowsPreviewTarget target)
 		{
-			this.target = target;
+			_target = target;
 		}
 
 		public ValueTask<WindowsPreviewTarget> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			var resolved = target;
-			target = null!;
+			var resolved = _target;
+			_target = null!;
 
 			return ValueTask.FromResult(resolved);
 		}
@@ -382,20 +561,52 @@ public sealed class WindowsShellPreviewTests
 
 	private sealed class FakeControllerFactory : IWindowsPreviewHandlerControllerFactory
 	{
-		private readonly IWindowsPreviewHandlerController controller;
+		private readonly IWindowsPreviewHandlerController _controller;
+
+		public int CreateCount { get; private set; }
 
 		public FakeControllerFactory(IWindowsPreviewHandlerController controller)
 		{
-			this.controller = controller;
+			_controller = controller;
 		}
 
 		public IWindowsPreviewHandlerController Create(Guid handlerClsid)
-			=> controller;
+		{
+			CreateCount++;
+
+			return _controller;
+		}
+	}
+
+	private sealed class AllowHandlerRegistrationValidator : IWindowsPreviewHandlerRegistrationValidator
+	{
+		public static AllowHandlerRegistrationValidator Instance { get; } = new();
+
+		public bool IsCurrentHandler(ItemContext context, Guid handlerClsid) => true;
+	}
+
+	private sealed class FixedHandlerRegistrationValidator : IWindowsPreviewHandlerRegistrationValidator
+	{
+		private readonly bool _isCurrent;
+
+		public int CallCount { get; private set; }
+
+		public FixedHandlerRegistrationValidator(bool isCurrent)
+		{
+			_isCurrent = isCurrent;
+		}
+
+		public bool IsCurrentHandler(ItemContext context, Guid handlerClsid)
+		{
+			CallCount++;
+
+			return _isCurrent;
+		}
 	}
 
 	private sealed class FakeController : IWindowsPreviewHandlerController
 	{
-		private readonly IList<string> order;
+		private readonly IList<string> _order;
 
 		public bool StreamResult { get; init; }
 
@@ -409,57 +620,59 @@ public sealed class WindowsShellPreviewTests
 
 		public FakeController(IList<string> order)
 		{
-			this.order = order;
+			_order = order;
 		}
 
-		public void SetSite() => order.Add("site");
+		public void SetSite() => _order.Add("site");
 
 		public bool TryInitializeWithStream(string fileSystemPath)
 		{
-			order.Add("stream");
+			_order.Add("stream");
 
 			return StreamResult;
 		}
 
 		public bool TryInitializeWithItem(string parsingName)
 		{
-			order.Add("item");
+			_order.Add("item");
 
 			return ItemResult;
 		}
 
 		public bool TryInitializeWithFile(string fileSystemPath)
 		{
-			order.Add("file");
+			_order.Add("file");
 
 			return FileResult;
 		}
 
 		public void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds)
-			=> order.Add("window");
+			=> _order.Add("window");
 
 		public void SetBounds(WindowsPreviewBounds bounds)
-			=> order.Add("bounds");
+			=> _order.Add("bounds");
 
 		public void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground)
-			=> order.Add("theme");
+			=> _order.Add("theme");
+
+		public void ApplySystemVisuals() => _order.Add("visuals");
 
 		public void DoPreview()
 		{
-			order.Add("preview");
+			_order.Add("preview");
 			if (ThrowOnPreview)
 			{
 				throw new InvalidOperationException("preview failed");
 			}
 		}
 
-		public void SetFocus() => order.Add("focus");
+		public void SetFocus() => _order.Add("focus");
 
 		public HWND QueryFocus() => (HWND)(nint)123;
 
 		public bool TryTranslateAccelerator(in MSG message)
 		{
-			order.Add("translate");
+			_order.Add("translate");
 
 			return message.message != 0;
 		}
@@ -467,7 +680,7 @@ public sealed class WindowsShellPreviewTests
 		public void Dispose()
 		{
 			DisposeCount++;
-			order.Add("dispose");
+			_order.Add("dispose");
 		}
 	}
 

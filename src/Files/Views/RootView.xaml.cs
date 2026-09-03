@@ -13,6 +13,8 @@ namespace Files.Views;
 
 public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposable
 {
+	private const double PreviewPaneWidth = 320;
+
 	private readonly RootViewModel _viewModel;
 	private readonly Queue<string> _pendingErrorMessages = [];
 
@@ -34,7 +36,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		_viewModel = viewModel;
 		_viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		_viewModel.OperationErrorReported += ViewModel_OperationErrorReported;
-		// PreviewPaneView.SessionFactory = previewSessionFactory;
+		PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested += NavigationToolbarView_FolderViewFocusRequested;
 		Loaded += RootView_Loaded;
@@ -45,7 +47,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		ArgumentNullException.ThrowIfNull(window);
 
 		TabStrip.AttachWindow(window);
-		// PreviewPaneView.AttachWindow(window);
+		PreviewPaneView.AttachWindow(window);
 	}
 
 	public void ReportOperationError(Exception exception)
@@ -75,7 +77,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		_pendingErrorMessages.Clear();
 		_activeErrorDialog?.Hide();
 		await _showErrorDialogsTask;
-		// await PreviewPaneView.DisposeAsync();
+		await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
 		await _viewModel.DisposeAsync();
 	}
@@ -142,6 +144,8 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		var isSettings = ViewModel.ActiveTab?.IsSettings is true;
 		NavigationToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
 		FolderToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
+		PreviewPaneColumn.Width = new GridLength(isSettings ? 0 : PreviewPaneWidth);
+		PreviewPaneView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
 		if (isSettings)
 		{
 			Sidebar.SelectedItem = ViewModel.SettingsNavigationItem;

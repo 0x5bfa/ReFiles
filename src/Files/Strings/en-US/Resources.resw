@@ -281,6 +281,8 @@
 	<data name="PreviewEmpty" xml:space="preserve"><value>Select a file to preview</value></data>
 	<data name="PreviewUnavailable" xml:space="preserve"><value>Preview is unavailable</value></data>
 	<data name="PreviewBlocked" xml:space="preserve"><value>Preview is blocked</value></data>
+	<data name="PreviewUntrusted" xml:space="preserve"><value>This file could harm your computer. If you trust the file and its source, open it to view its contents.</value></data>
+	<data name="PreviewAnyway" xml:space="preserve"><value>Preview anyway</value></data>
 	<data name="PreviewFailed" xml:space="preserve"><value>Preview failed</value></data>
 	<data name="PreviewUnsupported" xml:space="preserve"><value>This preview format is not supported</value></data>
 	<data name="WebView" xml:space="preserve"><value>Web view</value></data>

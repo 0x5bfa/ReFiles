@@ -7,13 +7,15 @@ namespace Files.Core.Capabilities.Previews;
 public enum PreviewBlockReason
 {
 	/// <summary>Preview generation would require content hydration.</summary>
-	RequiresHydration,
+	RequiresHydration = 0,
 	/// <summary>The content exceeds the configured preview size limit.</summary>
-	TooLarge,
+	TooLarge = 1,
 	/// <summary>The content cannot be accessed.</summary>
-	AccessDenied,
+	AccessDenied = 2,
 	/// <summary>A preview policy disabled the provider.</summary>
-	DisabledByPolicy,
+	DisabledByPolicy = 3,
+	/// <summary>The content did not pass the Windows trust checks.</summary>
+	Untrusted = 4,
 }
 
 /// <summary>
@@ -28,7 +30,8 @@ public sealed class BlockedPreviewResult : PreviewResult
 	/// <param name="reason">The blocking reason.</param>
 	public BlockedPreviewResult(PreviewBlockReason reason)
 	{
-		if (reason is not PreviewBlockReason.RequiresHydration and not PreviewBlockReason.TooLarge and not PreviewBlockReason.AccessDenied and not PreviewBlockReason.DisabledByPolicy)
+		if (reason is not PreviewBlockReason.RequiresHydration and not PreviewBlockReason.TooLarge and not PreviewBlockReason.AccessDenied
+			and not PreviewBlockReason.Untrusted and not PreviewBlockReason.DisabledByPolicy)
 		{
 			throw new ArgumentOutOfRangeException(nameof(reason));
 		}

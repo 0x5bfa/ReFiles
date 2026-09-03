@@ -41,6 +41,11 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <param name="foreground">The foreground color.</param>
 	void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground);
 
+	/// <summary>Applies the Windows system preview colors and font when supported.</summary>
+	void ApplySystemVisuals()
+	{
+	}
+
 	/// <summary>Starts preview rendering.</summary>
 	void DoPreview();
 

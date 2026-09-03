@@ -40,8 +40,14 @@
 					<TextBlock
 						x:Name="StatusTextBlock"
 						HorizontalAlignment="Center"
+						MaxWidth="260"
 						TextAlignment="Center"
 						TextWrapping="Wrap" />
+					<Button
+						x:Name="PreviewAnywayButton"
+						HorizontalAlignment="Center"
+						Click="PreviewAnywayButton_Click"
+						Visibility="Collapsed" />
 				</StackPanel>
 
 				<Image
