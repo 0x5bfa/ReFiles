@@ -105,7 +105,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 			}
 
 			Span<char> targetBuffer = stackalloc char[ShellStringCapacity];
-			var findData = new WIN32_FIND_DATAW();
+			WIN32_FIND_DATAW findData = default;
 			link.GetPath(targetBuffer, ref findData, ShellLinkRawPath);
 
 			return ReadNullTerminated(targetBuffer);
@@ -149,7 +149,8 @@ internal static unsafe class WindowsShellPropertySheetReader
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			var deviceInfo = new SP_DEVINFO_DATA { cbSize = checked((uint)sizeof(SP_DEVINFO_DATA)) };
+			SP_DEVINFO_DATA deviceInfo = default;
+			deviceInfo.cbSize = checked((uint)sizeof(SP_DEVINFO_DATA));
 			if (!PInvoke.SetupDiEnumDeviceInfo(deviceInfoSet, index, ref deviceInfo))
 			{
 				break;
@@ -243,21 +244,21 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var displayName = ReadVolumeDisplayName(root);
 		try
 		{
-			var createResult = PInvoke.CoCreateInstance(CLSID.CLSID_DiskQuotaControl, null, CLSCTX.CLSCTX_INPROC_SERVER, out IDiskQuotaControl? quotaControl);
-			if (createResult.Failed || quotaControl is null)
+			var hr = PInvoke.CoCreateInstance(typeof(CDiskQuotaControl).GUID, null, CLSCTX.CLSCTX_INPROC_SERVER, out IDiskQuotaControl? quotaControl);
+			if (hr.Failed || quotaControl is null)
 			{
 				return null;
 			}
 
 			fixed (char* rootPointer = root)
 			{
-				var initializeResult = quotaControl.Initialize(new PCWSTR(rootPointer), false);
-				if (initializeResult.Value is AccessDeniedResult)
+				hr = quotaControl.Initialize(rootPointer, false);
+				if (hr.Value is AccessDeniedResult)
 				{
 					return new(root, displayName, true, false, false, false, false, -1, -1);
 				}
 
-				if (initializeResult.Failed)
+				if (hr.Failed)
 				{
 					return null;
 				}
@@ -323,7 +324,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 			Span<char> workingDirectoryBuffer = stackalloc char[ShellStringCapacity];
 			Span<char> commentBuffer = stackalloc char[ShellStringCapacity];
 			Span<char> iconBuffer = stackalloc char[ShellStringCapacity];
-			var findData = new WIN32_FIND_DATAW();
+			WIN32_FIND_DATAW findData = default;
 			link.GetPath(targetBuffer, ref findData, ShellLinkRawPath);
 			link.GetArguments(argumentsBuffer);
 			link.GetWorkingDirectory(workingDirectoryBuffer);
@@ -381,23 +382,18 @@ internal static unsafe class WindowsShellPropertySheetReader
 
 	private static WindowsShellSecurityProperties? TryReadSecurity(string path)
 	{
-		ACL* discretionaryAcl = null;
-		PSECURITY_DESCRIPTOR securityDescriptor = default;
-		fixed (char* pathPointer = path)
+		var result = PInvoke.GetNamedSecurityInfo(
+			path,
+			SE_OBJECT_TYPE.SE_FILE_OBJECT,
+			OBJECT_SECURITY_INFORMATION.DACL_SECURITY_INFORMATION,
+			out _,
+			out _,
+			out var discretionaryAcl,
+			out _,
+			out var securityDescriptor);
+		if (result != WIN32_ERROR.ERROR_SUCCESS || securityDescriptor.IsNull)
 		{
-			var result = PInvoke.GetNamedSecurityInfo(
-				new PCWSTR(pathPointer),
-				SE_OBJECT_TYPE.SE_FILE_OBJECT,
-				OBJECT_SECURITY_INFORMATION.DACL_SECURITY_INFORMATION,
-				null,
-				null,
-				&discretionaryAcl,
-				null,
-				&securityDescriptor);
-			if (result != WIN32_ERROR.ERROR_SUCCESS || securityDescriptor.IsNull)
-			{
-				return null;
-			}
+			return null;
 		}
 
 		try
@@ -407,7 +403,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 				return new(path, []);
 			}
 
-			var aclInformation = new ACL_SIZE_INFORMATION();
+			ACL_SIZE_INFORMATION aclInformation = default;
 			if (!PInvoke.GetAclInformation(discretionaryAcl, &aclInformation, checked((uint)sizeof(ACL_SIZE_INFORMATION)), ACL_INFORMATION_CLASS.AclSizeInformation))
 			{
 				return null;
@@ -427,7 +423,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 					continue;
 				}
 
-				var sid = new PSID(&ace->SidStart);
+				var sid = (PSID)(&ace->SidStart);
 				var sidText = ReadSid(sid);
 				if (string.IsNullOrEmpty(sidText))
 				{
@@ -456,7 +452,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		}
 		finally
 		{
-			PInvoke.LocalFree(new HLOCAL((nint)securityDescriptor.Value));
+			PInvoke.LocalFree((HLOCAL)securityDescriptor.Value);
 		}
 	}
 
@@ -473,7 +469,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		}
 		finally
 		{
-			PInvoke.LocalFree(new HLOCAL((nint)value.Value));
+			PInvoke.LocalFree((HLOCAL)value.Value);
 		}
 	}
 
@@ -507,15 +503,13 @@ internal static unsafe class WindowsShellPropertySheetReader
 		fixed (char* iconPointer = iconBuffer)
 		fixed (char* picturePointer = pictureBuffer)
 		{
-			var settings = new SHFOLDERCUSTOMSETTINGS
-			{
-				dwSize = checked((uint)sizeof(SHFOLDERCUSTOMSETTINGS)),
-				dwMask = PInvoke.FCSM_ICONFILE | PInvoke.FCSM_LOGO,
-				pszIconFile = new PWSTR(iconPointer),
-				cchIconFile = checked((uint)iconBuffer.Length),
-				pszLogo = new PWSTR(picturePointer),
-				cchLogo = checked((uint)pictureBuffer.Length),
-			};
+			SHFOLDERCUSTOMSETTINGS settings = default;
+			settings.dwSize = checked((uint)sizeof(SHFOLDERCUSTOMSETTINGS));
+			settings.dwMask = PInvoke.FCSM_ICONFILE | PInvoke.FCSM_LOGO;
+			settings.pszIconFile = iconPointer;
+			settings.cchIconFile = checked((uint)iconBuffer.Length);
+			settings.pszLogo = picturePointer;
+			settings.cchLogo = checked((uint)pictureBuffer.Length);
 			var hasCustomSettings = PInvoke.SHGetSetFolderCustomSettings(ref settings, path, PInvoke.FCS_READ).Succeeded;
 			var folderKind = WindowsShellFolderCustomizationService.ReadFolderKind(path, ReadShellString(shellItem, "System.FolderKind") ?? string.Empty);
 			var root = Path.GetPathRoot(path);
@@ -608,7 +602,9 @@ internal static unsafe class WindowsShellPropertySheetReader
 			}
 
 			var signerInfo = (CMSG_SIGNER_INFO*)buffer;
-			var certificateInfo = new CERT_INFO { Issuer = signerInfo->Issuer, SerialNumber = signerInfo->SerialNumber };
+			CERT_INFO certificateInfo = default;
+			certificateInfo.Issuer = signerInfo->Issuer;
+			certificateInfo.SerialNumber = signerInfo->SerialNumber;
 			var certificate = PInvoke.CertFindCertificateInStore(certificateStore, encoding, 0, CERT_FIND_FLAGS.CERT_FIND_SUBJECT_CERT, &certificateInfo, (CERT_CONTEXT*)null);
 			if (certificate is null)
 			{
@@ -715,7 +711,8 @@ internal static unsafe class WindowsShellPropertySheetReader
 
 			try
 			{
-				var catalogInformation = new CATALOG_INFO { cbStruct = checked((uint)sizeof(CATALOG_INFO)) };
+				CATALOG_INFO catalogInformation = default;
+				catalogInformation.cbStruct = checked((uint)sizeof(CATALOG_INFO));
 				if (!PInvoke.CryptCATCatalogInfoFromContext(catalogContext, ref catalogInformation, 0))
 				{
 					return null;

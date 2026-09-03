@@ -58,8 +58,8 @@ internal sealed class WindowsStorableFactory
 		return _scheduler.InvokeAsync(
 			() =>
 			{
-				var result = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
-				result.ThrowOnFailure();
+				var hr = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
+				hr.ThrowOnFailure();
 
 				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
 			},
@@ -72,8 +72,8 @@ internal sealed class WindowsStorableFactory
 			() =>
 			{
 				ITEMIDLIST desktopPidl = default;
-				var result = PInvoke.SHCreateItemFromIDList(in desktopPidl, out IShellItem shellItem);
-				result.ThrowOnFailure();
+				var hr = PInvoke.SHCreateItemFromIDList(in desktopPidl, out IShellItem shellItem);
+				hr.ThrowOnFailure();
 
 				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
 			},
@@ -120,9 +120,9 @@ internal sealed class WindowsStorableFactory
 			descriptor.Locator,
 			shellItem =>
 			{
-				var parentResult = shellItem.GetParent(out var parent);
+				var hr = shellItem.GetParent(out var parent);
 
-				if (parentResult.Failed)
+				if (hr.Failed)
 				{
 					return null;
 				}
@@ -206,7 +206,10 @@ internal sealed class WindowsStorableFactory
 				}
 			}
 
-			CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate END name={descriptor.Snapshot.Name} batches={batchCount} items={itemCount} identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+			CoreDiagnosticLog.Write(
+				"WindowsStorableFactory",
+				$"Enumerate END name={descriptor.Snapshot.Name} batches={batchCount} items={itemCount} " +
+				$"identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -218,29 +221,28 @@ internal sealed class WindowsStorableFactory
 			descriptor.Locator,
 			shellItem =>
 			{
-				var bindContextResult = PInvoke.CreateBindCtx(0, out IBindCtx? bindContext);
-				bindContextResult.ThrowOnFailure();
+				var hr = PInvoke.CreateBindCtx(0, out IBindCtx? bindContext);
+				hr.ThrowOnFailure();
 
 				if (bindContext is null)
 				{
 					throw new IOException("Could not create a Shell bind context.");
 				}
 
-				var bindOptions = new BIND_OPTS
+				BIND_OPTS bindOptions = default;
+				bindOptions.cbStruct = (uint)Unsafe.SizeOf<BIND_OPTS>();
+				bindOptions.grfMode = accessMode switch
 				{
-					cbStruct = (uint)Unsafe.SizeOf<BIND_OPTS>(),
-					grfMode = accessMode switch
-					{
-						FileAccess.Read => (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE),
-						FileAccess.Write => (uint)(STGM.STGM_WRITE | STGM.STGM_SHARE_DENY_WRITE),
-						FileAccess.ReadWrite => (uint)(STGM.STGM_READWRITE | STGM.STGM_SHARE_DENY_WRITE),
-						_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),
-					},
+					FileAccess.Read => (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE),
+					FileAccess.Write => (uint)(STGM.STGM_WRITE | STGM.STGM_SHARE_DENY_WRITE),
+					FileAccess.ReadWrite => (uint)(STGM.STGM_READWRITE | STGM.STGM_SHARE_DENY_WRITE),
+					_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),
 				};
-				bindContext.SetBindOptions(bindOptions).ThrowOnFailure();
+				hr = bindContext.SetBindOptions(in bindOptions);
+				hr.ThrowOnFailure();
 
-				var bindResult = shellItem.BindToHandler(bindContext, PInvoke.BHID_Stream, out IStream? shellStream);
-				bindResult.ThrowOnFailure();
+				hr = shellItem.BindToHandler(bindContext, PInvoke.BHID_Stream, out IStream? shellStream);
+				hr.ThrowOnFailure();
 
 				if (shellStream is null)
 				{
@@ -371,15 +373,15 @@ internal sealed class WindowsStorableFactory
 			}
 
 			var enumerationFlags = _SHCONTF.SHCONTF_FOLDERS | _SHCONTF.SHCONTF_NONFOLDERS | _SHCONTF.SHCONTF_INCLUDEHIDDEN;
-			var enumerationResult = folder.EnumObjects(ownerWindow, (uint)enumerationFlags, out IEnumIDList? enumerator);
-			if (enumerationResult == HRESULT.S_FALSE)
+			var hr = folder.EnumObjects(ownerWindow, (uint)enumerationFlags, out IEnumIDList? enumerator);
+			if (hr == HRESULT.S_FALSE)
 			{
 				writer.TryComplete();
 
 				return true;
 			}
 
-			ThrowIfEnumerationFailed(enumerationResult, ownerWindow);
+			ThrowIfEnumerationFailed(hr, ownerWindow);
 			if (enumerator is null)
 			{
 				throw new InvalidOperationException("The Shell folder returned no item enumerator.");
@@ -401,16 +403,16 @@ internal sealed class WindowsStorableFactory
 				}
 
 				var nextStartTimestamp = Stopwatch.GetTimestamp();
-				var result = enumerator.Next(EnumerationBatchSize, childPidls, out var fetched);
+				hr = enumerator.Next(EnumerationBatchSize, childPidls, out var fetched);
 				nextCallCount++;
 				nextDuration += Stopwatch.GetElapsedTime(nextStartTimestamp);
 
-				if (result == HRESULT.S_FALSE && fetched is 0)
+				if (hr == HRESULT.S_FALSE && fetched is 0)
 				{
 					break;
 				}
 
-				ThrowIfEnumerationFailed(result, ownerWindow);
+				ThrowIfEnumerationFailed(hr, ownerWindow);
 				if (fetched is 0)
 				{
 					break;
@@ -430,14 +432,14 @@ internal sealed class WindowsStorableFactory
 
 						var relativePidl = ShellItemHelpers.CopyPidl(childPidl);
 						var absolutePidl = CombinePidls(parentFolder.AbsolutePidl, relativePidl);
-						var itemStoreReference = itemStore?.TryInsert(folder, childPidl);
+						var itemStoreReference = itemStore?.TryInsert(folder, in *childPidl);
 						var child = itemStoreReference?.TryGetItem(folder);
 						if (child is null)
 						{
 							fixed (byte* absolutePidlBytes = absolutePidl.Span)
 							{
-								var createResult = PInvoke.SHCreateItemFromIDList(in *(ITEMIDLIST*)absolutePidlBytes, out child);
-								createResult.ThrowOnFailure();
+								hr = PInvoke.SHCreateItemFromIDList(in *(ITEMIDLIST*)absolutePidlBytes, out child);
+								hr.ThrowOnFailure();
 							}
 						}
 
@@ -489,7 +491,11 @@ internal sealed class WindowsStorableFactory
 			}
 
 			writer.TryComplete();
-			CoreDiagnosticLog.Write("WindowsStorableFactory", $"EnumerateOnSTA END batches={batchCount} items={itemCount} nextCalls={nextCallCount} nextMs={nextDuration.TotalMilliseconds:F1} descriptorMs={descriptorDuration.TotalMilliseconds:F1} channelWriteMs={channelWriteDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+			CoreDiagnosticLog.Write(
+				"WindowsStorableFactory",
+				$"EnumerateOnSTA END batches={batchCount} items={itemCount} nextCalls={nextCallCount} nextMs={nextDuration.TotalMilliseconds:F1} " +
+				$"descriptorMs={descriptorDuration.TotalMilliseconds:F1} channelWriteMs={channelWriteDuration.TotalMilliseconds:F1} " +
+				$"elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 
 			return true;
 		}
@@ -535,14 +541,14 @@ internal sealed class WindowsStorableFactory
 		}
 	}
 
-	private static void ThrowIfEnumerationFailed(HRESULT result, HWND ownerWindow)
+	private static void ThrowIfEnumerationFailed(HRESULT hr, HWND ownerWindow)
 	{
-		if (!ownerWindow.IsNull && result.Value is CanceledHResultValue)
+		if (!ownerWindow.IsNull && hr.Value is CanceledHResultValue)
 		{
 			throw new OperationCanceledException("The Windows Shell canceled folder enumeration.");
 		}
 
-		result.ThrowOnFailure();
+		hr.ThrowOnFailure();
 	}
 
 	private static bool IsMatchingItem(WindowsStorable? storable, string itemId)

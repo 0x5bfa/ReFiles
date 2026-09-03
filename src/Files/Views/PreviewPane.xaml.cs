@@ -33,7 +33,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private Task? _disposeTask;
 
 	private HWND _previewHost;
-	private nint _windowHandle;
+	private HWND _windowHandle;
 	private long _renderVersion;
 	private int _isDisposed;
 
@@ -61,7 +61,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		ArgumentNullException.ThrowIfNull(window);
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 
-		_windowHandle = WindowNative.GetWindowHandle(window);
+		_windowHandle = (HWND)WindowNative.GetWindowHandle(window);
 		if (IsLoaded)
 		{
 			_ = RenderCurrentAsync();
@@ -366,7 +366,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private async Task RenderShellAsync(WindowsShellPreviewResult result, long version, CancellationToken cancellationToken)
 	{
-		if (SessionFactory is null || _windowHandle is 0 || !TryGetHostLayout(out var layout))
+		if (SessionFactory is null || _windowHandle.IsNull || !TryGetHostLayout(out var layout))
 		{
 			ShowStatus(Strings.PreviewUnavailable.GetLocalized(), isLoading: false);
 
@@ -375,7 +375,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		EnsurePreviewHost();
 		SetPreviewHostLayout(layout, show: true);
-		var host = new WindowsPreviewHost((nint)_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height));
+		var host = new WindowsPreviewHost(_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height));
 		var session = await SessionFactory.CreateAsync(result, host, cancellationToken);
 		if (!IsCurrentRender(version, cancellationToken))
 		{
@@ -415,7 +415,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private unsafe void EnsurePreviewHost()
 	{
-		if (_windowHandle is 0 || !PInvoke.IsWindow((HWND)_windowHandle))
+		if (_windowHandle.IsNull || !PInvoke.IsWindow(_windowHandle))
 		{
 			throw new InvalidOperationException("The preview host owner window is not valid.");
 		}
@@ -430,22 +430,19 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			_previewHost = HWND.Null;
 		}
 
-		fixed (char* className = "STATIC")
-		{
-			_previewHost = PInvoke.CreateWindowEx(
-				WINDOW_EX_STYLE.WS_EX_NOACTIVATE,
-				className,
-				default,
-				WINDOW_STYLE.WS_CHILD | WINDOW_STYLE.WS_VISIBLE,
-				0,
-				0,
-				1,
-				1,
-				(HWND)_windowHandle,
-				HMENU.Null,
-				HINSTANCE.Null,
-				null);
-		}
+		_previewHost = PInvoke.CreateWindowEx(
+			WINDOW_EX_STYLE.WS_EX_NOACTIVATE,
+			"STATIC",
+			null,
+			WINDOW_STYLE.WS_CHILD | WINDOW_STYLE.WS_VISIBLE,
+			0,
+			0,
+			1,
+			1,
+			_windowHandle,
+			null!,
+			null!,
+			null);
 
 		if (_previewHost.IsNull)
 		{
@@ -486,7 +483,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private bool TryGetHostLayout(out PreviewHostLayout layout)
 	{
 		layout = default;
-		if (_windowHandle is 0 || !PInvoke.IsWindow((HWND)_windowHandle) || PreviewSurface.XamlRoot is not { } xamlRoot || PreviewSurface.ActualWidth <= 0 || PreviewSurface.ActualHeight <= 0)
+		if (_windowHandle.IsNull || !PInvoke.IsWindow(_windowHandle) || PreviewSurface.XamlRoot is not { } xamlRoot || PreviewSurface.ActualWidth <= 0 || PreviewSurface.ActualHeight <= 0)
 		{
 			return false;
 		}

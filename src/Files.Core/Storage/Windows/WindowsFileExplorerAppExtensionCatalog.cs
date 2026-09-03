@@ -1,9 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Runtime.InteropServices.Marshalling;
-using Files.Core.Interop.Windows;
 using Windows.Win32;
+using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
 
 namespace Files.Core.Storage.Windows;
@@ -11,6 +10,7 @@ namespace Files.Core.Storage.Windows;
 internal static class WindowsFileExplorerAppExtensionCatalog
 {
 	private const uint WaitForStateRepository = 1;
+	private const string RuntimeClassName = "Windows.Internal.FileExplorerAppExtension";
 
 	internal static IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> GetRegistrations(IEnumerable<string> itemTypes)
 	{
@@ -18,21 +18,24 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 
 		var registrations = new List<WindowsFileExplorerAppExtensionRegistration>();
 		var identifiers = new HashSet<(Guid ClassId, string VerbId)>();
-		if (!TryGetActivationFactory(out var factory))
+		var hr = PInvoke.WindowsCreateString(RuntimeClassName, checked((uint)RuntimeClassName.Length), out var className);
+		if (hr.Failed)
 		{
 			return registrations;
 		}
 
-		try
+		using (className)
 		{
+			hr = PInvoke.RoGetActivationFactory(className, out IFileExplorerAppExtensionStatics factory);
+			if (hr.Failed || factory is null)
+			{
+				return registrations;
+			}
+
 			foreach (var itemType in itemTypes.Where(static value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase))
 			{
 				AppendRegistrations(factory, itemType, registrations, identifiers);
 			}
-		}
-		finally
-		{
-			ReleaseComObject(factory);
 		}
 
 		return registrations;
@@ -41,46 +44,23 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 	private static void AppendRegistrations(IFileExplorerAppExtensionStatics factory, string itemType, List<WindowsFileExplorerAppExtensionRegistration> registrations,
 		HashSet<(Guid ClassId, string VerbId)> identifiers)
 	{
-		var extensionsResult = factory.GetExtensions(itemType, WaitForStateRepository, out var extensions);
-		if (extensionsResult.Failed || extensions is null)
+		var hr = factory.GetExtensions(itemType, WaitForStateRepository, out var extensionsObject);
+		if (hr.Failed || extensionsObject is null || !ExtensionVectorAdapter.TryCreate(extensionsObject, out var extensions))
 		{
-			ReleaseComObject(extensions);
-
 			return;
 		}
 
-		try
+		if (!extensions.TryGetSize(out var extensionCount))
 		{
-			if (!ExtensionVectorAdapter.TryCreate(extensions, out var extensionVector))
-			{
-				return;
-			}
-
-			if (!extensionVector.TryGetSize(out var extensionCount))
-			{
-				return;
-			}
-
-			for (uint extensionIndex = 0; extensionIndex < extensionCount; extensionIndex++)
-			{
-				if (!extensionVector.TryGetAt(extensionIndex, out var extension))
-				{
-					continue;
-				}
-
-				try
-				{
-					AppendExtensionVerbs(extension, registrations, identifiers);
-				}
-				finally
-				{
-					extension.Release();
-				}
-			}
+			return;
 		}
-		finally
+
+		for (uint extensionIndex = 0; extensionIndex < extensionCount; extensionIndex++)
 		{
-			ReleaseComObject(extensions);
+			if (extensions.TryGetAt(extensionIndex, out var extension))
+			{
+				AppendExtensionVerbs(extension, registrations, identifiers);
+			}
 		}
 	}
 
@@ -90,106 +70,82 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 		var packageFullName = extension.GetPackageFullName();
 		if (!extension.TryGetVerbs(out var verbs) || verbs is null)
 		{
-			ReleaseComObject(verbs);
-
 			return;
 		}
 
-		try
+		var hr = verbs.GetSize(out var verbCount);
+		if (hr.Failed)
 		{
-			if (verbs.GetSize(out var verbCount).Failed)
-			{
-				return;
-			}
-
-			for (uint verbIndex = 0; verbIndex < verbCount; verbIndex++)
-			{
-				if (verbs.GetAt(verbIndex, out var valueSet).Failed || valueSet is null)
-				{
-					ReleaseComObject(valueSet);
-
-					continue;
-				}
-
-				try
-				{
-					var verbId = ReadValueSetString(valueSet, "Id") ?? string.Empty;
-					var classId = ReadValueSetGuid(valueSet, "Verb");
-					if (classId is not { } commandClassId || commandClassId == Guid.Empty || !identifiers.Add((commandClassId, verbId)))
-					{
-						continue;
-					}
-
-					registrations.Add(new(commandClassId, verbId, displayName, packageFullName));
-				}
-				finally
-				{
-					ReleaseComObject(valueSet);
-				}
-			}
+			return;
 		}
-		finally
+
+		for (uint verbIndex = 0; verbIndex < verbCount; verbIndex++)
 		{
-			ReleaseComObject(verbs);
+			hr = verbs.GetAt(verbIndex, out var valueSet);
+			if (hr.Failed || valueSet is null)
+			{
+				continue;
+			}
+
+			var verbId = ReadValueSetString(valueSet, "Id") ?? string.Empty;
+			var classId = ReadValueSetGuid(valueSet, "Verb");
+			if (classId is not { } commandClassId || commandClassId == Guid.Empty || !identifiers.Add((commandClassId, verbId)))
+			{
+				continue;
+			}
+
+			registrations.Add(new(commandClassId, verbId, displayName, packageFullName));
 		}
 	}
 
-	private static string? ReadValueSetString(IWinRtPropertySet valueSet, string key)
+	private static string? ReadValueSetString(IPropertySet valueSet, string key)
 	{
-		if (!TryLookupValue(valueSet, key, out var value) || value is null)
+		if (!TryLookupValue(valueSet, key, out var value))
 		{
 			return null;
 		}
 
-		try
-		{
-			if (value is not IWinRtPropertyValue propertyValue)
-			{
-				return null;
-			}
-
-			return propertyValue.GetString(out var result).Succeeded ? result : null;
-		}
-		finally
-		{
-			ReleaseComObject(value);
-		}
-	}
-
-	private static Guid? ReadValueSetGuid(IWinRtPropertySet valueSet, string key)
-	{
-		if (!TryLookupValue(valueSet, key, out var value) || value is null)
+		var propertyValue = value as IPropertyValue;
+		if (propertyValue is null)
 		{
 			return null;
 		}
 
-		try
-		{
-			if (value is not IWinRtPropertyValue propertyValue)
-			{
-				return null;
-			}
+		var hr = propertyValue.GetString(out var result);
 
-			return propertyValue.GetGuid(out var result).Succeeded ? result : null;
-		}
-		finally
-		{
-			ReleaseComObject(value);
-		}
+		return hr.Succeeded ? result : null;
 	}
 
-	private static bool TryLookupValue(IWinRtPropertySet valueSet, string key, out IWinRtInspectable? value)
+	private static Guid? ReadValueSetGuid(IPropertySet valueSet, string key)
+	{
+		if (!TryLookupValue(valueSet, key, out var value))
+		{
+			return null;
+		}
+
+		var propertyValue = value as IPropertyValue;
+		if (propertyValue is null)
+		{
+			return null;
+		}
+
+		var hr = propertyValue.GetGuid(out var result);
+
+		return hr.Succeeded ? result : null;
+	}
+
+	private static bool TryLookupValue(IPropertySet valueSet, string key, out IInspectable? value)
 	{
 		value = null;
-		if (valueSet is not IWinRtStringInspectableMap map)
+		var map = valueSet as IStringInspectableMap;
+		if (map is null)
 		{
 			return false;
 		}
 
-		var result = map.Lookup(key, out value);
-		if (result.Failed || value is null)
+		var hr = map.Lookup(key, out value);
+		if (hr.Failed || value is null)
 		{
-			ReleaseComObject(value);
 			value = null;
 
 			return false;
@@ -198,61 +154,31 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 		return true;
 	}
 
-	private static bool TryGetActivationFactory(out IFileExplorerAppExtensionStatics? factory)
-	{
-		factory = null;
-		const string runtimeClassName = "Windows.Internal.FileExplorerAppExtension";
-		if (PInvoke.WindowsCreateString(runtimeClassName, checked((uint)runtimeClassName.Length), out var className).Failed)
-		{
-			return false;
-		}
-
-		using (className)
-		{
-			var result = ComActivationNativeMethods.RoGetActivationFactory(className, out factory);
-			if (result.Failed || factory is null)
-			{
-				ReleaseComObject(factory);
-				factory = null;
-
-				return false;
-			}
-
-			return true;
-		}
-	}
-
-	private static void ReleaseComObject(object? instance)
-	{
-		if (instance is ComObject comObject)
-		{
-			comObject.FinalRelease();
-		}
-	}
-
 	private readonly struct ExtensionVectorAdapter
 	{
-		private readonly IFileExplorerAppExtensionVectorView8972? _extensions8972;
-		private readonly IFileExplorerAppExtensionVectorView9278? _extensions9278;
+		private readonly IFileExplorerAppExtensionVectorView? _extensions;
+		private readonly IFileExplorerAppExtensionVectorView2? _extensions2;
 
-		private ExtensionVectorAdapter(IFileExplorerAppExtensionVectorView8972? extensions8972, IFileExplorerAppExtensionVectorView9278? extensions9278)
+		private ExtensionVectorAdapter(IFileExplorerAppExtensionVectorView? extensions, IFileExplorerAppExtensionVectorView2? extensions2)
 		{
-			_extensions8972 = extensions8972;
-			_extensions9278 = extensions9278;
+			_extensions = extensions;
+			_extensions2 = extensions2;
 		}
 
-		public static bool TryCreate(IWinRtInspectable extensions, out ExtensionVectorAdapter adapter)
+		public static bool TryCreate(object extensionsObject, out ExtensionVectorAdapter adapter)
 		{
-			if (extensions is IFileExplorerAppExtensionVectorView9278 extensions9278)
+			var extensions2 = extensionsObject as IFileExplorerAppExtensionVectorView2;
+			if (extensions2 is not null)
 			{
-				adapter = new(null, extensions9278);
+				adapter = new(null, extensions2);
 
 				return true;
 			}
 
-			if (extensions is IFileExplorerAppExtensionVectorView8972 extensions8972)
+			var extensions = extensionsObject as IFileExplorerAppExtensionVectorView;
+			if (extensions is not null)
 			{
-				adapter = new(extensions8972, null);
+				adapter = new(extensions, null);
 
 				return true;
 			}
@@ -264,54 +190,47 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 
 		public bool TryGetAt(uint index, out ExtensionAdapter extension)
 		{
-			if (!TryGetInspectable(index, out var inspectable) || inspectable is null)
+			HRESULT hr;
+			if (_extensions2 is not null)
 			{
-				ReleaseComObject(inspectable);
-				extension = default;
+				hr = _extensions2.GetAt(index, out var extension2);
+				if (hr.Succeeded && extension2 is not null)
+				{
+					extension = new(null, extension2);
 
-				return false;
+					return true;
+				}
 			}
 
-			if (ExtensionAdapter.TryCreate(inspectable, out extension))
+			if (_extensions is not null)
 			{
-				return true;
+				hr = _extensions.GetAt(index, out var extension1);
+				if (hr.Succeeded && extension1 is not null)
+				{
+					extension = new(extension1, null);
+
+					return true;
+				}
 			}
 
-			ReleaseComObject(inspectable);
+			extension = default;
 
 			return false;
 		}
 
 		public bool TryGetSize(out uint size)
 		{
-			if (_extensions9278 is not null)
+			if (_extensions2 is not null)
 			{
-				return _extensions9278.GetSize(out size).Succeeded;
+				return _extensions2.GetSize(out size).Succeeded;
 			}
 
-			if (_extensions8972 is not null)
+			if (_extensions is not null)
 			{
-				return _extensions8972.GetSize(out size).Succeeded;
+				return _extensions.GetSize(out size).Succeeded;
 			}
 
 			size = 0;
-
-			return false;
-		}
-
-		private bool TryGetInspectable(uint index, out IWinRtInspectable? extension)
-		{
-			if (_extensions9278 is not null)
-			{
-				return _extensions9278.GetAt(index, out extension).Succeeded && extension is not null;
-			}
-
-			if (_extensions8972 is not null)
-			{
-				return _extensions8972.GetAt(index, out extension).Succeeded && extension is not null;
-			}
-
-			extension = null;
 
 			return false;
 		}
@@ -319,46 +238,25 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 
 	private readonly struct ExtensionAdapter
 	{
-		private readonly IFileExplorerAppExtension8972? _extension8972;
-		private readonly IFileExplorerAppExtension9278? _extension9278;
+		private readonly IFileExplorerAppExtension? _extension;
+		private readonly IFileExplorerAppExtension2? _extension2;
 
-		private ExtensionAdapter(IFileExplorerAppExtension8972? extension8972, IFileExplorerAppExtension9278? extension9278)
+		public ExtensionAdapter(IFileExplorerAppExtension? extension, IFileExplorerAppExtension2? extension2)
 		{
-			_extension8972 = extension8972;
-			_extension9278 = extension9278;
-		}
-
-		public static bool TryCreate(IWinRtInspectable extension, out ExtensionAdapter adapter)
-		{
-			if (extension is IFileExplorerAppExtension9278 extension9278)
-			{
-				adapter = new(null, extension9278);
-
-				return true;
-			}
-
-			if (extension is IFileExplorerAppExtension8972 extension8972)
-			{
-				adapter = new(extension8972, null);
-
-				return true;
-			}
-
-			adapter = default;
-
-			return false;
+			_extension = extension;
+			_extension2 = extension2;
 		}
 
 		public string GetDisplayName()
 		{
-			if (_extension9278 is not null)
+			if (_extension2 is not null)
 			{
-				return _extension9278.GetDisplayName(out var displayName).Succeeded ? displayName ?? string.Empty : string.Empty;
+				return _extension2.GetDisplayName(out var displayName).Succeeded ? displayName ?? string.Empty : string.Empty;
 			}
 
-			if (_extension8972 is not null)
+			if (_extension is not null)
 			{
-				return _extension8972.GetDisplayName(out var displayName).Succeeded ? displayName ?? string.Empty : string.Empty;
+				return _extension.GetDisplayName(out var displayName).Succeeded ? displayName ?? string.Empty : string.Empty;
 			}
 
 			return string.Empty;
@@ -366,50 +264,39 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 
 		public string GetPackageFullName()
 		{
-			if (_extension9278 is not null)
+			if (_extension2 is not null)
 			{
-				return _extension9278.GetPackageFullName(out var packageFullName).Succeeded ? packageFullName ?? string.Empty : string.Empty;
+				return _extension2.GetPackageFullName(out var packageFullName).Succeeded ? packageFullName ?? string.Empty : string.Empty;
 			}
 
-			if (_extension8972 is not null)
+			if (_extension is not null)
 			{
-				return _extension8972.GetPackageFullName(out var packageFullName).Succeeded ? packageFullName ?? string.Empty : string.Empty;
+				return _extension.GetPackageFullName(out var packageFullName).Succeeded ? packageFullName ?? string.Empty : string.Empty;
 			}
 
 			return string.Empty;
 		}
 
-		public bool TryGetVerbs(out IFileExplorerValueSetVectorView? verbs)
+		public bool TryGetVerbs(out IPropertySetVectorView? verbs)
 		{
-			if (_extension9278 is not null)
+			HRESULT hr;
+			if (_extension2 is not null)
 			{
-				var result = _extension9278.GetVerbs(WaitForStateRepository, out verbs);
+				hr = _extension2.GetVerbs(WaitForStateRepository, out verbs);
 
-				return result.Succeeded && verbs is not null;
+				return hr.Succeeded && verbs is not null;
 			}
 
-			if (_extension8972 is not null)
+			if (_extension is not null)
 			{
-				var result = _extension8972.GetVerbs(WaitForStateRepository, out verbs);
+				hr = _extension.GetVerbs(WaitForStateRepository, out verbs);
 
-				return result.Succeeded && verbs is not null;
+				return hr.Succeeded && verbs is not null;
 			}
 
 			verbs = null;
 
 			return false;
-		}
-
-		public void Release()
-		{
-			if (_extension9278 is not null)
-			{
-				ReleaseComObject(_extension9278);
-
-				return;
-			}
-
-			ReleaseComObject(_extension8972);
 		}
 	}
 }

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using System.Runtime.InteropServices.Marshalling;
-using Files.Core.Interop.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.NetworkManagement.NetManagement;
@@ -26,10 +24,6 @@ public static unsafe class WindowsShellSharingService
 	private const uint MaximumPreferredLength = uint.MaxValue;
 	private const string NetworkAndSharingCenterCanonicalName = "Microsoft.NetworkAndSharingCenter";
 	private const string NetworkAndSharingCenterPage = "Advanced";
-	private static readonly Guid _multiObjectElevationFactoryClassId = new("36F0BD14-D84D-468C-B79C-9990F3FA897F");
-	private static readonly Guid _openControlPanelClassId = new("06622D85-6856-4460-8DE1-A81921B41C4B");
-	private static readonly Guid _sharingConfigurationManagerClassId = new("49F371E1-8C5C-4D9C-9A3B-54A6827F513C");
-	private static readonly Guid _sharingElevatedFactoryClassId = new("72A7994A-3092-4054-B6BE-08FF81AEEFFC");
 
 	/// <summary>
 	/// Opens the Windows sharing wizard for a folder.
@@ -65,37 +59,32 @@ public static unsafe class WindowsShellSharingService
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-		var result = ComActivationNativeMethods.CoCreateInstance(_multiObjectElevationFactoryClassId, CLSCTX.CLSCTX_INPROC_SERVER, out IMultiObjectElevationFactory? elevationFactory);
-		if (result.Failed || elevationFactory is null)
+		var factoryClassId = typeof(CMultiObjectElevationFactory).GUID;
+		var hr = PInvoke.CoCreateInstance(in factoryClassId, null, CLSCTX.CLSCTX_INPROC_SERVER, out IMultiObjectElevationFactory elevationFactory);
+		if (hr.Failed || elevationFactory is null)
 		{
-			ReleaseComObject(elevationFactory);
-
-			return result.Failed ? result : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
 		}
 
-		ISharingConfigurationUI? sharingManager = null;
-		try
+		var elevatedFactoryClassId = typeof(CSharingElevatedFactory).GUID;
+		hr = elevationFactory.Initialize(owner, in elevatedFactoryClassId);
+		if (hr.Failed)
 		{
-			result = elevationFactory.Initialize(owner, in _sharingElevatedFactoryClassId);
-			if (result.Failed)
-			{
-				return result;
-			}
-
-			var sharingManagerInterfaceId = typeof(ISharingConfigurationUI).GUID;
-			result = elevationFactory.CreateElevatedObject(in _sharingConfigurationManagerClassId, in sharingManagerInterfaceId, out sharingManager);
-			if (result.Failed || sharingManager is null)
-			{
-				return result.Failed ? result : HRESULT.E_FAIL;
-			}
-
-			return sharingManager.ShowAdvancedSharingConfigDialog(owner, path);
+			return hr;
 		}
-		finally
+
+		var sharingManagerClassId = typeof(SharingConfigurationManager).GUID;
+		var sharingManagerInterfaceId = typeof(ISharingConfigurationUI).GUID;
+		hr = elevationFactory.CreateElevatedObject(in sharingManagerClassId, in sharingManagerInterfaceId, out var sharingManagerObject);
+		var sharingManager = sharingManagerObject as ISharingConfigurationUI;
+		if (hr.Failed || sharingManager is null)
 		{
-			ReleaseComObject(sharingManager);
-			ReleaseComObject(elevationFactory);
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
 		}
+
+		hr = sharingManager.ShowAdvancedSharingConfigDialog(owner, path);
+
+		return hr;
 	}
 
 	/// <summary>
@@ -104,22 +93,16 @@ public static unsafe class WindowsShellSharingService
 	/// <returns>The result returned by the Windows Control Panel host.</returns>
 	public static HRESULT OpenNetworkAndSharingCenter()
 	{
-		var result = ComActivationNativeMethods.CoCreateInstance(_openControlPanelClassId, CLSCTX.CLSCTX_ALL, out IOpenControlPanel? controlPanel);
-		if (result.Failed || controlPanel is null)
+		var classId = typeof(OpenControlPanel).GUID;
+		var hr = PInvoke.CoCreateInstance(in classId, null, CLSCTX.CLSCTX_ALL, out IOpenControlPanel controlPanel);
+		if (hr.Failed || controlPanel is null)
 		{
-			ReleaseComObject(controlPanel);
-
-			return result.Failed ? result : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
 		}
 
-		try
-		{
-			return controlPanel.Open(NetworkAndSharingCenterCanonicalName, NetworkAndSharingCenterPage, null);
-		}
-		finally
-		{
-			ReleaseComObject(controlPanel);
-		}
+		hr = controlPanel.Open(NetworkAndSharingCenterCanonicalName, NetworkAndSharingCenterPage, null!);
+
+		return hr;
 	}
 
 	internal static bool CanShowPropertyPage(string path)
@@ -319,14 +302,6 @@ public static unsafe class WindowsShellSharingService
 		while (true);
 
 		return shares;
-	}
-
-	private static void ReleaseComObject(object? instance)
-	{
-		if (instance is ComObject comObject)
-		{
-			comObject.FinalRelease();
-		}
 	}
 
 	private readonly record struct LocalShare(string Name, string Path);

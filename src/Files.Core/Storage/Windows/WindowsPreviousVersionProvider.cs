@@ -7,6 +7,7 @@ using System.IO;
 using System.Management;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.IO;
@@ -170,7 +171,7 @@ internal static unsafe class WindowsPreviousVersionProvider
 		return names;
 	}
 
-	private static int IssueSnapshotControl(SafeHandle file, Span<byte> output, CancellationToken cancellationToken)
+	private static int IssueSnapshotControl(SafeFileHandle file, Span<byte> output, CancellationToken cancellationToken)
 	{
 		using var completedEvent = PInvoke.CreateEvent(null, true, false, null);
 		if (completedEvent.IsInvalid)
@@ -178,13 +179,13 @@ internal static unsafe class WindowsPreviousVersionProvider
 			return Marshal.GetLastPInvokeError();
 		}
 
-		var ioStatus = new IO_STATUS_BLOCK();
+		IO_STATUS_BLOCK ioStatus = default;
 		fixed (byte* outputPointer = output)
 		{
-			var status = PInvoke.NtFsControlFile(file, completedEvent, 0, 0, &ioStatus, SnapshotControlCode, null, 0, outputPointer, checked((uint)output.Length));
-			if (status is not StatusPending)
+			var status = PInvoke.NtFsControlFile(file, completedEvent, 0, 0, ref ioStatus, SnapshotControlCode, 0, 0, ref *outputPointer, checked((uint)output.Length));
+			if (status.Value is not StatusPending)
 			{
-				return status;
+				return status.Value;
 			}
 
 			var deadline = Environment.TickCount64 + (ProviderTimeoutSeconds * 1_000L);
@@ -218,7 +219,7 @@ internal static unsafe class WindowsPreviousVersionProvider
 		}
 	}
 
-	private static void CancelAndWait(SafeHandle file, SafeHandle completedEvent)
+	private static void CancelAndWait(SafeFileHandle file, SafeFileHandle completedEvent)
 	{
 		PInvoke.CancelIoEx(file, null);
 		PInvoke.WaitForSingleObjectEx(completedEvent, uint.MaxValue, false);

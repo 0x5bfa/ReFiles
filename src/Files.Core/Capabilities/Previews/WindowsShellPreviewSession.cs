@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage.Windows;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -94,7 +96,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	/// <summary>Gets the window that currently has preview focus.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>The focused window handle.</returns>
-	public async ValueTask<nint> QueryFocusAsync(CancellationToken cancellationToken = default)
+	public async ValueTask<HWND> QueryFocusAsync(CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
 
@@ -102,14 +104,15 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	}
 
 	/// <summary>Attempts to translate a keyboard message for the preview handler.</summary>
-	/// <param name="messagePointer">A pointer to the native message.</param>
+	/// <param name="message">The native message.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns><see langword="true"/> when the message was handled.</returns>
-	public ValueTask<bool> TryTranslateAcceleratorAsync(nint messagePointer, CancellationToken cancellationToken = default)
+	public ValueTask<bool> TryTranslateAcceleratorAsync(in MSG message, CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
+		var messageCopy = message;
 
-		return new ValueTask<bool>(_scheduler.InvokeOperationAsync(() => _controller.TryTranslateAccelerator(messagePointer), cancellationToken));
+		return new ValueTask<bool>(_scheduler.InvokeOperationAsync(() => _controller.TryTranslateAccelerator(messageCopy), cancellationToken));
 	}
 
 	internal void TransitionTo(WindowsShellPreviewSessionState nextState)

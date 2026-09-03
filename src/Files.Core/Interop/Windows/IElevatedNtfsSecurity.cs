@@ -7,6 +7,12 @@ using Windows.Win32.Foundation;
 
 namespace Windows.Win32.UI.Shell;
 
+/// <summary>Identifies the Shell NTFS security extension coclass.</summary>
+[Guid("1F2E5C40-9550-11CE-99D2-00AA006E086C")]
+internal sealed class CNtfsSecurityExtension
+{
+}
+
 /// <summary>Opens the elevated NTFS security editor.</summary>
 [GeneratedComInterface(StringMarshalling = StringMarshalling.Utf16, Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("74807F67-0058-440D-8600-65541A7FBBEA")]

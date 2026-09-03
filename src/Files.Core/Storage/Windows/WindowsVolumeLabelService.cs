@@ -5,9 +5,9 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com;
 using Windows.Win32.UI.Controls;
 using Windows.Win32.UI.Shell;
 
@@ -28,7 +28,6 @@ public static unsafe class WindowsVolumeLabelService
 	private const ushort ContinueInstructionResourceId = 50180;
 	private const ushort ContinueResourceId = 50177;
 	private const ushort ShieldIconResourceId = 65534;
-	private static readonly Guid _mountPointRenameClassId = new("60173D16-A550-47F0-A14B-C6F9E4DA0831");
 
 	/// <summary>
 	/// Gets the localized Shell display name for a drive root.
@@ -103,42 +102,29 @@ public static unsafe class WindowsVolumeLabelService
 		}
 	}
 
-	private static void ReleaseComObject(object? instance)
-	{
-		if (instance is ComObject comObject)
-		{
-			comObject.FinalRelease();
-		}
-	}
-
 	private static PCWSTR ResourcePointer(ushort resourceId)
 	{
-		return new PCWSTR((char*)resourceId);
+		return (char*)resourceId;
 	}
 
 	private static void SetLabelElevated(HWND owner, string root, string label)
 	{
-		var result = WindowsElevationMoniker.Create<IMountPointRename>(owner, _mountPointRenameClassId, out var instance);
-		if (result.Failed)
-		{
-			ReleaseComObject(instance);
-		}
-
-		ThrowOnFailureOrCancellation(result);
+		var classId = typeof(CMountPointRename).GUID;
+		var interfaceId = typeof(IMountPointRename).GUID;
+		BIND_OPTS3 bindOptions = default;
+		bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+		bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
+		bindOptions.hwnd = owner;
+		var hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object instanceObject);
+		var instance = instanceObject as IMountPointRename;
+		ThrowOnFailureOrCancellation(hr);
 		if (instance is null)
 		{
-			throw new COMException("The elevated mount-point rename service did not return an interface.", HRESULT.E_FAIL);
+			throw new COMException("The elevated mount-point rename service did not return an interface.", HRESULT.E_NOINTERFACE);
 		}
 
-		try
-		{
-			result = instance.Rename(root, label);
-			ThrowOnFailureOrCancellation(result);
-		}
-		finally
-		{
-			ReleaseComObject(instance);
-		}
+		hr = instance.Rename(root, label);
+		ThrowOnFailureOrCancellation(hr);
 	}
 
 	private static bool ShowElevationDialog(HWND owner)
@@ -146,29 +132,29 @@ public static unsafe class WindowsVolumeLabelService
 		const string shellModuleName = "shell32.dll";
 		fixed (char* moduleNamePointer = shellModuleName)
 		{
-			var shellModule = PInvoke.GetModuleHandle(new PCWSTR(moduleNamePointer));
+			var shellModule = PInvoke.GetModuleHandle(moduleNamePointer);
 			if (shellModule.IsNull)
 			{
 				throw new Win32Exception(Marshal.GetLastPInvokeError());
 			}
 
-			var continueButton = new TASKDIALOG_BUTTON { nButtonID = ContinueButtonId, pszButtonText = ResourcePointer(ContinueResourceId) };
-			var configuration = new TASKDIALOGCONFIG
-			{
-				cbSize = checked((uint)sizeof(TASKDIALOGCONFIG)),
-				hwndParent = owner,
-				hInstance = shellModule,
-				dwCommonButtons = TASKDIALOG_COMMON_BUTTON_FLAGS.TDCBF_CANCEL_BUTTON,
-				pszWindowTitle = ResourcePointer(AccessDeniedTitleResourceId),
-				pszMainInstruction = ResourcePointer(AdminPermissionResourceId),
-				pszContent = ResourcePointer(ContinueInstructionResourceId),
-				cButtons = 1,
-				pButtons = &continueButton,
-				pfCallback = &TaskDialogCallback,
-			};
+			TASKDIALOG_BUTTON continueButton = default;
+			continueButton.nButtonID = ContinueButtonId;
+			continueButton.pszButtonText = ResourcePointer(ContinueResourceId);
+			TASKDIALOGCONFIG configuration = default;
+			configuration.cbSize = checked((uint)sizeof(TASKDIALOGCONFIG));
+			configuration.hwndParent = owner;
+			configuration.hInstance = shellModule;
+			configuration.dwCommonButtons = TASKDIALOG_COMMON_BUTTON_FLAGS.TDCBF_CANCEL_BUTTON;
+			configuration.pszWindowTitle = ResourcePointer(AccessDeniedTitleResourceId);
+			configuration.pszMainInstruction = ResourcePointer(AdminPermissionResourceId);
+			configuration.pszContent = ResourcePointer(ContinueInstructionResourceId);
+			configuration.cButtons = 1;
+			configuration.pButtons = &continueButton;
+			configuration.pfCallback = &TaskDialogCallback;
 			configuration.pszMainIcon = ResourcePointer(ShieldIconResourceId);
-			var result = PInvoke.TaskDialogIndirect(in configuration, out var selectedButton, out _, out _);
-			result.ThrowOnFailure();
+			var hr = PInvoke.TaskDialogIndirect(in configuration, out var selectedButton, out _, out _);
+			hr.ThrowOnFailure();
 
 			return selectedButton is ContinueButtonId;
 		}
@@ -179,19 +165,19 @@ public static unsafe class WindowsVolumeLabelService
 	{
 		if (notification is TaskDialogCreatedNotification)
 		{
-			PInvoke.SendMessage(window, TaskDialogSetButtonElevationRequiredState, new WPARAM(ContinueButtonId), new LPARAM(1));
+			PInvoke.SendMessage(window, TaskDialogSetButtonElevationRequiredState, (nuint)ContinueButtonId, 1);
 		}
 
 		return HRESULT.S_OK;
 	}
 
-	private static void ThrowOnFailureOrCancellation(HRESULT result)
+	private static void ThrowOnFailureOrCancellation(HRESULT hr)
 	{
-		if (result.Value is HResultCanceled)
+		if (hr.Value is HResultCanceled)
 		{
 			throw new OperationCanceledException("The volume-label change was canceled.");
 		}
 
-		result.ThrowOnFailure();
+		hr.ThrowOnFailure();
 	}
 }

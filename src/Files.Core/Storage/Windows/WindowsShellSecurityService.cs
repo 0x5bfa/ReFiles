@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using System.Runtime.InteropServices.Marshalling;
-using Files.Core.Interop.Windows;
+using System.Runtime.InteropServices;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
@@ -15,7 +14,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Opens the Windows NTFS access-control editors used by the Shell security property page.
 /// </summary>
-public static unsafe class WindowsShellSecurityService
+public static class WindowsShellSecurityService
 {
 	private const uint PermissionsPage = 0;
 	private const uint AdvancedPermissionsPage = 1;
@@ -74,31 +73,32 @@ public static unsafe class WindowsShellSecurityService
 
 	private static HRESULT ShowEditor(HWND owner, string path, uint page, bool elevate)
 	{
-		var classId = CLSID.CLSID_NTFSSecurityExt;
+		var classId = typeof(CNtfsSecurityExtension).GUID;
 		IElevatedNtfsSecurity? editor;
-		var result = elevate ? WindowsElevationMoniker.Create(owner, classId, out editor) : ComActivationNativeMethods.CoCreateInstance(classId, CLSCTX.CLSCTX_INPROC_SERVER, out editor);
-		if (result.Failed || editor is null)
+		HRESULT hr;
+		if (elevate)
 		{
-			ReleaseComObject(editor);
-
-			return result.Failed ? result : HRESULT.E_FAIL;
+			var interfaceId = typeof(IElevatedNtfsSecurity).GUID;
+			BIND_OPTS3 bindOptions = default;
+			bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+			bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
+			bindOptions.hwnd = owner;
+			hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object editorObject);
+			editor = editorObject as IElevatedNtfsSecurity;
+		}
+		else
+		{
+			hr = PInvoke.CoCreateInstance(in classId, null, CLSCTX.CLSCTX_INPROC_SERVER, out IElevatedNtfsSecurity createdEditor);
+			editor = createdEditor;
 		}
 
-		try
+		if (hr.Failed || editor is null)
 		{
-			return editor.OpenEditor(owner, path, path, Directory.Exists(path) ? 1u : 0u, page);
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
 		}
-		finally
-		{
-			ReleaseComObject(editor);
-		}
-	}
 
-	private static void ReleaseComObject(object? instance)
-	{
-		if (instance is ComObject comObject)
-		{
-			comObject.FinalRelease();
-		}
+		hr = editor.OpenEditor(owner, path, path, Directory.Exists(path) ? 1u : 0u, page);
+
+		return hr;
 	}
 }

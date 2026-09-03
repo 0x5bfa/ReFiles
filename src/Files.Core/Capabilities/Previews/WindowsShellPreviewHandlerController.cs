@@ -3,9 +3,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using System.Runtime.Versioning;
-using Files.Core.Interop.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
@@ -58,7 +56,7 @@ public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPrevie
 }
 
 [SupportedOSPlatform("windows6.0.6000")]
-internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPreviewHandlerController
+internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHandlerController
 {
 	private IPreviewHandler? _handler;
 	private IStream? _initializedStream;
@@ -79,11 +77,10 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 	/// <returns>The created controller.</returns>
 	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext)
 	{
-		var result = ComActivationNativeMethods.CoCreateInstance<IPreviewHandler>(handlerClsid, (CLSCTX)activationContext, out var handler);
-		if (result.Failed || handler is null)
+		var hr = PInvoke.CoCreateInstance(in handlerClsid, null, (CLSCTX)activationContext, out IPreviewHandler handler);
+		if (hr.Failed || handler is null)
 		{
-			ReleaseComObject(handler);
-			throw new COMException("The Windows preview handler could not be activated.", result.Value);
+			throw new COMException("The Windows preview handler could not be activated.", hr.Value);
 		}
 
 		return new WindowsShellPreviewHandlerController(handler);
@@ -93,7 +90,8 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 	public void SetSite()
 	{
 		EnsureActive();
-		if (!TryQueryInterface(_handler, out IObjectWithSite? siteInterface))
+		var siteInterface = _handler as IObjectWithSite;
+		if (siteInterface is null)
 		{
 			return;
 		}
@@ -110,34 +108,25 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 
 		EnsureActive();
 
-		if (!TryQueryInterface(_handler, out IInitializeWithStream? initializer))
+		var initializer = _handler as IInitializeWithStream;
+		if (initializer is null)
 		{
 			return false;
 		}
 
-		IStream? stream = null;
-		try
+		var hr = PInvoke.SHCreateStreamOnFileEx(fileSystemPath, (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE), 0, false, null!, out IStream stream);
+		hr.ThrowOnFailure();
+
+		hr = initializer.Initialize(stream, (uint)STGM.STGM_READ);
+		if (IsOptionalInitializationFailure(hr))
 		{
-			var openResult = PreviewHandlerNativeMethods.SHCreatePreviewStream(fileSystemPath, (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE), out var createdStream);
-			stream = createdStream;
-			openResult.ThrowOnFailure();
-
-			var initializeResult = initializer.Initialize(stream, (uint)STGM.STGM_READ);
-			if (IsOptionalInitializationFailure(initializeResult))
-			{
-				return false;
-			}
-
-			initializeResult.ThrowOnFailure();
-			_initializedStream = stream;
-			stream = null;
-
-			return true;
+			return false;
 		}
-		finally
-		{
-			ReleaseComObject(stream);
-		}
+
+		hr.ThrowOnFailure();
+		_initializedStream = stream;
+
+		return true;
 	}
 
 	/// <inheritdoc />
@@ -147,34 +136,25 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 
 		EnsureActive();
 
-		if (!TryQueryInterface(_handler, out IInitializeWithItem? initializer))
+		var initializer = _handler as IInitializeWithItem;
+		if (initializer is null)
 		{
 			return false;
 		}
 
-		IShellItem? item = null;
-		try
+		var hr = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem item);
+		hr.ThrowOnFailure();
+
+		hr = initializer.Initialize(item, (uint)STGM.STGM_READ);
+		if (IsOptionalInitializationFailure(hr))
 		{
-			var createResult = PreviewHandlerNativeMethods.SHCreatePreviewItem(parsingName, out var createdItem);
-			item = createdItem;
-			createResult.ThrowOnFailure();
-
-			var initializeResult = initializer.Initialize(item, (uint)STGM.STGM_READ);
-			if (IsOptionalInitializationFailure(initializeResult))
-			{
-				return false;
-			}
-
-			initializeResult.ThrowOnFailure();
-			_initializedItem = item;
-			item = null;
-
-			return true;
+			return false;
 		}
-		finally
-		{
-			ReleaseComObject(item);
-		}
+
+		hr.ThrowOnFailure();
+		_initializedItem = item;
+
+		return true;
 	}
 
 	/// <inheritdoc />
@@ -184,31 +164,29 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 
 		EnsureActive();
 
-		if (!TryQueryInterface(_handler, out IInitializeWithFile? initializer))
+		var initializer = _handler as IInitializeWithFile;
+		if (initializer is null)
 		{
 			return false;
 		}
 
-		fixed (char* path = fileSystemPath)
+		var hr = initializer.Initialize(fileSystemPath, (uint)STGM.STGM_READ);
+		if (IsOptionalInitializationFailure(hr))
 		{
-			var initializeResult = initializer.Initialize(path, (uint)STGM.STGM_READ);
-			if (IsOptionalInitializationFailure(initializeResult))
-			{
-				return false;
-			}
-
-			initializeResult.ThrowOnFailure();
-
-			return true;
+			return false;
 		}
+
+		hr.ThrowOnFailure();
+
+		return true;
 	}
 
 	/// <inheritdoc />
-	public void SetWindow(nint windowHandle, WindowsPreviewBounds bounds)
+	public void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds)
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		_handler.SetWindow((HWND)windowHandle, &rectangle).ThrowOnFailure();
+		_handler.SetWindow(windowHandle, in rectangle).ThrowOnFailure();
 	}
 
 	/// <inheritdoc />
@@ -216,20 +194,23 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		_handler.SetRect(&rectangle).ThrowOnFailure();
+		_handler.SetRect(in rectangle).ThrowOnFailure();
 	}
 
 	/// <inheritdoc />
 	public void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground)
 	{
 		EnsureActive();
-		if (!TryQueryInterface(_handler, out IPreviewHandlerVisuals? visuals))
+		var visuals = _handler as IPreviewHandlerVisuals;
+		if (visuals is null)
 		{
 			return;
 		}
 
-		visuals.SetBackgroundColor((COLORREF)ToColorRef(background)).ThrowOnFailure();
-		visuals.SetTextColor((COLORREF)ToColorRef(foreground)).ThrowOnFailure();
+		var hr = visuals.SetBackgroundColor((COLORREF)ToColorRef(background));
+		hr.ThrowOnFailure();
+		hr = visuals.SetTextColor((COLORREF)ToColorRef(foreground));
+		hr.ThrowOnFailure();
 	}
 
 	/// <inheritdoc />
@@ -253,31 +234,25 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 	}
 
 	/// <inheritdoc />
-	public nint QueryFocus()
+	public HWND QueryFocus()
 	{
 		EnsureActive();
-		HWND focus;
-		_handler.QueryFocus(&focus).ThrowOnFailure();
+		_handler.QueryFocus(out var focus).ThrowOnFailure();
 
 		return focus;
 	}
 
 	/// <inheritdoc />
-	public bool TryTranslateAccelerator(nint messagePointer)
+	public bool TryTranslateAccelerator(in MSG message)
 	{
-		if (messagePointer == 0)
-		{
-			throw new ArgumentException("A native MSG pointer is required.", nameof(messagePointer));
-		}
-
 		EnsureActive();
-		var result = _handler.TranslateAccelerator((MSG*)messagePointer);
-		if (result == HRESULT.S_FALSE)
+		var hr = _handler.TranslateAccelerator(in message);
+		if (hr == HRESULT.S_FALSE)
 		{
 			return false;
 		}
 
-		result.ThrowOnFailure();
+		hr.ThrowOnFailure();
 
 		return true;
 	}
@@ -303,11 +278,8 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 			}
 
 			TryCleanup(SetSiteForCleanup, errors);
-			ReleaseComObject(_initializedStream);
 			_initializedStream = null;
-			ReleaseComObject(_initializedItem);
 			_initializedItem = null;
-			ReleaseComObject(handler);
 			_handler = null;
 		}
 
@@ -326,7 +298,8 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 	{
 		try
 		{
-			if (TryQueryInterface(_handler!, out IObjectWithSite? siteInterface))
+			var siteInterface = _handler as IObjectWithSite;
+			if (siteInterface is not null)
 			{
 				siteInterface.SetSite(null!).ThrowOnFailure();
 			}
@@ -348,20 +321,20 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 		}
 	}
 
-	private static bool IsOptionalInitializationFailure(HRESULT result)
+	private static bool IsOptionalInitializationFailure(HRESULT hr)
 	{
-		return result == HRESULT.E_NOINTERFACE || result == HRESULT.E_NOTIMPL;
+		return hr == HRESULT.E_NOINTERFACE || hr == HRESULT.E_NOTIMPL;
 	}
 
 	private static RECT ToRect(WindowsPreviewBounds bounds)
 	{
-		return new RECT
-		{
-			left = bounds.X,
-			top = bounds.Y,
-			right = checked(bounds.X + bounds.Width),
-			bottom = checked(bounds.Y + bounds.Height),
-		};
+		RECT rectangle = default;
+		rectangle.left = bounds.X;
+		rectangle.top = bounds.Y;
+		rectangle.right = checked(bounds.X + bounds.Width);
+		rectangle.bottom = checked(bounds.Y + bounds.Height);
+
+		return rectangle;
 	}
 
 	private static uint ToColorRef(WindowsPreviewColor color)
@@ -381,27 +354,4 @@ internal sealed unsafe class WindowsShellPreviewHandlerController : IWindowsPrev
 		}
 	}
 
-	private static bool TryQueryInterface<T>(object instance, [NotNullWhen(true)] out T? result) where T : class
-	{
-		try
-		{
-			result = (T)instance;
-
-			return true;
-		}
-		catch (InvalidCastException exception) when (exception.HResult == HRESULT.E_NOINTERFACE.Value)
-		{
-			result = null;
-
-			return false;
-		}
-	}
-
-	private static void ReleaseComObject(object? value)
-	{
-		if (value is ComObject comObject)
-		{
-			comObject.FinalRelease();
-		}
-	}
 }

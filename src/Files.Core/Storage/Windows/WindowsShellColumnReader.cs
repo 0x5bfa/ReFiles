@@ -46,33 +46,34 @@ internal static unsafe class WindowsShellColumnReader
 		}
 
 		var columns = new List<WindowsShellColumn>();
+		HRESULT hr;
 		for (uint index = 0; index < MaximumColumnCount; index++)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var details = default(SHELLDETAILS);
-			var detailsResult = folder.GetDetailsOf(null, index, &details);
-			if (detailsResult.Failed)
+			hr = folder.GetDetailsOf(null, index, &details);
+			if (hr.Failed)
 			{
 				break;
 			}
 
-			var mapResult = folder.MapColumnToSCID(index, out var propertyKey);
-			if (mapResult.Failed)
+			hr = folder.MapColumnToSCID(index, out var propertyKey);
+			if (hr.Failed)
 			{
 				continue;
 			}
 
 			var propertyId = GetPropertyId(propertyKey);
-			var displayName = TryReadDisplayName(&details.str, null, out var headerText) ? headerText : string.Empty;
+			var displayName = TryReadDisplayName(ref details.str, out var headerText) ? headerText : string.Empty;
 			if (string.IsNullOrWhiteSpace(displayName))
 			{
 				displayName = propertyId;
 			}
 
 			var state = SHCOLSTATE.SHCOLSTATE_DEFAULT;
-			var stateResult = folder.GetDefaultColumnState(index, out state);
-			if (stateResult.Failed)
+			hr = folder.GetDefaultColumnState(index, out state);
+			if (hr.Failed)
 			{
 				state = SHCOLSTATE.SHCOLSTATE_DEFAULT;
 			}
@@ -96,8 +97,8 @@ internal static unsafe class WindowsShellColumnReader
 
 		var defaultSortColumnIndex = default(int?);
 		var defaultDisplayColumnIndex = default(int?);
-		var defaultColumnResult = folder.GetDefaultColumn(0, out var sortColumnIndex, out var displayColumnIndex);
-		if (defaultColumnResult.Succeeded)
+		hr = folder.GetDefaultColumn(0, out var sortColumnIndex, out var displayColumnIndex);
+		if (hr.Succeeded)
 		{
 			defaultSortColumnIndex = ToColumnIndex(sortColumnIndex);
 			defaultDisplayColumnIndex = ToColumnIndex(displayColumnIndex);
@@ -129,8 +130,8 @@ internal static unsafe class WindowsShellColumnReader
 		columnSet = shellColumnSet;
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var createViewResult = folder.CreateViewObject(HWND.Null, out IShellView? shellView);
-		if (createViewResult.Failed || shellView is not IColumnManager columnManager)
+		var hr = folder.CreateViewObject(HWND.Null, out IShellView? shellView);
+		if (hr.Failed || shellView is not IColumnManager columnManager)
 		{
 			return false;
 		}
@@ -200,23 +201,21 @@ internal static unsafe class WindowsShellColumnReader
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var entry = orderedEntries[index];
-			var columnInfo = new CM_COLUMNINFO
-			{
-				cbSize = checked((uint)Marshal.SizeOf<CM_COLUMNINFO>()),
-				dwMask = (uint)(CM_MASK.CM_MASK_WIDTH | CM_MASK.CM_MASK_DEFAULTWIDTH | CM_MASK.CM_MASK_IDEALWIDTH | CM_MASK.CM_MASK_NAME | CM_MASK.CM_MASK_STATE),
-			};
-			var infoResult = columnManager.GetColumnInfo(in entry.Key, ref columnInfo);
+			CM_COLUMNINFO columnInfo = default;
+			columnInfo.cbSize = checked((uint)Marshal.SizeOf<CM_COLUMNINFO>());
+			columnInfo.dwMask = (uint)(CM_MASK.CM_MASK_WIDTH | CM_MASK.CM_MASK_DEFAULTWIDTH | CM_MASK.CM_MASK_IDEALWIDTH | CM_MASK.CM_MASK_NAME | CM_MASK.CM_MASK_STATE);
+			hr = columnManager.GetColumnInfo(in entry.Key, ref columnInfo);
 			cancellationToken.ThrowIfCancellationRequested();
 
 			legacyColumns.TryGetValue(entry.PropertyId, out var legacyColumn);
-			var displayName = infoResult.Succeeded ? columnInfo.wszName.ToString() : string.Empty;
+			var displayName = hr.Succeeded ? columnInfo.wszName.ToString() : string.Empty;
 			if (string.IsNullOrWhiteSpace(displayName))
 			{
 				displayName = legacyColumn?.DisplayName ?? entry.PropertyId;
 			}
 
-			var headerWidthCharacters = GetColumnWidthCharacters(entry.PropertyId, columnInfo, infoResult.Succeeded, legacyColumn, defaultColumnWidths);
-			var isVisible = infoResult.Succeeded
+			var headerWidthCharacters = GetColumnWidthCharacters(entry.PropertyId, columnInfo, hr.Succeeded, legacyColumn, defaultColumnWidths);
+			var isVisible = hr.Succeeded
 				? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_VISIBLE)
 				: visiblePropertyIds.Contains(entry.PropertyId);
 			columns.Add(new WindowsShellColumn(
@@ -231,7 +230,7 @@ internal static unsafe class WindowsShellColumnReader
 				legacyColumn?.IsExtended is true,
 				legacyColumn?.IsSecondaryUi is true,
 				legacyColumn?.CanGroup is not false,
-				infoResult.Succeeded ? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_FIXEDWIDTH) : legacyColumn?.IsFixedWidth is true,
+				hr.Succeeded ? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_FIXEDWIDTH) : legacyColumn?.IsFixedWidth is true,
 				legacyColumn?.PreferVariantCompare is true,
 				legacyColumn?.Type ?? WindowsShellColumnType.Default));
 		}
@@ -249,8 +248,8 @@ internal static unsafe class WindowsShellColumnReader
 		keys = [];
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var countResult = columnManager.GetColumnCount(flags, out var count);
-		if (countResult.Failed || count is 0 || count > MaximumColumnCount)
+		var hr = columnManager.GetColumnCount(flags, out var count);
+		if (hr.Failed || count is 0 || count > MaximumColumnCount)
 		{
 			return false;
 		}
@@ -259,8 +258,8 @@ internal static unsafe class WindowsShellColumnReader
 		keys = new PROPERTYKEY[length];
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var columnsResult = columnManager.GetColumns(flags, keys);
-		if (columnsResult.Succeeded)
+		hr = columnManager.GetColumns(flags, keys);
+		if (hr.Succeeded)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
@@ -331,60 +330,42 @@ internal static unsafe class WindowsShellColumnReader
 		}
 
 		var interfaceId = typeof(IPropertyDescriptionList).GUID;
-		var result = PInvoke.PSGetPropertyDescriptionListFromString(columnList, in interfaceId, out IPropertyDescriptionList descriptions);
-		if (result.Failed || descriptions is null)
+		var hr = PInvoke.PSGetPropertyDescriptionListFromString(columnList, in interfaceId, out var descriptions);
+		if (hr.Failed || descriptions is null)
 		{
-			ReleaseComObject(descriptions);
-
 			return widths;
 		}
 
-		try
+		hr = descriptions.GetCount(out var count);
+		if (hr.Failed || count > MaximumColumnCount)
 		{
-			if (descriptions.GetCount(out var count).Failed || count > MaximumColumnCount)
-			{
-				return widths;
-			}
-
-			for (var index = 0u; index < count; index++)
-			{
-				var itemResult = descriptions.GetAt<IPropertyDescription>(index, out var description);
-				if (itemResult.Failed || description is null)
-				{
-					ReleaseComObject(description);
-
-					continue;
-				}
-
-				try
-				{
-					if (description.GetPropertyKey(out var propertyKey).Failed || description.GetDefaultColumnWidth(out var widthCharacters).Failed || widthCharacters is 0 or >= 4096)
-					{
-						continue;
-					}
-
-					widths[GetPropertyId(propertyKey)] = checked((int)widthCharacters);
-				}
-				finally
-				{
-					ReleaseComObject(description);
-				}
-			}
-
 			return widths;
 		}
-		finally
-		{
-			ReleaseComObject(descriptions);
-		}
-	}
 
-	private static void ReleaseComObject(object? instance)
-	{
-		if (instance is ComObject comObject)
+		for (var index = 0u; index < count; index++)
 		{
-			comObject.FinalRelease();
+			hr = descriptions.GetAt<IPropertyDescription>(index, out var description);
+			if (hr.Failed || description is null)
+			{
+				continue;
+			}
+
+			hr = description.GetPropertyKey(out var propertyKey);
+			if (hr.Failed)
+			{
+				continue;
+			}
+
+			hr = description.GetDefaultColumnWidth(out var widthCharacters);
+			if (hr.Failed || widthCharacters is 0 or >= 4096)
+			{
+				continue;
+			}
+
+			widths[GetPropertyId(propertyKey)] = checked((int)widthCharacters);
 		}
+
+		return widths;
 	}
 
 	private static int? MapColumnIndex(int? sourceIndex, IReadOnlyList<WindowsShellColumn> sourceColumns, IReadOnlyList<WindowsShellColumn> targetColumns)
@@ -422,8 +403,8 @@ internal static unsafe class WindowsShellColumnReader
 		cancellationToken.ThrowIfCancellationRequested();
 
 		ITEMIDLIST* absolutePidl = null;
-		var itemListResult = PInvoke.SHGetIDListFromObject(shellItem, out absolutePidl);
-		if (itemListResult.Failed || absolutePidl is null)
+		var hr = PInvoke.SHGetIDListFromObject(shellItem, out absolutePidl);
+		if (hr.Failed || absolutePidl is null)
 		{
 			if (absolutePidl is not null)
 			{
@@ -436,8 +417,8 @@ internal static unsafe class WindowsShellColumnReader
 		try
 		{
 			var shellFolderId = typeof(IShellFolder).GUID;
-			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
-			if (parentBindResult.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
+			hr = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
+			if (hr.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
 			{
 				return new WindowsShellPropertyDetails(new ReadOnlyDictionary<string, object?>(rawValues), new ReadOnlyDictionary<string, string>(displayValues));
 			}
@@ -450,7 +431,7 @@ internal static unsafe class WindowsShellColumnReader
 			var propertyKeys = ResolvePropertyKeys(propertyIds, cancellationToken);
 			var displayColumns = includeFormattedValues ? ResolveDisplayColumns(parentFolder2, propertyIds, cancellationToken) : null;
 
-			return ReadPropertyDetailsCore(parentFolder2, childPidl, propertyKeys, displayColumns, cancellationToken);
+			return ReadPropertyDetailsCore(parentFolder2, in *childPidl, propertyKeys, displayColumns, cancellationToken);
 		}
 		finally
 		{
@@ -485,7 +466,7 @@ internal static unsafe class WindowsShellColumnReader
 
 			fixed (byte* relativePidlBytes = relativePidl.Span)
 			{
-				results[index] = ReadPropertyDetailsCore(parentFolder, (ITEMIDLIST*)relativePidlBytes, propertyKeys, displayColumns, cancellationToken);
+				results[index] = ReadPropertyDetailsCore(parentFolder, in *(ITEMIDLIST*)relativePidlBytes, propertyKeys, displayColumns, cancellationToken);
 			}
 		}
 
@@ -515,9 +496,9 @@ internal static unsafe class WindowsShellColumnReader
 			new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.Ordinal)));
 	}
 
-	private static unsafe WindowsShellPropertyDetails ReadPropertyDetailsCore(
+	private static WindowsShellPropertyDetails ReadPropertyDetailsCore(
 		IShellFolder2 parentFolder,
-		ITEMIDLIST* childPidl,
+		in ITEMIDLIST childPidl,
 		IReadOnlyList<(string PropertyId, PROPERTYKEY Key)> propertyKeys,
 		IReadOnlyDictionary<string, uint>? displayColumns,
 		CancellationToken cancellationToken)
@@ -530,8 +511,8 @@ internal static unsafe class WindowsShellColumnReader
 			ComVariant variant = default;
 			try
 			{
-				var result = parentFolder.GetDetailsEx(in *childPidl, in property.Key, out variant);
-				if (result.Succeeded)
+				var hr = parentFolder.GetDetailsEx(in childPidl, in property.Key, out variant);
+				if (hr.Succeeded)
 				{
 					rawValues[property.PropertyId] = ReadVariantValue(variant);
 				}
@@ -547,9 +528,8 @@ internal static unsafe class WindowsShellColumnReader
 			foreach (var column in displayColumns)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				var itemDetails = default(SHELLDETAILS);
-				var itemResult = parentFolder.GetDetailsOf(childPidl, column.Value, &itemDetails);
-				if (itemResult.Succeeded && TryReadDisplayName(&itemDetails.str, childPidl, out var displayText))
+				var hr = parentFolder.GetDetailsOf(in childPidl, column.Value, out var itemDetails);
+				if (hr.Succeeded && TryReadDisplayName(ref itemDetails.str, in childPidl, out var displayText))
 				{
 					displayValues[column.Key] = displayText;
 				}
@@ -582,14 +562,15 @@ internal static unsafe class WindowsShellColumnReader
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			var headerDetails = default(SHELLDETAILS);
-			var headerResult = parentFolder.GetDetailsOf(null, index, &headerDetails);
-			if (headerResult.Failed)
+			var hr = parentFolder.GetDetailsOf(null, index, &headerDetails);
+			if (hr.Failed)
 			{
 				break;
 			}
 
-			TryReadDisplayName(&headerDetails.str, null, out _);
-			if (parentFolder.MapColumnToSCID(index, out var propertyKey).Failed)
+			TryReadDisplayName(ref headerDetails.str, out _);
+			hr = parentFolder.MapColumnToSCID(index, out var propertyKey);
+			if (hr.Failed)
 			{
 				continue;
 			}
@@ -606,8 +587,8 @@ internal static unsafe class WindowsShellColumnReader
 
 	private static IShellFolder2? TryGetFolder2(IShellItem shellItem, string parsingName, CancellationToken cancellationToken)
 	{
-		var directBindResult = shellItem.BindToHandler(null, PInvoke.BHID_SFObject, out IShellFolder? directFolder);
-		if (directBindResult.Succeeded && directFolder is IShellFolder2 directFolder2)
+		var hr = shellItem.BindToHandler(null, PInvoke.BHID_SFObject, out IShellFolder? directFolder);
+		if (hr.Succeeded && directFolder is IShellFolder2 directFolder2)
 		{
 			return directFolder2;
 		}
@@ -615,8 +596,8 @@ internal static unsafe class WindowsShellColumnReader
 		cancellationToken.ThrowIfCancellationRequested();
 
 		ITEMIDLIST* absolutePidl = null;
-		var parseResult = PInvoke.SHParseDisplayName(parsingName, null, out absolutePidl, 0, out _);
-		if (parseResult.Failed || absolutePidl is null)
+		hr = PInvoke.SHParseDisplayName(parsingName, null, out absolutePidl, 0, out _);
+		if (hr.Failed || absolutePidl is null)
 		{
 			if (absolutePidl is not null)
 			{
@@ -631,16 +612,16 @@ internal static unsafe class WindowsShellColumnReader
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var shellFolderId = typeof(IShellFolder).GUID;
-			var parentBindResult = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
+			hr = PInvoke.SHBindToParent(in *absolutePidl, in shellFolderId, out object parentObject, out ITEMIDLIST* childPidl);
 			cancellationToken.ThrowIfCancellationRequested();
 
-			if (parentBindResult.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
+			if (hr.Failed || parentObject is not IShellFolder parentFolder || childPidl is null)
 			{
 				return null;
 			}
 
-			var folderBindResult = parentFolder.BindToObject(in *childPidl, null, out IShellFolder? folder);
-			if (folderBindResult.Failed || folder is not IShellFolder2 folder2)
+			hr = parentFolder.BindToObject(in *childPidl, null, out IShellFolder? folder);
+			if (hr.Failed || folder is not IShellFolder2 folder2)
 			{
 				return null;
 			}
@@ -653,16 +634,31 @@ internal static unsafe class WindowsShellColumnReader
 		}
 	}
 
-	private static bool TryReadDisplayName(STRRET* displayName, ITEMIDLIST* pidl, out string value)
+	private static bool TryReadDisplayName(ref STRRET displayName, out string value)
 	{
 		Span<char> buffer = stackalloc char[HeaderBufferLength];
-		HRESULT result;
+		var hr = PInvoke.StrRetToBuf(ref displayName, null, buffer);
+
+		return TryCreateDisplayName(hr, buffer, out value);
+	}
+
+	private static bool TryReadDisplayName(ref STRRET displayName, in ITEMIDLIST pidl, out string value)
+	{
+		Span<char> buffer = stackalloc char[HeaderBufferLength];
+		HRESULT hr;
+		fixed (STRRET* displayNamePointer = &displayName)
+		fixed (ITEMIDLIST* pidlPointer = &pidl)
 		fixed (char* bufferPointer = buffer)
 		{
-			result = PInvoke.StrRetToBuf(displayName, pidl, new PWSTR(bufferPointer), checked((uint)buffer.Length));
+			hr = PInvoke.StrRetToBuf(displayNamePointer, pidlPointer, bufferPointer, checked((uint)buffer.Length));
 		}
 
-		if (result.Failed)
+		return TryCreateDisplayName(hr, buffer, out value);
+	}
+
+	private static bool TryCreateDisplayName(HRESULT hr, Span<char> buffer, out string value)
+	{
+		if (hr.Failed)
 		{
 			value = string.Empty;
 
@@ -682,8 +678,8 @@ internal static unsafe class WindowsShellColumnReader
 
 	private static string GetPropertyId(PROPERTYKEY propertyKey)
 	{
-		var nameResult = PInvoke.PSGetNameFromPropertyKey(propertyKey, out var nativeName);
-		if (nameResult.Succeeded)
+		var hr = PInvoke.PSGetNameFromPropertyKey(propertyKey, out var nativeName);
+		if (hr.Succeeded)
 		{
 			try
 			{
@@ -704,8 +700,8 @@ internal static unsafe class WindowsShellColumnReader
 
 	private static bool TryGetPropertyKey(string propertyId, out PROPERTYKEY propertyKey)
 	{
-		var result = PInvoke.PSGetPropertyKeyFromName(propertyId, out propertyKey);
-		if (result.Succeeded)
+		var hr = PInvoke.PSGetPropertyKeyFromName(propertyId, out propertyKey);
+		if (hr.Succeeded)
 		{
 			return true;
 		}
@@ -727,11 +723,9 @@ internal static unsafe class WindowsShellColumnReader
 			return false;
 		}
 
-		propertyKey = new PROPERTYKEY
-		{
-			fmtid = formatId,
-			pid = propertyIdValue,
-		};
+		propertyKey = default;
+		propertyKey.fmtid = formatId;
+		propertyKey.pid = propertyIdValue;
 
 		return true;
 	}

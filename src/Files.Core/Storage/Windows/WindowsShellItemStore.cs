@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Windows.Win32;
+using Windows.Win32.Foundation;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 
@@ -25,11 +26,12 @@ internal sealed class WindowsShellItemStore
 			return null;
 		}
 
-		IDefViewItemStore itemStore;
+		IDefViewItemStore? itemStore;
+		HRESULT hr;
 		try
 		{
-			var createResult = PInvoke.CItemStoreCreateInstance(null, in _interfaceId, out itemStore);
-			if (createResult.Failed || itemStore is null)
+			hr = PInvoke.CItemStoreCreateInstance(null, in _interfaceId, out itemStore);
+			if (hr.Failed || itemStore is null)
 			{
 				return null;
 			}
@@ -45,8 +47,8 @@ internal sealed class WindowsShellItemStore
 
 		fixed (byte* rootPidlBytes = rootPidl.Span)
 		{
-			var initializeResult = itemStore.Initialize((ITEMIDLIST*)rootPidlBytes);
-			if (initializeResult.Failed)
+			hr = itemStore.Initialize(in *(ITEMIDLIST*)rootPidlBytes);
+			if (hr.Failed)
 			{
 				return null;
 			}
@@ -55,24 +57,19 @@ internal sealed class WindowsShellItemStore
 		return new WindowsShellItemStore(itemStore);
 	}
 
-	internal unsafe WindowsShellItemStoreReference? TryInsert(IShellFolder parentFolder, ITEMIDLIST* childPidl)
+	internal WindowsShellItemStoreReference? TryInsert(IShellFolder parentFolder, in ITEMIDLIST childPidl)
 	{
 		ArgumentNullException.ThrowIfNull(parentFolder);
 
-		if (childPidl is null)
+		var hr = PInvoke.SHCreateItemWithParent<IChildId>(null, parentFolder, in childPidl, out var childId);
+		if (hr.Failed || childId is null)
 		{
 			return null;
 		}
 
-		var createResult = PInvoke.SHCreateItemWithParent<IChildId>(null, parentFolder, in *childPidl, out var childId);
-		if (createResult.Failed || childId is null)
-		{
-			return null;
-		}
+		hr = _itemStore.InsertItem(childId, ITEM_FLAGS.Valid, null, out var itemKey);
 
-		var insertResult = _itemStore.InsertItem(childId, ITEM_FLAGS.Valid, null, out var itemKey);
-
-		return insertResult.Succeeded ? new WindowsShellItemStoreReference(this, itemKey) : null;
+		return hr.Succeeded ? new WindowsShellItemStoreReference(this, itemKey) : null;
 	}
 
 	internal IShellItem? TryGetItem(in ITEMKEY itemKey, IShellFolder parentFolder)
@@ -80,9 +77,9 @@ internal sealed class WindowsShellItemStore
 		ArgumentNullException.ThrowIfNull(parentFolder);
 
 		var interfaceId = typeof(IShellItem).GUID;
-		var result = _itemStore.GetItem(in itemKey, parentFolder, null, in interfaceId, out var item);
+		var hr = _itemStore.GetItem(in itemKey, parentFolder, null, in interfaceId, out var item);
 
-		return result.Succeeded ? item as IShellItem : null;
+		return hr.Succeeded ? item as IShellItem : null;
 	}
 }
 

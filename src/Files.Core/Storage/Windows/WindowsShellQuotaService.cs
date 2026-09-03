@@ -1,9 +1,10 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Runtime.InteropServices.Marshalling;
+using System.Runtime.InteropServices;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com;
 using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
@@ -26,29 +27,21 @@ public static class WindowsShellQuotaService
 
 		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
-		var result = WindowsElevationMoniker.Create<IElevatedDiskQuotaUI>(owner, CLSID.CLSID_QuotaUIHelper, out var helper);
-		if (result.Failed || helper is null)
+		var classId = typeof(CQuotaUIHelper).GUID;
+		var interfaceId = typeof(IElevatedDiskQuotaUI).GUID;
+		BIND_OPTS3 bindOptions = default;
+		bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+		bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
+		bindOptions.hwnd = owner;
+		var hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object helperObject);
+		var helper = helperObject as IElevatedDiskQuotaUI;
+		if (hr.Failed || helper is null)
 		{
-			ReleaseComObject(helper);
-
-			return result.Failed ? result : HRESULT.E_FAIL;
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
 		}
 
-		try
-		{
-			return helper.ShowVolumeQuotaUI(owner, rootPath, displayName, rootPath);
-		}
-		finally
-		{
-			ReleaseComObject(helper);
-		}
-	}
+		hr = helper.ShowVolumeQuotaUI(owner, rootPath, displayName, rootPath);
 
-	private static void ReleaseComObject(object? instance)
-	{
-		if (instance is ComObject comObject)
-		{
-			comObject.FinalRelease();
-		}
+		return hr;
 	}
 }

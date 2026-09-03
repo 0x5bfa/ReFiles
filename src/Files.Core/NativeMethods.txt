@@ -44,6 +44,7 @@ GetWindowThreadProcessId
 IsWindow
 AttachThreadInput
 SetWindowPos
+SetWindowLongPtrW
 SetFocus
 SetActiveWindow
 IsIconic
@@ -110,6 +111,7 @@ DwmSetWindowAttribute
 TaskDialogIndirect
 WIN32_ERROR
 CoCreateInstance
+RoGetActivationFactory
 BIND_OPTS3
 FileOpenDialog
 IFileOpenDialog
@@ -463,6 +465,7 @@ NetApiBufferFree
 SHARE_INFO_503
 NetUserEnum
 USER_INFO_23
+NET_FW_PROFILE_TYPE2
 IsWellKnownSid
 LogonUser
 IsOS
@@ -483,6 +486,9 @@ SafeArrayGetDim
 SafeArrayGetLBound
 SafeArrayGetUBound
 IObjectWithSite
+IOpenControlPanel
+OpenControlPanel
+SharingConfigurationManager
 IPreviewHandlerVisuals
 IPreviewHandlerFrame
 IInitializeWithStream
