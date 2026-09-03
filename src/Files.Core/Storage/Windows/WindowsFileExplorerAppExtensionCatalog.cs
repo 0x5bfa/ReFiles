@@ -41,8 +41,7 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 		return registrations;
 	}
 
-	private static void AppendRegistrations(IFileExplorerAppExtensionStatics factory, string itemType, List<WindowsFileExplorerAppExtensionRegistration> registrations,
-		HashSet<(Guid ClassId, string VerbId)> identifiers)
+	private static void AppendRegistrations(IFileExplorerAppExtensionStatics factory, string itemType, List<WindowsFileExplorerAppExtensionRegistration> registrations, HashSet<(Guid ClassId, string VerbId)> identifiers)
 	{
 		var hr = factory.GetExtensions(itemType, WaitForStateRepository, out var extensionsObject);
 		if (hr.Failed || extensionsObject is null || !ExtensionVectorAdapter.TryCreate(extensionsObject, out var extensions))
