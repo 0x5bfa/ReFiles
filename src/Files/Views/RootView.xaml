@@ -12,6 +12,8 @@
 		<DataTemplate x:Key="NavigationSidebarFlyoutItemTemplate" x:DataType="vm:NavigationItemViewModel">
 			<controls:SidebarItem
 				AutomationProperties.Name="{x:Bind Text}"
+				CanDrag="{x:Bind CanDrag}"
+				controls:RightButtonDrag.IsEnabled="True"
 				Icon="{x:Bind Icon, Mode=OneWay}"
 				IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
 				Item="{x:Bind}"
@@ -24,6 +26,8 @@
 			<controls:SidebarItem
 				Margin="{x:Bind SectionGapMargin, Mode=OneWay}"
 				AutomationProperties.Name="{Binding Item.Text}"
+				CanDrag="{Binding Item.CanDrag}"
+				controls:RightButtonDrag.IsEnabled="True"
 				ContentOpacity="{x:Bind RowOpacity}"
 				DataContext="{x:Bind}"
 				Icon="{Binding Item.Icon, Mode=OneWay}"
@@ -56,6 +60,11 @@
 			DisplayMode="{x:Bind ViewModel.SidebarDisplayMode, Mode=TwoWay}"
 			FooterMenuItemsSource="{x:Bind ViewModel.SidebarFooterItems, Mode=OneWay}"
 			FooterMenuItemTemplate="{StaticResource NavigationSidebarItemTemplate}"
+			ItemDragEnter="Sidebar_ItemDragEnter"
+			ItemDragLeave="Sidebar_ItemDragLeave"
+			ItemDragOver="Sidebar_ItemDragOver"
+			ItemDragStarting="Sidebar_ItemDragStarting"
+			ItemDropped="Sidebar_ItemDropped"
 			ItemInvoked="Sidebar_ItemInvoked"
 			MenuItemTemplate="{StaticResource NavigationSidebarItemTemplate}"
 			MenuItemsSource="{x:Bind ViewModel.SidebarItems, Mode=OneWay}"

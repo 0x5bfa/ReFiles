@@ -51,7 +51,13 @@ namespace Files.Controls
 
 		public event EventHandler<ItemContextInvokedArgs>? ItemContextInvoked;
 
+		public event EventHandler<ItemDragStartingEventArgs>? ItemDragStarting;
+
+		public event EventHandler<ItemDragEnterEventArgs>? ItemDragEnter;
+
 		public event EventHandler<ItemDragOverEventArgs>? ItemDragOver;
+
+		public event EventHandler<ItemDragLeaveEventArgs>? ItemDragLeave;
 
 		public event EventHandler<ItemDroppedEventArgs>? ItemDropped;
 
@@ -126,6 +132,16 @@ namespace Files.Controls
 			ItemContextInvoked?.Invoke(item, new(item.Item, e));
 		}
 
+		internal void RaiseItemDragStarting(SidebarItem sideBarItem, DragStartingEventArgs rawEvent)
+		{
+			if (sideBarItem.Item is null)
+			{
+				return;
+			}
+
+			ItemDragStarting?.Invoke(this, new(sideBarItem.Item, rawEvent));
+		}
+
 		internal void RaiseItemDropped(SidebarItem sideBarItem, SidebarItemDropPosition dropPosition, DragEventArgs rawEvent)
 		{
 			if (sideBarItem.Item is null)
@@ -136,6 +152,16 @@ namespace Files.Controls
 			ItemDropped?.Invoke(this, new(sideBarItem.Item, rawEvent.DataView, dropPosition, rawEvent));
 		}
 
+		internal void RaiseItemDragEnter(SidebarItem sideBarItem, SidebarItemDropPosition dropPosition, DragEventArgs rawEvent)
+		{
+			if (sideBarItem.Item is null)
+			{
+				return;
+			}
+
+			ItemDragEnter?.Invoke(this, new(sideBarItem.Item, rawEvent.DataView, dropPosition, rawEvent));
+		}
+
 		internal void RaiseItemDragOver(SidebarItem sideBarItem, SidebarItemDropPosition dropPosition, DragEventArgs rawEvent)
 		{
 			if (sideBarItem.Item is null)
@@ -144,6 +170,16 @@ namespace Files.Controls
 			}
 
 			ItemDragOver?.Invoke(this, new(sideBarItem.Item, rawEvent.DataView, dropPosition, rawEvent));
+		}
+
+		internal void RaiseItemDragLeave(SidebarItem sideBarItem, DragEventArgs rawEvent)
+		{
+			if (sideBarItem.Item is null)
+			{
+				return;
+			}
+
+			ItemDragLeave?.Invoke(this, new(sideBarItem.Item, rawEvent));
 		}
 
 		private void UpdateMinimalMode(bool useTransitions = true)

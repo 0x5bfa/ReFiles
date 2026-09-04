@@ -88,6 +88,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
+	internal nint OwnerWindowHandle => _ownerWindowHandle;
+
 	internal bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _shellAppExtensionService is not null;
 
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
@@ -135,11 +137,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		get => _browseAdapter.GetItems(SelectedKeys);
 	}
 
-	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedFilePaths().Count is not 0;
+	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedShellClipboardItems().Count is not 0;
 
 	public bool CanCut => CanCopy;
 
-	public bool CanPaste => !IsLoading && !IsBusy && TryGetCurrentFileSystemFolder(out _) && FileClipboard.HasStorageItems;
+	public bool CanPaste => !IsLoading && !IsBusy && _windowsSource is not null && TryGetCurrentShellFolder(out _);
 
 	public bool CanDelete => !IsLoading && !IsBusy && SelectedItems.Count is not 0 && SelectedItems.All(item => _storageOperations.CanHandle(CreateDeleteRequest(item.Reference)));
 
@@ -298,6 +300,37 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		SetSelectionCore(selectedItems);
 	}
 
+	internal bool SupportsShellDragDrop(StorableReference reference)
+	{
+		ArgumentNullException.ThrowIfNull(reference);
+
+		return _windowsSource is not null && reference.SourceId == _windowsSource.SourceId;
+	}
+
+	internal async Task<WindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(selection);
+
+		if (_windowsSource is null || selection.Count is 0 || selection.Any(reference => reference.SourceId != _windowsSource.SourceId))
+		{
+			return null;
+		}
+
+		return await _windowsSource.DragDrop.PrepareDragSourceAsync(selection, cancellationToken).ConfigureAwait(false);
+	}
+
+	internal async Task<WindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(destination);
+
+		if (_windowsSource is null || destination.SourceId != _windowsSource.SourceId)
+		{
+			return null;
+		}
+
+		return await _windowsSource.DragDrop.PrepareDropTargetAsync(destination, background, cancellationToken).ConfigureAwait(false);
+	}
+
 	internal void SelectAllItems()
 	{
 		if (!CanSelectAllItems)
@@ -331,58 +364,25 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public async Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
 	{
-		var paths = GetSelectedFilePaths();
-		if (paths.Count is 0)
+		var selection = GetSelectedShellClipboardItems();
+		if (_windowsSource is null || selection.Count is 0)
 		{
-			throw new NotSupportedException("Only local file-system items can be copied to the Windows clipboard.");
+			throw new NotSupportedException("Only Windows Shell items can be copied to the Windows clipboard.");
 		}
 
-		await FileClipboard.SetStorageItemsAsync(paths, move, cancellationToken).ConfigureAwait(false);
+		await _windowsSource.Clipboard.SetItemsAsync(selection, move, _ownerWindowHandle, cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task PasteFromClipboardAsync(CancellationToken cancellationToken = default)
 	{
-		if (!TryGetCurrentFileSystemFolder(out var destinationFolder))
+		if (_windowsSource is null || !TryGetCurrentShellFolder(out var destinationFolder))
 		{
-			throw new NotSupportedException("The current location cannot receive file-system clipboard items.");
+			throw new NotSupportedException("The current location cannot receive Windows Shell clipboard items.");
 		}
 
-		var content = await FileClipboard.GetStorageItemsAsync(cancellationToken).ConfigureAwait(false);
-		if (content is null)
+		if (!await _windowsSource.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
 			return;
-		}
-
-		var paths = content.Paths.ToArray();
-		if (paths.Length is 0)
-		{
-			return;
-		}
-
-		var move = content.RequestedOperation.HasFlag(Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move);
-		var itemNames = paths.Select(GetOperationItemName).ToArray();
-		var itemByteCounts = await Task.Run(() => TryGetFileByteCounts(paths), cancellationToken).ConfigureAwait(false);
-		await ExecuteTrackedStorageOperationBatchAsync(
-			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
-			itemNames,
-			canCancel: true,
-			canPause: true,
-			async (index, progress, operationControl, operationCancellation) =>
-			{
-				await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, paths[index]), operationCancellation).ConfigureAwait(false);
-				StorageOperationRequest request = move
-					? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.Prompt)
-					: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.Prompt);
-
-				await ExecuteStorageOperationAsync(request, progress, operationCancellation, operationControl).ConfigureAwait(false);
-			},
-			cancellationToken,
-			itemByteCounts,
-			destinationFolder.LastKnownAddress?.Value).ConfigureAwait(false);
-
-		if (move)
-		{
-			Windows.ApplicationModel.DataTransfer.Clipboard.Clear();
 		}
 
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
@@ -689,7 +689,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		if (_pane.BrowseSession.Context is not { Location: FolderLocation contextLocation, LocationModel: IFolderModel currentFolder } || !Equals(contextLocation, location))
 		{
-			return [new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false)];
+			return [new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false, supportsShellDragDrop: SupportsShellDragDrop(location.Folder))];
 		}
 
 		var reversedItems = new List<(string Text, FolderLocation Location)>();
@@ -735,7 +735,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		for (var index = 0; index < reversedItems.Count; index++)
 		{
 			var item = reversedItems[index];
-			items.Add(new NavigationToolbarBreadcrumbItem(item.Text, item.Location, index < reversedItems.Count - 1 || leafHasChildren));
+			items.Add(new NavigationToolbarBreadcrumbItem(item.Text, item.Location, index < reversedItems.Count - 1 || leafHasChildren, supportsShellDragDrop: SupportsShellDragDrop(item.Location.Folder)));
 		}
 
 		return items;
@@ -778,7 +778,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 					}
 
 					var thumbnail = await LoadBreadcrumbThumbnailAsync(root, cancellationToken).ConfigureAwait(false);
-					items.Add(new NavigationToolbarBreadcrumbItem(root.Name, new FolderLocation(root.Reference), false, thumbnail));
+					items.Add(new NavigationToolbarBreadcrumbItem(root.Name, new FolderLocation(root.Reference), false, thumbnail, SupportsShellDragDrop(root.Reference)));
 				}
 				finally
 				{
@@ -809,7 +809,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				}
 
 				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
-				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new FolderLocation(child.Reference), false, thumbnail));
+				items.Add(new NavigationToolbarBreadcrumbItem(child.Name, new FolderLocation(child.Reference), false, thumbnail, SupportsShellDragDrop(child.Reference)));
 			}
 			finally
 			{
@@ -1308,30 +1308,28 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			: null;
 	}
 
-	private IReadOnlyList<string> GetSelectedFilePaths()
+	private IReadOnlyList<StorableReference> GetSelectedShellClipboardItems()
 	{
 		var selectedItems = SelectedItems;
-		var paths = new List<string>(selectedItems.Count);
+		var selection = new List<StorableReference>(selectedItems.Count);
 		foreach (var item in selectedItems)
 		{
-			if (!TryGetFileSystemPath(item.Reference, out var path))
+			if (_windowsSource is null || item.Reference.SourceId != _windowsSource.SourceId)
 			{
 				return [];
 			}
 
-			paths.Add(path);
+			selection.Add(item.Reference);
 		}
 
-		return paths;
+		return selection;
 	}
 
-	private bool TryGetCurrentFileSystemFolder(out StorableReference folder)
+	private bool TryGetCurrentShellFolder(out StorableReference folder)
 	{
-		if (Location is FolderLocation { Folder: { LastKnownAddress: { } address } }
-			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
-			&& Directory.Exists(address.Value))
+		if (_windowsSource is not null && Location is FolderLocation { Folder: var candidate } && candidate.SourceId == _windowsSource.SourceId)
 		{
-			folder = ((FolderLocation)Location).Folder;
+			folder = candidate;
 
 			return true;
 		}
@@ -1341,19 +1339,18 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return false;
 	}
 
-	private static bool TryGetFileSystemPath(StorableReference reference, out string path)
+	private bool TryGetCurrentFileSystemFolder(out StorableReference folder)
 	{
-		if (reference.LastKnownAddress is { } address
+		if (Location is FolderLocation { Folder: { LastKnownAddress: { } address } }
 			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
-			&& Path.IsPathRooted(address.Value)
-			&& (File.Exists(address.Value) || Directory.Exists(address.Value)))
+			&& Path.IsPathRooted(address.Value))
 		{
-			path = address.Value;
+			folder = ((FolderLocation)Location).Folder;
 
 			return true;
 		}
 
-		path = string.Empty;
+		folder = null!;
 
 		return false;
 	}
@@ -1421,39 +1418,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		{
 			throw result.Error ?? new IOException($"The storage operation '{request.GetType().Name}' failed.");
 		}
-	}
-
-	private static string GetOperationItemName(string path)
-	{
-		var trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-		var itemName = Path.GetFileName(trimmedPath);
-
-		return string.IsNullOrWhiteSpace(itemName) ? path : itemName;
-	}
-
-	private static IReadOnlyList<long>? TryGetFileByteCounts(IReadOnlyList<string> paths)
-	{
-		ArgumentNullException.ThrowIfNull(paths);
-
-		var byteCounts = new long[paths.Count];
-		try
-		{
-			for (var index = 0; index < paths.Count; index++)
-			{
-				if (!File.Exists(paths[index]))
-				{
-					return null;
-				}
-
-				byteCounts[index] = new FileInfo(paths[index]).Length;
-			}
-		}
-		catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
-		{
-			return null;
-		}
-
-		return byteCounts;
 	}
 
 	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)

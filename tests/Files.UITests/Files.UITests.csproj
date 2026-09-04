@@ -26,6 +26,7 @@
 		<FilesReferenceBuildProperties>WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false</FilesReferenceBuildProperties>
 		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);OutputPath=$(FilesReferenceOutputPath);IntermediateOutputPath=$(FilesReferenceIntermediateOutputPath)</FilesReferenceBuildProperties>
 		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Configurations>Debug;Release</Configurations>
 		<NoWarn>$(NoWarn);CS0436</NoWarn>
 	</PropertyGroup>

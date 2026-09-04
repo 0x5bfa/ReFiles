@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Files.Adapters;
 using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;
@@ -35,11 +36,13 @@ public sealed partial class ItemPropertiesWindow : Window
 
 	internal ItemPropertiesWindow(
 		IReadOnlyList<BrowseItemViewModel> items,
+		IStorageOperationService storageOperations,
+		IItemPropertiesFileSystem fileSystem,
 		Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? getPropertyPages = null,
 		Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? getPropertyPageData = null,
 		Func<CancellationToken, Task<(string? Description, ThumbnailResult? Icon)>>? getGeneralProperties = null)
 	{
-		ViewModel = new(items);
+		ViewModel = new(items, storageOperations, fileSystem);
 		_getPropertyPages = getPropertyPages;
 		_getPropertyPageData = getPropertyPageData;
 		_getGeneralProperties = getGeneralProperties;

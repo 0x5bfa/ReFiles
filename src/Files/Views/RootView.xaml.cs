@@ -8,6 +8,7 @@ using Files.Core.Capabilities.Previews;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Files.Views;
 
@@ -18,9 +19,13 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 	private readonly RootViewModel _viewModel;
 	private readonly Queue<string> _pendingErrorMessages = [];
 
+	private CancellationTokenSource? _sidebarDragSourceCancellation;
+	private WinUiShellDropTargetController? _sidebarDropController;
+	private FolderBrowserViewModel? _sidebarDropBrowser;
 	private Task _showErrorDialogsTask = Task.CompletedTask;
 	private OperationErrorDialog? _activeErrorDialog;
 	private bool _isLoaded;
+	private long _sidebarDragSourceGeneration;
 
 	private int _isDisposed;
 
@@ -70,6 +75,8 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 
 		Loaded -= RootView_Loaded;
+		CancelSidebarDragSource();
+		ResetSidebarDropController();
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
 		_viewModel.OperationErrorReported -= ViewModel_OperationErrorReported;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
@@ -90,6 +97,12 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
+		if (e.PropertyName is null or nameof(RootViewModel.ActiveTab) or nameof(RootViewModel.ActiveFolderBrowser))
+		{
+			CancelSidebarDragSource();
+			ResetSidebarDropController();
+		}
+
 		if (e.PropertyName is null or nameof(RootViewModel.ActiveTab))
 		{
 			UpdateActiveTabPresentation();
@@ -210,5 +223,133 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		{
 			_viewModel.ReportOperationError(exception);
 		}
+	}
+
+	private async void Sidebar_ItemDragStarting(object? sender, ItemDragStartingEventArgs args)
+	{
+		if (Volatile.Read(ref _isDisposed) is not 0 || args.DragItem is not NavigationItemViewModel { Reference: { } reference } || ViewModel.ActiveFolderBrowser is not { } browser)
+		{
+			args.RawEvent.Cancel = true;
+
+			return;
+		}
+
+		var generation = Interlocked.Increment(ref _sidebarDragSourceGeneration);
+		_sidebarDragSourceCancellation?.Cancel();
+		_sidebarDragSourceCancellation?.Dispose();
+		var cancellation = new CancellationTokenSource();
+		_sidebarDragSourceCancellation = cancellation;
+		var deferral = args.RawEvent.GetDeferral();
+		try
+		{
+			var dragSource = await browser.PrepareShellDragSourceAsync([reference], cancellation.Token);
+			if (Volatile.Read(ref _isDisposed) is not 0 || cancellation.IsCancellationRequested || generation != Volatile.Read(ref _sidebarDragSourceGeneration)
+				|| !ReferenceEquals(ViewModel.ActiveFolderBrowser, browser) || dragSource is null)
+			{
+				args.RawEvent.Cancel = true;
+
+				return;
+			}
+
+			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, args.RawEvent.Data, browser.OwnerWindowHandle);
+			args.RawEvent.AllowedOperations = allowedOperations;
+			args.RawEvent.Cancel = allowedOperations is DataPackageOperation.None;
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+			args.RawEvent.Cancel = true;
+		}
+		catch (Exception exception)
+		{
+			args.RawEvent.Cancel = true;
+			_viewModel.ReportOperationError(exception);
+		}
+		finally
+		{
+			if (ReferenceEquals(_sidebarDragSourceCancellation, cancellation))
+			{
+				_sidebarDragSourceCancellation = null;
+			}
+
+			cancellation.Dispose();
+			deferral.Complete();
+		}
+	}
+
+	private async void Sidebar_ItemDragOver(object? sender, ItemDragOverEventArgs args)
+	{
+		if (args.DropTarget is not NavigationItemViewModel { Reference: { } reference } || ViewModel.ActiveFolderBrowser is not { } browser)
+		{
+			args.RawEvent.AcceptedOperation = DataPackageOperation.None;
+			args.RawEvent.Handled = true;
+			_sidebarDropController?.DragLeave();
+
+			return;
+		}
+
+		await GetSidebarDropController(browser).DragOverAsync(args.RawEvent, new(reference, false));
+	}
+
+	private async void Sidebar_ItemDragEnter(object? sender, ItemDragEnterEventArgs args)
+	{
+		if (args.DropTarget is not NavigationItemViewModel { Reference: { } reference } || ViewModel.ActiveFolderBrowser is not { } browser)
+		{
+			args.RawEvent.AcceptedOperation = DataPackageOperation.None;
+			args.RawEvent.Handled = true;
+			_sidebarDropController?.DragLeave();
+
+			return;
+		}
+
+		await GetSidebarDropController(browser).DragEnterAsync(args.RawEvent, new(reference, false));
+	}
+
+	private void Sidebar_ItemDragLeave(object? sender, ItemDragLeaveEventArgs args)
+	{
+		_sidebarDropController?.DragLeave();
+		args.RawEvent.Handled = true;
+	}
+
+	private async void Sidebar_ItemDropped(object? sender, ItemDroppedEventArgs args)
+	{
+		if (args.DropTarget is not NavigationItemViewModel { Reference: { } reference } || ViewModel.ActiveFolderBrowser is not { } browser)
+		{
+			args.RawEvent.AcceptedOperation = DataPackageOperation.None;
+			args.RawEvent.Handled = true;
+			_sidebarDropController?.DragLeave();
+
+			return;
+		}
+
+		await GetSidebarDropController(browser).DropAsync(args.RawEvent, new(reference, false));
+	}
+
+	private WinUiShellDropTargetController GetSidebarDropController(FolderBrowserViewModel browser)
+	{
+		if (ReferenceEquals(_sidebarDropBrowser, browser) && _sidebarDropController is not null)
+		{
+			return _sidebarDropController;
+		}
+
+		ResetSidebarDropController();
+		_sidebarDropBrowser = browser;
+		_sidebarDropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle);
+
+		return _sidebarDropController;
+	}
+
+	private void CancelSidebarDragSource()
+	{
+		Interlocked.Increment(ref _sidebarDragSourceGeneration);
+		_sidebarDragSourceCancellation?.Cancel();
+		_sidebarDragSourceCancellation?.Dispose();
+		_sidebarDragSourceCancellation = null;
+	}
+
+	private void ResetSidebarDropController()
+	{
+		_sidebarDropController?.Dispose();
+		_sidebarDropController = null;
+		_sidebarDropBrowser = null;
 	}
 }

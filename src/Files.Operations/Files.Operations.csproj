@@ -17,11 +17,6 @@
 
 	<ItemGroup>
 		<Manifest Include="app.manifest" />
-		<None Include="..\Files.Operations\bin\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\Files.Operations.winmd">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Link>Files.Operations.winmd</Link>
-			<Visible>false</Visible>
-		</None>
 	</ItemGroup>
 
 	<ItemGroup>

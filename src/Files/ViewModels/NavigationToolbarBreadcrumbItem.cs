@@ -3,6 +3,7 @@
 
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Storage;
 
 namespace Files.ViewModels;
 
@@ -16,7 +17,11 @@ public sealed class NavigationToolbarBreadcrumbItem
 
 	public ThumbnailResult? Thumbnail { get; }
 
-	public NavigationToolbarBreadcrumbItem(string text, BrowseLocation location, bool isChevronVisible, ThumbnailResult? thumbnail = null)
+	public StorableReference? ShellReference { get; }
+
+	public bool SupportsShellDragDrop => ShellReference is not null;
+
+	public NavigationToolbarBreadcrumbItem(string text, BrowseLocation location, bool isChevronVisible, ThumbnailResult? thumbnail = null, bool supportsShellDragDrop = false)
 	{
 		ArgumentNullException.ThrowIfNull(text);
 
@@ -26,5 +31,6 @@ public sealed class NavigationToolbarBreadcrumbItem
 		Location = location;
 		IsChevronVisible = isChevronVisible;
 		Thumbnail = thumbnail;
+		ShellReference = supportsShellDragDrop && location is FolderLocation folder ? folder.Folder : null;
 	}
 }

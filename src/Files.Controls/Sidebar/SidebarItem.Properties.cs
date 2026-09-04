@@ -47,9 +47,6 @@ namespace Files.Controls
 		public partial bool HasUnrealizedChildren { get; set; }
 
 		[GeneratedDependencyProperty]
-		public partial string? DragPath { get; set; }
-
-		[GeneratedDependencyProperty]
 		public partial bool UseReorderDrop { get; set; }
 
 		[GeneratedDependencyProperty]
@@ -120,11 +117,6 @@ namespace Files.Controls
 		{
 			UpdateExpansionState();
 			ReevaluateSelectionFromOwner();
-		}
-
-		partial void OnDragPathChanged(string? newValue)
-		{
-			UpdateCanDrag();
 		}
 
 		partial void OnDisplayModeChanged(SidebarDisplayMode newValue)

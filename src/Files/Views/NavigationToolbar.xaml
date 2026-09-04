@@ -142,10 +142,19 @@
 						<controls:BreadcrumbBar.ItemTemplate>
 							<DataTemplate x:DataType="viewModels:NavigationToolbarBreadcrumbItem">
 								<controls:BreadcrumbBarItem
+									AllowDrop="{x:Bind SupportsShellDragDrop}"
+									CanDrag="{x:Bind SupportsShellDragDrop}"
+									controls:RightButtonDrag.IsEnabled="True"
 									ChevronToolTip="{x:Bind Text}"
 									Content="{x:Bind Text}"
+									DragEnter="BreadcrumbItem_DragEnter"
+									DragLeave="BreadcrumbItem_DragLeave"
+									DragOver="BreadcrumbItem_DragOver"
+									DragStarting="BreadcrumbItem_DragStarting"
+									Drop="BreadcrumbItem_Drop"
 									IsChevronVisible="{x:Bind IsChevronVisible}"
-									ItemToolTip="{x:Bind Text}" />
+									ItemToolTip="{x:Bind Text}"
+									Tag="{x:Bind}" />
 							</DataTemplate>
 						</controls:BreadcrumbBar.ItemTemplate>
 					</controls:BreadcrumbBar>

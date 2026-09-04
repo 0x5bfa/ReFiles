@@ -250,22 +250,25 @@ public sealed class ItemPropertiesViewModelTests
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
-	public async Task ApplyRenamePreservesHiddenExtensionAsync()
+	public async Task ApplyRenameUsesStorageOperationServiceAndPreservesHiddenExtensionAsync()
 	{
 		var directory = CreateTemporaryDirectory();
 		var path = Path.Combine(directory, "before.txt");
-		var renamedPath = Path.Combine(directory, "after.txt");
 		try
 		{
 			File.WriteAllText(path, "content");
 			var reference = new StorableReference(new StorageSourceId("test"), path, new StorageAddress("file", path));
 			var item = new BrowseItemViewModel(Path.GetFileName(path), false, reference, showFileExtensions: false);
-			var viewModel = new ItemPropertiesViewModel([item]) { Name = "after" };
+			var storageOperations = new RecordingStorageOperationService();
+			var viewModel = new ItemPropertiesViewModel([item], storageOperations, new ItemPropertiesFileSystem()) { Name = "after" };
 
 			await viewModel.ApplyAsync();
 
-			Assert.IsFalse(File.Exists(path));
-			Assert.IsTrue(File.Exists(renamedPath));
+			var request = storageOperations.Request as RenameOperationRequest;
+			Assert.IsNotNull(request);
+			Assert.AreSame(reference, request.Item);
+			Assert.AreEqual("after.txt", request.NewName);
+			Assert.IsTrue(File.Exists(path));
 		}
 		finally
 		{
@@ -299,6 +302,24 @@ public sealed class ItemPropertiesViewModelTests
 		if (Directory.Exists(path))
 		{
 			Directory.Delete(path, true);
+		}
+	}
+
+	private sealed class RecordingStorageOperationService : IStorageOperationService
+	{
+		public StorageOperationRequest? Request { get; private set; }
+
+		public bool CanHandle(StorageOperationRequest request)
+		{
+			return request is RenameOperationRequest;
+		}
+
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+			IStorageOperationControl? operationControl = null)
+		{
+			Request = request;
+
+			return ValueTask.FromResult(new StorageOperationResult(true, null));
 		}
 	}
 }

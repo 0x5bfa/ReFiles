@@ -6,9 +6,6 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Automation.Peers;
 using System.Collections.Specialized;
-using System.IO;
-using Windows.ApplicationModel.DataTransfer;
-using Windows.Storage;
 
 namespace Files.Controls
 {
@@ -76,7 +73,6 @@ namespace Files.Controls
 			UpdateFlyoutChildrenSource();
 			UpdateExpansionState();
 			ReevaluateSelection();
-			UpdateCanDrag();
 		}
 
 		protected override AutomationPeer OnCreateAutomationPeer()
@@ -100,6 +96,7 @@ namespace Files.Controls
 					border.PointerPressed += ItemBorder_PointerPressed;
 					border.ContextRequested += ItemBorder_ContextRequested;
 					border.DoubleTapped += ItemBorder_DoubleTapped;
+					border.DragEnter += ItemBorder_DragEnter;
 					border.DragLeave += ItemBorder_DragLeave;
 					border.DragOver += ItemBorder_DragOver;
 					border.Drop += ItemBorder_Drop;
@@ -251,39 +248,9 @@ namespace Files.Controls
 			flyoutRepeater.ItemTemplate = MenuItemTemplate ?? _defaultFlyoutItemTemplate;
 		}
 
-		private void UpdateCanDrag()
-		{
-			CanDrag = DragPath is string path && Path.IsPathRooted(path);
-		}
-
 		private void SidebarItem_DragStarting(UIElement sender, DragStartingEventArgs args)
 		{
-			if (DragPath is not string dragPath || !Path.IsPathRooted(dragPath))
-			{
-				return;
-			}
-
-			args.Data.SetData(StandardDataFormats.Text, dragPath);
-			args.Data.RequestedOperation = DataPackageOperation.Move | DataPackageOperation.Copy | DataPackageOperation.Link;
-			args.Data.SetDataProvider(StandardDataFormats.StorageItems, async request =>
-			{
-				var deferral = request.GetDeferral();
-				try
-				{
-					if (Directory.Exists(dragPath))
-					{
-						var folder = await StorageFolder.GetFolderFromPathAsync(dragPath);
-						request.SetData(new IStorageItem[] { folder });
-					}
-				}
-				catch
-				{
-				}
-				finally
-				{
-					deferral.Complete();
-				}
-			});
+			Owner?.RaiseItemDragStarting(this, args);
 		}
 
 		private void SetFlyoutOpen(bool isOpen = true)
@@ -535,6 +502,11 @@ namespace Files.Controls
 			}
 		}
 
+		private void ItemBorder_DragEnter(object sender, DragEventArgs e)
+		{
+			Owner?.RaiseItemDragEnter(this, DetermineDropTargetPosition(e), e);
+		}
+
 		private async void ItemBorder_DragOver(object sender, DragEventArgs e)
 		{
 			var insertsAbove = DetermineDropTargetPosition(e);
@@ -589,6 +561,7 @@ namespace Files.Controls
 			_dragOverTimer?.Stop();
 			_dragOverExpandTimer?.Stop();
 			UpdatePointerState();
+			Owner?.RaiseItemDragLeave(this, e);
 		}
 
 		private void ItemBorder_Drop(object sender, DragEventArgs e)

@@ -1,9 +1,13 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
+using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
-using Windows.Storage;
+using System.Threading;
+using System.Threading.Tasks;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
@@ -13,8 +17,7 @@ namespace Files.Operations;
 class Program
 {
 	internal static readonly TaskCompletionSource<bool> ExitSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
-	private static readonly CancellationTokenSource cancellationTokenSource = new();
-	private static readonly StreamWriter logWriter = new(Path.Combine(ApplicationData.Current.LocalFolder.Path, "debug_server.log"), append: true) { AutoFlush = true };
+	private static readonly CancellationTokenSource _cancellationTokenSource = new();
 
 	static async Task Main()
 	{
@@ -61,11 +64,11 @@ class Program
 			_ = PInvoke.WindowsDeleteString(str);
 		}
 
-		AppDomain.CurrentDomain.ProcessExit += (_, _) => cancellationTokenSource.Cancel();
+		AppDomain.CurrentDomain.ProcessExit += (_, _) => _cancellationTokenSource.Cancel();
 
 		try
 		{
-			await ExitSignal.Task.WaitAsync(cancellationTokenSource.Token);
+			await ExitSignal.Task.WaitAsync(_cancellationTokenSource.Token);
 		}
 		catch (OperationCanceledException)
 		{
@@ -82,6 +85,6 @@ class Program
 
 	private static void OnFirstChanceException(object? sender, FirstChanceExceptionEventArgs e)
 	{
-		logWriter.WriteLine($"{DateTime.Now}|{e.Exception}");
+		Debug.WriteLine($"{DateTime.Now}|{e.Exception}");
 	}
 }

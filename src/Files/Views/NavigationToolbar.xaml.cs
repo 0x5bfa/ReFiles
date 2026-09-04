@@ -4,6 +4,7 @@
 using Files.Adapters;
 using Files.Controls;
 using Files.Core.Browsing;
+using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.ViewModels;
@@ -13,6 +14,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace Files.Views;
 
@@ -25,6 +27,10 @@ public sealed partial class NavigationToolbar : UserControl
 		DependencyProperty.Register(nameof(ViewModel), typeof(NavigationToolbarViewModel), typeof(NavigationToolbar), new PropertyMetadata(null));
 
 	private CancellationTokenSource? _breadcrumbFlyoutCancellation;
+	private CancellationTokenSource? _dragSourceCancellation;
+	private WinUiShellDropTargetController? _dropController;
+	private FolderBrowserViewModel? _dropBrowser;
+	private long _dragSourceGeneration;
 
 	public NavigationToolbarViewModel? ViewModel
 	{
@@ -130,6 +136,104 @@ public sealed partial class NavigationToolbar : UserControl
 		}
 	}
 
+	private async void BreadcrumbItem_DragStarting(UIElement sender, DragStartingEventArgs args)
+	{
+		if (sender is not Files.Controls.BreadcrumbBarItem { Tag: NavigationToolbarBreadcrumbItem { ShellReference: { } reference } } || ViewModel?.ActiveFolderBrowser is not { } browser)
+		{
+			args.Cancel = true;
+
+			return;
+		}
+
+		var generation = Interlocked.Increment(ref _dragSourceGeneration);
+		_dragSourceCancellation?.Cancel();
+		_dragSourceCancellation?.Dispose();
+		var cancellation = new CancellationTokenSource();
+		_dragSourceCancellation = cancellation;
+		var deferral = args.GetDeferral();
+		try
+		{
+			var dragSource = await browser.PrepareShellDragSourceAsync([reference], cancellation.Token);
+			if (cancellation.IsCancellationRequested || generation != Volatile.Read(ref _dragSourceGeneration) || !ReferenceEquals(ViewModel?.ActiveFolderBrowser, browser) || dragSource is null)
+			{
+				args.Cancel = true;
+
+				return;
+			}
+
+			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, args.Data, browser.OwnerWindowHandle, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
+			args.AllowedOperations = allowedOperations;
+			args.Cancel = allowedOperations is DataPackageOperation.None;
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+			args.Cancel = true;
+		}
+		catch (Exception exception)
+		{
+			args.Cancel = true;
+			browser.ReportOperationError(exception);
+		}
+		finally
+		{
+			if (ReferenceEquals(_dragSourceCancellation, cancellation))
+			{
+				_dragSourceCancellation = null;
+			}
+
+			cancellation.Dispose();
+			deferral.Complete();
+		}
+	}
+
+	private async void BreadcrumbItem_DragOver(object sender, DragEventArgs args)
+	{
+		if (sender is not Files.Controls.BreadcrumbBarItem { Tag: NavigationToolbarBreadcrumbItem { ShellReference: { } reference } } || ViewModel?.ActiveFolderBrowser is not { } browser)
+		{
+			args.AcceptedOperation = DataPackageOperation.None;
+			args.Handled = true;
+			_dropController?.DragLeave();
+
+			return;
+		}
+
+		await GetDropController(browser).DragOverAsync(args, new(reference, false));
+	}
+
+	private async void BreadcrumbItem_DragEnter(object sender, DragEventArgs args)
+	{
+		if (sender is not Files.Controls.BreadcrumbBarItem { Tag: NavigationToolbarBreadcrumbItem { ShellReference: { } reference } } || ViewModel?.ActiveFolderBrowser is not { } browser)
+		{
+			args.AcceptedOperation = DataPackageOperation.None;
+			args.Handled = true;
+			_dropController?.DragLeave();
+
+			return;
+		}
+
+		await GetDropController(browser).DragEnterAsync(args, new(reference, false));
+	}
+
+	private void BreadcrumbItem_DragLeave(object sender, DragEventArgs args)
+	{
+		_dropController?.DragLeave();
+		args.Handled = true;
+	}
+
+	private async void BreadcrumbItem_Drop(object sender, DragEventArgs args)
+	{
+		if (sender is not Files.Controls.BreadcrumbBarItem { Tag: NavigationToolbarBreadcrumbItem { ShellReference: { } reference } } || ViewModel?.ActiveFolderBrowser is not { } browser)
+		{
+			args.AcceptedOperation = DataPackageOperation.None;
+			args.Handled = true;
+			_dropController?.DragLeave();
+
+			return;
+		}
+
+		await GetDropController(browser).DropAsync(args, new(reference, false));
+	}
+
 	private void PathBreadcrumbBar_ItemDropDownFlyoutClosed(object sender, BreadcrumbBarItemDropDownFlyoutEventArgs args)
 	{
 		_breadcrumbFlyoutCancellation?.Cancel();
@@ -177,6 +281,32 @@ public sealed partial class NavigationToolbar : UserControl
 	{
 		_breadcrumbFlyoutCancellation?.Cancel();
 		_breadcrumbFlyoutCancellation = null;
+		Interlocked.Increment(ref _dragSourceGeneration);
+		_dragSourceCancellation?.Cancel();
+		_dragSourceCancellation?.Dispose();
+		_dragSourceCancellation = null;
+		ResetDropController();
+	}
+
+	private WinUiShellDropTargetController GetDropController(FolderBrowserViewModel browser)
+	{
+		if (ReferenceEquals(_dropBrowser, browser) && _dropController is not null)
+		{
+			return _dropController;
+		}
+
+		ResetDropController();
+		_dropBrowser = browser;
+		_dropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle);
+
+		return _dropController;
+	}
+
+	private void ResetDropController()
+	{
+		_dropController?.Dispose();
+		_dropController = null;
+		_dropBrowser = null;
 	}
 
 	private bool IsNavigationButtonSource(DependencyObject? source)

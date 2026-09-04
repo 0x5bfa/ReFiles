@@ -19,4 +19,14 @@
 		<Features>strict</Features>
 
 	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.Operations'">
+		<EnforceStorageBoundaries>true</EnforceStorageBoundaries>
+		<WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true'">
+		<PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+	</ItemGroup>
 </Project>

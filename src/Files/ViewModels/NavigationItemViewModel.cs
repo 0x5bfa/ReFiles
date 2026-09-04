@@ -34,6 +34,8 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 
 	public bool SelectsOnInvoked { get; }
 
+	public bool CanDrag => Reference is not null && SelectsOnInvoked;
+
 	public ObservableCollection<NavigationItemViewModel> Children { get; }
 
 	public IconElement Icon => CreateIconElement();

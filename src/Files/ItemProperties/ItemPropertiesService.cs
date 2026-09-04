@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.ViewModels;
 using Microsoft.UI.Xaml;
@@ -13,14 +14,20 @@ namespace Files.ItemProperties;
 internal sealed class ItemPropertiesService : IItemPropertiesService, IDisposable
 {
 	private readonly nint _owner;
+	private readonly IItemPropertiesFileSystem _fileSystem;
 	private readonly WindowsShellAppExtensionService? _shellProperties;
+	private readonly IStorageOperationService _storageOperations;
 	private readonly HashSet<ItemPropertiesWindow> _windows = [];
 	private bool _isDisposed;
 
-	internal ItemPropertiesService(nint owner, WindowsShellAppExtensionService? shellProperties = null)
+	internal ItemPropertiesService(nint owner, IStorageOperationService storageOperations, WindowsShellAppExtensionService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
 	{
+		ArgumentNullException.ThrowIfNull(storageOperations);
+
 		_owner = owner;
+		_fileSystem = fileSystem ?? new ItemPropertiesFileSystem();
 		_shellProperties = shellProperties;
+		_storageOperations = storageOperations;
 	}
 
 	public unsafe Task ShowAsync(IReadOnlyList<BrowseItemViewModel> items)
@@ -32,6 +39,8 @@ internal sealed class ItemPropertiesService : IItemPropertiesService, IDisposabl
 		var references = items.Select(static item => item.Reference).ToArray();
 		var window = new ItemPropertiesWindow(
 			items,
+			_storageOperations,
+			_fileSystem,
 			_shellProperties is null ? null : cancellationToken => _shellProperties.GetPropertyPagesAsync(references, cancellationToken),
 			_shellProperties is null ? null : (kind, cancellationToken) => _shellProperties.GetPropertyPageDataAsync(references, kind, cancellationToken),
 			_shellProperties is null ? null : cancellationToken => _shellProperties.GetGeneralPropertiesAsync(references, cancellationToken));

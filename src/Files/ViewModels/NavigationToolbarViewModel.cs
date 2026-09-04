@@ -37,6 +37,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	public string LocationText => _activeFolderBrowser?.LocationText ?? string.Empty;
 
+	internal FolderBrowserViewModel? ActiveFolderBrowser => _activeFolderBrowser;
+
 	internal NavigationToolbarViewModel(
 		CommandBindingViewModel toggleSidebarCommand,
 		CommandBindingViewModel backCommand,

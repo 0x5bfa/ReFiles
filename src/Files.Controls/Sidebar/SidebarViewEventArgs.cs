@@ -8,6 +8,9 @@ using Windows.Foundation;
 namespace Files.Controls;
 
 public record ItemInvokedEventArgs(PointerUpdateKind PointerUpdateKind) { }
+public record ItemDragStartingEventArgs(object DragItem, DragStartingEventArgs RawEvent) { }
+public record ItemDragEnterEventArgs(object DropTarget, DataPackageView DroppedItem, SidebarItemDropPosition dropPosition, DragEventArgs RawEvent) { }
 public record ItemDroppedEventArgs(object DropTarget, DataPackageView DroppedItem, SidebarItemDropPosition dropPosition, DragEventArgs RawEvent) { }
 public record ItemDragOverEventArgs(object DropTarget, DataPackageView DroppedItem, SidebarItemDropPosition dropPosition, DragEventArgs RawEvent) { }
+public record ItemDragLeaveEventArgs(object DropTarget, DragEventArgs RawEvent) { }
 public record ItemContextInvokedArgs(object? Item, Point Position) { }
