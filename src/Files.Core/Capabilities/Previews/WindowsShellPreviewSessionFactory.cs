@@ -14,27 +14,66 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 	private readonly IWindowsPreviewTargetResolver _targetResolver;
 	private readonly IWindowsShellScheduler _scheduler;
 	private readonly IWindowsPreviewHandlerControllerFactory _controllerFactory;
+	private readonly IWindowsShellPreviewPolicy _policy;
+	private readonly IWindowsPreviewHandlerRegistrationValidator _registrationValidator;
 
 	/// <summary>Initializes a Windows Shell preview session factory.</summary>
 	/// <param name="targetResolver">The preview target resolver.</param>
 	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
 	/// <param name="controllerFactory">The native preview controller factory.</param>
 	public WindowsShellPreviewSessionFactory(IWindowsPreviewTargetResolver targetResolver, IWindowsShellScheduler dedicatedScheduler, IWindowsPreviewHandlerControllerFactory controllerFactory)
+		: this(targetResolver, dedicatedScheduler, controllerFactory, new WindowsPreviewAccessPolicy(), new WindowsPreviewHandlerRegistrationValidator())
+	{
+	}
+
+	/// <summary>Initializes a Windows Shell preview session factory.</summary>
+	/// <param name="targetResolver">The preview target resolver.</param>
+	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
+	/// <param name="controllerFactory">The native preview controller factory.</param>
+	/// <param name="policy">The policy to revalidate immediately before handler activation.</param>
+	public WindowsShellPreviewSessionFactory(
+		IWindowsPreviewTargetResolver targetResolver,
+		IWindowsShellScheduler dedicatedScheduler,
+		IWindowsPreviewHandlerControllerFactory controllerFactory,
+		IWindowsShellPreviewPolicy policy)
+		: this(targetResolver, dedicatedScheduler, controllerFactory, policy, new WindowsPreviewHandlerRegistrationValidator())
+	{
+	}
+
+	internal WindowsShellPreviewSessionFactory(
+		IWindowsPreviewTargetResolver targetResolver,
+		IWindowsShellScheduler dedicatedScheduler,
+		IWindowsPreviewHandlerControllerFactory controllerFactory,
+		IWindowsShellPreviewPolicy policy,
+		IWindowsPreviewHandlerRegistrationValidator registrationValidator)
 	{
 		ArgumentNullException.ThrowIfNull(targetResolver);
 		ArgumentNullException.ThrowIfNull(dedicatedScheduler);
 		ArgumentNullException.ThrowIfNull(controllerFactory);
+		ArgumentNullException.ThrowIfNull(policy);
+		ArgumentNullException.ThrowIfNull(registrationValidator);
 
 		_targetResolver = targetResolver;
 		_scheduler = dedicatedScheduler;
 		_controllerFactory = controllerFactory;
+		_policy = policy;
+		_registrationValidator = registrationValidator;
 	}
 
 	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
 	/// <param name="workspace">The storage workspace.</param>
 	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
 	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler)
-		: this(new WindowsPreviewTargetResolver(workspace), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory())
+		: this(workspace, dedicatedScheduler, new WindowsPreviewAccessPolicy())
+	{
+	}
+
+	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
+	/// <param name="policy">The policy to revalidate immediately before handler activation.</param>
+	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler, IWindowsShellPreviewPolicy policy)
+		: this(new WindowsPreviewTargetResolver(workspace), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory(), policy)
 	{
 	}
 
@@ -49,8 +88,17 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 		try
 		{
 			target = await _targetResolver.ResolveAsync(result.Reference, cancellationToken).ConfigureAwait(false);
+			if (target.Context is not { } context)
+			{
+				throw new WindowsShellPreviewBlockedException(PreviewBlockReason.DisabledByPolicy);
+			}
 
-			var session = await _scheduler.InvokeOperationAsync(() => CreateOnPreviewSta(result, host, target), cancellationToken).ConfigureAwait(false);
+			if (await _policy.GetBlockReasonAsync(result.Request, context, result.HandlerClsid, cancellationToken).ConfigureAwait(false) is { } blockReason)
+			{
+				throw new WindowsShellPreviewBlockedException(blockReason);
+			}
+
+			var session = await _scheduler.InvokeOperationAsync(() => CreateOnPreviewSta(result, host, target, context), cancellationToken).ConfigureAwait(false);
 
 			target = null;
 			if (cancellationToken.IsCancellationRequested)
@@ -82,15 +130,23 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 		}
 	}
 
-	private IWindowsShellPreviewSession CreateOnPreviewSta(WindowsShellPreviewResult result, WindowsPreviewHost host, WindowsPreviewTarget target)
+	private IWindowsShellPreviewSession CreateOnPreviewSta(WindowsShellPreviewResult result, WindowsPreviewHost host, WindowsPreviewTarget target, ItemContext context)
 	{
+		if (!_registrationValidator.IsCurrentHandler(context, result.HandlerClsid))
+		{
+			throw new WindowsShellPreviewBlockedException(PreviewBlockReason.DisabledByPolicy);
+		}
+
+		if (_policy.GetBlockReason(result.Request, context, result.HandlerClsid) is { } blockReason)
+		{
+			throw new WindowsShellPreviewBlockedException(blockReason);
+		}
+
 		var controller = _controllerFactory.Create(result.HandlerClsid);
 		var session = new WindowsShellPreviewSession(target, controller, _scheduler);
 		try
 		{
 			session.TransitionTo(WindowsShellPreviewSessionState.Activating);
-			controller.SetSite();
-
 			var windowsItem = target.Item;
 			var initialized = windowsItem.FileSystemPath is { } fileSystemPath
 				&& controller.TryInitializeWithStream(fileSystemPath);
@@ -110,9 +166,10 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 				throw new NotSupportedException("The preview handler does not support any initialization contract.");
 			}
 
+			controller.SetSite(host.WindowHandle, host.AcceleratorForwarder);
 			session.TransitionTo(WindowsShellPreviewSessionState.Initialized);
 			controller.SetWindow(host.WindowHandle, host.Bounds);
-			controller.SetBounds(host.Bounds);
+			controller.ApplySystemVisuals();
 			controller.DoPreview();
 			session.TransitionTo(WindowsShellPreviewSessionState.Previewing);
 

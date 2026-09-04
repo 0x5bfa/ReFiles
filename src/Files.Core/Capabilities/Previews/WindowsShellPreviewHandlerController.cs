@@ -1,11 +1,19 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Buffers.Binary;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security;
+using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.Graphics.Gdi;
+using Windows.Win32.Security;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.Ole;
 using Windows.Win32.UI.Shell;
@@ -19,20 +27,28 @@ namespace Files.Core.Capabilities.Previews;
 public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPreviewHandlerControllerFactory
 {
 	private readonly IWindowsPreviewHandlerActivationPolicy _activationPolicy;
+	private readonly IWindowsPreviewHandlerIsolationPolicy _isolationPolicy;
 
 	/// <summary>Initializes a controller factory with the local-server policy.</summary>
 	public WindowsShellPreviewHandlerControllerFactory()
-		: this(new LocalServerWindowsPreviewHandlerActivationPolicy())
+		: this(new LocalServerWindowsPreviewHandlerActivationPolicy(), new WindowsPreviewHandlerIsolationPolicy())
 	{
 	}
 
 	/// <summary>Initializes a controller factory.</summary>
 	/// <param name="activationPolicy">The activation policy.</param>
 	public WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy)
+		: this(activationPolicy, new WindowsPreviewHandlerIsolationPolicy())
+	{
+	}
+
+	internal WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy, IWindowsPreviewHandlerIsolationPolicy isolationPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(activationPolicy);
+		ArgumentNullException.ThrowIfNull(isolationPolicy);
 
 		_activationPolicy = activationPolicy;
+		_isolationPolicy = isolationPolicy;
 	}
 
 	/// <summary>Creates a controller for a preview handler CLSID.</summary>
@@ -46,12 +62,82 @@ public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPrevie
 		}
 
 		var activationContext = _activationPolicy.GetContext(handlerClsid);
-		if (activationContext is 0)
+		var requiredContext = WindowsPreviewHandlerActivationContext.LocalServer | WindowsPreviewHandlerActivationContext.EnableCloaking;
+		if (activationContext != requiredContext)
 		{
-			throw new InvalidOperationException("The preview handler activation policy returned no activation context.");
+			throw new InvalidOperationException("Preview handlers must be activated through a cloaked local server.");
 		}
 
-		return WindowsShellPreviewHandlerController.Create(handlerClsid, (uint)activationContext);
+		var useLowIntegrity = _isolationPolicy.RequiresLowIntegrity(handlerClsid);
+		var nativeContext = useLowIntegrity ? activationContext : WindowsPreviewHandlerActivationContext.LocalServer;
+
+		return WindowsShellPreviewHandlerController.Create(handlerClsid, (uint)nativeContext, useLowIntegrity);
+	}
+}
+
+internal interface IWindowsPreviewHandlerIsolationPolicy
+{
+	bool RequiresLowIntegrity(Guid handlerClsid);
+}
+
+internal sealed class WindowsPreviewHandlerIsolationPolicy : IWindowsPreviewHandlerIsolationPolicy
+{
+	private const string DisableLowIntegrityValue = "DisableLowILProcessIsolation";
+
+	public bool RequiresLowIntegrity(Guid handlerClsid)
+	{
+		var keyPath = $"Software\\Classes\\CLSID\\{handlerClsid:B}";
+		if (TryReadOptOut(RegistryView.Registry64, keyPath, out var disabled) || TryReadOptOut(RegistryView.Registry32, keyPath, out disabled))
+		{
+			return !disabled;
+		}
+
+		return true;
+	}
+
+	internal static bool IsLowIntegrityDisabled(object? value, RegistryValueKind valueKind)
+	{
+		if (valueKind is RegistryValueKind.DWord && value is int numericValue)
+		{
+			return numericValue is not 0;
+		}
+
+		return valueKind is RegistryValueKind.Binary && value is byte[] { Length: sizeof(uint) } bytes && BinaryPrimitives.ReadUInt32LittleEndian(bytes) is not 0;
+	}
+
+	private static bool TryReadOptOut(RegistryView view, string keyPath, out bool disabled)
+	{
+		disabled = false;
+		RegistryKey? key;
+		try
+		{
+			using var localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+			key = localMachine.OpenSubKey(keyPath, writable: false);
+		}
+		catch (Exception error) when (error is IOException or UnauthorizedAccessException or SecurityException or ArgumentException)
+		{
+			return false;
+		}
+
+		if (key is null)
+		{
+			return false;
+		}
+
+		using (key)
+		{
+			try
+			{
+				var value = key.GetValue(DisableLowIntegrityValue);
+				disabled = value is not null && IsLowIntegrityDisabled(value, key.GetValueKind(DisableLowIntegrityValue));
+			}
+			catch (Exception error) when (error is IOException or UnauthorizedAccessException or SecurityException or ArgumentException)
+			{
+				disabled = false;
+			}
+		}
+
+		return true;
 	}
 }
 
@@ -62,6 +148,8 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	private IStream? _initializedStream;
 	private IShellItem? _initializedItem;
 	private WindowsPreviewHandlerFrame? _previewHandlerFrame;
+	private bool _isInitialized;
+	private bool _isSiteSet;
 	private bool _didPreview;
 	private bool _didUnload;
 	private bool _isDisposed;
@@ -74,20 +162,23 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	/// <summary>Creates a controller for an activated preview handler.</summary>
 	/// <param name="handlerClsid">The preview handler CLSID.</param>
 	/// <param name="activationContext">The COM activation context.</param>
+	/// <param name="useLowIntegrity">Whether to activate the handler under a low-integrity impersonation token.</param>
 	/// <returns>The created controller.</returns>
-	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext)
+	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext, bool useLowIntegrity)
 	{
-		var hr = PInvoke.CoCreateInstance(in handlerClsid, null, (CLSCTX)activationContext, out IPreviewHandler handler);
-		if (hr.Failed || handler is null)
-		{
-			throw new COMException("The Windows preview handler could not be activated.", hr.Value);
-		}
+		var handler = useLowIntegrity ? ActivateWithLowIntegrity(handlerClsid, activationContext) : Activate(handlerClsid, activationContext);
 
 		return new WindowsShellPreviewHandlerController(handler);
 	}
 
 	/// <inheritdoc />
 	public void SetSite()
+	{
+		SetSite(HWND.Null, null);
+	}
+
+	/// <inheritdoc />
+	public void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 	{
 		EnsureActive();
 		var siteInterface = _handler as IObjectWithSite;
@@ -96,9 +187,19 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 			return;
 		}
 
-		var frame = new WindowsPreviewHandlerFrame();
-		siteInterface.SetSite(frame).ThrowOnFailure();
+		var frame = new WindowsPreviewHandlerFrame(hostWindow, acceleratorForwarder);
 		_previewHandlerFrame = frame;
+		try
+		{
+			siteInterface.SetSite(frame).ThrowOnFailure();
+			_isSiteSet = true;
+		}
+		catch
+		{
+			_previewHandlerFrame = null;
+
+			throw;
+		}
 	}
 
 	/// <inheritdoc />
@@ -114,17 +215,20 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 			return false;
 		}
 
-		var hr = PInvoke.SHCreateStreamOnFileEx(fileSystemPath, (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE), 0, false, null!, out IStream stream);
-		hr.ThrowOnFailure();
-
-		hr = initializer.Initialize(stream, (uint)STGM.STGM_READ);
-		if (IsOptionalInitializationFailure(hr))
+		var hr = PInvoke.SHCreateStreamOnFileEx(fileSystemPath, (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_WRITE), 0, false, null!, out IStream stream);
+		if (hr.Failed)
 		{
 			return false;
 		}
 
-		hr.ThrowOnFailure();
+		hr = initializer.Initialize(stream, (uint)STGM.STGM_READ);
+		if (hr.Failed)
+		{
+			return false;
+		}
+
 		_initializedStream = stream;
+		_isInitialized = true;
 
 		return true;
 	}
@@ -143,16 +247,19 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		}
 
 		var hr = PInvoke.SHCreateItemFromParsingName(parsingName, null, out IShellItem item);
-		hr.ThrowOnFailure();
-
-		hr = initializer.Initialize(item, (uint)STGM.STGM_READ);
-		if (IsOptionalInitializationFailure(hr))
+		if (hr.Failed)
 		{
 			return false;
 		}
 
-		hr.ThrowOnFailure();
+		hr = initializer.Initialize(item, (uint)STGM.STGM_READ);
+		if (hr.Failed)
+		{
+			return false;
+		}
+
 		_initializedItem = item;
+		_isInitialized = true;
 
 		return true;
 	}
@@ -171,14 +278,10 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		}
 
 		var hr = initializer.Initialize(fileSystemPath, (uint)STGM.STGM_READ);
-		if (IsOptionalInitializationFailure(hr))
-		{
-			return false;
-		}
 
-		hr.ThrowOnFailure();
+		_isInitialized = hr.Succeeded;
 
-		return true;
+		return _isInitialized;
 	}
 
 	/// <inheritdoc />
@@ -214,6 +317,27 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	}
 
 	/// <inheritdoc />
+	public unsafe void ApplySystemVisuals()
+	{
+		EnsureActive();
+		var visuals = _handler as IPreviewHandlerVisuals;
+		if (visuals is null)
+		{
+			return;
+		}
+
+		_ = visuals.SetBackgroundColor((COLORREF)PInvoke.GetSysColor(SYS_COLOR_INDEX.COLOR_WINDOW));
+		_ = visuals.SetTextColor((COLORREF)PInvoke.GetSysColor(SYS_COLOR_INDEX.COLOR_WINDOWTEXT));
+
+		NONCLIENTMETRICSW metrics = default;
+		metrics.cbSize = (uint)sizeof(NONCLIENTMETRICSW);
+		if (PInvoke.SystemParametersInfo(SYSTEM_PARAMETERS_INFO_ACTION.SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0))
+		{
+			_ = visuals.SetFont(in metrics.lfMessageFont);
+		}
+	}
+
+	/// <inheritdoc />
 	public void DoPreview()
 	{
 		EnsureActive();
@@ -243,21 +367,6 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	}
 
 	/// <inheritdoc />
-	public bool TryTranslateAccelerator(in MSG message)
-	{
-		EnsureActive();
-		var hr = _handler.TranslateAccelerator(in message);
-		if (hr == HRESULT.S_FALSE)
-		{
-			return false;
-		}
-
-		hr.ThrowOnFailure();
-
-		return true;
-	}
-
-	/// <inheritdoc />
 	public void Dispose()
 	{
 		if (_isDisposed)
@@ -271,13 +380,17 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 
 		if (handler is not null)
 		{
-			if (!_didUnload)
+			if (_isInitialized && !_didUnload)
 			{
 				TryCleanup(() => handler.Unload().ThrowOnFailure(), errors);
 				_didUnload = true;
 			}
 
-			TryCleanup(SetSiteForCleanup, errors);
+			if (_isSiteSet)
+			{
+				TryCleanup(SetSiteForCleanup, errors);
+			}
+
 			_initializedStream = null;
 			_initializedItem = null;
 			_handler = null;
@@ -294,6 +407,105 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		}
 	}
 
+	private static IPreviewHandler Activate(Guid handlerClsid, uint activationContext)
+	{
+		var hr = PInvoke.CoCreateInstance(in handlerClsid, null, (CLSCTX)activationContext, out IPreviewHandler handler);
+		if (hr.Failed || handler is null)
+		{
+			throw new COMException("The Windows preview handler could not be activated.", hr.Value);
+		}
+
+		return handler;
+	}
+
+	private static unsafe IPreviewHandler ActivateWithLowIntegrity(Guid handlerClsid, uint activationContext)
+	{
+		if (!PInvoke.ConvertStringSidToSid("LW", out var lowIntegritySid))
+		{
+			throw new Win32Exception(Marshal.GetLastPInvokeError(), "The low-integrity SID could not be created.");
+		}
+
+		try
+		{
+			if (!PInvoke.ImpersonateSelf(SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation))
+			{
+				throw new Win32Exception(Marshal.GetLastPInvokeError(), "The preview thread could not impersonate itself.");
+			}
+
+			IPreviewHandler? handler = null;
+			Exception? activationError = null;
+			try
+			{
+				using var process = PInvoke.GetCurrentProcess_SafeHandle();
+				if (!PInvoke.OpenProcessToken(process, TOKEN_ACCESS_MASK.TOKEN_DUPLICATE, out var processToken))
+				{
+					throw new Win32Exception(Marshal.GetLastPInvokeError(), "The preview process token could not be opened.");
+				}
+
+				using (processToken)
+				{
+					var desiredAccess = TOKEN_ACCESS_MASK.TOKEN_ADJUST_DEFAULT | TOKEN_ACCESS_MASK.TOKEN_IMPERSONATE;
+					if (!PInvoke.DuplicateTokenEx(processToken, desiredAccess, null, SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation, TOKEN_TYPE.TokenImpersonation, out var lowIntegrityToken))
+					{
+						throw new Win32Exception(Marshal.GetLastPInvokeError(), "The low-integrity preview token could not be created.");
+					}
+
+					using (lowIntegrityToken)
+					{
+						SetLowIntegrity(lowIntegrityToken, lowIntegritySid);
+						if (!PInvoke.SetThreadToken(PInvoke.GetCurrentThread(), lowIntegrityToken))
+						{
+							throw new Win32Exception(Marshal.GetLastPInvokeError(), "The low-integrity preview token could not be assigned.");
+						}
+					}
+				}
+
+				handler = Activate(handlerClsid, activationContext);
+			}
+			catch (Exception error)
+			{
+				activationError = error;
+			}
+
+			if (!PInvoke.RevertToSelf())
+			{
+				var error = new Win32Exception(Marshal.GetLastPInvokeError(), "The preview thread identity could not be restored.");
+				Environment.FailFast("The preview thread could not safely leave low-integrity impersonation.", error);
+			}
+
+			if (activationError is not null)
+			{
+				ExceptionDispatchInfo.Capture(activationError).Throw();
+			}
+
+			return handler ?? throw new InvalidOperationException("The preview handler activation returned no handler.");
+		}
+		finally
+		{
+			PInvoke.LocalFree((HLOCAL)(nint)lowIntegritySid.Value);
+		}
+	}
+
+	private static unsafe void SetLowIntegrity(SafeHandle token, PSID lowIntegritySid)
+	{
+		var sidLength = checked((int)PInvoke.GetLengthSid(lowIntegritySid));
+		var informationLength = checked(sizeof(TOKEN_MANDATORY_LABEL) + sidLength);
+		Span<byte> information = stackalloc byte[informationLength];
+		new ReadOnlySpan<byte>(lowIntegritySid.Value, sidLength).CopyTo(information[sizeof(TOKEN_MANDATORY_LABEL)..]);
+		fixed (byte* informationPointer = information)
+		{
+			TOKEN_MANDATORY_LABEL mandatoryLabel = default;
+			mandatoryLabel.Label.Sid = new PSID(informationPointer + sizeof(TOKEN_MANDATORY_LABEL));
+			mandatoryLabel.Label.Attributes = PInvoke.SE_GROUP_INTEGRITY;
+			*(TOKEN_MANDATORY_LABEL*)informationPointer = mandatoryLabel;
+		}
+
+		if (!PInvoke.SetTokenInformation(token, TOKEN_INFORMATION_CLASS.TokenIntegrityLevel, information))
+		{
+			throw new Win32Exception(Marshal.GetLastPInvokeError(), "The preview thread integrity level could not be lowered.");
+		}
+	}
+
 	private void SetSiteForCleanup()
 	{
 		try
@@ -307,6 +519,7 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		finally
 		{
 			_previewHandlerFrame = null;
+			_isSiteSet = false;
 		}
 	}
 
@@ -319,11 +532,6 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		{
 			throw new ObjectDisposedException(nameof(WindowsShellPreviewHandlerController));
 		}
-	}
-
-	private static bool IsOptionalInitializationFailure(HRESULT hr)
-	{
-		return hr == HRESULT.E_NOINTERFACE || hr == HRESULT.E_NOTIMPL;
 	}
 
 	private static RECT ToRect(WindowsPreviewBounds bounds)

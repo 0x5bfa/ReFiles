@@ -62,10 +62,9 @@ public sealed class WindowsShellPreviewLoader : IPreviewLoader
 			return null;
 		}
 
-		var blockReason = _policy.GetBlockReason(context, handlerClsid.Value);
+		var blockReason = await _policy.GetBlockReasonAsync(request, context, handlerClsid.Value, cancellationToken).ConfigureAwait(false);
+		cancellationToken.ThrowIfCancellationRequested();
 
-		return blockReason is not null
-			? new BlockedPreviewResult(blockReason.Value)
-			: new WindowsShellPreviewResult(context.Reference, handlerClsid.Value);
+		return blockReason is not null ? new BlockedPreviewResult(blockReason.Value) : new WindowsShellPreviewResult(context.Reference, handlerClsid.Value, request);
 	}
 }

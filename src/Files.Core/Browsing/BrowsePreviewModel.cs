@@ -24,6 +24,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 	private readonly CancellationTokenSource _lifetime = new();
 
 	private BrowsePreviewSnapshot _current = new(0, null, BrowsePreviewStatus.Empty);
+	private IStorableModel? _currentTarget;
 
 	private CancellationTokenSource? _activeRequestCts;
 
@@ -32,6 +33,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 	private Task? _disposeTask;
 
 	private long _currentRequestVersion;
+	private PreviewHydrationPolicy _currentHydrationPolicy;
 
 	private bool _isDisposed;
 
@@ -76,7 +78,72 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			throw new ArgumentOutOfRangeException(nameof(hydrationPolicy));
 		}
 
-		return new ValueTask(BeginRefresh(hydrationPolicy, cancellationToken));
+		return new ValueTask(BeginRefresh(hydrationPolicy, cancellationToken, null));
+	}
+
+	/// <inheritdoc />
+	public ValueTask PreviewUntrustedAsync(BrowsePreviewSnapshot blockedSnapshot, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(blockedSnapshot);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		IStorableModel? target;
+		long generation;
+		StorableKey targetKey;
+		PreviewHydrationPolicy hydrationPolicy;
+		lock (_stateLock)
+		{
+			if (_isDisposed)
+			{
+				throw new ObjectDisposedException(nameof(BrowsePreviewModel));
+			}
+
+			if (!ReferenceEquals(_current, blockedSnapshot)
+				|| blockedSnapshot.RequestVersion != Volatile.Read(ref _currentRequestVersion)
+				|| blockedSnapshot.Status is not BrowsePreviewStatus.Blocked
+				|| blockedSnapshot.BlockReason is not PreviewBlockReason.Untrusted
+				|| blockedSnapshot.TargetKey is null)
+			{
+				return ValueTask.CompletedTask;
+			}
+
+			targetKey = blockedSnapshot.TargetKey.Value;
+			hydrationPolicy = _currentHydrationPolicy;
+			target = ResolveSelectedItem();
+			generation = _browseSession.Generation;
+			if (target is null || !ReferenceEquals(target, _currentTarget) || target.Reference.GetKey() != targetKey)
+			{
+				return ValueTask.CompletedTask;
+			}
+		}
+
+		var authorization = new PreviewRetryAuthorization(blockedSnapshot, generation, targetKey, target);
+
+		return new ValueTask(BeginRefresh(hydrationPolicy, cancellationToken, authorization));
+	}
+
+	/// <inheritdoc />
+	public bool TryReportShellPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
+	{
+		ArgumentNullException.ThrowIfNull(expectedSnapshot);
+
+		lock (_stateLock)
+		{
+			if (_isDisposed
+				|| !ReferenceEquals(_current, expectedSnapshot)
+				|| expectedSnapshot.RequestVersion != Volatile.Read(ref _currentRequestVersion)
+				|| expectedSnapshot.Status is not BrowsePreviewStatus.Ready
+				|| expectedSnapshot.Result is not WindowsShellPreviewResult)
+			{
+				return false;
+			}
+
+			_current = expectedSnapshot with { Status = BrowsePreviewStatus.Blocked, BlockReason = reason };
+		}
+
+		RaiseChanged();
+
+		return true;
 	}
 
 	/// <inheritdoc />
@@ -112,7 +179,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		return new ValueTask(completion.Task);
 	}
 
-	private Task BeginRefresh(PreviewHydrationPolicy hydrationPolicy, CancellationToken cancellationToken)
+	private Task BeginRefresh(PreviewHydrationPolicy hydrationPolicy, CancellationToken cancellationToken, PreviewRetryAuthorization? authorization)
 	{
 		var requestCts = cancellationToken.CanBeCanceled
 			? CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, cancellationToken)
@@ -127,14 +194,23 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 				requestCts.Dispose();
 				throw new ObjectDisposedException(nameof(BrowsePreviewModel));
 			}
+
+			if (authorization is not null && (!ReferenceEquals(_current, authorization.BlockedSnapshot) || authorization.BlockedSnapshot.RequestVersion != Volatile.Read(ref _currentRequestVersion)))
+			{
+				requestCts.Dispose();
+
+				return Task.CompletedTask;
+			}
+
 			requestVersion = Interlocked.Increment(ref _currentRequestVersion);
+			_currentHydrationPolicy = hydrationPolicy;
 			previousCts = _activeRequestCts;
 			_activeRequestCts = requestCts;
 			_activeRequestTask = null;
 		}
 
 		previousCts?.Cancel();
-		var requestTask = LoadAsync(requestVersion, hydrationPolicy, requestCts);
+		var requestTask = LoadAsync(requestVersion, hydrationPolicy, authorization, requestCts);
 
 		lock (_stateLock)
 		{
@@ -147,7 +223,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		return requestTask;
 	}
 
-	private async Task LoadAsync(long requestVersion, PreviewHydrationPolicy hydrationPolicy, CancellationTokenSource requestCts)
+	private async Task LoadAsync(long requestVersion, PreviewHydrationPolicy hydrationPolicy, PreviewRetryAuthorization? authorization, CancellationTokenSource requestCts)
 	{
 		try
 		{
@@ -164,17 +240,28 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 
 			var key = target.Reference.GetKey();
 			var generation = _browseSession.Generation;
-			await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, BrowsePreviewStatus.Loading)).ConfigureAwait(false);
+			if (authorization is not null && (authorization.Generation != generation || authorization.TargetKey != key || !ReferenceEquals(authorization.Target, target)))
+			{
+				return;
+			}
+
+			if (!await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, BrowsePreviewStatus.Loading), target).ConfigureAwait(false) || !IsStillCurrent(requestVersion, generation, key, target))
+			{
+				return;
+			}
+
+			requestCts.Token.ThrowIfCancellationRequested();
 
 			var source = target.Get<IPreviewSource>();
 			if (source is null)
 			{
-				await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, BrowsePreviewStatus.Unavailable)).ConfigureAwait(false);
+				await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, BrowsePreviewStatus.Unavailable), target).ConfigureAwait(false);
 
 				return;
 			}
 
-			var result = await source.GetPreviewAsync(new PreviewRequest(maximumBytes: 32 * 1024 * 1024, hydrationPolicy), requestCts.Token).ConfigureAwait(false);
+			var trustAuthorization = authorization is null ? null : new PreviewTrustAuthorization(target);
+			var result = await source.GetPreviewAsync(new PreviewRequest(maximumBytes: 32 * 1024 * 1024, hydrationPolicy, trustAuthorization), requestCts.Token).ConfigureAwait(false);
 
 			if (!IsStillCurrent(requestVersion, generation, key, target))
 			{
@@ -196,7 +283,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 				? blocked.Reason
 				: null;
 
-			await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, status, result, blockReason)).ConfigureAwait(false);
+			await PublishAsync(new BrowsePreviewSnapshot(requestVersion, key, status, result, blockReason), target).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException)
 			when (requestCts.IsCancellationRequested)
@@ -246,7 +333,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		return ReferenceEquals(currentModel, originalModel);
 	}
 
-	private async ValueTask<bool> PublishAsync(BrowsePreviewSnapshot next)
+	private async ValueTask<bool> PublishAsync(BrowsePreviewSnapshot next, IStorableModel? target = null)
 	{
 		PreviewResult? previousResult = null;
 		var accepted = false;
@@ -257,6 +344,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			{
 				previousResult = _current.Result;
 				_current = next;
+				_currentTarget = target;
 				accepted = true;
 			}
 		}
@@ -271,12 +359,19 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			return false;
 		}
 
+		RaiseChanged();
+
 		if (previousResult is not null && !ReferenceEquals(previousResult, next.Result))
 		{
-			await previousResult.DisposeAsync().ConfigureAwait(false);
+			try
+			{
+				await previousResult.DisposeAsync().ConfigureAwait(false);
+			}
+			catch (Exception exception)
+			{
+				System.Diagnostics.Trace.TraceError("Previous preview disposal failed: {0}", exception);
+			}
 		}
-
-		RaiseChanged();
 
 		return true;
 	}
@@ -316,6 +411,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			{
 				result = _current.Result;
 				_current = new BrowsePreviewSnapshot(Volatile.Read(ref _currentRequestVersion), null, BrowsePreviewStatus.Empty);
+				_currentTarget = null;
 			}
 
 			if (result is not null)
@@ -350,7 +446,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 	{
 		try
 		{
-			_ = BeginRefresh(PreviewHydrationPolicy.LocalOnly, CancellationToken.None);
+			_ = BeginRefresh(PreviewHydrationPolicy.LocalOnly, CancellationToken.None, null);
 		}
 		catch (ObjectDisposedException)
 		{
@@ -377,4 +473,6 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 			}
 		}
 	}
+
+	private sealed record PreviewRetryAuthorization(BrowsePreviewSnapshot BlockedSnapshot, long Generation, StorableKey TargetKey, IStorableModel Target);
 }

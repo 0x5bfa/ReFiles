@@ -53,10 +53,7 @@ public partial class App : Application
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("App", "Launch START");
-		// Preview loading is disabled until the Preview Pane is enabled.
-		var currentRuntime = new FilesCoreBuilder()
-			.AddWindowsStorage(enablePreviews: false)
-			.Build();
+		var currentRuntime = new FilesCoreBuilder().AddWindowsStorage().Build();
 		_runtime = currentRuntime;
 		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 

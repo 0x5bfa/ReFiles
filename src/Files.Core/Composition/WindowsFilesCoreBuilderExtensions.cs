@@ -70,8 +70,9 @@ public static class WindowsFilesCoreBuilderExtensions
 
 		if (enablePreviews)
 		{
-			builder.AddDefaultStreamPreviews(streamPreviewPolicy ?? AllowPreviewStreamAccessPolicy.Instance);
-			AddWindowsShellPreviews(builder, shellPreviewPolicy ?? AllowWindowsShellPreviewPolicy.Instance);
+			var defaultPreviewPolicy = new WindowsPreviewAccessPolicy();
+			builder.AddDefaultStreamPreviews(streamPreviewPolicy ?? defaultPreviewPolicy);
+			AddWindowsShellPreviews(builder, shellPreviewPolicy ?? defaultPreviewPolicy);
 		}
 
 		if (enableArchives)
@@ -89,12 +90,12 @@ public static class WindowsFilesCoreBuilderExtensions
 			return;
 		}
 
-		var handlerResolver = new WindowsPreviewHandlerResolver(new WindowsShellPreviewHandlerAssociation());
+		var handlerResolver = new WindowsPreviewHandlerResolver();
 		var loader = new WindowsShellPreviewLoader(handlerResolver, policy);
 		builder.Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
 
 		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1);
 		builder.Own(previewScheduler);
-		builder.SetWindowsShellPreviewSessionFactory(workspace => new WindowsShellPreviewSessionFactory(workspace, previewScheduler));
+		builder.SetWindowsShellPreviewSessionFactory(workspace => new WindowsShellPreviewSessionFactory(workspace, previewScheduler, policy));
 	}
 }

@@ -20,7 +20,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	public FolderBrowserViewModel FolderBrowser { get; }
 
-	public PreviewPaneViewModel? Preview { get; }
+	public PreviewPaneViewModel Preview { get; }
 
 	public object Content => FolderBrowser;
 
@@ -58,7 +58,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		FolderBrowser = presentationFactory.CreateFolderBrowser(browsePane, commandManager);
-		// Preview = presentationFactory.CreatePreviewPane(browsePane);
+		Preview = presentationFactory.CreatePreviewPane(browsePane);
 		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
 		FolderBrowser.OperationErrorReported += FolderBrowser_OperationErrorReported;
 	}
@@ -86,7 +86,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 		FolderBrowser.PropertyChanged -= FolderBrowser_PropertyChanged;
 		FolderBrowser.OperationErrorReported -= FolderBrowser_OperationErrorReported;
-		// Preview.Dispose();
+		Preview.Dispose();
 		await FolderBrowser.DisposeAsync().ConfigureAwait(false);
 	}
 

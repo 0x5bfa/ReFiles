@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
+using System.Runtime.Versioning;
 using Files.Core.Capabilities;
 using Files.Core.Storage.Windows;
 using OwlCore.Storage;
@@ -12,16 +13,35 @@ namespace Files.Core.Capabilities.Previews;
 public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolver
 {
 	private readonly IWindowsPreviewHandlerAssociation _association;
+	private readonly IWindowsPreviewHandlerRegistrationAllowlist _registrationAllowlist;
 	private readonly Dictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
 	private readonly Lock _cacheLock = new();
 
-	/// <summary>Initializes a preview handler resolver.</summary>
-	/// <param name="association">The Shell association lookup.</param>
+	/// <summary>Initializes a resolver that uses Windows Shell associations and the per-user and machine-wide registration allowlist.</summary>
+	[SupportedOSPlatform("windows5.0")]
+	public WindowsPreviewHandlerResolver()
+		: this(new WindowsShellPreviewHandlerAssociation(), WindowsPreviewHandlerRegistrationAllowlist.Instance)
+	{
+	}
+
+	/// <summary>Initializes a resolver that trusts a caller-provided association lookup.</summary>
+	/// <remarks>Use this overload for controlled custom associations or tests. Use the parameterless constructor for production Windows Shell registration lookup.</remarks>
+	/// <param name="association">The trusted association lookup.</param>
 	public WindowsPreviewHandlerResolver(IWindowsPreviewHandlerAssociation association)
+		: this(association, TrustedAssociationRegistrationAllowlist.Instance)
+	{
+	}
+
+	/// <summary>Initializes a preview handler resolver with an explicit registration allowlist.</summary>
+	/// <param name="association">The Shell association lookup.</param>
+	/// <param name="registrationAllowlist">The allowlist of handlers registered for use by the Shell preview host.</param>
+	public WindowsPreviewHandlerResolver(IWindowsPreviewHandlerAssociation association, IWindowsPreviewHandlerRegistrationAllowlist registrationAllowlist)
 	{
 		ArgumentNullException.ThrowIfNull(association);
+		ArgumentNullException.ThrowIfNull(registrationAllowlist);
 
 		_association = association;
+		_registrationAllowlist = registrationAllowlist;
 	}
 
 	/// <summary>Resolves the handler registered for an item.</summary>
@@ -33,13 +53,7 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		ArgumentNullException.ThrowIfNull(context);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (context.CoreModel is not IWindowsStorable || context.CoreModel is not IFile file)
-		{
-			return ValueTask.FromResult<Guid?>(null);
-		}
-
-		var extension = NormalizeExtension(Path.GetExtension(((IWindowsStorable)context.CoreModel).FileSystemPath ?? file.Name))
-			?? NormalizeExtension(Path.GetExtension(file.Name));
+		var extension = GetNormalizedExtension(context);
 		if (extension is null)
 		{
 			return ValueTask.FromResult<Guid?>(null);
@@ -57,7 +71,7 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 
 		var rawClsid = _association.QueryPreviewHandler(extension);
 		Guid? clsid = null;
-		if (!string.IsNullOrWhiteSpace(rawClsid) && Guid.TryParse(rawClsid.Trim(), out var parsed) && parsed != Guid.Empty)
+		if (!string.IsNullOrWhiteSpace(rawClsid) && Guid.TryParse(rawClsid.Trim(), out var parsed) && parsed != Guid.Empty && _registrationAllowlist.IsRegistered(parsed))
 		{
 			clsid = parsed;
 		}
@@ -98,5 +112,24 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		return extension.ToUpperInvariant();
 	}
 
+	internal static string? GetNormalizedExtension(ItemContext context)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+
+		if (context.CoreModel is not IWindowsStorable windowsItem || context.CoreModel is not IFile file)
+		{
+			return null;
+		}
+
+		return NormalizeExtension(Path.GetExtension(windowsItem.FileSystemPath ?? file.Name)) ?? NormalizeExtension(Path.GetExtension(file.Name));
+	}
+
 	private sealed record CacheEntry(Guid? Clsid);
+
+	private sealed class TrustedAssociationRegistrationAllowlist : IWindowsPreviewHandlerRegistrationAllowlist
+	{
+		public static TrustedAssociationRegistrationAllowlist Instance { get; } = new();
+
+		public bool IsRegistered(Guid handlerClsid) => true;
+	}
 }

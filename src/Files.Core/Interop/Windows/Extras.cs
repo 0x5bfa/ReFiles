@@ -7,6 +7,7 @@ using Microsoft.Win32.SafeHandles;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.System.Com;
+using Windows.Win32.System.Com.Urlmon;
 using Windows.Win32.System.Com.StructuredStorage;
 using Windows.Win32.System.IO;
 using Windows.Win32.UI.Shell;
@@ -24,6 +25,17 @@ namespace Windows.Win32
 		[LibraryImport("ole32.dll", EntryPoint = "CoGetObject", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static partial HRESULT CoGetObject(string displayName, in BIND_OPTS3 bindOptions, in Guid interfaceId, [MarshalAs(UnmanagedType.Interface)] out object? instance);
+
+		/// <summary>Evaluates URL security policy through the Shell URL zone helper exported by ordinal 233.</summary>
+		[LibraryImport("shlwapi.dll", EntryPoint = "#233", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static partial HRESULT ZoneCheckUrlExCache(
+			string url, out uint policy, uint policySize, nint context, uint contextSize, uint action, uint flags, IInternetSecurityMgrSite? securitySite, nint securityManagerCache);
+
+		/// <summary>Reads a file's URL zone from its alternate data stream.</summary>
+		[LibraryImport("urlmon.dll", EntryPoint = "GetZoneFromAlternateDataStreamEx", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static partial HRESULT GetZoneFromAlternateDataStreamEx(string filePath, out uint zone);
 
 		[LibraryImport("Windows.Storage.dll", EntryPoint = "GetCachedIniForFolder")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Windows.Win32.Foundation;
-using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -11,6 +10,14 @@ public interface IWindowsPreviewHandlerController : IDisposable
 {
 	/// <summary>Sets the preview handler site.</summary>
 	void SetSite();
+
+	/// <summary>Sets the preview handler site and accelerator forwarding callback.</summary>
+	/// <param name="hostWindow">The preview host window.</param>
+	/// <param name="acceleratorForwarder">The callback that asynchronously forwards accelerator messages.</param>
+	void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+	{
+		SetSite();
+	}
 
 	/// <summary>Initializes the handler with a file stream path.</summary>
 	/// <param name="fileSystemPath">The path of the file to preview.</param>
@@ -41,6 +48,11 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <param name="foreground">The foreground color.</param>
 	void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground);
 
+	/// <summary>Applies the Windows system preview colors and font when supported.</summary>
+	void ApplySystemVisuals()
+	{
+	}
+
 	/// <summary>Starts preview rendering.</summary>
 	void DoPreview();
 
@@ -50,11 +62,6 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <summary>Gets the window that currently has preview focus.</summary>
 	/// <returns>The focused window handle, or zero when no window has focus.</returns>
 	HWND QueryFocus();
-
-	/// <summary>Attempts to translate a keyboard message for the preview handler.</summary>
-	/// <param name="message">The native message.</param>
-	/// <returns><see langword="true"/> when the message was handled.</returns>
-	bool TryTranslateAccelerator(in MSG message);
 }
 
 /// <summary>Creates Windows preview handler controllers.</summary>
