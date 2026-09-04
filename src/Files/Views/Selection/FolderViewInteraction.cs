@@ -4,6 +4,7 @@
 using Files.Commands;
 using Files.Controls;
 using Files.Core.Browsing;
+using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.ViewModels;
@@ -13,6 +14,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System.Runtime.CompilerServices;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 using Windows.Win32;
 
@@ -182,6 +184,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 	private readonly FolderBrowserViewModel _viewModel;
 	private readonly KeyboardAccelerator _propertiesAccelerator = new() { Key = VirtualKey.Enter, Modifiers = VirtualKeyModifiers.Menu };
 	private readonly KeyboardAccelerator _selectAllAccelerator = new() { Key = VirtualKey.A, Modifiers = VirtualKeyModifiers.Control };
+	private readonly Dictionary<UIElement, (bool CanDrag, bool RightButtonDragEnabled)> _dragSources = new(ReferenceEqualityComparer.Instance);
 	private readonly HashSet<int> _realizedIndices = [];
 	private readonly ListViewBase? _listView;
 	private readonly ListViewBase? _itemsControl;
@@ -194,6 +197,11 @@ internal sealed class FolderViewInteractionSession : IDisposable
 	private bool _synchronizingSelection;
 	private bool _viewportUpdateQueued;
 	private bool _isDisposed;
+	private CancellationTokenSource? _dragSourceCancellation;
+	private WinUiShellDropTargetController? _dropTargetController;
+	private long _dragSourceGeneration;
+	private bool _originalAllowDrop;
+	private bool _dropTargetInitialized;
 
 	internal FolderViewInteractionSession(ListViewBase listView, FolderBrowserViewModel viewModel)
 	{
@@ -218,6 +226,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		listView.ContainerContentChanging += ListView_ContainerContentChanging;
 		RectangleSelection.AddSelectionUpdatedHandler(listView, RectangleSelection_SelectionUpdated);
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
+		InitializeDragDrop();
 		SynchronizeSelection();
 	}
 
@@ -251,6 +260,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		}
 
 		viewModel.PropertyChanged += ViewModel_PropertyChanged;
+		InitializeDragDrop();
 		SynchronizeSelection();
 	}
 
@@ -288,12 +298,260 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		}
 
 		_viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+		DisposeDragDrop();
 		_propertiesAccelerator.Invoked -= PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Remove(_propertiesAccelerator);
 		_selectAllAccelerator.Invoked -= SelectAllAccelerator_Invoked;
 		_element.KeyboardAccelerators.Remove(_selectAllAccelerator);
 		_realizedIndices.Clear();
 		UiDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
+	}
+
+	private void InitializeDragDrop()
+	{
+		_originalAllowDrop = _element.AllowDrop;
+		_dropTargetInitialized = true;
+		_element.AllowDrop = true;
+		_element.DragEnter += Element_DragEnter;
+		_element.DragOver += Element_DragOver;
+		_element.DragLeave += Element_DragLeave;
+		_element.Drop += Element_Drop;
+		_dropTargetController = new WinUiShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.OwnerWindowHandle);
+
+		if (_itemsControl is null)
+		{
+			return;
+		}
+
+		var pendingElements = new Stack<DependencyObject>();
+		pendingElements.Push(_itemsControl);
+		while (pendingElements.TryPop(out var current))
+		{
+			if (current is SelectorItem container && _itemsControl.IndexFromContainer(container) >= 0)
+			{
+				EnableDragSource(container);
+
+				continue;
+			}
+
+			for (var index = 0; index < VisualTreeHelper.GetChildrenCount(current); index++)
+			{
+				pendingElements.Push(VisualTreeHelper.GetChild(current, index));
+			}
+		}
+	}
+
+	private void DisposeDragDrop()
+	{
+		Interlocked.Increment(ref _dragSourceGeneration);
+		_dragSourceCancellation?.Cancel();
+		_dragSourceCancellation?.Dispose();
+		_dragSourceCancellation = null;
+		_dropTargetController?.Dispose();
+		_dropTargetController = null;
+		if (_dropTargetInitialized)
+		{
+			_element.DragEnter -= Element_DragEnter;
+			_element.DragOver -= Element_DragOver;
+			_element.DragLeave -= Element_DragLeave;
+			_element.Drop -= Element_Drop;
+			_element.AllowDrop = _originalAllowDrop;
+			_dropTargetInitialized = false;
+		}
+
+		foreach (var pair in _dragSources)
+		{
+			pair.Key.DragStarting -= DragSource_DragStarting;
+			pair.Key.CanDrag = pair.Value.CanDrag;
+			RightButtonDrag.SetIsEnabled(pair.Key, pair.Value.RightButtonDragEnabled);
+		}
+
+		_dragSources.Clear();
+	}
+
+	private void EnableDragSource(SelectorItem container)
+	{
+		if (container.Content is not BrowseItemViewModel item || !_viewModel.SupportsShellDragDrop(item.Reference))
+		{
+			DisableDragSource(container);
+
+			return;
+		}
+
+		if (!_dragSources.TryAdd(container, (container.CanDrag, RightButtonDrag.GetIsEnabled(container))))
+		{
+			return;
+		}
+
+		container.CanDrag = true;
+		RightButtonDrag.SetIsEnabled(container, true);
+		container.DragStarting += DragSource_DragStarting;
+	}
+
+	private void DisableDragSource(SelectorItem container)
+	{
+		if (!_dragSources.Remove(container, out var originalState))
+		{
+			return;
+		}
+
+		container.DragStarting -= DragSource_DragStarting;
+		container.CanDrag = originalState.CanDrag;
+		RightButtonDrag.SetIsEnabled(container, originalState.RightButtonDragEnabled);
+	}
+
+	private async void DragSource_DragStarting(UIElement sender, DragStartingEventArgs args)
+	{
+		if (_isDisposed || _viewModel.IsLoading || _viewModel.IsBusy || sender is not SelectorItem { Content: BrowseItemViewModel item } || !_viewModel.SupportsShellDragDrop(item.Reference))
+		{
+			args.Cancel = true;
+
+			return;
+		}
+
+		EnsureDragSelection(item);
+		var selection = _selectedItems.OfType<BrowseItemViewModel>().Select(static selectedItem => selectedItem.Reference).ToArray();
+		if (selection.Length is 0)
+		{
+			args.Cancel = true;
+
+			return;
+		}
+
+		var generation = Interlocked.Increment(ref _dragSourceGeneration);
+		_dragSourceCancellation?.Cancel();
+		_dragSourceCancellation?.Dispose();
+		var cancellation = new CancellationTokenSource();
+		_dragSourceCancellation = cancellation;
+		var deferral = args.GetDeferral();
+		try
+		{
+			var dragSource = await _viewModel.PrepareShellDragSourceAsync(selection, cancellation.Token);
+			if (_isDisposed || cancellation.IsCancellationRequested || generation != Volatile.Read(ref _dragSourceGeneration) || dragSource is null)
+			{
+				args.Cancel = true;
+
+				return;
+			}
+
+			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, args.Data, _viewModel.OwnerWindowHandle);
+			args.AllowedOperations = allowedOperations;
+			args.Cancel = allowedOperations is DataPackageOperation.None;
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+			args.Cancel = true;
+		}
+		catch (Exception exception)
+		{
+			args.Cancel = true;
+			_viewModel.ReportOperationError(exception);
+		}
+		finally
+		{
+			if (ReferenceEquals(_dragSourceCancellation, cancellation))
+			{
+				_dragSourceCancellation = null;
+			}
+
+			cancellation.Dispose();
+			deferral.Complete();
+		}
+	}
+
+	private void EnsureDragSelection(BrowseItemViewModel item)
+	{
+		if (_selectedItems.Contains(item))
+		{
+			return;
+		}
+
+		_synchronizingSelection = true;
+		try
+		{
+			_selectedItems.Clear();
+			_selectedItems.Add(item);
+		}
+		finally
+		{
+			_synchronizingSelection = false;
+		}
+
+		_viewModel.SetSelection([item]);
+	}
+
+	private async void Element_DragOver(object sender, DragEventArgs e)
+	{
+		if (_dropTargetController is null || !TryGetDropTargetLocations(e, out var target, out var fallback))
+		{
+			e.Handled = true;
+			e.AcceptedOperation = DataPackageOperation.None;
+			_dropTargetController?.DragLeave();
+
+			return;
+		}
+
+		await _dropTargetController.DragOverAsync(e, target, fallback);
+	}
+
+	private async void Element_DragEnter(object sender, DragEventArgs e)
+	{
+		if (_dropTargetController is null || !TryGetDropTargetLocations(e, out var target, out var fallback))
+		{
+			e.Handled = true;
+			e.AcceptedOperation = DataPackageOperation.None;
+			_dropTargetController?.DragLeave();
+
+			return;
+		}
+
+		await _dropTargetController.DragEnterAsync(e, target, fallback);
+	}
+
+	private void Element_DragLeave(object sender, DragEventArgs e)
+	{
+		e.Handled = true;
+		_dropTargetController?.DragLeave();
+	}
+
+	private async void Element_Drop(object sender, DragEventArgs e)
+	{
+		if (_dropTargetController is null || !TryGetDropTargetLocations(e, out var target, out var fallback))
+		{
+			e.Handled = true;
+			e.AcceptedOperation = DataPackageOperation.None;
+			_dropTargetController?.DragLeave();
+
+			return;
+		}
+
+		await _dropTargetController.DropAsync(e, target, fallback);
+	}
+
+	private bool TryGetDropTargetLocations(DragEventArgs args, out WinUiShellDropTargetLocation target, out WinUiShellDropTargetLocation? fallback)
+	{
+		var item = args.OriginalSource is DependencyObject source ? FindInvokedListItem(source) : null;
+		var background = _viewModel.Location is FolderLocation folderLocation ? new WinUiShellDropTargetLocation(folderLocation.Folder, true) : null;
+		if (item is not null)
+		{
+			target = new WinUiShellDropTargetLocation(item.Reference, false);
+			fallback = background;
+
+			return true;
+		}
+
+		if (background is null)
+		{
+			target = null!;
+			fallback = null;
+
+			return false;
+		}
+
+		target = background;
+		fallback = null;
+
+		return true;
 	}
 
 	private async void ListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -317,6 +575,18 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 	private void ListView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
 	{
+		if (args.ItemContainer is SelectorItem container)
+		{
+			if (args.InRecycleQueue)
+			{
+				DisableDragSource(container);
+			}
+			else
+			{
+				EnableDragSource(container);
+			}
+		}
+
 		TrackRealizedRow(args.ItemIndex, args.InRecycleQueue);
 	}
 
@@ -343,6 +613,18 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 	private void RowsHost_RowChanging(object? sender, TableViewRowChangingEventArgs e)
 	{
+		if (_itemsControl?.ContainerFromIndex(e.Index) is SelectorItem container)
+		{
+			if (e.InRecycleQueue)
+			{
+				DisableDragSource(container);
+			}
+			else
+			{
+				EnableDragSource(container);
+			}
+		}
+
 		TrackRealizedRow(e.Index, e.InRecycleQueue);
 	}
 
@@ -508,6 +790,11 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
+		if (e.PropertyName is nameof(FolderBrowserViewModel.Location))
+		{
+			_dropTargetController?.DragLeave();
+		}
+
 		if (e.PropertyName is nameof(FolderBrowserViewModel.SelectedKeys))
 		{
 			SynchronizeSelection();

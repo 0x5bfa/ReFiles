@@ -4,25 +4,28 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;
 using Microsoft.UI.Xaml.Media;
-using Windows.Win32;
 using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
 
 internal sealed class ItemPropertiesViewModel : ObservableObject
 {
-	private const uint DriveCdRom = 5;
-	private const uint FileReadOnlyVolume = 0x00080000;
 	private const string FileDescriptionPropertyId = "System.FileDescription";
+	private readonly IItemPropertiesFileSystem _itemPropertiesFileSystem;
 	private readonly IReadOnlyList<BrowseItemViewModel> _items;
 	private readonly List<string> _fileSystemPaths;
 	private readonly string _hiddenFileExtension;
+	private readonly IStorageOperationService? _storageOperations;
+	private readonly bool _hasFolders;
+	private readonly bool _isSingleFile;
+	private readonly bool _isSingleFolder;
+	private StorableReference? _renameReference;
 	private bool? _initialIsReadOnly;
 	private bool? _initialIsHidden;
 	private bool? _initialIsArchive;
@@ -318,11 +321,11 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public bool CanEditDriveIndexing => ShowDriveIndexing && _canRenameDrive;
 
-	public bool HasFolders => _fileSystemPaths.Any(Directory.Exists);
+	public bool HasFolders => _hasFolders;
 
-	public bool IsSingleFile => _fileSystemPaths.Count is 1 && File.Exists(_fileSystemPaths[0]);
+	public bool IsSingleFile => _isSingleFile;
 
-	public bool IsSingleFolder => _fileSystemPaths.Count is 1 && Directory.Exists(_fileSystemPaths[0]) && !_isDrive;
+	public bool IsSingleFolder => _isSingleFolder;
 
 	public bool HasChanges => HasGeneralChanges || _hasPropertyPageChanges;
 
@@ -366,17 +369,30 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 	public ObservableCollection<ItemPropertyDetail> Details { get; }
 
-	public ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items)
+	public ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items) : this(items, null, new ItemPropertiesFileSystem())
+	{
+	}
+
+	internal ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items, IStorageOperationService? storageOperations, IItemPropertiesFileSystem fileSystem)
 	{
 		ArgumentNullException.ThrowIfNull(items);
+
+		ArgumentNullException.ThrowIfNull(fileSystem);
 
 		if (items.Count is 0)
 		{
 			throw new ArgumentException("At least one item is required.", nameof(items));
 		}
 
+		_itemPropertiesFileSystem = fileSystem;
 		_items = items;
-		_fileSystemPaths = GetFileSystemPaths(items);
+		_storageOperations = storageOperations;
+		var selection = _itemPropertiesFileSystem.Inspect(GetFileSystemCandidates(items));
+		_fileSystemPaths = [.. selection.Paths];
+		_hasFolders = selection.HasFolders;
+		_isSingleFile = selection.IsSingleFile;
+		_isSingleFolder = selection.IsSingleFolder;
+		_renameReference = items.Count is 1 ? items[0].Reference : null;
 		var unspecified = Strings.Unspecified.GetLocalized();
 		_name = items.Count is 1 ? items[0].DisplayName : FormatItemCount(items.Count);
 		_originalName = _name;
@@ -399,22 +415,21 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		_usedPercentage = 0;
 		_isDriveCompressed = false;
 		_isDriveIndexed = false;
-		_isDrive = IsDriveRoot(_fileSystemPaths);
-		_initialIsReadOnly = HasFolders ? null : GetCommonAttributeState(_fileSystemPaths, FileAttributes.ReadOnly);
-		_initialIsHidden = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Hidden);
-		_initialIsArchive = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Archive);
-		_initialIsIndexed = Invert(GetCommonAttributeState(_fileSystemPaths, FileAttributes.NotContentIndexed));
-		_initialIsCompressed = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Compressed);
-		_initialIsEncrypted = GetCommonAttributeState(_fileSystemPaths, FileAttributes.Encrypted);
+		_isDrive = selection.IsDrive;
+		_initialIsReadOnly = selection.IsReadOnly;
+		_initialIsHidden = selection.IsHidden;
+		_initialIsArchive = selection.IsArchive;
+		_initialIsIndexed = selection.IsIndexed;
+		_initialIsCompressed = selection.IsCompressed;
+		_initialIsEncrypted = selection.IsEncrypted;
 		_isReadOnly = _initialIsReadOnly;
 		_isHidden = _initialIsHidden;
 		_isArchive = _initialIsArchive;
 		_isIndexed = _initialIsIndexed;
 		_isCompressed = _initialIsCompressed;
 		_isEncrypted = _initialIsEncrypted;
-		var capabilities = GetCommonAttributeCapabilities(_fileSystemPaths);
-		_supportsCompression = capabilities.SupportsCompression;
-		_supportsEncryption = capabilities.SupportsEncryption;
+		_supportsCompression = selection.Capabilities.SupportsCompression;
+		_supportsEncryption = selection.Capabilities.SupportsEncryption;
 		_canRenameDrive = !_isDrive;
 		Details = new(BuildDetails(items));
 	}
@@ -430,7 +445,7 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		IsLoading = true;
 		try
 		{
-			var metadata = await Task.Run(() => ReadFileSystemMetadata(_fileSystemPaths, cancellationToken), cancellationToken);
+			var metadata = await Task.Run(() => _itemPropertiesFileSystem.ReadMetadata(_fileSystemPaths, cancellationToken), cancellationToken);
 			Size = FormatSize(metadata.Size);
 			SizeOnDisk = FormatSize(metadata.SizeOnDisk);
 			Contains = metadata.HasDirectory ? string.Format(CultureInfo.CurrentCulture, Strings.ContainsFormat.GetLocalized(), metadata.FileCount, metadata.FolderCount) : Strings.Unspecified.GetLocalized();
@@ -504,9 +519,14 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 			WindowsVolumeLabelService.SetLabel(owner, _fileSystemPaths[0], requestedName);
 		}
 
-		await Task.Run(
-			() => ApplyChanges(requestedName, requestedReadOnly, requestedHidden, requestedArchive, requestedIndexed, requestedCompressed, requestedEncrypted,
-				updateCompression, updateEncryption, applyToContents, cancellationToken), cancellationToken);
+		var changes = new ItemPropertiesFileSystemChanges(IsDrive, _initialIsDriveCompressed, _initialIsDriveIndexed, IsDriveCompressed, IsDriveIndexed, requestedReadOnly, requestedHidden,
+			requestedArchive, requestedIndexed, requestedCompressed, requestedEncrypted, updateCompression, updateEncryption, applyToContents);
+		await Task.Run(() => _itemPropertiesFileSystem.Apply(_fileSystemPaths, changes, cancellationToken), cancellationToken);
+		if (!IsDrive && CanRename && !StringComparer.Ordinal.Equals(requestedName, _originalName))
+		{
+			await RenameAsync(requestedName + _hiddenFileExtension, cancellationToken);
+		}
+
 		_originalName = Name;
 		_initialIsReadOnly = IsReadOnly;
 		_initialIsHidden = IsHidden;
@@ -693,9 +713,9 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		return string.Format(CultureInfo.CurrentCulture, Strings.SizeScaledFormat.GetLocalized(), value.ToString(scaledFormat, CultureInfo.CurrentCulture), suffixes[suffixIndex], size, suffixes[0]);
 	}
 
-	private static List<string> GetFileSystemPaths(IReadOnlyList<BrowseItemViewModel> items)
+	private static IReadOnlyList<ItemPropertiesFileSystemCandidate> GetFileSystemCandidates(IReadOnlyList<BrowseItemViewModel> items)
 	{
-		var paths = new List<string>(items.Count);
+		var candidates = new List<ItemPropertiesFileSystemCandidate>(items.Count);
 		foreach (var item in items)
 		{
 			var address = item.Reference.LastKnownAddress;
@@ -704,58 +724,10 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 				continue;
 			}
 
-			if (File.Exists(address.Value) || Directory.Exists(address.Value))
-			{
-				paths.Add(address.Value);
-			}
+			candidates.Add(new(address.Value, item.IsFolder));
 		}
 
-		return paths;
-	}
-
-	private static bool? GetCommonAttributeState(IReadOnlyList<string> paths, FileAttributes attribute)
-	{
-		bool? common = null;
-		foreach (var path in paths)
-		{
-			bool value;
-			try
-			{
-				value = File.GetAttributes(path).HasFlag(attribute);
-			}
-			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-			{
-				return null;
-			}
-
-			if (common is not null && common.Value != value)
-			{
-				return null;
-			}
-
-			common = value;
-		}
-
-		return common;
-	}
-
-	private static WindowsFileAttributeCapabilities GetCommonAttributeCapabilities(IReadOnlyList<string> paths)
-	{
-		var supportsCompression = paths.Count is not 0;
-		var supportsEncryption = paths.Count is not 0;
-		foreach (var path in paths)
-		{
-			var capabilities = WindowsFileAttributeService.GetCapabilities(path);
-			supportsCompression &= capabilities.SupportsCompression;
-			supportsEncryption &= capabilities.SupportsEncryption;
-		}
-
-		return new(supportsCompression, supportsEncryption);
-	}
-
-	private static bool? Invert(bool? value)
-	{
-		return value is null ? null : !value.Value;
+		return candidates;
 	}
 
 	private static IReadOnlyList<ItemPropertyDetail> BuildDetails(IReadOnlyList<BrowseItemViewModel> items)
@@ -810,179 +782,6 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		return new string([.. characters]);
 	}
 
-	private static FileSystemMetadata ReadFileSystemMetadata(IReadOnlyList<string> paths, CancellationToken cancellationToken)
-	{
-		if (IsDriveRoot(paths))
-		{
-			return new FileSystemMetadata(0, 0, 0, 0, false, [], [], [], TryReadDrive(paths));
-		}
-
-		ulong size = 0;
-		ulong sizeOnDisk = 0;
-		var fileCount = 0;
-		var folderCount = 0;
-		var hasDirectory = false;
-		var creationTimes = new List<DateTime>();
-		var modifiedTimes = new List<DateTime>();
-		var accessedTimes = new List<DateTime>();
-		var clusterSizes = new Dictionary<string, uint>(StringComparer.OrdinalIgnoreCase);
-		foreach (var path in paths)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			var attributes = File.GetAttributes(path);
-			if (attributes.HasFlag(FileAttributes.Directory))
-			{
-				hasDirectory = true;
-				var info = new DirectoryInfo(path);
-				creationTimes.Add(info.CreationTime);
-				modifiedTimes.Add(info.LastWriteTime);
-				accessedTimes.Add(info.LastAccessTime);
-				ReadDirectoryContents(path, clusterSizes, ref size, ref sizeOnDisk, ref fileCount, ref folderCount, cancellationToken);
-			}
-			else
-			{
-				var info = new FileInfo(path);
-				var length = checked((ulong)info.Length);
-				size = checked(size + length);
-				sizeOnDisk = checked(sizeOnDisk + GetSizeOnDisk(info, clusterSizes));
-				fileCount++;
-				creationTimes.Add(info.CreationTime);
-				modifiedTimes.Add(info.LastWriteTime);
-				accessedTimes.Add(info.LastAccessTime);
-			}
-		}
-
-		return new FileSystemMetadata(size, sizeOnDisk, fileCount, folderCount, hasDirectory, creationTimes, modifiedTimes, accessedTimes, null);
-	}
-
-	private static void ReadDirectoryContents(
-		string path,
-		Dictionary<string, uint> clusterSizes,
-		ref ulong size,
-		ref ulong sizeOnDisk,
-		ref int fileCount,
-		ref int folderCount,
-		CancellationToken cancellationToken)
-	{
-		var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-		foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", options))
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			var attributes = File.GetAttributes(entry);
-			if (attributes.HasFlag(FileAttributes.Directory))
-			{
-				folderCount++;
-				continue;
-			}
-
-			var info = new FileInfo(entry);
-			var length = checked((ulong)info.Length);
-			size = checked(size + length);
-			sizeOnDisk = checked(sizeOnDisk + GetSizeOnDisk(info, clusterSizes));
-			fileCount++;
-		}
-	}
-
-	private static uint GetClusterSize(string path, Dictionary<string, uint> clusterSizes)
-	{
-		var root = Path.GetPathRoot(path);
-		if (string.IsNullOrWhiteSpace(root))
-		{
-			return 0;
-		}
-
-		if (clusterSizes.TryGetValue(root, out var clusterSize))
-		{
-			return clusterSize;
-		}
-
-		if (PInvoke.GetDiskFreeSpace(root, out var sectorsPerCluster, out var bytesPerSector, out _, out _))
-		{
-			clusterSize = checked(sectorsPerCluster * bytesPerSector);
-		}
-
-		clusterSizes[root] = clusterSize;
-
-		return clusterSize;
-	}
-
-	private static ulong GetSizeOnDisk(FileInfo info, Dictionary<string, uint> clusterSizes)
-	{
-		if (info.Attributes.HasFlag(FileAttributes.Compressed) || info.Attributes.HasFlag(FileAttributes.SparseFile))
-		{
-			Marshal.SetLastPInvokeError(0);
-			var low = PInvoke.GetCompressedFileSize(info.FullName, out var high);
-			var error = Marshal.GetLastPInvokeError();
-			if (low != uint.MaxValue || error is 0)
-			{
-				return ((ulong)high << 32) | low;
-			}
-		}
-
-		var length = checked((ulong)info.Length);
-		var clusterSize = GetClusterSize(info.FullName, clusterSizes);
-		if (length is 0 || clusterSize is 0)
-		{
-			return length;
-		}
-
-		return checked(((length + clusterSize - 1) / clusterSize) * clusterSize);
-	}
-
-	private static DriveMetadata? TryReadDrive(IReadOnlyList<string> paths)
-	{
-		if (!IsDriveRoot(paths))
-		{
-			return null;
-		}
-
-		var root = Path.GetPathRoot(paths[0])!;
-		try
-		{
-			var drive = new DriveInfo(root);
-			if (!drive.IsReady)
-			{
-				return null;
-			}
-
-			var capacity = checked((ulong)drive.TotalSize);
-			var freeSpace = checked((ulong)drive.TotalFreeSpace);
-			var attributes = File.GetAttributes(root);
-			PInvoke.GetVolumeInformation(root, [], out _, out _, out var fileSystemFlags, []);
-			var driveType = PInvoke.GetDriveType(root);
-			var isReadOnly = (fileSystemFlags & FileReadOnlyVolume) is not 0;
-
-			return new DriveMetadata(
-				drive.VolumeLabel,
-				drive.DriveFormat,
-				checked(capacity - freeSpace),
-				freeSpace,
-				capacity,
-				attributes.HasFlag(FileAttributes.Compressed),
-				!attributes.HasFlag(FileAttributes.NotContentIndexed),
-				(fileSystemFlags & PInvoke.FILE_FILE_COMPRESSION) is not 0 && !isReadOnly,
-				driveType is not DriveCdRom && !isReadOnly,
-				driveType is not DriveCdRom && !isReadOnly,
-				WindowsShellStorageSettingsService.SupportsDriveUsage(root));
-		}
-		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-		{
-			return null;
-		}
-	}
-
-	private static bool IsDriveRoot(IReadOnlyList<string> paths)
-	{
-		if (paths.Count is not 1 || !Directory.Exists(paths[0]))
-		{
-			return false;
-		}
-
-		var root = Path.GetPathRoot(paths[0]);
-
-		return !string.IsNullOrWhiteSpace(root) && Path.TrimEndingDirectorySeparator(paths[0]).Equals(Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase);
-	}
-
 	private static string FormatCommonDate(IReadOnlyList<DateTime> values)
 	{
 		if (values.Count is 0 || values.Any(value => value != values[0]))
@@ -1013,128 +812,31 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		}
 	}
 
-	private void ApplyChanges(string requestedName, bool? requestedReadOnly, bool? requestedHidden, bool? requestedArchive, bool? requestedIndexed,
-		bool? requestedCompressed, bool? requestedEncrypted, bool updateCompression, bool updateEncryption, bool applyToContents, CancellationToken cancellationToken)
+	private async Task RenameAsync(string newName, CancellationToken cancellationToken)
 	{
-		if (IsDrive)
+		if (_storageOperations is null || _renameReference is null)
 		{
-			cancellationToken.ThrowIfCancellationRequested();
-			var rootPath = _fileSystemPaths[0];
-			if (IsDriveIndexed != _initialIsDriveIndexed)
-			{
-				ApplyAttributes(rootPath, null, null, null, IsDriveIndexed);
-			}
+			throw new NotSupportedException("A storage operation service is required to rename this item.");
+		}
 
-			if (IsDriveCompressed != _initialIsDriveCompressed)
-			{
-				WindowsFileAttributeService.SetCompression(rootPath, IsDriveCompressed);
-			}
+		var result = await _storageOperations.ExecuteAsync(new RenameOperationRequest(_renameReference, newName), cancellationToken: cancellationToken);
+		if (!result.Succeeded)
+		{
+			throw result.Error ?? new InvalidOperationException("The storage operation failed without an error.");
+		}
 
-			if (applyToContents)
-			{
-				var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-				foreach (var entry in Directory.EnumerateFileSystemEntries(rootPath, "*", options))
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					if (IsDriveIndexed != _initialIsDriveIndexed)
-					{
-						ApplyAttributes(entry, null, null, null, IsDriveIndexed);
-					}
-
-					if (IsDriveCompressed != _initialIsDriveCompressed)
-					{
-						WindowsFileAttributeService.SetCompression(entry, IsDriveCompressed);
-					}
-				}
-			}
+		_renameReference = result.ResultItem ?? _renameReference;
+		var resultAddress = result.ResultItem?.LastKnownAddress;
+		if (resultAddress is not null && resultAddress.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(resultAddress.Value))
+		{
+			_fileSystemPaths[0] = resultAddress.Value;
 
 			return;
 		}
 
-		foreach (var path in _fileSystemPaths)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			ApplyAttributes(path, requestedReadOnly, requestedHidden, requestedArchive, requestedIndexed);
-			ApplyAdvancedAttributes(path, requestedCompressed, requestedEncrypted, updateCompression, updateEncryption);
-			if (applyToContents && Directory.Exists(path))
-			{
-				var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-				foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", options))
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					ApplyAttributes(entry, requestedReadOnly, requestedHidden, requestedArchive, requestedIndexed);
-					ApplyAdvancedAttributes(entry, requestedCompressed, requestedEncrypted, updateCompression, updateEncryption);
-				}
-			}
-		}
-
-		if (CanRename && !StringComparer.Ordinal.Equals(requestedName, _originalName))
-		{
-			var sourcePath = _fileSystemPaths[0];
-			var parentPath = Path.GetDirectoryName(sourcePath) ?? throw new IOException(Strings.ItemParentUnavailable.GetLocalized());
-			var destinationPath = Path.Combine(parentPath, requestedName + _hiddenFileExtension);
-			if (Directory.Exists(sourcePath))
-			{
-				Directory.Move(sourcePath, destinationPath);
-			}
-			else
-			{
-				File.Move(sourcePath, destinationPath);
-			}
-
-			_fileSystemPaths[0] = destinationPath;
-		}
+		var parentPath = Path.GetDirectoryName(_fileSystemPaths[0]) ?? throw new IOException(Strings.ItemParentUnavailable.GetLocalized());
+		_fileSystemPaths[0] = Path.Combine(parentPath, newName);
 	}
-
-	private static void ApplyAdvancedAttributes(string path, bool? compressed, bool? encrypted, bool updateCompression, bool updateEncryption)
-	{
-		if (updateCompression && compressed is false)
-		{
-			WindowsFileAttributeService.SetCompression(path, false);
-		}
-
-		if (updateEncryption && encrypted is false)
-		{
-			WindowsFileAttributeService.SetEncryption(path, false);
-		}
-
-		if (updateCompression && compressed is true)
-		{
-			WindowsFileAttributeService.SetCompression(path, true);
-		}
-
-		if (updateEncryption && encrypted is true)
-		{
-			WindowsFileAttributeService.SetEncryption(path, true);
-		}
-	}
-
-	private static void ApplyAttributes(string path, bool? readOnly, bool? hidden, bool? archive, bool? indexed)
-	{
-		var attributes = File.GetAttributes(path);
-		attributes = SetAttribute(attributes, FileAttributes.ReadOnly, readOnly);
-		attributes = SetAttribute(attributes, FileAttributes.Hidden, hidden);
-		attributes = SetAttribute(attributes, FileAttributes.Archive, archive);
-		attributes = SetAttribute(attributes, FileAttributes.NotContentIndexed, Invert(indexed));
-		File.SetAttributes(path, attributes);
-	}
-
-	private static FileAttributes SetAttribute(FileAttributes attributes, FileAttributes attribute, bool? value)
-	{
-		if (value is null)
-		{
-			return attributes;
-		}
-
-		return value.Value ? attributes | attribute : attributes & ~attribute;
-	}
-
-	private sealed record FileSystemMetadata(
-		ulong Size, ulong SizeOnDisk, int FileCount, int FolderCount, bool HasDirectory, IReadOnlyList<DateTime> CreationTimes, IReadOnlyList<DateTime> ModifiedTimes,
-		IReadOnlyList<DateTime> AccessedTimes, DriveMetadata? Drive);
-
-	private sealed record DriveMetadata(string VolumeLabel, string FileSystem, ulong UsedSpace, ulong FreeSpace, ulong Capacity, bool IsCompressed, bool IsIndexed,
-		bool SupportsCompression, bool SupportsIndexing, bool CanRename, bool SupportsStorageDetails);
 }
 
 internal sealed record ItemPropertyDetail(string Name, string Value);

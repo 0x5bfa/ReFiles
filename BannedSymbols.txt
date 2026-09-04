@@ -1,0 +1,34 @@
+# Copyright (c) Files Community
+# SPDX-License-Identifier: MPL-2.0
+
+T:System.IO.File;Use the storage abstractions instead of accessing the physical file system from this layer.
+T:System.IO.Directory;Use the storage abstractions instead of accessing the physical file system from this layer.
+T:System.IO.FileInfo;Use the storage abstractions instead of accessing the physical file system from this layer.
+T:System.IO.DirectoryInfo;Use the storage abstractions instead of accessing the physical file system from this layer.
+T:System.IO.DriveInfo;Use the storage abstractions instead of accessing the physical file system from this layer.
+T:System.IO.FileStream;Use an injected stream or the storage abstractions instead of opening a physical file from this layer.
+T:System.IO.FileSystemInfo;Use the storage abstractions instead of accessing the physical file system from this layer.
+T:System.IO.FileSystemWatcher;Use the storage abstractions instead of watching the physical file system from this layer.
+T:System.IO.RandomAccess;Use an injected stream or the storage abstractions instead of accessing a physical file handle from this layer.
+T:System.IO.Enumeration.FileSystemEnumerable`1;Use the storage abstractions instead of enumerating the physical file system from this layer.
+T:System.IO.Enumeration.FileSystemEnumerator`1;Use the storage abstractions instead of enumerating the physical file system from this layer.
+T:System.IO.FileSystemAclExtensions;Use the storage abstractions instead of changing physical file-system permissions from this layer.
+T:System.IO.Compression.ZipFile;Use stream-based compression through the storage abstractions instead of accessing physical paths from this layer.
+T:System.IO.Compression.ZipFileExtensions;Use stream-based compression through the storage abstractions instead of accessing physical paths from this layer.
+M:System.IO.Path.Exists(System.String);Use the storage abstractions instead of probing a physical path from this layer.
+M:System.IO.Path.GetTempFileName;Use the storage abstractions instead of creating a physical temporary file from this layer.
+M:System.IO.StreamReader.#ctor(System.String);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamReader.#ctor(System.String,System.Boolean);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamReader.#ctor(System.String,System.Text.Encoding);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamReader.#ctor(System.String,System.Text.Encoding,System.Boolean);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamReader.#ctor(System.String,System.Text.Encoding,System.Boolean,System.Int32);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamReader.#ctor(System.String,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamReader.#ctor(System.String,System.Text.Encoding,System.Boolean,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamWriter.#ctor(System.String);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamWriter.#ctor(System.String,System.Boolean);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamWriter.#ctor(System.String,System.Boolean,System.Text.Encoding);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamWriter.#ctor(System.String,System.Boolean,System.Text.Encoding,System.Int32);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamWriter.#ctor(System.String,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
+M:System.IO.StreamWriter.#ctor(System.String,System.Text.Encoding,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
+M:Windows.Storage.StorageFile.GetFileFromPathAsync(System.String);Resolve storage identities through the Windows storage boundary instead of converting a physical path in this layer.
+M:Windows.Storage.StorageFolder.GetFolderFromPathAsync(System.String);Resolve storage identities through the Windows storage boundary instead of converting a physical path in this layer.

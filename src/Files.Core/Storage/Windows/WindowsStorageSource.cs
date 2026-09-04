@@ -51,6 +51,12 @@ public sealed class WindowsStorageSource : IStorageSource
 	/// </summary>
 	public IWindowsShellScheduler Scheduler { get; }
 
+	/// <summary>Gets the Windows Shell clipboard service.</summary>
+	public WindowsShellClipboardService Clipboard { get; }
+
+	/// <summary>Gets the Windows Shell drag-and-drop service.</summary>
+	public WindowsShellDragDropService DragDrop { get; }
+
 	internal WindowsShellItemResolver ShellItemResolver => _storableFactory.Resolver;
 
 	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
@@ -73,6 +79,8 @@ public sealed class WindowsStorageSource : IStorageSource
 		_ownsScheduler = scheduler is null;
 		_storableFactory = new WindowsStorableFactory(Scheduler);
 		_changeWatcher = new WindowsShellChangeWatcher(Scheduler);
+		Clipboard = new WindowsShellClipboardService(this);
+		DragDrop = new WindowsShellDragDropService(this);
 	}
 
 	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(ReadOnlyMemory<byte> absolutePidl, CancellationToken cancellationToken = default)
@@ -207,6 +215,15 @@ public sealed class WindowsStorageSource : IStorageSource
 	private async Task DisposeCoreAsync()
 	{
 		var errors = new List<Exception>();
+
+		try
+		{
+			await Clipboard.FlushAsync().ConfigureAwait(false);
+		}
+		catch (Exception error)
+		{
+			errors.Add(error);
+		}
 
 		try
 		{
