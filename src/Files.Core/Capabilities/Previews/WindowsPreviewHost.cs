@@ -3,6 +3,7 @@
 
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -44,6 +45,11 @@ public readonly record struct WindowsPreviewBounds
 /// <param name="Blue">The blue component.</param>
 public readonly record struct WindowsPreviewColor(byte Red, byte Green, byte Blue);
 
+/// <summary>Forwards an accelerator message from a Windows preview handler without waiting for UI processing.</summary>
+/// <param name="message">The native keyboard message.</param>
+/// <returns><see langword="true"/> when the message was accepted for asynchronous processing.</returns>
+public delegate bool WindowsPreviewAcceleratorForwarder(in MSG message);
+
 /// <summary>Identifies the native window that hosts a preview handler.</summary>
 public sealed record WindowsPreviewHost
 {
@@ -53,10 +59,22 @@ public sealed record WindowsPreviewHost
 	/// <summary>Gets the host bounds.</summary>
 	public WindowsPreviewBounds Bounds { get; }
 
+	/// <summary>Gets the callback that asynchronously forwards accelerator messages.</summary>
+	public WindowsPreviewAcceleratorForwarder? AcceleratorForwarder { get; }
+
 	/// <summary>Initializes a preview host.</summary>
 	/// <param name="windowHandle">The native host window handle.</param>
 	/// <param name="bounds">The host bounds.</param>
 	public WindowsPreviewHost(HWND windowHandle, WindowsPreviewBounds bounds)
+		: this(windowHandle, bounds, null)
+	{
+	}
+
+	/// <summary>Initializes a preview host.</summary>
+	/// <param name="windowHandle">The native host window handle.</param>
+	/// <param name="bounds">The host bounds.</param>
+	/// <param name="acceleratorForwarder">The callback that asynchronously forwards accelerator messages.</param>
+	public WindowsPreviewHost(HWND windowHandle, WindowsPreviewBounds bounds, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 	{
 		if (windowHandle.IsNull)
 		{
@@ -70,5 +88,6 @@ public sealed record WindowsPreviewHost
 
 		WindowHandle = windowHandle;
 		Bounds = bounds;
+		AcceleratorForwarder = acceleratorForwarder;
 	}
 }

@@ -6,7 +6,9 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using OwlCore.Storage;
+using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com.Urlmon;
 
 namespace Files.UnitTests;
 
@@ -181,6 +183,24 @@ public sealed class WindowsPreviewAccessPolicyTests
 		Assert.AreEqual(WindowsPreviewTrustStatus.Indeterminate, result.Status);
 	}
 
+	/// <summary>Verifies that ZoneCheck reports a successful policy denial through S_FALSE.</summary>
+	[TestMethod]
+	public void ZoneCheckSFalseWithDisallowPolicyIsBlocked()
+	{
+		var result = WindowsPreviewUrlTrustResolver.InterpretZoneCheckPolicy(HRESULT.S_FALSE, 3);
+
+		Assert.AreEqual(WindowsPreviewTrustStatus.Blocked, result.Status);
+	}
+
+	/// <summary>Verifies that the Explorer-compatible ZoneCheck path requires an exact allow value.</summary>
+	[TestMethod]
+	public void ZoneCheckPolicyWithAdditionalFlagsIsBlocked()
+	{
+		var result = WindowsPreviewUrlTrustResolver.InterpretZoneCheckPolicy(HRESULT.S_OK, 0x00010000);
+
+		Assert.AreEqual(WindowsPreviewTrustStatus.Blocked, result.Status);
+	}
+
 	/// <summary>Verifies that the Windows-specific default leaves non-Windows stream items unchanged.</summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
@@ -192,6 +212,64 @@ public sealed class WindowsPreviewAccessPolicyTests
 		var context = new ItemContext(source, item, new StorableReference(source.SourceId, item.Id));
 
 		Assert.IsNull(await ((IPreviewStreamAccessPolicy)policy).GetBlockReasonAsync(new PreviewRequest(), context));
+	}
+
+	/// <summary>Verifies that the real Windows policy blocks an Internet-zone alternate data stream and allows local or unblocked files.</summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ZoneIdentifierControlsInitialPreviewTrustDecision()
+	{
+		var directoryPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), $"Files.UnitTests-PreviewZone-{Guid.NewGuid():N}"));
+		var localPath = Path.Combine(directoryPath, "local.txt");
+		var internetPath = Path.Combine(directoryPath, "internet.txt");
+		var unblockedPath = Path.Combine(directoryPath, "unblocked.txt");
+		try
+		{
+			var rootPath = Path.GetPathRoot(directoryPath);
+			if (string.IsNullOrWhiteSpace(rootPath) || !string.Equals(new DriveInfo(rootPath).DriveFormat, "NTFS", StringComparison.OrdinalIgnoreCase))
+			{
+				Assert.Inconclusive("The Zone.Identifier integration test requires NTFS.");
+			}
+
+			Directory.CreateDirectory(directoryPath);
+			await File.WriteAllTextAsync(localPath, "local");
+			await File.WriteAllTextAsync(internetPath, "internet");
+			await File.WriteAllTextAsync(unblockedPath, "unblocked");
+			try
+			{
+				WriteZoneIdentifier(internetPath);
+				WriteZoneIdentifier(unblockedPath);
+				File.Delete(GetZoneIdentifierPath(unblockedPath));
+			}
+			catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
+			{
+				Assert.Inconclusive($"The test volume does not support Zone.Identifier streams: {error.Message}");
+			}
+
+			if (!UsesExpectedPreviewZonePolicy(localPath, internetPath))
+			{
+				Assert.Inconclusive("The installed Windows policy does not block Internet-zone previews while allowing local files.");
+			}
+
+			var policy = new WindowsPreviewAccessPolicy();
+			var request = new PreviewRequest();
+			var internetContext = CreateWindowsContext("internet", internetPath);
+
+			Assert.IsNull(await ((IPreviewStreamAccessPolicy)policy).GetBlockReasonAsync(request, CreateWindowsContext("local", localPath)));
+			Assert.AreEqual(PreviewBlockReason.Untrusted, await ((IPreviewStreamAccessPolicy)policy).GetBlockReasonAsync(request, internetContext));
+			Assert.AreEqual(PreviewBlockReason.Untrusted, await ((IWindowsShellPreviewPolicy)policy).GetBlockReasonAsync(request, internetContext, _handlerClsid));
+			Assert.IsNull(await ((IPreviewStreamAccessPolicy)policy).GetBlockReasonAsync(request, CreateWindowsContext("unblocked", unblockedPath)));
+		}
+		finally
+		{
+			DeleteIfExists(localPath);
+			DeleteIfExists(internetPath);
+			DeleteIfExists(unblockedPath);
+			if (Directory.Exists(directoryPath))
+			{
+				Directory.Delete(directoryPath);
+			}
+		}
 	}
 
 	private static WindowsPreviewAccessPolicy CreatePolicy(
@@ -214,6 +292,42 @@ public sealed class WindowsPreviewAccessPolicyTests
 		var item = new FakeWindowsFile(id, fileSystemPath);
 
 		return new ItemContext(source, item, new StorableReference(source.SourceId, item.Id));
+	}
+
+	private static string GetZoneIdentifierPath(string filePath) => $"{filePath}:Zone.Identifier";
+
+	private static bool UsesExpectedPreviewZonePolicy(string localPath, string internetPath)
+	{
+		try
+		{
+			var localHr = PInvoke.ZoneCheckUrlExCache(new Uri(localPath).AbsoluteUri, out var localPolicy, sizeof(uint), 0, 0, PInvoke.URLACTION_SHELL_PREVIEW, (uint)PUAF.PUAF_NOUI, null, 0);
+			var internetHr = PInvoke.ZoneCheckUrlExCache(new Uri(internetPath).AbsoluteUri, out var internetPolicy, sizeof(uint), 0, 0, PInvoke.URLACTION_SHELL_PREVIEW, (uint)PUAF.PUAF_NOUI, null, 0);
+
+			return localHr.Succeeded && localPolicy == PInvoke.URLPOLICY_ALLOW && internetHr.Succeeded && internetPolicy != PInvoke.URLPOLICY_ALLOW;
+		}
+		catch (EntryPointNotFoundException)
+		{
+			return false;
+		}
+		catch (DllNotFoundException)
+		{
+			return false;
+		}
+	}
+
+	private static void WriteZoneIdentifier(string filePath)
+	{
+		var zoneIdentifierPath = GetZoneIdentifierPath(filePath);
+		File.WriteAllText(zoneIdentifierPath, "[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=https://example.com/preview-test\r\n");
+		StringAssert.Contains(File.ReadAllText(zoneIdentifierPath), "ZoneId=3");
+	}
+
+	private static void DeleteIfExists(string filePath)
+	{
+		if (File.Exists(filePath))
+		{
+			File.Delete(filePath);
+		}
 	}
 
 	private sealed class FixedMetadataResolver : IWindowsPreviewFileMetadataResolver

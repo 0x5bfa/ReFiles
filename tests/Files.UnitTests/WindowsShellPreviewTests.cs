@@ -11,6 +11,7 @@ using Files.Core.Storage.Windows;
 using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.UnitTests;
@@ -211,10 +212,14 @@ public sealed class WindowsShellPreviewTests
 		var scheduler = new InlineScheduler();
 		var factory = new WindowsShellPreviewSessionFactory(
 			new FakeTargetResolver(target), scheduler, new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, AllowHandlerRegistrationValidator.Instance);
+		WindowsPreviewAcceleratorForwarder acceleratorForwarder = (in MSG _) => true;
+		var host = CreateHost(acceleratorForwarder);
 
-		await using var session = await factory.CreateAsync(CreateResult(target.Reference), CreateHost());
+		await using var session = await factory.CreateAsync(CreateResult(target.Reference), host);
 		var concreteSession = (WindowsShellPreviewSession)session;
 		Assert.AreEqual(WindowsShellPreviewSessionState.Previewing, concreteSession.State);
+		Assert.AreEqual(host.WindowHandle, controller.SiteHostWindow);
+		Assert.AreEqual(acceleratorForwarder, controller.AcceleratorForwarder);
 
 		CollectionAssert.AreEqual(new[] {"stream", "site", "window", "visuals", "preview"}, order.ToArray());
 
@@ -222,15 +227,90 @@ public sealed class WindowsShellPreviewTests
 		await session.SetThemeAsync(new WindowsPreviewColor(1, 2, 3), new WindowsPreviewColor(4, 5, 6));
 		await session.SetFocusAsync();
 		Assert.AreEqual((HWND)(nint)123, await session.QueryFocusAsync());
-		MSG message = default;
-		message.message = 1;
-		Assert.IsTrue(await session.TryTranslateAcceleratorAsync(in message));
 
 		await session.DisposeAsync();
 		Assert.AreEqual(WindowsShellPreviewSessionState.Disposed, concreteSession.State);
 		Assert.AreEqual(1, controller.DisposeCount);
 		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
 }
+
+	/// <summary>Verifies the Explorer-compatible accelerator table exposed to normal-integrity preview handlers.</summary>
+	[TestMethod]
+	public unsafe void PreviewHandlerFrameExposesExplorerAccelerators()
+	{
+		var frame = new WindowsPreviewHandlerFrame(HWND.Null, null);
+		PREVIEWHANDLERFRAMEINFO frameInfo = default;
+		try
+		{
+			Assert.AreEqual(HRESULT.S_OK, frame.GetWindowContext(&frameInfo));
+			Assert.AreEqual(66u, frameInfo.cAccelEntries);
+			Assert.IsFalse(frameInfo.haccel.IsNull);
+			var accelerators = new ACCEL[frameInfo.cAccelEntries];
+			fixed (ACCEL* acceleratorPointer = accelerators)
+			{
+				Assert.AreEqual(accelerators.Length, PInvoke.CopyAcceleratorTable(frameInfo.haccel, acceleratorPointer, accelerators.Length));
+			}
+
+			for (var index = 0; index < 26; index++)
+			{
+				AssertAccelerator(accelerators[index], ACCEL_VIRT_FLAGS.FVIRTKEY | ACCEL_VIRT_FLAGS.FALT, (ushort)(0x41 + index));
+				AssertAccelerator(accelerators[26 + index], ACCEL_VIRT_FLAGS.FVIRTKEY | ACCEL_VIRT_FLAGS.FCONTROL, (ushort)(0x41 + index));
+			}
+
+			for (var index = 0; index < 12; index++)
+			{
+				AssertAccelerator(accelerators[52 + index], ACCEL_VIRT_FLAGS.FVIRTKEY, (ushort)(0x70 + index));
+			}
+
+			AssertAccelerator(accelerators[64], ACCEL_VIRT_FLAGS.FVIRTKEY, 0x09);
+			AssertAccelerator(accelerators[65], ACCEL_VIRT_FLAGS.FVIRTKEY | ACCEL_VIRT_FLAGS.FSHIFT, 0x09);
+		}
+		finally
+		{
+			if (!frameInfo.haccel.IsNull)
+			{
+				PInvoke.DestroyAcceleratorTable(frameInfo.haccel);
+			}
+		}
+	}
+
+	/// <summary>Verifies that the preview frame normalizes and forwards a complete accelerator message.</summary>
+	[TestMethod]
+	public unsafe void PreviewHandlerFrameForwardsCompleteAcceleratorMessage()
+	{
+		var hostWindow = PInvoke.GetDesktopWindow();
+		MSG forwarded = default;
+		WindowsPreviewAcceleratorForwarder forwarder = (in MSG message) =>
+		{
+			forwarded = message;
+
+			return true;
+		};
+		var frame = new WindowsPreviewHandlerFrame(hostWindow, forwarder);
+		Assert.AreEqual(HRESULT.E_POINTER, frame.TranslateAccelerator(null));
+		MSG accelerator = default;
+		accelerator.hwnd = (HWND)(nint)123;
+		accelerator.message = 0x0100;
+		accelerator.wParam = new WPARAM(0x09);
+		accelerator.lParam = new LPARAM(456);
+		accelerator.time = 789;
+		accelerator.pt.X = 10;
+		accelerator.pt.Y = 20;
+
+		Assert.AreEqual(HRESULT.S_OK, frame.TranslateAccelerator(&accelerator));
+		Assert.AreEqual(hostWindow, forwarded.hwnd);
+		Assert.AreEqual(accelerator.message, forwarded.message);
+		Assert.AreEqual(accelerator.wParam, forwarded.wParam);
+		Assert.AreEqual(accelerator.lParam, forwarded.lParam);
+		Assert.AreEqual(accelerator.time, forwarded.time);
+		Assert.AreEqual(accelerator.pt.X, forwarded.pt.X);
+		Assert.AreEqual(accelerator.pt.Y, forwarded.pt.Y);
+		Assert.AreEqual(HRESULT.S_FALSE, new WindowsPreviewHandlerFrame(hostWindow, null).TranslateAccelerator(&accelerator));
+		WindowsPreviewAcceleratorForwarder rejectedForwarder = (in MSG _) => false;
+		WindowsPreviewAcceleratorForwarder failingForwarder = (in MSG _) => throw new InvalidOperationException("forwarding failed");
+		Assert.AreEqual(HRESULT.S_FALSE, new WindowsPreviewHandlerFrame(hostWindow, rejectedForwarder).TranslateAccelerator(&accelerator));
+		Assert.AreEqual(HRESULT.E_FAIL, new WindowsPreviewHandlerFrame(hostWindow, failingForwarder).TranslateAccelerator(&accelerator));
+	}
 
 	/// <summary>
 	/// Test case: session falls back from stream to item then file.
@@ -437,8 +517,8 @@ public sealed class WindowsShellPreviewTests
 	private static WindowsShellPreviewResult CreateResult(StorableReference reference)
 		=> new(reference, Guid.NewGuid());
 
-	private static WindowsPreviewHost CreateHost()
-		=> new(PInvoke.GetDesktopWindow(), new WindowsPreviewBounds(0, 0, 640, 480));
+	private static WindowsPreviewHost CreateHost(WindowsPreviewAcceleratorForwarder? acceleratorForwarder = null)
+		=> new(PInvoke.GetDesktopWindow(), new WindowsPreviewBounds(0, 0, 640, 480), acceleratorForwarder);
 
 	private static WindowsPreviewTarget CreateTarget(string id, string name, bool includeContext = true, string? fileSystemPath = null)
 	{
@@ -449,6 +529,13 @@ public sealed class WindowsShellPreviewTests
 		var model = new StorableModel(item, reference, CapabilityRegistry.Empty.CreateCapabilities(context));
 
 		return new WindowsPreviewTarget(model, item, includeContext ? context : null);
+	}
+
+	private static void AssertAccelerator(ACCEL accelerator, ACCEL_VIRT_FLAGS flags, ushort key)
+	{
+		Assert.AreEqual(flags, accelerator.fVirt);
+		Assert.AreEqual(key, accelerator.key);
+		Assert.AreEqual((ushort)0, accelerator.cmd);
 	}
 
 	private sealed class FakeAssociation : IWindowsPreviewHandlerAssociation
@@ -618,12 +705,23 @@ public sealed class WindowsShellPreviewTests
 
 		public int DisposeCount { get; private set; }
 
+		public HWND SiteHostWindow { get; private set; }
+
+		public WindowsPreviewAcceleratorForwarder? AcceleratorForwarder { get; private set; }
+
 		public FakeController(IList<string> order)
 		{
 			_order = order;
 		}
 
 		public void SetSite() => _order.Add("site");
+
+		public void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+		{
+			SiteHostWindow = hostWindow;
+			AcceleratorForwarder = acceleratorForwarder;
+			SetSite();
+		}
 
 		public bool TryInitializeWithStream(string fileSystemPath)
 		{
@@ -669,13 +767,6 @@ public sealed class WindowsShellPreviewTests
 		public void SetFocus() => _order.Add("focus");
 
 		public HWND QueryFocus() => (HWND)(nint)123;
-
-		public bool TryTranslateAccelerator(in MSG message)
-		{
-			_order.Add("translate");
-
-			return message.message != 0;
-		}
 
 		public void Dispose()
 		{

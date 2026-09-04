@@ -3,7 +3,6 @@
 
 using Files.Core.Storage.Windows;
 using Windows.Win32.Foundation;
-using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -101,18 +100,6 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		EnsurePreviewing();
 
 		return await _scheduler.InvokeOperationAsync(() => _controller.QueryFocus(), cancellationToken).ConfigureAwait(false);
-	}
-
-	/// <summary>Attempts to translate a keyboard message for the preview handler.</summary>
-	/// <param name="message">The native message.</param>
-	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns><see langword="true"/> when the message was handled.</returns>
-	public ValueTask<bool> TryTranslateAcceleratorAsync(in MSG message, CancellationToken cancellationToken = default)
-	{
-		EnsurePreviewing();
-		var messageCopy = message;
-
-		return new ValueTask<bool>(_scheduler.InvokeOperationAsync(() => _controller.TryTranslateAccelerator(messageCopy), cancellationToken));
 	}
 
 	internal void TransitionTo(WindowsShellPreviewSessionState nextState)

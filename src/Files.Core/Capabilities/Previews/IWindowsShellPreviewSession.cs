@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Windows.Win32.Foundation;
-using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -28,10 +27,4 @@ public interface IWindowsShellPreviewSession : IAsyncDisposable
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>The focused window handle, or zero when no window has focus.</returns>
 	ValueTask<HWND> QueryFocusAsync(CancellationToken cancellationToken = default);
-
-	/// <summary>Attempts to translate a keyboard message.</summary>
-	/// <param name="message">The native message.</param>
-	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns><see langword="true"/> when the message was handled.</returns>
-	ValueTask<bool> TryTranslateAcceleratorAsync(in MSG message, CancellationToken cancellationToken = default);
 }

@@ -174,6 +174,12 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	/// <inheritdoc />
 	public void SetSite()
 	{
+		SetSite(HWND.Null, null);
+	}
+
+	/// <inheritdoc />
+	public void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+	{
 		EnsureActive();
 		var siteInterface = _handler as IObjectWithSite;
 		if (siteInterface is null)
@@ -181,7 +187,7 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 			return;
 		}
 
-		var frame = new WindowsPreviewHandlerFrame();
+		var frame = new WindowsPreviewHandlerFrame(hostWindow, acceleratorForwarder);
 		_previewHandlerFrame = frame;
 		try
 		{
@@ -358,21 +364,6 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		_handler.QueryFocus(out var focus).ThrowOnFailure();
 
 		return focus;
-	}
-
-	/// <inheritdoc />
-	public bool TryTranslateAccelerator(in MSG message)
-	{
-		EnsureActive();
-		var hr = _handler.TranslateAccelerator(in message);
-		if (hr == HRESULT.S_FALSE)
-		{
-			return false;
-		}
-
-		hr.ThrowOnFailure();
-
-		return true;
 	}
 
 	/// <inheritdoc />

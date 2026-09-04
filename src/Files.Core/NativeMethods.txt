@@ -27,6 +27,11 @@ DefSubclassProc
 RemoveWindowSubclass
 SetWindowSubclass
 PostMessage
+IsChild
+CreateAcceleratorTable
+CopyAcceleratorTable
+DestroyAcceleratorTable
+ACCEL
 GetSystemMetricsForDpi
 DefWindowProc
 SYSTEM_METRICS_INDEX
@@ -509,6 +514,7 @@ IInitializeWithStream
 IInitializeWithFile
 IInitializeWithItem
 CoInternetCreateSecurityManager
+IInternetSecurityMgrSite
 IInternetSecurityManager
 URLACTION_SHELL_PREVIEW
 URLPOLICY_ALLOW

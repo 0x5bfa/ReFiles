@@ -9,8 +9,10 @@ using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
 using Files.Localization;
 using Files.ViewModels;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 using Windows.Graphics.Imaging;
@@ -27,10 +29,25 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private const int ImagePreviewByteLimit = 32 * 1024 * 1024;
 	private const ulong ImagePreviewPixelLimit = 100_000_000;
 	private const int ImagePreviewDecodeDimensionLimit = 4096;
+	private const int PreviewAcceleratorQueueLimit = 8;
+	private const uint WindowMessageKeyDown = 0x0100;
+	private const uint WindowMessageSystemKeyDown = 0x0104;
+	private const uint VirtualKeyTab = 0x09;
+	private const int VirtualKeyShift = 0x10;
+	private const int VirtualKeyControl = 0x11;
+	private const int VirtualKeyMenu = 0x12;
+	private const uint VirtualKeyA = 0x41;
+	private const uint VirtualKeyZ = 0x5A;
+	private const uint VirtualKeyF1 = 0x70;
+	private const uint VirtualKeyF6 = 0x75;
+	private const uint VirtualKeyF12 = 0x7B;
+	private static readonly TimeSpan _previewFocusQueryTimeout = TimeSpan.FromSeconds(5);
 
 	private readonly SemaphoreSlim _renderGate = new(1, 1);
 	private readonly Lock _lifecycleLock = new();
+	private readonly Queue<PreviewAcceleratorRequest> _pendingPreviewAccelerators = new();
 	private readonly long _visibilityChangedToken;
+	private readonly DispatcherQueue _dispatcherQueue;
 
 	private PreviewPaneViewModel? _subscribedViewModel;
 	private IWindowsShellPreviewSession? _shellSession;
@@ -43,7 +60,9 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private PreviewHostLayout? _appliedHostLayout;
 	private long _renderVersion;
 	private int _layoutUpdateQueued;
+	private int _isMovingFocusFromPreview;
 	private int _isDisposed;
+	private bool _isForwardingPreviewAccelerator;
 
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(PreviewPaneViewModel), typeof(PreviewPane), new PropertyMetadata(null, ViewModelChanged));
@@ -59,6 +78,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	public PreviewPane()
 	{
 		InitializeComponent();
+		_dispatcherQueue = DispatcherQueue;
 		PreviewTitleBlock.Text = Strings.Preview.GetLocalized();
 		PreviewAnywayButton.Content = Strings.PreviewAnyway.GetLocalized();
 		Loaded += PreviewPane_Loaded;
@@ -199,7 +219,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private async void PreviewPane_GotFocus(object sender, RoutedEventArgs e)
 	{
 		var session = _shellSession;
-		if (session is null || Volatile.Read(ref _isDisposed) is not 0)
+		if (session is null || Volatile.Read(ref _isDisposed) is not 0 || Volatile.Read(ref _isMovingFocusFromPreview) is not 0)
 		{
 			return;
 		}
@@ -499,7 +519,8 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		EnsurePreviewHost();
 		SetPreviewHostLayout(layout, show: false);
-		var host = new WindowsPreviewHost(_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height));
+		var acceleratorSink = new PreviewAcceleratorSink(this, version);
+		var host = new WindowsPreviewHost(_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height), acceleratorSink.TryForward);
 		var session = await SessionFactory.CreateAsync(result, host, cancellationToken);
 		if (!IsCurrentRender(version, cancellationToken))
 		{
@@ -648,6 +669,216 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		_previewHost = HWND.Null;
 		_appliedHostLayout = null;
+	}
+
+	private bool TryQueuePreviewAccelerator(long renderVersion, in MSG accelerator)
+	{
+		if (renderVersion != Volatile.Read(ref _renderVersion) || Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return false;
+		}
+
+		try
+		{
+			var messageCopy = accelerator;
+
+			return _dispatcherQueue.TryEnqueue(() => HandleForwardedPreviewAccelerator(renderVersion, messageCopy));
+		}
+		catch (Exception exception)
+		{
+			System.Diagnostics.Debug.WriteLine($"Preview keyboard bridge failed: {exception}");
+
+			return false;
+		}
+	}
+
+	private void HandleForwardedPreviewAccelerator(long renderVersion, MSG accelerator)
+	{
+		if (renderVersion != Volatile.Read(ref _renderVersion) || Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || Visibility is not Visibility.Visible)
+		{
+			return;
+		}
+
+		var virtualKey = unchecked((uint)accelerator.wParam.Value);
+		var isControlDown = PInvoke.GetKeyState(VirtualKeyControl) < 0;
+		var isAltDown = PInvoke.GetKeyState(VirtualKeyMenu) < 0;
+		var isShiftDown = PInvoke.GetKeyState(VirtualKeyShift) < 0;
+		if (!IsSupportedForwardedPreviewAccelerator(accelerator.message, virtualKey, isControlDown, isAltDown, isShiftDown))
+		{
+			return;
+		}
+
+		var session = _shellSession;
+		var hostWindow = _previewHost;
+		if (session is null || hostWindow.IsNull || accelerator.hwnd != hostWindow)
+		{
+			return;
+		}
+
+		if (!IsPreviewFocusCycler(accelerator.message, virtualKey, isControlDown))
+		{
+			ForwardPreviewAcceleratorToApplication(accelerator);
+
+			return;
+		}
+
+		var request = new PreviewAcceleratorRequest(renderVersion, session, hostWindow, isShiftDown);
+		if (_isForwardingPreviewAccelerator)
+		{
+			if (_pendingPreviewAccelerators.Count < PreviewAcceleratorQueueLimit)
+			{
+				_pendingPreviewAccelerators.Enqueue(request);
+			}
+
+			return;
+		}
+
+		_ = DrainPreviewAcceleratorsAsync(request);
+	}
+
+	private async Task DrainPreviewAcceleratorsAsync(PreviewAcceleratorRequest request)
+	{
+		_isForwardingPreviewAccelerator = true;
+		try
+		{
+			var current = request;
+			while (true)
+			{
+				await ForwardPreviewAcceleratorAsync(current);
+				if (_pendingPreviewAccelerators.Count is 0)
+				{
+					break;
+				}
+
+				current = _pendingPreviewAccelerators.Dequeue();
+			}
+		}
+		catch (Exception exception)
+		{
+			_pendingPreviewAccelerators.Clear();
+			System.Diagnostics.Debug.WriteLine($"Preview accelerator processing failed: {exception}");
+		}
+		finally
+		{
+			_isForwardingPreviewAccelerator = false;
+		}
+	}
+
+	private async Task ForwardPreviewAcceleratorAsync(PreviewAcceleratorRequest request)
+	{
+		if (!IsCurrentPreviewAccelerator(request))
+		{
+			return;
+		}
+
+		HWND focusedWindow;
+		using var timeoutCancellation = new CancellationTokenSource(_previewFocusQueryTimeout);
+		Task<HWND>? focusTask = null;
+		try
+		{
+			focusTask = request.Session.QueryFocusAsync(timeoutCancellation.Token).AsTask();
+			focusedWindow = await focusTask.WaitAsync(timeoutCancellation.Token);
+		}
+		catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested)
+		{
+			if (focusTask is not null)
+			{
+				_ = ObserveFocusQueryCompletionAsync(focusTask);
+			}
+
+			System.Diagnostics.Debug.WriteLine("Preview focus query timed out.");
+
+			return;
+		}
+		catch (ObjectDisposedException)
+		{
+			return;
+		}
+		catch (Exception exception)
+		{
+			System.Diagnostics.Debug.WriteLine($"Preview focus query failed: {exception}");
+
+			return;
+		}
+
+		var hasPreviewFocus = !focusedWindow.IsNull && (focusedWindow == request.HostWindow || PInvoke.IsChild(request.HostWindow, focusedWindow).Value is not 0);
+		if (!IsCurrentPreviewAccelerator(request) || !hasPreviewFocus)
+		{
+			return;
+		}
+
+		MoveFocusFromPreview(request.IsShiftDown);
+	}
+
+	private bool IsCurrentPreviewAccelerator(PreviewAcceleratorRequest request)
+	{
+		var matchesSession = request.RenderVersion == Volatile.Read(ref _renderVersion) && ReferenceEquals(request.Session, _shellSession) && request.HostWindow == _previewHost;
+
+		return matchesSession && Volatile.Read(ref _isDisposed) is 0 && IsLoaded && Visibility is Visibility.Visible;
+	}
+
+	private void ForwardPreviewAcceleratorToApplication(MSG accelerator)
+	{
+		if (_windowHandle.IsNull || !PInvoke.IsWindow(_windowHandle))
+		{
+			return;
+		}
+
+		if (PInvoke.PostMessage(_windowHandle, accelerator.message, accelerator.wParam, accelerator.lParam).Value is 0)
+		{
+			var error = Marshal.GetLastPInvokeError();
+			System.Diagnostics.Debug.WriteLine($"Preview accelerator forwarding failed with Win32 error {error}.");
+		}
+	}
+
+	private static async Task ObserveFocusQueryCompletionAsync(Task<HWND> focusTask)
+	{
+		try
+		{
+			await focusTask.ConfigureAwait(false);
+		}
+		catch
+		{
+		}
+	}
+
+	private void MoveFocusFromPreview(bool reverse)
+	{
+		Interlocked.Exchange(ref _isMovingFocusFromPreview, 1);
+		try
+		{
+			Focus(FocusState.Keyboard);
+			FocusManager.TryMoveFocus(reverse ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next);
+		}
+		finally
+		{
+			Interlocked.Exchange(ref _isMovingFocusFromPreview, 0);
+		}
+	}
+
+	internal static bool IsSupportedForwardedPreviewAccelerator(uint message, uint virtualKey, bool isControlDown, bool isAltDown, bool isShiftDown)
+	{
+		if (virtualKey is VirtualKeyTab or VirtualKeyF6)
+		{
+			return message is WindowMessageKeyDown && !isControlDown && !isAltDown;
+		}
+
+		if (virtualKey is >= VirtualKeyF1 and <= VirtualKeyF12)
+		{
+			return message is WindowMessageKeyDown && !isControlDown && !isAltDown && !isShiftDown;
+		}
+
+		if (virtualKey is < VirtualKeyA or > VirtualKeyZ || isShiftDown)
+		{
+			return false;
+		}
+
+		return (message is WindowMessageKeyDown && isControlDown && !isAltDown) || (message is WindowMessageSystemKeyDown && !isControlDown && isAltDown);
+	}
+
+	internal static bool IsPreviewFocusCycler(uint message, uint virtualKey, bool isControlDown)
+	{
+		return message is WindowMessageKeyDown && !isControlDown && virtualKey is VirtualKeyTab or VirtualKeyF6;
 	}
 
 	private void SetPreviewHostLayout(PreviewHostLayout layout, bool show)
@@ -829,6 +1060,25 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			}
 		}
 	}
+
+	private sealed class PreviewAcceleratorSink
+	{
+		private readonly WeakReference<PreviewPane> _owner;
+		private readonly long _renderVersion;
+
+		public PreviewAcceleratorSink(PreviewPane owner, long renderVersion)
+		{
+			_owner = new WeakReference<PreviewPane>(owner);
+			_renderVersion = renderVersion;
+		}
+
+		public bool TryForward(in MSG accelerator)
+		{
+			return _owner.TryGetTarget(out var owner) && owner.TryQueuePreviewAccelerator(_renderVersion, in accelerator);
+		}
+	}
+
+	private readonly record struct PreviewAcceleratorRequest(long RenderVersion, IWindowsShellPreviewSession Session, HWND HostWindow, bool IsShiftDown);
 
 	private readonly record struct PreviewHostLayout(int X, int Y, int Width, int Height);
 }

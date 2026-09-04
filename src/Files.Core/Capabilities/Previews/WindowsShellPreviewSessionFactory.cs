@@ -166,7 +166,7 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 				throw new NotSupportedException("The preview handler does not support any initialization contract.");
 			}
 
-			controller.SetSite();
+			controller.SetSite(host.WindowHandle, host.AcceleratorForwarder);
 			session.TransitionTo(WindowsShellPreviewSessionState.Initialized);
 			controller.SetWindow(host.WindowHandle, host.Bounds);
 			controller.ApplySystemVisuals();
