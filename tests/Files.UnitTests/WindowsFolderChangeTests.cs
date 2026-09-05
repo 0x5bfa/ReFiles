@@ -4,7 +4,7 @@
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Changes;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 
 namespace Files.UnitTests;
 

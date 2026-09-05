@@ -1,8 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Storage.Windows;
 using Files.Localization;
+using Files.Core.Windows;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Files.ItemProperties;

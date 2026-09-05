@@ -4,8 +4,8 @@
 using System.Drawing;
 using System.IO;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Files.Infrastructure;
+using Files.Core.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using Windows.ApplicationModel.DataTransfer;

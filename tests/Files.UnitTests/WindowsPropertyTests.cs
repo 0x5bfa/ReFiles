@@ -8,8 +8,8 @@ using Files.Core.Capabilities.Properties;
 using Files.Core.Models;
 using Files.Core.Sessions;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
+using Files.Core.Windows;
 using OwlCore.Storage;
 
 namespace Files.UnitTests;

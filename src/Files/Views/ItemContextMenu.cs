@@ -3,9 +3,9 @@
 
 using Files.Adapters;
 using Files.Commands;
-using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;
+using Files.Core.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
+using Files.Core.Windows;
 
 namespace Files.Core.Browsing;
 

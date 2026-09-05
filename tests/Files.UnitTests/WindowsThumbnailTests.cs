@@ -4,8 +4,8 @@
 using Files.Core.Capabilities;
 using Files.Core.Models;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Windows;
 using OwlCore.Storage;
 using Windows.Win32.UI.Shell;
 

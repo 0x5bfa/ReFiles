@@ -3,7 +3,7 @@
 
 using Files.Activation;
 using Files.Core.Browsing;
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 
 namespace Files.Commands.Handlers;
 

@@ -8,6 +8,7 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Sessions;
 using Files.Infrastructure;
 using Files.Localization;
+using Files.Core.Windows;
 
 namespace Files.ViewModels;
 

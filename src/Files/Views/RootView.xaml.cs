@@ -5,6 +5,7 @@ using Files.ViewModels;
 using Files.Controls;
 using Files.Infrastructure;
 using Files.Core.Capabilities.Previews;
+using Files.Core.Windows;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

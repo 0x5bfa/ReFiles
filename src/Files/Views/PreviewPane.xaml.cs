@@ -9,6 +9,7 @@ using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
 using Files.Localization;
 using Files.ViewModels;
+using Files.Core.Windows;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

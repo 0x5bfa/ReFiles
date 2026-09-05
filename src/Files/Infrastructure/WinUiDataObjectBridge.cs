@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Win32.System.Com;
 using Windows.Win32.UI.Shell;

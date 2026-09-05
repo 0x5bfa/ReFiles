@@ -3,7 +3,7 @@
 
 using System.Buffers.Binary;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 
 namespace Files.UnitTests;
 
