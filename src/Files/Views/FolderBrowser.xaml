@@ -39,7 +39,7 @@
 			VerticalAlignment="Top"
 			IsHitTestVisible="False"
 			Opacity="0.7"
-			Text="{localization:Localized ResourceKey=FolderEmpty}"
+			Text="{x:Bind ViewModel.EmptyMessage, Mode=OneWay}"
 			TextAlignment="Center"
 			TextWrapping="Wrap"
 			Visibility="{x:Bind ViewModel.IsFolderEmpty, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />

@@ -46,10 +46,11 @@ namespace Files.Controls
 		partial void OnTextChanged(string? newValue)
 		{
 			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false)
-
+			{
 				return;
+			}
 
-			owner.ChangeTextBoxText(newValue ?? string.Empty);
+			owner.ChangeTextBoxTextFromMode(newValue ?? string.Empty);
 		}
 	}
 }

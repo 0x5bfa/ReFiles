@@ -24,6 +24,14 @@ public interface IWindowsShellScheduler : IAsyncDisposable
 	/// </summary>
 	Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default);
 
+	/// <summary>Runs blocking Shell search enumeration on its isolated STA lane.</summary>
+	/// <typeparam name="T">The delegate result type.</typeparam>
+	/// <param name="action">The synchronous delegate.</param>
+	/// <param name="cancellationToken">The token used to cancel queuing.</param>
+	/// <returns>A task containing the delegate result.</returns>
+	/// <remarks>Implementations without a dedicated search lane fall back to the concurrent lane.</remarks>
+	Task<T> InvokeSearchAsync<T>(Func<T> action, CancellationToken cancellationToken = default) => InvokeConcurrentAsync(action, cancellationToken);
+
 	/// <summary>
 	/// Runs long Shell operations on a separate ordered STA lane.
 	/// </summary>

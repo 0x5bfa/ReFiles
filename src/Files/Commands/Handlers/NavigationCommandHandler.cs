@@ -10,8 +10,7 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 {
 	public CommandId Id => id;
 
-	public CommandConcurrencyPolicy ConcurrencyPolicy =>
-		CommandConcurrencyPolicy.CancelPrevious;
+	public CommandConcurrencyPolicy ConcurrencyPolicy => id == CommandIds.Search ? CommandConcurrencyPolicy.AllowParallel : CommandConcurrencyPolicy.CancelPrevious;
 
 	public CommandStateInvalidation StateDependencies =>
 		CommandStateInvalidation.ActiveTab |
@@ -37,10 +36,11 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 				browser.CanGoUp,
 			var commandId when commandId == CommandIds.NavigatePath =>
 				true,
+			var commandId when commandId == CommandIds.Search => browser.CanSearch,
 			_ => true,
 		};
 
-		return new(true, isAvailable && !browser.IsLoading);
+		return new(true, isAvailable && (!browser.IsLoading || id == CommandIds.Search));
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
@@ -72,6 +72,14 @@ internal sealed class NavigationCommandHandler(CommandId id) : ICommandHandler
 				}
 
 				await browser.NavigateToPathAsync(context.Path, cancellationToken).ConfigureAwait(false);
+				break;
+			case var commandId when commandId == CommandIds.Search:
+				if (context.Parameter is not string query)
+				{
+					return CommandExecutionResult.Failed(new ArgumentException(Strings.SearchQueryRequired.GetLocalized(), nameof(context.Query)));
+				}
+
+				await browser.SearchAsync(query, cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.Refresh:
 				await browser.RefreshAsync(cancellationToken).ConfigureAwait(false);

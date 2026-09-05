@@ -15,6 +15,8 @@ public sealed record CommandContext(RootViewModel Root, object? Parameter = null
 
 	public string? Path => Parameter as string;
 
+	public string? Query => Parameter as string;
+
 	public BrowseItemViewModel? InvokedItem =>
 		Parameter switch
 		{

@@ -82,6 +82,40 @@ public sealed class WindowsShellSchedulerTests
 	}
 
 	/// <summary>
+	/// Test case: blocked search work does not occupy the concurrent lane.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task BlockedSearchDoesNotOccupyConcurrentLane()
+	{
+		await using var scheduler = new WindowsShellScheduler(concurrentWorkerCount: 2);
+		using var searchRelease = new ManualResetEventSlim(false);
+		var searchStarted = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var searchWork = scheduler.InvokeSearchAsync(() =>
+		{
+			searchStarted.TrySetResult(Thread.CurrentThread.ManagedThreadId);
+			searchRelease.Wait();
+
+			return true;
+		});
+
+		try
+		{
+			var searchThreadId = await searchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			var concurrentThreadId = await scheduler.InvokeConcurrentAsync(() => Thread.CurrentThread.ManagedThreadId).WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.AreNotEqual(searchThreadId, concurrentThreadId);
+			Assert.IsFalse(searchWork.IsCompleted);
+		}
+		finally
+		{
+			searchRelease.Set();
+		}
+
+		Assert.IsTrue(await searchWork);
+	}
+
+	/// <summary>
 	/// Test case: nested ordered invocation runs without deadlock.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

@@ -16,6 +16,7 @@ namespace Files.Core.Browsing;
 public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInteractiveBrowseSession
 {
 	private const int InitialEnumerationBatchSize = 32;
+	private const int SearchInitialEnumerationBatchSize = 1;
 	private const int EnumerationBatchSize = 256;
 	private const int MaximumEnumerationBatchSize = 1024;
 	private static readonly TimeSpan PropertySortDebounce = TimeSpan.FromMilliseconds(150);
@@ -178,8 +179,8 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
 			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
-			var pendingBatch = new List<IStorableModel>(InitialEnumerationBatchSize);
-			var targetBatchSize = InitialEnumerationBatchSize;
+			var targetBatchSize = location is SearchLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
+			var pendingBatch = new List<IStorableModel>(targetBatchSize);
 			var firstItemReturned = false;
 			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 			var nextItemSequence = ownerWindowHandle is not 0 && nextLocationContext is IInteractiveBrowseLocationContext interactiveContext
@@ -214,7 +215,12 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
 				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState, ref enumerationActivated);
 				pendingBatch.Clear();
-				targetBatchSize = Math.Min(MaximumEnumerationBatchSize, enumerationActivated && targetBatchSize is InitialEnumerationBatchSize ? EnumerationBatchSize : checked(targetBatchSize * 2));
+				targetBatchSize = targetBatchSize switch
+				{
+					SearchInitialEnumerationBatchSize => InitialEnumerationBatchSize,
+					InitialEnumerationBatchSize => EnumerationBatchSize,
+					_ => Math.Min(MaximumEnumerationBatchSize, checked(targetBatchSize * 2)),
+				};
 				await Task.Yield();
 			}
 			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");

@@ -783,6 +783,8 @@ public sealed class WindowsShellPreviewTests
 		public Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 			=> Invoke(action, cancellationToken);
 
+		public Task<T> InvokeSearchAsync<T>(Func<T> action, CancellationToken cancellationToken = default) => Invoke(action, cancellationToken);
+
 		public Task<T> InvokeOperationAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 			=> Invoke(action, cancellationToken);
 

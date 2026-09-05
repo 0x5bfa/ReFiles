@@ -33,6 +33,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 	private readonly Lock _syncRoot = new();
 	private readonly MessagePumpedStaScheduler _orderedScheduler;
 	private readonly MessagePumpedStaScheduler _concurrentScheduler;
+	private readonly MessagePumpedStaScheduler _searchScheduler;
 	private readonly MessagePumpedStaScheduler _operationScheduler;
 	private Task? _disposeTask;
 
@@ -46,6 +47,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		_orderedScheduler = new MessagePumpedStaScheduler("Files Windows Shell STA", workerCount: 1);
 		_concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount);
+		_searchScheduler = new MessagePumpedStaScheduler("Files Windows Shell search STA", workerCount: 1);
 		_operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1);
 		CoreDiagnosticLog.Write("WindowsShellScheduler", $"created concurrentWorkers={workerCount}");
 	}
@@ -68,6 +70,16 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 	public Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
 	{
 		return _concurrentScheduler.InvokeAsync(action, cancellationToken);
+	}
+
+	/// <summary>Invokes a delegate on the isolated Shell search lane.</summary>
+	/// <typeparam name="T">The delegate result type.</typeparam>
+	/// <param name="action">The synchronous delegate.</param>
+	/// <param name="cancellationToken">The token used to cancel queuing.</param>
+	/// <returns>A task containing the delegate result.</returns>
+	public Task<T> InvokeSearchAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
+	{
+		return _searchScheduler.InvokeAsync(action, cancellationToken);
 	}
 
 	/// <summary>Invokes a delegate on the ordered operation lane.</summary>
@@ -94,7 +106,11 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 	private async Task DisposeCoreAsync()
 	{
-		await Task.WhenAll(_orderedScheduler.DisposeAsync().AsTask(), _concurrentScheduler.DisposeAsync().AsTask(), _operationScheduler.DisposeAsync().AsTask()).ConfigureAwait(false);
+		await Task.WhenAll(
+			_orderedScheduler.DisposeAsync().AsTask(),
+			_concurrentScheduler.DisposeAsync().AsTask(),
+			_searchScheduler.DisposeAsync().AsTask(),
+			_operationScheduler.DisposeAsync().AsTask()).ConfigureAwait(false);
 
 		GC.SuppressFinalize(this);
 	}

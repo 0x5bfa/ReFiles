@@ -35,7 +35,7 @@ public sealed partial class PaneHost : UserControl
 		Unloaded += PaneHost_Unloaded;
 	}
 
-	internal bool FocusActiveFolderView()
+	internal bool FocusActiveFolderView(FocusState focusState = FocusState.Pointer)
 	{
 		if (ViewModel?.ActivePane is not { } activePane || !_paneViews.TryGetValue(activePane.Id, out var paneView))
 		{
@@ -44,7 +44,7 @@ public sealed partial class PaneHost : UserControl
 
 		var itemsView = paneView.FindDescendant<ListViewBase>();
 
-		return itemsView?.Focus(FocusState.Pointer) is true;
+		return itemsView?.Focus(focusState) is true;
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

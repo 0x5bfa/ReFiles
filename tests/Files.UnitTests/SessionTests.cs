@@ -47,6 +47,51 @@ public sealed class SessionTests
 	}
 
 	/// <summary>
+	/// Test case: live search replaces its history entry and clearing the query returns to the search origin.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task SearchNavigationReplacesQueryAndReturnsToOrigin()
+	{
+		var resolver = new TestBrowseLocationResolver([]);
+		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
+		var pane = GetBrowsePane(paneOwner);
+		var home = HomeLocation.Instance;
+		var firstSearch = new SearchLocation("first");
+		var secondSearch = new SearchLocation("second");
+
+		await pane.NavigateAsync(home);
+		resolver.BlockEnumeration = true;
+		resolver.EnumerationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var firstNavigation = pane.NavigateAsync(firstSearch, PaneNavigationMode.UpdateSearch).AsTask();
+		await resolver.EnumerationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		resolver.BlockEnumeration = false;
+		var secondNavigation = pane.NavigateAsync(secondSearch, PaneNavigationMode.UpdateSearch).AsTask();
+
+		await secondNavigation.WaitAsync(TimeSpan.FromSeconds(5));
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await firstNavigation);
+
+		CollectionAssert.AreEqual(new BrowseLocation[] {home, secondSearch}, pane.History.Entries.ToArray());
+		Assert.AreEqual(secondSearch, pane.Location);
+
+		resolver.BlockEnumeration = true;
+		resolver.EnumerationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var thirdNavigation = pane.NavigateAsync(new SearchLocation("third"), PaneNavigationMode.UpdateSearch).AsTask();
+		await resolver.EnumerationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		resolver.BlockEnumeration = false;
+		var exitNavigation = pane.NavigateAsync(home, PaneNavigationMode.ExitSearch).AsTask();
+
+		await exitNavigation.WaitAsync(TimeSpan.FromSeconds(5));
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await thirdNavigation);
+
+		CollectionAssert.AreEqual(new BrowseLocation[] {home, secondSearch}, pane.History.Entries.ToArray());
+		Assert.AreEqual(home, pane.Location);
+		Assert.IsTrue(pane.CanGoForward);
+		Assert.IsTrue(await pane.GoForwardAsync());
+		Assert.AreEqual(secondSearch, pane.Location);
+	}
+
+	/// <summary>
 	/// Test case: interactive pane navigation passes its owner only to that enumeration.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

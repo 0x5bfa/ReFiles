@@ -31,6 +31,7 @@ public static class AppCommandRegistration
 		builder.Register(new(CommandIds.NavigateUp, Strings.Up, "Navigation.Up", Strings.Navigation, 30, "\uE74A"), static _ => new NavigationCommandHandler(CommandIds.NavigateUp));
 		builder.Register(new(CommandIds.NavigateHome, Strings.Home, "Navigation.Home", Strings.Navigation, 40, "\uE80F"), static _ => new NavigationCommandHandler(CommandIds.NavigateHome));
 		builder.Register(new(CommandIds.NavigatePath, Strings.Address, "Navigation.Path", Strings.Navigation, 50), static _ => new NavigationCommandHandler(CommandIds.NavigatePath));
+		builder.Register(new(CommandIds.Search, Strings.Search, "App.ThemedIcons.Omnibar.Search", Strings.Navigation, 55), static _ => new NavigationCommandHandler(CommandIds.Search));
 		builder.Register(new(CommandIds.Refresh, Strings.Refresh, "Navigation.Refresh", Strings.Navigation, 60, "\uE72C"), static _ => new NavigationCommandHandler(CommandIds.Refresh));
 		builder.Register(new(CommandIds.OpenItem, Strings.Open, "Item.Open", Strings.Item, 10), static root => new OpenItemCommandHandler(root.ItemActivationService));
 	}

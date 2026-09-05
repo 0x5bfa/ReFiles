@@ -1,43 +1,49 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+#pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
+
 using System.Runtime.CompilerServices;
+using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
 using OwlCore.Storage;
 
-namespace Files.Core.Browsing;
+namespace Files.Core.Windows;
 
-/// <summary>
-/// Keeps a resolved folder model alive for the duration of a browse location.
-/// </summary>
-public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext, IWindowsShellColumnProvider
+internal sealed class WindowsSearchBrowseLocationContext :
+	IBrowseLocationContext,
+	IBrowseLocationItemResolver,
+	IBrowseLocationItemSorter,
+	IBrowseLocationParentResolver,
+	IInteractiveBrowseLocationContext,
+	IWindowsShellColumnProvider
 {
-	private readonly FolderLocation _location;
-
 	private readonly IFolderModel _folderModel;
+
+	private readonly SearchLocation _location;
 
 	private readonly IStorageWorkspace _workspace;
 
 	private int _isDisposed;
 
 	/// <inheritdoc />
+	public bool CanGetParent => true;
+
+	/// <inheritdoc />
 	public BrowseLocation Location => _location;
 
 	/// <inheritdoc />
-	public IStorableModel LocationModel => _folderModel;
+	public IStorableModel? LocationModel => null;
 
-	/// <summary>Initializes a folder browse context and takes ownership of the folder model.</summary>
-	/// <param name="location">The folder location.</param>
-	/// <param name="folderModel">The folder model.</param>
-	/// <param name="workspace">The storage workspace.</param>
-	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IStorageWorkspace workspace)
+	internal WindowsSearchBrowseLocationContext(SearchLocation location, IFolderModel folderModel, IStorageWorkspace workspace)
 	{
 		ArgumentNullException.ThrowIfNull(location);
+
 		ArgumentNullException.ThrowIfNull(folderModel);
+
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		_location = location;
@@ -45,11 +51,7 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		_workspace = workspace;
 	}
 
-	/// <summary>
-	/// Gets the Windows Shell columns exposed by this folder when the folder is backed by Windows Shell.
-	/// </summary>
-	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
-	/// <returns>The Shell column metadata, or <see langword="null"/> for non-Windows storage.</returns>
+	/// <inheritdoc />
 	public async ValueTask<WindowsShellColumnSet?> GetColumnsAsync(CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
@@ -74,9 +76,20 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	}
 
 	/// <inheritdoc />
+	public ValueTask<BrowseLocation?> GetParentLocationAsync(CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return ValueTask.FromResult<BrowseLocation?>(_location.Scope is { } scope ? new FolderLocation(scope) : HomeLocation.Instance);
+	}
+
+	/// <inheritdoc />
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
 		ArgumentNullException.ThrowIfNull(reference);
 
 		return _workspace.ResolveAsync(reference, cancellationToken);

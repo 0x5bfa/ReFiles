@@ -93,6 +93,41 @@ public sealed class BrowseSessionTests
 	}
 
 	/// <summary>
+	/// Test case: publishes the first search result before enumeration completes.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task SearchPublishesFirstResultBeforeEnumerationCompletes()
+	{
+		var factory = new TestModelFactory();
+		var items = Enumerable.Range(0, 2).Select(index => factory.CreateModel($"item-{index}", $"Item {index}", out _)).Cast<IStorableModel>().ToArray();
+		var providerPaused = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var providerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var resolver = new TestBrowseLocationResolver(items)
+		{
+			BeforeYieldAsync = async (index, cancellationToken) =>
+			{
+				if (index is 1)
+				{
+					providerPaused.TrySetResult(true);
+					await providerRelease.Task.WaitAsync(cancellationToken);
+				}
+			},
+		};
+		using var session = new BrowseSession(resolver);
+		var navigation = session.NavigateAsync(new SearchLocation("query")).AsTask();
+
+		await providerPaused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+		Assert.IsTrue(session.IsLoading);
+		Assert.AreEqual(1, session.Items.Count);
+		Assert.IsFalse(navigation.IsCompleted);
+		providerRelease.TrySetResult(true);
+		await navigation;
+		Assert.AreEqual(2, session.Items.Count);
+	}
+
+	/// <summary>
 	/// Test case: sorts the first page and applies the requested sort after progressive enumeration.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
