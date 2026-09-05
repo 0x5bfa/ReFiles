@@ -14,6 +14,12 @@ public enum PaneNavigationMode
 
 	/// <summary>Replaces the current history entry.</summary>
 	Replace,
+
+	/// <summary>Adds the search target unless the current committed entry is another search, which it replaces.</summary>
+	UpdateSearch,
+
+	/// <summary>Moves back to a matching search origin when possible; otherwise replaces the current entry.</summary>
+	ExitSearch,
 }
 
 /// <summary>
@@ -89,7 +95,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 	{
 		ArgumentNullException.ThrowIfNull(location);
 
-		if (mode is not PaneNavigationMode.Push and not PaneNavigationMode.Replace)
+		if (mode is not PaneNavigationMode.Push and not PaneNavigationMode.Replace and not PaneNavigationMode.UpdateSearch and not PaneNavigationMode.ExitSearch)
 		{
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
@@ -100,10 +106,7 @@ public sealed class BrowsePaneSession : IPaneContentSession
 		try
 		{
 			EnsureActive();
-			await NavigateAndCommitAsync(location, () =>
-			{
-				if (mode is PaneNavigationMode.Push) { History.Push(location); } else { History.Replace(location); }
-			}, ownerWindowHandle, navigation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(location, () => CommitNavigationHistory(location, mode), ownerWindowHandle, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -292,6 +295,46 @@ public sealed class BrowsePaneSession : IPaneContentSession
 
 			return new ValueTask(_disposeTask);
 		}
+	}
+
+	private void CommitNavigationHistory(BrowseLocation location, PaneNavigationMode mode)
+	{
+		if (mode is PaneNavigationMode.Push)
+		{
+			History.Push(location);
+
+			return;
+		}
+
+		if (mode is PaneNavigationMode.Replace)
+		{
+			History.Replace(location);
+
+			return;
+		}
+
+		if (mode is PaneNavigationMode.UpdateSearch)
+		{
+			if (History.Current is SearchLocation)
+			{
+				History.Replace(location);
+			}
+			else
+			{
+				History.Push(location);
+			}
+
+			return;
+		}
+
+		if (History.Current is SearchLocation && History.TryGetBack(out var previous, out var targetIndex) && Equals(previous, location))
+		{
+			History.TryMoveTo(targetIndex, location);
+
+			return;
+		}
+
+		History.Replace(location);
 	}
 
 	private async Task NavigateAndCommitAsync(BrowseLocation target, Action commitHistory, nint ownerWindowHandle, CancellationToken cancellationToken)

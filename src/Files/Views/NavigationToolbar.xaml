@@ -9,6 +9,11 @@
 	xmlns:viewModels="using:Files.ViewModels"
 	xmlns:views="using:Files.Views"
 	x:Name="Root">
+	<UserControl.KeyboardAccelerators>
+		<KeyboardAccelerator Key="E" Modifiers="Control" Invoked="SearchKeyboardAccelerator_Invoked" />
+		<KeyboardAccelerator Key="F" Modifiers="Control" Invoked="SearchKeyboardAccelerator_Invoked" />
+		<KeyboardAccelerator Key="F3" Invoked="SearchKeyboardAccelerator_Invoked" />
+	</UserControl.KeyboardAccelerators>
 
 	<UserControl.Resources>
 		<converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -17,6 +22,7 @@
 	<Grid Padding="8,0,8,8" ColumnSpacing="6">
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="Auto" />
+			<ColumnDefinition Width="2*" />
 			<ColumnDefinition Width="*" />
 			<ColumnDefinition Width="Auto" />
 		</Grid.ColumnDefinitions>
@@ -108,7 +114,6 @@
 		<controls:Omnibar
 			x:Name="PathOmnibar"
 			Grid.Column="1"
-			MinWidth="260"
 			HorizontalAlignment="Stretch"
 			AutomationProperties.AutomationId="PathOmnibar"
 			QuerySubmitted="PathOmnibar_QuerySubmitted"
@@ -162,8 +167,32 @@
 			</controls:OmnibarMode>
 		</controls:Omnibar>
 
-		<controls:ToolbarButton
+		<controls:Omnibar
+			x:Name="SearchOmnibar"
 			Grid.Column="2"
+			HorizontalAlignment="Stretch"
+			AutomationProperties.AutomationId="SearchOmnibar"
+			IsEnabled="{x:Bind ViewModel.SearchCommand.IsEnabled, Mode=OneWay}"
+			QuerySubmitted="SearchOmnibar_QuerySubmitted"
+			TextChanged="SearchOmnibar_TextChanged"
+			TextBoxAutomationId="SearchTextBox">
+			<controls:OmnibarMode
+				x:Name="SearchOmnibarMode"
+				IsDefault="True"
+				ModeName="{localization:Localized ResourceKey=Search}"
+				PlaceholderText="{localization:Localized ResourceKey=Search}"
+				Text="{x:Bind ViewModel.SearchText, Mode=OneWay}">
+				<controls:OmnibarMode.IconOnActive>
+					<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Search}" IsFilled="True" />
+				</controls:OmnibarMode.IconOnActive>
+				<controls:OmnibarMode.IconOnInactive>
+					<controls:ThemedIcon Data="{StaticResource App.ThemedIcons.Omnibar.Search}" IconType="Outline" />
+				</controls:OmnibarMode.IconOnInactive>
+			</controls:OmnibarMode>
+		</controls:Omnibar>
+
+		<controls:ToolbarButton
+			Grid.Column="3"
 			Width="32"
 			Height="32"
 			Padding="0"

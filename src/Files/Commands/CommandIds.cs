@@ -23,6 +23,8 @@ public static class CommandIds
 	public static readonly CommandId NavigatePath =
 		new("files.navigation.path");
 
+	public static readonly CommandId Search = new("files.navigation.search");
+
 	public static readonly CommandId Refresh =
 		new("files.navigation.refresh");
 

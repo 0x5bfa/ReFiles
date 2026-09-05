@@ -100,6 +100,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public CommandBindingViewModel NavigatePathCommand => _commandManager.GetBinding(CommandIds.NavigatePath);
 
+	public CommandBindingViewModel SearchCommand => _commandManager.GetBinding(CommandIds.Search);
+
 	public CommandBindingViewModel RefreshCommand => _commandManager.GetBinding(CommandIds.Refresh);
 
 	public CommandBindingViewModel CopyCommand => _commandManager.GetBinding(CommandIds.Copy);
@@ -219,7 +221,16 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			SplitPaneVerticalCommand,
 			SplitPaneHorizontalCommand,
 			SetActiveTabAt);
-		NavigationToolbar = new(ToggleSidebarCommand, BackCommand, ForwardCommand, UpCommand, HomeCommand, NavigatePathCommand, RefreshCommand, presentationFactory.CreateStatusCenterViewModel());
+		NavigationToolbar = new(
+			ToggleSidebarCommand,
+			BackCommand,
+			ForwardCommand,
+			UpCommand,
+			HomeCommand,
+			NavigatePathCommand,
+			SearchCommand,
+			RefreshCommand,
+			presentationFactory.CreateStatusCenterViewModel());
 		Toolbar = new(
 			CopyCommand,
 			CutCommand,

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Adapters;
+using Files.Commands;
 using Files.Controls;
 using Files.Core.Browsing;
 using Files.Infrastructure;
@@ -39,6 +40,7 @@ public sealed partial class NavigationToolbar : UserControl
 	}
 
 	internal event EventHandler? FolderViewFocusRequested;
+	internal event EventHandler? FolderViewKeyboardFocusRequested;
 
 	public NavigationToolbar()
 	{
@@ -50,6 +52,45 @@ public sealed partial class NavigationToolbar : UserControl
 	private async void PathOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
 	{
 		await NavigatePathAsync(args.Text);
+	}
+
+	private async void SearchOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
+	{
+		if (!sender.IsEnabled || ViewModel is not { } viewModel)
+		{
+			return;
+		}
+
+		var searchTask = viewModel.ExecuteSearchAsync(args.Text);
+		DispatcherQueue.TryEnqueue(() => FolderViewKeyboardFocusRequested?.Invoke(this, EventArgs.Empty));
+		await searchTask;
+	}
+
+	private async void SearchOmnibar_TextChanged(Omnibar sender, OmnibarTextChangedEventArgs args)
+	{
+		if (args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen || !sender.IsEnabled || ViewModel is not { } viewModel)
+		{
+			return;
+		}
+
+		var text = args.Mode.Text ?? string.Empty;
+		if (args.Reason is OmnibarTextChangeReason.None && string.Equals(text, viewModel.SearchText, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		await viewModel.ExecuteSearchAsync(text);
+	}
+
+	private void SearchKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+	{
+		if (!SearchOmnibar.IsEnabled)
+		{
+			return;
+		}
+
+		SearchOmnibar.FocusTextBox();
+		args.Handled = true;
 	}
 
 	private async void PathBreadcrumbBar_ItemClicked(Files.Controls.BreadcrumbBar sender, Files.Controls.BreadcrumbBarItemClickedEventArgs args)

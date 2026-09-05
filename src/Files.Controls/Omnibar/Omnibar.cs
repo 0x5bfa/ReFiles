@@ -260,6 +260,17 @@ namespace Files.Controls
 			}
 		}
 
+		internal void ChangeTextBoxTextFromMode(string text)
+		{
+			if (string.Equals(_textBox.Text, text, StringComparison.Ordinal))
+			{
+				return;
+			}
+
+			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+			ChangeTextBoxText(text);
+		}
+
 		private void SubmitQuery(object? item)
 		{
 			if (CurrentSelectedMode is null)

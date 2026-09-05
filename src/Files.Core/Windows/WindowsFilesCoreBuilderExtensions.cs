@@ -45,6 +45,7 @@ public static class WindowsFilesCoreBuilderExtensions
 		try
 		{
 			builder.AddStorageSource(windowsSource).AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
+			builder.AddStorageBrowseLocationHandler(workspace => new WindowsSearchBrowseLocationHandler(workspace, windowsSource));
 		}
 		catch (Exception registrationError) when (source is null)
 		{

@@ -45,6 +45,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		PreviewPaneView.SessionFactory = previewSessionFactory;
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested += NavigationToolbarView_FolderViewFocusRequested;
+		NavigationToolbarView.FolderViewKeyboardFocusRequested += NavigationToolbarView_FolderViewKeyboardFocusRequested;
 		Loaded += RootView_Loaded;
 	}
 
@@ -82,6 +83,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		_viewModel.OperationErrorReported -= ViewModel_OperationErrorReported;
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested -= NavigationToolbarView_FolderViewFocusRequested;
+		NavigationToolbarView.FolderViewKeyboardFocusRequested -= NavigationToolbarView_FolderViewKeyboardFocusRequested;
 		_pendingErrorMessages.Clear();
 		_activeErrorDialog?.Hide();
 		await _showErrorDialogsTask;
@@ -95,6 +97,8 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 	private void NavigationToolbarView_FolderViewFocusRequested(object? sender, EventArgs e) =>
 		PaneHostView.FocusActiveFolderView();
+
+	private void NavigationToolbarView_FolderViewKeyboardFocusRequested(object? sender, EventArgs e) => PaneHostView.FocusActiveFolderView(FocusState.Keyboard);
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{

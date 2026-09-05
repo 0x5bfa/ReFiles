@@ -1613,7 +1613,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		var session = _pane.BrowseSession;
-		if (session.Context is not FolderBrowseLocationContext context || session.Generation is 0)
+		if (session.Context is not IWindowsShellColumnProvider context || session.Generation is 0)
 		{
 			CancelColumnsLoad();
 			QueueColumns(session.Generation, CreateFallbackColumns());
@@ -1789,7 +1789,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		load?.Cancel();
 	}
 
-	private bool IsCurrentColumnsContext(FolderBrowseLocationContext context, long generation, CancellationToken cancellationToken)
+	private bool IsCurrentColumnsContext(IWindowsShellColumnProvider context, long generation, CancellationToken cancellationToken)
 	{
 		return !cancellationToken.IsCancellationRequested &&
 			_pane.BrowseSession.Generation == generation &&
@@ -2203,7 +2203,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
 		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 
-	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken)
+	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken, PaneNavigationMode mode = PaneNavigationMode.Push)
 	{
 		EnsureActive();
 
@@ -2212,7 +2212,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		LocationNavigation navigation;
 		lock (_locationNavigationLock)
 		{
-			if (_locationNavigation is { } activeNavigation && Equals(activeNavigation.Location, location))
+			if (_locationNavigation is { } activeNavigation && Equals(activeNavigation.Location, location) && activeNavigation.Mode == mode)
 			{
 				return WaitForLocationNavigationAsync(activeNavigation, cancellationToken);
 			}
@@ -2222,14 +2222,23 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				return Task.CompletedTask;
 			}
 
-			var task = _pane.NavigateAsync(location, cancellationToken: _lifetime.Token, ownerWindowHandle: _ownerWindowHandle).AsTask();
-			navigation = new LocationNavigation(location, task);
+			var task = _pane.NavigateAsync(location, mode, _lifetime.Token, _ownerWindowHandle).AsTask();
+			navigation = new LocationNavigation(location, mode, task);
 			_locationNavigation = navigation;
 		}
 
 		_ = TrackLocationNavigationAsync(navigation);
 
 		return WaitForLocationNavigationAsync(navigation, cancellationToken);
+	}
+
+	internal Task NavigateToSearchOriginAsync(BrowseLocation location, CancellationToken cancellationToken)
+	{
+		EnsureActive();
+
+		ArgumentNullException.ThrowIfNull(location);
+
+		return NavigateToLocationAsync(location, cancellationToken, PaneNavigationMode.ExitSearch);
 	}
 
 	private static Task WaitForLocationNavigationAsync(LocationNavigation navigation, CancellationToken cancellationToken)
@@ -2287,6 +2296,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 				=> value,
 			FolderLocation folder => folder.Folder.LastKnownAddress?.ToString()
 				?? folder.Folder.ItemId,
+			SearchLocation search => search.Query,
 			_ => location?.GetType().Name ?? _text.Home,
 		};
 	}
@@ -2317,9 +2327,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private sealed record PendingStatusBarSize(long Generation, long Version, ulong? Size);
 
-	private sealed record LocationNavigation(BrowseLocation Location, Task Task);
+	private sealed record LocationNavigation(BrowseLocation Location, PaneNavigationMode Mode, Task Task);
 
-	private sealed record ColumnCache(FolderBrowseLocationContext Context, long Generation, WindowsShellColumnSet? ColumnSet);
+	private sealed record ColumnCache(IWindowsShellColumnProvider Context, long Generation, WindowsShellColumnSet? ColumnSet);
 
 	private sealed record ThumbnailApplyState(long Version, BrowseItemViewModel Target, ThumbnailResult? Thumbnail);
 
@@ -2432,7 +2442,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		private readonly CancellationTokenSource _cancellation;
 		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-		public FolderBrowseLocationContext Context { get; }
+		public IWindowsShellColumnProvider Context { get; }
 
 		public long Generation { get; }
 
@@ -2442,7 +2452,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 		public Task Task => _completion.Task;
 
-		public ColumnLoad(FolderBrowseLocationContext context, long generation, CancellationToken lifetimeToken)
+		public ColumnLoad(IWindowsShellColumnProvider context, long generation, CancellationToken lifetimeToken)
 		{
 			Context = context;
 			Generation = generation;

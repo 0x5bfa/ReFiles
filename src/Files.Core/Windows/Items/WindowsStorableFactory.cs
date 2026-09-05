@@ -32,6 +32,8 @@ internal sealed class WindowsStorableFactory
 
 	private const int IdentityWorkerCount = 4;
 
+	private const int SearchEnumerationBatchSize = 1;
+
 	private readonly IWindowsShellScheduler _scheduler;
 
 	private readonly IWindowsItemIdReader _itemIdReader;
@@ -79,6 +81,27 @@ internal sealed class WindowsStorableFactory
 				hr.ThrowOnFailure();
 
 				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
+			},
+			cancellationToken);
+	}
+
+	internal Task<WindowsFolder> CreateSearchFolderAsync(string query, IReadOnlyList<WindowsItemLocator>? scopeLocators, CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+		if (scopeLocators is { Count: 0 })
+		{
+			throw new ArgumentException("A supplied Windows Shell search scope cannot be empty.", nameof(scopeLocators));
+		}
+
+		return _scheduler.InvokeAsync(
+			() =>
+			{
+				var shellItem = WindowsShellSearchFolderFactory.Create(query, scopeLocators);
+				var descriptor = ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader) with { IsSearchFolder = true };
+				var storable = Create(descriptor);
+
+				return storable as WindowsFolder ?? throw new InvalidOperationException("The Windows Shell search factory did not return a folder.");
 			},
 			cancellationToken);
 	}
@@ -168,10 +191,11 @@ internal sealed class WindowsStorableFactory
 		Task? producer = null;
 		try
 		{
-			var scheduledProducer = _resolver.InvokeConcurrentAsync(
-				descriptor.Locator,
-				shellItem => EnumerateChildrenOnCurrentSta(shellItem, parentFolder, ownerWindow, batches.Writer, enumerationCancellation.Token),
-				enumerationCancellation.Token);
+			Func<IShellItem, bool> enumerateChildren = shellItem =>
+				EnumerateChildrenOnCurrentSta(shellItem, parentFolder, descriptor.IsSearchFolder, ownerWindow, batches.Writer, enumerationCancellation.Token);
+			var scheduledProducer = descriptor.IsSearchFolder
+				? _resolver.InvokeSearchAsync(descriptor.Locator, enumerateChildren, enumerationCancellation.Token)
+				: _resolver.InvokeConcurrentAsync(descriptor.Locator, enumerateChildren, enumerationCancellation.Token);
 			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
 
 			await foreach (var batch in batches.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
@@ -354,6 +378,7 @@ internal sealed class WindowsStorableFactory
 	private static unsafe bool EnumerateChildrenOnCurrentSta(
 		IShellItem shellItem,
 		WindowsItemLocator parentFolder,
+		bool isSearchFolder,
 		HWND ownerWindow,
 		ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer,
 		CancellationToken cancellationToken)
@@ -384,13 +409,15 @@ internal sealed class WindowsStorableFactory
 				return true;
 			}
 
-			ThrowIfEnumerationFailed(hr, ownerWindow);
+			ThrowIfEnumerationFailed(hr);
 			if (enumerator is null)
 			{
 				throw new InvalidOperationException("The Shell folder returned no item enumerator.");
 			}
 
-			var batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
+			using var cancellationSite = isSearchFolder ? WindowsShellEnumerationCancellationSite.TryAttach(enumerator, cancellationToken) : null;
+			var enumerationBatchSize = isSearchFolder ? SearchEnumerationBatchSize : EnumerationBatchSize;
+			var batch = new List<WindowsStorableDescriptorData>(enumerationBatchSize);
 			var childPidls = stackalloc ITEMIDLIST*[EnumerationBatchSize];
 			var itemStore = WindowsShellItemStore.TryCreate(parentFolder.AbsolutePidl);
 
@@ -406,7 +433,7 @@ internal sealed class WindowsStorableFactory
 				}
 
 				var nextStartTimestamp = Stopwatch.GetTimestamp();
-				hr = enumerator.Next(EnumerationBatchSize, childPidls, out var fetched);
+				hr = enumerator.Next((uint)enumerationBatchSize, childPidls, out var fetched);
 				nextCallCount++;
 				nextDuration += Stopwatch.GetElapsedTime(nextStartTimestamp);
 
@@ -415,7 +442,7 @@ internal sealed class WindowsStorableFactory
 					break;
 				}
 
-				ThrowIfEnumerationFailed(hr, ownerWindow);
+				ThrowIfEnumerationFailed(hr);
 				if (fetched is 0)
 				{
 					break;
@@ -451,7 +478,7 @@ internal sealed class WindowsStorableFactory
 						descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
 
 						itemCount++;
-						if (batch.Count >= EnumerationBatchSize)
+						if (batch.Count >= enumerationBatchSize)
 						{
 							batchCount++;
 							var channelWriteStartTimestamp = Stopwatch.GetTimestamp();
@@ -461,7 +488,7 @@ internal sealed class WindowsStorableFactory
 							}
 
 							channelWriteDuration += Stopwatch.GetElapsedTime(channelWriteStartTimestamp);
-							batch = new List<WindowsStorableDescriptorData>(EnumerationBatchSize);
+							batch = new List<WindowsStorableDescriptorData>(enumerationBatchSize);
 						}
 
 						PInvoke.CoTaskMemFree(childPidl);
@@ -544,9 +571,9 @@ internal sealed class WindowsStorableFactory
 		}
 	}
 
-	private static void ThrowIfEnumerationFailed(HRESULT hr, HWND ownerWindow)
+	private static void ThrowIfEnumerationFailed(HRESULT hr)
 	{
-		if (!ownerWindow.IsNull && hr.Value is CanceledHResultValue)
+		if (hr.Value is CanceledHResultValue)
 		{
 			throw new OperationCanceledException("The Windows Shell canceled folder enumeration.");
 		}

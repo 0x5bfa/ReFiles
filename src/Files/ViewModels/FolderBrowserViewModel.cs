@@ -147,6 +147,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool CanShowNew => !IsLoading && !IsBusy && _shellNewMenu is not null && TryGetCurrentFileSystemFolder(out _);
 
+	public bool CanSearch => _windowsSource is not null && Location switch
+	{
+		HomeLocation => true,
+		FolderLocation folder => folder.Folder.SourceId == _windowsSource.SourceId,
+		SearchLocation search => search.Scope is null || search.Scope.SourceId == _windowsSource.SourceId,
+		_ => false,
+	};
+
 	internal bool SupportsItemSelection => Location is not null and not HomeLocation;
 
 	internal bool CanSelectAllItems => SupportsItemSelection && !IsBusy && Items.Count > SelectedKeys.Count;
@@ -157,6 +165,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public string LocationText => _browseAdapter.LocationText;
 
+	public string SearchText => Location is SearchLocation search ? search.Query : string.Empty;
+
 	public BrowseLocation? Location => _pane.Location;
 
 	public string LocationDisplayName => _pane.BrowseSession.Context?.LocationModel?.Name ?? LocationText;
@@ -166,6 +176,8 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	public bool IsLoading => _browseAdapter.IsLoading;
 
 	public bool IsFolderEmpty => !IsLoading && Location is not null && Items.Count is 0 && _browseAdapter.ErrorMessage is null;
+
+	public string EmptyMessage => Location is SearchLocation ? Strings.NoSearchResults.GetLocalized() : Strings.FolderEmpty.GetLocalized();
 
 	public bool IsBusy => _browseAdapter.IsBusy;
 
@@ -240,6 +252,33 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public Task NavigateToReferenceAsync(StorableReference reference, CancellationToken cancellationToken = default) =>
 		_browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
+
+	public Task SearchAsync(string query, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(query);
+
+		if (_windowsSource is null)
+		{
+			throw new NotSupportedException("Windows Shell search is not available.");
+		}
+
+		if (string.IsNullOrWhiteSpace(query))
+		{
+			var origin = Location is SearchLocation search ? search.Scope is { } originScope ? new FolderLocation(originScope) : HomeLocation.Instance : Location;
+
+			return origin is null ? Task.CompletedTask : _browseAdapter.NavigateToSearchOriginAsync(origin, cancellationToken);
+		}
+
+		var scope = Location switch
+		{
+			HomeLocation => null,
+			FolderLocation folder when folder.Folder.SourceId == _windowsSource.SourceId => folder.Folder,
+			SearchLocation search when search.Scope is null || search.Scope.SourceId == _windowsSource.SourceId => search.Scope,
+			_ => throw new NotSupportedException("The current location does not support Windows Shell search."),
+		};
+
+		return _browseAdapter.NavigateToLocationAsync(new SearchLocation(query, scope), cancellationToken, PaneNavigationMode.UpdateSearch);
+	}
 
 	public Task GoBackAsync(CancellationToken cancellationToken = default) =>
 		_browseAdapter.GoBackAsync(cancellationToken);
@@ -997,6 +1036,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				OnPropertyChanged(nameof(Location));
 				OnPropertyChanged(nameof(LocationText));
 				OnPropertyChanged(nameof(LocationDisplayName));
+				OnPropertyChanged(nameof(SearchText));
+				OnPropertyChanged(nameof(EmptyMessage));
+				OnPropertyChanged(nameof(CanSearch));
 				OnPropertyChanged(nameof(CanShowNew));
 				RefreshLocationIcon();
 			}

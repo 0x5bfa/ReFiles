@@ -15,6 +15,12 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	private CancellationTokenSource? _breadcrumbCancellation;
 
+	private string _searchText = string.Empty;
+
+	private long _searchRequestGeneration;
+
+	private bool _isSearchRequestActive;
+
 	private int _isDisposed;
 
 	public CommandBindingViewModel ToggleSidebarCommand { get; }
@@ -29,6 +35,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel NavigatePathCommand { get; }
 
+	public CommandBindingViewModel SearchCommand { get; }
+
 	public CommandBindingViewModel RefreshCommand { get; }
 
 	public StatusCenterViewModel StatusCenter { get; }
@@ -36,6 +44,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 	public ObservableCollection<NavigationToolbarBreadcrumbItem> BreadcrumbItems { get; } = [];
 
 	public string LocationText => _activeFolderBrowser?.LocationText ?? string.Empty;
+
+	public string SearchText => _searchText;
 
 	internal FolderBrowserViewModel? ActiveFolderBrowser => _activeFolderBrowser;
 
@@ -46,15 +56,24 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel upCommand,
 		CommandBindingViewModel homeCommand,
 		CommandBindingViewModel navigatePathCommand,
+		CommandBindingViewModel searchCommand,
 		CommandBindingViewModel refreshCommand,
 		StatusCenterViewModel statusCenter)
 	{
 		ArgumentNullException.ThrowIfNull(toggleSidebarCommand);
+
 		ArgumentNullException.ThrowIfNull(backCommand);
+
 		ArgumentNullException.ThrowIfNull(forwardCommand);
+
 		ArgumentNullException.ThrowIfNull(upCommand);
+
 		ArgumentNullException.ThrowIfNull(homeCommand);
+
 		ArgumentNullException.ThrowIfNull(navigatePathCommand);
+
+		ArgumentNullException.ThrowIfNull(searchCommand);
+
 		ArgumentNullException.ThrowIfNull(refreshCommand);
 
 		ArgumentNullException.ThrowIfNull(statusCenter);
@@ -65,6 +84,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		UpCommand = upCommand;
 		HomeCommand = homeCommand;
 		NavigatePathCommand = navigatePathCommand;
+		SearchCommand = searchCommand;
 		RefreshCommand = refreshCommand;
 		StatusCenter = statusCenter;
 	}
@@ -78,6 +98,8 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 
 		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
 		_activeFolderBrowser = null;
+		_searchRequestGeneration++;
+		_isSearchRequestActive = false;
 		_breadcrumbCancellation?.Cancel();
 		_breadcrumbCancellation = null;
 		StatusCenter.Dispose();
@@ -93,9 +115,42 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
 		_activeFolderBrowser = value;
 		_activeFolderBrowser?.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
+		_searchRequestGeneration++;
+		_isSearchRequestActive = false;
 
 		OnPropertyChanged(nameof(LocationText));
+		SetSearchText(_activeFolderBrowser?.SearchText ?? string.Empty);
 		_ = RefreshBreadcrumbItemsAsync();
+	}
+
+	internal async Task<CommandExecutionResult> ExecuteSearchAsync(string query)
+	{
+		ArgumentNullException.ThrowIfNull(query);
+
+		var browser = _activeFolderBrowser;
+		var generation = ++_searchRequestGeneration;
+
+		try
+		{
+			_isSearchRequestActive = true;
+			SetSearchText(query);
+
+			return await SearchCommand.ExecuteAsync(query);
+		}
+		catch (Exception error)
+		{
+			UiDiagnosticLog.Write("NavigationToolbar", $"Search command failed: {error.Message}");
+
+			return CommandExecutionResult.Failed(error);
+		}
+		finally
+		{
+			if (generation == _searchRequestGeneration && ReferenceEquals(_activeFolderBrowser, browser))
+			{
+				_isSearchRequestActive = false;
+				SetSearchText(browser?.SearchText ?? string.Empty);
+			}
+		}
 	}
 
 	internal Task NavigateToBreadcrumbAsync(NavigationToolbarBreadcrumbItem item, CancellationToken cancellationToken = default)
@@ -122,11 +177,18 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 			OnPropertyChanged(nameof(LocationText));
 		}
 
+		if (!_isSearchRequestActive && (e.PropertyName is null or nameof(FolderBrowserViewModel.SearchText)))
+		{
+			SetSearchText(_activeFolderBrowser?.SearchText ?? string.Empty);
+		}
+
 		if (e.PropertyName is null or nameof(FolderBrowserViewModel.Location) or nameof(FolderBrowserViewModel.ShowHiddenItems))
 		{
 			_ = RefreshBreadcrumbItemsAsync();
 		}
 	}
+
+	private void SetSearchText(string value) => SetProperty(ref _searchText, value, nameof(SearchText));
 
 	private async Task RefreshBreadcrumbItemsAsync()
 	{

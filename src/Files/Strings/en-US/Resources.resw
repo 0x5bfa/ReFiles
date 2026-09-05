@@ -98,6 +98,8 @@
 	<data name="FolderEmpty" xml:space="preserve"><value>This folder is empty.</value></data>
 	<data name="File" xml:space="preserve"><value>File</value></data>
 	<data name="FolderPathRequired" xml:space="preserve"><value>A folder path is required.</value></data>
+	<data name="SearchQueryRequired" xml:space="preserve"><value>A search query is required.</value></data>
+	<data name="NoSearchResults" xml:space="preserve"><value>No items match your search.</value></data>
 	<data name="ItemCountSingle" xml:space="preserve"><value>{0} item</value></data>
 	<data name="ItemCountPlural" xml:space="preserve"><value>{0} items</value></data>
 	<data name="SelectedItemCountSingle" xml:space="preserve"><value>{0} item selected</value></data>
@@ -109,6 +111,7 @@
 	<data name="Forward" xml:space="preserve"><value>Forward</value></data>
 	<data name="Up" xml:space="preserve"><value>Up</value></data>
 	<data name="Address" xml:space="preserve"><value>Address</value></data>
+	<data name="Search" xml:space="preserve"><value>Search</value></data>
 	<data name="Refresh" xml:space="preserve"><value>Refresh</value></data>
 	<data name="Open" xml:space="preserve"><value>Open</value></data>
 	<data name="Copy" xml:space="preserve"><value>Copy</value></data>
