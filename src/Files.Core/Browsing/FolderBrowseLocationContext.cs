@@ -5,8 +5,8 @@ using System.Runtime.CompilerServices;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
+using Files.Core.Windows;
 using OwlCore.Storage;
 
 namespace Files.Core.Browsing;

@@ -8,8 +8,14 @@ Windows filesystem/Shell integration is a platform subsystem with COM apartment,
 - enumerate Shell/filesystem-backed folders;
 - retrieve Shell properties and thumbnails;
 - consume Shell change notifications;
+- expose contextual commands and app-extension commands;
+- adapt native clipboard and drag/drop data;
+- host preview handlers and read property-sheet data;
+- expose Windows Shell archive folders through the generic archive contracts;
 - execute Shell-dependent operations where appropriate;
 - schedule COM work on suitable STA workers.
+
+The UI-independent mechanisms share the `Files.Core.Windows` namespace and are grouped physically by responsibility under `Files.Core/Windows`. Raw Win32, COM, and Shell ABI declarations remain under `Files.Core/Windows/Interop`. The Files UI host owns WinUI gestures, `DataPackage` adaptation, presentation, and window integration around those mechanisms.
 
 ## Concurrency model
 

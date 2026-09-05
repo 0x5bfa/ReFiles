@@ -8,6 +8,7 @@ using Files.Settings;
 using Files.StorageOperations;
 using Files.Core.Composition;
 using Files.Core.Sessions;
+using Files.Core.Windows;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
 

@@ -3,7 +3,7 @@
 
 using System.IO;
 using Files.Core.Models;
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 using global::SevenZip;
 using OwlCore.Storage;
 

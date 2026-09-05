@@ -3,6 +3,7 @@
 
 using Files.Core.Composition;
 using Files.Core.Storage;
+using Files.Core.Windows;
 
 namespace Files.UnitTests;
 

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Commands.Handlers;
-using Files.Core.Storage.Windows;
 using Files.Localization;
+using Files.Core.Windows;
 
 namespace Files.Commands;
 

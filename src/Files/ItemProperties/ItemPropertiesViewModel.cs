@@ -6,9 +6,9 @@ using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Files.Localization;
 using Files.ViewModels;
+using Files.Core.Windows;
 using Microsoft.UI.Xaml.Media;
 using Windows.Win32.Foundation;
 

@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Files.Core.Storage;
+using Files.Core.Windows;
 
 namespace Files.UnitTests;
 

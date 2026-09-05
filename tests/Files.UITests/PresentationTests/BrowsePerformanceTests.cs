@@ -27,6 +27,7 @@ using Files.Settings;
 using Files.StorageOperations;
 using Files.ViewModels;
 using Files.Views;
+using Files.Core.Windows;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

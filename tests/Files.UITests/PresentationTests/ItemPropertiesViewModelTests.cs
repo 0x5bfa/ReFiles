@@ -3,9 +3,9 @@
 
 using System.IO;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Files.ItemProperties;
 using Files.ViewModels;
+using Files.Core.Windows;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

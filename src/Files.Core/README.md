@@ -121,9 +121,12 @@ and cross-source transfer coordination remain separate extension boundaries.
 
 ## Boundaries
 
+- UI-independent Windows integration lives under `Windows`, grouped by
+  responsibility with a shared `Files.Core.Windows` namespace. Low-level native
+  declarations remain under `Windows/Interop`.
 - WinUI ViewModels, dispatcher adaptation, image decoding, media/document
-  rendering, the preview child HWND, activation, drag/drop, and context menus
-  belong to the Files UI host.
+  rendering, preview presentation, item activation, drag/drop gestures,
+  `DataPackage` adaptation, and menu presentation belong to the Files UI host.
 - Search/tag behavior needs a selected backend and custom location handler.
 - Additional storage sources plug into the same storage, capability,
   location, and operation contracts.

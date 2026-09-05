@@ -8,6 +8,7 @@ using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
+using Files.Core.Windows;
 
 namespace Files.Core.Composition;
 

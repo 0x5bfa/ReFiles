@@ -11,7 +11,7 @@ This project is a C#/.NET WinUI 3 desktop app; an alternative to File Explorer.
 - Prefer targeted search over full file reads.
 - Touch only what you must. Clean up only files you created or changed for the task.
 - Treat file operations, shell integration, drag/drop, preview handlers, archive actions, settings persistence, and localization as high-risk areas.
-- For Win32, COM, Shell, clipboard, hotkey, and file operation interop, prefer `src/Files.Core/NativeMethods.txt` and the existing wrappers/helpers in `src/Files.Core/Interop/Windows`.
+- For Win32, COM, Shell, clipboard, hotkey, and file operation interop, prefer `src/Files.Core/NativeMethods.txt` and the existing wrappers/helpers in `src/Files.Core/Windows/Interop`.
 - Avoid ad hoc P/Invoke declarations when CsWin32 or existing interop code can cover the API.
 - Do not edit generated CsWin32 output directly. Update source declarations, wrappers, or generator inputs instead.
 - CsWin32 output is build-generated under `src/Files.Core/obj/<platform>/<configuration>/<target-framework>/Generated/CsWin32`; the large `Windows.Win32.NativeMethods.g.cs` file and its manifest are disposable build artifacts. Inspect targeted declarations only and never edit them.
@@ -29,7 +29,7 @@ This project is a C#/.NET WinUI 3 desktop app; an alternative to File Explorer.
 - Express COM interface parameters and results as generated interface types when the signature is known. For deliberately untyped interface values, use `[MarshalAs(UnmanagedType.Interface)] object`; do not introduce raw COM pointers, placeholder `IUnknown` interfaces, or custom marshallers solely to control lifetime.
 - Source-generated COM wrappers own their native references and release them when collected. Do not call `Marshal.ReleaseComObject`, `ComObject.FinalRelease`, or equivalent helpers, and do not request unique wrappers unless an independently verified native ownership contract requires deterministic release.
 - Use direct generated activation calls and normal managed casts. Prefer `PInvoke.CoCreateInstance<T>` and `PInvoke.RoGetActivationFactory<T>`, and use `as` for optional `QueryInterface` checks instead of adding activation, query, or release helpers.
-- Put custom native declarations that are absent from Win32 metadata, or whose generated declarations cannot safely express the required ABI contract, in the existing `Windows.Win32.PInvoke` partial class in `src/Files.Core/Interop/Windows/Extras.cs`. Keep them as declarations without per-API forwarding helpers, and keep all such declarations in that file.
+- Put custom native declarations that are absent from Win32 metadata, or whose generated declarations cannot safely express the required ABI contract, in the existing `Windows.Win32.PInvoke` partial class in `src/Files.Core/Windows/Interop/Extras.cs`. Keep them as declarations without per-API forwarding helpers, and keep all such declarations in that file.
 - Represent a CLSID that is absent from CsWin32 with a documented `[Guid]` coclass marker type and obtain its value through `typeof(CoclassType).GUID`; do not duplicate it in a `Guid` field.
 - Prefer `in`, `ref`, and `out` for fixed-size native value types whenever the generated or recovered signature permits it. Use raw pointers only for variable buffers, callbacks, optional pointer semantics that cannot be represented safely, or other unavoidable ABI boundaries.
 - Reuse one local named `hr` for sequential HRESULT-returning calls within a method when practical.

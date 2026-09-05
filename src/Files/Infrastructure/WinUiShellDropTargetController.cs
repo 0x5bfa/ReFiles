@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 using Microsoft.UI.Xaml;
 using System.Drawing;
 using Windows.ApplicationModel.DataTransfer;

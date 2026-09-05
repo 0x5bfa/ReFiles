@@ -5,7 +5,7 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
-using Files.Core.Storage.Windows;
+using Files.Core.Windows;
 using Windows.Win32;
 
 namespace Files.ItemProperties;

@@ -6,6 +6,7 @@ using Files.Core.Browsing;
 using Files.Core.Composition;
 using Files.Core.Sessions;
 using Files.Core.Storage;
+using Files.Core.Windows;
 
 namespace Files.UnitTests;
 

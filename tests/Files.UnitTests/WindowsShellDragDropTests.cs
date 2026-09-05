@@ -4,6 +4,7 @@
 using System.Drawing;
 using System.IO.Compression;
 using Files.Core.Storage;
+using Files.Core.Windows;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;

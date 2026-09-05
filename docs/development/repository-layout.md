@@ -6,6 +6,9 @@ This page is a navigation map, not a replacement for the architecture docs.
 .github/                  Repository/CI configuration
 src/
   Files.Core/             UI-independent Core and provider/platform logic
+    Windows/              UI-independent Windows integration
+      <Area>/             Physical grouping by responsibility
+      Interop/            Low-level Win32, COM, and Shell ABI declarations
   Files/                  WinUI application and presentation
   Files.Controls/         Reusable WinUI controls
   Files.Operations/       Out-of-process operation host

@@ -1,0 +1,46 @@
+// Copyright (c) Files Community
+// SPDX-License-Identifier: MPL-2.0
+
+#pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
+
+using Files.Core.Storage;
+using Files.Core.Capabilities.Previews;
+
+namespace Files.Core.Windows;
+
+/// <summary>
+/// Describes a Shell preview handler without owning Shell or UI resources.
+/// </summary>
+public sealed class WindowsShellPreviewResult : PreviewResult
+{
+	/// <summary>Gets the storage reference to preview.</summary>
+	public StorableReference Reference { get; }
+
+	/// <summary>Gets the preview handler CLSID.</summary>
+	public Guid HandlerClsid { get; }
+
+	internal PreviewRequest Request { get; }
+
+	/// <summary>Initializes a Windows Shell preview result that requires trusted content.</summary>
+	/// <param name="reference">The storage reference to preview.</param>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	public WindowsShellPreviewResult(StorableReference reference, Guid handlerClsid)
+		: this(reference, handlerClsid, new PreviewRequest())
+	{
+	}
+
+	internal WindowsShellPreviewResult(StorableReference reference, Guid handlerClsid, PreviewRequest request)
+	{
+		ArgumentNullException.ThrowIfNull(reference);
+		ArgumentNullException.ThrowIfNull(request);
+
+		if (handlerClsid == Guid.Empty)
+		{
+			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
+		}
+
+		Reference = reference;
+		HandlerClsid = handlerClsid;
+		Request = request;
+	}
+}

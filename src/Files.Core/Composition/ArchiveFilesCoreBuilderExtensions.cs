@@ -6,6 +6,7 @@ using Files.Core.Capabilities;
 using Files.Core.Capabilities.Archives;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Archives.SevenZip;
+using Files.Core.Windows;
 
 namespace Files.Core.Composition;
 
