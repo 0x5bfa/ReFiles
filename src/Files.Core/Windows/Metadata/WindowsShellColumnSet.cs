@@ -3,6 +3,8 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
+using Files.Core.ViewSettings;
+
 namespace Files.Core.Windows;
 
 /// <summary>
@@ -22,7 +24,10 @@ public sealed class WindowsShellColumnSet
 	/// <summary>Gets the default Shell display column index, or <see langword="null"/> when unavailable.</summary>
 	public int? DefaultDisplayColumnIndex { get; }
 
-	internal WindowsShellColumnSet(IEnumerable<WindowsShellColumn> columns, int? defaultSortColumnIndex, int? defaultDisplayColumnIndex)
+	/// <summary>Gets the layout mode reported by the Shell view, or <see langword="null"/> when unavailable.</summary>
+	public ViewLayoutMode? DefaultLayoutMode { get; }
+
+	internal WindowsShellColumnSet(IEnumerable<WindowsShellColumn> columns, int? defaultSortColumnIndex, int? defaultDisplayColumnIndex, ViewLayoutMode? defaultLayoutMode)
 	{
 		ArgumentNullException.ThrowIfNull(columns);
 
@@ -31,5 +36,6 @@ public sealed class WindowsShellColumnSet
 		DefaultVisible = Array.AsReadOnly(columnArray.Where(static column => column.IsVisibleByDefault && !column.IsHidden).ToArray());
 		DefaultSortColumnIndex = defaultSortColumnIndex;
 		DefaultDisplayColumnIndex = defaultDisplayColumnIndex;
+		DefaultLayoutMode = defaultLayoutMode;
 	}
 }

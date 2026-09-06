@@ -481,21 +481,47 @@ internal sealed class TestThumbnailCache : IThumbnailCache
 
 internal sealed class TestViewSettingsStore : IViewSettingsStore
 {
-	private readonly Dictionary<BrowseLocation, BrowseViewSettings> values = [];
+	private readonly Dictionary<ViewSettingsScopeKey, BrowseViewSettingsOverride> _values = [];
+
+	public ValueTask<BrowseViewSettingsOverride?> GetAsync(ViewSettingsScopeKey scope, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return ValueTask.FromResult(_values.GetValueOrDefault(scope));
+	}
 
 	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		return ValueTask.FromResult(values.GetValueOrDefault(location));
+		var settingsOverride = _values.GetValueOrDefault(ViewSettingsScopeKey.ForLocation(location));
+		var settings = settingsOverride is null ? null : settingsOverride.Fields == ViewSettingsOverrideFields.All ? settingsOverride.Values : settingsOverride.ApplyTo(BrowseViewSettings.Default);
+
+		return ValueTask.FromResult(settings);
+	}
+
+	public ValueTask SetAsync(ViewSettingsScopeKey scope, BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		_values[scope] = settingsOverride;
+
+		return ValueTask.CompletedTask;
 	}
 
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		values[location] = settings;
+		_values[ViewSettingsScopeKey.ForLocation(location)] = BrowseViewSettingsOverride.FromSettings(settings);
 
 		return ValueTask.CompletedTask;
+	}
+
+	public ValueTask<bool> RemoveAsync(ViewSettingsScopeKey scope, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return ValueTask.FromResult(_values.Remove(scope));
 	}
 }

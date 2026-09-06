@@ -427,6 +427,17 @@ public sealed class BrowsePreviewModelTests
 
 		public ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+		public ValueTask UpdateViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+		public ValueTask<bool> TryApplyViewSettingsBaselineAsync(BrowseLocation expectedLocation, long expectedGeneration, BrowseViewSettings settings, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
+
+		public ValueTask ResetViewSettingsAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+		public ValueTask ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
 		public ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
 		public bool TryGetPresentation(StorableKey key, out BrowseItemPresentation presentation)
