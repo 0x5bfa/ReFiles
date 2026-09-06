@@ -53,7 +53,7 @@ namespace Windows.Win32
 
 		[LibraryImport("shlwapi.dll", EntryPoint = "SHGetViewStatePropertyBag", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static partial HRESULT SHGetViewStatePropertyBag(in ITEMIDLIST pidl, string bagName, uint flags, in Guid interfaceId, out IPropertyBag? propertyBag);
+		internal static unsafe partial HRESULT SHGetViewStatePropertyBag(ITEMIDLIST* pidl, string bagName, uint flags, in Guid interfaceId, out IPropertyBag? propertyBag);
 
 		[LibraryImport("propsys.dll", EntryPoint = "PSGetPropertyDescriptionListFromString", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
+using Files.Core.ViewSettings;
 using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -22,6 +23,24 @@ internal static unsafe class WindowsShellColumnReader
 	private const int HeaderBufferLength = 256;
 
 	private const uint MaximumColumnCount = 1024;
+
+	private const uint ShellViewModeIcon = 1;
+
+	private const uint ShellViewModeSmallIcon = 2;
+
+	private const uint ShellViewModeList = 3;
+
+	private const uint ShellViewModeDetails = 4;
+
+	private const uint ShellViewModeThumbnail = 5;
+
+	private const uint ShellViewModeTile = 6;
+
+	private const uint ShellViewModeThumbstrip = 7;
+
+	private const uint ShellViewModeContent = 8;
+
+	private const uint ShellViewModeAuto = uint.MaxValue;
 
 	private const string FolderTypesRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderTypes";
 
@@ -44,7 +63,7 @@ internal static unsafe class WindowsShellColumnReader
 
 		if (folder is null)
 		{
-			return new WindowsShellColumnSet([], null, null);
+			return new WindowsShellColumnSet([], null, null, null);
 		}
 
 		var columns = new List<WindowsShellColumn>();
@@ -106,7 +125,7 @@ internal static unsafe class WindowsShellColumnReader
 			defaultDisplayColumnIndex = ToColumnIndex(displayColumnIndex);
 		}
 
-		var shellColumnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
+		var shellColumnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex, null);
 		cancellationToken.ThrowIfCancellationRequested();
 		var isFileSystemFolder = shellItem.GetAttributes(SFGAO_FLAGS.SFGAO_FILESYSTEM, out var attributes).Succeeded && (attributes & SFGAO_FLAGS.SFGAO_FILESYSTEM) != 0;
 		var defaultColumnWidths = isFileSystemFolder ? GetFolderTypeColumnWidths(parsingName) : _emptyColumnWidths;
@@ -133,16 +152,25 @@ internal static unsafe class WindowsShellColumnReader
 		cancellationToken.ThrowIfCancellationRequested();
 
 		var hr = folder.CreateViewObject(HWND.Null, out IShellView? shellView);
-		if (hr.Failed || shellView is not IColumnManager columnManager)
+		if (hr.Failed || shellView is null)
 		{
 			return false;
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
 
+		var defaultLayoutMode = GetLayoutMode(shellView);
+		columnSet = new WindowsShellColumnSet(shellColumnSet.All, shellColumnSet.DefaultSortColumnIndex, shellColumnSet.DefaultDisplayColumnIndex, defaultLayoutMode);
+		if (shellView is not IColumnManager columnManager)
+		{
+			return defaultLayoutMode is not null;
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
 		if (!TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_ALL, cancellationToken, out var allKeys))
 		{
-			return false;
+			return defaultLayoutMode is not null;
 		}
 
 		var visibleKeys = TryGetColumnKeys(columnManager, CM_ENUM_FLAGS.CM_ENUM_VISIBLE, cancellationToken, out var keys)
@@ -239,10 +267,35 @@ internal static unsafe class WindowsShellColumnReader
 
 		var defaultSortColumnIndex = MapColumnIndex(shellColumnSet.DefaultSortColumnIndex, shellColumnSet.All, columns);
 		var defaultDisplayColumnIndex = MapColumnIndex(shellColumnSet.DefaultDisplayColumnIndex, shellColumnSet.All, columns);
-		columnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex);
+		columnSet = new WindowsShellColumnSet(columns, defaultSortColumnIndex, defaultDisplayColumnIndex, defaultLayoutMode);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		return true;
+	}
+
+	private static ViewLayoutMode? GetLayoutMode(IShellView shellView)
+	{
+		FOLDERSETTINGS folderSettings = default;
+		var hr = shellView.GetCurrentInfo(out folderSettings);
+		if (hr.Failed)
+		{
+			return null;
+		}
+
+		return MapLayoutMode(folderSettings.ViewMode);
+	}
+
+	internal static ViewLayoutMode? MapLayoutMode(uint shellViewMode)
+	{
+		return shellViewMode switch
+		{
+			ShellViewModeDetails => ViewLayoutMode.Details,
+			ShellViewModeList or ShellViewModeSmallIcon => ViewLayoutMode.List,
+			ShellViewModeTile or ShellViewModeContent => ViewLayoutMode.Cards,
+			ShellViewModeIcon or ShellViewModeThumbnail or ShellViewModeThumbstrip => ViewLayoutMode.Grid,
+			ShellViewModeAuto => null,
+			_ => null,
+		};
 	}
 
 	private static bool TryGetColumnKeys(IColumnManager columnManager, CM_ENUM_FLAGS flags, CancellationToken cancellationToken, out PROPERTYKEY[] keys)

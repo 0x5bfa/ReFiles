@@ -22,14 +22,24 @@ internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 	private readonly SemaphoreSlim _signal = new(0, 1);
 	private readonly CancellationTokenSource _lifetime = new();
 	private readonly Lock _disposalLock = new();
+	private readonly Lock _fullRefreshLock = new();
+	private readonly SortedSet<long> _requestedFullRefreshGenerations = [];
 	private readonly Task _pumpTask;
 	private Task? _disposeTask;
-	private long _requestedFullRefreshGeneration;
 	private int _signalPending;
 
 	internal CancellationToken LifetimeToken => _lifetime.Token;
 
-	internal long RequestedFullRefreshGeneration => Volatile.Read(ref _requestedFullRefreshGeneration);
+	internal long RequestedFullRefreshGeneration
+	{
+		get
+		{
+			lock (_fullRefreshLock)
+			{
+				return _requestedFullRefreshGenerations.Count is 0 ? 0 : _requestedFullRefreshGenerations.Max;
+			}
+		}
+	}
 
 	internal BrowseChangeCoordinator(Func<CancellationToken, ValueTask> processPendingAsync)
 	{
@@ -53,18 +63,9 @@ internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 
 	internal bool RequestFullRefresh(long generation)
 	{
-		while (true)
+		lock (_fullRefreshLock)
 		{
-			var requestedGeneration = Volatile.Read(ref _requestedFullRefreshGeneration);
-			if (requestedGeneration >= generation)
-			{
-				break;
-			}
-
-			if (Interlocked.CompareExchange(ref _requestedFullRefreshGeneration, generation, requestedGeneration) == requestedGeneration)
-			{
-				break;
-			}
+			_requestedFullRefreshGenerations.Add(generation);
 		}
 
 		Signal();
@@ -74,7 +75,18 @@ internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 
 	internal bool TryClearFullRefresh(long generation)
 	{
-		return Interlocked.CompareExchange(ref _requestedFullRefreshGeneration, 0, generation) == generation;
+		bool removed;
+		lock (_fullRefreshLock)
+		{
+			removed = _requestedFullRefreshGenerations.Remove(generation);
+		}
+
+		if (removed)
+		{
+			Signal();
+		}
+
+		return removed;
 	}
 
 	internal bool TryRead(out BrowseQueuedChange change)

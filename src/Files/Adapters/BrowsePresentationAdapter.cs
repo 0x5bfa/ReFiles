@@ -79,7 +79,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private int _diagnosticThumbnailDisplayCount;
 	private bool _drainQueued;
 	private int _isApplyingItemBatch;
-	private int _isApplyingDefaultColumns;
 	private int _isDisposed;
 
 	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
@@ -383,7 +382,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.GroupDirection);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, settings), linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public async ValueTask UpdateItemSizeAsync(double itemSize, CancellationToken cancellationToken = default)
@@ -411,7 +410,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.GroupDirection);
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.ItemSize, settings), linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public async ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default)
@@ -455,7 +454,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, settings), linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public async ValueTask UpdateSortAsync(string propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
@@ -482,7 +481,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			currentSettings.GroupPropertyId,
 			currentSettings.GroupDirection);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.SortDirection, settings),
+			linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public async ValueTask UpdateGroupingAsync(string? propertyId, ViewSortDirection direction, CancellationToken cancellationToken = default)
@@ -513,7 +513,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			propertyId,
 			direction);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
-		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+		await _pane.BrowseSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.GroupPropertyId | ViewSettingsOverrideFields.GroupDirection, settings),
+			linkedCancellation.Token).ConfigureAwait(false);
 	}
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)
@@ -638,11 +639,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		InvalidateStatusBarSizeForGeneration(session.Generation);
 		lock (_pendingLock)
 		{
-			if (_prefetchGeneration != session.Generation || Volatile.Read(ref _isApplyingDefaultColumns) is 0)
-			{
-				_prefetchGeneration = session.Generation;
-				_prefetchViewSettings = session.ViewSettings;
-			}
+			_prefetchGeneration = session.Generation;
+			_prefetchViewSettings = session.ViewSettings;
 
 			_pendingState = new PendingState(session.Generation, session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 		}
@@ -1223,6 +1221,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		if (!IsStatusBarSizeLoadCurrent(load))
 		{
 			return;
@@ -1607,7 +1606,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void StartColumnsLoad()
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || Volatile.Read(ref _isApplyingDefaultColumns) is not 0)
+		if (Volatile.Read(ref _isDisposed) is not 0)
 		{
 			return;
 		}
@@ -1688,40 +1687,29 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			var session = _pane.BrowseSession;
-			var settings = session.ViewSettings;
-			if (settings.Columns.Count is 0)
+			var expectedLocation = session.Location;
+			if (expectedLocation is null)
 			{
-				var defaultColumns = CreateDefaultViewColumnSettings(columnSet);
-				if (defaultColumns.Count is not 0)
-				{
-					Interlocked.Exchange(ref _isApplyingDefaultColumns, 1);
-					try
-					{
-						var nextSettings = new BrowseViewSettings(
-							settings.LayoutMode,
-							defaultColumns,
-							settings.SortPropertyId,
-							settings.SortDirection,
-							settings.ItemSize,
-							settings.GroupPropertyId,
-							settings.GroupDirection);
-						UpdatePrefetchSettings(nextSettings, load.Generation);
-						await session.UpdateViewSettingsAsync(nextSettings, load.Token).ConfigureAwait(false);
-					}
-					finally
-					{
-						Interlocked.Exchange(ref _isApplyingDefaultColumns, 0);
-					}
-
-					if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
-					{
-						return;
-					}
-
-					settings = session.ViewSettings;
-				}
+				return;
 			}
 
+			var defaultColumns = CreateDefaultViewColumnSettings(columnSet);
+			var defaultSortPropertyId = columnSet.DefaultSortColumnIndex is { } sortIndex && sortIndex >= 0 && sortIndex < columnSet.All.Count
+				? columnSet.All[sortIndex].PropertyId
+				: null;
+			var baseline = new BrowseViewSettings(columnSet.DefaultLayoutMode ?? BrowseViewSettings.Default.LayoutMode, defaultColumns, defaultSortPropertyId);
+			if (!await session.TryApplyViewSettingsBaselineAsync(expectedLocation, load.Generation, baseline, load.Token).ConfigureAwait(false))
+			{
+				return;
+			}
+
+			if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
+			{
+				return;
+			}
+
+			var settings = session.ViewSettings;
+			UpdatePrefetchSettings(settings, load.Generation);
 			QueueColumns(load.Generation, CreateDetailsColumns(columnSet, settings));
 		}
 		catch (OperationCanceledException) when (load.IsCancellationRequested)
@@ -1816,11 +1804,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		var settings = new List<ViewColumnSettings>();
 		var seen = new HashSet<string>(StringComparer.Ordinal);
-		foreach (var column in columnSet.DefaultVisible)
+		var defaultVisible = columnSet.DefaultVisible.Select(static column => column.PropertyId).ToHashSet(StringComparer.Ordinal);
+		foreach (var column in columnSet.All.Where(static column => !column.IsHidden).OrderBy(static column => column.Index))
 		{
 			if (seen.Add(column.PropertyId))
 			{
-				settings.Add(new ViewColumnSettings(column.PropertyId, GetDefaultColumnWidth(column), settings.Count));
+				settings.Add(new ViewColumnSettings(column.PropertyId, GetDefaultColumnWidth(column), settings.Count, defaultVisible.Contains(column.PropertyId)));
 			}
 		}
 
