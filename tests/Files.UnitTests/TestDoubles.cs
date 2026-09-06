@@ -361,6 +361,7 @@ internal sealed class TestBrowseLocationContext :
 		for (var index = 0; index < _items.Count; index++)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			if (_beforeYieldAsync is not null)
 			{
 				await _beforeYieldAsync(index, cancellationToken).ConfigureAwait(false);
@@ -507,6 +508,25 @@ internal sealed class TestViewSettingsStore : IViewSettingsStore
 		_values[scope] = settingsOverride;
 
 		return ValueTask.CompletedTask;
+	}
+
+	public ValueTask<BrowseViewSettingsOverride?> PatchAsync(ViewSettingsScopeKey scope, ViewSettingsOverrideFields fields, BrowseViewSettingsOverride replacement,
+		CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		var current = _values.GetValueOrDefault(scope) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		var updated = current.ReplaceFields(fields, replacement);
+		if (updated.Fields == ViewSettingsOverrideFields.None)
+		{
+			_values.Remove(scope);
+
+			return ValueTask.FromResult<BrowseViewSettingsOverride?>(null);
+		}
+
+		_values[scope] = updated;
+
+		return ValueTask.FromResult<BrowseViewSettingsOverride?>(updated);
 	}
 
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)

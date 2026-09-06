@@ -20,6 +20,15 @@ public interface IViewSettingsStore
 	/// <param name="cancellationToken">The cancellation token.</param>
 	ValueTask SetAsync(ViewSettingsScopeKey scope, BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default);
 
+	/// <summary>Atomically replaces selected fields in the settings override stored for a view scope.</summary>
+	/// <param name="scope">The stable view scope.</param>
+	/// <param name="fields">The fields to replace or clear.</param>
+	/// <param name="replacement">Replacement values whose supplied fields must be a subset of <paramref name="fields"/>.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The stored override after the patch, or <see langword="null"/> when no fields remain.</returns>
+	ValueTask<BrowseViewSettingsOverride?> PatchAsync(ViewSettingsScopeKey scope, ViewSettingsOverrideFields fields, BrowseViewSettingsOverride replacement,
+		CancellationToken cancellationToken = default);
+
 	/// <summary>Removes the settings override stored for a view scope.</summary>
 	/// <param name="scope">The stable view scope.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>

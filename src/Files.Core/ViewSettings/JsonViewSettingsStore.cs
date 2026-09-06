@@ -95,6 +95,51 @@ public sealed partial class JsonViewSettingsStore : IViewSettingsStore
 		}
 	}
 
+	/// <summary>Atomically replaces selected fields in the settings override stored for a view scope.</summary>
+	/// <param name="scope">The stable view scope.</param>
+	/// <param name="fields">The fields to replace or clear.</param>
+	/// <param name="replacement">Replacement values whose supplied fields must be a subset of <paramref name="fields"/>.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The stored override after the patch, or <see langword="null"/> when no fields remain.</returns>
+	public async ValueTask<BrowseViewSettingsOverride?> PatchAsync(ViewSettingsScopeKey scope, ViewSettingsOverrideFields fields, BrowseViewSettingsOverride replacement,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(scope);
+
+		ArgumentNullException.ThrowIfNull(replacement);
+
+		await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			await using var processLock = await AcquireFileLockAsync(cancellationToken).ConfigureAwait(false);
+			var values = await LoadValuesWithRecoveryAsync(cancellationToken).ConfigureAwait(false);
+			var current = values.GetValueOrDefault(scope) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+			var updated = current.ReplaceFields(fields, replacement);
+			if (updated.Fields == ViewSettingsOverrideFields.None && !values.ContainsKey(scope))
+			{
+				return null;
+			}
+
+			var updatedValues = new Dictionary<ViewSettingsScopeKey, BrowseViewSettingsOverride>(values);
+			if (updated.Fields == ViewSettingsOverrideFields.None)
+			{
+				updatedValues.Remove(scope);
+			}
+			else
+			{
+				updatedValues[scope] = updated;
+			}
+
+			await PersistAsync(updatedValues, cancellationToken).ConfigureAwait(false);
+
+			return updated.Fields == ViewSettingsOverrideFields.None ? null : updated;
+		}
+		finally
+		{
+			_gate.Release();
+		}
+	}
+
 	/// <summary>Stores complete settings for a browse location.</summary>
 	/// <param name="location">The browse location.</param>
 	/// <param name="settings">The complete settings to store.</param>
@@ -144,6 +189,7 @@ public sealed partial class JsonViewSettingsStore : IViewSettingsStore
 		while (true)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+
 			try
 			{
 				return new FileStream(_lockFilePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, bufferSize: 1, FileOptions.Asynchronous);
@@ -291,7 +337,7 @@ public sealed partial class JsonViewSettingsStore : IViewSettingsStore
 			document.Values.GroupPropertyId,
 			(ViewSortDirection)document.Values.GroupDirection);
 
-		return new BrowseViewSettingsOverride((ViewSettingsOverrideFields)document.Fields, values);
+		return new BrowseViewSettingsOverride((ViewSettingsOverrideFields)document.Fields, values, (ViewColumnSettingsMode)document.ColumnMode);
 	}
 
 	private static ViewColumnSettings FromDocument(ViewColumnDocument? document)
@@ -309,6 +355,7 @@ public sealed partial class JsonViewSettingsStore : IViewSettingsStore
 		return new ViewSettingsOverrideDocument
 		{
 			Fields = (int)settingsOverride.Fields,
+			ColumnMode = (int)settingsOverride.ColumnMode,
 			Values = new BrowseViewSettingsDocument
 			{
 				LayoutMode = (int)settingsOverride.Values.LayoutMode,
@@ -343,6 +390,8 @@ public sealed partial class JsonViewSettingsStore : IViewSettingsStore
 	private sealed class ViewSettingsOverrideDocument
 	{
 		public int Fields { get; set; }
+
+		public int ColumnMode { get; set; }
 
 		public BrowseViewSettingsDocument? Values { get; set; }
 	}

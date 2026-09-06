@@ -57,6 +57,121 @@ public sealed class ViewSettingsStoreTests
 		Assert.AreEqual(ViewSortDirection.Descending, effective.SortDirection);
 	}
 
+	/// <summary>Test case: inserted columns use absolute positions while retaining and updating inherited columns.</summary>
+	[TestMethod]
+	public void InsertColumnsRetainsInheritedColumnsAndAppliesPersistedPresentation()
+	{
+		var inheritedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+			new ViewColumnSettings("System.DateModified", 160, 2),
+		};
+		var insertedColumns = new[]
+		{
+			new ViewColumnSettings("ReFiles.Tag", 120, 1),
+			new ViewColumnSettings("System.Size", 144, 3, isVisible: false),
+		};
+		var inherited = new BrowseViewSettings(ViewLayoutMode.Details, inheritedColumns, "System.DateModified", ViewSortDirection.Descending);
+		var settingsOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: insertedColumns), ViewColumnSettingsMode.Insert);
+
+		var effective = settingsOverride.ApplyTo(inherited);
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("ReFiles.Tag", 120, 1),
+			new ViewColumnSettings("System.DateModified", 160, 2),
+			new ViewColumnSettings("System.Size", 144, 3, isVisible: false),
+		};
+		CollectionAssert.AreEqual(expectedColumns, effective.Columns.ToArray());
+		Assert.AreEqual(ViewLayoutMode.Details, effective.LayoutMode);
+		Assert.AreEqual("System.DateModified", effective.SortPropertyId);
+		Assert.AreEqual(ViewSortDirection.Descending, effective.SortDirection);
+	}
+
+	/// <summary>Test case: a replace layer and a higher-priority insert layer merge into one complete column layout.</summary>
+	[TestMethod]
+	public void MergeCombinesReplaceColumnsWithHigherPriorityInsertColumns()
+	{
+		var providerColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+		};
+		var applicationColumns = new[] { new ViewColumnSettings("ReFiles.Tag", 120, 1) };
+		var provider = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: providerColumns));
+		var application = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: applicationColumns), ViewColumnSettingsMode.Insert);
+
+		var merged = provider.Merge(application);
+		var effective = merged.ApplyTo(BrowseViewSettings.Default);
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("ReFiles.Tag", 120, 1),
+			new ViewColumnSettings("System.Size", 100, 2),
+		};
+		Assert.AreEqual(ViewColumnSettingsMode.Replace, merged.ColumnMode);
+		CollectionAssert.AreEqual(expectedColumns, effective.Columns.ToArray());
+	}
+
+	/// <summary>Test case: merging unrelated lower fields does not normalize absolute positions in an inserted column layer.</summary>
+	[TestMethod]
+	public void MergePreservesInsertPositionsWhenLowerLayerDoesNotSupplyColumns()
+	{
+		var lower = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.Columns));
+		var applicationColumns = new[] { new ViewColumnSettings("ReFiles.Tag", 120, 2) };
+		var higher = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: applicationColumns), ViewColumnSettingsMode.Insert);
+		var providerColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+			new ViewColumnSettings("System.DateModified", 160, 2),
+		};
+
+		var merged = lower.Merge(higher);
+		var effective = merged.ApplyTo(new BrowseViewSettings(columns: providerColumns));
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+			new ViewColumnSettings("ReFiles.Tag", 120, 2),
+			new ViewColumnSettings("System.DateModified", 160, 3),
+		};
+		Assert.AreEqual(ViewLayoutMode.Columns, effective.LayoutMode);
+		Assert.AreEqual(ViewColumnSettingsMode.Insert, merged.ColumnMode);
+		CollectionAssert.AreEqual(expectedColumns, effective.Columns.ToArray());
+	}
+
+	/// <summary>Test case: a higher-priority inserted-column field replaces an earlier insertion layer.</summary>
+	[TestMethod]
+	public void MergeReplacesLowerPriorityInsertColumns()
+	{
+		var inheritedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+		};
+		var lowerColumns = new[] { new ViewColumnSettings("ReFiles.Tag", 120, 1) };
+		var higherColumns = new[] { new ViewColumnSettings("ReFiles.GitStatus", 96, 2) };
+		var lower = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: lowerColumns), ViewColumnSettingsMode.Insert);
+		var higher = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: higherColumns), ViewColumnSettingsMode.Insert);
+
+		var merged = lower.Merge(higher);
+		var effective = merged.ApplyTo(new BrowseViewSettings(columns: inheritedColumns));
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+			new ViewColumnSettings("ReFiles.GitStatus", 96, 2),
+		};
+		Assert.AreEqual(ViewColumnSettingsMode.Insert, merged.ColumnMode);
+		CollectionAssert.AreEqual(expectedColumns, effective.Columns.ToArray());
+	}
+
 	/// <summary>Test case: stable scope keys exclude recovery hints and search query text.</summary>
 	[TestMethod]
 	public void ScopeKeysUseStableLocationIdentityWithoutSearchQuery()
@@ -117,7 +232,8 @@ public sealed class ViewSettingsStoreTests
 			new ViewColumnSettings("System.Size", 120, 1, isVisible: false),
 		};
 		var values = new BrowseViewSettings(ViewLayoutMode.Details, columns, sortPropertyId: null, itemSize: null);
-		var settingsOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns | ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.ItemSize, values);
+		var fields = ViewSettingsOverrideFields.DetailsColumns | ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.ItemSize;
+		var settingsOverride = new BrowseViewSettingsOverride(fields, values, ViewColumnSettingsMode.Insert);
 
 		try
 		{
@@ -136,6 +252,7 @@ public sealed class ViewSettingsStoreTests
 
 			Assert.IsNotNull(loaded);
 			Assert.AreEqual(settingsOverride.Fields, loaded.Fields);
+			Assert.AreEqual(ViewColumnSettingsMode.Insert, loaded.ColumnMode);
 			CollectionAssert.AreEqual(columns, loaded.Values.Columns.ToArray());
 			Assert.IsNull(loaded.Values.SortPropertyId);
 			Assert.IsNull(loaded.Values.ItemSize);
@@ -176,6 +293,40 @@ public sealed class ViewSettingsStoreTests
 			var reader = new JsonViewSettingsStore(filePath);
 			Assert.AreEqual(ViewLayoutMode.List, (await reader.GetAsync(firstScope))?.Values.LayoutMode);
 			Assert.AreEqual(ViewLayoutMode.Columns, (await reader.GetAsync(secondScope))?.Values.LayoutMode);
+		}
+		finally
+		{
+			if (Directory.Exists(directoryPath))
+			{
+				Directory.Delete(directoryPath, recursive: true);
+			}
+		}
+	}
+
+	/// <summary>Test case: independent stores atomically transform unrelated fields in the same scope.</summary>
+	[TestMethod]
+	public async Task JsonStoreAtomicallyUpdatesOneScope()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ViewSettingsAtomicUpdateTests-{Guid.NewGuid():N}");
+		var filePath = Path.Combine(directoryPath, "view-settings.json");
+		var scope = new ViewSettingsScopeKey("v1/test/shared");
+		var layoutOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List));
+		var sortValues = new BrowseViewSettings(sortPropertyId: "System.Size", sortDirection: ViewSortDirection.Descending);
+		var sortOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.SortDirection, sortValues);
+
+		try
+		{
+			var firstStore = new JsonViewSettingsStore(filePath);
+			var secondStore = new JsonViewSettingsStore(filePath);
+			await Task.WhenAll(firstStore.PatchAsync(scope, layoutOverride.Fields, layoutOverride).AsTask(), secondStore.PatchAsync(scope, sortOverride.Fields, sortOverride).AsTask());
+
+			var stored = await new JsonViewSettingsStore(filePath).GetAsync(scope);
+			Assert.IsNotNull(stored);
+			Assert.AreEqual(ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.SortDirection, stored.Fields);
+			var effective = stored.ApplyTo(BrowseViewSettings.Default);
+			Assert.AreEqual(ViewLayoutMode.List, effective.LayoutMode);
+			Assert.AreEqual("System.Size", effective.SortPropertyId);
+			Assert.AreEqual(ViewSortDirection.Descending, effective.SortDirection);
 		}
 		finally
 		{

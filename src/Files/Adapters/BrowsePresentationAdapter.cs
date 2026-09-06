@@ -1221,6 +1221,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		if (!IsStatusBarSizeLoadCurrent(load))
 		{
 			return;
@@ -1803,11 +1804,12 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		var settings = new List<ViewColumnSettings>();
 		var seen = new HashSet<string>(StringComparer.Ordinal);
-		foreach (var column in columnSet.DefaultVisible)
+		var defaultVisible = columnSet.DefaultVisible.Select(static column => column.PropertyId).ToHashSet(StringComparer.Ordinal);
+		foreach (var column in columnSet.All.Where(static column => !column.IsHidden).OrderBy(static column => column.Index))
 		{
 			if (seen.Add(column.PropertyId))
 			{
-				settings.Add(new ViewColumnSettings(column.PropertyId, GetDefaultColumnWidth(column), settings.Count));
+				settings.Add(new ViewColumnSettings(column.PropertyId, GetDefaultColumnWidth(column), settings.Count, defaultVisible.Contains(column.PropertyId)));
 			}
 		}
 

@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Files.Core.Diagnostics;
 using Files.Core.Storage;
+using Files.Core.ViewSettings;
 using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -168,6 +169,30 @@ internal sealed class WindowsStorableFactory
 			cancellationToken);
 	}
 
+	internal Task<BrowseViewSettingsOverride?> GetViewSettingsAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(descriptor);
+
+		return _resolver.InvokeAsync(descriptor.Locator, shellItem => WindowsShellViewSettingsPersistence.Read(shellItem, descriptor.Locator.ParsingName, cancellationToken), cancellationToken);
+	}
+
+	internal Task<ViewSettingsPersistenceResult> SetViewSettingsAsync(WindowsStorableDescriptor descriptor, BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(descriptor);
+
+		ArgumentNullException.ThrowIfNull(settingsOverride);
+
+		return _resolver.InvokeAsync(descriptor.Locator,
+			shellItem => WindowsShellViewSettingsPersistence.Write(shellItem, descriptor.Locator.ParsingName, settingsOverride, cancellationToken), cancellationToken);
+	}
+
+	internal Task<BrowseViewSettingsOverride> ClearViewSettingsAsync(WindowsStorableDescriptor descriptor, ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(descriptor);
+
+		return _resolver.InvokeAsync(descriptor.Locator, shellItem => WindowsShellViewSettingsPersistence.Clear(shellItem, descriptor.Locator.ParsingName, fields, cancellationToken), cancellationToken);
+	}
+
 	internal async IAsyncEnumerable<WindowsStorableDescriptor> EnumerateChildrenAsync(WindowsStorableDescriptor descriptor, HWND ownerWindow,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
@@ -216,6 +241,7 @@ internal sealed class WindowsStorableFactory
 
 			await producer.ConfigureAwait(false);
 			cancellationToken.ThrowIfCancellationRequested();
+
 		}
 		finally
 		{
@@ -454,6 +480,7 @@ internal sealed class WindowsStorableFactory
 					for (var index = 0; index < fetchedCount; index++)
 					{
 						cancellationToken.ThrowIfCancellationRequested();
+
 						var childPidl = childPidls[index];
 						if (childPidl is null)
 						{

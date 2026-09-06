@@ -39,6 +39,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	private BrowseContextState? _preparingContext;
 	private ViewSettingsScopeKey? _viewSettingsScope;
 	private BrowseViewSettings _viewSettingsBaseline = BrowseViewSettings.Default;
+	private BrowseViewSettingsOverride _providerViewSettings = new(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
 	private BrowseViewSettingsOverride _viewSettingsOverride = new(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
 	private Task? _disposeTask;
 	private CancellationTokenSource? _activeNavigationCancellation;
@@ -171,6 +172,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		{
 			nextLocationContext = await _locationResolver.OpenAsync(location, cancellationToken).ConfigureAwait(false);
 			ArgumentNullException.ThrowIfNull(nextLocationContext);
+
 			CoreDiagnosticLog.Write("BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 
 			var changes = nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
@@ -179,14 +181,22 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			Volatile.Write(ref _preparingContext, nextContext);
 
 			ViewSettingsScopeKey.TryForLocation(location, out var nextViewSettingsScope);
-			var nextViewSettingsOverride = nextViewSettingsScope is null
-				? _unscopedSessionViewSettings.GetValueOrDefault(location)
-				: _viewSettingsStore is null
-					? _sessionViewSettings.GetValueOrDefault(nextViewSettingsScope)
-					: await _viewSettingsStore.GetAsync(nextViewSettingsScope, cancellationToken).ConfigureAwait(false);
+			BrowseViewSettingsOverride? nextProviderViewSettings;
+			BrowseViewSettingsOverride? nextViewSettingsOverride;
+			await using (var viewSettingsTransactionLock = await ViewSettingsTransactionLock.AcquireAsync(nextViewSettingsScope, cancellationToken).ConfigureAwait(false))
+			{
+				nextProviderViewSettings = await GetProviderViewSettingsAsync(nextLocationContext, cancellationToken).ConfigureAwait(false);
+				nextViewSettingsOverride = nextViewSettingsScope is null
+					? _unscopedSessionViewSettings.GetValueOrDefault(location)
+					: _viewSettingsStore is null
+						? _sessionViewSettings.GetValueOrDefault(nextViewSettingsScope)
+						: await _viewSettingsStore.GetAsync(nextViewSettingsScope, cancellationToken).ConfigureAwait(false);
+			}
+
+			nextProviderViewSettings ??= new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
 			nextViewSettingsOverride ??= new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
 			var nextViewSettingsBaseline = BrowseViewSettings.Default;
-			var nextViewSettings = nextViewSettingsOverride.ApplyTo(nextViewSettingsBaseline);
+			var nextViewSettings = ApplyViewSettingsLayers(nextViewSettingsBaseline, nextProviderViewSettings, nextViewSettingsOverride);
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
 			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
@@ -224,7 +234,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				var batchToPublish = enumerationActivated
 					? pendingBatch
 					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
-				PublishEnumerationBatch(location, nextViewSettingsScope, nextViewSettingsBaseline, nextViewSettingsOverride, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState,
+				PublishEnumerationBatch(location, nextViewSettingsScope, nextViewSettingsBaseline, nextProviderViewSettings, nextViewSettingsOverride, nextViewSettings, nextContext, nextProjection,
+					batchToPublish,
+					ref previousState,
 					ref enumerationActivated);
 				pendingBatch.Clear();
 				targetBatchSize = targetBatchSize switch
@@ -242,12 +254,14 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				IReadOnlyList<IStorableModel> finalBatch = enumerationActivated
 					? pendingBatch
 					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
-				PublishEnumerationBatch(location, nextViewSettingsScope, nextViewSettingsBaseline, nextViewSettingsOverride, nextViewSettings, nextContext, nextProjection, finalBatch, ref previousState,
+				PublishEnumerationBatch(location, nextViewSettingsScope, nextViewSettingsBaseline, nextProviderViewSettings, nextViewSettingsOverride, nextViewSettings, nextContext, nextProjection, finalBatch,
+					ref previousState,
 					ref enumerationActivated);
 			}
 			else if (!enumerationActivated)
 			{
-				PublishEnumerationBatch(location, nextViewSettingsScope, nextViewSettingsBaseline, nextViewSettingsOverride, nextViewSettings, nextContext, nextProjection, [], ref previousState,
+				PublishEnumerationBatch(location, nextViewSettingsScope, nextViewSettingsBaseline, nextProviderViewSettings, nextViewSettingsOverride, nextViewSettings, nextContext, nextProjection, [],
+					ref previousState,
 					ref enumerationActivated);
 			}
 
@@ -337,6 +351,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		BrowseLocation location,
 		ViewSettingsScopeKey? viewSettingsScope,
 		BrowseViewSettings viewSettingsBaseline,
+		BrowseViewSettingsOverride providerViewSettings,
 		BrowseViewSettingsOverride viewSettingsOverride,
 		BrowseViewSettings settings,
 		BrowseContextState context,
@@ -364,6 +379,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				Volatile.Write(ref _activeContext, context);
 				_viewSettingsScope = viewSettingsScope;
 				_viewSettingsBaseline = viewSettingsBaseline;
+				_providerViewSettings = providerViewSettings;
 				_viewSettingsOverride = viewSettingsOverride;
 				ViewSettings = settings;
 				Error = null;
@@ -388,7 +404,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 
 	private BrowseNavigationSnapshot CaptureNavigationState()
 	{
-		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), _viewSettingsScope, _viewSettingsBaseline,
+		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), _viewSettingsScope, _viewSettingsBaseline, _providerViewSettings,
 			_viewSettingsOverride, ViewSettings, Selection, Items, _presentationStore.Capture());
 	}
 
@@ -405,6 +421,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			Volatile.Write(ref _itemProjection, previousState.ItemProjection);
 			_viewSettingsScope = previousState.ViewSettingsScope;
 			_viewSettingsBaseline = previousState.ViewSettingsBaseline;
+			_providerViewSettings = previousState.ProviderViewSettings;
 			_viewSettingsOverride = previousState.ViewSettingsOverride;
 			ViewSettings = previousState.ViewSettings;
 			_presentationStore.Restore(previousState.Presentations);
@@ -1141,8 +1158,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		ArgumentNullException.ThrowIfNull(settingsOverride);
 
 		var expectedGeneration = Generation;
-		var previewOverride = _viewSettingsOverride.Merge(settingsOverride);
-		var previewSettings = previewOverride.ApplyTo(_viewSettingsBaseline);
+		var previewSettings = settingsOverride.ApplyTo(ViewSettings);
 		using var propertySortRestorer = new PropertySortRestorer(this, expectedGeneration);
 		var propertySortTask = SortSettingsDiffer(ViewSettings, previewSettings) ? CancelPendingPropertySort(expectedGeneration) : null;
 		if (propertySortTask is not null)
@@ -1166,9 +1182,8 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				throw new InvalidOperationException("View settings require an active browse location.");
 			}
 
-			var mergedOverride = _viewSettingsOverride.Merge(settingsOverride);
-			var effectiveSettings = mergedOverride.ApplyTo(_viewSettingsBaseline);
-			var sortSettingsChanged = SortSettingsDiffer(ViewSettings, effectiveSettings);
+			var requestedSettings = settingsOverride.ApplyTo(ViewSettings);
+			var sortSettingsChanged = SortSettingsDiffer(ViewSettings, requestedSettings);
 			propertySortTask = sortSettingsChanged ? CancelPendingPropertySort(expectedGeneration) : null;
 			if (propertySortTask is not null)
 			{
@@ -1177,43 +1192,74 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			}
 
 			cancellationToken.ThrowIfCancellationRequested();
-			var preparedUpdate = await PrepareEffectiveViewSettingsAsync(effectiveSettings, cancellationToken).ConfigureAwait(false);
-			if (_viewSettingsScope is null)
+
+			var preparedUpdate = await PrepareEffectiveViewSettingsAsync(requestedSettings, cancellationToken).ConfigureAwait(false);
+			BrowseViewSettingsOverride nextProviderViewSettings;
+			BrowseViewSettingsOverride nextApplicationOverride;
+			BrowseViewSettings effectiveSettings;
+			await using (var viewSettingsTransactionLock = await ViewSettingsTransactionLock.AcquireAsync(_viewSettingsScope, cancellationToken).ConfigureAwait(false))
 			{
-				if (mergedOverride.Fields == ViewSettingsOverrideFields.None)
+				var currentProviderViewSettings = Context is null ? null : await GetProviderViewSettingsAsync(Context, cancellationToken).ConfigureAwait(false);
+				currentProviderViewSettings ??= _providerViewSettings;
+				var currentApplicationViewSettings = await GetApplicationViewSettingsAsync(Location, _viewSettingsScope, cancellationToken).ConfigureAwait(false);
+				var currentEffectiveSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, currentProviderViewSettings, currentApplicationViewSettings);
+				var transactionRequestedSettings = settingsOverride.ApplyTo(currentEffectiveSettings);
+				var requestedColumnMode = settingsOverride.ColumnMode;
+				if (settingsOverride.Fields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) && settingsOverride.ColumnMode is ViewColumnSettingsMode.Insert &&
+					currentApplicationViewSettings.Fields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) && currentApplicationViewSettings.ColumnMode is ViewColumnSettingsMode.Replace)
 				{
-					_unscopedSessionViewSettings.Remove(Location);
+					requestedColumnMode = ViewColumnSettingsMode.Replace;
 				}
-				else
+
+				var transactionRequestedOverride = new BrowseViewSettingsOverride(settingsOverride.Fields, transactionRequestedSettings, requestedColumnMode);
+				var fallbackApplicationOverride = await PatchApplicationViewSettingsAsync(
+					Location, _viewSettingsScope, settingsOverride.Fields, transactionRequestedOverride, cancellationToken).ConfigureAwait(false);
+				var completionToken = CancellationToken.None;
+				var persistenceResult = await PersistProviderViewSettingsAsync(transactionRequestedOverride, completionToken).ConfigureAwait(false);
+				nextProviderViewSettings = persistenceResult.ProviderSettings ?? currentProviderViewSettings;
+				var applicationReplacement = persistenceResult.ApplicationSettings;
+				if ((applicationReplacement.Fields & ~settingsOverride.Fields) != ViewSettingsOverrideFields.None)
 				{
-					_unscopedSessionViewSettings[Location] = mergedOverride;
+					CoreDiagnosticLog.Write("BrowseSession", "Provider view settings persistence returned application settings outside the requested fields.");
+					applicationReplacement = transactionRequestedOverride;
 				}
+
+				var candidateApplicationOverride = fallbackApplicationOverride.ReplaceFields(settingsOverride.Fields, applicationReplacement);
+				var candidateSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, nextProviderViewSettings, candidateApplicationOverride);
+				if (!ViewSettingsAreEquivalentForFields(candidateSettings, transactionRequestedSettings, settingsOverride.Fields))
+				{
+					applicationReplacement = transactionRequestedOverride;
+				}
+
+				try
+				{
+					nextApplicationOverride = await PatchApplicationViewSettingsAsync(Location, _viewSettingsScope, settingsOverride.Fields, applicationReplacement, completionToken).ConfigureAwait(false);
+				}
+				catch (Exception exception)
+				{
+					CoreDiagnosticLog.Write("BrowseSession", $"Application view settings compaction failed type={exception.GetType().Name} message={exception.Message}");
+					nextApplicationOverride = fallbackApplicationOverride;
+				}
+
+				effectiveSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, nextProviderViewSettings, nextApplicationOverride);
 			}
-			else if (_viewSettingsStore is not null)
+
+			sortSettingsChanged = SortSettingsDiffer(ViewSettings, effectiveSettings);
+			if (!ViewSettingsAreEquivalent(effectiveSettings, requestedSettings))
 			{
-				if (mergedOverride.Fields == ViewSettingsOverrideFields.None)
+				propertySortTask = sortSettingsChanged ? CancelPendingPropertySort(expectedGeneration) : null;
+				if (propertySortTask is not null)
 				{
-					await _viewSettingsStore.RemoveAsync(_viewSettingsScope, cancellationToken).ConfigureAwait(false);
+					propertySortRestorer.MarkCanceled();
+					await propertySortTask.ConfigureAwait(false);
 				}
-				else
-				{
-					await _viewSettingsStore.SetAsync(_viewSettingsScope, mergedOverride, cancellationToken).ConfigureAwait(false);
-				}
-			}
-			else
-			{
-				if (mergedOverride.Fields == ViewSettingsOverrideFields.None)
-				{
-					_sessionViewSettings.Remove(_viewSettingsScope);
-				}
-				else
-				{
-					_sessionViewSettings[_viewSettingsScope] = mergedOverride;
-				}
+
+				preparedUpdate = await PreparePersistedEffectiveViewSettingsAsync(effectiveSettings, CancellationToken.None).ConfigureAwait(false);
 			}
 
 			clearedThumbnails = CommitEffectiveViewSettings(effectiveSettings, preparedUpdate);
-			_viewSettingsOverride = mergedOverride;
+			_providerViewSettings = nextProviderViewSettings;
+			_viewSettingsOverride = nextApplicationOverride;
 			if (sortSettingsChanged)
 			{
 				propertySortRestorer.MarkReplaced();
@@ -1242,7 +1288,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			return false;
 		}
 
-		var previewSettings = _viewSettingsOverride.ApplyTo(settings);
+		var previewSettings = ApplyViewSettingsLayers(settings, _providerViewSettings, _viewSettingsOverride);
 		using var propertySortRestorer = new PropertySortRestorer(this, expectedGeneration);
 		var propertySortTask = SortSettingsDiffer(ViewSettings, previewSettings) ? CancelPendingPropertySort(expectedGeneration) : null;
 		if (propertySortTask is not null)
@@ -1261,7 +1307,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				return false;
 			}
 
-			var effectiveSettings = _viewSettingsOverride.ApplyTo(settings);
+			var effectiveSettings = ApplyViewSettingsLayers(settings, _providerViewSettings, _viewSettingsOverride);
 			var sortSettingsChanged = SortSettingsDiffer(ViewSettings, effectiveSettings);
 			propertySortTask = sortSettingsChanged ? CancelPendingPropertySort(expectedGeneration) : null;
 			if (propertySortTask is not null)
@@ -1271,6 +1317,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			}
 
 			cancellationToken.ThrowIfCancellationRequested();
+
 			var preparedUpdate = await PrepareEffectiveViewSettingsAsync(effectiveSettings, cancellationToken).ConfigureAwait(false);
 			clearedThumbnails = CommitEffectiveViewSettings(effectiveSettings, preparedUpdate);
 			_viewSettingsBaseline = settings;
@@ -1293,121 +1340,15 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	}
 
 	/// <inheritdoc />
-	public ValueTask ResetViewSettingsAsync(CancellationToken cancellationToken = default)
+	public async ValueTask ResetViewSettingsAsync(CancellationToken cancellationToken = default)
 	{
-		return ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields.All, cancellationToken);
+		await ClearViewSettingsAsync(ViewSettingsOverrideFields.All, clearProvider: true, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <inheritdoc />
-	public async ValueTask ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
+	public ValueTask ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
 	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
-		if ((fields & ~ViewSettingsOverrideFields.All) != 0)
-		{
-			throw new ArgumentOutOfRangeException(nameof(fields));
-		}
-
-		if (fields == ViewSettingsOverrideFields.None)
-		{
-			return;
-		}
-
-		var expectedGeneration = Generation;
-		var currentOverride = _viewSettingsOverride;
-		var previewRetainedFields = currentOverride.Fields & ~fields;
-		var previewOverride = new BrowseViewSettingsOverride(previewRetainedFields, currentOverride.Values);
-		var previewSettings = previewOverride.ApplyTo(_viewSettingsBaseline);
-		using var propertySortRestorer = new PropertySortRestorer(this, expectedGeneration);
-		var propertySortTask = SortSettingsDiffer(ViewSettings, previewSettings) ? CancelPendingPropertySort(expectedGeneration) : null;
-		if (propertySortTask is not null)
-		{
-			propertySortRestorer.MarkCanceled();
-			await propertySortTask.ConfigureAwait(false);
-		}
-
-		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = [];
-		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-		try
-		{
-			if (Generation != expectedGeneration)
-			{
-				return;
-			}
-
-			if (Location is null)
-			{
-				throw new InvalidOperationException("View settings require an active browse location.");
-			}
-
-			var retainedFields = _viewSettingsOverride.Fields & ~fields;
-			if (retainedFields == _viewSettingsOverride.Fields)
-			{
-				return;
-			}
-
-			var retainedOverride = new BrowseViewSettingsOverride(retainedFields, _viewSettingsOverride.Values);
-			var effectiveSettings = retainedOverride.ApplyTo(_viewSettingsBaseline);
-			var sortSettingsChanged = SortSettingsDiffer(ViewSettings, effectiveSettings);
-			propertySortTask = sortSettingsChanged ? CancelPendingPropertySort(expectedGeneration) : null;
-			if (propertySortTask is not null)
-			{
-				propertySortRestorer.MarkCanceled();
-				await propertySortTask.ConfigureAwait(false);
-			}
-
-			cancellationToken.ThrowIfCancellationRequested();
-			var preparedUpdate = await PrepareEffectiveViewSettingsAsync(effectiveSettings, cancellationToken).ConfigureAwait(false);
-			if (_viewSettingsScope is null)
-			{
-				if (retainedFields == ViewSettingsOverrideFields.None)
-				{
-					_unscopedSessionViewSettings.Remove(Location);
-				}
-				else
-				{
-					_unscopedSessionViewSettings[Location] = retainedOverride;
-				}
-			}
-			else if (_viewSettingsStore is not null)
-			{
-				if (retainedFields == ViewSettingsOverrideFields.None)
-				{
-					await _viewSettingsStore.RemoveAsync(_viewSettingsScope, cancellationToken).ConfigureAwait(false);
-				}
-				else
-				{
-					await _viewSettingsStore.SetAsync(_viewSettingsScope, retainedOverride, cancellationToken).ConfigureAwait(false);
-				}
-			}
-			else
-			{
-				if (retainedFields == ViewSettingsOverrideFields.None)
-				{
-					_sessionViewSettings.Remove(_viewSettingsScope);
-				}
-				else
-				{
-					_sessionViewSettings[_viewSettingsScope] = retainedOverride;
-				}
-			}
-
-			clearedThumbnails = CommitEffectiveViewSettings(effectiveSettings, preparedUpdate);
-			_viewSettingsOverride = retainedOverride;
-			if (sortSettingsChanged)
-			{
-				propertySortRestorer.MarkReplaced();
-			}
-		}
-		finally
-		{
-			_navigationLock.Release();
-		}
-
-		foreach (var thumbnail in clearedThumbnails)
-		{
-			RaiseEvent(ItemPresentationChanged, thumbnail);
-		}
+		return ClearViewSettingsAsync(fields, clearProvider: false, cancellationToken);
 	}
 
 	/// <inheritdoc />
@@ -1415,6 +1356,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
 		ArgumentNullException.ThrowIfNull(settings);
+
 		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 
 		try
@@ -1449,6 +1391,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		ArgumentNullException.ThrowIfNull(properties);
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		var key = item.Reference.GetKey();
 		var projection = Volatile.Read(ref _itemProjection);
 		BrowseItemPresentationChangedEventArgs? presentationChanged = null;
@@ -1485,6 +1428,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		ArgumentNullException.ThrowIfNull(thumbnail);
 
 		cancellationToken.ThrowIfCancellationRequested();
+
 		var key = item.Reference.GetKey();
 		var projection = Volatile.Read(ref _itemProjection);
 		BrowseItemPresentationChangedEventArgs? presentationChanged = null;
@@ -1564,6 +1508,145 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		}
 	}
 
+	private async ValueTask ClearViewSettingsAsync(ViewSettingsOverrideFields fields, bool clearProvider, CancellationToken cancellationToken)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
+
+		if ((fields & ~ViewSettingsOverrideFields.All) != 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(fields));
+		}
+
+		if (fields == ViewSettingsOverrideFields.None)
+		{
+			return;
+		}
+
+		var expectedGeneration = Generation;
+		var currentOverride = _viewSettingsOverride;
+		var previewRetainedFields = currentOverride.Fields & ~fields;
+		var previewColumnMode = previewRetainedFields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) ? currentOverride.ColumnMode : ViewColumnSettingsMode.Replace;
+		var previewOverride = new BrowseViewSettingsOverride(previewRetainedFields, currentOverride.Values, previewColumnMode);
+		var previewProvider = clearProvider ? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default) : _providerViewSettings;
+		var previewSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, previewProvider, previewOverride);
+		using var propertySortRestorer = new PropertySortRestorer(this, expectedGeneration);
+		var propertySortTask = SortSettingsDiffer(ViewSettings, previewSettings) ? CancelPendingPropertySort(expectedGeneration) : null;
+		if (propertySortTask is not null)
+		{
+			propertySortRestorer.MarkCanceled();
+			await propertySortTask.ConfigureAwait(false);
+		}
+
+		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = [];
+		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			if (Generation != expectedGeneration)
+			{
+				return;
+			}
+
+			if (Location is null)
+			{
+				throw new InvalidOperationException("View settings require an active browse location.");
+			}
+
+			var retainedFields = _viewSettingsOverride.Fields & ~fields;
+			var retainedColumnMode = retainedFields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) ? _viewSettingsOverride.ColumnMode : ViewColumnSettingsMode.Replace;
+			var retainedOverride = new BrowseViewSettingsOverride(retainedFields, _viewSettingsOverride.Values, retainedColumnMode);
+			var expectedProviderViewSettings = clearProvider ? RemoveOverrideFields(_providerViewSettings, fields) : _providerViewSettings;
+			var effectiveSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, expectedProviderViewSettings, retainedOverride);
+			var sortSettingsChanged = SortSettingsDiffer(ViewSettings, effectiveSettings);
+			propertySortTask = sortSettingsChanged ? CancelPendingPropertySort(expectedGeneration) : null;
+			if (propertySortTask is not null)
+			{
+				propertySortRestorer.MarkCanceled();
+				await propertySortTask.ConfigureAwait(false);
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var preparedSettings = effectiveSettings;
+			var preparedUpdate = await PrepareEffectiveViewSettingsAsync(effectiveSettings, cancellationToken).ConfigureAwait(false);
+			var completionToken = cancellationToken;
+			BrowseViewSettingsOverride nextProviderViewSettings;
+			await using (var viewSettingsTransactionLock = await ViewSettingsTransactionLock.AcquireAsync(_viewSettingsScope, cancellationToken).ConfigureAwait(false))
+			{
+				var currentProviderViewSettings = Context is null ? null : await GetProviderViewSettingsAsync(Context, cancellationToken).ConfigureAwait(false);
+				currentProviderViewSettings ??= _providerViewSettings;
+				expectedProviderViewSettings = clearProvider ? RemoveOverrideFields(currentProviderViewSettings, fields) : currentProviderViewSettings;
+				effectiveSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, expectedProviderViewSettings, retainedOverride);
+				nextProviderViewSettings = expectedProviderViewSettings;
+				var providerClearSucceeded = true;
+				BrowseViewSettingsOverride? providerClearFallback = null;
+				if (clearProvider)
+				{
+					var fallbackOverride = new BrowseViewSettingsOverride(fields, effectiveSettings);
+					providerClearFallback = await PatchApplicationViewSettingsAsync(Location, _viewSettingsScope, fields, fallbackOverride, cancellationToken).ConfigureAwait(false);
+					retainedOverride = providerClearFallback;
+					completionToken = CancellationToken.None;
+					try
+					{
+						nextProviderViewSettings = await ClearProviderViewSettingsAsync(fields, expectedProviderViewSettings, completionToken).ConfigureAwait(false);
+					}
+					catch (Exception exception)
+					{
+						CoreDiagnosticLog.Write("BrowseSession", $"Provider view settings reset failed type={exception.GetType().Name} message={exception.Message}");
+						nextProviderViewSettings = currentProviderViewSettings;
+						providerClearSucceeded = false;
+					}
+				}
+
+				if (providerClearSucceeded)
+				{
+					var emptyOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+					try
+					{
+						retainedOverride = await PatchApplicationViewSettingsAsync(Location, _viewSettingsScope, fields, emptyOverride, completionToken).ConfigureAwait(false);
+					}
+					catch (Exception exception) when (providerClearFallback is not null)
+					{
+						CoreDiagnosticLog.Write("BrowseSession", $"Application view settings reset compaction failed type={exception.GetType().Name} message={exception.Message}");
+						retainedOverride = providerClearFallback;
+					}
+				}
+
+				effectiveSettings = ApplyViewSettingsLayers(_viewSettingsBaseline, nextProviderViewSettings, retainedOverride);
+			}
+
+			sortSettingsChanged = SortSettingsDiffer(ViewSettings, effectiveSettings);
+			if (!ViewSettingsAreEquivalent(effectiveSettings, preparedSettings))
+			{
+				propertySortTask = sortSettingsChanged ? CancelPendingPropertySort(expectedGeneration) : null;
+				if (propertySortTask is not null)
+				{
+					propertySortRestorer.MarkCanceled();
+					await propertySortTask.ConfigureAwait(false);
+				}
+
+				preparedUpdate = await PreparePersistedEffectiveViewSettingsAsync(effectiveSettings, completionToken).ConfigureAwait(false);
+			}
+
+			clearedThumbnails = CommitEffectiveViewSettings(effectiveSettings, preparedUpdate);
+			_providerViewSettings = nextProviderViewSettings;
+			_viewSettingsOverride = retainedOverride;
+			if (sortSettingsChanged)
+			{
+				propertySortRestorer.MarkReplaced();
+			}
+		}
+		finally
+		{
+			_navigationLock.Release();
+		}
+
+		foreach (var thumbnail in clearedThumbnails)
+		{
+			RaiseEvent(ItemPresentationChanged, thumbnail);
+		}
+	}
+
 	private async ValueTask<PreparedViewSettingsUpdate> PrepareEffectiveViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken)
 	{
 		var sortChanged = !string.Equals(ViewSettings.SortPropertyId, settings.SortPropertyId, StringComparison.Ordinal) || ViewSettings.SortDirection != settings.SortDirection;
@@ -1587,6 +1670,20 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		}
 
 		return new PreparedViewSettingsUpdate(true, externalOrder);
+	}
+
+	private async ValueTask<PreparedViewSettingsUpdate> PreparePersistedEffectiveViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken)
+	{
+		try
+		{
+			return await PrepareEffectiveViewSettingsAsync(settings, cancellationToken).ConfigureAwait(false);
+		}
+		catch (Exception exception)
+		{
+			CoreDiagnosticLog.Write("BrowseSession", $"Persisted view settings external sort failed type={exception.GetType().Name} message={exception.Message}");
+
+			return new PreparedViewSettingsUpdate(SortSettingsDiffer(ViewSettings, settings), null);
+		}
 	}
 
 	private BrowseItemPresentationChangedEventArgs[] CommitEffectiveViewSettings(BrowseViewSettings settings, PreparedViewSettingsUpdate preparedUpdate)
@@ -1641,6 +1738,175 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	private static bool SortSettingsDiffer(BrowseViewSettings current, BrowseViewSettings next)
 	{
 		return !string.Equals(current.SortPropertyId, next.SortPropertyId, StringComparison.Ordinal) || current.SortDirection != next.SortDirection;
+	}
+
+	private static bool ViewSettingsAreEquivalent(BrowseViewSettings current, BrowseViewSettings next)
+	{
+		return current.LayoutMode == next.LayoutMode &&
+			current.Columns.SequenceEqual(next.Columns) &&
+			string.Equals(current.SortPropertyId, next.SortPropertyId, StringComparison.Ordinal) &&
+			current.SortDirection == next.SortDirection &&
+			current.ItemSize == next.ItemSize &&
+			string.Equals(current.GroupPropertyId, next.GroupPropertyId, StringComparison.Ordinal) &&
+			current.GroupDirection == next.GroupDirection;
+	}
+
+	private static bool ViewSettingsAreEquivalentForFields(BrowseViewSettings current, BrowseViewSettings next, ViewSettingsOverrideFields fields)
+	{
+		return (!fields.HasFlag(ViewSettingsOverrideFields.LayoutMode) || current.LayoutMode == next.LayoutMode) &&
+			(!fields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) || current.Columns.SequenceEqual(next.Columns)) &&
+			(!fields.HasFlag(ViewSettingsOverrideFields.SortPropertyId) || string.Equals(current.SortPropertyId, next.SortPropertyId, StringComparison.Ordinal)) &&
+			(!fields.HasFlag(ViewSettingsOverrideFields.SortDirection) || current.SortDirection == next.SortDirection) &&
+			(!fields.HasFlag(ViewSettingsOverrideFields.ItemSize) || current.ItemSize == next.ItemSize) &&
+			(!fields.HasFlag(ViewSettingsOverrideFields.GroupPropertyId) || string.Equals(current.GroupPropertyId, next.GroupPropertyId, StringComparison.Ordinal)) &&
+			(!fields.HasFlag(ViewSettingsOverrideFields.GroupDirection) || current.GroupDirection == next.GroupDirection);
+	}
+
+	private static BrowseViewSettings ApplyViewSettingsLayers(BrowseViewSettings baseline, BrowseViewSettingsOverride providerSettings, BrowseViewSettingsOverride applicationSettings)
+	{
+		return applicationSettings.ApplyTo(providerSettings.ApplyTo(baseline));
+	}
+
+	private async ValueTask<ViewSettingsPersistenceResult> PersistProviderViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken)
+	{
+		if (Context is not IViewSettingsPersistenceProvider provider)
+		{
+			return new ViewSettingsPersistenceResult(null, settingsOverride);
+		}
+
+		try
+		{
+			return await provider.SetViewSettingsAsync(settingsOverride, cancellationToken).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch (Exception exception)
+		{
+			CoreDiagnosticLog.Write("BrowseSession", $"Provider view settings persistence failed type={exception.GetType().Name} message={exception.Message}");
+
+			return new ViewSettingsPersistenceResult(null, settingsOverride);
+		}
+	}
+
+	private async ValueTask<BrowseViewSettingsOverride> ClearProviderViewSettingsAsync(ViewSettingsOverrideFields fields, BrowseViewSettingsOverride fallbackSettings, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(fallbackSettings);
+
+		if (Context is not IViewSettingsPersistenceProvider provider)
+		{
+			return fallbackSettings;
+		}
+
+		var providerSettings = await provider.ClearViewSettingsAsync(fields, cancellationToken).ConfigureAwait(false);
+		if (providerSettings is null)
+		{
+			throw new InvalidOperationException("The view settings provider could not clear its persisted state.");
+		}
+
+		if ((providerSettings.Fields & fields) != ViewSettingsOverrideFields.None)
+		{
+			throw new InvalidOperationException("The view settings provider returned fields that were requested to be cleared.");
+		}
+
+		return providerSettings;
+	}
+
+	private async ValueTask<BrowseViewSettingsOverride> PatchApplicationViewSettingsAsync(
+		BrowseLocation location,
+		ViewSettingsScopeKey? scope,
+		ViewSettingsOverrideFields fields,
+		BrowseViewSettingsOverride replacement,
+		CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+
+		ArgumentNullException.ThrowIfNull(replacement);
+
+		if (scope is null)
+		{
+			var current = _unscopedSessionViewSettings.GetValueOrDefault(location) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+			var updated = current.ReplaceFields(fields, replacement);
+			if (updated.Fields == ViewSettingsOverrideFields.None)
+			{
+				_unscopedSessionViewSettings.Remove(location);
+			}
+			else
+			{
+				_unscopedSessionViewSettings[location] = updated;
+			}
+
+			return updated;
+		}
+
+		if (_viewSettingsStore is not null)
+		{
+			var updated = await _viewSettingsStore.PatchAsync(scope, fields, replacement, cancellationToken).ConfigureAwait(false);
+
+			return updated ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		}
+
+		var sessionCurrent = _sessionViewSettings.GetValueOrDefault(scope) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		var sessionUpdated = sessionCurrent.ReplaceFields(fields, replacement);
+		if (sessionUpdated.Fields == ViewSettingsOverrideFields.None)
+		{
+			_sessionViewSettings.Remove(scope);
+		}
+		else
+		{
+			_sessionViewSettings[scope] = sessionUpdated;
+		}
+
+		return sessionUpdated;
+	}
+
+	private async ValueTask<BrowseViewSettingsOverride> GetApplicationViewSettingsAsync(BrowseLocation location, ViewSettingsScopeKey? scope, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+
+		if (scope is null)
+		{
+			return _unscopedSessionViewSettings.GetValueOrDefault(location) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		}
+
+		if (_viewSettingsStore is not null)
+		{
+			return await _viewSettingsStore.GetAsync(scope, cancellationToken).ConfigureAwait(false) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		}
+
+		return _sessionViewSettings.GetValueOrDefault(scope) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+	}
+
+	private static async ValueTask<BrowseViewSettingsOverride?> GetProviderViewSettingsAsync(IBrowseLocationContext context, CancellationToken cancellationToken)
+	{
+		if (context is not IViewSettingsPersistenceProvider provider)
+		{
+			return null;
+		}
+
+		try
+		{
+			return await provider.GetViewSettingsAsync(cancellationToken).ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch (Exception exception)
+		{
+			CoreDiagnosticLog.Write("BrowseSession", $"Provider view settings read failed type={exception.GetType().Name} message={exception.Message}");
+
+			return null;
+		}
+	}
+
+	private static BrowseViewSettingsOverride RemoveOverrideFields(BrowseViewSettingsOverride current, ViewSettingsOverrideFields fields)
+	{
+		var retainedFields = current.Fields & ~fields;
+		var retainedColumnMode = retainedFields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) ? current.ColumnMode : ViewColumnSettingsMode.Replace;
+
+		return new BrowseViewSettingsOverride(retainedFields, current.Values, retainedColumnMode);
 	}
 
 	private void RestorePendingPropertySort(long generation)
@@ -1913,6 +2179,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		BrowseItemProjection ItemProjection,
 		ViewSettingsScopeKey? ViewSettingsScope,
 		BrowseViewSettings ViewSettingsBaseline,
+		BrowseViewSettingsOverride ProviderViewSettings,
 		BrowseViewSettingsOverride ViewSettingsOverride,
 		BrowseViewSettings ViewSettings,
 		BrowseSelectionState Selection,

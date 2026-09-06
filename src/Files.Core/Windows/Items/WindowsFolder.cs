@@ -28,6 +28,34 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 		return Factory.GetColumnsAsync(Descriptor, cancellationToken);
 	}
 
+	/// <summary>Gets view settings persisted in the Windows Shell store for this folder.</summary>
+	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
+	/// <returns>The persisted Shell settings, or <see langword="null"/> when no settings are stored.</returns>
+	public Task<BrowseViewSettingsOverride?> GetViewSettingsAsync(CancellationToken cancellationToken = default)
+	{
+		return Factory.GetViewSettingsAsync(Descriptor, cancellationToken);
+	}
+
+	/// <summary>Persists supported view settings in the Windows Shell store for this folder.</summary>
+	/// <param name="settingsOverride">The requested settings.</param>
+	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
+	/// <returns>The resulting Shell state and application-owned remainder.</returns>
+	public Task<ViewSettingsPersistenceResult> SetViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(settingsOverride);
+
+		return Factory.SetViewSettingsAsync(Descriptor, settingsOverride, cancellationToken);
+	}
+
+	/// <summary>Clears selected view settings from the Windows Shell store for this folder.</summary>
+	/// <param name="fields">The settings to clear.</param>
+	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
+	/// <returns>The remaining Shell settings.</returns>
+	public Task<BrowseViewSettingsOverride> ClearViewSettingsAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
+	{
+		return Factory.ClearViewSettingsAsync(Descriptor, fields, cancellationToken);
+	}
+
 	/// <summary>Enumerates the items in the Windows Shell folder.</summary>
 	/// <param name="type">The kinds of items to include.</param>
 	/// <param name="cancellationToken">The token used to cancel enumeration.</param>

@@ -64,6 +64,38 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		return ValueTask.CompletedTask;
 	}
 
+	/// <summary>Atomically replaces selected fields in the settings override stored for a view scope.</summary>
+	/// <param name="scope">The stable view scope.</param>
+	/// <param name="fields">The fields to replace or clear.</param>
+	/// <param name="replacement">Replacement values whose supplied fields must be a subset of <paramref name="fields"/>.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The stored override after the patch, or <see langword="null"/> when no fields remain.</returns>
+	public ValueTask<BrowseViewSettingsOverride?> PatchAsync(ViewSettingsScopeKey scope, ViewSettingsOverrideFields fields, BrowseViewSettingsOverride replacement,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(scope);
+
+		ArgumentNullException.ThrowIfNull(replacement);
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		lock (_syncRoot)
+		{
+			var current = _values.GetValueOrDefault(scope) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+			var updated = current.ReplaceFields(fields, replacement);
+			if (updated.Fields == ViewSettingsOverrideFields.None)
+			{
+				_values.Remove(scope);
+
+				return ValueTask.FromResult<BrowseViewSettingsOverride?>(null);
+			}
+
+			_values[scope] = updated;
+
+			return ValueTask.FromResult<BrowseViewSettingsOverride?>(updated);
+		}
+	}
+
 	/// <summary>Stores complete settings for a browse location.</summary>
 	/// <param name="location">The browse location.</param>
 	/// <param name="settings">The complete settings to store.</param>
