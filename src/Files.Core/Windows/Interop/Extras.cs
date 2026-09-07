@@ -53,7 +53,16 @@ namespace Windows.Win32
 
 		[LibraryImport("shlwapi.dll", EntryPoint = "SHGetViewStatePropertyBag", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		internal static partial HRESULT SHGetViewStatePropertyBag(in ITEMIDLIST pidl, string bagName, uint flags, in Guid interfaceId, out IPropertyBag? propertyBag);
+		internal static unsafe partial HRESULT SHGetViewStatePropertyBag(ITEMIDLIST* pidl, string bagName, uint flags, in Guid interfaceId, out IPropertyBag? propertyBag);
+
+		/// <summary>Initializes a VARIANT with a copy of a native byte buffer.</summary>
+		/// <param name="buffer">The source buffer.</param>
+		/// <param name="length">The buffer length in bytes.</param>
+		/// <param name="value">Receives the initialized VARIANT.</param>
+		/// <returns>The HRESULT returned by the property system.</returns>
+		[LibraryImport("propsys.dll", EntryPoint = "InitVariantFromBuffer")]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial HRESULT InitVariantFromBuffer(void* buffer, uint length, out ComVariant value);
 
 		[LibraryImport("propsys.dll", EntryPoint = "PSGetPropertyDescriptionListFromString", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

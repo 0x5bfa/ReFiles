@@ -14,7 +14,7 @@ public sealed record BrowseViewSettings
 	/// <summary>Gets the layout mode.</summary>
 	public ViewLayoutMode LayoutMode { get; }
 
-	/// <summary>Gets the configured columns.</summary>
+	/// <summary>Gets the configured Details view columns.</summary>
 	public IReadOnlyList<ViewColumnSettings> Columns { get; }
 
 	/// <summary>Gets the property ID used to sort items.</summary>
@@ -34,7 +34,7 @@ public sealed record BrowseViewSettings
 
 	/// <summary>Initializes browse view settings.</summary>
 	/// <param name="layoutMode">The layout mode.</param>
-	/// <param name="columns">The configured columns.</param>
+	/// <param name="columns">The configured Details view columns.</param>
 	/// <param name="sortPropertyId">The property ID used to sort items.</param>
 	/// <param name="sortDirection">The sort direction.</param>
 	/// <param name="itemSize">The preferred item size.</param>

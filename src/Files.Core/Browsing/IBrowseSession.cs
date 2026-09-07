@@ -81,6 +81,31 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 	/// <returns>A task that represents the update.</returns>
 	ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default);
 
+	/// <summary>Applies explicit view-setting changes to the current location override.</summary>
+	/// <param name="settingsOverride">The settings fields to override.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the update.</returns>
+	ValueTask UpdateViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default);
+
+	/// <summary>Applies a provider-derived baseline when the expected location is still active.</summary>
+	/// <param name="expectedLocation">The location for which the baseline was resolved.</param>
+	/// <param name="expectedGeneration">The navigation generation for which the baseline was resolved.</param>
+	/// <param name="settings">The provider-derived baseline settings.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns><see langword="true"/> when the baseline was applied to the active location.</returns>
+	ValueTask<bool> TryApplyViewSettingsBaselineAsync(BrowseLocation expectedLocation, long expectedGeneration, BrowseViewSettings settings, CancellationToken cancellationToken = default);
+
+	/// <summary>Removes the current location override and returns to its provider-derived baseline.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the reset.</returns>
+	ValueTask ResetViewSettingsAsync(CancellationToken cancellationToken = default);
+
+	/// <summary>Removes selected fields from the current location override.</summary>
+	/// <param name="fields">The overridden fields that should inherit from the provider baseline again.</param>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A task that represents the update.</returns>
+	ValueTask ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default);
+
 	/// <summary>Updates the application-wide display preferences applied to this session.</summary>
 	/// <param name="settings">The new display preferences.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
