@@ -167,6 +167,55 @@ public sealed class BrowsePrefetchCoordinatorTests
 	}
 
 	/// <summary>
+	/// Test case: a layout-only update preserves a property sort that is waiting for its debounce interval.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task LayoutUpdatePreservesPendingPropertySort()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var firstProperties = new TestPropertySource
+		{
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = 20L }),
+		};
+		var secondProperties = new TestPropertySource
+		{
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = 10L }),
+		};
+		var first = factory.CreateModel("first", "Alpha", out _, propertySource: firstProperties);
+		var second = factory.CreateModel("second", "Beta", out _, propertySource: secondProperties);
+		var resolver = new TestBrowseLocationResolver([first, second])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)], sortPropertyId: "System.Size");
+		await session.UpdateViewSettingsAsync(settings);
+		var propertiesPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertyChanges = 0;
+		session.ItemPresentationChanged += (_, args) =>
+		{
+			if ((args.Changed & BrowseItemPresentationChangeFlags.Properties) is not 0 && Interlocked.Increment(ref propertyChanges) is 2)
+			{
+				propertiesPublished.TrySetResult(true);
+			}
+		};
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+
+		coordinator.UpdateViewport(new BrowseViewport(0, 2), settings, session.Generation);
+		await propertiesPublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		var layoutValues = new BrowseViewSettings(ViewLayoutMode.Grid);
+		await session.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, layoutValues));
+
+		await WaitUntilAsync(() => ReferenceEquals(session.Items[0], second));
+		Assert.AreEqual(ViewLayoutMode.Grid, session.ViewSettings.LayoutMode);
+		Assert.AreSame(second, session.Items[0]);
+		Assert.AreSame(first, session.Items[1]);
+	}
+
+	/// <summary>
 	/// Test case: viewport update cancels previous prefetch.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

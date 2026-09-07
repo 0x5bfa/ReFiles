@@ -24,6 +24,24 @@ public sealed class BrowseSessionTests
 	private const int MaximumLiveChangeStressIterationCount = 5_000;
 
 	/// <summary>
+	/// Test case: clearing a newer full-refresh request preserves requests for older generations.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task FullRefreshRequestsAreRetainedByGeneration()
+	{
+		await using var coordinator = new BrowseChangeCoordinator(_ => ValueTask.CompletedTask);
+
+		Assert.IsTrue(coordinator.RequestFullRefresh(41));
+		Assert.IsTrue(coordinator.RequestFullRefresh(42));
+		Assert.AreEqual(42, coordinator.RequestedFullRefreshGeneration);
+		Assert.IsTrue(coordinator.TryClearFullRefresh(42));
+		Assert.AreEqual(41, coordinator.RequestedFullRefreshGeneration);
+		Assert.IsTrue(coordinator.TryClearFullRefresh(41));
+		Assert.AreEqual(0, coordinator.RequestedFullRefreshGeneration);
+	}
+
+	/// <summary>
 	/// Test case: publishes sorted enumeration in ranges.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
@@ -750,6 +768,60 @@ public sealed class BrowseSessionTests
 	}
 
 	/// <summary>
+	/// Test case: a failed automatic refresh restores a property sort that was pending for the previous generation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task FailedAutomaticRefreshRestoresPendingPropertySort()
+	{
+		var factory = new TestModelFactory();
+		var changeSource = new TestFolderChangeSource();
+		var firstLocation = factory.CreateModel("folder", "Folder", out _, changeSource);
+		var failedLocation = factory.CreateModel("folder-refresh", "Folder", out _);
+		var first = factory.CreateModel("first", "Alpha", out _);
+		var second = factory.CreateModel("second", "Beta", out _);
+		var locationModels = new Queue<IStorableModel>([firstLocation, failedLocation]);
+		var resolver = new TestBrowseLocationResolver([first, second])
+		{
+			LocationModelFactory = _ => locationModels.Dequeue(),
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(firstLocation.Reference));
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(sortPropertyId: "System.Size"));
+		var originalGeneration = session.Generation;
+		var target = (IBrowsePrefetchTarget)session;
+		await target.PublishPropertiesAsync(originalGeneration, first, new Dictionary<string, object?> { ["System.Size"] = 20L }, CancellationToken.None);
+		await target.PublishPropertiesAsync(originalGeneration, second, new Dictionary<string, object?> { ["System.Size"] = 10L }, CancellationToken.None);
+
+		resolver.Items.Clear();
+		for (var index = 0; index < 32; index++)
+		{
+			resolver.Items.Add(factory.CreateModel($"partial-{index}", $"Partial {index}", out _));
+		}
+
+		resolver.Exception = new InvalidOperationException("refresh failed");
+		var provisionalPropertiesPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		session.ItemsChanged += (_, _) =>
+		{
+			if (session.Generation == originalGeneration || session.Items.Count is 0 || provisionalPropertiesPublished.Task.IsCompleted)
+			{
+				return;
+			}
+
+			var provisionalItem = session.Items[0];
+			target.PublishPropertiesAsync(session.Generation, provisionalItem, new Dictionary<string, object?> { ["System.Size"] = 1L }, CancellationToken.None).GetAwaiter().GetResult();
+			provisionalPropertiesPublished.TrySetResult(true);
+		};
+
+		changeSource.RaiseChange(new FolderChange(FolderChangeKind.DirectoryUpdated, null, null, RequiresRefresh: false));
+		await provisionalPropertiesPublished.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		await WaitUntilAsync(() => session.Error is not null && session.Generation == originalGeneration && ReferenceEquals(session.Items[0], second));
+
+		Assert.AreSame(second, session.Items[0]);
+		Assert.AreSame(first, session.Items[1]);
+	}
+
+	/// <summary>
 	/// Test case: created change adds one item.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
@@ -1384,6 +1456,675 @@ public sealed class BrowseSessionTests
 	}
 
 	/// <summary>
+	/// Test case: sessions with stale snapshots atomically preserve unrelated fields written to the same scope.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ConcurrentSessionsPreserveUnrelatedViewSettingFields()
+	{
+		var factory = new TestModelFactory();
+		using var model = factory.CreateModel("folder", "Folder", out _);
+		var location = new FolderLocation(model.Reference);
+		var settingsStore = new TestViewSettingsStore();
+		using var layoutSession = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
+		using var sortSession = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
+		await layoutSession.NavigateAsync(location);
+		await sortSession.NavigateAsync(location);
+
+		await layoutSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List)));
+		var sortValues = new BrowseViewSettings(sortPropertyId: "System.Size", sortDirection: ViewSortDirection.Descending);
+		await sortSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.SortDirection, sortValues));
+
+		var stored = await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location));
+		Assert.IsNotNull(stored);
+		Assert.AreEqual(ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.SortDirection, stored.Fields);
+		var effective = stored.ApplyTo(BrowseViewSettings.Default);
+		Assert.AreEqual(ViewLayoutMode.List, effective.LayoutMode);
+		Assert.AreEqual("System.Size", effective.SortPropertyId);
+		Assert.AreEqual(ViewSortDirection.Descending, effective.SortDirection);
+	}
+
+	/// <summary>
+	/// Test case: an inserted-column update from a stale session composes with the latest application replacement.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task StaleSessionColumnInsertComposesWithLatestApplicationReplacement()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+		};
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: providerColumns));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings)
+		{
+			SetHandler = _ => throw new InvalidOperationException("Provider write failed."),
+		};
+		var settingsStore = new TestViewSettingsStore();
+		var scope = ViewSettingsScopeKey.ForLocation(location);
+		using var staleSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		using var replacementSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await staleSession.NavigateAsync(location);
+		await replacementSession.NavigateAsync(location);
+		var replacementColumns = new[] { new ViewColumnSettings("System.ItemNameDisplay", 280, 0) };
+		var replacement = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: replacementColumns));
+		await replacementSession.UpdateViewSettingsAsync(replacement);
+		var insertedColumns = new[] { new ViewColumnSettings("ReFiles.Tag", 120, 1) };
+		var inserted = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: insertedColumns), ViewColumnSettingsMode.Insert);
+
+		await staleSession.UpdateViewSettingsAsync(inserted);
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 280, 0),
+			new ViewColumnSettings("ReFiles.Tag", 120, 1),
+		};
+		CollectionAssert.AreEqual(expectedColumns, staleSession.ViewSettings.Columns.ToArray());
+		var stored = await settingsStore.GetAsync(scope);
+		Assert.IsNotNull(stored);
+		Assert.AreEqual(ViewColumnSettingsMode.Replace, stored.ColumnMode);
+		CollectionAssert.AreEqual(expectedColumns, stored.Values.Columns.ToArray());
+	}
+
+	/// <summary>
+	/// Test case: a failed second external sort cannot leave persisted settings unapplied in a stale session.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PersistedFreshSettingsUseLocalSortWhenSecondExternalSortFails()
+	{
+		var factory = new TestModelFactory();
+		using var model = factory.CreateModel("folder", "Folder", out _);
+		var location = new FolderLocation(model.Reference);
+		var provider = new TestProviderViewSettingsPersistence(null);
+		var settingsStore = new TestViewSettingsStore();
+		var externalSortCalls = 0;
+		using var staleSession = new BrowseSession(new ProviderViewSettingsResolver(provider, (_, _, _) =>
+		{
+			externalSortCalls++;
+			if (externalSortCalls > 1)
+			{
+				throw new InvalidOperationException("External sort failed.");
+			}
+
+			return ValueTask.FromResult<IReadOnlyList<IStorableModel>?>(null);
+		}), settingsStore);
+		using var writerSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await staleSession.NavigateAsync(location);
+		await writerSession.NavigateAsync(location);
+		var descendingValues = new BrowseViewSettings(sortDirection: ViewSortDirection.Descending);
+		await writerSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.SortDirection, descendingValues));
+
+		await staleSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List)));
+
+		Assert.AreEqual(2, externalSortCalls);
+		Assert.AreEqual(ViewLayoutMode.List, staleSession.ViewSettings.LayoutMode);
+		Assert.AreEqual(ViewSortDirection.Descending, staleSession.ViewSettings.SortDirection);
+		var stored = await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location));
+		Assert.IsNotNull(stored);
+		Assert.AreEqual(ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.SortDirection, stored.Fields);
+	}
+
+	/// <summary>
+	/// Test case: a stale session clears the latest selected fields from shared application persistence.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task StaleSessionClearsLatestApplicationViewSettingFields()
+	{
+		var factory = new TestModelFactory();
+		using var model = factory.CreateModel("folder", "Folder", out _);
+		var location = new FolderLocation(model.Reference);
+		var settingsStore = new TestViewSettingsStore();
+		using var staleSession = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
+		using var writerSession = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
+		await staleSession.NavigateAsync(location);
+		await writerSession.NavigateAsync(location);
+		await writerSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List)));
+
+		await staleSession.ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields.LayoutMode);
+
+		Assert.IsNull(await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location)));
+	}
+
+	/// <summary>
+	/// Test case: custom locations without stable persistence scopes retain overrides for the current session.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task UnscopedCustomLocationsUseSessionViewSettings()
+	{
+		var firstLocation = new UnscopedTestBrowseLocation("first");
+		var secondLocation = new UnscopedTestBrowseLocation("second");
+		using var session = new BrowseSession(new TestBrowseLocationResolver([]), new TestViewSettingsStore());
+
+		await session.NavigateAsync(firstLocation);
+		await session.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.Columns)));
+		await session.NavigateAsync(secondLocation);
+		Assert.AreEqual(ViewLayoutMode.Details, session.ViewSettings.LayoutMode);
+
+		await session.NavigateAsync(new UnscopedTestBrowseLocation("first"));
+
+		Assert.AreEqual(ViewLayoutMode.Columns, session.ViewSettings.LayoutMode);
+	}
+
+	/// <summary>
+	/// Test case: provider baselines remain inherited beneath explicit location overrides.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderBaselineAndLocationOverrideAreLayered()
+	{
+		var factory = new TestModelFactory();
+		using var model = factory.CreateModel("folder", "Folder", out _);
+		var location = new FolderLocation(model.Reference);
+		var settingsStore = new TestViewSettingsStore();
+		var firstBaselineColumns = new[] { new ViewColumnSettings("System.ItemNameDisplay", 240, 0) };
+		var firstBaseline = new BrowseViewSettings(ViewLayoutMode.Details, firstBaselineColumns, "System.DateModified", ViewSortDirection.Descending);
+		using (var firstSession = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore))
+		{
+			await firstSession.NavigateAsync(location);
+			Assert.IsTrue(await firstSession.TryApplyViewSettingsBaselineAsync(location, firstSession.Generation, firstBaseline));
+
+			var values = new BrowseViewSettings(ViewLayoutMode.Columns);
+			await firstSession.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, values));
+
+			Assert.AreEqual(ViewLayoutMode.Columns, firstSession.ViewSettings.LayoutMode);
+			CollectionAssert.AreEqual(firstBaselineColumns, firstSession.ViewSettings.Columns.ToArray());
+			Assert.AreEqual("System.DateModified", firstSession.ViewSettings.SortPropertyId);
+		}
+
+		var secondBaselineColumns = new[] { new ViewColumnSettings("System.ItemNameDisplay", 320, 0), new ViewColumnSettings("System.Size", 120, 1) };
+		var secondBaseline = new BrowseViewSettings(ViewLayoutMode.Grid, secondBaselineColumns, "System.Size");
+		using var secondSession = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
+
+		await secondSession.NavigateAsync(location);
+		Assert.IsTrue(await secondSession.TryApplyViewSettingsBaselineAsync(location, secondSession.Generation, secondBaseline));
+
+		Assert.AreEqual(ViewLayoutMode.Columns, secondSession.ViewSettings.LayoutMode);
+		CollectionAssert.AreEqual(secondBaselineColumns, secondSession.ViewSettings.Columns.ToArray());
+		Assert.AreEqual("System.Size", secondSession.ViewSettings.SortPropertyId);
+		var storedOverride = await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location));
+		Assert.IsNotNull(storedOverride);
+		Assert.AreEqual(ViewSettingsOverrideFields.LayoutMode, storedOverride.Fields);
+	}
+
+	/// <summary>
+	/// Test case: provider-owned settings and application-owned custom settings are aggregated during navigation.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderAndApplicationViewSettingsAreLayeredDuringNavigation()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+		};
+		var providerValues = new BrowseViewSettings(ViewLayoutMode.Details, providerColumns, "System.DateModified", ViewSortDirection.Descending);
+		var providerFields = ViewSettingsOverrideFields.DetailsColumns | ViewSettingsOverrideFields.SortPropertyId | ViewSettingsOverrideFields.SortDirection;
+		var providerSettings = new BrowseViewSettingsOverride(providerFields, providerValues);
+		var provider = new TestProviderViewSettingsPersistence(providerSettings);
+		var applicationColumns = new[] { new ViewColumnSettings("ReFiles.Tag", 120, 1, isVisible: false) };
+		var applicationValues = new BrowseViewSettings(ViewLayoutMode.Columns, applicationColumns);
+		var applicationFields = ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.DetailsColumns;
+		var applicationSettings = new BrowseViewSettingsOverride(applicationFields, applicationValues, ViewColumnSettingsMode.Insert);
+		var settingsStore = new TestViewSettingsStore();
+		await settingsStore.SetAsync(ViewSettingsScopeKey.ForLocation(location), applicationSettings);
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+
+		await session.NavigateAsync(location);
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("ReFiles.Tag", 120, 1, isVisible: false),
+			new ViewColumnSettings("System.Size", 100, 2),
+		};
+		Assert.AreEqual(ViewLayoutMode.Columns, session.ViewSettings.LayoutMode);
+		CollectionAssert.AreEqual(expectedColumns, session.ViewSettings.Columns.ToArray());
+		Assert.AreEqual("System.DateModified", session.ViewSettings.SortPropertyId);
+		Assert.AreEqual(ViewSortDirection.Descending, session.ViewSettings.SortDirection);
+	}
+
+	/// <summary>
+	/// Test case: a provider persists its supported columns while returning custom columns for application persistence.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderPersistenceRoutesCustomColumnsToApplicationStore()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var initialProviderColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+		};
+		var initialProviderSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: initialProviderColumns));
+		var provider = new TestProviderViewSettingsPersistence(initialProviderSettings);
+		var persistedProviderColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 300, 0),
+			new ViewColumnSettings("System.Size", 144, 1, isVisible: false),
+		};
+		var persistedProviderSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: persistedProviderColumns));
+		var applicationColumns = new[]
+		{
+			new ViewColumnSettings("ReFiles.GitStatus", 96, 1),
+			new ViewColumnSettings("ReFiles.Tag", 120, 2),
+		};
+		var applicationSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: applicationColumns), ViewColumnSettingsMode.Insert);
+		provider.SetHandler = _ => new ViewSettingsPersistenceResult(persistedProviderSettings, applicationSettings);
+		var settingsStore = new TestViewSettingsStore();
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await session.NavigateAsync(location);
+		var requestedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 300, 0),
+			new ViewColumnSettings("ReFiles.GitStatus", 96, 1),
+			new ViewColumnSettings("ReFiles.Tag", 120, 2),
+			new ViewColumnSettings("System.Size", 144, 3, isVisible: false),
+		};
+		var requestedSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: requestedColumns));
+
+		await session.UpdateViewSettingsAsync(requestedSettings);
+
+		var providerRequest = provider.SetRequests.Single();
+		Assert.AreEqual(ViewSettingsOverrideFields.DetailsColumns, providerRequest.Fields);
+		CollectionAssert.AreEqual(requestedColumns, providerRequest.Values.Columns.ToArray());
+		var storedApplicationSettings = await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location));
+		Assert.IsNotNull(storedApplicationSettings);
+		Assert.AreEqual(ViewSettingsOverrideFields.DetailsColumns, storedApplicationSettings.Fields);
+		Assert.AreEqual(ViewColumnSettingsMode.Insert, storedApplicationSettings.ColumnMode);
+		CollectionAssert.AreEqual(applicationColumns, storedApplicationSettings.Values.Columns.ToArray());
+		CollectionAssert.AreEqual(requestedColumns, session.ViewSettings.Columns.ToArray());
+	}
+
+	/// <summary>
+	/// Test case: provider and application portions of concurrent updates commit as one serialized transaction.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ConcurrentDualStoreUpdatesDoNotPersistHybridSettings()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var emptyOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		var provider = new TestProviderViewSettingsPersistence(emptyOverride);
+		using var firstProviderWriteEntered = new ManualResetEventSlim();
+		using var releaseFirstProviderWrite = new ManualResetEventSlim();
+		provider.SetHandler = request =>
+		{
+			if (request.Values.LayoutMode is ViewLayoutMode.List)
+			{
+				firstProviderWriteEntered.Set();
+				if (!releaseFirstProviderWrite.Wait(TimeSpan.FromSeconds(5)))
+				{
+					throw new TimeoutException("The concurrent view settings update did not start in time.");
+				}
+			}
+
+			var providerResult = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, request.Values);
+			var applicationResult = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.ItemSize, request.Values);
+
+			return new ViewSettingsPersistenceResult(providerResult, applicationResult);
+		};
+		var settingsStore = new TestViewSettingsStore();
+		using var firstSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		using var secondSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await firstSession.NavigateAsync(location);
+		await secondSession.NavigateAsync(location);
+		var fields = ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.ItemSize;
+		var firstRequest = new BrowseViewSettingsOverride(fields, new BrowseViewSettings(ViewLayoutMode.List, itemSize: 64));
+		var secondRequest = new BrowseViewSettingsOverride(fields, new BrowseViewSettings(ViewLayoutMode.Grid, itemSize: 96));
+
+		var firstUpdate = Task.Run(async () => await firstSession.UpdateViewSettingsAsync(firstRequest));
+		Assert.IsTrue(firstProviderWriteEntered.Wait(TimeSpan.FromSeconds(5)));
+		var secondUpdateStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var secondUpdate = Task.Run(async () => { secondUpdateStarted.SetResult(); await secondSession.UpdateViewSettingsAsync(secondRequest); });
+		await secondUpdateStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		releaseFirstProviderWrite.Set();
+		await Task.WhenAll(firstUpdate, secondUpdate);
+
+		var providerSettings = await provider.GetViewSettingsAsync();
+		var applicationSettings = await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location));
+		Assert.IsNotNull(providerSettings);
+		Assert.IsNotNull(applicationSettings);
+		Assert.AreEqual(ViewLayoutMode.Grid, providerSettings.Values.LayoutMode);
+		Assert.AreEqual(96, applicationSettings.Values.ItemSize);
+	}
+
+	/// <summary>
+	/// Test case: clearing application overrides retains provider settings while reset clears both stores.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ClearingApplicationOverridesRetainsProviderWhileResetClearsBothStores()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings);
+		var settingsStore = new TestViewSettingsStore();
+		var scope = ViewSettingsScopeKey.ForLocation(location);
+		var applicationSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.Columns));
+		await settingsStore.SetAsync(scope, applicationSettings);
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await session.NavigateAsync(location);
+
+		await session.ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields.LayoutMode);
+
+		Assert.AreEqual(ViewLayoutMode.List, session.ViewSettings.LayoutMode);
+		Assert.IsNull(await settingsStore.GetAsync(scope));
+		Assert.IsEmpty(provider.ClearRequests);
+
+		await session.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.Grid)));
+		Assert.AreEqual(ViewLayoutMode.Grid, session.ViewSettings.LayoutMode);
+		Assert.IsNotNull(await settingsStore.GetAsync(scope));
+
+		await session.ResetViewSettingsAsync();
+
+		Assert.AreEqual(ViewLayoutMode.Details, session.ViewSettings.LayoutMode);
+		Assert.IsNull(await settingsStore.GetAsync(scope));
+		Assert.AreEqual(ViewSettingsOverrideFields.All, provider.ClearRequests.Single());
+		var clearedProviderSettings = await provider.GetViewSettingsAsync();
+		Assert.IsNotNull(clearedProviderSettings);
+		Assert.AreEqual(ViewSettingsOverrideFields.None, clearedProviderSettings.Fields);
+	}
+
+	/// <summary>
+	/// Test case: a provider reset failure keeps the desired reset state in application persistence.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderResetFailureRetainsApplicationFallback()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings)
+		{
+			ClearHandler = _ => throw new InvalidOperationException("Provider reset failed."),
+		};
+		var settingsStore = new TestViewSettingsStore();
+		var scope = ViewSettingsScopeKey.ForLocation(location);
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await session.NavigateAsync(location);
+
+		await session.ResetViewSettingsAsync();
+
+		Assert.AreEqual(ViewLayoutMode.Details, session.ViewSettings.LayoutMode);
+		var fallback = await settingsStore.GetAsync(scope);
+		Assert.IsNotNull(fallback);
+		Assert.AreEqual(ViewSettingsOverrideFields.All, fallback.Fields);
+		Assert.AreEqual(ViewLayoutMode.Details, fallback.Values.LayoutMode);
+		Assert.AreEqual(ViewLayoutMode.List, (await provider.GetViewSettingsAsync())?.Values.LayoutMode);
+	}
+
+	/// <summary>
+	/// Test case: a stale session retains the latest provider snapshot when a reset fails.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task StaleSessionProviderResetFailureRetainsLatestProviderSnapshot()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings);
+		var settingsStore = new TestViewSettingsStore();
+		using var staleSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		using var writerSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await staleSession.NavigateAsync(location);
+		await writerSession.NavigateAsync(location);
+		var latestProviderSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.Grid));
+		var emptySettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		provider.SetHandler = _ => new ViewSettingsPersistenceResult(latestProviderSettings, emptySettings);
+		await writerSession.UpdateViewSettingsAsync(latestProviderSettings);
+		provider.ClearHandler = _ => throw new InvalidOperationException("Provider reset failed.");
+
+		await staleSession.ResetViewSettingsAsync();
+
+		provider.GetHandler = () => throw new InvalidOperationException("Provider read failed.");
+		await staleSession.ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields.All);
+		Assert.AreEqual(ViewLayoutMode.Grid, staleSession.ViewSettings.LayoutMode);
+	}
+
+	/// <summary>
+	/// Test case: a normal empty provider result cannot revive a stale provider snapshot.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task StaleSessionUsesNormalEmptyProviderResultInsteadOfCachedSnapshot()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings);
+		var settingsStore = new TestViewSettingsStore();
+		using var resetSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		using var staleSession = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await resetSession.NavigateAsync(location);
+		await staleSession.NavigateAsync(location);
+		await resetSession.ResetViewSettingsAsync();
+		provider.GetHandler = () => null;
+
+		await staleSession.ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields.LayoutMode);
+
+		Assert.AreEqual(ViewLayoutMode.Details, staleSession.ViewSettings.LayoutMode);
+	}
+
+	/// <summary>
+	/// Test case: provider write failures preserve and apply the complete requested application fallback.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderWriteFailurePreservesFullApplicationFallback()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var initialColumns = new[] { new ViewColumnSettings("System.ItemNameDisplay", 240, 0) };
+		var providerFields = ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.DetailsColumns;
+		var providerSettings = new BrowseViewSettingsOverride(providerFields, new BrowseViewSettings(ViewLayoutMode.List, initialColumns));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings)
+		{
+			SetHandler = _ => throw new InvalidOperationException("Provider write failed."),
+		};
+		var settingsStore = new TestViewSettingsStore();
+		var scope = ViewSettingsScopeKey.ForLocation(location);
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await session.NavigateAsync(location);
+		var requestedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 300, 0),
+			new ViewColumnSettings("ReFiles.Tag", 120, 1, isVisible: false),
+		};
+		var requestedValues = new BrowseViewSettings(ViewLayoutMode.Columns, requestedColumns);
+		var requestedSettings = new BrowseViewSettingsOverride(providerFields, requestedValues, ViewColumnSettingsMode.Insert);
+
+		await session.UpdateViewSettingsAsync(requestedSettings);
+
+		Assert.AreEqual(ViewLayoutMode.Columns, session.ViewSettings.LayoutMode);
+		CollectionAssert.AreEqual(requestedColumns, session.ViewSettings.Columns.ToArray());
+		var storedApplicationSettings = await settingsStore.GetAsync(scope);
+		Assert.IsNotNull(storedApplicationSettings);
+		Assert.AreEqual(providerFields, storedApplicationSettings.Fields);
+		Assert.AreEqual(ViewColumnSettingsMode.Insert, storedApplicationSettings.ColumnMode);
+		Assert.AreEqual(ViewLayoutMode.Columns, storedApplicationSettings.Values.LayoutMode);
+		CollectionAssert.AreEqual(requestedColumns, storedApplicationSettings.Values.Columns.ToArray());
+		Assert.AreEqual(1, provider.SetRequests.Count);
+	}
+
+	/// <summary>
+	/// Test case: an inserted-column update composes with an existing application replacement when provider persistence fails.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderWriteFailureComposesInsertWithApplicationReplacement()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 240, 0),
+			new ViewColumnSettings("System.Size", 100, 1),
+		};
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: providerColumns));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings)
+		{
+			SetHandler = _ => throw new InvalidOperationException("Provider write failed."),
+		};
+		var settingsStore = new TestViewSettingsStore();
+		var scope = ViewSettingsScopeKey.ForLocation(location);
+		var replacementColumns = new[] { new ViewColumnSettings("System.ItemNameDisplay", 280, 0) };
+		var replacement = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: replacementColumns));
+		await settingsStore.SetAsync(scope, replacement);
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await session.NavigateAsync(location);
+		var insertedColumns = new[] { new ViewColumnSettings("ReFiles.Tag", 120, 1) };
+		var inserted = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.DetailsColumns, new BrowseViewSettings(columns: insertedColumns), ViewColumnSettingsMode.Insert);
+
+		await session.UpdateViewSettingsAsync(inserted);
+
+		var expectedColumns = new[]
+		{
+			new ViewColumnSettings("System.ItemNameDisplay", 280, 0),
+			new ViewColumnSettings("ReFiles.Tag", 120, 1),
+		};
+		CollectionAssert.AreEqual(expectedColumns, session.ViewSettings.Columns.ToArray());
+		var stored = await settingsStore.GetAsync(scope);
+		Assert.IsNotNull(stored);
+		Assert.AreEqual(ViewColumnSettingsMode.Replace, stored.ColumnMode);
+		CollectionAssert.AreEqual(expectedColumns, stored.Values.Columns.ToArray());
+	}
+
+	/// <summary>
+	/// Test case: an incomplete provider result cannot compact away the requested application fallback.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task IncompleteProviderResultPreservesApplicationFallback()
+	{
+		var reference = new StorableReference(new StorageSourceId("test"), "folder");
+		var location = new FolderLocation(reference);
+		var providerSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.List));
+		var provider = new TestProviderViewSettingsPersistence(providerSettings);
+		var emptySettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		provider.SetHandler = _ => new ViewSettingsPersistenceResult(emptySettings, emptySettings);
+		var settingsStore = new TestViewSettingsStore();
+		var scope = ViewSettingsScopeKey.ForLocation(location);
+		using var session = new BrowseSession(new ProviderViewSettingsResolver(provider), settingsStore);
+		await session.NavigateAsync(location);
+		var requestedSettings = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode, new BrowseViewSettings(ViewLayoutMode.Columns));
+
+		await session.UpdateViewSettingsAsync(requestedSettings);
+
+		Assert.AreEqual(ViewLayoutMode.Columns, session.ViewSettings.LayoutMode);
+		var storedApplicationSettings = await settingsStore.GetAsync(scope);
+		Assert.IsNotNull(storedApplicationSettings);
+		Assert.AreEqual(ViewSettingsOverrideFields.LayoutMode, storedApplicationSettings.Fields);
+		Assert.AreEqual(ViewLayoutMode.Columns, storedApplicationSettings.Values.LayoutMode);
+		Assert.AreEqual(1, provider.SetRequests.Count);
+	}
+
+	/// <summary>
+	/// Test case: a provider baseline from an earlier navigation cannot affect a later visit to the same location.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ProviderBaselineRequiresCurrentGeneration()
+	{
+		var factory = new TestModelFactory();
+		using var model = factory.CreateModel("folder", "Folder", out _);
+		var location = new FolderLocation(model.Reference);
+		using var session = new BrowseSession(new TestBrowseLocationResolver([]));
+
+		await session.NavigateAsync(location);
+		var staleGeneration = session.Generation;
+		await session.NavigateAsync(location);
+		var currentSettings = session.ViewSettings;
+		var staleBaseline = new BrowseViewSettings(ViewLayoutMode.Grid, [new ViewColumnSettings("System.Size", 120, 0)]);
+
+		Assert.IsFalse(await session.TryApplyViewSettingsBaselineAsync(location, staleGeneration, staleBaseline));
+		Assert.AreSame(currentSettings, session.ViewSettings);
+	}
+
+	/// <summary>
+	/// Test case: a canceled settings update restores a property sort that it interrupted before commit.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task CanceledViewSettingsUpdateRestoresPendingPropertySort()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var first = factory.CreateModel("first", "Alpha", out _);
+		var second = factory.CreateModel("second", "Beta", out _);
+		var resolver = new TestBrowseLocationResolver([first, second])
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(sortPropertyId: "System.Size"));
+		var target = (IBrowsePrefetchTarget)session;
+		await target.PublishPropertiesAsync(session.Generation, first, new Dictionary<string, object?> { ["System.Size"] = 20L }, CancellationToken.None);
+		await target.PublishPropertiesAsync(session.Generation, second, new Dictionary<string, object?> { ["System.Size"] = 10L }, CancellationToken.None);
+		using var cancellation = new CancellationTokenSource();
+		cancellation.Cancel();
+		var descendingValues = new BrowseViewSettings(sortDirection: ViewSortDirection.Descending);
+		var descendingOverride = new BrowseViewSettingsOverride(ViewSettingsOverrideFields.SortDirection, descendingValues);
+
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await session.UpdateViewSettingsAsync(descendingOverride, cancellation.Token));
+		await WaitUntilAsync(() => ReferenceEquals(session.Items[0], second));
+
+		Assert.AreEqual(ViewSortDirection.Ascending, session.ViewSettings.SortDirection);
+		Assert.AreSame(second, session.Items[0]);
+		Assert.AreSame(first, session.Items[1]);
+	}
+
+	/// <summary>
+	/// Test case: resetting a location removes its override and restores the provider baseline.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task ResetViewSettingsRestoresProviderBaseline()
+	{
+		var factory = new TestModelFactory();
+		using var model = factory.CreateModel("folder", "Folder", out _);
+		var location = new FolderLocation(model.Reference);
+		var settingsStore = new TestViewSettingsStore();
+		using var session = new BrowseSession(new TestBrowseLocationResolver([]), settingsStore);
+		var baselineColumns = new[] { new ViewColumnSettings("System.ItemNameDisplay", 240, 0) };
+		var baseline = new BrowseViewSettings(ViewLayoutMode.List, baselineColumns);
+		var overrideColumns = new[] { new ViewColumnSettings("System.Size", 120, 0) };
+
+		await session.NavigateAsync(location);
+		Assert.IsTrue(await session.TryApplyViewSettingsBaselineAsync(location, session.Generation, baseline));
+		var overrideValues = new BrowseViewSettings(ViewLayoutMode.Columns, overrideColumns);
+		await session.UpdateViewSettingsAsync(new BrowseViewSettingsOverride(ViewSettingsOverrideFields.LayoutMode | ViewSettingsOverrideFields.DetailsColumns, overrideValues));
+		await session.ClearViewSettingsOverridesAsync(ViewSettingsOverrideFields.LayoutMode);
+
+		Assert.AreEqual(ViewLayoutMode.List, session.ViewSettings.LayoutMode);
+		CollectionAssert.AreEqual(overrideColumns, session.ViewSettings.Columns.ToArray());
+		var retainedOverride = await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location));
+		Assert.IsNotNull(retainedOverride);
+		Assert.AreEqual(ViewSettingsOverrideFields.DetailsColumns, retainedOverride.Fields);
+
+		await session.ResetViewSettingsAsync();
+
+		Assert.AreSame(baseline, session.ViewSettings);
+		CollectionAssert.AreEqual(baselineColumns, session.ViewSettings.Columns.ToArray());
+		Assert.IsNull(await settingsStore.GetAsync(ViewSettingsScopeKey.ForLocation(location)));
+	}
+
+	/// <summary>
 	/// Test case: application display settings control hidden item enumeration independently of location view settings.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
@@ -1499,6 +2240,140 @@ public sealed class BrowseSessionTests
 		public ValueTask DisposeAsync()
 		{
 			return _inner.DisposeAsync();
+		}
+	}
+
+	private sealed record UnscopedTestBrowseLocation(string Id) : BrowseLocation;
+
+	private sealed class ProviderViewSettingsResolver : IBrowseLocationResolver
+	{
+		private readonly TestProviderViewSettingsPersistence _provider;
+		private readonly Func<IReadOnlyList<IStorableModel>, BrowseViewSettings, CancellationToken, ValueTask<IReadOnlyList<IStorableModel>?>>? _sortHandler;
+
+		public ProviderViewSettingsResolver(TestProviderViewSettingsPersistence provider,
+			Func<IReadOnlyList<IStorableModel>, BrowseViewSettings, CancellationToken, ValueTask<IReadOnlyList<IStorableModel>?>>? sortHandler = null)
+		{
+			_provider = provider;
+			_sortHandler = sortHandler;
+		}
+
+		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(location);
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			return ValueTask.FromResult<IBrowseLocationContext>(new ProviderViewSettingsContext(location, _provider, _sortHandler));
+		}
+	}
+
+	private sealed class ProviderViewSettingsContext : IBrowseLocationContext, IViewSettingsPersistenceProvider, IBrowseLocationItemSorter
+	{
+		private readonly TestProviderViewSettingsPersistence _provider;
+		private readonly Func<IReadOnlyList<IStorableModel>, BrowseViewSettings, CancellationToken, ValueTask<IReadOnlyList<IStorableModel>?>>? _sortHandler;
+
+		public BrowseLocation Location { get; }
+
+		public IStorableModel? LocationModel => null;
+
+		public ProviderViewSettingsContext(BrowseLocation location, TestProviderViewSettingsPersistence provider,
+			Func<IReadOnlyList<IStorableModel>, BrowseViewSettings, CancellationToken, ValueTask<IReadOnlyList<IStorableModel>?>>? sortHandler)
+		{
+			Location = location;
+			_provider = provider;
+			_sortHandler = sortHandler;
+		}
+
+		public async ValueTask<BrowseViewSettingsOverride?> GetViewSettingsAsync(CancellationToken cancellationToken = default)
+		{
+			return await _provider.GetViewSettingsAsync(cancellationToken).ConfigureAwait(false) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+		}
+
+		public ValueTask<ViewSettingsPersistenceResult> SetViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
+		{
+			return _provider.SetViewSettingsAsync(settingsOverride, cancellationToken);
+		}
+
+		public ValueTask<BrowseViewSettingsOverride?> ClearViewSettingsAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
+		{
+			return _provider.ClearViewSettingsAsync(fields, cancellationToken);
+		}
+
+		public ValueTask<IReadOnlyList<IStorableModel>?> SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken = default)
+		{
+			return _sortHandler is null ? ValueTask.FromResult<IReadOnlyList<IStorableModel>?>(null) : _sortHandler(items, settings, cancellationToken);
+		}
+
+		public async IAsyncEnumerable<IStorableModel> GetItemsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			await Task.CompletedTask.ConfigureAwait(false);
+			yield break;
+		}
+
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
+	}
+
+	private sealed class TestProviderViewSettingsPersistence : IViewSettingsPersistenceProvider
+	{
+		private BrowseViewSettingsOverride? _settings;
+
+		public IList<ViewSettingsOverrideFields> ClearRequests { get; } = [];
+
+		public IList<BrowseViewSettingsOverride> SetRequests { get; } = [];
+
+		public Func<ViewSettingsOverrideFields, BrowseViewSettingsOverride?>? ClearHandler { get; set; }
+
+		public Func<BrowseViewSettingsOverride?>? GetHandler { get; set; }
+
+		public Func<BrowseViewSettingsOverride, ViewSettingsPersistenceResult>? SetHandler { get; set; }
+
+		public TestProviderViewSettingsPersistence(BrowseViewSettingsOverride? settings)
+		{
+			_settings = settings;
+		}
+
+		public ValueTask<BrowseViewSettingsOverride?> GetViewSettingsAsync(CancellationToken cancellationToken = default)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			return ValueTask.FromResult(GetHandler is null ? _settings : GetHandler());
+		}
+
+		public ValueTask<ViewSettingsPersistenceResult> SetViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
+		{
+			ArgumentNullException.ThrowIfNull(settingsOverride);
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			SetRequests.Add(settingsOverride);
+			var result = SetHandler?.Invoke(settingsOverride) ?? new ViewSettingsPersistenceResult(_settings, settingsOverride);
+			_settings = result.ProviderSettings;
+
+			return ValueTask.FromResult(result);
+		}
+
+		public ValueTask<BrowseViewSettingsOverride?> ClearViewSettingsAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			ClearRequests.Add(fields);
+			if (ClearHandler is not null)
+			{
+				_settings = ClearHandler(fields);
+
+				return ValueTask.FromResult<BrowseViewSettingsOverride?>(_settings);
+			}
+
+			var retainedFields = (_settings?.Fields ?? ViewSettingsOverrideFields.None) & ~fields;
+			var columnMode = retainedFields.HasFlag(ViewSettingsOverrideFields.DetailsColumns) ? _settings!.ColumnMode : ViewColumnSettingsMode.Replace;
+			_settings = new BrowseViewSettingsOverride(retainedFields, _settings?.Values ?? BrowseViewSettings.Default, columnMode);
+
+			return ValueTask.FromResult<BrowseViewSettingsOverride?>(_settings);
 		}
 	}
 

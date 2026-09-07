@@ -185,7 +185,7 @@ public static unsafe class WindowsShellFolderCustomizationService
 		try
 		{
 			var propertyBagId = typeof(IPropertyBag).GUID;
-			hr = PInvoke.SHGetViewStatePropertyBag(in *absolutePidl, ShellPropertyBagName, InheritedPropertyBagFlags, in propertyBagId, out propertyBag);
+			hr = PInvoke.SHGetViewStatePropertyBag(absolutePidl, ShellPropertyBagName, InheritedPropertyBagFlags, in propertyBagId, out propertyBag);
 
 			return hr.Failed || propertyBag is not null ? hr : HRESULT.E_NOINTERFACE;
 		}
