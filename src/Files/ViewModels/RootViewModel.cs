@@ -14,12 +14,16 @@ using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Presentation;
 using Files.ItemProperties;
+using Files.Settings;
 using System.Collections.Specialized;
 
 namespace Files.ViewModels;
 
 public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
+	internal const double MinimumPreviewPaneWidth = 180;
+
+	private readonly AppSettingsService _appSettings;
 	private readonly WindowSession _window;
 
 	private readonly WindowPresentationFactory _presentationFactory;
@@ -45,6 +49,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	private readonly SemaphoreSlim _navigationThumbnailGate = new(4);
 
 	private SidebarDisplayMode _sidebarDisplayMode = SidebarDisplayMode.Expanded;
+
+	private bool _isPreviewPaneVisible;
+
+	private double _previewPaneWidth;
 
 	private int _isDisposed;
 
@@ -73,6 +81,35 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			}
 
 			_commandManager.RefreshStates(CommandStateInvalidation.Pane);
+		}
+	}
+
+	public bool IsPreviewPaneVisible
+	{
+		get => _isPreviewPaneVisible;
+		set
+		{
+			if (!SetProperty(ref _isPreviewPaneVisible, value))
+			{
+				return;
+			}
+
+			_commandManager.RefreshStates(CommandStateInvalidation.Pane);
+		}
+	}
+
+	public double PreviewPaneWidth
+	{
+		get => _previewPaneWidth;
+		set
+		{
+			var width = Math.Max(value, MinimumPreviewPaneWidth);
+			if (!SetProperty(ref _previewPaneWidth, width))
+			{
+				return;
+			}
+
+			_appSettings.PreviewPaneWidth = width;
 		}
 	}
 
@@ -200,6 +237,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		_window = window;
 		_presentationFactory = presentationFactory;
+		_appSettings = presentationFactory.AppSettings;
 		_dispatcher = presentationFactory.Dispatcher;
 		_navigationItemLoader = presentationFactory.CreateNavigationItemLoader();
 		Tabs = [];
@@ -211,6 +249,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		SettingsNavigationItem = NavigationItemViewModel.CreateSettings(Strings.Settings.GetLocalized());
 		NavigationItems.Add(HomeNavigationItem);
 		SidebarFooterItems.Add(new FlatSidebarItem(SettingsNavigationItem, 0));
+		_previewPaneWidth = Math.Max(_appSettings.PreviewPaneWidth, MinimumPreviewPaneWidth);
 		_commandManager = presentationFactory.CreateCommandManager(this);
 		TabStrip = new(
 			Tabs,
@@ -249,6 +288,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			PinToQuickAccessCommand,
 			AddToFavoritesCommand,
 			CopyAsPathCommand,
+			_commandManager.GetBinding(CommandIds.TogglePreviewPane),
 			SortItemsCommand,
 			GroupItemsCommand,
 			LayoutDetailsCommand,

@@ -22,6 +22,7 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 		var tab = context.ActiveTab;
 		var isEnabled = id switch
 		{
+			var commandId when commandId == CommandIds.TogglePreviewPane => true,
 			var commandId when commandId == CommandIds.NewPane => tab?.CanOpenPane is true,
 			var commandId when commandId == CommandIds.ClosePane => tab?.CanClosePane is true,
 			var commandId when commandId == CommandIds.SplitPaneVertical => tab?.CanSplitPane(PaneSplitOrientation.Vertical) is true,
@@ -29,11 +30,18 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 			_ => false,
 		};
 
-		return new(true, isEnabled);
+		return new(true, isEnabled, id == CommandIds.TogglePreviewPane && context.Root.IsPreviewPaneVisible);
 	}
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 	{
+		if (id == CommandIds.TogglePreviewPane)
+		{
+			context.Root.IsPreviewPaneVisible = !context.Root.IsPreviewPaneVisible;
+
+			return CommandExecutionResult.Succeeded();
+		}
+
 		if (context.ActiveTab is not { } tab)
 		{
 			return CommandExecutionResult.Unsupported();

@@ -14,6 +14,7 @@ internal sealed class AppSettingsService : INotifyPropertyChanged
 	private const string ShowFileExtensionsKey = "ShowFileExtensions";
 	private const string ShowHiddenItemsKey = "ShowHiddenItems";
 	private const string ThemeModeKey = "ThemeMode";
+	private const string PreviewPaneWidthKey = "PreviewPaneWidth";
 
 	private readonly IDictionary<string, object> _values;
 
@@ -41,6 +42,12 @@ internal sealed class AppSettingsService : INotifyPropertyChanged
 		set => SetString(ThemeModeKey, value.ToString(), nameof(ThemeMode));
 	}
 
+	public double PreviewPaneWidth
+	{
+		get => GetDouble(PreviewPaneWidthKey, 320);
+		set => SetDouble(PreviewPaneWidthKey, value, 320, nameof(PreviewPaneWidth));
+	}
+
 	public event PropertyChangedEventHandler? PropertyChanged;
 
 	public AppSettingsService()
@@ -59,11 +66,24 @@ internal sealed class AppSettingsService : INotifyPropertyChanged
 
 	private bool GetBoolean(string key, bool defaultValue) => _values.TryGetValue(key, out var value) && value is bool result ? result : defaultValue;
 
+	private double GetDouble(string key, double defaultValue) => _values.TryGetValue(key, out var value) && value is double result && double.IsFinite(result) ? result : defaultValue;
+
 	private string GetString(string key) => _values.TryGetValue(key, out var value) && value is string text ? text : string.Empty;
 
 	private void SetBoolean(string key, bool value, bool defaultValue, string propertyName)
 	{
 		if (GetBoolean(key, defaultValue) == value)
+		{
+			return;
+		}
+
+		_values[key] = value;
+		PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+	}
+
+	private void SetDouble(string key, double value, double defaultValue, string propertyName)
+	{
+		if (!double.IsFinite(value) || GetDouble(key, defaultValue) == value)
 		{
 			return;
 		}

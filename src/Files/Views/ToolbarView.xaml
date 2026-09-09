@@ -498,6 +498,13 @@
 						</Flyout>
 					</controls:ToolbarItem.Flyout>
 				</controls:ToolbarItem>
+				<controls:ToolbarItem
+					Command="{x:Bind ViewModel.TogglePreviewPaneCommand.Command}"
+					IsChecked="{x:Bind ViewModel.TogglePreviewPaneCommand.IsChecked, Mode=OneWay}"
+					ItemType="ToggleButton"
+					Label="{x:Bind ViewModel.TogglePreviewPaneCommand.Label, Mode=OneWay}"
+					OverflowBehavior="Never"
+					ThemedIcon="{x:Bind ViewModel.TogglePreviewPaneCommand.IconData, Mode=OneWay}" />
 			</controls:Toolbar.Items>
 		</controls:Toolbar>
 	</Grid>

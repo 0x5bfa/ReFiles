@@ -28,6 +28,8 @@ internal sealed class WindowPresentationFactory
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
+	internal AppSettingsService AppSettings => _appSettings;
+
 	internal IItemActivationService ItemActivationService => _itemActivationService;
 
 	internal IItemPropertiesService? ItemPropertiesService => _itemPropertiesService;

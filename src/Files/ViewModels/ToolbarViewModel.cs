@@ -50,6 +50,8 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 
 	public CommandBindingViewModel CopyAsPathCommand { get; }
 
+	public CommandBindingViewModel TogglePreviewPaneCommand { get; }
+
 	public CommandBindingViewModel SortItemsCommand { get; }
 
 	public CommandBindingViewModel GroupItemsCommand { get; }
@@ -135,6 +137,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		CommandBindingViewModel pinToQuickAccessCommand,
 		CommandBindingViewModel addToFavoritesCommand,
 		CommandBindingViewModel copyAsPathCommand,
+		CommandBindingViewModel togglePreviewPaneCommand,
 		CommandBindingViewModel sortItemsCommand,
 		CommandBindingViewModel groupItemsCommand,
 		CommandBindingViewModel layoutDetailsCommand,
@@ -160,6 +163,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		ArgumentNullException.ThrowIfNull(pinToQuickAccessCommand);
 		ArgumentNullException.ThrowIfNull(addToFavoritesCommand);
 		ArgumentNullException.ThrowIfNull(copyAsPathCommand);
+		ArgumentNullException.ThrowIfNull(togglePreviewPaneCommand);
 		ArgumentNullException.ThrowIfNull(sortItemsCommand);
 		ArgumentNullException.ThrowIfNull(groupItemsCommand);
 		ArgumentNullException.ThrowIfNull(layoutDetailsCommand);
@@ -185,6 +189,7 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 		PinToQuickAccessCommand = pinToQuickAccessCommand;
 		AddToFavoritesCommand = addToFavoritesCommand;
 		CopyAsPathCommand = copyAsPathCommand;
+		TogglePreviewPaneCommand = togglePreviewPaneCommand;
 		SortItemsCommand = sortItemsCommand;
 		GroupItemsCommand = groupItemsCommand;
 		LayoutDetailsCommand = layoutDetailsCommand;

@@ -8,6 +8,9 @@ public static class CommandIds
 	public static readonly CommandId ToggleSidebar =
 		new("files.navigation.toggle-sidebar");
 
+	public static readonly CommandId TogglePreviewPane =
+		new("files.navigation.toggle-preview-pane");
+
 	public static readonly CommandId NavigateBack =
 		new("files.navigation.back");
 

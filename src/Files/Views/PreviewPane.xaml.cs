@@ -9,6 +9,7 @@ using Files.Localization;
 using Files.ViewModels;
 using Files.Core.Windows;
 using Microsoft.UI.Content;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -24,6 +25,7 @@ using Windows.Win32.Graphics.Dwm;
 using Windows.Win32.Graphics.Dxgi;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.WindowsAndMessaging;
+using WinRT;
 using WinRT.Interop;
 using WNDPROC = Windows.Win32.Extras.ManagedWNDPROC;
 
@@ -69,6 +71,8 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private ID3D11DeviceContext? _d3d11DeviceContext;
 	private IDCompositionDevice? _compositionDevice;
 	private IDCompositionVisual? _previewVisual;
+	private ContainerVisual? _previewCompositionRoot;
+	private CompositionRoundedRectangleGeometry? _previewClipGeometry;
 	private object? _previewSurface;
 	private readonly string _previewHostClassName = $"{PreviewHostWindowClassPrefix}_{Guid.NewGuid():N}";
 	private WNDPROC? _previewHostWindowProc;
@@ -108,7 +112,6 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		InitializeComponent();
 		_dispatcherQueue = DispatcherQueue;
 		_previewRootPointerChangedHandler = PreviewRoot_PointerChanged;
-		PreviewTitleBlock.Text = Strings.Preview.GetLocalized();
 		PreviewAnywayButton.Content = Strings.PreviewAnyway.GetLocalized();
 		Loaded += PreviewPane_Loaded;
 		Unloaded += PreviewPane_Unloaded;
@@ -796,7 +799,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			return;
 		}
 
-		if (_previewHost.IsNull || PreviewSurface.XamlRoot is not { } xamlRoot)
+		if (_previewHost.IsNull || PreviewSurface.XamlRoot is null)
 		{
 			throw new InvalidOperationException("The preview host is not ready for composition.");
 		}
@@ -807,9 +810,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		ID3D11DeviceContext? d3d11DeviceContext = null;
 		foreach (var driverType in driverTypes)
 		{
-			hr = PInvoke.D3D11CreateDevice(
-				null!, driverType, new(nint.Zero), D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-				ReadOnlySpan<D3D_FEATURE_LEVEL>.Empty, 7, out d3d11Device, out d3d11DeviceContext);
+			hr = PInvoke.D3D11CreateDevice(null!, driverType, new(nint.Zero), D3D11_CREATE_DEVICE_FLAG.D3D11_CREATE_DEVICE_BGRA_SUPPORT, [], 7, out d3d11Device, out d3d11DeviceContext);
 			if (hr.Succeeded)
 			{
 				break;
@@ -823,31 +824,35 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		_d3d11Device = d3d11Device;
 		_d3d11DeviceContext = d3d11DeviceContext;
+
 		try
 		{
 			var dxgiDevice = (IDXGIDevice)d3d11Device;
-			hr = PInvoke.DCompositionCreateDevice<IDCompositionDevice>(dxgiDevice, out var compositionDevice);
-			hr.ThrowOnFailure();
+			hr = PInvoke.DCompositionCreateDevice<IDCompositionDevice>(dxgiDevice, out var compositionDevice).ThrowOnFailure();
 			_compositionDevice = compositionDevice;
-			hr = compositionDevice.CreateVisual(out var previewVisual);
-			hr.ThrowOnFailure();
+
+			hr = compositionDevice.CreateVisual(out var previewVisual).ThrowOnFailure();
 			_previewVisual = previewVisual;
-			hr = compositionDevice.CreateSurfaceFromHwnd(_previewHost, out var previewSurface);
-			hr.ThrowOnFailure();
+
+			hr = compositionDevice.CreateSurfaceFromHwnd(_previewHost, out var previewSurface).ThrowOnFailure();
 			_previewSurface = previewSurface;
-			hr = previewVisual.SetContent(previewSurface);
-			hr.ThrowOnFailure();
+
+			hr = previewVisual.SetContent(previewSurface).ThrowOnFailure();
 
 			var compositor = ElementCompositionPreview.GetElementVisual(PreviewSurface).Compositor;
 			_contentExternalOutputLink = ContentExternalOutputLink.Create(compositor);
-			var target = WinRT.CastExtensions.As<IDCompositionTarget>(_contentExternalOutputLink);
-			hr = target.SetRoot(previewVisual);
-			hr.ThrowOnFailure();
+			_previewCompositionRoot = compositor.CreateContainerVisual();
+			var target = _contentExternalOutputLink.As<IDCompositionTarget>();
+			hr = target.SetRoot(previewVisual).ThrowOnFailure();
+
 			_contentExternalOutputLink.PlacementVisual.Scale = new Vector3(1 / (float)layout.Scale);
 			_contentExternalOutputLink.PlacementVisual.Size = new Vector2(layout.Width, layout.Height);
-			ElementCompositionPreview.SetElementChildVisual(PreviewSurface, _contentExternalOutputLink.PlacementVisual);
-			hr = compositionDevice.Commit();
-			hr.ThrowOnFailure();
+			_previewCompositionRoot.Children.InsertAtTop(_contentExternalOutputLink.PlacementVisual);
+			UpdatePreviewCompositionClip(layout);
+			ElementCompositionPreview.SetElementChildVisual(PreviewSurface, _previewCompositionRoot);
+
+			hr = compositionDevice.Commit().ThrowOnFailure();
+
 			SetPreviewHostCloaked(false);
 		}
 		catch
@@ -864,7 +869,42 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		{
 			_contentExternalOutputLink.PlacementVisual.Scale = new Vector3(1 / (float)layout.Scale);
 			_contentExternalOutputLink.PlacementVisual.Size = new Vector2(layout.Width, layout.Height);
+			UpdatePreviewCompositionClip(layout);
 		}
+	}
+
+	private void UpdatePreviewCompositionClip(PreviewHostLayout layout)
+	{
+		if (_contentExternalOutputLink is null)
+		{
+			return;
+		}
+
+		var scale = (float)layout.Scale;
+		var compositor = _contentExternalOutputLink.PlacementVisual.Compositor;
+		//_contentExternalOutputLink.PlacementVisual.Clip = compositor.CreateRectangleClip(
+		//	0,
+		//	0,
+		//	layout.Width,
+		//	layout.Height,
+		//	new Vector2((float)PreviewSurface.CornerRadius.TopLeft * scale),
+		//	new Vector2((float)PreviewSurface.CornerRadius.TopRight * scale),
+		//	new Vector2((float)PreviewSurface.CornerRadius.BottomRight * scale),
+		//	new Vector2((float)PreviewSurface.CornerRadius.BottomLeft * scale));
+
+		if (_previewCompositionRoot is null)
+		{
+			return;
+		}
+
+		var logicalSize = new Vector2(layout.Width / scale, layout.Height / scale);
+		_previewCompositionRoot.Size = logicalSize;
+		_previewClipGeometry ??= compositor.CreateRoundedRectangleGeometry();
+		_previewClipGeometry.Size = logicalSize;
+		_previewClipGeometry.CornerRadius = new Vector2(
+			(float)PreviewSurface.CornerRadius.TopLeft,
+			(float)PreviewSurface.CornerRadius.TopLeft);
+		_previewCompositionRoot.Clip = compositor.CreateGeometricClip(_previewClipGeometry);
 	}
 
 	private void DestroyPreviewHostComposition()
@@ -883,6 +923,9 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			_contentExternalOutputLink.Dispose();
 			_contentExternalOutputLink = null;
 		}
+
+		_previewCompositionRoot = null;
+		_previewClipGeometry = null;
 
 		_previewSurface = null;
 		_previewVisual = null;

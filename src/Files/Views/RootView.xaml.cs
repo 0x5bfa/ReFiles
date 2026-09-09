@@ -15,8 +15,6 @@ namespace Files.Views;
 
 public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposable
 {
-	private const double PreviewPaneWidth = 320;
-
 	private readonly RootViewModel _viewModel;
 	private readonly Queue<string> _pendingErrorMessages = [];
 
@@ -46,6 +44,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		TabStrip.NewWindowRequested += TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested += NavigationToolbarView_FolderViewFocusRequested;
 		NavigationToolbarView.FolderViewKeyboardFocusRequested += NavigationToolbarView_FolderViewKeyboardFocusRequested;
+		PreviewPaneView.SizeChanged += PreviewPaneView_SizeChanged;
 		Loaded += RootView_Loaded;
 	}
 
@@ -84,6 +83,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		TabStrip.NewWindowRequested -= TabStrip_NewWindowRequested;
 		NavigationToolbarView.FolderViewFocusRequested -= NavigationToolbarView_FolderViewFocusRequested;
 		NavigationToolbarView.FolderViewKeyboardFocusRequested -= NavigationToolbarView_FolderViewKeyboardFocusRequested;
+		PreviewPaneView.SizeChanged -= PreviewPaneView_SizeChanged;
 		_pendingErrorMessages.Clear();
 		_activeErrorDialog?.Hide();
 		await _showErrorDialogsTask;
@@ -108,7 +108,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 			ResetSidebarDropController();
 		}
 
-		if (e.PropertyName is null or nameof(RootViewModel.ActiveTab))
+		if (e.PropertyName is null or nameof(RootViewModel.ActiveTab) or nameof(RootViewModel.IsPreviewPaneVisible) or nameof(RootViewModel.PreviewPaneWidth))
 		{
 			UpdateActiveTabPresentation();
 		}
@@ -162,8 +162,12 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		var isSettings = ViewModel.ActiveTab?.IsSettings is true;
 		NavigationToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
 		FolderToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
-		PreviewPaneColumn.Width = new GridLength(isSettings ? 0 : PreviewPaneWidth);
-		PreviewPaneView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
+		var isPreviewPaneVisible = !isSettings && ViewModel.IsPreviewPaneVisible;
+		PreviewPaneSplitterColumn.Width = new GridLength(isPreviewPaneVisible ? 16 : 0);
+		PreviewPaneColumn.MinWidth = isPreviewPaneVisible ? RootViewModel.MinimumPreviewPaneWidth : 0;
+		PreviewPaneColumn.MaxWidth = isPreviewPaneVisible ? double.PositiveInfinity : 0;
+		PreviewPaneColumn.Width = new GridLength(isPreviewPaneVisible ? ViewModel.PreviewPaneWidth : 0);
+		PreviewPaneView.Visibility = isPreviewPaneVisible ? Visibility.Visible : Visibility.Collapsed;
 		if (isSettings)
 		{
 			Sidebar.SelectedItem = ViewModel.SettingsNavigationItem;
@@ -171,6 +175,14 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		else if (ReferenceEquals(Sidebar.SelectedItem, ViewModel.SettingsNavigationItem))
 		{
 			Sidebar.SelectedItem = null;
+		}
+	}
+
+	private void PreviewPaneView_SizeChanged(object sender, SizeChangedEventArgs e)
+	{
+		if (ViewModel.IsPreviewPaneVisible && ViewModel.ActiveTab?.IsSettings is not true && e.NewSize.Width >= RootViewModel.MinimumPreviewPaneWidth)
+		{
+			ViewModel.PreviewPaneWidth = e.NewSize.Width;
 		}
 	}
 

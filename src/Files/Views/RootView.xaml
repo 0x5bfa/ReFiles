@@ -4,16 +4,16 @@
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	xmlns:controls="using:Files.Controls"
-	xmlns:vm="using:Files.ViewModels"
 	xmlns:views="using:Files.Views"
+	xmlns:vm="using:Files.ViewModels"
 	x:Name="Root">
 
 	<UserControl.Resources>
 		<DataTemplate x:Key="NavigationSidebarFlyoutItemTemplate" x:DataType="vm:NavigationItemViewModel">
 			<controls:SidebarItem
+				controls:RightButtonDrag.IsEnabled="True"
 				AutomationProperties.Name="{x:Bind Text}"
 				CanDrag="{x:Bind CanDrag}"
-				controls:RightButtonDrag.IsEnabled="True"
 				Icon="{x:Bind Icon, Mode=OneWay}"
 				IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
 				Item="{x:Bind}"
@@ -25,9 +25,9 @@
 		<DataTemplate x:Key="NavigationSidebarItemTemplate" x:DataType="controls:FlatSidebarItem">
 			<controls:SidebarItem
 				Margin="{x:Bind SectionGapMargin, Mode=OneWay}"
+				controls:RightButtonDrag.IsEnabled="True"
 				AutomationProperties.Name="{Binding Item.Text}"
 				CanDrag="{Binding Item.CanDrag}"
-				controls:RightButtonDrag.IsEnabled="True"
 				ContentOpacity="{x:Bind RowOpacity}"
 				DataContext="{x:Bind}"
 				Icon="{Binding Item.Icon, Mode=OneWay}"
@@ -51,15 +51,18 @@
 
 		<views:TabView x:Name="TabStrip" ViewModel="{x:Bind ViewModel.TabStrip, Mode=OneWay}" />
 
-		<views:NavigationToolbar x:Name="NavigationToolbarView" Grid.Row="1" ViewModel="{x:Bind ViewModel.NavigationToolbar, Mode=OneWay}" />
+		<views:NavigationToolbar
+			x:Name="NavigationToolbarView"
+			Grid.Row="1"
+			ViewModel="{x:Bind ViewModel.NavigationToolbar, Mode=OneWay}" />
 
 		<controls:SidebarView
 			x:Name="Sidebar"
 			Grid.Row="2"
 			AutomationProperties.AutomationId="Sidebar"
 			DisplayMode="{x:Bind ViewModel.SidebarDisplayMode, Mode=TwoWay}"
-			FooterMenuItemsSource="{x:Bind ViewModel.SidebarFooterItems, Mode=OneWay}"
 			FooterMenuItemTemplate="{StaticResource NavigationSidebarItemTemplate}"
+			FooterMenuItemsSource="{x:Bind ViewModel.SidebarFooterItems, Mode=OneWay}"
 			ItemDragEnter="Sidebar_ItemDragEnter"
 			ItemDragLeave="Sidebar_ItemDragLeave"
 			ItemDragOver="Sidebar_ItemDragOver"
@@ -86,14 +89,26 @@
 					<Grid Grid.Row="1" ColumnSpacing="1">
 						<Grid.ColumnDefinitions>
 							<ColumnDefinition Width="*" />
-							<ColumnDefinition x:Name="PreviewPaneColumn" Width="320" />
+							<ColumnDefinition x:Name="PreviewPaneSplitterColumn" Width="0" />
+							<ColumnDefinition
+								x:Name="PreviewPaneColumn"
+								Width="0"
+								MinWidth="0" />
 						</Grid.ColumnDefinitions>
 
 						<views:PaneHost x:Name="PaneHostView" ViewModel="{x:Bind ViewModel.ActiveTab, Mode=OneWay}" />
 
+						<controls:GridSplitter
+							Grid.Column="1"
+							HorizontalAlignment="Stretch"
+							VerticalAlignment="Stretch"
+							IsTabStop="False"
+							ResizeBehavior="PreviousAndNext"
+							ResizeDirection="Columns" />
+
 						<views:PreviewPane
 							x:Name="PreviewPaneView"
-							Grid.Column="1"
+							Grid.Column="2"
 							IsTabStop="True"
 							ViewModel="{x:Bind ViewModel.ActivePreview, Mode=OneWay}" />
 					</Grid>
