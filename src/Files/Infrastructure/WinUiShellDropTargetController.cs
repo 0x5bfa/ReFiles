@@ -76,6 +76,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 			}
 
 			var effect = _session.Drop(dragState.Modifiers, dragState.ScreenPoint, dragState.AllowedEffects);
+			UiDiagnosticLog.Write("ShellDropTarget", $"Drop allowed={dragState.AllowedEffects} effect={effect}");
 			if (generation == _eventGeneration)
 			{
 				args.AcceptedOperation = WinUiDataObjectBridge.ToDataPackageOperation(effect);
@@ -156,6 +157,10 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 			{
 				effect = _session.DragOver(dragState.Modifiers, dragState.ScreenPoint, dragState.AllowedEffects);
 				_acceptedEffect = effect;
+			}
+			else
+			{
+				UiDiagnosticLog.Write("ShellDropTarget", $"DragEnter allowed={dragState.AllowedEffects} effect={effect}");
 			}
 
 			if (generation == _eventGeneration)

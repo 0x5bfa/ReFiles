@@ -369,9 +369,10 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		_dragSources.Clear();
 	}
 
-	private void EnableDragSource(SelectorItem container)
+	private void EnableDragSource(SelectorItem container, BrowseItemViewModel? item = null)
 	{
-		if (container.Content is not BrowseItemViewModel item || !_viewModel.SupportsShellDragDrop(item.Reference))
+		item ??= container.Content as BrowseItemViewModel;
+		if (item is null || !_viewModel.SupportsShellDragDrop(item.Reference))
 		{
 			DisableDragSource(container);
 
@@ -583,7 +584,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 			}
 			else
 			{
-				EnableDragSource(container);
+				EnableDragSource(container, args.Item as BrowseItemViewModel);
 			}
 		}
 
@@ -621,7 +622,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 			}
 			else
 			{
-				EnableDragSource(container);
+				EnableDragSource(container, e.Item as BrowseItemViewModel);
 			}
 		}
 

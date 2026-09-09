@@ -3,7 +3,9 @@
 
 using Files.Core.Windows;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Win32;
 using Windows.Win32.System.Com;
+using Windows.Win32.System.Ole;
 using Windows.Win32.UI.Shell;
 using WinRT;
 
@@ -19,9 +21,9 @@ internal static class WinUiDataObjectBridge
 		ArgumentNullException.ThrowIfNull(dataPackage);
 
 		var effects = dragSource.Attach(GetProvider(dataPackage), ownerWindowHandle, preferredEffect, deriveMoveFromDelete);
-		var operation = ToDataPackageOperation(effects);
+		UiDiagnosticLog.Write("ShellDragSource", $"Attach allowed={effects} preferred={preferredEffect}");
 
-		return operation;
+		return ToDataPackageOperation(effects);
 	}
 
 	internal static IDataObjectProvider GetProvider(DataPackage dataPackage)
@@ -58,4 +60,5 @@ internal static class WinUiDataObjectBridge
 
 		return operation;
 	}
+
 }

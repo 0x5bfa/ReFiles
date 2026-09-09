@@ -54,9 +54,15 @@ public sealed class WinUiDataObjectBridgeTests
 			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, dataPackage, 0, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
 
 			Assert.IsTrue(allowedOperations.HasFlag(DataPackageOperation.Copy));
+			Assert.AreEqual(DataPackageOperation.Link, dataPackage.RequestedOperation);
+			Assert.IsTrue(dataPackage.GetView().Contains(StandardDataFormats.StorageItems), "The bridged drag package was not projected as StorageItems.");
+			var defaultDataPackage = new DataPackage();
+			WinUiDataObjectBridge.Attach(dragSource, defaultDataPackage, 0, WindowsShellDropEffects.None, deriveMoveFromDelete: false);
+			Assert.AreEqual(DataPackageOperation.None, defaultDataPackage.RequestedOperation);
 			var dataObject = WinUiDataObjectBridge.GetDataObject(dataPackage.GetView());
 			Assert.IsTrue(TryGetDword(dataObject, PreferredDropEffectFormat, out var preferredEffect));
 			Assert.AreEqual((uint)WindowsShellDropEffects.Link, preferredEffect);
+			Assert.IsTrue(TryGetFormat(dataObject, 15, TYMED.TYMED_HGLOBAL), "The bridged data object did not expose CF_HDROP.");
 			Assert.IsTrue(dropTarget.TryCreateSession(dataObject, 0, out var session));
 			Assert.IsNotNull(session);
 			using (session)
@@ -123,6 +129,23 @@ public sealed class WinUiDataObjectBridgeTests
 		{
 			PInvoke.ReleaseStgMedium(ref medium);
 		}
+	}
+
+	private static bool TryGetFormat(IDataObject dataObject, ushort clipboardFormat, TYMED tymed)
+	{
+		var format = default(FORMATETC);
+		format.cfFormat = clipboardFormat;
+		format.dwAspect = (uint)DVASPECT.DVASPECT_CONTENT;
+		format.lindex = -1;
+		format.tymed = (uint)tymed;
+		if (dataObject.GetData(in format, out var medium).Failed)
+		{
+			return false;
+		}
+
+		PInvoke.ReleaseStgMedium(ref medium);
+
+		return true;
 	}
 
 	private static async Task<bool> WaitForFileContentAsync(string path, string expectedContent, TimeSpan timeout)

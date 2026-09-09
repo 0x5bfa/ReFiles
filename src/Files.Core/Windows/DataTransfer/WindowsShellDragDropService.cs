@@ -7,6 +7,9 @@ using Files.Core.Storage;
 using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com;
+using Windows.Win32.System.Ole;
+using Windows.Win32.System.SystemServices;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.WindowsAndMessaging;
 
@@ -93,15 +96,50 @@ public sealed class WindowsShellDragDropService
 		}
 
 		using var menu = WindowsShellContextMenuCommandHelper.CreateMenu();
-		if (contextMenu.QueryContextMenu(menu, 0, WindowsShellContextMenuCommandHelper.FirstCommandId, WindowsShellContextMenuCommandHelper.LastCommandId, ContextMenuQueryFlags).Failed
-			|| !TryFindPasteCommand(menu, contextMenu, out var commandOrdinal, out var isEnabled) || !isEnabled)
+		var querySucceeded = contextMenu.QueryContextMenu(menu, 0, WindowsShellContextMenuCommandHelper.FirstCommandId, WindowsShellContextMenuCommandHelper.LastCommandId, ContextMenuQueryFlags).Succeeded;
+		var commandOrdinal = 0U;
+		var isEnabled = false;
+		var foundPasteCommand = querySucceeded && TryFindPasteCommand(menu, contextMenu, out commandOrdinal, out isEnabled);
+		if (!querySucceeded || !foundPasteCommand || !isEnabled)
 		{
-			return false;
+			return TryDropClipboard(shellItem, ownerWindow);
 		}
 
 		WindowsShellContextMenuCommandHelper.Invoke(contextMenu, commandOrdinal, new WindowsShellInvocationContext(ownerWindow));
 
 		return true;
+	}
+
+	private static bool TryDropClipboard(IShellItem shellItem, HWND ownerWindow)
+	{
+		if (PInvoke.OleGetClipboard(out var dataObject).Failed || dataObject is null || shellItem.BindToHandler<IShellFolder>(null, PInvoke.BHID_SFObject, out var folder).Failed || folder is null
+			|| folder.CreateViewObject<IDropTarget>(ownerWindow, out var dropTarget).Failed || dropTarget is null)
+		{
+			return false;
+		}
+
+		var effect = DROPEFFECT.DROPEFFECT_COPY | DROPEFFECT.DROPEFFECT_MOVE | DROPEFFECT.DROPEFFECT_LINK;
+		var point = default(POINTL);
+		if (dropTarget.DragEnter(dataObject, (MODIFIERKEYS_FLAGS)0, point, ref effect).Failed)
+		{
+			return false;
+		}
+
+		var dropCompleted = false;
+		try
+		{
+			var dropSucceeded = dropTarget.Drop(dataObject, (MODIFIERKEYS_FLAGS)0, point, ref effect).Succeeded;
+			dropCompleted = dropSucceeded;
+
+			return dropSucceeded;
+		}
+		finally
+		{
+			if (!dropCompleted)
+			{
+				_ = dropTarget.DragLeave();
+			}
+		}
 	}
 
 	private static unsafe bool TryFindPasteCommand(DestroyMenuSafeHandle menu, IContextMenu contextMenu, out uint commandOrdinal, out bool isEnabled)

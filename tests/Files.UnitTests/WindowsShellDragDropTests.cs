@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO.Compression;
 using Files.Core.Storage;
 using Files.Core.Windows;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
@@ -458,6 +459,8 @@ public sealed class WindowsShellDragDropTests
 			await clipboardRestore.MarkPublishedClipboardAsync();
 			var publishedFormats = await ReadClipboardFormatsAsync(scheduler);
 			AssertPublishedClipboardContracts(publishedFormats, WindowsShellDropEffects.Copy | WindowsShellDropEffects.Link);
+			var hasStorageItems = await scheduler.InvokeAsync(() => Clipboard.GetContent().Contains(StandardDataFormats.StorageItems));
+			Assert.IsTrue(hasStorageItems, "The native Shell clipboard was not projected as StorageItems.");
 			Assert.IsTrue(await source.DragDrop.PasteAsync(CreateReference(source, firstDestinationItem), (nint)PInvoke.GetDesktopWindow()));
 			var firstPasteCompleted = await WaitForConditionAsync(
 				() => File.ReadAllText(Path.Combine(firstDestinationFolderPath, "first.txt")) == "first clipboard item"
@@ -934,7 +937,7 @@ public sealed class WindowsShellDragDropTests
 
 					hr = PInvoke.OleFlushClipboard();
 
-					return new ClipboardRestoreAttempt(true, true, hr);
+					return new ClipboardRestoreAttempt(true, hr.Succeeded, hr);
 				});
 				if (!restoreAttempt.SequenceMatched)
 				{

@@ -70,35 +70,17 @@ public sealed class WindowsShellClipboardService
 		var dataObject = WindowsShellDataObjectFactory.Create(locators, ownerWindow);
 		var dropEffect = move ? DROPEFFECT.DROPEFFECT_MOVE : DROPEFFECT.DROPEFFECT_COPY | DROPEFFECT.DROPEFFECT_LINK;
 		WindowsShellDataObjectFormat.SetDword(dataObject, WindowsShellDataObjectFormat.PreferredDropEffect, (uint)dropEffect);
-		var asyncCapability = TryStartAsyncOperation(dataObject);
 		try
 		{
-			if (asyncCapability is not null)
-			{
-				WindowsShellDataObjectFormat.SetDword(dataObject, WindowsShellDataObjectFormat.AsyncFlag, 1);
-			}
-
 			PInvoke.OleSetClipboard(dataObject).ThrowOnFailure();
 			_clipboardDataObject = dataObject;
 		}
 		catch
 		{
-			asyncCapability?.EndOperation(HRESULT.E_FAIL, null!, (uint)DROPEFFECT.DROPEFFECT_NONE);
-
 			throw;
 		}
 
 		return true;
-	}
-
-	private static IDataObjectAsyncCapability? TryStartAsyncOperation(IDataObject dataObject)
-	{
-		if (dataObject is not IDataObjectAsyncCapability asyncCapability || asyncCapability.GetAsyncMode(out var isAsync).Failed || !isAsync)
-		{
-			return null;
-		}
-
-		return asyncCapability.StartOperation(null!).Succeeded ? asyncCapability : null;
 	}
 
 	private bool FlushOnCurrentSta()

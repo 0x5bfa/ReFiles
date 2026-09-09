@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Adapters;
 using Files.Commands;
@@ -24,9 +25,12 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using OwlCore.Storage;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.System.Com;
+using Windows.Win32.System.Ole;
 
 namespace Files.ViewModels;
 
@@ -141,7 +145,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool CanCut => CanCopy;
 
-	public bool CanPaste => !IsLoading && !IsBusy && _windowsSource is not null && TryGetCurrentShellFolder(out _);
+	public bool CanPaste => !IsLoading && !IsBusy && _windowsSource is not null && TryGetCurrentShellFolder(out _) && HasClipboardStorageItems();
 
 	public bool CanDelete => !IsLoading && !IsBusy && SelectedItems.Count is not 0 && SelectedItems.All(item => _storageOperations.CanHandle(CreateDeleteRequest(item.Reference)));
 
@@ -419,6 +423,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			throw new NotSupportedException("The current location cannot receive Windows Shell clipboard items.");
 		}
 
+		if (TryGetCurrentFileSystemFolder(out var fileSystemDestination) && await TryPasteFileSystemClipboardAsync(fileSystemDestination, cancellationToken).ConfigureAwait(false))
+		{
+			await RefreshAsync(cancellationToken).ConfigureAwait(false);
+
+			return;
+		}
+
+		UiDiagnosticLog.Write("FolderBrowserViewModel", "Paste falling back to native Shell paste.");
 		if (!await _windowsSource.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
 			return;
@@ -1379,6 +1391,211 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		folder = null!;
 
 		return false;
+	}
+
+	private static bool HasClipboardStorageItems()
+	{
+		try
+		{
+			if (Clipboard.GetContent().Contains(StandardDataFormats.StorageItems))
+			{
+				return true;
+			}
+		}
+		catch
+		{
+		}
+
+		try
+		{
+			return TryGetNativeClipboardFilePaths(out _);
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
+	private async Task<bool> TryPasteFileSystemClipboardAsync(StorableReference destinationFolder, CancellationToken cancellationToken)
+	{
+		DataPackageView? data = null;
+		var paths = new List<string>();
+		try
+		{
+			data = Clipboard.GetContent();
+			if (data.Contains(StandardDataFormats.StorageItems))
+			{
+				IReadOnlyList<Windows.Storage.IStorageItem> storageItems;
+				try
+				{
+					storageItems = await data.GetStorageItemsAsync();
+				}
+				catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+				{
+					throw;
+				}
+				catch
+				{
+					storageItems = [];
+				}
+
+				foreach (var storageItem in storageItems)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					try
+					{
+						if (!string.IsNullOrWhiteSpace(storageItem.Path))
+						{
+							paths.Add(storageItem.Path);
+						}
+					}
+					catch
+					{
+					}
+				}
+			}
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch
+		{
+			data = null;
+		}
+
+		IReadOnlyList<string> nativePaths = [];
+		var hasNativePaths = paths.Count is not 0 || TryGetNativeClipboardFilePaths(out nativePaths);
+		if (!hasNativePaths)
+		{
+			return false;
+		}
+
+		if (paths.Count is 0)
+		{
+			paths.AddRange(nativePaths);
+		}
+
+		if (paths.Count is 0)
+		{
+			return false;
+		}
+
+		var move = data?.RequestedOperation.HasFlag(DataPackageOperation.Move) is true;
+		var itemNames = paths.Select(GetClipboardOperationItemName).ToArray();
+		UiDiagnosticLog.Write("FolderBrowserViewModel", $"Paste tracked kind={(move ? "Move" : "Copy")} items={itemNames.Length}");
+		await ExecuteTrackedStorageOperationBatchAsync(
+			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
+			itemNames,
+			canCancel: true,
+			canPause: true,
+			(index, progress, operationControl, operationCancellation) => ExecuteClipboardTransferAsync(paths[index], destinationFolder, move, progress, operationControl, operationCancellation),
+			cancellationToken,
+			destinationPath: destinationFolder.LastKnownAddress?.Value).ConfigureAwait(false);
+
+		return true;
+	}
+
+	private static unsafe bool TryGetNativeClipboardFilePaths(out IReadOnlyList<string> paths)
+	{
+		paths = [];
+		if (PInvoke.OleGetClipboard(out var dataObject).Failed || dataObject is null)
+		{
+			return false;
+		}
+
+		var format = default(FORMATETC);
+		format.cfFormat = 15;
+		format.dwAspect = (uint)DVASPECT.DVASPECT_CONTENT;
+		format.lindex = -1;
+		format.tymed = (uint)TYMED.TYMED_HGLOBAL;
+		if (dataObject.GetData(in format, out var medium).Failed)
+		{
+			return false;
+		}
+
+		try
+		{
+			if (medium.tymed is not TYMED.TYMED_HGLOBAL || medium.u.hGlobal.IsNull)
+			{
+				return false;
+			}
+
+			var size = PInvoke.GlobalSize(medium.u.hGlobal);
+			if (size < 20)
+			{
+				return false;
+			}
+
+			var buffer = PInvoke.GlobalLock(medium.u.hGlobal);
+			if (buffer is null)
+			{
+				return false;
+			}
+
+			try
+			{
+				var offset = Marshal.ReadInt32((nint)buffer);
+				var isWide = Marshal.ReadInt32((nint)buffer, 16) is not 0;
+				if (offset < 20 || (nuint)offset >= size || !isWide)
+				{
+					return false;
+				}
+
+				var remaining = checked((int)size - offset);
+				var current = (nint)buffer + offset;
+				var result = new List<string>();
+				while (remaining >= sizeof(char))
+				{
+					var length = 0;
+					while ((length + 1) * sizeof(char) <= remaining && Marshal.ReadInt16(current, length * sizeof(char)) is not 0)
+					{
+						length++;
+					}
+
+					if (length is 0)
+					{
+						break;
+					}
+
+					result.Add(Marshal.PtrToStringUni(current, length));
+					var advance = checked((length + 1) * sizeof(char));
+					current += advance;
+					remaining -= advance;
+				}
+
+				paths = result;
+
+				return result.Count is not 0;
+			}
+			finally
+			{
+				_ = PInvoke.GlobalUnlock(medium.u.hGlobal);
+			}
+		}
+		finally
+		{
+			PInvoke.ReleaseStgMedium(ref medium);
+		}
+	}
+
+	private async Task ExecuteClipboardTransferAsync(string path, StorableReference destinationFolder, bool move, IProgress<StorageOperationProgress> progress,
+		IStorageOperationControl operationControl, CancellationToken cancellationToken)
+	{
+		await using var model = await _workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false);
+		StorageOperationRequest request = move
+			? new MoveOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.Prompt)
+			: new CopyOperationRequest(model.Reference, destinationFolder, conflictBehavior: StorageConflictBehavior.Prompt);
+
+		await ExecuteStorageOperationAsync(request, progress, cancellationToken, operationControl).ConfigureAwait(false);
+	}
+
+	private static string GetClipboardOperationItemName(string path)
+	{
+		var trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+		var name = Path.GetFileName(trimmedPath);
+
+		return string.IsNullOrWhiteSpace(name) ? path : name;
 	}
 
 	private bool TryGetCurrentFileSystemFolder(out StorableReference folder)
