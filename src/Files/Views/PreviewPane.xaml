@@ -26,6 +26,7 @@
 				x:Name="PreviewSurface"
 				Grid.Row="1"
 				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+				PointerEntered="PreviewSurface_PointerEntered"
 				SizeChanged="PreviewSurface_SizeChanged">
 				<StackPanel
 					x:Name="StatusPanel"
@@ -50,25 +51,6 @@
 						Visibility="Collapsed" />
 				</StackPanel>
 
-				<Image
-					x:Name="PreviewImage"
-					Margin="12"
-					HorizontalAlignment="Stretch"
-					VerticalAlignment="Stretch"
-					Stretch="Uniform"
-					Visibility="Collapsed" />
-
-				<ScrollViewer
-					x:Name="PreviewTextScroller"
-					Padding="12"
-					HorizontalScrollBarVisibility="Auto"
-					VerticalScrollBarVisibility="Auto"
-					Visibility="Collapsed">
-					<TextBlock
-						x:Name="PreviewTextBlock"
-						FontFamily="Consolas"
-						TextWrapping="NoWrap" />
-				</ScrollViewer>
 			</Grid>
 		</Grid>
 	</Border>

@@ -3,15 +3,13 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using System.Runtime.Versioning;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
-using Windows.Win32.Security;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.Ole;
 using Windows.Win32.UI.Shell;
@@ -23,6 +21,10 @@ namespace Files.Core.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHandlerController
 {
+	private const int ServerExecutionFailure = unchecked((int)0x80080005);
+	private const int ActivationAttemptCount = 3;
+	private const int ActivationRetryDelayMilliseconds = 250;
+
 	private IPreviewHandler? _handler;
 	private IStream? _initializedStream;
 	private IShellItem? _initializedItem;
@@ -41,11 +43,10 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	/// <summary>Creates a controller for an activated preview handler.</summary>
 	/// <param name="handlerClsid">The preview handler CLSID.</param>
 	/// <param name="activationContext">The COM activation context.</param>
-	/// <param name="useLowIntegrity">Whether to activate the handler under a low-integrity impersonation token.</param>
 	/// <returns>The created controller.</returns>
-	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext, bool useLowIntegrity)
+	public static WindowsShellPreviewHandlerController Create(Guid handlerClsid, uint activationContext)
 	{
-		var handler = useLowIntegrity ? ActivateWithLowIntegrity(handlerClsid, activationContext) : Activate(handlerClsid, activationContext);
+		var handler = Activate(handlerClsid, activationContext);
 
 		return new WindowsShellPreviewHandlerController(handler);
 	}
@@ -288,101 +289,23 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 
 	private static IPreviewHandler Activate(Guid handlerClsid, uint activationContext)
 	{
-		var hr = PInvoke.CoCreateInstance(in handlerClsid, null, (CLSCTX)activationContext, out IPreviewHandler handler);
-		if (hr.Failed || handler is null)
+		for (var attempt = 1; attempt <= ActivationAttemptCount; attempt++)
 		{
-			throw new COMException("The Windows preview handler could not be activated.", hr.Value);
-		}
-
-		return handler;
-	}
-
-	private static unsafe IPreviewHandler ActivateWithLowIntegrity(Guid handlerClsid, uint activationContext)
-	{
-		if (!PInvoke.ConvertStringSidToSid("LW", out var lowIntegritySid))
-		{
-			throw new Win32Exception(Marshal.GetLastPInvokeError(), "The low-integrity SID could not be created.");
-		}
-
-		try
-		{
-			if (!PInvoke.ImpersonateSelf(SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation))
+			var hr = PInvoke.CoCreateInstance(in handlerClsid, null, (CLSCTX)activationContext, out IPreviewHandler handler);
+			if (hr.Succeeded && handler is not null)
 			{
-				throw new Win32Exception(Marshal.GetLastPInvokeError(), "The preview thread could not impersonate itself.");
+				return handler;
 			}
 
-			IPreviewHandler? handler = null;
-			Exception? activationError = null;
-			try
+			if (hr.Value != ServerExecutionFailure || attempt == ActivationAttemptCount)
 			{
-				using var process = PInvoke.GetCurrentProcess_SafeHandle();
-				if (!PInvoke.OpenProcessToken(process, TOKEN_ACCESS_MASK.TOKEN_DUPLICATE, out var processToken))
-				{
-					throw new Win32Exception(Marshal.GetLastPInvokeError(), "The preview process token could not be opened.");
-				}
-
-				using (processToken)
-				{
-					var desiredAccess = TOKEN_ACCESS_MASK.TOKEN_ADJUST_DEFAULT | TOKEN_ACCESS_MASK.TOKEN_IMPERSONATE;
-					if (!PInvoke.DuplicateTokenEx(processToken, desiredAccess, null, SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation, TOKEN_TYPE.TokenImpersonation, out var lowIntegrityToken))
-					{
-						throw new Win32Exception(Marshal.GetLastPInvokeError(), "The low-integrity preview token could not be created.");
-					}
-
-					using (lowIntegrityToken)
-					{
-						SetLowIntegrity(lowIntegrityToken, lowIntegritySid);
-						if (!PInvoke.SetThreadToken(PInvoke.GetCurrentThread(), lowIntegrityToken))
-						{
-							throw new Win32Exception(Marshal.GetLastPInvokeError(), "The low-integrity preview token could not be assigned.");
-						}
-					}
-				}
-
-				handler = Activate(handlerClsid, activationContext);
-			}
-			catch (Exception error)
-			{
-				activationError = error;
+				throw new COMException("The Windows preview handler could not be activated.", hr.Value);
 			}
 
-			if (!PInvoke.RevertToSelf())
-			{
-				var error = new Win32Exception(Marshal.GetLastPInvokeError(), "The preview thread identity could not be restored.");
-				Environment.FailFast("The preview thread could not safely leave low-integrity impersonation.", error);
-			}
-
-			if (activationError is not null)
-			{
-				ExceptionDispatchInfo.Capture(activationError).Throw();
-			}
-
-			return handler ?? throw new InvalidOperationException("The preview handler activation returned no handler.");
-		}
-		finally
-		{
-			PInvoke.LocalFree((HLOCAL)(nint)lowIntegritySid.Value);
-		}
-	}
-
-	private static unsafe void SetLowIntegrity(SafeHandle token, PSID lowIntegritySid)
-	{
-		var sidLength = checked((int)PInvoke.GetLengthSid(lowIntegritySid));
-		var informationLength = checked(sizeof(TOKEN_MANDATORY_LABEL) + sidLength);
-		Span<byte> information = stackalloc byte[informationLength];
-		new ReadOnlySpan<byte>(lowIntegritySid.Value, sidLength).CopyTo(information[sizeof(TOKEN_MANDATORY_LABEL)..]);
-		fixed (byte* informationPointer = information)
-		{
-			TOKEN_MANDATORY_LABEL mandatoryLabel = default;
-			mandatoryLabel.Label.Sid = new PSID(informationPointer + sizeof(TOKEN_MANDATORY_LABEL));
-			mandatoryLabel.Label.Attributes = PInvoke.SE_GROUP_INTEGRITY;
-			*(TOKEN_MANDATORY_LABEL*)informationPointer = mandatoryLabel;
+			Thread.Sleep(ActivationRetryDelayMilliseconds * attempt);
 		}
 
-		if (!PInvoke.SetTokenInformation(token, TOKEN_INFORMATION_CLASS.TokenIntegrityLevel, information))
-		{
-			throw new Win32Exception(Marshal.GetLastPInvokeError(), "The preview thread integrity level could not be lowered.");
-		}
+		throw new InvalidOperationException("The Windows preview handler activation retry loop ended unexpectedly.");
 	}
 
 	private void SetSiteForCleanup()
@@ -441,4 +364,160 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		}
 	}
 
+}
+
+/// <summary>Creates controllers for Windows Shell preview handlers.</summary>
+[SupportedOSPlatform("windows6.0.6000")]
+public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPreviewHandlerControllerFactory
+{
+	private readonly IWindowsPreviewHandlerActivationPolicy _activationPolicy;
+
+	/// <summary>Initializes a controller factory with the local-server policy.</summary>
+	public WindowsShellPreviewHandlerControllerFactory() : this(new LocalServerWindowsPreviewHandlerActivationPolicy())
+	{
+	}
+
+	/// <summary>Initializes a controller factory.</summary>
+	/// <param name="activationPolicy">The activation policy.</param>
+	public WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy)
+	{
+		ArgumentNullException.ThrowIfNull(activationPolicy);
+
+		_activationPolicy = activationPolicy;
+	}
+
+	/// <summary>Creates a controller for a preview handler CLSID.</summary>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	/// <returns>The created controller.</returns>
+	public IWindowsPreviewHandlerController Create(Guid handlerClsid)
+	{
+		if (handlerClsid == Guid.Empty)
+		{
+			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
+		}
+
+		var activationContext = _activationPolicy.GetContext(handlerClsid);
+		const WindowsPreviewHandlerActivationContext serverKinds = WindowsPreviewHandlerActivationContext.InProcessServer | WindowsPreviewHandlerActivationContext.LocalServer;
+		const WindowsPreviewHandlerActivationContext supportedFlags = serverKinds | WindowsPreviewHandlerActivationContext.EnableCloaking;
+		if ((activationContext & serverKinds) == 0 || (activationContext & ~supportedFlags) != 0)
+		{
+			throw new InvalidOperationException("Preview handlers must be activated through an in-process or local server COM class.");
+		}
+
+		return WindowsShellPreviewHandlerController.Create(handlerClsid, (uint)activationContext);
+	}
+}
+
+/// <summary>Minimal in-process COM site exposed to a preview handler.</summary>
+[GeneratedComClass]
+internal sealed unsafe partial class WindowsPreviewHandlerFrame : IPreviewHandlerFrame
+{
+	private const ushort FirstLetterKey = 0x41;
+	private const ushort LastLetterKey = 0x5A;
+	private const ushort FirstFunctionKey = 0x70;
+	private const ushort LastFunctionKey = 0x7B;
+	private const ushort TabKey = 0x09;
+	private const int AcceleratorCount = 66;
+
+	private readonly HWND _hostWindow;
+	private readonly WindowsPreviewAcceleratorForwarder? _acceleratorForwarder;
+
+	internal WindowsPreviewHandlerFrame(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+	{
+		_hostWindow = hostWindow;
+		_acceleratorForwarder = acceleratorForwarder;
+	}
+
+	/// <inheritdoc />
+	public HRESULT GetWindowContext(PREVIEWHANDLERFRAMEINFO* frameInfo)
+	{
+		if (frameInfo is null)
+		{
+			return HRESULT.E_POINTER;
+		}
+
+		*frameInfo = default;
+		var accelerators = CreateAccelerators();
+		fixed (ACCEL* acceleratorPointer = accelerators)
+		{
+			var acceleratorTable = PInvoke.CreateAcceleratorTable(acceleratorPointer, accelerators.Length);
+			if (acceleratorTable.IsNull)
+			{
+				return HRESULT.E_FAIL;
+			}
+
+			var copiedCount = PInvoke.CopyAcceleratorTable(acceleratorTable, null, 0);
+			if (copiedCount != accelerators.Length)
+			{
+				PInvoke.DestroyAcceleratorTable(acceleratorTable);
+
+				return HRESULT.E_FAIL;
+			}
+
+			frameInfo->haccel = acceleratorTable;
+			frameInfo->cAccelEntries = (uint)copiedCount;
+		}
+
+		return HRESULT.S_OK;
+	}
+
+	/// <inheritdoc />
+	public HRESULT TranslateAccelerator(MSG* message)
+	{
+		if (message is null)
+		{
+			return HRESULT.E_POINTER;
+		}
+
+		if (_acceleratorForwarder is null)
+		{
+			return HRESULT.S_FALSE;
+		}
+
+		var messageCopy = *message;
+		messageCopy.hwnd = _hostWindow;
+		try
+		{
+			return _acceleratorForwarder(in messageCopy) ? HRESULT.S_OK : HRESULT.S_FALSE;
+		}
+		catch
+		{
+			return HRESULT.E_FAIL;
+		}
+	}
+
+	private static ACCEL[] CreateAccelerators()
+	{
+		var accelerators = new ACCEL[AcceleratorCount];
+		var index = 0;
+		for (var key = FirstLetterKey; key <= LastLetterKey; key++)
+		{
+			accelerators[index++] = CreateAccelerator(ACCEL_VIRT_FLAGS.FVIRTKEY | ACCEL_VIRT_FLAGS.FALT, key);
+		}
+
+		for (var key = FirstLetterKey; key <= LastLetterKey; key++)
+		{
+			accelerators[index++] = CreateAccelerator(ACCEL_VIRT_FLAGS.FVIRTKEY | ACCEL_VIRT_FLAGS.FCONTROL, key);
+		}
+
+		for (var key = FirstFunctionKey; key <= LastFunctionKey; key++)
+		{
+			accelerators[index++] = CreateAccelerator(ACCEL_VIRT_FLAGS.FVIRTKEY, key);
+		}
+
+		accelerators[index++] = CreateAccelerator(ACCEL_VIRT_FLAGS.FVIRTKEY, TabKey);
+		accelerators[index] = CreateAccelerator(ACCEL_VIRT_FLAGS.FVIRTKEY | ACCEL_VIRT_FLAGS.FSHIFT, TabKey);
+
+		return accelerators;
+	}
+
+	private static ACCEL CreateAccelerator(ACCEL_VIRT_FLAGS flags, ushort key)
+	{
+		ACCEL accelerator = default;
+		accelerator.fVirt = flags;
+		accelerator.key = key;
+		accelerator.cmd = 0;
+
+		return accelerator;
+	}
 }

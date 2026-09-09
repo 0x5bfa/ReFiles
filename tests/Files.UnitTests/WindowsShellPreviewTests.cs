@@ -8,7 +8,6 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Windows;
-using Microsoft.Win32;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Shell;
@@ -22,25 +21,13 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class WindowsShellPreviewTests
 {
-	/// <summary>Test case: default handler activation uses an out-of-process server with cloaking.</summary>
+	/// <summary>Test case: default handler activation supports the registered COM server type.</summary>
 	[TestMethod]
-	public void DefaultActivationPolicyUsesLocalServerWithCloaking()
+	public void DefaultActivationPolicyUsesRegisteredServerType()
 	{
 		var policy = new LocalServerWindowsPreviewHandlerActivationPolicy();
 
-		Assert.AreEqual(WindowsPreviewHandlerActivationContext.LocalServer | WindowsPreviewHandlerActivationContext.EnableCloaking, policy.GetContext(Guid.NewGuid()));
-	}
-
-	/// <summary>Verifies the exact registry value forms that opt a handler out of low-integrity isolation.</summary>
-	[TestMethod]
-	public void LowIntegrityOptOutAcceptsOnlyFourByteNonzeroDwordOrBinaryValues()
-	{
-		Assert.IsTrue(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(1, RegistryValueKind.DWord));
-		Assert.IsTrue(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(-1, RegistryValueKind.DWord));
-		Assert.IsTrue(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(new byte[] { 1, 0, 0, 0 }, RegistryValueKind.Binary));
-		Assert.IsFalse(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(0, RegistryValueKind.DWord));
-		Assert.IsFalse(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled(new byte[] { 1 }, RegistryValueKind.Binary));
-		Assert.IsFalse(WindowsPreviewHandlerIsolationPolicy.IsLowIntegrityDisabled("1", RegistryValueKind.String));
+		Assert.AreEqual(WindowsPreviewHandlerActivationContext.ShellDefault, policy.GetContext(Guid.NewGuid()));
 	}
 
 	/// <summary>

@@ -49,6 +49,10 @@ GetWindowThreadProcessId
 IsWindow
 AttachThreadInput
 SetWindowPos
+GetWindowRect
+WindowFromPoint
+CreateSolidBrush
+RedrawWindow
 SetWindowLongPtrW
 SetFocus
 SetActiveWindow
@@ -116,17 +120,7 @@ DwmSetWindowAttribute
 TaskDialogIndirect
 WIN32_ERROR
 CoCreateInstance
-ImpersonateSelf
-RevertToSelf
-GetCurrentThread
 GetCurrentProcess
-OpenProcessToken
-DuplicateTokenEx
-SetThreadToken
-SetTokenInformation
-GetLengthSid
-TOKEN_MANDATORY_LABEL
-SE_GROUP_INTEGRITY
 RoGetActivationFactory
 BIND_OPTS3
 FileOpenDialog
@@ -144,7 +138,6 @@ DCompositionCreateDevice
 IDCompositionDevice
 GetNamedSecurityInfo
 ConvertSidToStringSid
-ConvertStringSidToSid
 SetNamedSecurityInfo
 GetAclInformation
 IsValidAcl
@@ -394,6 +387,7 @@ DestroyIcon
 # Windows GDI icon rendering and bitmap conversion
 GetDIBits
 GetDC
+GetPixel
 ReleaseDC
 CreateCompatibleDC
 CreateDIBSection

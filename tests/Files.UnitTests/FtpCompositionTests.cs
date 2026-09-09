@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Capabilities;
-using Files.Core.Capabilities.Previews;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Composition;
 using Files.Core.Models;
@@ -18,7 +17,7 @@ namespace Files.UnitTests;
 public sealed class FtpCompositionTests
 {
 	/// <summary>
-	/// Test case: builder adds ftp properties previews and operations.
+	/// Test case: builder adds ftp properties and operations.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
@@ -39,9 +38,8 @@ public sealed class FtpCompositionTests
 				.Single();
 			await using var model = await runtime.Workspace.ResolveAsync(source.SourceId, source.CreateAddress(FtpPath.Parse("/notes.txt")));
 			var properties = model.Get<IPropertySource>();
-			var preview = model.Get<IPreviewSource>();
 			Assert.IsNotNull(properties);
-			Assert.IsNotNull(preview);
+			Assert.IsNull(model.Get<Files.Core.Capabilities.Previews.IPreviewSource>());
 
 			var values = await properties.GetPropertiesAsync(new PropertyRequest(["System.Size", "System.DateModified"]));
 			Assert.AreEqual((ulong)37, (ulong)values["System.Size"]!);

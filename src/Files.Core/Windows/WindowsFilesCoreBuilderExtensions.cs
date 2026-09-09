@@ -23,7 +23,6 @@ public static class WindowsFilesCoreBuilderExtensions
 	/// <summary>Registers Windows Shell storage and its optional preview, thumbnail, property, change, and archive capabilities.</summary>
 	/// <param name="builder">The composition builder.</param>
 	/// <param name="source">An optional existing Windows storage source.</param>
-	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
 	/// <param name="shellPreviewPolicy">The optional Windows Shell preview policy.</param>
 	/// <param name="enablePreviews">Whether to register preview loaders.</param>
 	/// <param name="enableArchives">Whether to register archive browsing.</param>
@@ -32,7 +31,6 @@ public static class WindowsFilesCoreBuilderExtensions
 	public static FilesCoreBuilder AddWindowsStorage(
 		this FilesCoreBuilder builder,
 		WindowsStorageSource? source = null,
-		IPreviewStreamAccessPolicy? streamPreviewPolicy = null,
 		IWindowsShellPreviewPolicy? shellPreviewPolicy = null,
 		bool enablePreviews = true,
 		bool enableArchives = true,
@@ -71,9 +69,7 @@ public static class WindowsFilesCoreBuilderExtensions
 
 		if (enablePreviews)
 		{
-			var defaultPreviewPolicy = new WindowsPreviewAccessPolicy();
-			builder.AddDefaultStreamPreviews(streamPreviewPolicy ?? defaultPreviewPolicy);
-			AddWindowsShellPreviews(builder, shellPreviewPolicy ?? defaultPreviewPolicy);
+			AddWindowsShellPreviews(builder, shellPreviewPolicy ?? new WindowsPreviewAccessPolicy());
 		}
 
 		if (enableArchives)

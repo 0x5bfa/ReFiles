@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.IO;
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
 using Files.Infrastructure;
@@ -49,52 +48,6 @@ public sealed class PreviewPaneViewModelTests
 
 		Assert.AreEqual(BrowsePreviewStatus.Unavailable, viewModel.Status);
 		Assert.AreEqual(3, viewModel.Snapshot.RequestVersion);
-	}
-
-	/// <summary>
-	/// Verifies that a stream remains alive until a queued snapshot change reaches the UI thread.
-	/// </summary>
-	/// <returns>A task that represents the asynchronous test.</returns>
-	[TestMethod]
-	public async Task RetainsStreamUntilQueuedSnapshotIsApplied()
-	{
-		var preview = new TestPreviewModel();
-		var stream = new MemoryStream();
-		var result = new StreamPreviewResult(stream, "text/plain");
-		preview.Publish(new BrowsePreviewSnapshot(1, null, BrowsePreviewStatus.Ready, result));
-		var dispatcher = new ManualDispatcher();
-		using var viewModel = new PreviewPaneViewModel(preview, dispatcher);
-
-		preview.Publish(new BrowsePreviewSnapshot(2, null, BrowsePreviewStatus.Empty));
-		var disposal = result.DisposeAsync().AsTask();
-
-		Assert.IsFalse(disposal.IsCompleted);
-		dispatcher.RunNext();
-		await disposal;
-
-		Assert.Throws<ObjectDisposedException>(() => result.AcquireContent());
-	}
-
-	/// <summary>
-	/// Verifies that disposal releases a stream retained by a dispatcher callback that has not run.
-	/// </summary>
-	/// <returns>A task that represents the asynchronous test.</returns>
-	[TestMethod]
-	public async Task DisposalReleasesStreamRetainedByQueuedSnapshot()
-	{
-		var preview = new TestPreviewModel();
-		var dispatcher = new ManualDispatcher();
-		var viewModel = new PreviewPaneViewModel(preview, dispatcher);
-		var result = new StreamPreviewResult(new MemoryStream(), "text/plain");
-
-		preview.Publish(new BrowsePreviewSnapshot(1, null, BrowsePreviewStatus.Ready, result));
-		var disposal = result.DisposeAsync().AsTask();
-		Assert.IsFalse(disposal.IsCompleted);
-
-		viewModel.Dispose();
-		await disposal;
-
-		Assert.Throws<ObjectDisposedException>(() => result.AcquireContent());
 	}
 
 	/// <summary>

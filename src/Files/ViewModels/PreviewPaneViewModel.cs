@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Collections.Concurrent;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
@@ -16,10 +15,7 @@ public sealed class PreviewPaneViewModel : ObservableObject, IDisposable
 {
 	private readonly IBrowsePreviewModel _preview;
 	private readonly IUIDispatcher _dispatcher;
-	private readonly ConcurrentDictionary<StreamPreviewContentLease, byte> _pendingStreamRetentions = [];
-
 	private BrowsePreviewSnapshot _snapshot;
-	private StreamPreviewContentLease? _streamRetention;
 	private int _isDisposed;
 
 	public BrowsePreviewSnapshot Snapshot => _snapshot;
@@ -27,8 +23,6 @@ public sealed class PreviewPaneViewModel : ObservableObject, IDisposable
 	public BrowsePreviewStatus Status => _snapshot.Status;
 
 	public PreviewResult? Result => _snapshot.Result;
-
-	public StreamPreviewResult? StreamResult => _snapshot.Result as StreamPreviewResult;
 
 	public WindowsShellPreviewResult? ShellResult => _snapshot.Result as WindowsShellPreviewResult;
 
@@ -62,7 +56,6 @@ public sealed class PreviewPaneViewModel : ObservableObject, IDisposable
 		_preview = preview;
 		_dispatcher = dispatcher;
 		_snapshot = preview.Current;
-		_streamRetention = RetainStream(_snapshot);
 		_preview.Changed += Preview_Changed;
 	}
 
@@ -88,14 +81,6 @@ public sealed class PreviewPaneViewModel : ObservableObject, IDisposable
 		}
 
 		_preview.Changed -= Preview_Changed;
-		Interlocked.Exchange(ref _streamRetention, null)?.Dispose();
-		foreach (var retention in _pendingStreamRetentions.Keys)
-		{
-			if (_pendingStreamRetentions.TryRemove(retention, out _))
-			{
-				retention.Dispose();
-			}
-		}
 	}
 
 	private void Preview_Changed(object? sender, EventArgs e)
@@ -106,72 +91,40 @@ public sealed class PreviewPaneViewModel : ObservableObject, IDisposable
 		}
 
 		var snapshot = _preview.Current;
-		var streamRetention = RetainStream(snapshot);
 		if (_dispatcher.HasThreadAccess)
 		{
-			ApplySnapshot(snapshot, streamRetention);
+			ApplySnapshot(snapshot);
 
 			return;
 		}
 
-		if (streamRetention is not null)
+		if (!_dispatcher.TryEnqueue(() => ApplySnapshotFromDispatcher(snapshot)))
 		{
-			_pendingStreamRetentions.TryAdd(streamRetention, 0);
-			if (Volatile.Read(ref _isDisposed) is not 0 && _pendingStreamRetentions.TryRemove(streamRetention, out _))
-			{
-				streamRetention.Dispose();
-
-				return;
-			}
-		}
-
-		if (!_dispatcher.TryEnqueue(() => ApplySnapshotFromDispatcher(snapshot, streamRetention)))
-		{
-			if (streamRetention is not null && _pendingStreamRetentions.TryRemove(streamRetention, out _))
-			{
-				streamRetention.Dispose();
-			}
-
 			return;
 		}
 	}
 
-	private void ApplySnapshotFromDispatcher(BrowsePreviewSnapshot snapshot, StreamPreviewContentLease? streamRetention)
+	private void ApplySnapshotFromDispatcher(BrowsePreviewSnapshot snapshot)
 	{
-		if (streamRetention is not null)
-		{
-			_pendingStreamRetentions.TryRemove(streamRetention, out _);
-		}
-
-		ApplySnapshot(snapshot, streamRetention);
+		ApplySnapshot(snapshot);
 	}
 
-	private void ApplySnapshot(BrowsePreviewSnapshot snapshot, StreamPreviewContentLease? streamRetention)
+	private void ApplySnapshot(BrowsePreviewSnapshot snapshot)
 	{
 		if (Volatile.Read(ref _isDisposed) is not 0 || snapshot.RequestVersion < _snapshot.RequestVersion)
 		{
-			streamRetention?.Dispose();
-
 			return;
 		}
 
-		var previousStreamRetention = Interlocked.Exchange(ref _streamRetention, streamRetention);
 		_snapshot = snapshot;
 		OnPropertyChanged(nameof(Snapshot));
 		OnPropertyChanged(nameof(Status));
 		OnPropertyChanged(nameof(Result));
-		OnPropertyChanged(nameof(StreamResult));
 		OnPropertyChanged(nameof(ShellResult));
 		OnPropertyChanged(nameof(IsLoading));
 		OnPropertyChanged(nameof(HasContent));
 		OnPropertyChanged(nameof(CanPreviewUntrusted));
 		OnPropertyChanged(nameof(StatusText));
-		previousStreamRetention?.Dispose();
-	}
-
-	private static StreamPreviewContentLease? RetainStream(BrowsePreviewSnapshot snapshot)
-	{
-		return snapshot.Result is StreamPreviewResult streamResult ? streamResult.AcquireContent() : null;
 	}
 
 	private static IBrowsePreviewModel GetPreviewModel(BrowsePaneSession pane)

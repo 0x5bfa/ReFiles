@@ -6,6 +6,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Runtime.Versioning;
+using Files.Core.Diagnostics;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
@@ -92,7 +93,7 @@ public sealed unsafe partial class WindowsShellBrowserRegistration : IAsyncDispo
 			{
 				try
 				{
-					_shellWindows.OnNavigate(_cookie, in location).ThrowOnFailure();
+					NotifyShellWindowNavigation(in location);
 				}
 				finally
 				{
@@ -134,7 +135,7 @@ public sealed unsafe partial class WindowsShellBrowserRegistration : IAsyncDispo
 		{
 			try
 			{
-				_shellWindows.OnNavigate(_cookie, in location).ThrowOnFailure();
+				NotifyShellWindowNavigation(in location);
 			}
 			finally
 			{
@@ -191,6 +192,19 @@ public sealed unsafe partial class WindowsShellBrowserRegistration : IAsyncDispo
 				PInvoke.CoTaskMemFree(pidl);
 			}
 		}
+	}
+
+	private void NotifyShellWindowNavigation(in ComVariant location)
+	{
+		var hr = _shellWindows.OnNavigate(_cookie, in location);
+		if (hr == HRESULT.E_INVALIDARG)
+		{
+			CoreDiagnosticLog.Write("WindowsShellBrowserRegistration", $"Shell window navigation notification was rejected cookie={_cookie}.");
+
+			return;
+		}
+
+		hr.ThrowOnFailure();
 	}
 
 	private static bool TryCreatePidlVariant(ITEMIDLIST* pidl, out ComVariant variant)

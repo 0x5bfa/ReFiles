@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Capabilities.Previews;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Ftp;
@@ -18,8 +17,6 @@ public static class FtpFilesCoreBuilderExtensions
 	/// <param name="profile">The FTP connection profile.</param>
 	/// <param name="credentialResolver">The optional credential resolver.</param>
 	/// <param name="sessionFactory">The optional FTP session factory.</param>
-	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
-	/// <param name="enablePreviews">Whether to register stream previews.</param>
 	/// <param name="enableArchives">Whether to register archive browsing.</param>
 	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
 	/// <returns>The builder.</returns>
@@ -28,8 +25,6 @@ public static class FtpFilesCoreBuilderExtensions
 		FtpConnectionProfile profile,
 		IFtpCredentialResolver? credentialResolver = null,
 		IFtpSessionFactory? sessionFactory = null,
-		IPreviewStreamAccessPolicy? streamPreviewPolicy = null,
-		bool enablePreviews = true,
 		bool enableArchives = true,
 		IArchiveCredentialResolver? archiveCredentialResolver = null)
 	{
@@ -56,22 +51,18 @@ public static class FtpFilesCoreBuilderExtensions
 			throw;
 		}
 
-		return AddFtpCapabilities(builder, source, streamPreviewPolicy, enablePreviews, enableArchives, archiveCredentialResolver);
+		return AddFtpCapabilities(builder, source, enableArchives, archiveCredentialResolver);
 	}
 
 	/// <summary>Registers an existing FTP storage source and its optional capabilities.</summary>
 	/// <param name="builder">The composition builder.</param>
 	/// <param name="source">The FTP storage source to register.</param>
-	/// <param name="streamPreviewPolicy">The optional stream preview policy.</param>
-	/// <param name="enablePreviews">Whether to register stream previews.</param>
 	/// <param name="enableArchives">Whether to register archive browsing.</param>
 	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
 	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddFtpStorage(
 		this FilesCoreBuilder builder,
 		FtpStorageSource source,
-		IPreviewStreamAccessPolicy? streamPreviewPolicy = null,
-		bool enablePreviews = true,
 		bool enableArchives = true,
 		IArchiveCredentialResolver? archiveCredentialResolver = null)
 	{
@@ -80,7 +71,7 @@ public static class FtpFilesCoreBuilderExtensions
 
 		RegisterStorage(builder, source);
 
-		return AddFtpCapabilities(builder, source, streamPreviewPolicy, enablePreviews, enableArchives, archiveCredentialResolver);
+		return AddFtpCapabilities(builder, source, enableArchives, archiveCredentialResolver);
 	}
 
 	private static void RegisterStorage(FilesCoreBuilder builder, FtpStorageSource source)
@@ -88,14 +79,9 @@ public static class FtpFilesCoreBuilderExtensions
 		builder.AddStorageSource(source).AddStorageOperationHandler(new FtpStorageOperationHandler(source));
 	}
 
-	private static FilesCoreBuilder AddFtpCapabilities(FilesCoreBuilder builder, FtpStorageSource source, IPreviewStreamAccessPolicy? streamPreviewPolicy, bool enablePreviews, bool enableArchives, IArchiveCredentialResolver? archiveCredentialResolver)
+	private static FilesCoreBuilder AddFtpCapabilities(FilesCoreBuilder builder, FtpStorageSource source, bool enableArchives, IArchiveCredentialResolver? archiveCredentialResolver)
 	{
 		builder.Capabilities.Add<IPropertySource>(new PropertySourceFactory(new FtpPropertyReader(source)), priority: 100, origin: $"FTP:{source.Profile.ConnectionId}");
-
-		if (enablePreviews)
-		{
-			builder.AddDefaultStreamPreviews(streamPreviewPolicy ?? AllowPreviewStreamAccessPolicy.Instance);
-		}
 
 		if (enableArchives)
 		{
