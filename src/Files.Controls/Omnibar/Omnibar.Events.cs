@@ -36,7 +36,7 @@ namespace Files.Controls
 			// Programmatic focus moves (InputDevice == None) while the user is typing in the
 			// Omnibar - typically a post-folder-load FocusActivePane / FocusFileList - should not
 			// pull focus away and clear the in-progress query. User gestures still pass through.
-			if (args.InputDevice is FocusInputDeviceKind.None && args.FocusState is FocusState.Programmatic)
+			if (Volatile.Read(ref _allowProgrammaticFocusLoss) is 0 && args.InputDevice is FocusInputDeviceKind.None && args.FocusState is FocusState.Programmatic)
 			{
 				args.TryCancel();
 
@@ -73,7 +73,7 @@ namespace Files.Controls
 			IsFocusedChanged?.Invoke(this, new(IsFocused));
 		}
 
-		private async void AutoSuggestBox_KeyDown(object sender, KeyRoutedEventArgs e)
+		private void AutoSuggestBox_KeyDown(object sender, KeyRoutedEventArgs e)
 		{
 			if (e.Key is VirtualKey.Enter)
 			{
@@ -132,26 +132,39 @@ namespace Files.Controls
 
 		private void AutoSuggestBox_TextChanged(object sender, TextChangedEventArgs e)
 		{
-			if (string.Compare(_textBox.Text, CurrentSelectedMode!.Text, StringComparison.OrdinalIgnoreCase) is not 0)
+			if (CurrentSelectedMode is not { } mode)
 			{
-				CurrentSelectedMode!.Text = _textBox.Text;
+				_textChangeReason = OmnibarTextChangeReason.None;
+
+				return;
+			}
+
+			var text = _textBox.Text;
+			var reason = _textChangeReason;
+			if (!string.Equals(text, mode.Text, StringComparison.Ordinal))
+			{
+				mode.Text = text;
 			}
 
 			// UpdateSuggestionListView();
 
-			if (_textChangeReason is OmnibarTextChangeReason.ProgrammaticChange)
+			if (reason is OmnibarTextChangeReason.ProgrammaticChange)
 			{
 				_textBox.SelectAll();
 			}
-			else
+			else if (reason is OmnibarTextChangeReason.UserInput or OmnibarTextChangeReason.None)
 			{
-				_userInput = _textBox.Text;
+				_userInputs[mode] = text;
 			}
 
-			TextChanged?.Invoke(this, new(CurrentSelectedMode, _textChangeReason));
-
-			// Reset
-			_textChangeReason = OmnibarTextChangeReason.None;
+			try
+			{
+				TextChanged?.Invoke(this, new(mode, reason));
+			}
+			finally
+			{
+				_textChangeReason = OmnibarTextChangeReason.None;
+			}
 		}
 
 		private void AutoSuggestBoxSuggestionsPopup_GettingFocus(UIElement sender, GettingFocusEventArgs args)
@@ -181,7 +194,10 @@ namespace Files.Controls
 
 		private void AutoSuggestBoxSuggestionsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
-			_textBoxSuggestionsListView.ScrollIntoView(_textBoxSuggestionsListView.SelectedItem);
+			if (_textBoxSuggestionsListView.SelectedItem is { } selectedItem)
+			{
+				_textBoxSuggestionsListView.ScrollIntoView(selectedItem);
+			}
 		}
 	}
 }

@@ -9,7 +9,7 @@ namespace Files.Controls
 
 		public OmnibarModeSeparator()
 		{
-			DefaultStyleKey = typeof(OmnibarMode);
+			DefaultStyleKey = typeof(OmnibarModeSeparator);
 		}
 
 		// Methods

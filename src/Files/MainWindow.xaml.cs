@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.ComponentModel;
 using WinRT.Interop;
 using Windows.Win32.Foundation;
+using Microsoft.UI.Xaml.Input;
 
 namespace Files;
 
@@ -273,7 +274,7 @@ public sealed partial class MainWindow : Window
 		}
 	}
 
-	private async void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
+	private void AppWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
 	{
 		args.Cancel = true;
 		if (Interlocked.Exchange(ref _closeStarted, 1) is not 0)
@@ -281,7 +282,11 @@ public sealed partial class MainWindow : Window
 			return;
 		}
 
-		await CompleteCloseAsync().ConfigureAwait(true);
+		MoveFocusBeforeShutdown();
+		if (!DispatcherQueue.TryEnqueue(() => _ = CompleteCloseAsync()))
+		{
+			_ = CompleteCloseAsync();
+		}
 	}
 
 	private Task CloseFromCommandAsync()
@@ -296,8 +301,44 @@ public sealed partial class MainWindow : Window
 
 	private async Task CompleteCloseAsync()
 	{
+		MoveFocusBeforeShutdown();
 		SaveWindowPlacement();
-		await _rootView.DisposeAsync().ConfigureAwait(true);
+		try
+		{
+			await _rootView.DisposeAsync().ConfigureAwait(true);
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to dispose the root view cleanly: {exception}");
+		}
+
+		try
+		{
+			Dispose();
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to dispose the main window cleanly: {exception}");
+		}
+
+		try
+		{
+			RootContent.Content = null;
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to detach the root view cleanly: {exception}");
+		}
+
+		try
+		{
+			Close();
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to close the main window cleanly: {exception}");
+		}
+
 		try
 		{
 			await _closeAsync().ConfigureAwait(true);
@@ -306,10 +347,23 @@ public sealed partial class MainWindow : Window
 		{
 			Debug.WriteLine($"Files failed to shut down cleanly: {exception}");
 		}
-		finally
+	}
+
+	private void MoveFocusBeforeShutdown()
+	{
+		try
 		{
-			Dispose();
-			Close();
+			_rootView.PrepareForShutdown();
+			if (_rootView.FocusActiveFolderView(FocusState.Keyboard))
+			{
+				return;
+			}
+
+			_ = FocusManager.TryMoveFocus(FocusNavigationDirection.Next);
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files failed to move focus before shutdown: {exception}");
 		}
 	}
 

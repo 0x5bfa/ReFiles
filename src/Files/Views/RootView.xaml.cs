@@ -56,6 +56,16 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		PreviewPaneView.AttachWindow(window);
 	}
 
+	internal bool FocusActiveFolderView(FocusState focusState = FocusState.Pointer)
+	{
+		return PaneHostView.FocusActiveFolderView(focusState);
+	}
+
+	internal void PrepareForShutdown()
+	{
+		NavigationToolbarView.PrepareForShutdown();
+	}
+
 	public void ReportOperationError(Exception exception)
 	{
 		ArgumentNullException.ThrowIfNull(exception);
@@ -75,6 +85,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 			return;
 		}
 
+		NavigationToolbarView.Dispose();
 		Loaded -= RootView_Loaded;
 		CancelSidebarDragSource();
 		ResetSidebarDropController();

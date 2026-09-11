@@ -26,6 +26,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<InternalsVisibleTo Include="Files" />
 		<InternalsVisibleTo Include="Files.UITests" />
 	</ItemGroup>
 

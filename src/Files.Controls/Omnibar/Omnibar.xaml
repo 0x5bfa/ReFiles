@@ -255,6 +255,7 @@
 		TargetType="TextBox">
 
 		<Setter Property="Foreground" Value="{ThemeResource TextControlForeground}" />
+		<Setter Property="PlaceholderForeground" Value="{ThemeResource TextControlPlaceholderForeground}" />
 		<Setter Property="Background" Value="{ThemeResource TextControlBackground}" />
 		<Setter Property="BorderBrush" Value="{ThemeResource TextControlBorderBrush}" />
 		<Setter Property="BorderThickness" Value="{ThemeResource TextControlBorderThemeThickness}" />

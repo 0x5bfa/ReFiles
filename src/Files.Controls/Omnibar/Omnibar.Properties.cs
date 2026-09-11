@@ -28,46 +28,56 @@ namespace Files.Controls
 		partial void OnCurrentSelectedModePropertyChanged(DependencyPropertyChangedEventArgs e)
 		{
 			if (e.NewValue is not OmnibarMode newMode)
+			{
+				CurrentSelectedModeName = null;
+				if (_textBoxSuggestionsPopup is not null)
+				{
+					_textBoxSuggestionsPopup.IsOpen = false;
+				}
 
 				return;
+			}
+
+			if (_modesHostGrid is not null && (Modes is null || !Modes.Contains(newMode)))
+			{
+				CurrentSelectedMode = Modes?.FirstOrDefault(x => x.IsDefault) ?? Modes?.FirstOrDefault();
+
+				return;
+			}
 
 			ChangeMode(e.OldValue as OmnibarMode, newMode);
-			CurrentSelectedModeName = newMode.Name;
+			CurrentSelectedModeName = newMode.ModeName ?? newMode.Name;
 		}
 
 		partial void OnCurrentSelectedModeNameChanged(string? newValue)
 		{
-			if (string.IsNullOrEmpty(newValue) || string.IsNullOrEmpty(CurrentSelectedMode?.Name) || CurrentSelectedMode.Name.Equals(newValue) || Modes is null)
-
+			if (string.IsNullOrEmpty(newValue) || Modes is null)
+			{
 				return;
+			}
 
-			var newMode = Modes.Where(x => x.Name?.Equals(newValue) ?? false).FirstOrDefault();
+			if (string.Equals(CurrentSelectedMode?.ModeName ?? CurrentSelectedMode?.Name, newValue, StringComparison.Ordinal))
+			{
+				return;
+			}
+
+			var newMode = Modes.FirstOrDefault(x => string.Equals(x.ModeName ?? x.Name, newValue, StringComparison.Ordinal));
 			if (newMode is null)
-
+			{
 				return;
+			}
 
 			CurrentSelectedMode = newMode;
 		}
 
 		partial void OnIsFocusedChanged(bool newValue)
 		{
-			if (CurrentSelectedMode is null || _textBox is null)
-
+			if (CurrentSelectedMode is not { } currentMode || _textBox is null)
+			{
 				return;
+			}
 
-			if (newValue)
-			{
-				VisualStateManager.GoToState(CurrentSelectedMode, "Focused", true);
-				VisualStateManager.GoToState(_textBox, "InputAreaVisible", true);
-			}
-			else
-			{
-				if (CurrentSelectedMode?.ContentOnInactive is not null)
-				{
-					VisualStateManager.GoToState(CurrentSelectedMode, "CurrentUnfocused", true);
-					VisualStateManager.GoToState(_textBox, "InputAreaCollapsed", true);
-				}
-			}
+			ApplyCurrentModeVisualState(currentMode, true);
 
 			TryToggleIsSuggestionsPopupOpen(newValue);
 		}

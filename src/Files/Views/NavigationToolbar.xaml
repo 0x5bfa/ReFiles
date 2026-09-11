@@ -10,8 +10,14 @@
 	xmlns:views="using:Files.Views"
 	x:Name="Root">
 	<UserControl.KeyboardAccelerators>
-		<KeyboardAccelerator Key="E" Modifiers="Control" Invoked="SearchKeyboardAccelerator_Invoked" />
-		<KeyboardAccelerator Key="F" Modifiers="Control" Invoked="SearchKeyboardAccelerator_Invoked" />
+		<KeyboardAccelerator
+			Key="E"
+			Invoked="SearchKeyboardAccelerator_Invoked"
+			Modifiers="Control" />
+		<KeyboardAccelerator
+			Key="F"
+			Invoked="SearchKeyboardAccelerator_Invoked"
+			Modifiers="Control" />
 		<KeyboardAccelerator Key="F3" Invoked="SearchKeyboardAccelerator_Invoked" />
 	</UserControl.KeyboardAccelerators>
 
@@ -37,9 +43,9 @@
 				Width="32"
 				Height="32"
 				Padding="0"
+				AllowFocusOnInteraction="False"
 				AutomationProperties.AutomationId="SidebarPaneToggleButton"
 				AutomationProperties.Name="{x:Bind ViewModel.ToggleSidebarCommand.AutomationName, Mode=OneWay}"
-				AllowFocusOnInteraction="False"
 				Command="{x:Bind ViewModel.ToggleSidebarCommand.Command}"
 				IsChecked="{x:Bind ViewModel.ToggleSidebarCommand.IsChecked, Mode=OneWay}"
 				Label="{x:Bind ViewModel.ToggleSidebarCommand.Label, Mode=OneWay}"
@@ -147,9 +153,9 @@
 						<controls:BreadcrumbBar.ItemTemplate>
 							<DataTemplate x:DataType="viewModels:NavigationToolbarBreadcrumbItem">
 								<controls:BreadcrumbBarItem
+									controls:RightButtonDrag.IsEnabled="True"
 									AllowDrop="{x:Bind SupportsShellDragDrop}"
 									CanDrag="{x:Bind SupportsShellDragDrop}"
-									controls:RightButtonDrag.IsEnabled="True"
 									ChevronToolTip="{x:Bind Text}"
 									Content="{x:Bind Text}"
 									DragEnter="BreadcrumbItem_DragEnter"
@@ -174,8 +180,8 @@
 			AutomationProperties.AutomationId="SearchOmnibar"
 			IsEnabled="{x:Bind ViewModel.SearchCommand.IsEnabled, Mode=OneWay}"
 			QuerySubmitted="SearchOmnibar_QuerySubmitted"
-			TextChanged="SearchOmnibar_TextChanged"
-			TextBoxAutomationId="SearchTextBox">
+			TextBoxAutomationId="SearchTextBox"
+			TextChanged="SearchOmnibar_TextChanged">
 			<controls:OmnibarMode
 				x:Name="SearchOmnibarMode"
 				IsDefault="True"

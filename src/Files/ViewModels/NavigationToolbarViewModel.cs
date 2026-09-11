@@ -123,7 +123,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		_ = RefreshBreadcrumbItemsAsync();
 	}
 
-	internal async Task<CommandExecutionResult> ExecuteSearchAsync(string query)
+	internal async Task<CommandExecutionResult> ExecuteSearchAsync(string query, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(query);
 
@@ -135,7 +135,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 			_isSearchRequestActive = true;
 			SetSearchText(query);
 
-			return await SearchCommand.ExecuteAsync(query);
+			return await SearchCommand.ExecuteAsync(query, cancellationToken);
 		}
 		catch (Exception error)
 		{

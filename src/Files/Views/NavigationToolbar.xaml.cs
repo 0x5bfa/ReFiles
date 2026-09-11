@@ -23,15 +23,18 @@ public sealed partial class NavigationToolbar : UserControl
 {
 	private const double BreadcrumbIconSize = 16;
 	private const string FolderIconGlyph = "\uE8B7";
+	private const int SearchDebounceMilliseconds = 200;
 
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(NavigationToolbarViewModel), typeof(NavigationToolbar), new PropertyMetadata(null));
 
 	private CancellationTokenSource? _breadcrumbFlyoutCancellation;
+	private readonly SearchTextDebouncer _searchTextDebouncer;
 	private CancellationTokenSource? _dragSourceCancellation;
 	private WinUiShellDropTargetController? _dropController;
 	private FolderBrowserViewModel? _dropBrowser;
 	private long _dragSourceGeneration;
+	private int _isDisposed;
 
 	public NavigationToolbarViewModel? ViewModel
 	{
@@ -45,22 +48,47 @@ public sealed partial class NavigationToolbar : UserControl
 	public NavigationToolbar()
 	{
 		InitializeComponent();
+		_searchTextDebouncer = new(TimeSpan.FromMilliseconds(SearchDebounceMilliseconds));
 		NavigationButtons.AddHandler(PointerReleasedEvent, new PointerEventHandler(NavigationButtons_PointerReleased), true);
 		Unloaded += NavigationToolbar_Unloaded;
 	}
 
+	internal void PrepareForShutdown()
+	{
+		PathOmnibar.PrepareForShutdown();
+		SearchOmnibar.PrepareForShutdown();
+	}
+
+	internal void Dispose()
+	{
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+		{
+			return;
+		}
+
+		Unloaded -= NavigationToolbar_Unloaded;
+		CancelPendingOperations();
+		_searchTextDebouncer.Dispose();
+	}
+
 	private async void PathOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
 	{
+		if (Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
 		await NavigatePathAsync(args.Text);
 	}
 
 	private async void SearchOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
 	{
-		if (!sender.IsEnabled || ViewModel is not { } viewModel)
+		if (Volatile.Read(ref _isDisposed) is not 0 || !sender.IsEnabled || ViewModel is not { } viewModel)
 		{
 			return;
 		}
 
+		CancelPendingSearchTextChange();
 		var searchTask = viewModel.ExecuteSearchAsync(args.Text);
 		DispatcherQueue.TryEnqueue(() => FolderViewKeyboardFocusRequested?.Invoke(this, EventArgs.Empty));
 		await searchTask;
@@ -68,7 +96,7 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private async void SearchOmnibar_TextChanged(Omnibar sender, OmnibarTextChangedEventArgs args)
 	{
-		if (args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen || !sender.IsEnabled || ViewModel is not { } viewModel)
+		if (Volatile.Read(ref _isDisposed) is not 0 || args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen || !sender.IsEnabled || ViewModel is not { } viewModel)
 		{
 			return;
 		}
@@ -79,7 +107,16 @@ public sealed partial class NavigationToolbar : UserControl
 			return;
 		}
 
-		await viewModel.ExecuteSearchAsync(text);
+		CancelPendingSearchTextChange();
+		await _searchTextDebouncer.ScheduleAsync(text, async (query, cancellationToken) =>
+		{
+			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || !sender.IsEnabled || ViewModel is not { } latestViewModel || !ReferenceEquals(latestViewModel, viewModel))
+			{
+				return;
+			}
+
+			await latestViewModel.ExecuteSearchAsync(query, cancellationToken);
+		});
 	}
 
 	private void SearchKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -320,7 +357,13 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private void NavigationToolbar_Unloaded(object sender, RoutedEventArgs e)
 	{
+		CancelPendingOperations();
+	}
+
+	private void CancelPendingOperations()
+	{
 		_breadcrumbFlyoutCancellation?.Cancel();
+		_searchTextDebouncer.Cancel();
 		_breadcrumbFlyoutCancellation = null;
 		Interlocked.Increment(ref _dragSourceGeneration);
 		_dragSourceCancellation?.Cancel();
@@ -328,6 +371,8 @@ public sealed partial class NavigationToolbar : UserControl
 		_dragSourceCancellation = null;
 		ResetDropController();
 	}
+
+	private void CancelPendingSearchTextChange() => _searchTextDebouncer.Cancel();
 
 	private WinUiShellDropTargetController GetDropController(FolderBrowserViewModel browser)
 	{

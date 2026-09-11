@@ -50,7 +50,35 @@ namespace Files.Controls
 				return;
 			}
 
-			owner.ChangeTextBoxTextFromMode(newValue ?? string.Empty);
+			var text = newValue ?? string.Empty;
+			if (ReferenceEquals(owner.CurrentSelectedMode, this))
+			{
+				owner.ChangeTextBoxTextFromMode(text);
+
+				return;
+			}
+
+			owner.UpdateUserInputFromMode(this, text);
+		}
+
+		partial void OnPlaceholderTextChanged(string? newValue)
+		{
+			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false)
+			{
+				return;
+			}
+
+			owner.UpdatePlaceholderTextFromMode(this, newValue ?? string.Empty);
+		}
+
+		partial void OnContentOnInactiveChanged(FrameworkElement? newValue)
+		{
+			if (_ownerRef is null || _ownerRef.TryGetTarget(out var owner) is false)
+			{
+				return;
+			}
+
+			owner.UpdateModeVisualStateFromMode(this);
 		}
 	}
 }

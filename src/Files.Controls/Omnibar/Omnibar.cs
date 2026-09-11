@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // Licensed under the MIT License.
 
+using System.Collections.Specialized;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.Foundation;
@@ -27,10 +28,13 @@ namespace Files.Controls
 		private Border _textBoxSuggestionsContainerBorder = null!;
 		private ListView _textBoxSuggestionsListView = null!;
 
-		private string _userInput = string.Empty;
+		private readonly Dictionary<OmnibarMode, string> _userInputs = [];
+		private INotifyCollectionChanged? _observedModes;
+
 		private OmnibarTextChangeReason _textChangeReason = OmnibarTextChangeReason.None;
 
 		private WeakReference<UIElement?> _previouslyFocusedElement = new(null);
+		private int _allowProgrammaticFocusLoss;
 
 		// Events
 
@@ -47,6 +51,15 @@ namespace Files.Controls
 			DefaultStyleKey = typeof(Omnibar);
 
 			Modes = [];
+			ObserveModes(Modes);
+			RegisterPropertyChangedCallback(ModesProperty, (sender, property) =>
+			{
+				if (sender is Omnibar omnibar)
+				{
+					omnibar.ObserveModes(omnibar.Modes);
+					omnibar.PopulateModes();
+				}
+			});
 			AutoSuggestBoxPadding = new(0, 0, 0, 0);
 		}
 
@@ -54,6 +67,7 @@ namespace Files.Controls
 
 		protected override void OnApplyTemplate()
 		{
+			UnhookTemplateParts();
 			base.OnApplyTemplate();
 
 			_textBox = GetTemplateChild(TemplatePartName_AutoSuggestBox) as TextBox
@@ -87,13 +101,64 @@ namespace Files.Controls
 
 		public void PopulateModes()
 		{
-			if (Modes is null || _modesHostGrid is null)
+			var modes = Modes;
+
+			if (_modesHostGrid is not null)
+			{
+				foreach (var mode in _modesHostGrid.Children.OfType<OmnibarMode>())
+				{
+					if (modes is null || !modes.Contains(mode))
+					{
+						mode.ClearOwner(this);
+					}
+				}
+			}
+
+			if (modes is null)
+			{
+				_userInputs.Clear();
+				CurrentSelectedMode = null;
+				if (_modesHostGrid is not null)
+				{
+					_modesHostGrid.Children.Clear();
+					_modesHostGrid.ColumnDefinitions.Clear();
+				}
+
+				return;
+			}
+
+			foreach (var mode in _userInputs.Keys.ToArray())
+			{
+				if (!modes.Contains(mode))
+				{
+					_userInputs.Remove(mode);
+				}
+			}
+
+			if (CurrentSelectedMode is null && !string.IsNullOrEmpty(CurrentSelectedModeName))
+			{
+				CurrentSelectedMode = modes.FirstOrDefault(x => string.Equals(x.ModeName ?? x.Name, CurrentSelectedModeName, StringComparison.Ordinal));
+			}
+
+			if (CurrentSelectedMode is null)
+			{
+				CurrentSelectedMode = modes.FirstOrDefault(x => x.IsDefault) ?? modes.FirstOrDefault();
+			}
+
+			if (CurrentSelectedMode is not null && !modes.Contains(CurrentSelectedMode))
+			{
+				CurrentSelectedMode = modes.FirstOrDefault(x => x.IsDefault) ?? modes.FirstOrDefault();
+			}
+
+			if (_modesHostGrid is null)
 			{
 				return;
 			}
 
-			// Populate the modes
-			foreach (var mode in Modes)
+			_modesHostGrid.Children.Clear();
+			_modesHostGrid.ColumnDefinitions.Clear();
+
+			foreach (var mode in modes)
 			{
 				// Insert a divider
 				if (_modesHostGrid.Children.Count is not 0)
@@ -111,6 +176,11 @@ namespace Files.Controls
 				_modesHostGrid.Children.Add(mode);
 				mode.SetOwner(this);
 			}
+
+			if (_textBox is not null)
+			{
+				RestoreCurrentModeTemplateState();
+			}
 		}
 
 		protected void ChangeMode(OmnibarMode? oldMode, OmnibarMode newMode)
@@ -120,46 +190,82 @@ namespace Files.Controls
 				return;
 			}
 
+			var modesHostGrid = _modesHostGrid;
+			var index = modesHostGrid.Children.IndexOf(newMode);
+			if (index is -1 || index >= modesHostGrid.ColumnDefinitions.Count)
+			{
+				return;
+			}
+
+			var repositionTransitions = new List<(OmnibarMode Mode, RepositionThemeTransition Transition)>();
 			foreach (var mode in Modes)
 			{
-				// Add the reposition transition to the all modes
-				mode.Transitions = [new RepositionThemeTransition()];
+				var transition = new RepositionThemeTransition();
+				mode.Transitions.Add(transition);
+				repositionTransitions.Add((mode, transition));
 				mode.UpdateLayout();
 				mode.IsTabStop = false;
 			}
-
-			var index = _modesHostGrid.Children.IndexOf(newMode);
 
 			if (oldMode is not null)
 			{
 				VisualStateManager.GoToState(oldMode, "Unfocused", true);
 			}
 
-			DispatcherQueue.TryEnqueue(() =>
+			if (!DispatcherQueue.TryEnqueue(() =>
 			{
-				// Reset
-				foreach (var column in _modesHostGrid.ColumnDefinitions)
+				try
 				{
-					column.Width = GridLength.Auto;
+					if (!ReferenceEquals(_modesHostGrid, modesHostGrid))
+					{
+						return;
+					}
+
+					var currentIndex = modesHostGrid.Children.IndexOf(newMode);
+					if (currentIndex is -1 || currentIndex >= modesHostGrid.ColumnDefinitions.Count)
+					{
+						return;
+					}
+
+					foreach (var column in modesHostGrid.ColumnDefinitions)
+					{
+						column.Width = GridLength.Auto;
+					}
+
+					modesHostGrid.ColumnDefinitions[currentIndex].Width = new(1, GridUnitType.Star);
 				}
+				finally
+				{
+					foreach (var (mode, transition) in repositionTransitions)
+					{
+						mode.Transitions.Remove(transition);
+					}
+				}
+			}))
+			{
+				foreach (var (mode, transition) in repositionTransitions)
+				{
+					mode.Transitions.Remove(transition);
+				}
+			}
 
-				// Expand the given mode
-				_modesHostGrid.ColumnDefinitions[index].Width = new(1, GridUnitType.Star);
-			});
+			UpdateAutoSuggestBoxPadding(newMode);
 
-			var itemCount = Modes.Count;
-			var itemIndex = Modes.IndexOf(newMode);
-			var modeButtonWidth = newMode.ActualWidth;
-			var modeSeparatorWidth = itemCount is not (0 or 1) ? _modesHostGrid.Children[1] is FrameworkElement frameworkElement ? frameworkElement.ActualWidth : 0 : 0;
+			var newModeText = _userInputs.TryGetValue(newMode, out var savedInput) ? savedInput : newMode.Text ?? string.Empty;
+			if (!_userInputs.ContainsKey(newMode))
+			{
+				_userInputs[newMode] = newModeText;
+			}
 
-			var leftPadding = (itemIndex + 1) * modeButtonWidth + modeSeparatorWidth * itemIndex;
-			var rightPadding = (itemCount - itemIndex - 1) * modeButtonWidth + modeSeparatorWidth * (itemCount - itemIndex - 1) + 8;
-
-			// Set the correct AutoSuggestBox cursor position
-			AutoSuggestBoxPadding = new(leftPadding, 0, rightPadding, 0);
-
-			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
-			ChangeTextBoxText(newMode.Text ?? string.Empty);
+			if (string.Equals(_textBox.Text, newModeText, StringComparison.Ordinal))
+			{
+				_textChangeReason = OmnibarTextChangeReason.None;
+			}
+			else
+			{
+				_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+				ChangeTextBoxText(newModeText);
+			}
 
 			VisualStateManager.GoToState(newMode, "Focused", true);
 			newMode.IsTabStop = false;
@@ -188,24 +294,29 @@ namespace Files.Controls
 				}
 				else
 				{
+					VisualStateManager.GoToState(newMode, "Unfocused", true);
 					VisualStateManager.GoToState(_textBox, "InputAreaVisible", true);
 				}
 			}
 
 			TryToggleIsSuggestionsPopupOpen(true);
 
-			// Remove the reposition transition from the all modes
-			foreach (var mode in Modes)
-			{
-				mode.Transitions.Clear();
-				mode.UpdateLayout();
-			}
 		}
 
 		/// <summary>Moves keyboard focus to the text input.</summary>
 		public void FocusTextBox()
 		{
+			if (_textBox is null)
+			{
+				return;
+			}
+
 			_textBox.Focus(FocusState.Keyboard);
+		}
+
+		internal void PrepareForShutdown()
+		{
+			Volatile.Write(ref _allowProgrammaticFocusLoss, 1);
 		}
 
 		internal protected bool TryToggleIsSuggestionsPopupOpen(bool wantToOpen)
@@ -215,10 +326,8 @@ namespace Files.Controls
 				return false;
 			}
 
-			if (wantToOpen && (!IsFocused || CurrentSelectedMode?.ItemsSource is null || (CurrentSelectedMode?.ItemsSource is IList collection && collection.Count is 0)))
+			if (_textBoxSuggestionsListView is null)
 			{
-				_textBoxSuggestionsPopup.IsOpen = false;
-
 				return false;
 			}
 
@@ -228,19 +337,27 @@ namespace Files.Controls
 				_textBoxSuggestionsListView.ItemsSource = CurrentSelectedMode.ItemsSource;
 			}
 
+			if (wantToOpen && (!IsFocused || CurrentSelectedMode is null || _textBoxSuggestionsListView.Items.Count is 0))
+			{
+				_textBoxSuggestionsPopup.IsOpen = false;
+
+				return false;
+			}
+
 			_textBoxSuggestionsPopup.IsOpen = wantToOpen;
 
-			return false;
+			return _textBoxSuggestionsPopup.IsOpen == wantToOpen;
 		}
 
 		public void ChooseSuggestionItem(object obj, bool isOriginatedFromArrowKey = false)
 		{
-			if (CurrentSelectedMode is null)
+			if (CurrentSelectedMode is null || _textBox is null)
 			{
 				return;
 			}
 
-			if (CurrentSelectedMode.UpdateTextOnSelect || (isOriginatedFromArrowKey && CurrentSelectedMode.UpdateTextOnArrowKeys))
+			var shouldUpdateText = isOriginatedFromArrowKey ? CurrentSelectedMode.UpdateTextOnArrowKeys : CurrentSelectedMode.UpdateTextOnSelect;
+			if (shouldUpdateText)
 			{
 				_textChangeReason = OmnibarTextChangeReason.SuggestionChosen;
 				ChangeTextBoxText(GetObjectText(obj));
@@ -251,6 +368,11 @@ namespace Files.Controls
 
 		internal protected void ChangeTextBoxText(string text)
 		{
+			if (_textBox is null)
+			{
+				return;
+			}
+
 			_textBox.Text = text;
 
 			// Move the cursor to the end of the TextBox
@@ -262,13 +384,53 @@ namespace Files.Controls
 
 		internal void ChangeTextBoxTextFromMode(string text)
 		{
+			if (_textBox is null)
+			{
+				if (CurrentSelectedMode is { } activeMode)
+				{
+					_userInputs[activeMode] = text;
+				}
+
+				return;
+			}
+
 			if (string.Equals(_textBox.Text, text, StringComparison.Ordinal))
 			{
 				return;
 			}
 
 			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+			if (CurrentSelectedMode is { } currentMode)
+			{
+				_userInputs[currentMode] = text;
+			}
+
 			ChangeTextBoxText(text);
+		}
+
+		internal void UpdateUserInputFromMode(OmnibarMode mode, string text)
+		{
+			_userInputs[mode] = text;
+		}
+
+		internal void UpdatePlaceholderTextFromMode(OmnibarMode mode, string text)
+		{
+			if (_textBox is null || !ReferenceEquals(CurrentSelectedMode, mode))
+			{
+				return;
+			}
+
+			_textBox.PlaceholderText = text;
+		}
+
+		internal void UpdateModeVisualStateFromMode(OmnibarMode mode)
+		{
+			if (_textBox is null || !ReferenceEquals(CurrentSelectedMode, mode))
+			{
+				return;
+			}
+
+			ApplyCurrentModeVisualState(mode, false);
 		}
 
 		private void SubmitQuery(object? item)
@@ -301,15 +463,186 @@ namespace Files.Controls
 
 		private void RevertTextToUserInput()
 		{
-			if (CurrentSelectedMode is null)
+			if (CurrentSelectedMode is not { } currentMode || _textBox is null || _textBoxSuggestionsListView is null)
 			{
 				return;
 			}
 
 			_textBoxSuggestionsListView.SelectedIndex = -1;
-			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+			var userInput = _userInputs.TryGetValue(currentMode, out var savedInput) ? savedInput : currentMode.Text ?? string.Empty;
+			if (string.Equals(_textBox.Text, userInput, StringComparison.Ordinal))
+			{
+				_textChangeReason = OmnibarTextChangeReason.None;
+			}
+			else
+			{
+				_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+				ChangeTextBoxText(userInput);
+			}
+		}
 
-			ChangeTextBoxText(_userInput ?? "");
+		private void ObserveModes(IList<OmnibarMode>? modes)
+		{
+			if (ReferenceEquals(_observedModes, modes))
+			{
+				return;
+			}
+
+			if (_observedModes is not null)
+			{
+				_observedModes.CollectionChanged -= Modes_CollectionChanged;
+			}
+
+			_observedModes = modes as INotifyCollectionChanged;
+			if (_observedModes is not null)
+			{
+				_observedModes.CollectionChanged += Modes_CollectionChanged;
+			}
+		}
+
+		private void Modes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+		{
+			PopulateModes();
+		}
+
+		private void RestoreCurrentModeTemplateState()
+		{
+			if (CurrentSelectedMode is not { } currentMode || _textBox is null || _textBoxSuggestionsListView is null)
+			{
+				return;
+			}
+
+			var currentModeText = _userInputs.TryGetValue(currentMode, out var savedInput) ? savedInput : currentMode.Text ?? string.Empty;
+			if (string.Equals(_textBox.Text, currentModeText, StringComparison.Ordinal))
+			{
+				_textChangeReason = OmnibarTextChangeReason.None;
+			}
+			else
+			{
+				_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+				_textBox.Text = currentModeText;
+			}
+
+			currentMode.Text = currentModeText;
+			_userInputs.TryAdd(currentMode, currentModeText);
+			_textBox.PlaceholderText = currentMode.PlaceholderText ?? string.Empty;
+			_textBoxSuggestionsListView.ItemTemplate = currentMode.ItemTemplate;
+			_textBoxSuggestionsListView.ItemsSource = currentMode.ItemsSource;
+			currentMode.IsTabStop = false;
+
+			var currentModeIndex = _modesHostGrid.Children.IndexOf(currentMode);
+			if (currentModeIndex is not -1 && currentModeIndex < _modesHostGrid.ColumnDefinitions.Count)
+			{
+				_modesHostGrid.ColumnDefinitions[currentModeIndex].Width = new(1, GridUnitType.Star);
+			}
+
+			UpdateAutoSuggestBoxPadding(currentMode);
+
+			ApplyCurrentModeVisualState(currentMode, false);
+
+			var modesHostGrid = _modesHostGrid;
+			DispatcherQueue.TryEnqueue(() =>
+			{
+				if (ReferenceEquals(_modesHostGrid, modesHostGrid) && ReferenceEquals(CurrentSelectedMode, currentMode))
+				{
+					ApplyCurrentModeVisualState(currentMode, false);
+					UpdateAutoSuggestBoxPadding(currentMode);
+				}
+			});
+
+			_textChangeReason = OmnibarTextChangeReason.None;
+		}
+
+		private void UpdateAutoSuggestBoxPadding(OmnibarMode selectedMode)
+		{
+			if (Modes is not { Count: > 0 } modes || _modesHostGrid is null)
+			{
+				AutoSuggestBoxPadding = new(0, 0, 0, 0);
+
+				return;
+			}
+
+			var itemIndex = modes.IndexOf(selectedMode);
+			if (itemIndex is -1)
+			{
+				return;
+			}
+
+			var separator = _modesHostGrid.Children.OfType<OmnibarModeSeparator>().FirstOrDefault();
+			var separatorWidth = separator?.ActualWidth ?? 0;
+			if (separatorWidth is 0 && separator is not null)
+			{
+				separatorWidth = separator.DesiredSize.Width;
+			}
+
+			var modeWidths = modes.Select(static mode => mode.ModeButtonWidth).ToArray();
+			var leftPadding = modeWidths.Take(itemIndex + 1).Sum() + separatorWidth * itemIndex;
+			var rightPadding = modeWidths.Skip(itemIndex + 1).Sum() + separatorWidth * (modes.Count - itemIndex - 1) + 8;
+
+			AutoSuggestBoxPadding = new(leftPadding, 0, rightPadding, 0);
+		}
+
+		private void ApplyCurrentModeVisualState(OmnibarMode currentMode, bool useTransitions)
+		{
+			if (_textBox is null)
+			{
+				return;
+			}
+
+			if (IsFocused)
+			{
+				VisualStateManager.GoToState(currentMode, "Focused", useTransitions);
+				VisualStateManager.GoToState(_textBox, "InputAreaVisible", useTransitions);
+			}
+			else if (currentMode.ContentOnInactive is not null)
+			{
+				VisualStateManager.GoToState(currentMode, "CurrentUnfocused", useTransitions);
+				VisualStateManager.GoToState(_textBox, "InputAreaCollapsed", useTransitions);
+			}
+			else
+			{
+				VisualStateManager.GoToState(currentMode, "Unfocused", useTransitions);
+				VisualStateManager.GoToState(_textBox, "InputAreaVisible", useTransitions);
+			}
+		}
+
+		private void UnhookTemplateParts()
+		{
+			SizeChanged -= Omnibar_SizeChanged;
+			if (_textBox is not null)
+			{
+				_textBox.GettingFocus -= AutoSuggestBox_GettingFocus;
+				_textBox.GotFocus -= AutoSuggestBox_GotFocus;
+				_textBox.LosingFocus -= AutoSuggestBox_LosingFocus;
+				_textBox.LostFocus -= AutoSuggestBox_LostFocus;
+				_textBox.KeyDown -= AutoSuggestBox_KeyDown;
+				_textBox.TextChanged -= AutoSuggestBox_TextChanged;
+			}
+
+			if (_textBoxSuggestionsPopup is not null)
+			{
+				_textBoxSuggestionsPopup.IsOpen = false;
+				_textBoxSuggestionsPopup.GettingFocus -= AutoSuggestBoxSuggestionsPopup_GettingFocus;
+				_textBoxSuggestionsPopup.Opened -= AutoSuggestBoxSuggestionsPopup_Opened;
+			}
+
+			if (_textBoxSuggestionsListView is not null)
+			{
+				_textBoxSuggestionsListView.ItemClick -= AutoSuggestBoxSuggestionsListView_ItemClick;
+				_textBoxSuggestionsListView.SelectionChanged -= AutoSuggestBoxSuggestionsListView_SelectionChanged;
+			}
+
+			if (_modesHostGrid is not null)
+			{
+				_modesHostGrid.Children.Clear();
+				_modesHostGrid.ColumnDefinitions.Clear();
+			}
+
+			_textBox = null!;
+			_modesHostGrid = null!;
+			_textBoxSuggestionsPopup = null!;
+			_textBoxSuggestionsContainerBorder = null!;
+			_textBoxSuggestionsListView = null!;
 		}
 	}
 }
