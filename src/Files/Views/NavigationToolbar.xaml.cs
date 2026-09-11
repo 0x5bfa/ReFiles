@@ -55,8 +55,7 @@ public sealed partial class NavigationToolbar : UserControl
 
 	internal void PrepareForShutdown()
 	{
-		PathOmnibar.PrepareForShutdown();
-		SearchOmnibar.PrepareForShutdown();
+		NavigationOmnibar.PrepareForShutdown();
 	}
 
 	internal void Dispose()
@@ -71,19 +70,21 @@ public sealed partial class NavigationToolbar : UserControl
 		_searchTextDebouncer.Dispose();
 	}
 
-	private async void PathOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
+	private async void NavigationOmnibar_QuerySubmitted(Omnibar _, OmnibarQuerySubmittedEventArgs args)
 	{
 		if (Volatile.Read(ref _isDisposed) is not 0)
 		{
 			return;
 		}
 
-		await NavigatePathAsync(args.Text);
-	}
+		if (ReferenceEquals(args.Mode, PathOmnibarMode))
+		{
+			await NavigatePathAsync(args.Text);
 
-	private async void SearchOmnibar_QuerySubmitted(Omnibar sender, OmnibarQuerySubmittedEventArgs args)
-	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || !sender.IsEnabled || ViewModel is not { } viewModel)
+			return;
+		}
+
+		if (!ReferenceEquals(args.Mode, SearchOmnibarMode) || ViewModel is not { SearchCommand.IsEnabled: true } viewModel)
 		{
 			return;
 		}
@@ -94,9 +95,14 @@ public sealed partial class NavigationToolbar : UserControl
 		await searchTask;
 	}
 
-	private async void SearchOmnibar_TextChanged(Omnibar sender, OmnibarTextChangedEventArgs args)
+	private async void NavigationOmnibar_TextChanged(Omnibar _, OmnibarTextChangedEventArgs args)
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen || !sender.IsEnabled || ViewModel is not { } viewModel)
+		if (Volatile.Read(ref _isDisposed) is not 0 || !ReferenceEquals(args.Mode, SearchOmnibarMode) || args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen)
+		{
+			return;
+		}
+
+		if (ViewModel is not { SearchCommand.IsEnabled: true } viewModel)
 		{
 			return;
 		}
@@ -110,7 +116,7 @@ public sealed partial class NavigationToolbar : UserControl
 		CancelPendingSearchTextChange();
 		await _searchTextDebouncer.ScheduleAsync(text, async (query, cancellationToken) =>
 		{
-			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || !sender.IsEnabled || ViewModel is not { } latestViewModel || !ReferenceEquals(latestViewModel, viewModel))
+			if (Volatile.Read(ref _isDisposed) is not 0 || !IsLoaded || ViewModel is not { SearchCommand.IsEnabled: true } latestViewModel || !ReferenceEquals(latestViewModel, viewModel))
 			{
 				return;
 			}
@@ -121,12 +127,13 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private void SearchKeyboardAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
 	{
-		if (!SearchOmnibar.IsEnabled)
+		if (ViewModel is not { SearchCommand.IsEnabled: true })
 		{
 			return;
 		}
 
-		SearchOmnibar.FocusTextBox();
+		NavigationOmnibar.CurrentSelectedMode = SearchOmnibarMode;
+		NavigationOmnibar.FocusTextBox();
 		args.Handled = true;
 	}
 
@@ -331,7 +338,8 @@ public sealed partial class NavigationToolbar : UserControl
 			source = VisualTreeHelper.GetParent(source);
 		}
 
-		PathOmnibar.FocusTextBox();
+		NavigationOmnibar.CurrentSelectedMode = PathOmnibarMode;
+		NavigationOmnibar.FocusTextBox();
 	}
 
 	private void NavigationButtons_PointerReleased(object sender, PointerRoutedEventArgs e)

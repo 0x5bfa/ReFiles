@@ -176,10 +176,10 @@ public sealed class OmnibarTests
 		}
 	}
 
-	/// <summary>Verifies that the SearchOmnibar declared by NavigationToolbar keeps its placeholder visible.</summary>
+	/// <summary>Verifies that the navigation toolbar uses one Omnibar for path and search modes.</summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[UITestMethod]
-	public async Task NavigationToolbarSearchOmnibarShowsPlaceholder()
+	public async Task NavigationToolbarUsesOneOmnibarForPathAndSearch()
 	{
 		var toolbar = new NavigationToolbar { Width = 900, Height = 60 };
 		var window = new Window { Content = toolbar };
@@ -191,15 +191,15 @@ public sealed class OmnibarTests
 			await loaded;
 			await WaitForDispatcherAsync();
 
-			var searchOmnibar = GetNamedDescendant<Omnibar>(toolbar, "SearchOmnibar");
-			var textBox = GetNamedDescendant<TextBox>(searchOmnibar, "PART_TextBox");
-			var inputArea = GetNamedDescendant<Grid>(textBox, "PART_TextBoxInputArea");
-			var placeholder = GetNamedDescendant<TextBlock>(textBox, "PlaceholderTextContentPresenter");
-			Assert.AreEqual("Search", textBox.PlaceholderText);
-			Assert.AreEqual(Visibility.Visible, inputArea.Visibility);
-			Assert.AreEqual("Search", placeholder.Text);
-			Assert.IsNotNull(placeholder.Foreground);
-			Assert.IsTrue(placeholder.ActualWidth > 0);
+			var omnibar = GetNamedDescendant<Omnibar>(toolbar, "NavigationOmnibar");
+			var pathMode = GetNamedDescendant<OmnibarMode>(toolbar, "PathOmnibarMode");
+			var searchMode = GetNamedDescendant<OmnibarMode>(toolbar, "SearchOmnibarMode");
+			Assert.AreEqual(2, omnibar.Modes?.Count);
+			Assert.AreSame(pathMode, omnibar.Modes?[0]);
+			Assert.AreSame(searchMode, omnibar.Modes?[1]);
+			Assert.AreEqual("Search", searchMode.PlaceholderText);
+			Assert.IsNull(FindNamedDescendant<Omnibar>(toolbar, "PathOmnibar"));
+			Assert.IsNull(FindNamedDescendant<Omnibar>(toolbar, "SearchOmnibar"));
 		}
 		finally
 		{
