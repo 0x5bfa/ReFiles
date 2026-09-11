@@ -50,6 +50,11 @@ internal static unsafe partial class WindowsShellViewStateBridge
 		return Run(shellItem, parsingName, settingsOverride, cancellationToken);
 	}
 
+	internal static bool IsGrouped(HRESULT result)
+	{
+		return result == HRESULT.S_OK;
+	}
+
 	private static BrowseViewSettings? Run(IShellItem shellItem, string parsingName, BrowseViewSettingsOverride? settingsOverride, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -216,7 +221,8 @@ internal static unsafe partial class WindowsShellViewStateBridge
 
 		string? groupPropertyId = null;
 		var groupDirection = ViewSortDirection.Ascending;
-		if (folderView.GetGroupBy(out var groupKey, out var groupAscending).Succeeded)
+		var groupResult = folderView.GetGroupBy(out var groupKey, out var groupAscending);
+		if (IsGrouped(groupResult))
 		{
 			groupPropertyId = WindowsShellColumnReader.GetPropertyId(groupKey);
 			groupDirection = groupAscending.Value is 0 ? ViewSortDirection.Descending : ViewSortDirection.Ascending;

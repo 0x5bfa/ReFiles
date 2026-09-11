@@ -4,6 +4,7 @@
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Files.Core.Windows;
+using Windows.Win32.Foundation;
 
 namespace Files.UnitTests;
 
@@ -30,6 +31,16 @@ public sealed class WindowsShellColumnTests
 		Assert.AreEqual(ViewLayoutMode.Grid, WindowsShellColumnReader.MapLayoutMode(7));
 		Assert.IsNull(WindowsShellColumnReader.MapLayoutMode(uint.MaxValue));
 		Assert.IsNull(WindowsShellColumnReader.MapLayoutMode(0));
+	}
+
+	/// <summary>
+	/// Test case: the Shell reports an active group only with S_OK.
+	/// </summary>
+	[TestMethod]
+	public void ShellReportsGroupingOnlyWithSuccess()
+	{
+		Assert.IsTrue(WindowsShellViewStateBridge.IsGrouped(HRESULT.S_OK));
+		Assert.IsFalse(WindowsShellViewStateBridge.IsGrouped(HRESULT.S_FALSE));
 	}
 
 	/// <summary>
