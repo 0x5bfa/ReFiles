@@ -361,7 +361,6 @@ internal sealed class TestBrowseLocationContext :
 		for (var index = 0; index < _items.Count; index++)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-
 			if (_beforeYieldAsync is not null)
 			{
 				await _beforeYieldAsync(index, cancellationToken).ConfigureAwait(false);
@@ -482,66 +481,21 @@ internal sealed class TestThumbnailCache : IThumbnailCache
 
 internal sealed class TestViewSettingsStore : IViewSettingsStore
 {
-	private readonly Dictionary<ViewSettingsScopeKey, BrowseViewSettingsOverride> _values = [];
-
-	public ValueTask<BrowseViewSettingsOverride?> GetAsync(ViewSettingsScopeKey scope, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		return ValueTask.FromResult(_values.GetValueOrDefault(scope));
-	}
+	private readonly Dictionary<BrowseLocation, BrowseViewSettings> values = [];
 
 	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var settingsOverride = _values.GetValueOrDefault(ViewSettingsScopeKey.ForLocation(location));
-		var settings = settingsOverride is null ? null : settingsOverride.Fields == ViewSettingsOverrideFields.All ? settingsOverride.Values : settingsOverride.ApplyTo(BrowseViewSettings.Default);
-
-		return ValueTask.FromResult(settings);
-	}
-
-	public ValueTask SetAsync(ViewSettingsScopeKey scope, BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		_values[scope] = settingsOverride;
-
-		return ValueTask.CompletedTask;
-	}
-
-	public ValueTask<BrowseViewSettingsOverride?> PatchAsync(ViewSettingsScopeKey scope, ViewSettingsOverrideFields fields, BrowseViewSettingsOverride replacement,
-		CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		var current = _values.GetValueOrDefault(scope) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
-		var updated = current.ReplaceFields(fields, replacement);
-		if (updated.Fields == ViewSettingsOverrideFields.None)
-		{
-			_values.Remove(scope);
-
-			return ValueTask.FromResult<BrowseViewSettingsOverride?>(null);
-		}
-
-		_values[scope] = updated;
-
-		return ValueTask.FromResult<BrowseViewSettingsOverride?>(updated);
+		return ValueTask.FromResult(values.GetValueOrDefault(location));
 	}
 
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		_values[ViewSettingsScopeKey.ForLocation(location)] = BrowseViewSettingsOverride.FromSettings(settings);
+		values[location] = settings;
 
 		return ValueTask.CompletedTask;
-	}
-
-	public ValueTask<bool> RemoveAsync(ViewSettingsScopeKey scope, CancellationToken cancellationToken = default)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		return ValueTask.FromResult(_values.Remove(scope));
 	}
 }

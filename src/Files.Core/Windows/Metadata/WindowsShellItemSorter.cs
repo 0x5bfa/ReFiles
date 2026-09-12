@@ -69,26 +69,15 @@ internal static unsafe class WindowsShellItemSorter
 
 		var sortedFolders = items.Where(static item => item.Snapshot.IsFolder).ToArray();
 		var sortedFiles = items.Where(static item => !item.Snapshot.IsFolder).ToArray();
-		try
-		{
-			Array.Sort(sortedFolders, (left, right) => CompareChildren(folder, columnIndex.Value, direction, left, right, cancellationToken));
-			Array.Sort(sortedFiles, (left, right) => CompareChildren(folder, columnIndex.Value, direction, left, right, cancellationToken));
-		}
-		catch (InvalidOperationException exception) when (exception.InnerException is OperationCanceledException && cancellationToken.IsCancellationRequested)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			throw;
-		}
-
+		Array.Sort(sortedFolders, (left, right) => CompareChildren(folder, columnIndex.Value, direction, left, right));
+		Array.Sort(sortedFiles, (left, right) => CompareChildren(folder, columnIndex.Value, direction, left, right));
 		var sortedItems = sortedFolders.Concat(sortedFiles).ToArray();
 
 		return Array.AsReadOnly(sortedItems);
 	}
 
-	private static int CompareChildren(IShellFolder2 folder, int columnIndex, ViewSortDirection direction, WindowsStorable left, WindowsStorable right, CancellationToken cancellationToken)
+	private static int CompareChildren(IShellFolder2 folder, int columnIndex, ViewSortDirection direction, WindowsStorable left, WindowsStorable right)
 	{
-		cancellationToken.ThrowIfCancellationRequested();
-
 		fixed (byte* leftPidlBytes = left.Locator.RelativePidl.Span)
 		fixed (byte* rightPidlBytes = right.Locator.RelativePidl.Span)
 		{

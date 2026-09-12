@@ -11,15 +11,10 @@ using OwlCore.Storage;
 
 namespace Files.Core.Browsing;
 
-internal interface IDeferredViewSettingsPersistenceProvider
-{
-}
-
 /// <summary>
 /// Keeps a resolved folder model alive for the duration of a browse location.
 /// </summary>
-public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext,
-	IWindowsShellColumnProvider, IViewSettingsPersistenceProvider, IDeferredViewSettingsPersistenceProvider
+public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext, IWindowsShellColumnProvider
 {
 	private readonly FolderLocation _location;
 
@@ -65,47 +60,6 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 
 		return await folder.GetColumnsAsync(cancellationToken).ConfigureAwait(false);
-	}
-
-	/// <inheritdoc />
-	public async ValueTask<BrowseViewSettingsOverride?> GetViewSettingsAsync(CancellationToken cancellationToken = default)
-	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
-
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return null;
-		}
-
-		return await folder.GetViewSettingsAsync(cancellationToken).ConfigureAwait(false) ?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
-	}
-
-	/// <inheritdoc />
-	public async ValueTask<ViewSettingsPersistenceResult> SetViewSettingsAsync(BrowseViewSettingsOverride settingsOverride, CancellationToken cancellationToken = default)
-	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
-
-		ArgumentNullException.ThrowIfNull(settingsOverride);
-
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return new ViewSettingsPersistenceResult(null, settingsOverride);
-		}
-
-		return await folder.SetViewSettingsAsync(settingsOverride, cancellationToken).ConfigureAwait(false);
-	}
-
-	/// <inheritdoc />
-	public async ValueTask<BrowseViewSettingsOverride?> ClearViewSettingsAsync(ViewSettingsOverrideFields fields, CancellationToken cancellationToken = default)
-	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
-
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
-		}
-
-		return await folder.ClearViewSettingsAsync(fields, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <inheritdoc />

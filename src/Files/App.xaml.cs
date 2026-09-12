@@ -8,12 +8,9 @@ using Files.Settings;
 using Files.StorageOperations;
 using Files.Core.Composition;
 using Files.Core.Sessions;
-using Files.Core.ViewSettings;
 using Files.Core.Windows;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
-using System.IO;
-using Windows.Storage;
 
 namespace Files;
 
@@ -57,8 +54,7 @@ public partial class App : Application
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("App", "Launch START");
-		var viewSettingsPath = Path.Combine(ApplicationData.Current.LocalFolder.Path, "Settings", "view-settings.json");
-		var currentRuntime = new FilesCoreBuilder(new JsonViewSettingsStore(viewSettingsPath)).AddWindowsStorage().Build();
+		var currentRuntime = new FilesCoreBuilder().AddWindowsStorage().Build();
 		_runtime = currentRuntime;
 		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
