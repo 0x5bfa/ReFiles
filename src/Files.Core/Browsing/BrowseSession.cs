@@ -32,7 +32,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	private readonly Lock _disposalLock = new();
 	private readonly Lock _navigationCancellationLock = new();
 	private readonly Lock _propertySortLock = new();
+	private readonly Lock _deferredProviderViewSettingsLock = new();
 	private readonly HashSet<long> _suppressedPropertySortGenerations = [];
+	private readonly HashSet<Task> _deferredProviderViewSettingsTasks = [];
 	private readonly BrowsePresentationStore _presentationStore = new();
 	private readonly BrowseSelectionModel _selectionModel = new();
 	private BrowseContextState? _activeContext;
@@ -48,6 +50,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	private int _navigationOperationsInFlight;
 	private long _propertySortGeneration;
 	private long _generationCounter;
+	private long _viewSettingsMutationGeneration;
 	private long _itemsVersion;
 	private long _diagnosticNavigationStartTimestamp;
 	private bool _isDisposed;
@@ -185,7 +188,16 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			BrowseViewSettingsOverride? nextViewSettingsOverride;
 			await using (var viewSettingsTransactionLock = await ViewSettingsTransactionLock.AcquireAsync(nextViewSettingsScope, cancellationToken).ConfigureAwait(false))
 			{
-				nextProviderViewSettings = await GetProviderViewSettingsAsync(nextLocationContext, cancellationToken).ConfigureAwait(false);
+				if (nextLocationContext is IDeferredViewSettingsPersistenceProvider)
+				{
+					StartDeferredProviderViewSettingsLoad(location, generation, nextLocationContext, Volatile.Read(ref _viewSettingsMutationGeneration), cancellationToken);
+					nextProviderViewSettings = null;
+				}
+				else
+				{
+					nextProviderViewSettings = await GetProviderViewSettingsAsync(nextLocationContext, cancellationToken).ConfigureAwait(false);
+				}
+
 				nextViewSettingsOverride = nextViewSettingsScope is null
 					? _unscopedSessionViewSettings.GetValueOrDefault(location)
 					: _viewSettingsStore is null
@@ -1260,6 +1272,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			clearedThumbnails = CommitEffectiveViewSettings(effectiveSettings, preparedUpdate);
 			_providerViewSettings = nextProviderViewSettings;
 			_viewSettingsOverride = nextApplicationOverride;
+			Interlocked.Increment(ref _viewSettingsMutationGeneration);
 			if (sortSettingsChanged)
 			{
 				propertySortRestorer.MarkReplaced();
@@ -1631,6 +1644,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			clearedThumbnails = CommitEffectiveViewSettings(effectiveSettings, preparedUpdate);
 			_providerViewSettings = nextProviderViewSettings;
 			_viewSettingsOverride = retainedOverride;
+			Interlocked.Increment(ref _viewSettingsMutationGeneration);
 			if (sortSettingsChanged)
 			{
 				propertySortRestorer.MarkReplaced();
@@ -1714,6 +1728,171 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		OnStateChanged();
 
 		return clearedThumbnails;
+	}
+
+	private BrowseItemPresentationChangedEventArgs[] ApplyDeferredProviderViewSettings(BrowseViewSettingsOverride providerSettings, BrowseViewSettings settings)
+	{
+		ArgumentNullException.ThrowIfNull(providerSettings);
+		ArgumentNullException.ThrowIfNull(settings);
+
+		_providerViewSettings = providerSettings;
+		if (ViewSettings == settings)
+		{
+			return [];
+		}
+
+		var previousLayoutMode = ViewSettings.LayoutMode;
+		var projection = Volatile.Read(ref _itemProjection);
+		var sortChanged = SortSettingsDiffer(ViewSettings, settings);
+		projection.InvokeLocked(() =>
+		{
+			if (sortChanged)
+			{
+				projection.UpdateSort(settings, deferSort: true);
+			}
+
+			ViewSettings = settings;
+		});
+		var clearedThumbnails = previousLayoutMode != settings.LayoutMode ? _presentationStore.ClearThumbnails() : [];
+		OnStateChanged();
+
+		return clearedThumbnails;
+	}
+
+	private void StartDeferredProviderViewSettingsLoad(BrowseLocation expectedLocation, long expectedGeneration, IBrowseLocationContext context,
+		long expectedViewSettingsMutationGeneration, CancellationToken navigationToken)
+	{
+		if (Volatile.Read(ref _isDisposed))
+		{
+			return;
+		}
+
+		var cancellation = CancellationTokenSource.CreateLinkedTokenSource(navigationToken, _changeCoordinator.LifetimeToken);
+		try
+		{
+			var providerTask = GetProviderViewSettingsAsync(context, cancellation.Token).AsTask();
+			var completionTask = CompleteDeferredProviderViewSettingsLoadAsync(expectedLocation, expectedGeneration, expectedViewSettingsMutationGeneration, providerTask, cancellation);
+			var cancelImmediately = false;
+			lock (_deferredProviderViewSettingsLock)
+			{
+				if (Volatile.Read(ref _isDisposed))
+				{
+					cancelImmediately = true;
+				}
+				else
+				{
+					_deferredProviderViewSettingsTasks.Add(completionTask);
+				}
+			}
+
+			if (cancelImmediately)
+			{
+				cancellation.Cancel();
+			}
+
+			_ = ObserveDeferredProviderViewSettingsLoadAsync(completionTask, cancellation);
+		}
+		catch
+		{
+			cancellation.Cancel();
+			cancellation.Dispose();
+
+			throw;
+		}
+	}
+
+	private async Task CompleteDeferredProviderViewSettingsLoadAsync(BrowseLocation expectedLocation, long expectedGeneration,
+		long expectedViewSettingsMutationGeneration, Task<BrowseViewSettingsOverride?> providerTask, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			var providerSettings = await providerTask.ConfigureAwait(false)
+				?? new BrowseViewSettingsOverride(ViewSettingsOverrideFields.None, BrowseViewSettings.Default);
+			await _navigationLock.WaitAsync(cancellation.Token).ConfigureAwait(false);
+			BrowseItemPresentationChangedEventArgs[] clearedThumbnails = [];
+			try
+			{
+				if (Volatile.Read(ref _isDisposed) || Generation != expectedGeneration || !Equals(Location, expectedLocation) ||
+					Volatile.Read(ref _viewSettingsMutationGeneration) != expectedViewSettingsMutationGeneration)
+				{
+					return;
+				}
+
+				var activeContext = Volatile.Read(ref _activeContext);
+				if (activeContext is null)
+				{
+					return;
+				}
+
+				ViewSettingsScopeKey.TryForLocation(expectedLocation, out var viewSettingsScope);
+				await using (var viewSettingsTransactionLock = await ViewSettingsTransactionLock.AcquireAsync(viewSettingsScope, cancellation.Token).ConfigureAwait(false))
+				{
+					if (Volatile.Read(ref _isDisposed) || Generation != expectedGeneration || !Equals(Location, expectedLocation) ||
+						Volatile.Read(ref _viewSettingsMutationGeneration) != expectedViewSettingsMutationGeneration)
+					{
+						return;
+					}
+
+					var settings = ApplyViewSettingsLayers(_viewSettingsBaseline, providerSettings, _viewSettingsOverride);
+					var sortChanged = SortSettingsDiffer(ViewSettings, settings);
+					clearedThumbnails = ApplyDeferredProviderViewSettings(providerSettings, settings);
+					if (sortChanged)
+					{
+						try
+						{
+							var changes = await SortProjectionAsync(activeContext.Context, Volatile.Read(ref _itemProjection), settings, cancellation.Token).ConfigureAwait(false);
+							PublishItemsChanged(changes);
+						}
+						catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+						{
+							throw;
+						}
+						catch (Exception exception)
+						{
+							CoreDiagnosticLog.Write("BrowseSession", $"Deferred provider view settings sort failed type={exception.GetType().Name} message={exception.Message}");
+							PublishItemsChanged(Volatile.Read(ref _itemProjection).RefreshSort());
+						}
+					}
+				}
+			}
+			finally
+			{
+				_navigationLock.Release();
+			}
+
+			foreach (var thumbnail in clearedThumbnails)
+			{
+				RaiseEvent(ItemPresentationChanged, thumbnail);
+			}
+		}
+		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			CoreDiagnosticLog.Write("BrowseSession", $"Deferred provider view settings failed type={exception.GetType().Name} message={exception.Message}");
+		}
+	}
+
+	private async Task ObserveDeferredProviderViewSettingsLoadAsync(Task completionTask, CancellationTokenSource cancellation)
+	{
+		try
+		{
+			await completionTask.ConfigureAwait(false);
+		}
+		catch (Exception exception)
+		{
+			CoreDiagnosticLog.Write("BrowseSession", $"Deferred provider view settings observer failed type={exception.GetType().Name} message={exception.Message}");
+		}
+		finally
+		{
+			lock (_deferredProviderViewSettingsLock)
+			{
+				_deferredProviderViewSettingsTasks.Remove(completionTask);
+			}
+
+			cancellation.Dispose();
+		}
 	}
 
 	private static void ValidateExternalOrder(IReadOnlyList<IStorableModel> currentItems, IReadOnlyList<IStorableModel> externalOrder)
@@ -1937,6 +2116,17 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 
 			try
 			{
+				Task[] deferredProviderViewSettingsTasks;
+				lock (_deferredProviderViewSettingsLock)
+				{
+					deferredProviderViewSettingsTasks = _deferredProviderViewSettingsTasks.ToArray();
+				}
+
+				if (deferredProviderViewSettingsTasks.Length is not 0)
+				{
+					await Task.WhenAll(deferredProviderViewSettingsTasks).ConfigureAwait(false);
+				}
+
 				var items = Items;
 				var currentContext = Volatile.Read(ref _activeContext);
 				Volatile.Write(ref _itemProjection, new BrowseItemProjection(ViewSettings, _presentationStore.GetSortPropertyValue));

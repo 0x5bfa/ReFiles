@@ -11,11 +11,15 @@ using OwlCore.Storage;
 
 namespace Files.Core.Browsing;
 
+internal interface IDeferredViewSettingsPersistenceProvider
+{
+}
+
 /// <summary>
 /// Keeps a resolved folder model alive for the duration of a browse location.
 /// </summary>
 public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext,
-	IWindowsShellColumnProvider, IViewSettingsPersistenceProvider
+	IWindowsShellColumnProvider, IViewSettingsPersistenceProvider, IDeferredViewSettingsPersistenceProvider
 {
 	private readonly FolderLocation _location;
 

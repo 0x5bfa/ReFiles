@@ -4,7 +4,6 @@
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using Files.Core.ViewSettings;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -73,7 +72,6 @@ internal static unsafe partial class WindowsShellViewStateBridge
 
 		var hostWindow = default(HWND);
 		IExplorerBrowser? browser = null;
-		uint adviseCookie = 0;
 		try
 		{
 			hostWindow = CreateHostWindow();
@@ -91,16 +89,9 @@ internal static unsafe partial class WindowsShellViewStateBridge
 				return null;
 			}
 
-			var events = new ExplorerBrowserEvents();
-			hr = browser.Advise(events, out adviseCookie);
-			if (hr.Failed)
-			{
-				return null;
-			}
-
 			cancellationToken.ThrowIfCancellationRequested();
 			hr = browser.BrowseToIDList(in *absolutePidl, BrowseFlags);
-			if (hr.Failed || !events.WaitForNavigation(TimeSpan.FromSeconds(5), cancellationToken))
+			if (hr.Failed)
 			{
 				return null;
 			}
@@ -143,11 +134,6 @@ internal static unsafe partial class WindowsShellViewStateBridge
 		{
 			if (browser is not null)
 			{
-				if (adviseCookie is not 0)
-				{
-					browser.Unadvise(adviseCookie);
-				}
-
 				browser.Destroy();
 			}
 
@@ -374,42 +360,4 @@ internal static unsafe partial class WindowsShellViewStateBridge
 		};
 	}
 
-	[GeneratedComClass]
-	private sealed partial class ExplorerBrowserEvents : IExplorerBrowserEvents
-	{
-		private readonly ManualResetEventSlim _navigationComplete = new(false);
-		private int _navigationFailed;
-
-		public HRESULT OnNavigationPending(ITEMIDLIST* pidlFolder)
-		{
-			return HRESULT.S_OK;
-		}
-
-		public HRESULT OnViewCreated(IShellView psv)
-		{
-			return HRESULT.S_OK;
-		}
-
-		public HRESULT OnNavigationComplete(ITEMIDLIST* pidlFolder)
-		{
-			_navigationComplete.Set();
-
-			return HRESULT.S_OK;
-		}
-
-		public HRESULT OnNavigationFailed(ITEMIDLIST* pidlFolder)
-		{
-			Interlocked.Exchange(ref _navigationFailed, 1);
-			_navigationComplete.Set();
-
-			return HRESULT.S_OK;
-		}
-
-		internal bool WaitForNavigation(TimeSpan timeout, CancellationToken cancellationToken)
-		{
-			var completed = _navigationComplete.Wait(timeout, cancellationToken);
-
-			return completed && Volatile.Read(ref _navigationFailed) is 0;
-		}
-	}
 }
