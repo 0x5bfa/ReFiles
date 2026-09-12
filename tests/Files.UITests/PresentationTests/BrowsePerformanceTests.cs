@@ -239,7 +239,7 @@ public sealed class BrowsePerformanceTests
 		await using var workspace = new PerformanceStorageWorkspace();
 		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
 		var storageOperations = new NoOpStorageOperationService();
-		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
 		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 		await coreWindow.OpenTabAsync();
@@ -307,7 +307,7 @@ public sealed class BrowsePerformanceTests
 		await using var runtime = new FilesCoreBuilder().AddWindowsStorage().Build();
 		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync();
-		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
 		var presentationFactory = new WindowPresentationFactory(runtime.Workspace, runtime.StorageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
@@ -590,7 +590,7 @@ public sealed class BrowsePerformanceTests
 			{
 				await window.OpenTabAsync(HomeLocation.Instance);
 				var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
-				var appSettings = new AppSettingsService(new Dictionary<string, object>());
+				var appSettings = new AppSettingsService(new AppSettingsData());
 				var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 				root = new RootViewModel(window, presentationFactory);
 				await root.InitializeAsync().WaitAsync(NavigationTimeout);

@@ -169,11 +169,18 @@ public partial class App : Application
 			_mainWindows.Clear();
 		}
 
-		if (Interlocked.Exchange(ref _runtime, null) is { } currentRuntime)
+		try
 		{
-			await currentRuntime.DisposeAsync().ConfigureAwait(true);
+			if (Interlocked.Exchange(ref _runtime, null) is { } currentRuntime)
+			{
+				await currentRuntime.DisposeAsync().ConfigureAwait(true);
+			}
 		}
-
-		_storageOperationTracker.Dispose();
+		finally
+		{
+			_settings.PropertyChanged -= Settings_PropertyChanged;
+			_settings.Dispose();
+			_storageOperationTracker.Dispose();
+		}
 	}
 }

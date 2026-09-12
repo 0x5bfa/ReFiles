@@ -48,12 +48,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	private readonly SemaphoreSlim _navigationThumbnailGate = new(4);
 
-	private SidebarDisplayMode _sidebarDisplayMode = SidebarDisplayMode.Expanded;
-
-	private bool _isPreviewPaneVisible;
-
-	private double _previewPaneWidth;
-
 	private int _isDisposed;
 
 	private int _navigationItemsStarted;
@@ -72,43 +66,22 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public SidebarDisplayMode SidebarDisplayMode
 	{
-		get => _sidebarDisplayMode;
-		set
-		{
-			if (!SetProperty(ref _sidebarDisplayMode, value))
-			{
-				return;
-			}
-
-			_commandManager.RefreshStates(CommandStateInvalidation.Pane);
-		}
+		get => _appSettings.SidebarDisplayMode;
+		set => _appSettings.SidebarDisplayMode = value;
 	}
 
 	public bool IsPreviewPaneVisible
 	{
-		get => _isPreviewPaneVisible;
-		set
-		{
-			if (!SetProperty(ref _isPreviewPaneVisible, value))
-			{
-				return;
-			}
-
-			_commandManager.RefreshStates(CommandStateInvalidation.Pane);
-		}
+		get => _appSettings.IsPreviewPaneVisible;
+		set => _appSettings.IsPreviewPaneVisible = value;
 	}
 
 	public double PreviewPaneWidth
 	{
-		get => _previewPaneWidth;
+		get => Math.Max(_appSettings.PreviewPaneWidth, MinimumPreviewPaneWidth);
 		set
 		{
 			var width = Math.Max(value, MinimumPreviewPaneWidth);
-			if (!SetProperty(ref _previewPaneWidth, width))
-			{
-				return;
-			}
-
 			_appSettings.PreviewPaneWidth = width;
 		}
 	}
@@ -249,7 +222,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		SettingsNavigationItem = NavigationItemViewModel.CreateSettings(Strings.Settings.GetLocalized());
 		NavigationItems.Add(HomeNavigationItem);
 		SidebarFooterItems.Add(new FlatSidebarItem(SettingsNavigationItem, 0));
-		_previewPaneWidth = Math.Max(_appSettings.PreviewPaneWidth, MinimumPreviewPaneWidth);
 		_commandManager = presentationFactory.CreateCommandManager(this);
 		TabStrip = new(
 			Tabs,
@@ -297,6 +269,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			LayoutGridCommand,
 			LayoutColumnsCommand);
 
+		_appSettings.PropertyChanged += AppSettings_PropertyChanged;
 		window.TabsChanged += Window_StateChanged;
 		window.ActiveTabChanged += Window_StateChanged;
 		RefreshFromCore();
@@ -566,6 +539,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		_lifetime.Cancel();
+		_appSettings.PropertyChanged -= AppSettings_PropertyChanged;
 		_window.TabsChanged -= Window_StateChanged;
 		_window.ActiveTabChanged -= Window_StateChanged;
 		NavigationToolbar.Dispose();
@@ -594,6 +568,32 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		NavigationItems.Clear();
 		_navigationThumbnailGate.Dispose();
 		_lifetime.Dispose();
+	}
+
+	private void AppSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is not nameof(AppSettingsService.IsPreviewPaneVisible) and not nameof(AppSettingsService.PreviewPaneWidth) and not nameof(AppSettingsService.SidebarDisplayMode))
+		{
+			return;
+		}
+
+		if (Volatile.Read(ref _isDisposed) is not 0)
+		{
+			return;
+		}
+
+		if (!_dispatcher.HasThreadAccess)
+		{
+			_dispatcher.TryEnqueue(() => AppSettings_PropertyChanged(sender, e));
+
+			return;
+		}
+
+		OnPropertyChanged(e.PropertyName);
+		if (e.PropertyName is nameof(AppSettingsService.IsPreviewPaneVisible) or nameof(AppSettingsService.SidebarDisplayMode))
+		{
+			_commandManager.RefreshStates(CommandStateInvalidation.Pane);
+		}
 	}
 
 	private void NavigationItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

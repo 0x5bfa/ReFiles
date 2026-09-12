@@ -20,7 +20,7 @@ public sealed class SettingsViewTests
 	[UITestMethod]
 	public async Task OptionCollectionsLoadAsItemsSources()
 	{
-		var settings = new AppSettingsService(new Dictionary<string, object>());
+		var settings = new AppSettingsService(new AppSettingsData());
 		var settingsView = new SettingsView(settings);
 		var appearanceView = new AppearanceSettingsView(settings);
 		var content = new StackPanel();

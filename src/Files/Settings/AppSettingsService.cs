@@ -1,105 +1,274 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using Files.Controls;
 using Windows.Globalization;
 using Windows.Storage;
+using Windows.Storage.Streams;
 
 namespace Files.Settings;
 
-internal sealed class AppSettingsService : INotifyPropertyChanged
+internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisposable
 {
-	private const string ContainerName = "Application";
-	private const string LanguageTagKey = "LanguageTag";
-	private const string ShowFileExtensionsKey = "ShowFileExtensions";
-	private const string ShowHiddenItemsKey = "ShowHiddenItems";
-	private const string ThemeModeKey = "ThemeMode";
-	private const string PreviewPaneWidthKey = "PreviewPaneWidth";
+	private const string SettingsDirectoryName = "Settings";
+	private const string SettingsFileName = "settings.json";
+	private static readonly TimeSpan _defaultSaveDelay = TimeSpan.FromMilliseconds(250);
+	private static readonly TimeSpan _saveRetryDelay = TimeSpan.FromSeconds(5);
 
-	private readonly IDictionary<string, object> _values;
+	private readonly Lock _syncRoot = new();
+	private readonly StorageFolder? _localFolder;
+	private readonly TimeSpan _saveDelay;
+	private AppSettingsData _settings;
+	private Timer? _saveTimer;
+	private bool _isDirty;
+	private bool _isDisposed;
 
-	public string LanguageTag
-	{
-		get => GetString(LanguageTagKey);
-		set => SetString(LanguageTagKey, value ?? string.Empty, nameof(LanguageTag));
-	}
+	[AppSetting("")]
+	public partial string LanguageTag { get; set; }
 
-	public bool ShowFileExtensions
-	{
-		get => GetBoolean(ShowFileExtensionsKey, true);
-		set => SetBoolean(ShowFileExtensionsKey, value, true, nameof(ShowFileExtensions));
-	}
+	[AppSetting(true)]
+	public partial bool ShowFileExtensions { get; set; }
 
-	public bool ShowHiddenItems
-	{
-		get => GetBoolean(ShowHiddenItemsKey, false);
-		set => SetBoolean(ShowHiddenItemsKey, value, false, nameof(ShowHiddenItems));
-	}
+	[AppSetting(false)]
+	public partial bool ShowHiddenItems { get; set; }
 
-	public AppThemeMode ThemeMode
-	{
-		get => Enum.TryParse<AppThemeMode>(GetString(ThemeModeKey), out var value) && Enum.IsDefined(value) ? value : AppThemeMode.System;
-		set => SetString(ThemeModeKey, value.ToString(), nameof(ThemeMode));
-	}
+	[AppSetting(AppThemeMode.System)]
+	public partial AppThemeMode ThemeMode { get; set; }
 
-	public double PreviewPaneWidth
-	{
-		get => GetDouble(PreviewPaneWidthKey, 320);
-		set => SetDouble(PreviewPaneWidthKey, value, 320, nameof(PreviewPaneWidth));
-	}
+	[AppSetting(320d, MinValue = 1d)]
+	public partial double PreviewPaneWidth { get; set; }
+
+	[AppSetting(false)]
+	public partial bool IsPreviewPaneVisible { get; set; }
+
+	[AppSetting(SidebarDisplayMode.Expanded)]
+	public partial SidebarDisplayMode SidebarDisplayMode { get; set; }
 
 	public event PropertyChangedEventHandler? PropertyChanged;
 
 	public AppSettingsService()
-		: this(ApplicationData.Current.LocalSettings.CreateContainer(ContainerName, ApplicationDataCreateDisposition.Always).Values)
+		: this(ApplicationData.Current.LocalFolder)
 	{
 	}
 
-	internal AppSettingsService(IDictionary<string, object> values)
+	internal AppSettingsService(StorageFolder localFolder, TimeSpan? saveDelay = null)
 	{
-		ArgumentNullException.ThrowIfNull(values);
+		ArgumentNullException.ThrowIfNull(localFolder);
 
-		_values = values;
+		if (saveDelay is { } delay && delay < TimeSpan.Zero)
+		{
+			throw new ArgumentOutOfRangeException(nameof(saveDelay));
+		}
+
+		_localFolder = localFolder;
+		_saveDelay = saveDelay ?? _defaultSaveDelay;
+		_settings = new AppSettingsData();
+		Load();
+	}
+
+	internal AppSettingsService(AppSettingsData settings)
+	{
+		ArgumentNullException.ThrowIfNull(settings);
+
+		NormalizeSettings(settings);
+		_settings = settings;
+		_saveDelay = _defaultSaveDelay;
 	}
 
 	public void ApplyLanguage() => ApplicationLanguages.PrimaryLanguageOverride = LanguageTag;
 
-	private bool GetBoolean(string key, bool defaultValue) => _values.TryGetValue(key, out var value) && value is bool result ? result : defaultValue;
-
-	private double GetDouble(string key, double defaultValue) => _values.TryGetValue(key, out var value) && value is double result && double.IsFinite(result) ? result : defaultValue;
-
-	private string GetString(string key) => _values.TryGetValue(key, out var value) && value is string text ? text : string.Empty;
-
-	private void SetBoolean(string key, bool value, bool defaultValue, string propertyName)
+	public void SaveNow()
 	{
-		if (GetBoolean(key, defaultValue) == value)
+		lock (_syncRoot)
+		{
+			ThrowIfDisposed();
+			SaveCore_NoLock();
+		}
+	}
+
+	public void Dispose()
+	{
+		lock (_syncRoot)
+		{
+			if (_isDisposed)
+			{
+				return;
+			}
+
+			try
+			{
+				SaveCore_NoLock();
+			}
+			catch (Exception exception)
+			{
+				Debug.WriteLine($"Failed to save application settings: {exception}");
+			}
+
+			_isDisposed = true;
+			_saveTimer?.Dispose();
+			_saveTimer = null;
+		}
+
+		GC.SuppressFinalize(this);
+	}
+
+	private void Load()
+	{
+		if (_localFolder is null)
 		{
 			return;
 		}
 
-		_values[key] = value;
+		try
+		{
+			var settingsFolder = TryGetFolder(_localFolder, SettingsDirectoryName);
+			if (settingsFolder is null)
+			{
+				return;
+			}
+
+			var settingsFile = TryGetFile(settingsFolder, SettingsFileName);
+			if (settingsFile is null)
+			{
+				return;
+			}
+
+			var json = FileIO.ReadTextAsync(settingsFile, UnicodeEncoding.Utf8).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+			if (string.IsNullOrWhiteSpace(json))
+			{
+				return;
+			}
+
+			var loaded = JsonSerializer.Deserialize(json, AppSettingsJsonContext.Default.AppSettingsData);
+			if (loaded is null)
+			{
+				return;
+			}
+
+			NormalizeSettings(loaded);
+			_settings = loaded;
+		}
+		catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException or NotSupportedException or COMException)
+		{
+			Debug.WriteLine($"Failed to load application settings: {exception}");
+		}
+	}
+
+	private void SetValue<T>(string propertyName, T value, Func<AppSettingsData, T> getter, Action<AppSettingsData, T> setter)
+	{
+		lock (_syncRoot)
+		{
+			ThrowIfDisposed();
+			if (EqualityComparer<T>.Default.Equals(getter(_settings), value))
+			{
+				return;
+			}
+
+			setter(_settings, value);
+			_isDirty = true;
+			QueueSave_NoLock();
+		}
+
 		PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 	}
 
-	private void SetDouble(string key, double value, double defaultValue, string propertyName)
+	private void QueueSave_NoLock(TimeSpan? delay = null)
 	{
-		if (!double.IsFinite(value) || GetDouble(key, defaultValue) == value)
+		if (_localFolder is null)
 		{
 			return;
 		}
 
-		_values[key] = value;
-		PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+		var saveTimer = _saveTimer ??= new Timer(static state => ((AppSettingsService)state!).SaveTimerElapsed(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+		saveTimer.Change(delay ?? _saveDelay, Timeout.InfiniteTimeSpan);
 	}
 
-	private void SetString(string key, string value, string propertyName)
+	private void SaveTimerElapsed()
 	{
-		if (string.Equals(GetString(key), value, StringComparison.Ordinal))
+		lock (_syncRoot)
+		{
+			if (_isDisposed)
+			{
+				return;
+			}
+
+			try
+			{
+				SaveCore_NoLock();
+			}
+			catch (Exception exception)
+			{
+				Debug.WriteLine($"Failed to save application settings: {exception}");
+				if (_isDirty)
+				{
+					QueueSave_NoLock(_saveRetryDelay);
+				}
+			}
+		}
+	}
+
+	private void SaveCore_NoLock()
+	{
+		var localFolder = _localFolder;
+		if (!_isDirty || localFolder is null)
 		{
 			return;
 		}
 
-		_values[key] = value;
-		PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+		var settingsFolder = localFolder.CreateFolderAsync(SettingsDirectoryName, CreationCollisionOption.OpenIfExists).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+		var json = JsonSerializer.Serialize(_settings, AppSettingsJsonContext.Default.AppSettingsData);
+		StorageFile? temporaryFile = null;
+		var committed = false;
+		try
+		{
+			var temporaryName = $"{SettingsFileName}.{Guid.NewGuid():N}.tmp";
+			var createdTemporaryFile = settingsFolder.CreateFileAsync(temporaryName, CreationCollisionOption.ReplaceExisting).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+			temporaryFile = createdTemporaryFile;
+			FileIO.WriteTextAsync(createdTemporaryFile, json, UnicodeEncoding.Utf8).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+			createdTemporaryFile.MoveAsync(settingsFolder, SettingsFileName, NameCollisionOption.ReplaceExisting).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+			_isDirty = false;
+			committed = true;
+		}
+		finally
+		{
+			if (!committed && temporaryFile is not null)
+			{
+				TryDelete(temporaryFile);
+			}
+		}
+	}
+
+	private static StorageFolder? TryGetFolder(StorageFolder parentFolder, string name)
+	{
+		var item = parentFolder.TryGetItemAsync(name).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+
+		return item as StorageFolder;
+	}
+
+	private static StorageFile? TryGetFile(StorageFolder parentFolder, string name)
+	{
+		var item = parentFolder.TryGetItemAsync(name).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+
+		return item as StorageFile;
+	}
+
+	private static void TryDelete(StorageFile file)
+	{
+		try
+		{
+			file.DeleteAsync(StorageDeleteOption.PermanentDelete).AsTask().ConfigureAwait(false).GetAwaiter().GetResult();
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or COMException)
+		{
+		}
+	}
+
+	private void ThrowIfDisposed()
+	{
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
 	}
 }

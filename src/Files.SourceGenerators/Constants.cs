@@ -37,6 +37,28 @@ namespace Files.SourceGenerators
 				defaultSeverity: DiagnosticSeverity.Error,
 				isEnabledByDefault: true);
 
+			/// <summary>
+			/// Diagnostic descriptor for an invalid application setting declaration.
+			/// </summary>
+			internal static readonly DiagnosticDescriptor FSG1005 = new(
+				id: nameof(FSG1005),
+				title: "Invalid application setting declaration",
+				messageFormat: "Application setting '{0}' is invalid: {1}",
+				category: "FileGeneration",
+				defaultSeverity: DiagnosticSeverity.Error,
+				isEnabledByDefault: true);
+
+			/// <summary>
+			/// Diagnostic descriptor for duplicate application setting declarations.
+			/// </summary>
+			internal static readonly DiagnosticDescriptor FSG1006 = new(
+				id: nameof(FSG1006),
+				title: "Duplicate application setting declaration",
+				messageFormat: "Application setting '{0}' is declared more than once",
+				category: "FileGeneration",
+				defaultSeverity: DiagnosticSeverity.Error,
+				isEnabledByDefault: true);
+
 		}
 
 		internal class StringsPropertyGenerator

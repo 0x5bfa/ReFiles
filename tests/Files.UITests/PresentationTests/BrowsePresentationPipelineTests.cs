@@ -651,7 +651,7 @@ public sealed class BrowsePresentationPipelineTests
 		var dispatcher = new ManualDispatcher();
 		var stateCalls = new CountingStateCalls();
 		var commandRegistry = CreateCountingCommandRegistry(stateCalls);
-		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
 		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, operationTracker, appSettings, dispatcher, commandRegistry);
 		RootViewModel root;
@@ -700,7 +700,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var window = new WindowSession(paneFactory);
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
 		var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, AppCommandRegistration.Build());
 		RootViewModel root;
@@ -744,7 +744,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var window = new WindowSession(paneFactory);
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		var appSettings = new AppSettingsService(new Dictionary<string, object>());
+		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
 		var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, AppCommandRegistration.Build());
 		RootViewModel root;
