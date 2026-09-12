@@ -11,7 +11,6 @@ using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using OwlCore.Storage;
 
 namespace Files.UnitTests;
 

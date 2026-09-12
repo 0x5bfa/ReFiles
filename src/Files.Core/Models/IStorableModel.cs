@@ -7,7 +7,7 @@ using Files.Core.Storage;
 namespace Files.Core.Models;
 
 /// <summary>
-/// Files-specific application model for an OwlCore storage item.
+/// Files-specific application model for a Files storage item.
 /// </summary>
 public interface IStorableModel : IHasCapabilities, IDisposable, IAsyncDisposable
 {

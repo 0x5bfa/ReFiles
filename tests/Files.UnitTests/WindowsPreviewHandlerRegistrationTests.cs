@@ -8,7 +8,6 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Storage;
 using Files.Core.Windows;
 using Microsoft.Win32;
-using OwlCore.Storage;
 using Windows.Win32.Foundation;
 
 namespace Files.UnitTests;

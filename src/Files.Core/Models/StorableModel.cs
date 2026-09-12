@@ -4,12 +4,11 @@
 using Files.Core.Capabilities;
 using Files.Core.Storage;
 using Files.Core.Windows;
-using OwlCore.Storage;
 
 namespace Files.Core.Models;
 
 /// <summary>
-/// Adapts an OwlCore storage item to the Files item AppModel contract.
+/// Adapts a Files storage item to the Files item AppModel contract.
 /// </summary>
 public class StorableModel : IStorableModel, IStorableModelInternal
 {
@@ -44,7 +43,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	/// <summary>
 	/// Initializes a Files item model.
 	/// </summary>
-	/// <param name="coreModel">The owned OwlCore storage item.</param>
+	/// <param name="coreModel">The owned Files storage item.</param>
 	/// <param name="reference">The stable Files item reference.</param>
 	/// <param name="capabilities">The owned composed item capabilities.</param>
 	public StorableModel(IStorable coreModel, StorableReference reference, ICapabilities capabilities)

@@ -37,7 +37,7 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 	/// <inheritdoc />
 	public bool CanGetParent =>
 		!string.IsNullOrEmpty(_location.EntryPath) ||
-		_archiveModel.GetCoreModel() is OwlCore.Storage.IStorableChild;
+		_archiveModel.GetCoreModel() is IStorableChild;
 
 	/// <summary>Initializes an archive browse context and takes ownership of the archive resources.</summary>
 	/// <param name="location">The archive location.</param>
@@ -89,7 +89,7 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 	/// <returns>The child item models owned by the caller.</returns>
 	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(
 		ArchiveLocation location,
-		OwlCore.Storage.StorableType type = OwlCore.Storage.StorableType.All,
+		StorableType type = StorableType.All,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
@@ -112,7 +112,7 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 		}
 
 		var coreModel = await _mount.ResolveAsync(location.EntryPath, cancellationToken).ConfigureAwait(false);
-		if (coreModel is not OwlCore.Storage.IFolder folder)
+		if (coreModel is not IFolder folder)
 		{
 			throw new InvalidOperationException($"Archive entry '{location.EntryPath}' is not a folder.");
 		}
@@ -150,7 +150,7 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 			return new ArchiveLocation(_location.Archive, ArchiveEntryPath.GetParent(_location.EntryPath));
 		}
 
-		if (_archiveModel.GetCoreModel() is not OwlCore.Storage.IStorableChild child)
+		if (_archiveModel.GetCoreModel() is not IStorableChild child)
 		{
 			return null;
 		}

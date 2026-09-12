@@ -24,7 +24,6 @@ using Files.Core.Windows;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
-using OwlCore.Storage;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Win32;

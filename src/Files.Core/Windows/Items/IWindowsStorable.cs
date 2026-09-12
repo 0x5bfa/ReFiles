@@ -4,12 +4,11 @@
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
 using Files.Core.Storage;
-using OwlCore.Storage;
 
 namespace Files.Core.Windows;
 
 /// <summary>
-/// Describes an OwlCore item backed by the Windows Shell namespace.
+/// Describes a Files storage item backed by the Windows Shell namespace.
 /// </summary>
 public interface IWindowsStorable : IStorableChild, IStorageAddressSource
 {

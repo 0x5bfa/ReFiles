@@ -9,7 +9,6 @@ using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using OwlCore.Storage;
 
 namespace Files.Core.Windows;
 

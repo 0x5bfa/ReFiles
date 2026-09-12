@@ -4,7 +4,6 @@
 using System.IO;
 using System.Runtime.CompilerServices;
 using Files.Core.Storage;
-using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.UI.Shell;
 

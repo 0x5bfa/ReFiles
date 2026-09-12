@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using OwlCore.Storage;
+using Files.Core.Storage;
 
 namespace Files.Core.Storage.Archives.SevenZip;
 

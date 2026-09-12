@@ -10,7 +10,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage;
-using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;

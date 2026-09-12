@@ -8,7 +8,7 @@ using System.Runtime.Versioning;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Data;
-using OwlCore.Storage;
+using Files.Core.Storage;
 
 namespace Files.Core.Windows;
 

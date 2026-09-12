@@ -68,7 +68,7 @@ flowchart TB
 Implemented areas:
 
 - stable source and item identity with recovery addresses;
-- OwlCore.Storage CoreModels wrapped by Files AppModels;
+- Files.Core storage models wrapped by Files AppModels;
 - lazy capability factories, combiners, wrappers, and ownership;
 - UI-independent shell sessions for application, window, tab, split-pane,
   navigation-history, and browsing state;

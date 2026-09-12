@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using global::SevenZip;
-using OwlCore.Storage;
+using Files.Core.Storage;
 
 namespace Files.Core.Storage.Archives.SevenZip;
 

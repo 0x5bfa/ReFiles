@@ -6,4 +6,4 @@ global using System.Linq;
 global using System.Threading;
 global using System.Threading.Tasks;
 global using Microsoft.VisualStudio.TestTools.UnitTesting;
-global using OwlCore.Storage;
+global using Files.Core.Storage;

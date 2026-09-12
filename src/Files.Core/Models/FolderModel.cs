@@ -5,11 +5,10 @@ using System.Runtime.CompilerServices;
 using Files.Core.Capabilities;
 using Files.Core.Storage;
 using Files.Core.Windows;
-using OwlCore.Storage;
 
 namespace Files.Core.Models;
 
-/// <summary>Adapts an OwlCore folder to the Files folder model contract.</summary>
+/// <summary>Adapts a Files folder to the Files folder model contract.</summary>
 public sealed class FolderModel : StorableModel, IFolderModel
 {
 	private readonly IFolder _folder;
@@ -22,7 +21,7 @@ public sealed class FolderModel : StorableModel, IFolderModel
 	/// Initializes a Files folder model.
 	/// </summary>
 	/// <param name="source">The storage source that owns the folder.</param>
-	/// <param name="folder">The owned OwlCore folder.</param>
+	/// <param name="folder">The owned Files folder.</param>
 	/// <param name="modelFactory">The factory used to adapt child items.</param>
 	/// <param name="reference">The stable Files item reference.</param>
 	/// <param name="capabilities">The owned composed item capabilities.</param>

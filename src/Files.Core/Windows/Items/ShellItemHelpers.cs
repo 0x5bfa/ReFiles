@@ -5,7 +5,6 @@
 
 using System.Runtime.InteropServices;
 using Files.Core.Storage;
-using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.SystemServices;

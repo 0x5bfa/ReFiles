@@ -3,7 +3,6 @@
 
 using Files.Core.Capabilities;
 using Files.Core.Storage;
-using OwlCore.Storage;
 
 namespace Files.Core.Models;
 

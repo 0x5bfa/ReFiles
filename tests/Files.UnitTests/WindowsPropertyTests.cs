@@ -10,7 +10,6 @@ using Files.Core.Sessions;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Files.Core.Windows;
-using OwlCore.Storage;
 
 namespace Files.UnitTests;
 

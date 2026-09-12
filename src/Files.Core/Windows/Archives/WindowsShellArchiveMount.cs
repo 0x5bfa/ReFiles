@@ -6,7 +6,6 @@
 using System.IO;
 using Files.Core.Storage;
 using Files.Core.Storage.Archives;
-using OwlCore.Storage;
 
 namespace Files.Core.Windows;
 

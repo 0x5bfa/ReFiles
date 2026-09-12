@@ -8,7 +8,6 @@ using Files.Core.Browsing;
 using Files.Core.Capabilities;
 using Files.Core.Models;
 using Files.Core.Storage;
-using OwlCore.Storage;
 
 namespace Files.Benchmarks;
 

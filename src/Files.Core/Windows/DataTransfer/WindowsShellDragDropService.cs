@@ -4,7 +4,6 @@
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
 using Files.Core.Storage;
-using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;

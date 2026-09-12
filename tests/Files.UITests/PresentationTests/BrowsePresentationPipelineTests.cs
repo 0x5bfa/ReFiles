@@ -24,7 +24,6 @@ using Files.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
-using OwlCore.Storage;
 
 namespace Files.UITests;
 

@@ -4,7 +4,6 @@
 using Files.Core.Storage;
 using Files.Core.Storage.Archives;
 using Files.Core.Windows;
-using OwlCore.Storage;
 
 namespace Files.Core.Capabilities.Archives;
 

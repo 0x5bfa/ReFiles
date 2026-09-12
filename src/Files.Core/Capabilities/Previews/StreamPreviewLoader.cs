@@ -3,7 +3,7 @@
 
 using System.IO;
 using Files.Core.Capabilities;
-using OwlCore.Storage;
+using Files.Core.Storage;
 
 namespace Files.Core.Capabilities.Previews;
 

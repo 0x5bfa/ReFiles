@@ -9,7 +9,6 @@ using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Files.Core.Diagnostics;
 using Files.Core.Storage;
-using OwlCore.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;

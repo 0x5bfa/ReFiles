@@ -4,7 +4,6 @@
 using BenchmarkDotNet.Attributes;
 using Files.Core.Capabilities;
 using Files.Core.Storage;
-using OwlCore.Storage;
 
 namespace Files.Benchmarks;
 
