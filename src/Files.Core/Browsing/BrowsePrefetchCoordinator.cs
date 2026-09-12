@@ -196,48 +196,16 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				return;
 			}
 
-			var indices = EnumerateIndices(request.Items.Count, request.Viewport).ToArray();
 			var propertyRequest = new PropertyRequest(propertyIds, includeFormattedValues: true);
-			var batchedSources = new Dictionary<IPropertyReader, List<(IStorableModel Item, ItemContext Context)>>(ReferenceEqualityComparer.Instance);
-			var individualItems = new List<IStorableModel>();
-			foreach (var itemIndex in indices)
+			var visibleIndices = EnumerateIndices(request.Items.Count, request.Viewport, includeSurrounding: false).ToArray();
+			await PrefetchPropertyItemsAsync(visibleIndices, propertyRequest, request, cancellation.Token).ConfigureAwait(false);
+
+			if (IsCurrent(request, cancellation.Token))
 			{
-				var item = request.Items[itemIndex];
-				if (!NeedsPropertyPrefetch(item, propertyIds, request.Generation))
-				{
-					continue;
-				}
-
-				if (item.Get<IPropertySource>() is not IBatchedPropertySource batchedSource)
-				{
-					individualItems.Add(item);
-
-					continue;
-				}
-
-				if (!batchedSources.TryGetValue(batchedSource.Reader, out var items))
-				{
-					items = [];
-					batchedSources.Add(batchedSource.Reader, items);
-				}
-
-				items.Add((item, batchedSource.Context));
+				var backgroundIndices = EnumerateIndices(request.Items.Count, request.Viewport).Skip(visibleIndices.Length).ToArray();
+				await PrefetchPropertyItemsAsync(backgroundIndices, propertyRequest, request, cancellation.Token).ConfigureAwait(false);
+				CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Property viewport completed work={request.Id} visible={visibleIndices.Length} background={backgroundIndices.Length}");
 			}
-
-			foreach (var batch in batchedSources)
-			{
-				await PrefetchPropertyBatchAsync(batch.Key, batch.Value, propertyRequest, request, cancellation.Token).ConfigureAwait(false);
-			}
-
-			await Parallel.ForEachAsync(
-				individualItems,
-				new ParallelOptions
-				{
-					MaxDegreeOfParallelism = MaxConcurrentPrefetchPerLane,
-					CancellationToken = cancellation.Token,
-				},
-				(item, token) => PrefetchPropertiesAsync(item, propertyRequest, request, token)).ConfigureAwait(false);
-			CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Property viewport completed work={request.Id} items={indices.Length}");
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 		{
@@ -263,14 +231,24 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		try
 		{
 			var requestedThumbnailSize = request.Settings.LayoutMode is ViewLayoutMode.Details ? DetailsThumbnailSize : _thumbnailSize;
-			var indices = EnumerateIndices(request.Items.Count, request.Viewport).ToArray();
-			await ProcessThumbnailPassAsync(indices, requestedThumbnailSize, ThumbnailMode.Icon, request, cancellation.Token).ConfigureAwait(false);
+			var visibleIndices = EnumerateIndices(request.Items.Count, request.Viewport, includeSurrounding: false).ToArray();
+			var backgroundIndices = EnumerateIndices(request.Items.Count, request.Viewport).Skip(visibleIndices.Length).ToArray();
+			await ProcessThumbnailPassAsync(visibleIndices, requestedThumbnailSize, ThumbnailMode.Icon, request, cancellation.Token).ConfigureAwait(false);
 			if (request.Settings.LayoutMode is not ViewLayoutMode.Details && IsCurrent(request, cancellation.Token))
 			{
-				await ProcessThumbnailPassAsync(indices, requestedThumbnailSize, ThumbnailMode.PreferContent, request, cancellation.Token).ConfigureAwait(false);
+				await ProcessThumbnailPassAsync(visibleIndices, requestedThumbnailSize, ThumbnailMode.PreferContent, request, cancellation.Token).ConfigureAwait(false);
 			}
 
-			CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail viewport completed work={request.Id} items={indices.Length}");
+			if (IsCurrent(request, cancellation.Token))
+			{
+				await ProcessThumbnailPassAsync(backgroundIndices, requestedThumbnailSize, ThumbnailMode.Icon, request, cancellation.Token).ConfigureAwait(false);
+				if (request.Settings.LayoutMode is not ViewLayoutMode.Details && IsCurrent(request, cancellation.Token))
+				{
+					await ProcessThumbnailPassAsync(backgroundIndices, requestedThumbnailSize, ThumbnailMode.PreferContent, request, cancellation.Token).ConfigureAwait(false);
+				}
+			}
+
+			CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail viewport completed work={request.Id} visible={visibleIndices.Length} background={backgroundIndices.Length}");
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 		{
@@ -327,6 +305,54 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		}
 
 		CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail pass completed work={request.Id} mode={thumbnailMode} items={indices.Length}");
+	}
+
+	private async Task PrefetchPropertyItemsAsync(IReadOnlyList<int> indices, PropertyRequest propertyRequest, PrefetchRequest request, CancellationToken cancellationToken)
+	{
+		if (indices.Count is 0 || !IsCurrent(request, cancellationToken))
+		{
+			return;
+		}
+
+		var batchedSources = new Dictionary<IPropertyReader, List<(IStorableModel Item, ItemContext Context)>>(ReferenceEqualityComparer.Instance);
+		var individualItems = new List<IStorableModel>();
+		foreach (var itemIndex in indices)
+		{
+			var item = request.Items[itemIndex];
+			if (!NeedsPropertyPrefetch(item, propertyRequest.PropertyIds, request.Generation))
+			{
+				continue;
+			}
+
+			if (item.Get<IPropertySource>() is not IBatchedPropertySource batchedSource)
+			{
+				individualItems.Add(item);
+
+				continue;
+			}
+
+			if (!batchedSources.TryGetValue(batchedSource.Reader, out var items))
+			{
+				items = [];
+				batchedSources.Add(batchedSource.Reader, items);
+			}
+
+			items.Add((item, batchedSource.Context));
+		}
+
+		foreach (var batch in batchedSources)
+		{
+			await PrefetchPropertyBatchAsync(batch.Key, batch.Value, propertyRequest, request, cancellationToken).ConfigureAwait(false);
+		}
+
+		await Parallel.ForEachAsync(
+			individualItems,
+			new ParallelOptions
+			{
+				MaxDegreeOfParallelism = MaxConcurrentPrefetchPerLane,
+				CancellationToken = cancellationToken,
+			},
+			(item, token) => PrefetchPropertiesAsync(item, propertyRequest, request, token)).ConfigureAwait(false);
 	}
 
 	private async ValueTask PrefetchPropertyBatchAsync(
@@ -701,7 +727,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		return propertyId.Equals("name", StringComparison.OrdinalIgnoreCase) || propertyId.Equals(ItemNamePropertyId, StringComparison.Ordinal);
 	}
 
-	private static IEnumerable<int> EnumerateIndices(int itemCount, BrowseViewport viewport)
+	private static IEnumerable<int> EnumerateIndices(int itemCount, BrowseViewport viewport, bool includeSurrounding = true)
 	{
 		if (itemCount is 0 || viewport.VisibleCount is 0 || viewport.FirstVisibleIndex >= itemCount)
 		{
@@ -716,6 +742,11 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		for (var index = visibleStart; index < visibleEnd; index++)
 		{
 			yield return index;
+		}
+
+		if (!includeSurrounding)
+		{
+			yield break;
 		}
 
 		for (var index = visibleEnd; index < lookAheadEnd; index++)

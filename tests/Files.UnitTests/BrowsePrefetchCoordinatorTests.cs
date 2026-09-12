@@ -86,6 +86,66 @@ public sealed class BrowsePrefetchCoordinatorTests
 	}
 
 	/// <summary>
+	/// Test case: visible property work completes before surrounding items are started.
+	/// </summary>
+	/// <returns>A task that represents the asynchronous test.</returns>
+	[TestMethod]
+	public async Task PrefetchesVisiblePropertiesBeforeSurroundingItems()
+	{
+		var factory = new TestModelFactory();
+		var locationModel = factory.CreateModel("folder", "Folder", out _);
+		var visibleStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var visibleRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+		var backgroundStarted = 0;
+		var models = new List<IStorableModel>();
+		foreach (var id in new[] { "before", "visible", "after" })
+		{
+			var propertySource = new TestPropertySource
+			{
+				Handler = async (_, cancellationToken) =>
+				{
+					if (id == "visible")
+					{
+						visibleStarted.TrySetResult(true);
+						await visibleRelease.Task.WaitAsync(cancellationToken);
+					}
+					else
+					{
+						Interlocked.Increment(ref backgroundStarted);
+					}
+
+					return new Dictionary<string, object?> { ["System.Size"] = 1L };
+				},
+			};
+			models.Add(factory.CreateModel(id, id == "before" ? "a" : id == "visible" ? "b" : "c", out _, propertySource: propertySource));
+		}
+
+		var resolver = new TestBrowseLocationResolver(models)
+		{
+			LocationModelFactory = _ => locationModel,
+		};
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(locationModel.Reference));
+		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+		await using var coordinator = new BrowsePrefetchCoordinator(session);
+
+		try
+		{
+			coordinator.UpdateViewport(new BrowseViewport(1, 1, lookAheadCount: 1), settings, session.Generation);
+			await visibleStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+			await Task.Delay(100);
+
+			Assert.AreEqual(0, Volatile.Read(ref backgroundStarted));
+			visibleRelease.TrySetResult(true);
+			await WaitUntilAsync(() => Volatile.Read(ref backgroundStarted) is 2);
+		}
+		finally
+		{
+			visibleRelease.TrySetResult(true);
+		}
+	}
+
+	/// <summary>
 	/// Test case: grouping change restarts prefetch with the group property.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>

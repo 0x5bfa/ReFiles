@@ -10,6 +10,9 @@ namespace Files.Controls;
 /// </summary>
 public sealed partial class TableViewRow : Panel, ITableViewRow
 {
+	private const string PropertiesPropertyName = "Properties";
+	private const string ThumbnailPropertyName = "Thumbnail";
+
 	private readonly Dictionary<ITableViewColumn, FrameworkElement> _cells = new(ReferenceEqualityComparer.Instance);
 	private IReadOnlyList<ITableViewColumn> _columns = Array.Empty<ITableViewColumn>();
 	private TableViewColumnLayout _layout = TableViewColumnLayout.Empty;
@@ -140,7 +143,7 @@ public sealed partial class TableViewRow : Panel, ITableViewRow
 
 	private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		RefreshCells();
+		RefreshCells(e.PropertyName);
 	}
 
 	private void ReconcileCells()
@@ -173,10 +176,20 @@ public sealed partial class TableViewRow : Panel, ITableViewRow
 		}
 	}
 
-	private void RefreshCells()
+	private void RefreshCells(string? changedPropertyName = null)
 	{
 		foreach (var column in _columns)
 		{
+			if (changedPropertyName is PropertiesPropertyName && column is not TableViewTextColumn)
+			{
+				continue;
+			}
+
+			if (changedPropertyName is ThumbnailPropertyName && column is not TableViewTemplateColumn)
+			{
+				continue;
+			}
+
 			if (!_cells.TryGetValue(column, out var cell))
 			{
 				continue;
