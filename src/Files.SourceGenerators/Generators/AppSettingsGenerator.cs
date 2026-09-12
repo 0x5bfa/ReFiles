@@ -14,7 +14,7 @@ namespace Files.SourceGenerators.Generators
 	[Generator]
 	internal sealed class AppSettingsGenerator : IIncrementalGenerator
 	{
-		private const string AppSettingAttributeMetadataName = "Files.Settings.AppSettingAttribute";
+		private const string GeneratedSettingsPropertyAttributeMetadataName = "Files.Settings.GeneratedSettingsPropertyAttribute";
 		private const string AppSettingsDataMetadataName = "Files.Settings.AppSettingsData";
 		private const string AppSettingsServiceMetadataName = "Files.Settings.AppSettingsService";
 
@@ -50,7 +50,7 @@ namespace Files.SourceGenerators.Generators
 				return null;
 			}
 
-			var attribute = property.GetAttributes().FirstOrDefault(static attribute => string.Equals(attribute.AttributeClass?.ToDisplayString(), AppSettingAttributeMetadataName, StringComparison.Ordinal));
+			var attribute = property.GetAttributes().FirstOrDefault(static attribute => string.Equals(attribute.AttributeClass?.ToDisplayString(), GeneratedSettingsPropertyAttributeMetadataName, StringComparison.Ordinal));
 			if (attribute is null)
 			{
 				return null;

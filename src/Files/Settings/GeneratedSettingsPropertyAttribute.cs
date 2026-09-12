@@ -4,9 +4,9 @@
 namespace Files.Settings;
 
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-internal sealed class AppSettingAttribute : Attribute
+internal sealed class GeneratedSettingsPropertyAttribute : Attribute
 {
-	public AppSettingAttribute(object defaultValue)
+	public GeneratedSettingsPropertyAttribute(object defaultValue)
 	{
 		DefaultValue = defaultValue;
 	}

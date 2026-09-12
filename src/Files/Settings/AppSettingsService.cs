@@ -35,25 +35,25 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 	private bool _isDirty;
 	private bool _isDisposed;
 
-	[AppSetting("")]
+	[GeneratedSettingsProperty("")]
 	public partial string LanguageTag { get; set; }
 
-	[AppSetting(true)]
+	[GeneratedSettingsProperty(true)]
 	public partial bool ShowFileExtensions { get; set; }
 
-	[AppSetting(false)]
+	[GeneratedSettingsProperty(false)]
 	public partial bool ShowHiddenItems { get; set; }
 
-	[AppSetting(AppThemeMode.System)]
+	[GeneratedSettingsProperty(AppThemeMode.System)]
 	public partial AppThemeMode ThemeMode { get; set; }
 
-	[AppSetting(320d, MinValue = 1d)]
+	[GeneratedSettingsProperty(320d, MinValue = 1d)]
 	public partial double PreviewPaneWidth { get; set; }
 
-	[AppSetting(false)]
+	[GeneratedSettingsProperty(false)]
 	public partial bool IsPreviewPaneVisible { get; set; }
 
-	[AppSetting(SidebarDisplayMode.Expanded)]
+	[GeneratedSettingsProperty(SidebarDisplayMode.Expanded)]
 	public partial SidebarDisplayMode SidebarDisplayMode { get; set; }
 
 	public event PropertyChangedEventHandler? PropertyChanged;
