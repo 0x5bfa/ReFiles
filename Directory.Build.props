@@ -25,8 +25,19 @@
 		<WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
 	</PropertyGroup>
 
-	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true'">
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Operations'">
+		<EnforceWinRTStorageBoundaries>true</EnforceWinRTStorageBoundaries>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true' Or '$(EnforceWinRTStorageBoundaries)' == 'true'">
 		<PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true'">
 		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(EnforceWinRTStorageBoundaries)' == 'true'">
+		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedWinRTStorageSymbols.txt" />
 	</ItemGroup>
 </Project>

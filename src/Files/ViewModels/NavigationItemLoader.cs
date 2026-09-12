@@ -247,6 +247,7 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
+#pragma warning disable RS0030 // The Windows Storage Provider is required to inspect registered sync roots.
 	private async Task<NavigationSectionData?> TryLoadCloudDrivesSectionAsync(int order, WindowsStorageSource source, CancellationToken cancellationToken)
 	{
 		HashSet<string> syncRootPaths;
@@ -281,6 +282,7 @@ internal sealed class NavigationItemLoader
 
 		return section is { Items.Count: > 0 } ? section : null;
 	}
+#pragma warning restore RS0030
 
 	private static bool IsCloudDrive(IStorableModel item, IReadOnlySet<string> syncRootPaths)
 	{

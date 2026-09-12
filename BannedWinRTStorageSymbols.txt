@@ -1,0 +1,4 @@
+# Copyright (c) Files Community
+# SPDX-License-Identifier: MPL-2.0
+
+N:Windows.Storage;Use Files storage abstractions instead of the Windows.Storage WinRT API in this layer.

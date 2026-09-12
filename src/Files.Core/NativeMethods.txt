@@ -60,6 +60,7 @@ IsIconic
 CopyFileFromApp
 MoveFileFromApp
 DeleteFileFromApp
+ReplaceFile
 RemoveDirectoryFromApp
 GetKeyState
 CreateDirectoryFromApp

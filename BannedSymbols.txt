@@ -30,5 +30,3 @@ M:System.IO.StreamWriter.#ctor(System.String,System.Boolean,System.Text.Encoding
 M:System.IO.StreamWriter.#ctor(System.String,System.Boolean,System.Text.Encoding,System.Int32);Use an injected stream instead of opening a physical path from this layer.
 M:System.IO.StreamWriter.#ctor(System.String,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
 M:System.IO.StreamWriter.#ctor(System.String,System.Text.Encoding,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
-M:Windows.Storage.StorageFile.GetFileFromPathAsync(System.String);Resolve storage identities through the Windows storage boundary instead of converting a physical path in this layer.
-M:Windows.Storage.StorageFolder.GetFolderFromPathAsync(System.String);Resolve storage identities through the Windows storage boundary instead of converting a physical path in this layer.

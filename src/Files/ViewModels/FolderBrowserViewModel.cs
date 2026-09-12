@@ -1415,6 +1415,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 	}
 
+#pragma warning disable RS0030 // Windows Storage Items are required for clipboard interoperability.
 	private async Task<bool> TryPasteFileSystemClipboardAsync(StorableReference destinationFolder, CancellationToken cancellationToken)
 	{
 		DataPackageView? data = null;
@@ -1494,6 +1495,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		return true;
 	}
+#pragma warning restore RS0030
 
 	private static unsafe bool TryGetNativeClipboardFilePaths(out IReadOnlyList<string> paths)
 	{

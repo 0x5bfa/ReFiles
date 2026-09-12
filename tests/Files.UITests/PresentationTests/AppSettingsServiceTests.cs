@@ -4,8 +4,6 @@
 using Files.Settings;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.IO;
-using Windows.Storage;
-using Windows.Storage.Streams;
 
 namespace Files.UITests;
 
@@ -62,8 +60,8 @@ public sealed class AppSettingsServiceTests
 			service.SidebarDisplayMode = Files.Controls.SidebarDisplayMode.Compact;
 			service.SaveNow();
 
-			var settingsFile = await GetSettingsFileAsync(settingsRoot);
-			Assert.IsTrue((await FileIO.ReadTextAsync(settingsFile, UnicodeEncoding.Utf8)).Contains("\"ThemeMode\": \"Dark\"", StringComparison.Ordinal));
+			var settingsFile = GetSettingsFile(settingsRoot);
+			Assert.IsTrue(File.ReadAllText(settingsFile).Contains("\"ThemeMode\": \"Dark\"", StringComparison.Ordinal));
 			using var reloaded = new AppSettingsService(settingsRoot, TimeSpan.FromHours(1));
 			Assert.AreEqual(AppThemeMode.Dark, reloaded.ThemeMode);
 			Assert.AreEqual("en-US", reloaded.LanguageTag);
@@ -100,9 +98,8 @@ public sealed class AppSettingsServiceTests
 		var settingsRoot = await CreateSettingsRootAsync();
 		try
 		{
-			var settingsFolder = await settingsRoot.CreateFolderAsync("Settings", CreationCollisionOption.OpenIfExists);
-			var settingsFile = await settingsFolder.CreateFileAsync("settings.json", CreationCollisionOption.ReplaceExisting);
-			await FileIO.WriteTextAsync(settingsFile, "{\"ThemeMode\":\"Unexpected\"}", UnicodeEncoding.Utf8);
+			var settingsFolder = Directory.CreateDirectory(Path.Combine(settingsRoot, "Settings"));
+			File.WriteAllText(Path.Combine(settingsFolder.FullName, "settings.json"), "{\"ThemeMode\":\"Unexpected\"}");
 			using var service = new AppSettingsService(settingsRoot, TimeSpan.FromHours(1));
 
 			Assert.AreEqual(AppThemeMode.System, service.ThemeMode);
@@ -162,25 +159,24 @@ public sealed class AppSettingsServiceTests
 		}
 	}
 
-	private static async Task<StorageFolder> CreateSettingsRootAsync()
+	private static Task<string> CreateSettingsRootAsync()
 	{
 		var folderName = $"AppSettingsTests-{Guid.NewGuid():N}";
 		var directory = Path.Combine(Path.GetTempPath(), folderName);
 		Directory.CreateDirectory(directory);
-		var settingsRoot = await StorageFolder.GetFolderFromPathAsync(directory);
 
-		return settingsRoot;
+		return Task.FromResult(directory);
 	}
 
-	private static async Task<StorageFile> GetSettingsFileAsync(StorageFolder settingsRoot)
+	private static string GetSettingsFile(string settingsRoot)
 	{
-		var settingsFolder = await settingsRoot.GetFolderAsync("Settings");
-
-		return await settingsFolder.GetFileAsync("settings.json");
+		return Path.Combine(settingsRoot, "Settings", "settings.json");
 	}
 
-	private static async Task DeleteSettingsRootAsync(StorageFolder settingsRoot)
+	private static Task DeleteSettingsRootAsync(string settingsRoot)
 	{
-		await settingsRoot.DeleteAsync(StorageDeleteOption.PermanentDelete);
+		Directory.Delete(settingsRoot, recursive: true);
+
+		return Task.CompletedTask;
 	}
 }

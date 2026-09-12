@@ -122,6 +122,7 @@ public sealed partial class CustomizePropertyView : UserControl
 		_applyToSubfolders = ApplyToSubfoldersCheckBox.IsChecked is true;
 	}
 
+#pragma warning disable RS0030 // The Windows Storage Picker is required for user-selected customization paths.
 	private async void ChooseFileButton_Click(object sender, RoutedEventArgs e)
 	{
 		try
@@ -147,6 +148,7 @@ public sealed partial class CustomizePropertyView : UserControl
 			_showError(exception.Message);
 		}
 	}
+#pragma warning restore RS0030
 
 	private void RestorePictureButton_Click(object sender, RoutedEventArgs e)
 	{

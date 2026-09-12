@@ -242,6 +242,12 @@ internal sealed class WindowsStorableFactory
 	public Task<Stream> OpenStreamAsync(WindowsStorableDescriptor descriptor, FileAccess accessMode, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		if (descriptor.Snapshot.FileSystemPath is { } fileSystemPath)
+		{
+			return Task.FromResult<Stream>(OpenFileSystemStream(fileSystemPath, accessMode));
+		}
 
 		return _resolver.InvokeAsync<Stream>(
 			descriptor.Locator,
@@ -278,6 +284,22 @@ internal sealed class WindowsStorableFactory
 				return new ShellReadStream(_scheduler, shellStream, accessMode);
 			},
 			cancellationToken);
+	}
+
+	private static Stream OpenFileSystemStream(string fileSystemPath, FileAccess accessMode)
+	{
+		if (accessMode is not (FileAccess.Read or FileAccess.Write or FileAccess.ReadWrite))
+		{
+			throw new ArgumentOutOfRangeException(nameof(accessMode));
+		}
+
+		return new FileStream(fileSystemPath, new FileStreamOptions
+		{
+			Access = accessMode,
+			Mode = FileMode.Open,
+			Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+			Share = FileShare.ReadWrite | FileShare.Delete,
+		});
 	}
 
 	internal WindowsStorable Create(WindowsStorableDescriptor descriptor)
