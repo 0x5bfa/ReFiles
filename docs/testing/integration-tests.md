@@ -28,6 +28,15 @@ Use an isolated disposable server, not a public endpoint. Cover transport modes,
 
 Never emit FTP passwords in test output or visible CI variables.
 
+The `Files.IntegrationTests` project starts a temporary pyftpdlib server for the plain FTP slice. Install Python 3.13 and pyftpdlib 2.1.0 before running it locally:
+
+```powershell
+python -m pip install pyftpdlib==2.1.0
+dotnet test tests/Files.IntegrationTests/Files.IntegrationTests.csproj --configuration Debug -p:Platform=x64
+```
+
+The CI workflow installs the same pyftpdlib version and runs these tests separately from the unit tests. TLS, MLST fallback, and server-compatibility variations remain separate integration scenarios.
+
 ## Third-party handlers
 
 Installed preview/property/Shell extensions are not deterministic CI dependencies. Keep representative third-party handler compatibility in manual/scenario tests unless the repository controls the handler fixture.
