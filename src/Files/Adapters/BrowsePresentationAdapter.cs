@@ -79,7 +79,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private int _diagnosticThumbnailDisplayCount;
 	private bool _drainQueued;
 	private int _isApplyingItemBatch;
-	private int _isApplyingDefaultColumns;
 	private int _isDisposed;
 
 	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
@@ -367,7 +366,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
+		var currentSettings = GetEditableViewSettings();
 		if (currentSettings.LayoutMode == mode)
 		{
 			return;
@@ -395,7 +394,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(itemSize));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
+		var currentSettings = GetEditableViewSettings();
 		if (currentSettings.ItemSize == itemSize)
 		{
 			return;
@@ -439,8 +438,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		EnsureActive();
 		ArgumentNullException.ThrowIfNull(columns);
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
-		var columnArray = columns.ToArray();
+		var currentSettings = GetEditableViewSettings();
+		var columnArray = columns.ToArray().ToList();
+		var configuredPropertyIds = columnArray.Select(static column => column.PropertyId).ToHashSet(StringComparer.Ordinal);
+		foreach (var column in currentSettings.Columns.Where(column => !configuredPropertyIds.Contains(column.PropertyId)).OrderBy(static column => column.Order))
+		{
+			columnArray.Add(new ViewColumnSettings(column.PropertyId, column.Width, columnArray.Count, column.IsVisible));
+		}
+
 		if (currentSettings.Columns.SequenceEqual(columnArray))
 		{
 			return;
@@ -467,7 +472,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(direction));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
+		var currentSettings = GetEditableViewSettings();
 		if (string.Equals(currentSettings.SortPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.SortDirection == direction)
 		{
 			return;
@@ -498,7 +503,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			throw new ArgumentOutOfRangeException(nameof(direction));
 		}
 
-		var currentSettings = _pane.BrowseSession.ViewSettings;
+		var currentSettings = GetEditableViewSettings();
 		if (string.Equals(currentSettings.GroupPropertyId, propertyId, StringComparison.Ordinal) && currentSettings.GroupDirection == direction)
 		{
 			return;
@@ -514,6 +519,13 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			direction);
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
+	}
+
+	private BrowseViewSettings GetEditableViewSettings()
+	{
+		return _pane.BrowseSession is IViewSettingsSession viewSettingsSession
+			? viewSettingsSession.PersistedViewSettings
+			: _pane.BrowseSession.ViewSettings;
 	}
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)
@@ -638,11 +650,8 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		InvalidateStatusBarSizeForGeneration(session.Generation);
 		lock (_pendingLock)
 		{
-			if (_prefetchGeneration != session.Generation || Volatile.Read(ref _isApplyingDefaultColumns) is 0)
-			{
-				_prefetchGeneration = session.Generation;
-				_prefetchViewSettings = session.ViewSettings;
-			}
+			_prefetchGeneration = session.Generation;
+			_prefetchViewSettings = session.ViewSettings;
 
 			_pendingState = new PendingState(session.Generation, session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 		}
@@ -1607,7 +1616,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private void StartColumnsLoad()
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || Volatile.Read(ref _isApplyingDefaultColumns) is not 0)
+		if (Volatile.Read(ref _isDisposed) is not 0)
 		{
 			return;
 		}
@@ -1688,41 +1697,22 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			var session = _pane.BrowseSession;
-			var settings = session.ViewSettings;
-			if (settings.Columns.Count is 0)
+			var capabilities = BrowseViewCapabilities.FromWindowsShell(columnSet);
+			if (load.Context is IViewSettingsCapabilityProvider capabilityProvider)
 			{
-				var defaultColumns = CreateDefaultViewColumnSettings(columnSet);
-				if (defaultColumns.Count is not 0)
+				capabilities = await capabilityProvider.GetViewSettingsCapabilitiesAsync(load.Token).ConfigureAwait(false) ?? capabilities;
+			}
+
+			if (session is IViewSettingsSession viewSettingsSession)
+			{
+				await viewSettingsSession.ApplyViewCapabilitiesAsync(capabilities, load.Token).ConfigureAwait(false);
+				if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
 				{
-					Interlocked.Exchange(ref _isApplyingDefaultColumns, 1);
-					try
-					{
-						var nextSettings = new BrowseViewSettings(
-							settings.LayoutMode,
-							defaultColumns,
-							settings.SortPropertyId,
-							settings.SortDirection,
-							settings.ItemSize,
-							settings.GroupPropertyId,
-							settings.GroupDirection);
-						UpdatePrefetchSettings(nextSettings, load.Generation);
-						await session.UpdateViewSettingsAsync(nextSettings, load.Token).ConfigureAwait(false);
-					}
-					finally
-					{
-						Interlocked.Exchange(ref _isApplyingDefaultColumns, 0);
-					}
-
-					if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
-					{
-						return;
-					}
-
-					settings = session.ViewSettings;
+					return;
 				}
 			}
 
-			QueueColumns(load.Generation, CreateDetailsColumns(columnSet, settings));
+			QueueColumns(load.Generation, CreateDetailsColumns(columnSet, session.ViewSettings));
 		}
 		catch (OperationCanceledException) when (load.IsCancellationRequested)
 		{
@@ -1745,35 +1735,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			}
 
 			load.Dispose();
-		}
-	}
-
-	private void UpdatePrefetchSettings(BrowseViewSettings settings, long generation)
-	{
-		BrowseViewport? viewport;
-		lock (_pendingLock)
-		{
-			if (Volatile.Read(ref _isDisposed) is not 0 || _pane.BrowseSession.Generation != generation)
-			{
-				return;
-			}
-
-			_prefetchGeneration = generation;
-			_prefetchViewSettings = settings;
-			viewport = _lastViewport;
-		}
-
-		if (viewport is null)
-		{
-			return;
-		}
-
-		try
-		{
-			_prefetch.UpdateViewport(viewport, settings, generation);
-		}
-		catch (ObjectDisposedException)
-		{
 		}
 	}
 
@@ -1810,21 +1771,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		ScheduleDrain();
-	}
-
-	private static IReadOnlyList<ViewColumnSettings> CreateDefaultViewColumnSettings(WindowsShellColumnSet columnSet)
-	{
-		var settings = new List<ViewColumnSettings>();
-		var seen = new HashSet<string>(StringComparer.Ordinal);
-		foreach (var column in columnSet.DefaultVisible)
-		{
-			if (seen.Add(column.PropertyId))
-			{
-				settings.Add(new ViewColumnSettings(column.PropertyId, GetDefaultColumnWidth(column), settings.Count));
-			}
-		}
-
-		return Array.AsReadOnly(settings.ToArray());
 	}
 
 	private static IReadOnlyList<DetailsColumnViewModel> CreateDetailsColumns(WindowsShellColumnSet columnSet, BrowseViewSettings settings)

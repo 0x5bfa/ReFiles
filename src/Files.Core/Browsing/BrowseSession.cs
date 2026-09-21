@@ -13,7 +13,7 @@ using System.Diagnostics;
 namespace Files.Core.Browsing;
 
 /// <summary>Coordinates navigation, item enumeration, selection, and presentation for one browse tab.</summary>
-public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInteractiveBrowseSession
+public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInteractiveBrowseSession, IViewSettingsSession
 {
 	private const int InitialEnumerationBatchSize = 32;
 	private const int SearchInitialEnumerationBatchSize = 1;
@@ -42,6 +42,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	private long _generationCounter;
 	private long _itemsVersion;
 	private long _diagnosticNavigationStartTimestamp;
+	private BrowseViewCapabilities? _viewCapabilities;
 	private bool _isDisposed;
 
 	/// <inheritdoc />
@@ -70,6 +71,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 
 	/// <inheritdoc />
 	public BrowseViewSettings ViewSettings { get; private set; }
+
+	/// <inheritdoc />
+	public BrowseViewSettings PersistedViewSettings { get; private set; }
 
 	/// <inheritdoc />
 	public BrowseDisplaySettings DisplaySettings { get; private set; }
@@ -106,6 +110,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		_changeCoordinator = new BrowseChangeCoordinator(ProcessPendingChangesAsync);
 		_itemProjection = new BrowseItemProjection(BrowseViewSettings.Default, _presentationStore.GetSortPropertyValue);
 		ViewSettings = BrowseViewSettings.Default;
+		PersistedViewSettings = BrowseViewSettings.Default;
 		DisplaySettings = BrowseDisplaySettings.Default;
 	}
 
@@ -126,11 +131,17 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		ArgumentNullException.ThrowIfNull(location);
 
 		using var navigation = BeginNavigation(cancellationToken);
+		var persistedSettingsTask = _viewSettingsStore?.GetAsync(location, navigation.Token).AsTask();
+		if (persistedSettingsTask is not null)
+		{
+			await persistedSettingsTask.ConfigureAwait(false);
+		}
+
 		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
 
 		try
 		{
-			await NavigateCoreAsync(location, ownerWindowHandle, navigation.Token).ConfigureAwait(false);
+			await NavigateCoreAsync(location, ownerWindowHandle, persistedSettingsTask, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -138,7 +149,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		}
 	}
 
-	private async ValueTask NavigateCoreAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
+	private async ValueTask NavigateCoreAsync(BrowseLocation location, nint ownerWindowHandle, Task<BrowseViewSettings?>? persistedSettingsTask, CancellationToken cancellationToken)
 	{
 		var propertySortTask = CancelPendingPropertySort();
 		if (propertySortTask is not null)
@@ -172,10 +183,12 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			nextContext = new BrowseContextState(this, nextLocationContext, changes, generation);
 			Volatile.Write(ref _preparingContext, nextContext);
 
-			var nextViewSettings = _viewSettingsStore is null
+			var nextPersistedViewSettings = persistedSettingsTask is null
 				? _sessionViewSettings.GetValueOrDefault(location, BrowseViewSettings.Default)
-				: await _viewSettingsStore.GetAsync(location, cancellationToken).ConfigureAwait(false)
-					?? BrowseViewSettings.Default;
+				: await persistedSettingsTask.ConfigureAwait(false) ?? BrowseViewSettings.Default;
+			var nextViewSettings = nextLocationContext is IViewSettingsCapabilityProvider
+				? BrowseViewSettingsResolver.DeferCapabilityDependentSettings(nextPersistedViewSettings)
+				: nextPersistedViewSettings;
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
 			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
@@ -213,7 +226,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				var batchToPublish = enumerationActivated
 					? pendingBatch
 					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
-				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState, ref enumerationActivated);
+				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState, ref enumerationActivated);
 				pendingBatch.Clear();
 				targetBatchSize = targetBatchSize switch
 				{
@@ -230,11 +243,11 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				IReadOnlyList<IStorableModel> finalBatch = enumerationActivated
 					? pendingBatch
 					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
-				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, finalBatch, ref previousState, ref enumerationActivated);
+				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, finalBatch, ref previousState, ref enumerationActivated);
 			}
 			else if (!enumerationActivated)
 			{
-				PublishEnumerationBatch(location, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
+				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
 			}
 
 			var sortStartTimestamp = Stopwatch.GetTimestamp();
@@ -317,6 +330,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 
 	private void PublishEnumerationBatch(
 		BrowseLocation location,
+		BrowseViewSettings persistedSettings,
 		BrowseViewSettings settings,
 		BrowseContextState context,
 		BrowseItemProjection projection,
@@ -341,7 +355,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			{
 				Location = location;
 				Volatile.Write(ref _activeContext, context);
+				PersistedViewSettings = persistedSettings;
 				ViewSettings = settings;
+				_viewCapabilities = null;
 				Error = null;
 				_presentationStore.Clear();
 				Volatile.Write(ref _itemProjection, projection);
@@ -364,7 +380,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 
 	private BrowseNavigationSnapshot CaptureNavigationState()
 	{
-		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), ViewSettings, Selection, Items, _presentationStore.Capture());
+		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), PersistedViewSettings, ViewSettings, _viewCapabilities, Selection, Items, _presentationStore.Capture());
 	}
 
 	private void RestoreNavigationState(BrowseNavigationSnapshot previousState)
@@ -378,7 +394,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 			Volatile.Write(ref _activeContext, previousState.ActiveContext);
 			Volatile.Write(ref _preparingContext, null);
 			Volatile.Write(ref _itemProjection, previousState.ItemProjection);
+			PersistedViewSettings = previousState.PersistedViewSettings;
 			ViewSettings = previousState.ViewSettings;
+			_viewCapabilities = previousState.ViewCapabilities;
 			_presentationStore.Restore(previousState.Presentations);
 		});
 		SetSelectionState(previousState.Selection);
@@ -518,7 +536,7 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				return;
 			}
 
-			await NavigateCoreAsync(currentContext.Context.Location, 0, cancellationToken).ConfigureAwait(false);
+			await NavigateCoreAsync(currentContext.Context.Location, 0, Task.FromResult<BrowseViewSettings?>(PersistedViewSettings), cancellationToken).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -1076,22 +1094,13 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				_sessionViewSettings[Location] = settings;
 			}
 
-			var previousLayoutMode = ViewSettings.LayoutMode;
-			var context = Volatile.Read(ref _activeContext)!.Context;
-			var projection = Volatile.Read(ref _itemProjection);
-			var changes = projection.UpdateSort(settings, deferSort: context is IBrowseLocationItemSorter);
-			ViewSettings = settings;
-			if (context is IBrowseLocationItemSorter)
-			{
-				changes = await SortProjectionAsync(context, projection, settings, cancellationToken).ConfigureAwait(false);
-			}
-			if (previousLayoutMode != settings.LayoutMode)
-			{
-				clearedThumbnails = _presentationStore.ClearThumbnails();
-			}
-
-			PublishItemsChanged(changes);
-			OnStateChanged();
+			PersistedViewSettings = settings;
+			var effectiveSettings = _viewCapabilities is not null
+				? BrowseViewSettingsResolver.Resolve(settings, _viewCapabilities)
+				: Volatile.Read(ref _activeContext)?.Context is IViewSettingsCapabilityProvider
+					? BrowseViewSettingsResolver.DeferCapabilityDependentSettings(settings)
+					: settings;
+			clearedThumbnails = await ApplyEffectiveViewSettingsAsync(effectiveSettings, cancellationToken, forceExternalSort: true).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -1102,6 +1111,69 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		{
 			RaiseEvent(ItemPresentationChanged, thumbnail);
 		}
+	}
+
+	/// <inheritdoc />
+	public async ValueTask ApplyViewCapabilitiesAsync(BrowseViewCapabilities capabilities, CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
+		ArgumentNullException.ThrowIfNull(capabilities);
+		var propertySortTask = CancelPendingPropertySort();
+		if (propertySortTask is not null)
+		{
+			await propertySortTask.ConfigureAwait(false);
+		}
+
+		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = [];
+		await _navigationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			if (Location is null || Volatile.Read(ref _activeContext) is null)
+			{
+
+				return;
+			}
+
+			_viewCapabilities = capabilities;
+			var effectiveSettings = BrowseViewSettingsResolver.Resolve(PersistedViewSettings, capabilities);
+			if (Equals(ViewSettings, effectiveSettings))
+			{
+
+				return;
+			}
+
+			clearedThumbnails = await ApplyEffectiveViewSettingsAsync(effectiveSettings, cancellationToken, forceExternalSort: false).ConfigureAwait(false);
+		}
+		finally
+		{
+			_navigationLock.Release();
+		}
+
+		foreach (var thumbnail in clearedThumbnails)
+		{
+			RaiseEvent(ItemPresentationChanged, thumbnail);
+		}
+	}
+
+	private async ValueTask<BrowseItemPresentationChangedEventArgs[]> ApplyEffectiveViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken, bool forceExternalSort)
+	{
+		var previousLayoutMode = ViewSettings.LayoutMode;
+		var context = Volatile.Read(ref _activeContext)?.Context ?? throw new InvalidOperationException("View settings require an active browse location.");
+		var projection = Volatile.Read(ref _itemProjection);
+		var sortChanged = ViewSettings.SortPropertyId != settings.SortPropertyId || ViewSettings.SortDirection != settings.SortDirection;
+		var changes = projection.UpdateSort(settings, deferSort: context is IBrowseLocationItemSorter);
+		ViewSettings = settings;
+		if (context is IBrowseLocationItemSorter && (forceExternalSort || sortChanged))
+		{
+			changes = await SortProjectionAsync(context, projection, settings, cancellationToken).ConfigureAwait(false);
+		}
+
+		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = previousLayoutMode != settings.LayoutMode ? _presentationStore.ClearThumbnails() : [];
+		PublishItemsChanged(changes);
+		OnStateChanged();
+
+		return clearedThumbnails;
 	}
 
 	/// <inheritdoc />
@@ -1280,6 +1352,8 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 				_presentationStore.Clear();
 				Volatile.Write(ref _activeContext, null);
 				Volatile.Write(ref _preparingContext, null);
+				PersistedViewSettings = BrowseViewSettings.Default;
+				_viewCapabilities = null;
 				_sessionViewSettings.Clear();
 
 				try
@@ -1483,7 +1557,9 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 		BrowseLocation? Location,
 		BrowseContextState? ActiveContext,
 		BrowseItemProjection ItemProjection,
+		BrowseViewSettings PersistedViewSettings,
 		BrowseViewSettings ViewSettings,
+		BrowseViewCapabilities? ViewCapabilities,
 		BrowseSelectionState Selection,
 		IReadOnlyList<IStorableModel> Items,
 		BrowsePresentationStore.Snapshot Presentations);

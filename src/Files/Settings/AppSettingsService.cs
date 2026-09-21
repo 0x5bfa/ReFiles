@@ -460,7 +460,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		}
 	}
 
-	private static string GetDefaultLocalFolderPath()
+	internal static string GetDefaultLocalFolderPath()
 	{
 		var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 		if (string.IsNullOrWhiteSpace(localApplicationData))

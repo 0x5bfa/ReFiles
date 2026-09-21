@@ -13,7 +13,7 @@ namespace Files.Core.Browsing;
 /// <summary>
 /// Keeps a resolved folder model alive for the duration of a browse location.
 /// </summary>
-public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext, IWindowsShellColumnProvider
+public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext, IWindowsShellColumnProvider, IViewSettingsCapabilityProvider
 {
 	private readonly FolderLocation _location;
 
@@ -21,7 +21,11 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 
 	private readonly IStorageWorkspace _workspace;
 
+	private readonly Lock _columnsLock = new();
+
 	private int _isDisposed;
+
+	private Task<WindowsShellColumnSet?>? _columnsTask;
 
 	/// <inheritdoc />
 	public BrowseLocation Location => _location;
@@ -53,12 +57,21 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
+		Task<WindowsShellColumnSet?> columnsTask;
+		lock (_columnsLock)
 		{
-			return null;
+			columnsTask = _columnsTask ??= LoadColumnsAsync();
 		}
 
-		return await folder.GetColumnsAsync(cancellationToken).ConfigureAwait(false);
+		return await columnsTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <inheritdoc />
+	public async ValueTask<BrowseViewCapabilities?> GetViewSettingsCapabilitiesAsync(CancellationToken cancellationToken = default)
+	{
+		var columnSet = await GetColumnsAsync(cancellationToken).ConfigureAwait(false);
+
+		return columnSet is null ? null : BrowseViewCapabilities.FromWindowsShell(columnSet);
 	}
 
 	/// <inheritdoc />
@@ -90,6 +103,16 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 
 		GC.SuppressFinalize(this);
+	}
+
+	private async Task<WindowsShellColumnSet?> LoadColumnsAsync()
+	{
+		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
+		{
+			return null;
+		}
+
+		return await folder.GetColumnsAsync(CancellationToken.None).ConfigureAwait(false);
 	}
 
 	async IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)

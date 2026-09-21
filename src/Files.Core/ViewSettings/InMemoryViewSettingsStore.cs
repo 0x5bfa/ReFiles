@@ -11,7 +11,8 @@ namespace Files.Core.ViewSettings;
 public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 {
 	private readonly Lock _syncRoot = new();
-	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _values = [];
+	private readonly Dictionary<ViewSettingsKey, BrowseViewSettings> _values = [];
+	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _fallbackValues = [];
 
 	/// <summary>Gets the settings stored for a browse location.</summary>
 	/// <param name="location">The browse location.</param>
@@ -24,7 +25,9 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 
 		lock (_syncRoot)
 		{
-			return ValueTask.FromResult(_values.GetValueOrDefault(location));
+			return ValueTask.FromResult(ViewSettingsKey.TryForLocation(location, out var key)
+				? _values.GetValueOrDefault(key)
+				: _fallbackValues.GetValueOrDefault(location));
 		}
 	}
 
@@ -40,7 +43,14 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 
 		lock (_syncRoot)
 		{
-			_values[location] = settings;
+			if (ViewSettingsKey.TryForLocation(location, out var key))
+			{
+				_values[key] = settings;
+			}
+			else
+			{
+				_fallbackValues[location] = settings;
+			}
 		}
 
 		return ValueTask.CompletedTask;
@@ -55,7 +65,7 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 
 		lock (_syncRoot)
 		{
-			return _values.Remove(location);
+			return ViewSettingsKey.TryForLocation(location, out var key) ? _values.Remove(key) : _fallbackValues.Remove(location);
 		}
 	}
 
@@ -65,6 +75,7 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 		lock (_syncRoot)
 		{
 			_values.Clear();
+			_fallbackValues.Clear();
 		}
 	}
 }

@@ -1034,6 +1034,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Columns))
 			{
 				OnPropertyChanged(nameof(DetailsColumns));
+				refreshItemsViewSource = true;
 			}
 
 			selectionSynchronized = ShouldSynchronizeSelection(args);
@@ -1814,7 +1815,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private void RefreshItemsViewSource()
 	{
 		var propertyId = ViewSettings.GroupPropertyId;
-		if (propertyId is null)
+		if (propertyId is null || !CanGroupByCurrentColumns(propertyId))
 		{
 			if (ItemGroups.Count is not 0)
 			{
@@ -1836,9 +1837,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		OnPropertyChanged(nameof(ItemsViewSource));
 	}
 
+	private bool CanGroupByCurrentColumns(string propertyId)
+	{
+		return _browseAdapter.DetailsColumns.Any(column => column.CanGroup && string.Equals(column.PropertyId, propertyId, StringComparison.Ordinal));
+	}
+
 	private void QueueGroupRefresh()
 	{
-		if (ViewSettings.GroupPropertyId is null || Interlocked.Exchange(ref _groupRefreshQueued, 1) is not 0)
+		if (ViewSettings.GroupPropertyId is not { } propertyId || !CanGroupByCurrentColumns(propertyId) || Interlocked.Exchange(ref _groupRefreshQueued, 1) is not 0)
 		{
 			return;
 		}

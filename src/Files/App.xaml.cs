@@ -20,6 +20,7 @@ public partial class App : Application
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
 	private readonly WindowsStorageSource _windowsStorageSource;
+	private readonly JsonViewSettingsStore _viewSettingsStore;
 	private readonly AppSettingsService _settings;
 	private readonly StorageOperationTracker _storageOperationTracker = new();
 	private readonly Lock _windowsLock = new();
@@ -31,6 +32,7 @@ public partial class App : Application
 	public App()
 	{
 		_windowsStorageSource = new WindowsStorageSource();
+		_viewSettingsStore = new JsonViewSettingsStore(_windowsStorageSource, AppSettingsService.GetDefaultLocalFolderPath());
 		_settings = new AppSettingsService(_windowsStorageSource);
 		_settings.ApplyLanguage();
 		InitializeComponent();
@@ -56,7 +58,8 @@ public partial class App : Application
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UiDiagnosticLog.Write("App", "Launch START");
-		var currentRuntime = new FilesCoreBuilder().AddWindowsStorage(_windowsStorageSource).Build();
+		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
+		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore).AddWindowsStorage(_windowsStorageSource).Build();
 		_runtime = currentRuntime;
 		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -174,6 +177,7 @@ public partial class App : Application
 		try
 		{
 			_settings.Dispose();
+			_viewSettingsStore.Dispose();
 
 			if (Interlocked.Exchange(ref _runtime, null) is { } currentRuntime)
 			{

@@ -18,7 +18,8 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	IBrowseLocationItemSorter,
 	IBrowseLocationParentResolver,
 	IInteractiveBrowseLocationContext,
-	IWindowsShellColumnProvider
+	IWindowsShellColumnProvider,
+	IViewSettingsCapabilityProvider
 {
 	private readonly IFolderModel _folderModel;
 
@@ -26,7 +27,11 @@ internal sealed class WindowsSearchBrowseLocationContext :
 
 	private readonly IStorageWorkspace _workspace;
 
+	private readonly Lock _columnsLock = new();
+
 	private int _isDisposed;
+
+	private Task<WindowsShellColumnSet?>? _columnsTask;
 
 	/// <inheritdoc />
 	public bool CanGetParent => true;
@@ -55,12 +60,21 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
+		Task<WindowsShellColumnSet?> columnsTask;
+		lock (_columnsLock)
 		{
-			return null;
+			columnsTask = _columnsTask ??= LoadColumnsAsync();
 		}
 
-		return await folder.GetColumnsAsync(cancellationToken).ConfigureAwait(false);
+		return await columnsTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <inheritdoc />
+	public async ValueTask<BrowseViewCapabilities?> GetViewSettingsCapabilitiesAsync(CancellationToken cancellationToken = default)
+	{
+		var columnSet = await GetColumnsAsync(cancellationToken).ConfigureAwait(false);
+
+		return columnSet is null ? null : BrowseViewCapabilities.FromWindowsShell(columnSet);
 	}
 
 	/// <inheritdoc />
@@ -103,6 +117,16 @@ internal sealed class WindowsSearchBrowseLocationContext :
 		}
 
 		GC.SuppressFinalize(this);
+	}
+
+	private async Task<WindowsShellColumnSet?> LoadColumnsAsync()
+	{
+		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
+		{
+			return null;
+		}
+
+		return await folder.GetColumnsAsync(CancellationToken.None).ConfigureAwait(false);
 	}
 
 	async IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)
