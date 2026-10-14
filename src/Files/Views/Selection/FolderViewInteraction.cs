@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System.Runtime.CompilerServices;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Windows.System;
 using Windows.Win32;
 
@@ -199,6 +200,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 	private bool _isDisposed;
 	private CancellationTokenSource? _dragSourceCancellation;
 	private WinUiShellDropTargetController? _dropTargetController;
+	private ItemContextMenu? _contextMenu;
 	private long _dragSourceGeneration;
 	private bool _originalAllowDrop;
 	private bool _dropTargetInitialized;
@@ -272,6 +274,8 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		}
 
 		_isDisposed = true;
+		_contextMenu?.Dismiss();
+		_contextMenu = null;
 		if (_itemsControl is not null)
 		{
 			RectangleSelection.RemoveSelectionUpdatedHandler(_itemsControl, RectangleSelection_SelectionUpdated);
@@ -664,8 +668,15 @@ internal sealed class FolderViewInteractionSession : IDisposable
 
 		e.Handled = true;
 		var hasPosition = e.TryGetPosition(_element, out var position);
-		var anchor = hasPosition ? _element : _itemsControl?.ContainerFromItem(invokedItem) as FrameworkElement ?? _element;
-		new ItemContextMenu(_viewModel, invokedItem, selection).ShowAt(anchor, hasPosition ? position : null);
+		if (!hasPosition && _itemsControl?.ContainerFromItem(invokedItem) is FrameworkElement itemContainer)
+		{
+			position = itemContainer.TransformToVisual(_element).TransformPoint(new Point(itemContainer.ActualWidth / 2, itemContainer.ActualHeight / 2));
+			hasPosition = true;
+		}
+
+		_contextMenu?.Dismiss();
+		_contextMenu = new ItemContextMenu(_viewModel, invokedItem, selection);
+		_contextMenu.ShowAt(_element, hasPosition ? position : null);
 	}
 
 	private void EnsureContextSelection(BrowseItemViewModel invokedItem)

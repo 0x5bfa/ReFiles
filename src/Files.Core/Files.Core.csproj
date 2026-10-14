@@ -47,6 +47,7 @@
 
 	<ItemGroup>
 		<InternalsVisibleTo Include="Files.UnitTests" />
+		<InternalsVisibleTo Include="Files.Benchmarks" />
 	</ItemGroup>
 
 </Project>

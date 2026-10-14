@@ -57,7 +57,7 @@ public sealed class WindowsShellPropertyPageTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
 			var reference = new StorableReference(source.SourceId, item.Id, item.Address);
-			var service = new WindowsShellAppExtensionService(source);
+			var service = new WindowsShellPropertiesService(source);
 			var data = await service.GetPropertySheetDataAsync([reference]);
 
 			Assert.IsNotNull(data?.Customization);
@@ -87,7 +87,7 @@ public sealed class WindowsShellPropertyPageTests
 		await using var source = new WindowsStorageSource(scheduler: scheduler);
 		var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, root));
 		var reference = new StorableReference(source.SourceId, item.Id, item.Address);
-		var service = new WindowsShellAppExtensionService(source);
+		var service = new WindowsShellPropertiesService(source);
 
 		var data = await service.GetPropertySheetDataAsync([reference]);
 
@@ -125,7 +125,7 @@ public sealed class WindowsShellPropertyPageTests
 		await using var source = new WindowsStorageSource(scheduler: scheduler);
 		var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, drive.RootDirectory.FullName));
 		var reference = new StorableReference(source.SourceId, item.Id, item.Address);
-		var service = new WindowsShellAppExtensionService(source);
+		var service = new WindowsShellPropertiesService(source);
 
 		var data = await service.GetPropertySheetDataAsync([reference]);
 
@@ -151,7 +151,7 @@ public sealed class WindowsShellPropertyPageTests
 		await using var source = new WindowsStorageSource(scheduler: scheduler);
 		var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 		var reference = new StorableReference(source.SourceId, item.Id, item.Address);
-		var service = new WindowsShellAppExtensionService(source);
+		var service = new WindowsShellPropertiesService(source);
 
 		var data = await service.GetPropertySheetDataAsync([reference]);
 
@@ -183,7 +183,7 @@ public sealed class WindowsShellPropertyPageTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 			var reference = new StorableReference(source.SourceId, item.Id, item.Address);
-			var service = new WindowsShellAppExtensionService(source);
+			var service = new WindowsShellPropertiesService(source);
 
 			var pages = await service.GetPropertyPagesAsync([reference]);
 
@@ -235,7 +235,7 @@ public sealed class WindowsShellPropertyPageTests
 			var second = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, secondPath));
 			var firstReference = new StorableReference(source.SourceId, first.Id, first.Address);
 			var secondReference = new StorableReference(source.SourceId, second.Id, second.Address);
-			var service = new WindowsShellAppExtensionService(source);
+			var service = new WindowsShellPropertiesService(source);
 
 			var security = await service.GetPropertyPageDataAsync([firstReference], WindowsShellPropertyPageKind.Security);
 			var details = await service.GetPropertyPageDataAsync([firstReference], WindowsShellPropertyPageKind.Details);
@@ -284,10 +284,8 @@ public sealed class WindowsShellPropertyPageTests
 			var firstReference = new StorableReference(source.SourceId, first.Id, first.Address);
 			var secondReference = new StorableReference(source.SourceId, second.Id, second.Address);
 			var otherReference = new StorableReference(source.SourceId, other.Id, other.Address);
-			var service = new WindowsShellAppExtensionService(source);
-
-			var sameParent = await service.GetContextMenuTargetAsync([firstReference, secondReference]);
-			var mixedParents = await service.GetContextMenuTargetAsync([firstReference, otherReference]);
+			var sameParent = await WindowsShellContextMenuTarget.CreateAsync(source, [firstReference, secondReference]);
+			var mixedParents = await WindowsShellContextMenuTarget.CreateAsync(source, [firstReference, otherReference]);
 
 			Assert.IsNotNull(sameParent);
 			Assert.HasCount(2, sameParent.AbsolutePidls);
@@ -317,7 +315,7 @@ public sealed class WindowsShellPropertyPageTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
 			var reference = new StorableReference(source.SourceId, item.Id, item.Address);
-			var service = new WindowsShellAppExtensionService(source);
+			var service = new WindowsShellPropertiesService(source);
 
 			var pages = await service.GetPropertyPagesAsync([reference]);
 

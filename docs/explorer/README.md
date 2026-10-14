@@ -9,6 +9,7 @@ This section documents Windows Explorer behavior that was established through bi
 
 | Area | Description |
 | --- | --- |
+| [Context-menu construction](context-menus/construction.md) | Native `IContextMenu` construction, curated AppExtension and Cloud Files composition, and popup-session ownership. |
 | [Property sheets](property-sheets/README.md) | How Explorer discovers, constructs, displays, reads, and writes the General, Shortcut, Sharing, Security, Previous Versions, Customize, Digital Signatures, and Details pages. |
 | [Drive property sheets](drive-property-sheets/README.md) | How Explorer constructs and populates the drive General, Tools, Hardware, Sharing, Security, Previous Versions, and Quota pages. |
 | [Property-sheet window construction](property-sheets/construction.md) | The path from Shell page providers and `PROPSHEETPAGEW` to the `comctl32` sheet dialog, tab control, and individual page dialogs. |

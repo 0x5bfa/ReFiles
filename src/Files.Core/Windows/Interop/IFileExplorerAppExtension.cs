@@ -27,11 +27,11 @@ internal partial interface IFileExplorerAppExtension : IInspectable
 	[PreserveSig]
 	HRESULT GetPackageFullName([MarshalUsing(typeof(global::Windows.Win32.HStringStringMarshaller))] out string? packageFullName);
 
-	/// <summary>Gets the extension logo.</summary>
-	/// <param name="logo">Receives the logo object.</param>
+	/// <summary>Gets the extension logo path.</summary>
+	/// <param name="logoPath">Receives the logo path.</param>
 	/// <returns>The HRESULT returned by the extension.</returns>
 	[PreserveSig]
-	HRESULT GetLogo([MarshalAs(UnmanagedType.Interface)] out object? logo);
+	HRESULT GetLogo([MarshalUsing(typeof(global::Windows.Win32.HStringStringMarshaller))] out string? logoPath);
 
 	/// <summary>Gets the extension verbs.</summary>
 	/// <param name="flags">The cache lookup flags.</param>

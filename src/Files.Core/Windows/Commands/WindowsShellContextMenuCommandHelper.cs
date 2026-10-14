@@ -6,6 +6,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Shell;
@@ -50,6 +51,7 @@ internal static class WindowsShellContextMenuCommandHelper
 	internal static unsafe string? GetCanonicalVerb(IContextMenu contextMenu, uint commandOrdinal)
 	{
 		Span<char> buffer = stackalloc char[CanonicalVerbBufferLength];
+		buffer.Clear();
 		fixed (char* bufferPointer = buffer)
 		{
 			var result = contextMenu.GetCommandString(commandOrdinal, CanonicalVerbUnicode, (PSTR)(byte*)bufferPointer, (uint)buffer.Length);
@@ -59,33 +61,45 @@ internal static class WindowsShellContextMenuCommandHelper
 			}
 		}
 
+		return DecodeCanonicalVerb(buffer);
+	}
+
+	internal static string? DecodeCanonicalVerb(ReadOnlySpan<char> buffer)
+	{
+		var bytes = MemoryMarshal.AsBytes(buffer);
+		var byteLength = bytes.IndexOf((byte)0);
+		// Some handlers write ANSI bytes even when GCS_VERBW was requested.
+		if (byteLength > 1 && bytes[..byteLength].IndexOfAnyExceptInRange((byte)0x20, (byte)0x7e) < 0)
+		{
+			return Encoding.ASCII.GetString(bytes[..byteLength]);
+		}
+
 		var terminatorIndex = buffer.IndexOf('\0');
 		var verb = new string(terminatorIndex < 0 ? buffer : buffer[..terminatorIndex]);
 
 		return string.IsNullOrWhiteSpace(verb) ? null : verb;
 	}
 
-	internal static unsafe void Invoke(IContextMenu contextMenu, uint commandOrdinal, WindowsShellInvocationContext context)
+	internal static unsafe void Invoke(IContextMenu contextMenu, uint commandOrdinal, WindowsShellInvocationContext? context)
 	{
-		var workingDirectory = context.WorkingDirectory;
+		var workingDirectory = context?.WorkingDirectory;
 		var ansiWorkingDirectory = workingDirectory is null ? 0 : Marshal.StringToCoTaskMemAnsi(workingDirectory);
 
 		try
 		{
 			fixed (char* workingDirectoryPointer = workingDirectory)
 			{
-				var invoke = new CMINVOKECOMMANDINFOEX
-				{
-					cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX),
-					fMask = ExplorerInvokeMask,
-					hwnd = (HWND)context.OwnerWindowHandle,
-					lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal,
-					lpDirectory = (PCSTR)(byte*)ansiWorkingDirectory,
-					nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL,
-					lpDirectoryW = workingDirectoryPointer,
-				};
+				var invoke = default(CMINVOKECOMMANDINFOEX);
+				invoke.cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX);
+				invoke.fMask = ExplorerInvokeMask;
+				invoke.hwnd = context is null ? default : (HWND)context.OwnerWindowHandle;
+				invoke.lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal;
+				invoke.lpVerbW = (PCWSTR)(char*)(nuint)commandOrdinal;
+				invoke.lpDirectory = (PCSTR)(byte*)ansiWorkingDirectory;
+				invoke.nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL;
+				invoke.lpDirectoryW = workingDirectoryPointer;
 
-				if (context.InvocationPoint is { } invocationPoint)
+				if (context?.InvocationPoint is { } invocationPoint)
 				{
 					invoke.fMask |= InvokePointMask;
 					invoke.ptInvoke = new(invocationPoint.X, invocationPoint.Y);

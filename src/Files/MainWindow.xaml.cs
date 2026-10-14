@@ -73,7 +73,7 @@ public sealed partial class MainWindow : Window
 		var windowHandle = WindowNative.GetWindowHandle(this);
 		var itemActivationService = new ItemActivationService(workspace, windowHandle);
 		var windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
-		_itemPropertiesService = new ItemPropertiesService(windowHandle, storageOperations, windowsSource is null ? null : new WindowsShellAppExtensionService(windowsSource));
+		_itemPropertiesService = new ItemPropertiesService(windowHandle, storageOperations, windowsSource is null ? null : new WindowsShellPropertiesService(windowsSource));
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,

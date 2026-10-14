@@ -15,12 +15,12 @@ internal sealed class ItemPropertiesService : IItemPropertiesService, IDisposabl
 {
 	private readonly nint _owner;
 	private readonly IItemPropertiesFileSystem _fileSystem;
-	private readonly WindowsShellAppExtensionService? _shellProperties;
+	private readonly WindowsShellPropertiesService? _shellProperties;
 	private readonly IStorageOperationService _storageOperations;
 	private readonly HashSet<ItemPropertiesWindow> _windows = [];
 	private bool _isDisposed;
 
-	internal ItemPropertiesService(nint owner, IStorageOperationService storageOperations, WindowsShellAppExtensionService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
+	internal ItemPropertiesService(nint owner, IStorageOperationService storageOperations, WindowsShellPropertiesService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
 	{
 		ArgumentNullException.ThrowIfNull(storageOperations);
 

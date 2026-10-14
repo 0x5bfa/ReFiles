@@ -19,7 +19,7 @@ namespace Files.Core.Windows;
 /// Owns one classic Shell context-menu session, including its native menu and owner-window message forwarding.
 /// </summary>
 /// <remarks>The session must be created and shown on the owning window's UI STA.</remarks>
-public sealed class WindowsShellContextMenuSession
+public sealed class WindowsShellClassicContextMenuSession
 {
 	private const uint ExtendedVerbs = 0x00000100;
 	private const uint FirstCommandId = 1;
@@ -98,15 +98,14 @@ public sealed class WindowsShellContextMenuSession
 
 	private static unsafe void InvokeCommand(IContextMenu contextMenu, uint commandOrdinal, HWND owner, Point invocationPoint)
 	{
-		var invoke = new CMINVOKECOMMANDINFOEX
-		{
-			cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX),
-			fMask = UnicodeMask | InvokePointMask,
-			hwnd = owner,
-			lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal,
-			nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL,
-			ptInvoke = invocationPoint,
-		};
+		var invoke = default(CMINVOKECOMMANDINFOEX);
+		invoke.cbSize = (uint)sizeof(CMINVOKECOMMANDINFOEX);
+		invoke.fMask = UnicodeMask | InvokePointMask;
+		invoke.hwnd = owner;
+		invoke.lpVerb = (PCSTR)(byte*)(nuint)commandOrdinal;
+		invoke.lpVerbW = (PCWSTR)(char*)(nuint)commandOrdinal;
+		invoke.nShow = (int)SHOW_WINDOW_CMD.SW_SHOWNORMAL;
+		invoke.ptInvoke = invocationPoint;
 		ref var baseInvoke = ref Unsafe.As<CMINVOKECOMMANDINFOEX, CMINVOKECOMMANDINFO>(ref invoke);
 		contextMenu.InvokeCommand(baseInvoke).ThrowOnFailure();
 	}
@@ -116,7 +115,7 @@ public sealed class WindowsShellContextMenuSession
 	{
 		var sessionHandle = GCHandle.FromIntPtr((nint)referenceData);
 
-		return sessionHandle.Target is WindowsShellContextMenuSession session
+		return sessionHandle.Target is WindowsShellClassicContextMenuSession session
 			? session.HandleWindowMessage(window, message, wParam, lParam)
 			: PInvoke.DefSubclassProc(window, message, wParam, lParam);
 	}

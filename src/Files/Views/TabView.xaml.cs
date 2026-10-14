@@ -63,8 +63,8 @@ public sealed partial class TabView : UserControl, IDisposable
 		_appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 		_appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
 		_appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-		_appWindow.TitleBar.ButtonHoverBackgroundColor = Colors.Transparent;
-		_appWindow.TitleBar.ButtonPressedBackgroundColor = Colors.Transparent;
+		//_appWindow.TitleBar.ButtonHoverBackgroundColor = Colors.Transparent;
+		//_appWindow.TitleBar.ButtonPressedBackgroundColor = Colors.Transparent;
 		_appWindow.Changed += AppWindow_Changed;
 		UpdateTitleBarDragRegion();
 	}

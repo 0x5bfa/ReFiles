@@ -11,6 +11,13 @@ using Files.Benchmarks;
 using System.IO;
 using System.Text.Json;
 
+if (args.Contains("--shell-menu-scenario", StringComparer.OrdinalIgnoreCase))
+{
+	await WindowsShellContextMenuScenario.RunAsync(args.Where(static argument => !argument.Equals("--shell-menu-scenario", StringComparison.OrdinalIgnoreCase)));
+
+	return;
+}
+
 if (args.Contains("--browse-scenario", StringComparer.OrdinalIgnoreCase))
 {
 	foreach (var itemCount in new[] { 100, 1_000, 10_000, 44_000 })

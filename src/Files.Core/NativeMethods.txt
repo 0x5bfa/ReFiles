@@ -321,6 +321,7 @@ GetFileAttributes
 SetFileAttributes
 INVALID_FILE_ATTRIBUTES
 SHDefExtractIconW
+SHLoadIndirectString
 GdipCreateBitmapFromHICON
 GUID_WICPixelFormat32bppBGRA
 IWICBitmap
@@ -549,3 +550,5 @@ FileOpenDialog
 FileSaveDialog
 DesktopWallpaper
 ApplicationActivationManager
+IOleWindow
+GetPackagesByPackageFamily

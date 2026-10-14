@@ -5,4 +5,4 @@
 
 namespace Files.Core.Windows;
 
-internal sealed record WindowsShellAppExtensionContextualCommandToken(WindowsShellAppExtensionCommand Command) : WindowsShellContextualCommandToken;
+internal sealed record WindowsShellAppExtensionContextualCommandToken(WindowsShellExplorerCommand Command) : WindowsShellContextualCommandToken;

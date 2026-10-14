@@ -56,7 +56,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly AppSettingsService _appSettings;
 	private readonly WindowsStorageSource? _windowsSource;
 	private readonly WindowsShellNewMenu? _shellNewMenu;
-	private readonly WindowsShellAppExtensionService? _shellAppExtensionService;
+	private readonly WindowsShellPropertiesService? _shellProperties;
 	private readonly WindowsShellContextualCommandService? _shellContextualCommandService;
 	private readonly nint _ownerWindowHandle;
 
@@ -93,7 +93,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	internal nint OwnerWindowHandle => _ownerWindowHandle;
 
-	internal bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _shellAppExtensionService is not null;
+	internal bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsSource is not null;
 
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
 
@@ -225,7 +225,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_shellNewMenu = _windowsSource is { } windowsSource
 			? new WindowsShellNewMenu(windowsSource.Scheduler)
 			: null;
-		_shellAppExtensionService = _windowsSource is { } shellSource ? new WindowsShellAppExtensionService(shellSource) : null;
+		_shellProperties = _windowsSource is { } shellSource ? new WindowsShellPropertiesService(shellSource) : null;
 		_shellContextualCommandService = _windowsSource is { } contextualSource && ownerWindowHandle is not 0 ? new WindowsShellContextualCommandService(contextualSource) : null;
 		_ownerWindowHandle = ownerWindowHandle;
 		_itemsViewSource = CreateItemsViewSource(Items, isGrouped: false);
@@ -488,28 +488,25 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
 	}
 
-	internal Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetAppExtensionCommandsAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	internal Task<WindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<BrowseItemViewModel> selection,
+		IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries, WindowsShellContextMenuEntry? expandedMenuEntry, Point clientPoint,
+		double rasterizationScale, bool extendedVerbs, CancellationToken cancellationToken)
 	{
-		ArgumentNullException.ThrowIfNull(selection);
+		if (_windowsSource is null || _ownerWindowHandle is 0)
+		{
+			return Task.FromResult<WindowsShellContextMenuSession?>(null);
+		}
 
-		return _shellAppExtensionService is null
-			? Task.FromResult<IReadOnlyList<WindowsShellAppExtensionCommand>>([])
-			: _shellAppExtensionService.GetCommandsAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
-	}
+		var point = new System.Drawing.Point(checked((int)Math.Round(clientPoint.X * rasterizationScale)), checked((int)Math.Round(clientPoint.Y * rasterizationScale)));
+		if (PInvoke.ClientToScreen(new HWND(_ownerWindowHandle), ref point).Value is 0)
+		{
+			return Task.FromResult<WindowsShellContextMenuSession?>(null);
+		}
 
-	internal Task<ReadOnlyMemory<byte>> GetAppExtensionIconAsync(WindowsShellAppExtensionCommand command, int pixelSize, CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(command);
+		var context = new WindowsShellInvocationContext(_ownerWindowHandle, GetContextualCommandWorkingDirectory(), new(point.X, point.Y));
 
-		return _shellAppExtensionService is null ? Task.FromResult(ReadOnlyMemory<byte>.Empty) : _shellAppExtensionService.GetCommandIconAsync(command, pixelSize, cancellationToken);
-	}
-
-	internal Task<bool> InvokeAppExtensionCommandAsync(IReadOnlyList<BrowseItemViewModel> selection, WindowsShellAppExtensionCommand command, CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(selection);
-		ArgumentNullException.ThrowIfNull(command);
-
-		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.InvokeAsync(selection.Select(static item => item.Reference).ToArray(), command, cancellationToken);
+		return WindowsShellContextMenuSession.CreateAsync(_windowsSource, selection.Select(static item => item.Reference).ToArray(), context,
+			applicationEntries, expandedMenuEntry, extendedVerbs, cancellationToken);
 	}
 
 	internal CommandState GetContextualCommandState(string commandId, bool hideWhenShellDisabled)
@@ -555,16 +552,16 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		ArgumentNullException.ThrowIfNull(selection);
 
-		return _shellAppExtensionService is null ? Task.FromResult(false) : _shellAppExtensionService.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+		return _shellProperties is null ? Task.FromResult(false) : _shellProperties.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
 	internal Task<WindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(selection);
 
-		return _shellAppExtensionService is null
+		return _windowsSource is null
 			? Task.FromResult<WindowsShellContextMenuTarget?>(null)
-			: _shellAppExtensionService.GetContextMenuTargetAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+			: WindowsShellContextMenuTarget.CreateAsync(_windowsSource, selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
 	internal bool ShowShellContextMenu(WindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
@@ -583,7 +580,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			return false;
 		}
 
-		return new WindowsShellContextMenuSession().Show(owner, target, point);
+		return new WindowsShellClassicContextMenuSession().Show(owner, target, point);
 	}
 
 	public async Task SetViewModeAsync(FolderViewMode mode, CancellationToken cancellationToken = default)

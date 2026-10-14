@@ -24,6 +24,10 @@ namespace Windows.Win32
 		/// <summary>Specifies the 32-bit ARGB pixel format used by Windows imaging APIs.</summary>
 		public const int PixelFormat32bppARGB = 2498570;
 
+		[LibraryImport("kernel32.dll", EntryPoint = "GetPackagePathByFullName", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		internal static unsafe partial int GetPackagePathByFullName(string packageFullName, ref uint pathLength, char* path);
+
 		[LibraryImport("ole32.dll", EntryPoint = "CoGetObject", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static partial HRESULT CoGetObject(string displayName, in BIND_OPTS3 bindOptions, in Guid interfaceId, [MarshalAs(UnmanagedType.Interface)] out object? instance);

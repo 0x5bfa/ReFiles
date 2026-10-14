@@ -5,4 +5,4 @@
 
 namespace Files.Core.Windows;
 
-internal sealed record WindowsShellAppExtensionCommandToken(Guid ClassId, string VerbId, IReadOnlyList<int> SubCommandPath);
+internal sealed record WindowsShellExplorerCommandToken(Guid ClassId, string VerbId, IReadOnlyList<int> SubCommandPath);

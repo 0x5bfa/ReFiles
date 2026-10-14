@@ -32,7 +32,7 @@ public sealed class WindowsShellContextualCommandService
 	private static readonly Lazy<IReadOnlyList<WindowsFileExplorerAppExtensionRegistration>> _selectionRegisteredCommands = new(() => GetCommandStoreRegistrations(_selectionExplorerCommandIds));
 	private static readonly Lazy<IReadOnlyList<WindowsFileExplorerAppExtensionRegistration>> _locationRegisteredCommands = new(() => GetCommandStoreRegistrations(_locationExplorerCommandIds));
 	private readonly WindowsStorageSource _source;
-	private readonly WindowsShellAppExtensionService _appExtensions;
+	private readonly WindowsShellExplorerCommandSource _appExtensions;
 
 	/// <summary>
 	/// Initializes a contextual Windows Shell command service.
@@ -164,7 +164,7 @@ public sealed class WindowsShellContextualCommandService
 		}
 	}
 
-	private static void AppendAppExtensionCommands(IEnumerable<WindowsShellAppExtensionCommand> source, WindowsShellContextualCommandScope scope,
+	private static void AppendAppExtensionCommands(IEnumerable<WindowsShellExplorerCommand> source, WindowsShellContextualCommandScope scope,
 		IDictionary<string, WindowsShellContextualCommand> destination)
 	{
 		foreach (var command in source)
@@ -209,7 +209,7 @@ public sealed class WindowsShellContextualCommandService
 		}
 	}
 
-	private async Task<IReadOnlyList<WindowsShellAppExtensionCommand>> GetRegisteredCommandsAsync(IReadOnlyList<StorableReference> selection,
+	private async Task<IReadOnlyList<WindowsShellExplorerCommand>> GetRegisteredCommandsAsync(IReadOnlyList<StorableReference> selection,
 		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
 	{
 		return await _appExtensions.GetRegisteredCommandsAsync(selection, registrations, cancellationToken).ConfigureAwait(false);
