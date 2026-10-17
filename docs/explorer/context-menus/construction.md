@@ -26,6 +26,21 @@ In `Windows.UI.FileExplorer.dll` version `10.0.26200.9711`, `FetchDetailsForAppE
 
 `ContextMenuPresenter::ResolveIconFromCommandStore` (`0x1800caa94`) supplies a separate fallback by obtaining `IExplorerCommand` from `CLSID_CommandStore`. The command-store ABI was checked against `Windows.Storage.dll` version `10.0.26100.9278`: `CCommandStore::GetCanonicalCommand` is the first method after `IUnknown` (`0x18027a860`).
 
+### Direct AssetResolver activation
+
+A separate packaged WinUI probe using the same Windows App SDK `2.5.4-experimental` as Files checked the installed x64 `FileExplorerExtensions.dll` version `2608.25001.0.0` (SHA-256 `72A83823E376E4643C843FB0875F912375EA30382E2BDAFFB43CA563A1020F37`). Its bytes match the preserved DLL used for the analysis above.
+
+| Call | Observed result |
+| --- | --- |
+| `RoGetActivationFactory("FileExplorerExtensions.AssetResolver")` | `REGDB_E_CLASSNOTREG` (`0x80040154`). |
+| Exported `DllGetActivationFactory`, followed by `QueryInterface(IAssetResolverStatics)` | Both succeed. |
+| `GetResolverForCoreDispatcher` on the WinUI thread | Succeeds. |
+| `GetAssetUri` and `GetSvgImageSource` for either cloud pin asset | Both fail with `0x80070003`; no image is returned. |
+
+The recovered `AssetResolver::GetAssetUri` (`0x18001103c`) reads `ResourceManager.Current.AllResourceMaps["FileExplorerExtensionsAlias"]`. Explicitly loading the installed `resources.pri` adds `MicrosoftWindows.Client.FileExp` to the probe's resource maps, but leaves that alias unavailable. Direct lookup through the added map successfully resolves both cloud pin SVG paths, while the native resolver continues to fail.
+
+Factory acquisition therefore does not establish that the resolver can produce images in Files. Reproducing the host's resource-alias initialization remains unresolved. The working asset reader is retained; this experiment does not establish a general restriction to `explorer.exe`.
+
 ## ReFiles implementation
 
 ```mermaid
