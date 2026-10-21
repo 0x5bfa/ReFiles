@@ -48,7 +48,7 @@ public sealed class WinUIDataObjectBridgeTests
 			var destinationItem = Assert.IsInstanceOfType<WindowsStorable>(await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, destinationFolderPath)));
 			var sourceReference = new StorableReference(source.SourceId, sourceItem.Id, sourceItem.Address);
 			var destinationReference = new StorableReference(source.SourceId, destinationItem.Id, destinationItem.Address);
-			var dragSource = await source.DragDrop.PrepareDragSourceAsync([sourceReference]);
+			var dragSource = await source.DragDrop.PrepareDragSourceAsync((Files.Core.Storage.StorableReference[])[sourceReference]);
 			var dropTarget = await source.DragDrop.PrepareDropTargetAsync(destinationReference, background: true);
 			var dataPackage = new DataPackage();
 			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, dataPackage, 0, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);

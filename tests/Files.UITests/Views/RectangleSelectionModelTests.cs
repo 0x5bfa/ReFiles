@@ -21,10 +21,10 @@ public sealed class RectangleSelectionModelTests
 	[TestMethod]
 	public void ReplaceSelectionTracksCurrentIntersection()
 	{
-		var model = new RectangleSelectionModel(["one", "two"], RectangleSelectionMode.Replace);
+		var model = new RectangleSelectionModel((object[])["one", "two"], RectangleSelectionMode.Replace);
 
-		CollectionAssert.AreEquivalent(new object[] { "three", "four" }, model.GetSelection(["three", "four"]).ToArray());
-		CollectionAssert.AreEquivalent(new object[] { "three" }, model.GetSelection(["three"]).ToArray());
+		CollectionAssert.AreEquivalent(new object[] { "three", "four" }, model.GetSelection((object[])["three", "four"]).ToArray());
+		CollectionAssert.AreEquivalent(new object[] { "three" }, model.GetSelection((object[])["three"]).ToArray());
 	}
 
 	/// <summary>
@@ -33,9 +33,9 @@ public sealed class RectangleSelectionModelTests
 	[TestMethod]
 	public void ExtendSelectionPreservesBaseline()
 	{
-		var model = new RectangleSelectionModel(["one", "two"], RectangleSelectionMode.Extend);
+		var model = new RectangleSelectionModel((object[])["one", "two"], RectangleSelectionMode.Extend);
 
-		CollectionAssert.AreEquivalent(new object[] { "one", "two", "three" }, model.GetSelection(["three"]).ToArray());
+		CollectionAssert.AreEquivalent(new object[] { "one", "two", "three" }, model.GetSelection((object[])["three"]).ToArray());
 		CollectionAssert.AreEquivalent(new object[] { "one", "two" }, model.GetSelection([]).ToArray());
 	}
 
@@ -45,10 +45,10 @@ public sealed class RectangleSelectionModelTests
 	[TestMethod]
 	public void ToggleSelectionUsesStableBaseline()
 	{
-		var model = new RectangleSelectionModel(["one", "two"], RectangleSelectionMode.Toggle);
+		var model = new RectangleSelectionModel((object[])["one", "two"], RectangleSelectionMode.Toggle);
 
-		CollectionAssert.AreEquivalent(new object[] { "one", "three" }, model.GetSelection(["two", "three"]).ToArray());
-		CollectionAssert.AreEquivalent(new object[] { "one", "two", "three" }, model.GetSelection(["three"]).ToArray());
+		CollectionAssert.AreEquivalent(new object[] { "one", "three" }, model.GetSelection((object[])["two", "three"]).ToArray());
+		CollectionAssert.AreEquivalent(new object[] { "one", "two", "three" }, model.GetSelection((object[])["three"]).ToArray());
 	}
 
 	/// <summary>

@@ -74,7 +74,7 @@ public sealed class BrowsePerformanceTests
 		{
 			var result = await RunSyntheticScenarioAsync(scenario);
 			results.Add(result);
-			TestContext.WriteLine(JsonSerializer.Serialize(result));
+			TestContext.WriteLine(JsonSerializer.Serialize(result, BrowsePerformanceJsonContext.Default.BrowsePerformanceResult));
 		}
 
 		var outputPath = await BrowsePerformanceResultWriter.WriteAsync("browse-synthetic", results);
@@ -228,7 +228,7 @@ public sealed class BrowsePerformanceTests
 		var settingsStore = new InMemoryViewSettingsStore();
 		if (scenario.EnablePropertyEnrichment)
 		{
-			await settingsStore.SetAsync(HomeLocation.Instance, new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]));
+			await settingsStore.SetAsync(HomeLocation.Instance, new BrowseViewSettings(columns: (Files.Core.ViewSettings.ViewColumnSettings[])[new ViewColumnSettings("System.Size", 120, 0)]));
 		}
 
 		var session = new BrowseSession(resolver, settingsStore);
@@ -400,7 +400,7 @@ public sealed class BrowsePerformanceTests
 
 	private static void ApplyRectangleSelection(ListViewBase target, IEnumerable<object> selection)
 	{
-		RectangleSelection.BeginSelectionUpdate([target]);
+		RectangleSelection.BeginSelectionUpdate((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]);
 		try
 		{
 			target.SelectedItems.Clear();
@@ -411,10 +411,10 @@ public sealed class BrowsePerformanceTests
 		}
 		finally
 		{
-			RectangleSelection.EndSelectionUpdate([target]);
+			RectangleSelection.EndSelectionUpdate((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]);
 		}
 
-		RectangleSelection.RaiseSelectionUpdated([target]);
+		RectangleSelection.RaiseSelectionUpdated((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]);
 	}
 
 	private static HashSet<object> CreateRandomSelection(Random random, IReadOnlyList<BrowseItemViewModel> items, int maximumCount)
@@ -1301,62 +1301,6 @@ public sealed class BrowsePerformanceTests
 				: getPropertiesAsync(index, request, cancellationToken);
 	}
 
-	private sealed class BrowsePerformanceResult
-	{
-		public required string Scenario { get; init; }
-		public string? Path { get; init; }
-		public int ItemCount { get; init; }
-		public double? TimeToFirstCoreBatchMs { get; init; }
-		public double? TimeToFirstPresentedItemMs { get; init; }
-		public double? TimeToFirstRealizedRowMs { get; init; }
-		public double? EnumerationCompleteMs { get; init; }
-		public double? TimeToFirstPropertiesMs { get; init; }
-		public double? TimeToFirstThumbnailMs { get; init; }
-		public double? FirstPagePropertiesCompleteMs { get; init; }
-		public double? FirstPageThumbnailsCompleteMs { get; init; }
-		public double? InitialPropertiesCompleteMs { get; init; }
-		public double? InitialThumbnailsCompleteMs { get; init; }
-		public double? InitialPresentationCompleteMs { get; init; }
-		public int InitialPresentationItemCount { get; init; }
-		public int ThumbnailUpdateCount { get; init; }
-		public int RepeatedThumbnailUpdateCount { get; init; }
-		public int FallbackThumbnailPublicationCount { get; init; }
-		public int RepeatedFallbackThumbnailPublicationCount { get; init; }
-		public int ContentThumbnailPublicationCount { get; init; }
-		public double MaximumUILatencyMs { get; init; }
-		public double P95UILatencyMs { get; init; }
-		public int StallsOver16Ms { get; init; }
-		public int StallsOver50Ms { get; init; }
-		public int StallsOver100Ms { get; init; }
-		public int DispatcherProbeCount { get; init; }
-		public int DispatcherCallbackCount { get; init; }
-		public int CollectionNotificationCount { get; init; }
-		public int UniqueViewModelCount { get; init; }
-		public int MaximumRealizedRowCount { get; init; }
-		public required string CacheState { get; init; }
-		public bool PropertiesEnabled { get; init; }
-		public bool ThumbnailsEnabled { get; init; }
-		public required BrowseEnvironmentMetadata Environment { get; init; }
-	}
-
-	private sealed class BrowseEnvironmentMetadata
-	{
-		public required string OsVersion { get; init; }
-		public required string ProcessArchitecture { get; init; }
-		public string? Processor { get; init; }
-		public long AvailableMemoryBytes { get; init; }
-		public string? Notes { get; init; }
-
-		public static BrowseEnvironmentMetadata Create(string? notes) => new()
-		{
-			OsVersion = Environment.OSVersion.VersionString,
-			ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-			Processor = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER"),
-			AvailableMemoryBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes,
-			Notes = notes,
-		};
-	}
-
 	private static class BrowsePerformanceResultWriter
 	{
 		public static async Task<string> WriteAsync(string name, IReadOnlyList<BrowsePerformanceResult> results)
@@ -1369,7 +1313,7 @@ public sealed class BrowsePerformanceTests
 
 			Directory.CreateDirectory(outputDirectory);
 			var path = Path.Combine(outputDirectory, $"{name}.json");
-			var json = JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true });
+			var json = JsonSerializer.Serialize(results, new BrowsePerformanceJsonContext(new JsonSerializerOptions { WriteIndented = true }).Results);
 			await File.WriteAllTextAsync(path, json);
 
 			return path;

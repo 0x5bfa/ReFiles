@@ -6,6 +6,7 @@ using Files.Core.Browsing;
 using Files.Core.ViewSettings;
 using Files.Core.Windows;
 using Files.Settings;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.UITests;
 

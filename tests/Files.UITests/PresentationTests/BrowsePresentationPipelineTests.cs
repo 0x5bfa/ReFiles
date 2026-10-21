@@ -346,11 +346,11 @@ public sealed class BrowsePresentationPipelineTests
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
-		adapter.SetSelection([adapter.Items[0]]);
+		adapter.SetSelection((Files.ViewModels.BrowseItemViewModel[])[adapter.Items[0]]);
 		dispatcher.DrainAll();
 		await firstReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-		adapter.SetSelection([adapter.Items[1]]);
+		adapter.SetSelection((Files.ViewModels.BrowseItemViewModel[])[adapter.Items[1]]);
 		dispatcher.DrainAll();
 		await firstReadCanceled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 		await secondReadReturned.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -579,7 +579,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
 		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, text: CreateText());
-		var settings = new BrowseViewSettings(columns: [new ViewColumnSettings("System.Size", 120, 0)]);
+		var settings = new BrowseViewSettings(columns: (Files.Core.ViewSettings.ViewColumnSettings[])[new ViewColumnSettings("System.Size", 120, 0)]);
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -680,7 +680,7 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.AreSame(folder.Items, folder.ItemsViewSource.Source);
 		Assert.AreEqual(callsBeforeNavigation, stateCalls.Count);
 
-		folder.SetSelection([folder.Items[0]]);
+		folder.SetSelection((Files.ViewModels.BrowseItemViewModel[])[folder.Items[0]]);
 		dispatcher.DrainAll();
 
 		Assert.IsTrue(stateCalls.Count > callsBeforeNavigation);
@@ -792,7 +792,7 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsFalse(root.ClearSelectionCommand.IsEnabled);
 
 		var firstItem = browser.Items[0];
-		browser.SetSelection([firstItem]);
+		browser.SetSelection((Files.ViewModels.BrowseItemViewModel[])[firstItem]);
 		dispatcher.DrainAll();
 		var invertOneResult = await root.InvertSelectionCommand.ExecuteAsync();
 		dispatcher.DrainAll();
@@ -861,7 +861,7 @@ public sealed class BrowsePresentationPipelineTests
 	{
 		return new BrowsePresentationText(
 			"Home",
-			new BrowseStatusBarText("{0} item", "{0} items", "{0} item selected", "{0} items selected", "{0}  {1}", "{0} {1}", ["bytes", "KB", "MB", "GB", "TB", "PB"]),
+			new BrowseStatusBarText("{0} item", "{0} items", "{0} item selected", "{0} items selected", "{0}  {1}", "{0} {1}", (string[])["bytes", "KB", "MB", "GB", "TB", "PB"]),
 			"{0} is not a folder");
 	}
 

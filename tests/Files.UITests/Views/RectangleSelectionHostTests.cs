@@ -114,12 +114,12 @@ public sealed class RectangleSelectionHostTests
 		RectangleSelection.AddSelectionUpdatedHandler(secondTarget, secondHandler);
 		try
 		{
-			RectangleSelection.BeginSelectionUpdate([firstTarget, secondTarget]);
+			RectangleSelection.BeginSelectionUpdate((Microsoft.UI.Xaml.Controls.ListViewBase[])[firstTarget, secondTarget]);
 			Assert.IsTrue(RectangleSelection.GetIsUpdatingSelection(firstTarget));
 			Assert.IsTrue(RectangleSelection.GetIsUpdatingSelection(secondTarget));
 
-			RectangleSelection.EndSelectionUpdate([firstTarget, secondTarget]);
-			RectangleSelection.RaiseSelectionUpdated([firstTarget]);
+			RectangleSelection.EndSelectionUpdate((Microsoft.UI.Xaml.Controls.ListViewBase[])[firstTarget, secondTarget]);
+			RectangleSelection.RaiseSelectionUpdated((Microsoft.UI.Xaml.Controls.ListViewBase[])[firstTarget]);
 			Assert.IsFalse(RectangleSelection.GetIsUpdatingSelection(firstTarget));
 			Assert.IsFalse(RectangleSelection.GetIsUpdatingSelection(secondTarget));
 			Assert.AreEqual(1, firstUpdateCount);
@@ -146,17 +146,17 @@ public sealed class RectangleSelectionHostTests
 		target.Items.Add("two");
 		var model = new RectangleSelectionNotificationModel();
 
-		Assert.AreEqual(0, model.RecordChanges([target]).Count);
+		Assert.AreEqual(0, model.RecordChanges((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]).Count);
 		target.SelectedItems.Add("one");
-		CollectionAssert.AreEqual(new[] { target }, model.RecordChanges([target]).ToArray());
+		CollectionAssert.AreEqual(new[] { target }, model.RecordChanges((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]).ToArray());
 
 		target.SelectedItems.Add("two");
-		Assert.AreEqual(0, model.RecordChanges([target]).Count);
+		Assert.AreEqual(0, model.RecordChanges((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]).Count);
 		CollectionAssert.AreEqual(new[] { target }, model.Complete().ToArray());
 		Assert.AreEqual(0, model.Complete().Count);
 
 		target.SelectedItems.Clear();
-		Assert.AreEqual(0, model.RecordChanges([target]).Count);
+		Assert.AreEqual(0, model.RecordChanges((Microsoft.UI.Xaml.Controls.ListViewBase[])[target]).Count);
 		CollectionAssert.AreEqual(new[] { target }, model.Complete().ToArray());
 
 		await WaitForDispatcherAsync();

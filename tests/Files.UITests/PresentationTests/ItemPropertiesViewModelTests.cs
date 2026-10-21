@@ -61,7 +61,7 @@ public sealed class ItemPropertiesViewModelTests
 		var first = CreateItem("first.txt", false, null, ("System.Author", "Files"), ("System.Rating", 1));
 		var second = CreateItem("second.txt", false, null, ("System.Author", "Files"), ("System.Rating", 2));
 
-		var viewModel = new ItemPropertiesViewModel([first, second]);
+		var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[first, second]);
 
 		Assert.AreEqual("Files", viewModel.Details.Single(detail => detail.Name == "Author").Value);
 		Assert.AreNotEqual("1", viewModel.Details.Single(detail => detail.Name == "Rating").Value);
@@ -75,7 +75,7 @@ public sealed class ItemPropertiesViewModelTests
 	{
 		var first = CreateItem("first.txt", false, null, ("System.Author", "Files"), ("System.Rating", 1));
 		var second = CreateItem("second.txt", false, null, ("System.Author", "Files"), ("System.Rating", 2));
-		var viewModel = new ItemPropertiesViewModel([first, second]);
+		var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[first, second]);
 		var originalDetails = viewModel.Details.Select(static detail => (detail.Name, detail.Value)).ToArray();
 
 		viewModel.SetShellDetails([]);
@@ -96,7 +96,7 @@ public sealed class ItemPropertiesViewModelTests
 			File.WriteAllBytes(Path.Combine(directory, "one.bin"), new byte[1_024]);
 			var child = Directory.CreateDirectory(Path.Combine(directory, "child")).FullName;
 			File.WriteAllBytes(Path.Combine(child, "two.bin"), new byte[2_048]);
-			var viewModel = new ItemPropertiesViewModel([CreateItem(Path.GetFileName(directory), true, directory)]);
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(directory), true, directory)]);
 
 			await viewModel.InitializeAsync();
 
@@ -121,7 +121,7 @@ public sealed class ItemPropertiesViewModelTests
 		try
 		{
 			File.WriteAllText(path, "content");
-			var viewModel = new ItemPropertiesViewModel([CreateItem(Path.GetFileName(path), false, path)]);
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)]);
 			viewModel.IsReadOnly = true;
 
 			await viewModel.ApplyAsync();
@@ -149,7 +149,7 @@ public sealed class ItemPropertiesViewModelTests
 		var directory = CreateTemporaryDirectory();
 		try
 		{
-			var viewModel = new ItemPropertiesViewModel([CreateItem(Path.GetFileName(directory), true, directory)]);
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(directory), true, directory)]);
 
 			Assert.IsNull(viewModel.IsReadOnly);
 			StringAssert.Contains(viewModel.ReadOnlyLabel, "Only applies to files in folder");
@@ -170,7 +170,7 @@ public sealed class ItemPropertiesViewModelTests
 		var root = Path.GetPathRoot(Environment.SystemDirectory)!;
 		var drive = new DriveInfo(root);
 		var displayName = WindowsVolumeLabelService.GetDisplayName(root);
-		var viewModel = new ItemPropertiesViewModel([CreateItem(displayName, true, root)]);
+		var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(displayName, true, root)]);
 
 		await viewModel.InitializeAsync();
 
@@ -192,7 +192,7 @@ public sealed class ItemPropertiesViewModelTests
 		}
 
 		var root = drive.RootDirectory.FullName;
-		var viewModel = new ItemPropertiesViewModel([CreateItem(WindowsVolumeLabelService.GetDisplayName(root), true, root)]);
+		var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(WindowsVolumeLabelService.GetDisplayName(root), true, root)]);
 
 		await viewModel.InitializeAsync();
 
@@ -214,7 +214,7 @@ public sealed class ItemPropertiesViewModelTests
 		try
 		{
 			File.WriteAllText(path, "content");
-			var viewModel = new ItemPropertiesViewModel([CreateItem(Path.GetFileName(path), false, path)]) { IsArchive = true, IsIndexed = false };
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)]) { IsArchive = true, IsIndexed = false };
 
 			await viewModel.ApplyAsync();
 
@@ -240,7 +240,7 @@ public sealed class ItemPropertiesViewModelTests
 	[TestMethod]
 	public void GeneralTypeIncludesFileExtension()
 	{
-		var viewModel = new ItemPropertiesViewModel([CreateItem("item.txt", false, null, ("System.ItemTypeText", "Text Document"))]);
+		var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem("item.txt", false, null, ("System.ItemTypeText", "Text Document"))]);
 
 		Assert.AreEqual("Text Document (.txt)", viewModel.Type);
 	}
@@ -260,7 +260,7 @@ public sealed class ItemPropertiesViewModelTests
 			var reference = new StorableReference(new StorageSourceId("test"), path, new StorageAddress("file", path));
 			var item = new BrowseItemViewModel(Path.GetFileName(path), false, reference, showFileExtensions: false);
 			var storageOperations = new RecordingStorageOperationService();
-			var viewModel = new ItemPropertiesViewModel([item], storageOperations, new ItemPropertiesFileSystem()) { Name = "after" };
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[item], storageOperations, new ItemPropertiesFileSystem()) { Name = "after" };
 
 			await viewModel.ApplyAsync();
 
