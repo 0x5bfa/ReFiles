@@ -139,7 +139,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		}
 		catch (Exception error)
 		{
-			UiDiagnosticLog.Write("NavigationToolbar", $"Search command failed: {error.Message}");
+			UIDiagnosticLog.Write("NavigationToolbar", $"Search command failed: {error.Message}");
 
 			return CommandExecutionResult.Failed(error);
 		}
@@ -222,7 +222,7 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		}
 		catch (Exception error)
 		{
-			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb refresh failed: {error.Message}");
+			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb refresh failed: {error.Message}");
 			if (ReferenceEquals(_activeFolderBrowser, browser))
 			{
 				BreadcrumbItems.Clear();

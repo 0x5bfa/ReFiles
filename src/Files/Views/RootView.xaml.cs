@@ -19,7 +19,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 	private readonly Queue<string> _pendingErrorMessages = [];
 
 	private CancellationTokenSource? _sidebarDragSourceCancellation;
-	private WinUiShellDropTargetController? _sidebarDropController;
+	private WinUIShellDropTargetController? _sidebarDropController;
 	private FolderBrowserViewModel? _sidebarDropBrowser;
 	private Task _showErrorDialogsTask = Task.CompletedTask;
 	private OperationErrorDialog? _activeErrorDialog;
@@ -157,7 +157,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 			}
 			catch (Exception exception)
 			{
-				UiDiagnosticLog.Write("RootView", $"Error dialog failed type={exception.GetType().Name}");
+				UIDiagnosticLog.Write("RootView", $"Error dialog failed type={exception.GetType().Name}");
 
 				return;
 			}
@@ -208,7 +208,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		StartShowingErrorDialogs();
 		UpdateActiveTabPresentation();
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("RootView", "Loaded START");
+		UIDiagnosticLog.Write("RootView", "Loaded START");
 		Sidebar.SelectedItem ??= ViewModel.HomeNavigationItem;
 
 		try
@@ -224,7 +224,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 		finally
 		{
-			UiDiagnosticLog.Write("RootView", $"Loaded END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			UIDiagnosticLog.Write("RootView", $"Loaded END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -279,7 +279,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 				return;
 			}
 
-			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, args.RawEvent.Data, browser.OwnerWindowHandle);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.RawEvent.Data, browser.OwnerWindowHandle);
 			args.RawEvent.AllowedOperations = allowedOperations;
 			args.RawEvent.Cancel = allowedOperations is DataPackageOperation.None;
 		}
@@ -352,7 +352,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		await GetSidebarDropController(browser).DropAsync(args.RawEvent, new(reference, false));
 	}
 
-	private WinUiShellDropTargetController GetSidebarDropController(FolderBrowserViewModel browser)
+	private WinUIShellDropTargetController GetSidebarDropController(FolderBrowserViewModel browser)
 	{
 		if (ReferenceEquals(_sidebarDropBrowser, browser) && _sidebarDropController is not null)
 		{

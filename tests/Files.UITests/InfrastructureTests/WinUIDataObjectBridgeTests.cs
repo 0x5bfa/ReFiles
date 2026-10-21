@@ -19,7 +19,7 @@ namespace Files.UITests;
 /// </summary>
 [TestClass]
 [DoNotParallelize]
-public sealed class WinUiDataObjectBridgeTests
+public sealed class WinUIDataObjectBridgeTests
 {
 	private const string ExpectedContent = "WinUI Shell bridge content";
 	private const string PreferredDropEffectFormat = "Preferred DropEffect";
@@ -29,9 +29,9 @@ public sealed class WinUiDataObjectBridgeTests
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[UITestMethod]
-	public async Task NativeShellDataObjectRoundTripsThroughWinUiDataPackage()
+	public async Task NativeShellDataObjectRoundTripsThroughWinUIDataPackage()
 	{
-		var rootPath = Path.Combine(Path.GetTempPath(), $"Files.WinUiDataObjectBridgeTests-{Guid.NewGuid():N}");
+		var rootPath = Path.Combine(Path.GetTempPath(), $"Files.WinUIDataObjectBridgeTests-{Guid.NewGuid():N}");
 		var sourceFolderPath = Path.Combine(rootPath, "source");
 		var destinationFolderPath = Path.Combine(rootPath, "destination");
 		var sourceFilePath = Path.Combine(sourceFolderPath, "source.txt");
@@ -51,15 +51,15 @@ public sealed class WinUiDataObjectBridgeTests
 			var dragSource = await source.DragDrop.PrepareDragSourceAsync([sourceReference]);
 			var dropTarget = await source.DragDrop.PrepareDropTargetAsync(destinationReference, background: true);
 			var dataPackage = new DataPackage();
-			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, dataPackage, 0, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, dataPackage, 0, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
 
 			Assert.IsTrue(allowedOperations.HasFlag(DataPackageOperation.Copy));
 			Assert.AreEqual(DataPackageOperation.Link, dataPackage.RequestedOperation);
 			Assert.IsTrue(dataPackage.GetView().Contains(StandardDataFormats.StorageItems), "The bridged drag package was not projected as StorageItems.");
 			var defaultDataPackage = new DataPackage();
-			WinUiDataObjectBridge.Attach(dragSource, defaultDataPackage, 0, WindowsShellDropEffects.None, deriveMoveFromDelete: false);
+			WinUIDataObjectBridge.Attach(dragSource, defaultDataPackage, 0, WindowsShellDropEffects.None, deriveMoveFromDelete: false);
 			Assert.AreEqual(DataPackageOperation.None, defaultDataPackage.RequestedOperation);
-			var dataObject = WinUiDataObjectBridge.GetDataObject(dataPackage.GetView());
+			var dataObject = WinUIDataObjectBridge.GetDataObject(dataPackage.GetView());
 			Assert.IsTrue(TryGetDword(dataObject, PreferredDropEffectFormat, out var preferredEffect));
 			Assert.AreEqual((uint)WindowsShellDropEffects.Link, preferredEffect);
 			Assert.IsTrue(TryGetFormat(dataObject, 15, TYMED.TYMED_HGLOBAL), "The bridged data object did not expose CF_HDROP.");

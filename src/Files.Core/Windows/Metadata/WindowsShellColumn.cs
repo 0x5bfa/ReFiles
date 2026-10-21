@@ -41,7 +41,7 @@ public sealed record WindowsShellColumn
 	public bool IsExtended { get; }
 
 	/// <summary>Gets a value indicating whether the column is intended for secondary property UI.</summary>
-	public bool IsSecondaryUi { get; }
+	public bool IsSecondaryUI { get; }
 
 	/// <summary>Gets a value indicating whether grouping is supported for the column.</summary>
 	public bool CanGroup { get; }
@@ -62,7 +62,7 @@ public sealed record WindowsShellColumn
 	/// <param name="isHidden">Whether the Shell marks the column as hidden.</param>
 	/// <param name="isSlow">Whether retrieving values can be slow.</param>
 	/// <param name="isExtended">Whether a property handler supplies the column.</param>
-	/// <param name="isSecondaryUi">Whether the column is intended for secondary property UI.</param>
+	/// <param name="isSecondaryUI">Whether the column is intended for secondary property UI.</param>
 	/// <param name="canGroup">Whether grouping is supported.</param>
 	/// <param name="isFixedWidth">Whether the Shell fixes the column width.</param>
 	/// <param name="preferVariantCompare">Whether variant comparison is preferred for sorting.</param>
@@ -77,7 +77,7 @@ public sealed record WindowsShellColumn
 		bool isHidden,
 		bool isSlow,
 		bool isExtended,
-		bool isSecondaryUi,
+		bool isSecondaryUI,
 		bool canGroup,
 		bool isFixedWidth,
 		bool preferVariantCompare,
@@ -101,7 +101,7 @@ public sealed record WindowsShellColumn
 		IsHidden = isHidden;
 		IsSlow = isSlow;
 		IsExtended = isExtended;
-		IsSecondaryUi = isSecondaryUi;
+		IsSecondaryUI = isSecondaryUI;
 		CanGroup = canGroup;
 		IsFixedWidth = isFixedWidth;
 		PreferVariantCompare = preferVariantCompare;

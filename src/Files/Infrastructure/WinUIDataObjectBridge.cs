@@ -11,7 +11,7 @@ using WinRT;
 
 namespace Files.Infrastructure;
 
-internal static class WinUiDataObjectBridge
+internal static class WinUIDataObjectBridge
 {
 	internal static DataPackageOperation Attach(WindowsShellDragSource dragSource, DataPackage dataPackage, nint ownerWindowHandle,
 		WindowsShellDropEffects preferredEffect = WindowsShellDropEffects.None, bool deriveMoveFromDelete = true)
@@ -21,7 +21,7 @@ internal static class WinUiDataObjectBridge
 		ArgumentNullException.ThrowIfNull(dataPackage);
 
 		var effects = dragSource.Attach(GetProvider(dataPackage), ownerWindowHandle, preferredEffect, deriveMoveFromDelete);
-		UiDiagnosticLog.Write("ShellDragSource", $"Attach allowed={effects} preferred={preferredEffect}");
+		UIDiagnosticLog.Write("ShellDragSource", $"Attach allowed={effects} preferred={preferredEffect}");
 
 		return ToDataPackageOperation(effects);
 	}

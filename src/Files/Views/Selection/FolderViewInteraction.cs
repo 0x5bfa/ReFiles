@@ -199,7 +199,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 	private bool _viewportUpdateQueued;
 	private bool _isDisposed;
 	private CancellationTokenSource? _dragSourceCancellation;
-	private WinUiShellDropTargetController? _dropTargetController;
+	private WinUIShellDropTargetController? _dropTargetController;
 	private ItemContextMenu? _contextMenu;
 	private long _dragSourceGeneration;
 	private bool _originalAllowDrop;
@@ -216,7 +216,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		_element = listView;
 		_selectedItems = listView.SelectedItems;
 		_viewModel = viewModel;
-		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
+		UIDiagnosticLog.Write("FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
 
 		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
@@ -246,7 +246,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		_itemsControl = rowsHost.Element as ListViewBase;
 		_selectedItems = selectionHost.SelectedItems;
 		_viewModel = viewModel;
-		UiDiagnosticLog.Write("FolderViewInteraction", $"created control={rowsHost.Element.GetType().Name} items={viewModel.Items.Count}");
+		UIDiagnosticLog.Write("FolderViewInteraction", $"created control={rowsHost.Element.GetType().Name} items={viewModel.Items.Count}");
 
 		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
@@ -308,7 +308,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		_selectAllAccelerator.Invoked -= SelectAllAccelerator_Invoked;
 		_element.KeyboardAccelerators.Remove(_selectAllAccelerator);
 		_realizedIndices.Clear();
-		UiDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
+		UIDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
 	}
 
 	private void InitializeDragDrop()
@@ -320,7 +320,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		_element.DragOver += Element_DragOver;
 		_element.DragLeave += Element_DragLeave;
 		_element.Drop += Element_Drop;
-		_dropTargetController = new WinUiShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.OwnerWindowHandle);
+		_dropTargetController = new WinUIShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.OwnerWindowHandle);
 
 		if (_itemsControl is null)
 		{
@@ -439,7 +439,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 				return;
 			}
 
-			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, args.Data, _viewModel.OwnerWindowHandle);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.Data, _viewModel.OwnerWindowHandle);
 			args.AllowedOperations = allowedOperations;
 			args.Cancel = allowedOperations is DataPackageOperation.None;
 		}
@@ -533,13 +533,13 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		await _dropTargetController.DropAsync(e, target, fallback);
 	}
 
-	private bool TryGetDropTargetLocations(DragEventArgs args, out WinUiShellDropTargetLocation target, out WinUiShellDropTargetLocation? fallback)
+	private bool TryGetDropTargetLocations(DragEventArgs args, out WinUIShellDropTargetLocation target, out WinUIShellDropTargetLocation? fallback)
 	{
 		var item = args.OriginalSource is DependencyObject source ? FindInvokedListItem(source) : null;
-		var background = _viewModel.Location is FolderLocation folderLocation ? new WinUiShellDropTargetLocation(folderLocation.Folder, true) : null;
+		var background = _viewModel.Location is FolderLocation folderLocation ? new WinUIShellDropTargetLocation(folderLocation.Folder, true) : null;
 		if (item is not null)
 		{
-			target = new WinUiShellDropTargetLocation(item.Reference, false);
+			target = new WinUIShellDropTargetLocation(item.Reference, false);
 			fallback = background;
 
 			return true;
@@ -708,13 +708,13 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		var eventCount = Interlocked.Increment(ref _containerContentChangeCount);
 		if (eventCount <= 10 || eventCount % 100 is 0)
 		{
-			UiDiagnosticLog.Write("FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={index} recycled={inRecycleQueue} realizedBefore={_realizedIndices.Count}");
+			UIDiagnosticLog.Write("FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={index} recycled={inRecycleQueue} realizedBefore={_realizedIndices.Count}");
 		}
 
 		if (!_firstContainerLogged && !inRecycleQueue)
 		{
 			_firstContainerLogged = true;
-			UiDiagnosticLog.Write("FolderViewInteraction", $"First container realized index={index}");
+			UIDiagnosticLog.Write("FolderViewInteraction", $"First container realized index={index}");
 		}
 
 		if (inRecycleQueue)
@@ -752,7 +752,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		}
 
 		var updateCount = Interlocked.Increment(ref _viewportUpdateCount);
-		UiDiagnosticLog.Write("FolderViewInteraction", $"UpdateViewport count={updateCount} realized={_realizedIndices.Count} items={_viewModel.Items.Count}");
+		UIDiagnosticLog.Write("FolderViewInteraction", $"UpdateViewport count={updateCount} realized={_realizedIndices.Count} items={_viewModel.Items.Count}");
 
 		if (_realizedIndices.Count is 0)
 		{
@@ -767,7 +767,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		if (!_firstViewportLogged && _viewModel.Items.Count is not 0)
 		{
 			_firstViewportLogged = true;
-			UiDiagnosticLog.Write("FolderViewInteraction", $"First viewport populated first={firstIndex} count={lastIndex - firstIndex + 1}");
+			UIDiagnosticLog.Write("FolderViewInteraction", $"First viewport populated first={firstIndex} count={lastIndex - firstIndex + 1}");
 		}
 	}
 

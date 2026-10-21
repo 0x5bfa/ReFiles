@@ -279,7 +279,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		EnsureActive();
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("RootViewModel", "Initialize START");
+		UIDiagnosticLog.Write("RootViewModel", "Initialize START");
 
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -296,12 +296,12 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			{
 				var folderStartTimestamp = Stopwatch.GetTimestamp();
 				await pane.FolderBrowser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
-				UiDiagnosticLog.Write("RootViewModel", $"Folder initialization END elapsedMs={Stopwatch.GetElapsedTime(folderStartTimestamp).TotalMilliseconds:F1}");
+				UIDiagnosticLog.Write("RootViewModel", $"Folder initialization END elapsedMs={Stopwatch.GetElapsedTime(folderStartTimestamp).TotalMilliseconds:F1}");
 			}
 		}
 		finally
 		{
-			UiDiagnosticLog.Write("RootViewModel", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			UIDiagnosticLog.Write("RootViewModel", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		}
 	}
 
@@ -654,16 +654,16 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	private async Task<bool> LoadNavigationItemsAsync(CancellationToken cancellationToken)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("RootViewModel", "LoadNavigationItems START");
+		UIDiagnosticLog.Write("RootViewModel", "LoadNavigationItems START");
 		try
 		{
 			await foreach (var section in _navigationItemLoader.LoadSectionsAsync(cancellationToken).ConfigureAwait(false))
 			{
-				await ApplyNavigationSectionOnUiAsync(section).ConfigureAwait(false);
-				UiDiagnosticLog.Write("RootViewModel", $"Navigation section applied order={section.Order} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				await ApplyNavigationSectionOnUIAsync(section).ConfigureAwait(false);
+				UIDiagnosticLog.Write("RootViewModel", $"Navigation section applied order={section.Order} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			}
 
-			UiDiagnosticLog.Write("RootViewModel", $"LoadNavigationItems END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			UIDiagnosticLog.Write("RootViewModel", $"LoadNavigationItems END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 			return true;
 		}
@@ -674,7 +674,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write(
+			UIDiagnosticLog.Write(
 				"RootViewModel",
 				$"LoadNavigationItems ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			ReportNavigationLoadError(exception);
@@ -701,7 +701,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private Task ApplyNavigationSectionOnUiAsync(NavigationSectionData section)
+	private Task ApplyNavigationSectionOnUIAsync(NavigationSectionData section)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{
@@ -766,13 +766,13 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		NavigationItems.Insert(insertIndex, sectionViewModel);
 		_navigationSectionViewModels.Add(section.Order, sectionViewModel);
-		UiDiagnosticLog.Write("RootViewModel", $"ApplyNavigationSection order={section.Order} items={section.Items.Count} navigationItems={NavigationItems.Count}");
+		UIDiagnosticLog.Write("RootViewModel", $"ApplyNavigationSection order={section.Order} items={section.Items.Count} navigationItems={NavigationItems.Count}");
 	}
 
 	private async Task LoadNavigationThumbnailAsync(NavigationItemData item, NavigationItemViewModel viewModel, CancellationToken cancellationToken)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail START name={item.Name}");
+		UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail START name={item.Name}");
 		try
 		{
 			await _navigationThumbnailGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -785,8 +785,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 					return;
 				}
 
-				await SetNavigationThumbnailOnUiAsync(viewModel, thumbnail).ConfigureAwait(false);
-				UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail END name={item.Name} bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				await SetNavigationThumbnailOnUIAsync(viewModel, thumbnail).ConfigureAwait(false);
+				UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail END name={item.Name} bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			}
 			finally
 			{
@@ -798,12 +798,12 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail ERROR name={item.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail ERROR name={item.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			// Shell thumbnail loading is best effort.
 		}
 	}
 
-	private Task SetNavigationThumbnailOnUiAsync(NavigationItemViewModel viewModel, ThumbnailResult thumbnail)
+	private Task SetNavigationThumbnailOnUIAsync(NavigationItemViewModel viewModel, ThumbnailResult thumbnail)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{
@@ -835,7 +835,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
 		viewModel.SetThumbnail(await ThumbnailImageFactory.CreateAsync(thumbnail).ConfigureAwait(true));
-		UiDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail decode END bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail decode END bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private void ReportNavigationLoadError(Exception exception)

@@ -46,11 +46,11 @@ internal sealed class NavigationItemLoader
 	public async IAsyncEnumerable<NavigationSectionData> LoadSectionsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("NavigationItemLoader", "LoadSections START");
+		UIDiagnosticLog.Write("NavigationItemLoader", "LoadSections START");
 		var windowsSource = _workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
 		if (windowsSource is null)
 		{
-			UiDiagnosticLog.Write("NavigationItemLoader", "LoadSections END no Windows source");
+			UIDiagnosticLog.Write("NavigationItemLoader", "LoadSections END no Windows source");
 
 			yield break;
 		}
@@ -70,20 +70,20 @@ internal sealed class NavigationItemLoader
 
 			if (await completed.ConfigureAwait(false) is { } section)
 			{
-				UiDiagnosticLog.Write(
+				UIDiagnosticLog.Write(
 					"NavigationItemLoader",
 					$"LoadSections yielded order={section.Order} name={section.Name} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 				yield return section;
 			}
 		}
 
-		UiDiagnosticLog.Write("NavigationItemLoader", $"LoadSections END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		UIDiagnosticLog.Write("NavigationItemLoader", $"LoadSections END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 	}
 
 	public async ValueTask<ThumbnailResult?> LoadThumbnailAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail START id={reference.ItemId}");
+		UIDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail START id={reference.ItemId}");
 		var model = await _workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 		try
 		{
@@ -93,7 +93,7 @@ internal sealed class NavigationItemLoader
 			}
 
 			var result = await source.GetThumbnailAsync(new ThumbnailRequest(ThumbnailSize, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
-			UiDiagnosticLog.Write(
+			UIDiagnosticLog.Write(
 				"NavigationItemLoader",
 				$"LoadThumbnail END id={reference.ItemId} bytes={result?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -105,7 +105,7 @@ internal sealed class NavigationItemLoader
 		}
 		catch (Exception)
 		{
-			UiDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail ERROR id={reference.ItemId} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			UIDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail ERROR id={reference.ItemId} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			return null;
 		}
 		finally
@@ -124,14 +124,14 @@ internal sealed class NavigationItemLoader
 		CancellationToken cancellationToken)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("NavigationItemLoader", $"Section START order={order} name={name} parsingName={parsingName}");
+		UIDiagnosticLog.Write("NavigationItemLoader", $"Section START order={order} name={name} parsingName={parsingName}");
 		try
 		{
 			var model = await _workspace.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
 			if (model is not IFolderModel folder)
 			{
 				await model.DisposeAsync().ConfigureAwait(false);
-				UiDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} notFolder elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				UIDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} notFolder elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 				return null;
 			}
@@ -175,7 +175,7 @@ internal sealed class NavigationItemLoader
 					pendingItems.Clear();
 				}
 
-				UiDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} items={children.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				UIDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} items={children.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 				return new NavigationSectionData(order, sectionType, name, folder.Reference, children);
 			}
@@ -202,7 +202,7 @@ internal sealed class NavigationItemLoader
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write(
+			UIDiagnosticLog.Write(
 				"NavigationItemLoader",
 				$"Section ERROR order={order} type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -261,7 +261,7 @@ internal sealed class NavigationItemLoader
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("NavigationItemLoader", $"Cloud roots ERROR type={exception.GetType().Name} message={exception.Message}");
+			UIDiagnosticLog.Write("NavigationItemLoader", $"Cloud roots ERROR type={exception.GetType().Name} message={exception.Message}");
 
 			return null;
 		}

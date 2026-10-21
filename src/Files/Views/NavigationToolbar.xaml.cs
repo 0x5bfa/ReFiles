@@ -31,7 +31,7 @@ public sealed partial class NavigationToolbar : UserControl
 	private CancellationTokenSource? _breadcrumbFlyoutCancellation;
 	private readonly SearchTextDebouncer _searchTextDebouncer;
 	private CancellationTokenSource? _dragSourceCancellation;
-	private WinUiShellDropTargetController? _dropController;
+	private WinUIShellDropTargetController? _dropController;
 	private FolderBrowserViewModel? _dropBrowser;
 	private long _dragSourceGeneration;
 	private int _isDisposed;
@@ -204,7 +204,7 @@ public sealed partial class NavigationToolbar : UserControl
 		}
 		catch (Exception error)
 		{
-			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb child enumeration failed: {error.Message}");
+			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb child enumeration failed: {error.Message}");
 			if (ReferenceEquals(_breadcrumbFlyoutCancellation, cancellation))
 			{
 				args.Flyout.Items.Clear();
@@ -246,7 +246,7 @@ public sealed partial class NavigationToolbar : UserControl
 				return;
 			}
 
-			var allowedOperations = WinUiDataObjectBridge.Attach(dragSource, args.Data, browser.OwnerWindowHandle, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.Data, browser.OwnerWindowHandle, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
 			args.AllowedOperations = allowedOperations;
 			args.Cancel = allowedOperations is DataPackageOperation.None;
 		}
@@ -382,7 +382,7 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private void CancelPendingSearchTextChange() => _searchTextDebouncer.Cancel();
 
-	private WinUiShellDropTargetController GetDropController(FolderBrowserViewModel browser)
+	private WinUIShellDropTargetController GetDropController(FolderBrowserViewModel browser)
 	{
 		if (ReferenceEquals(_dropBrowser, browser) && _dropController is not null)
 		{
@@ -429,7 +429,7 @@ public sealed partial class NavigationToolbar : UserControl
 		}
 		catch (Exception error)
 		{
-			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail decode failed: {error.GetType().Name}");
+			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail decode failed: {error.GetType().Name}");
 
 			return new FontIcon { Glyph = FolderIconGlyph };
 		}

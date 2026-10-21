@@ -5,7 +5,7 @@ using System.Diagnostics;
 
 namespace Files.Infrastructure;
 
-internal static class UiDiagnosticLog
+internal static class UIDiagnosticLog
 {
 	private static readonly bool _isEnabled = string.Equals(Environment.GetEnvironmentVariable("FILES_DIAGNOSTIC_LOG"), "1", StringComparison.Ordinal);
 

@@ -51,7 +51,7 @@ public sealed class BrowsePerformanceTests
 	private const int VirtualizationSafetyLimit = 200;
 	private static readonly TimeSpan FirstContentTimeout = TimeSpan.FromSeconds(15);
 	private static readonly TimeSpan NavigationTimeout = TimeSpan.FromSeconds(60);
-	private static readonly TimeSpan StressUiTimeout = TimeSpan.FromSeconds(30);
+	private static readonly TimeSpan StressUITimeout = TimeSpan.FromSeconds(30);
 
 	public TestContext TestContext { get; set; } = null!;
 
@@ -139,7 +139,7 @@ public sealed class BrowsePerformanceTests
 					await secondaryEnvironment.Folder.SetViewModeAsync(viewMode);
 					await primaryEnvironment.Folder.SetItemSizeAsync(1 + ((iteration + (int)viewMode) % 5));
 					await secondaryEnvironment.Folder.SetItemSizeAsync(1 + ((iteration + (int)viewMode + 2) % 5));
-					await WaitForUiIdleAsync(StressUiTimeout);
+					await WaitForUIIdleAsync(StressUITimeout);
 					var primaryList = await WaitForDescendantAsync<ListViewBase>(primaryBrowser);
 					var secondaryList = await WaitForDescendantAsync<ListViewBase>(secondaryBrowser);
 					var selectionMode = (RectangleSelectionMode)((iteration + (int)viewMode) % 3);
@@ -156,7 +156,7 @@ public sealed class BrowsePerformanceTests
 					secondaryList.ScrollIntoView(secondaryEnvironment.Folder.Items[random.Next(secondaryEnvironment.Folder.Items.Count)]);
 					await primaryEnvironment.Folder.SetSortAsync("System.ItemNameDisplay", iteration % 2 is 0 ? ViewSortDirection.Ascending : ViewSortDirection.Descending);
 					await secondaryEnvironment.Folder.SetGroupingAsync(viewMode is FolderViewMode.Cards ? "System.ItemTypeText" : null, ViewSortDirection.Ascending);
-					await WaitForUiIdleAsync(StressUiTimeout);
+					await WaitForUIIdleAsync(StressUITimeout);
 					WriteStressProgress(iteration, $"completed {viewMode}");
 				}
 
@@ -236,7 +236,7 @@ public sealed class BrowsePerformanceTests
 
 		await using var coreWindow = new WindowSession(paneFactory);
 		await using var workspace = new PerformanceStorageWorkspace();
-		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
+		var dispatcher = new MeasuringUIDispatcher(UnitTestApp.TestDispatcherQueue);
 		var storageOperations = new NoOpStorageOperationService();
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
@@ -304,7 +304,7 @@ public sealed class BrowsePerformanceTests
 	private static async Task<IReadOnlyList<BrowsePerformanceResult>> RunRealFolderScenarioAsync(string folderPath, int iterations)
 	{
 		await using var runtime = new FilesCoreBuilder().AddWindowsStorage().Build();
-		var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
+		var dispatcher = new MeasuringUIDispatcher(UnitTestApp.TestDispatcherQueue);
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync();
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
@@ -319,7 +319,7 @@ public sealed class BrowsePerformanceTests
 
 		var detailsView = new DetailsFolderView { ViewModel = folder };
 		using var host = await PerformanceWindowHost.ShowAsync(detailsView);
-		await WaitForUiIdleAsync();
+		await WaitForUIIdleAsync();
 
 		var results = new List<BrowsePerformanceResult>(iterations);
 		for (var iteration = 0; iteration < iterations; iteration++)
@@ -482,7 +482,7 @@ public sealed class BrowsePerformanceTests
 				return descendant;
 			}
 
-			await WaitForUiIdleAsync(StressUiTimeout);
+			await WaitForUIIdleAsync(StressUITimeout);
 		}
 
 		throw new AssertFailedException($"A loaded {typeof(T).Name} descendant was not found before the timeout.");
@@ -499,7 +499,7 @@ public sealed class BrowsePerformanceTests
 				return;
 			}
 
-			await WaitForUiIdleAsync(StressUiTimeout);
+			await WaitForUIIdleAsync(StressUITimeout);
 		}
 
 		Assert.Fail($"Expected {expectedKeys.Count} selected browse items, but observed {folder.SelectedKeys.Count}.");
@@ -540,11 +540,11 @@ public sealed class BrowsePerformanceTests
 				Assert.Fail($"Expected {expectedCount} presented items, but observed {folder.Items.Count} before the timeout.");
 			}
 
-			await WaitForUiIdleAsync(StressUiTimeout);
+			await WaitForUIIdleAsync(StressUITimeout);
 		}
 	}
 
-	private static async Task WaitForUiIdleAsync(TimeSpan? timeout = null)
+	private static async Task WaitForUIIdleAsync(TimeSpan? timeout = null)
 	{
 		var idle = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 		if (!UnitTestApp.TestDispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => idle.TrySetResult(true)))
@@ -588,7 +588,7 @@ public sealed class BrowsePerformanceTests
 			try
 			{
 				await window.OpenTabAsync(HomeLocation.Instance);
-				var dispatcher = new MeasuringUiDispatcher(UnitTestApp.TestDispatcherQueue);
+				var dispatcher = new MeasuringUIDispatcher(UnitTestApp.TestDispatcherQueue);
 				var appSettings = new AppSettingsService(new AppSettingsData());
 				var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 				root = new RootViewModel(window, presentationFactory);
@@ -768,14 +768,14 @@ public sealed class BrowsePerformanceTests
 					Assert.Fail($"Initial presentation timed out: target={targets.Length}, properties={propertyCount}, thumbnails={thumbnailCount}.");
 				}
 
-				await WaitForUiIdleAsync(timeout);
+				await WaitForUIIdleAsync(timeout);
 			}
 		}
 
 		public BrowsePerformanceResult CreateResult(
 			string scenario,
 			DispatcherLatencyProbe dispatcherProbe,
-			MeasuringUiDispatcher dispatcher,
+			MeasuringUIDispatcher dispatcher,
 			string? path,
 			string cacheState,
 			bool propertiesEnabled,
@@ -805,8 +805,8 @@ public sealed class BrowsePerformanceTests
 				FallbackThumbnailPublicationCount = Volatile.Read(ref _fallbackThumbnailPublicationCount),
 				RepeatedFallbackThumbnailPublicationCount = RepeatedFallbackThumbnailPublicationCount,
 				ContentThumbnailPublicationCount = ContentThumbnailPublicationCount,
-				MaximumUiLatencyMs = dispatcherProbe.MaximumLatency.TotalMilliseconds,
-				P95UiLatencyMs = dispatcherProbe.P95Latency.TotalMilliseconds,
+				MaximumUILatencyMs = dispatcherProbe.MaximumLatency.TotalMilliseconds,
+				P95UILatencyMs = dispatcherProbe.P95Latency.TotalMilliseconds,
 				StallsOver16Ms = dispatcherProbe.CountOver(TimeSpan.FromMilliseconds(16)),
 				StallsOver50Ms = dispatcherProbe.CountOver(TimeSpan.FromMilliseconds(50)),
 				StallsOver100Ms = dispatcherProbe.CountOver(TimeSpan.FromMilliseconds(100)),
@@ -991,7 +991,7 @@ public sealed class BrowsePerformanceTests
 			var stableSampleCount = 0;
 			while (stableSampleCount < 2)
 			{
-				await WaitForUiIdleAsync(timeout);
+				await WaitForUIIdleAsync(timeout);
 				await Task.Delay(16);
 				var currentCount = _tableDiagnostics.RealizedRowCount;
 				stableSampleCount = currentCount > 0 && currentCount == previousCount ? stableSampleCount + 1 : 0;
@@ -1012,7 +1012,7 @@ public sealed class BrowsePerformanceTests
 		}
 	}
 
-	private sealed class MeasuringUiDispatcher : IUIDispatcher
+	private sealed class MeasuringUIDispatcher : IUIDispatcher
 	{
 		private readonly DispatcherQueue _dispatcherQueue;
 		private int _enqueueCount;
@@ -1020,7 +1020,7 @@ public sealed class BrowsePerformanceTests
 		public bool HasThreadAccess => _dispatcherQueue.HasThreadAccess;
 		public int EnqueueCount => Volatile.Read(ref _enqueueCount);
 
-		public MeasuringUiDispatcher(DispatcherQueue dispatcherQueue)
+		public MeasuringUIDispatcher(DispatcherQueue dispatcherQueue)
 		{
 			_dispatcherQueue = dispatcherQueue ?? throw new ArgumentNullException(nameof(dispatcherQueue));
 		}
@@ -1092,7 +1092,7 @@ public sealed class BrowsePerformanceTests
 				}
 			}
 
-			await WaitForUiIdleAsync();
+			await WaitForUIIdleAsync();
 		}
 
 		public async ValueTask DisposeAsync()
@@ -1151,7 +1151,7 @@ public sealed class BrowsePerformanceTests
 				content.Loaded -= Content_Loaded;
 			}
 
-			await WaitForUiIdleAsync();
+			await WaitForUIIdleAsync();
 
 			return new PerformanceWindowHost(window, content);
 		}
@@ -1168,7 +1168,7 @@ public sealed class BrowsePerformanceTests
 			_window.Content = null;
 			await unloaded;
 			_window.Close();
-			await WaitForUiIdleAsync(StressUiTimeout);
+			await WaitForUIIdleAsync(StressUITimeout);
 		}
 
 		public void Dispose()
@@ -1323,8 +1323,8 @@ public sealed class BrowsePerformanceTests
 		public int FallbackThumbnailPublicationCount { get; init; }
 		public int RepeatedFallbackThumbnailPublicationCount { get; init; }
 		public int ContentThumbnailPublicationCount { get; init; }
-		public double MaximumUiLatencyMs { get; init; }
-		public double P95UiLatencyMs { get; init; }
+		public double MaximumUILatencyMs { get; init; }
+		public double P95UILatencyMs { get; init; }
 		public int StallsOver16Ms { get; init; }
 		public int StallsOver50Ms { get; init; }
 		public int StallsOver100Ms { get; init; }

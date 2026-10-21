@@ -58,14 +58,14 @@ public partial class App : Application
 	private async Task LaunchAsync()
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UiDiagnosticLog.Write("App", "Launch START");
+		UIDiagnosticLog.Write("App", "Launch START");
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
 		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore).AddWindowsStorage(_windowsStorageSource).Build();
 		_runtime = currentRuntime;
-		UiDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		UIDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 		await CreateWindowAsync(persistPlacement: true).ConfigureAwait(true);
-		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		UIDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		try
 		{
 			await _operationsServerSession.ConfigureAwait(true);
@@ -84,7 +84,7 @@ public partial class App : Application
 		}
 
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync().ConfigureAwait(true);
-		UiDiagnosticLog.Write("App", "Core window created");
+		UIDiagnosticLog.Write("App", "Core window created");
 		if (coreWindow.ActiveTab?.ActivePane is null)
 		{
 			await runtime.ShellSession.CloseWindowAsync(coreWindow.Id).ConfigureAwait(true);

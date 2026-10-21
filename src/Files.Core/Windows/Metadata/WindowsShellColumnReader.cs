@@ -230,7 +230,7 @@ internal static unsafe class WindowsShellColumnReader
 				legacyColumn?.IsHidden is true,
 				legacyColumn?.IsSlow is true,
 				legacyColumn?.IsExtended is true,
-				legacyColumn?.IsSecondaryUi is true,
+				legacyColumn?.IsSecondaryUI is true,
 				legacyColumn?.CanGroup is not false,
 				hr.Succeeded ? HasColumnState(columnInfo.dwState, CM_STATE.CM_STATE_FIXEDWIDTH) : legacyColumn?.IsFixedWidth is true,
 				legacyColumn?.PreferVariantCompare is true,

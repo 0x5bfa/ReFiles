@@ -536,7 +536,7 @@ public sealed class BrowsePresentationPipelineTests
 	/// Verifies that one UI batch produces one bulk collection notification.
 	/// </summary>
 	[TestMethod]
-	public void BulkCollectionPublishesOneNotificationForOneUiBatch()
+	public void BulkCollectionPublishesOneNotificationForOneUIBatch()
 	{
 		var collection = new BulkObservableCollection<int>();
 		var collectionChangeCount = 0;

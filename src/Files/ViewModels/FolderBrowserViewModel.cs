@@ -429,7 +429,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			return;
 		}
 
-		UiDiagnosticLog.Write("FolderBrowserViewModel", "Paste falling back to native Shell paste.");
+		UIDiagnosticLog.Write("FolderBrowserViewModel", "Paste falling back to native Shell paste.");
 		if (!await _windowsSource.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
 			return;
@@ -592,14 +592,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			throw new ArgumentOutOfRangeException(nameof(mode));
 		}
 
-		await SetViewModeOnUiAsync(mode).ConfigureAwait(false);
+		await SetViewModeOnUIAsync(mode).ConfigureAwait(false);
 		try
 		{
 			await _browseAdapter.UpdateLayoutModeAsync(ToViewLayoutMode(mode), cancellationToken).ConfigureAwait(false);
 		}
 		catch
 		{
-			await SetViewModeOnUiAsync(ToFolderViewMode(_browseAdapter.LayoutMode)).ConfigureAwait(false);
+			await SetViewModeOnUIAsync(ToFolderViewMode(_browseAdapter.LayoutMode)).ConfigureAwait(false);
 			throw;
 		}
 	}
@@ -919,7 +919,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 		catch (Exception error)
 		{
-			UiDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail failed for '{model.Reference.ItemId}': {error.GetType().Name}");
+			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail failed for '{model.Reference.ItemId}': {error.GetType().Name}");
 
 			return null;
 		}
@@ -987,14 +987,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) && args.ItemChanges.Count is not 0)
 			{
 				var shouldReplaceItems = ShouldReplaceItems(args.ItemChanges, wasLoading, _browseAdapter.IsLoading);
-				UiDiagnosticLog.Write(
+				UIDiagnosticLog.Write(
 					"FolderBrowserViewModel",
 					$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}");
 				if (shouldReplaceItems)
 				{
 					var replaceStartTimestamp = Stopwatch.GetTimestamp();
 					Items.ReplaceAll(_browseAdapter.Items);
-					UiDiagnosticLog.Write("FolderBrowserViewModel", $"ReplaceAll completed items={Items.Count} elapsedMs={Stopwatch.GetElapsedTime(replaceStartTimestamp).TotalMilliseconds:F1}");
+					UIDiagnosticLog.Write("FolderBrowserViewModel", $"ReplaceAll completed items={Items.Count} elapsedMs={Stopwatch.GetElapsedTime(replaceStartTimestamp).TotalMilliseconds:F1}");
 				}
 				else if (CanApplyItemChanges(args.ItemChanges))
 				{
@@ -1094,7 +1094,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		finally
 		{
 			_isApplyingUpdate = false;
-			UiDiagnosticLog.Write(
+			UIDiagnosticLog.Write(
 				"FolderBrowserViewModel",
 				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
 		}
@@ -1240,7 +1240,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("FolderBrowserViewModel", $"Contextual commands ERROR type={exception.GetType().Name}");
+			UIDiagnosticLog.Write("FolderBrowserViewModel", $"Contextual commands ERROR type={exception.GetType().Name}");
 			await CompleteContextualCommandRefreshAsync(cancellation).ConfigureAwait(false);
 		}
 		finally
@@ -1481,7 +1481,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 		var move = data?.RequestedOperation.HasFlag(DataPackageOperation.Move) is true;
 		var itemNames = paths.Select(GetClipboardOperationItemName).ToArray();
-		UiDiagnosticLog.Write("FolderBrowserViewModel", $"Paste tracked kind={(move ? "Move" : "Copy")} items={itemNames.Length}");
+		UIDiagnosticLog.Write("FolderBrowserViewModel", $"Paste tracked kind={(move ? "Move" : "Copy")} items={itemNames.Length}");
 		await ExecuteTrackedStorageOperationBatchAsync(
 			move ? TrackedStorageOperationKind.Move : TrackedStorageOperationKind.Copy,
 			itemNames,
@@ -1712,14 +1712,14 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 				return;
 			}
 
-			await SetLocationIconOnUiAsync(result, generation, cancellation).ConfigureAwait(false);
+			await SetLocationIconOnUIAsync(result, generation, cancellation).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 		{
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("FolderBrowserViewModel", $"Location icon ERROR type={exception.GetType().Name}");
+			UIDiagnosticLog.Write("FolderBrowserViewModel", $"Location icon ERROR type={exception.GetType().Name}");
 		}
 		finally
 		{
@@ -1728,7 +1728,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		}
 	}
 
-	private Task SetLocationIconOnUiAsync(ThumbnailResult thumbnail, long generation, CancellationTokenSource cancellation)
+	private Task SetLocationIconOnUIAsync(ThumbnailResult thumbnail, long generation, CancellationTokenSource cancellation)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{
@@ -1923,7 +1923,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 						Items.InsertRange(firstAdded.Index, addedItems);
 					}
 
-					UiDiagnosticLog.Write("FolderBrowserViewModel", $"Applied range index={firstAdded.Index} count={addedItems.Count} append={firstAdded.Index == Items.Count - addedItems.Count}");
+					UIDiagnosticLog.Write("FolderBrowserViewModel", $"Applied range index={firstAdded.Index} count={addedItems.Count} append={firstAdded.Index == Items.Count - addedItems.Count}");
 					changeIndex = nextChangeIndex;
 
 					continue;
@@ -2053,7 +2053,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		};
 	}
 
-	private Task SetViewModeOnUiAsync(FolderViewMode mode)
+	private Task SetViewModeOnUIAsync(FolderViewMode mode)
 	{
 		if (_dispatcher.HasThreadAccess)
 		{

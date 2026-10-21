@@ -476,7 +476,7 @@ internal sealed class StorageOperationTracker : IDisposable
 			}
 			catch (Exception error)
 			{
-				UiDiagnosticLog.Write("StorageOperationTracker", $"Status observer failed: {error.GetType().Name}");
+				UIDiagnosticLog.Write("StorageOperationTracker", $"Status observer failed: {error.GetType().Name}");
 			}
 		}
 	}

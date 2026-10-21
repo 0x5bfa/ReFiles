@@ -12,24 +12,24 @@ using Windows.Win32.System.Com;
 
 namespace Files.Infrastructure;
 
-internal sealed record WinUiShellDropTargetLocation(StorableReference Reference, bool Background);
+internal sealed record WinUIShellDropTargetLocation(StorableReference Reference, bool Background);
 
-internal sealed class WinUiShellDropTargetController : IDisposable
+internal sealed class WinUIShellDropTargetController : IDisposable
 {
 	private readonly Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> _prepareDropTargetAsync;
 	private readonly nint _ownerWindowHandle;
 
 	private CancellationTokenSource? _transitionCancellation;
 	private Task? _transitionTask;
-	private WinUiShellDropTargetLocation? _target;
-	private WinUiShellDropTargetLocation? _fallback;
+	private WinUIShellDropTargetLocation? _target;
+	private WinUIShellDropTargetLocation? _fallback;
 	private WindowsShellDropSession? _session;
 	private WindowsShellDropEffects _acceptedEffect;
 	private long _eventGeneration;
 	private long _transitionGeneration;
 	private bool _isDisposed;
 
-	internal WinUiShellDropTargetController(Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> prepareDropTargetAsync, nint ownerWindowHandle)
+	internal WinUIShellDropTargetController(Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> prepareDropTargetAsync, nint ownerWindowHandle)
 	{
 		ArgumentNullException.ThrowIfNull(prepareDropTargetAsync);
 
@@ -37,17 +37,17 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		_ownerWindowHandle = ownerWindowHandle;
 	}
 
-	internal Task DragEnterAsync(DragEventArgs args, WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback = null)
+	internal Task DragEnterAsync(DragEventArgs args, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback = null)
 	{
 		return UpdateAsync(args, target, fallback, false);
 	}
 
-	internal Task DragOverAsync(DragEventArgs args, WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback = null)
+	internal Task DragOverAsync(DragEventArgs args, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback = null)
 	{
 		return UpdateAsync(args, target, fallback, true);
 	}
 
-	internal async Task DropAsync(DragEventArgs args, WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback = null)
+	internal async Task DropAsync(DragEventArgs args, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback = null)
 	{
 		ArgumentNullException.ThrowIfNull(args);
 
@@ -76,10 +76,10 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 			}
 
 			var effect = _session.Drop(dragState.Modifiers, dragState.ScreenPoint, dragState.AllowedEffects);
-			UiDiagnosticLog.Write("ShellDropTarget", $"Drop allowed={dragState.AllowedEffects} effect={effect}");
+			UIDiagnosticLog.Write("ShellDropTarget", $"Drop allowed={dragState.AllowedEffects} effect={effect}");
 			if (generation == _eventGeneration)
 			{
-				args.AcceptedOperation = WinUiDataObjectBridge.ToDataPackageOperation(effect);
+				args.AcceptedOperation = WinUIDataObjectBridge.ToDataPackageOperation(effect);
 			}
 		}
 		catch (OperationCanceledException)
@@ -87,7 +87,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("ShellDropTarget", $"Drop failed: {exception.Message}");
+			UIDiagnosticLog.Write("ShellDropTarget", $"Drop failed: {exception.Message}");
 		}
 		finally
 		{
@@ -119,7 +119,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		ResetTransferState();
 	}
 
-	private async Task UpdateAsync(DragEventArgs args, WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback, bool forwardDragOver)
+	private async Task UpdateAsync(DragEventArgs args, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, bool forwardDragOver)
 	{
 		ArgumentNullException.ThrowIfNull(args);
 
@@ -160,12 +160,12 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 			}
 			else
 			{
-				UiDiagnosticLog.Write("ShellDropTarget", $"DragEnter allowed={dragState.AllowedEffects} effect={effect}");
+				UIDiagnosticLog.Write("ShellDropTarget", $"DragEnter allowed={dragState.AllowedEffects} effect={effect}");
 			}
 
 			if (generation == _eventGeneration)
 			{
-				args.AcceptedOperation = WinUiDataObjectBridge.ToDataPackageOperation(effect);
+				args.AcceptedOperation = WinUIDataObjectBridge.ToDataPackageOperation(effect);
 			}
 		}
 		catch (OperationCanceledException)
@@ -173,7 +173,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("ShellDropTarget", $"Drag feedback failed: {exception.Message}");
+			UIDiagnosticLog.Write("ShellDropTarget", $"Drag feedback failed: {exception.Message}");
 			ResetTransferState();
 		}
 		finally
@@ -182,7 +182,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		}
 	}
 
-	private async Task<bool> EnsureSessionAsync(DataPackageView dataView, WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback, ShellDragState dragState)
+	private async Task<bool> EnsureSessionAsync(DataPackageView dataView, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, ShellDragState dragState)
 	{
 		if (_isDisposed)
 		{
@@ -205,11 +205,11 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 			IDataObject dataObject;
 			try
 			{
-				dataObject = WinUiDataObjectBridge.GetDataObject(dataView);
+				dataObject = WinUIDataObjectBridge.GetDataObject(dataView);
 			}
 			catch (Exception exception)
 			{
-				UiDiagnosticLog.Write("ShellDropTarget", $"Native data object unavailable: {exception.Message}");
+				UIDiagnosticLog.Write("ShellDropTarget", $"Native data object unavailable: {exception.Message}");
 
 				return false;
 			}
@@ -241,7 +241,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		return !_isDisposed && MatchesTransfer(target, fallback) && _session is not null;
 	}
 
-	private async Task PrepareSessionAsync(WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback, TransitionContext context)
+	private async Task PrepareSessionAsync(WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, TransitionContext context)
 	{
 		var enteredSession = await TryCreateEnteredSessionAsync(target, context);
 		if (enteredSession is null && fallback is not null && fallback != target)
@@ -265,7 +265,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		_acceptedEffect = enteredSession.AcceptedEffect;
 	}
 
-	private async Task<EnteredDropSession?> TryCreateEnteredSessionAsync(WinUiShellDropTargetLocation location, TransitionContext context)
+	private async Task<EnteredDropSession?> TryCreateEnteredSessionAsync(WinUIShellDropTargetLocation location, TransitionContext context)
 	{
 		WindowsShellDropTarget? dropTarget;
 		try
@@ -278,7 +278,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		}
 		catch (Exception exception)
 		{
-			UiDiagnosticLog.Write("ShellDropTarget", $"Target preparation failed: {exception.Message}");
+			UIDiagnosticLog.Write("ShellDropTarget", $"Target preparation failed: {exception.Message}");
 
 			return null;
 		}
@@ -308,7 +308,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		catch (Exception exception)
 		{
 			session?.Dispose();
-			UiDiagnosticLog.Write("ShellDropTarget", $"Target entry failed: {exception.Message}");
+			UIDiagnosticLog.Write("ShellDropTarget", $"Target entry failed: {exception.Message}");
 
 			return null;
 		}
@@ -319,7 +319,7 @@ internal sealed class WinUiShellDropTargetController : IDisposable
 		return !_isDisposed && !cancellationToken.IsCancellationRequested && generation == _transitionGeneration;
 	}
 
-	private bool MatchesTransfer(WinUiShellDropTargetLocation target, WinUiShellDropTargetLocation? fallback)
+	private bool MatchesTransfer(WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback)
 	{
 		return _target == target && _fallback == fallback;
 	}

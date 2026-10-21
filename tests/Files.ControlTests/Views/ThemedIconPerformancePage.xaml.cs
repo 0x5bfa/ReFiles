@@ -224,16 +224,16 @@ namespace Files.ControlTests.Views
 			{
 				var measurement = measurements[index];
 				var runSummary = $"Run {index + 1}: build {measurement.BuildMilliseconds:N1} ms, to Rendering frame 2 {measurement.DisplayMilliseconds:N1} ms, " +
-					$"UI managed {FormatBytes(measurement.UiThreadAllocatedBytes)}, process managed {FormatBytes(measurement.TotalAllocatedBytes)}";
+					$"UI managed {FormatBytes(measurement.UIThreadAllocatedBytes)}, process managed {FormatBytes(measurement.TotalAllocatedBytes)}";
 				lines.Add(runSummary);
 			}
 
 			var medianBuildMilliseconds = GetMedian(measurements.Select(static measurement => measurement.BuildMilliseconds));
 			var medianDisplayMilliseconds = GetMedian(measurements.Select(static measurement => measurement.DisplayMilliseconds));
-			var medianUiThreadAllocatedBytes = GetMedian(measurements.Select(static measurement => measurement.UiThreadAllocatedBytes));
+			var medianUIThreadAllocatedBytes = GetMedian(measurements.Select(static measurement => measurement.UIThreadAllocatedBytes));
 			var medianTotalAllocatedBytes = GetMedian(measurements.Select(static measurement => measurement.TotalAllocatedBytes));
 			var medianSummary = $"Median: build {medianBuildMilliseconds:N1} ms, to Rendering frame 2 {medianDisplayMilliseconds:N1} ms, " +
-				$"UI managed {FormatBytes(medianUiThreadAllocatedBytes)}, process managed {FormatBytes(medianTotalAllocatedBytes)}";
+				$"UI managed {FormatBytes(medianUIThreadAllocatedBytes)}, process managed {FormatBytes(medianTotalAllocatedBytes)}";
 			lines.Add(medianSummary);
 			lines.Add("Native Win2D/Composition allocations are not included in the managed allocation values.");
 
@@ -256,6 +256,6 @@ namespace Files.ControlTests.Views
 
 		private static string FormatBytes(long bytes) => $"{bytes / 1024d:N1} KiB";
 
-		private sealed record Measurement(double BuildMilliseconds, double DisplayMilliseconds, long UiThreadAllocatedBytes, long TotalAllocatedBytes);
+		private sealed record Measurement(double BuildMilliseconds, double DisplayMilliseconds, long UIThreadAllocatedBytes, long TotalAllocatedBytes);
 	}
 }

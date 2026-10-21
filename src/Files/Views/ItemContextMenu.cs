@@ -129,7 +129,7 @@ internal sealed class ItemContextMenu
 
 		try
 		{
-			await RunOnUiAsync(() =>
+			await RunOnUIAsync(() =>
 			{
 				if (_isClosed || cancellationToken.IsCancellationRequested || !target.IsLoaded || !Equals(_location, _viewModel.Location)
 					|| !_selection.Select(static item => item.Reference).SequenceEqual(_viewModel.SelectedItems.Select(static item => item.Reference)))
@@ -163,7 +163,7 @@ internal sealed class ItemContextMenu
 		{
 			try
 			{
-				await RunOnUiAsync(() =>
+				await RunOnUIAsync(() =>
 				{
 					Close();
 					_viewModel.ReportOperationError(exception);
@@ -292,13 +292,13 @@ internal sealed class ItemContextMenu
 				return;
 			}
 
-			var iconImage = await RunOnUiAsync(() => CreateShellImageAsync(iconData)).ConfigureAwait(false);
+			var iconImage = await RunOnUIAsync(() => CreateShellImageAsync(iconData)).ConfigureAwait(false);
 			if (_isClosed)
 			{
 				return;
 			}
 
-			await RunOnUiAsync(() =>
+			await RunOnUIAsync(() =>
 			{
 				if (!_isClosed)
 				{
@@ -341,11 +341,11 @@ internal sealed class ItemContextMenu
 		}
 		catch (Exception exception)
 		{
-			await RunOnUiAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
+			await RunOnUIAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
 		}
 	}
 
-	private Task RunOnUiAsync(Action action)
+	private Task RunOnUIAsync(Action action)
 	{
 		if (_viewModel.Dispatcher.HasThreadAccess)
 		{
@@ -374,7 +374,7 @@ internal sealed class ItemContextMenu
 		return completion.Task;
 	}
 
-	private Task<T> RunOnUiAsync<T>(Func<Task<T>> action)
+	private Task<T> RunOnUIAsync<T>(Func<Task<T>> action)
 	{
 		if (_viewModel.Dispatcher.HasThreadAccess)
 		{
@@ -415,11 +415,11 @@ internal sealed class ItemContextMenu
 				return;
 			}
 
-			await RunOnUiAsync(() => _viewModel.ShowShellContextMenu(target, _classicMenuPosition, _rasterizationScale)).ConfigureAwait(false);
+			await RunOnUIAsync(() => _viewModel.ShowShellContextMenu(target, _classicMenuPosition, _rasterizationScale)).ConfigureAwait(false);
 		}
 		catch (Exception exception)
 		{
-			await RunOnUiAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
+			await RunOnUIAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
 		}
 	}
 
@@ -469,7 +469,7 @@ internal sealed class ItemContextMenu
 		}
 		catch (Exception exception)
 		{
-			await RunOnUiAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
+			await RunOnUIAsync(() => _viewModel.ReportOperationError(exception)).ConfigureAwait(false);
 		}
 		finally
 		{
