@@ -12,8 +12,6 @@ using Windows.Win32.System.Com;
 
 namespace Files.Infrastructure;
 
-internal sealed record WinUIShellDropTargetLocation(StorableReference Reference, bool Background);
-
 internal sealed class WinUIShellDropTargetController : IDisposable
 {
 	private readonly Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> _prepareDropTargetAsync;
@@ -66,7 +64,7 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 		var dataView = args.DataView;
 		var modifiers = ToShellModifiers(args.Modifiers);
 		var allowedEffects = ToShellDropEffects(args.AllowedOperations);
-		var dragState = new ShellDragState(modifiers, screenPoint, allowedEffects);
+		var dragState = new WinUIShellDragState(modifiers, screenPoint, allowedEffects);
 		var deferral = args.GetDeferral();
 		try
 		{
@@ -143,7 +141,7 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 		var dataView = args.DataView;
 		var modifiers = ToShellModifiers(args.Modifiers);
 		var allowedEffects = ToShellDropEffects(args.AllowedOperations);
-		var dragState = new ShellDragState(modifiers, screenPoint, allowedEffects);
+		var dragState = new WinUIShellDragState(modifiers, screenPoint, allowedEffects);
 		var deferral = args.GetDeferral();
 		try
 		{
@@ -182,7 +180,7 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 		}
 	}
 
-	private async Task<bool> EnsureSessionAsync(DataPackageView dataView, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, ShellDragState dragState)
+	private async Task<bool> EnsureSessionAsync(DataPackageView dataView, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, WinUIShellDragState dragState)
 	{
 		if (_isDisposed)
 		{
@@ -219,7 +217,7 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 			_target = target;
 			_fallback = fallback;
 			_transitionCancellation = cancellation;
-			var context = new TransitionContext(dataObject, dragState, transitionGeneration, cancellation.Token);
+			var context = new WinUIShellDropTransition(dataObject, dragState, transitionGeneration, cancellation.Token);
 			transition = PrepareSessionAsync(target, fallback, context);
 			_transitionTask = transition;
 		}
@@ -241,7 +239,7 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 		return !_isDisposed && MatchesTransfer(target, fallback) && _session is not null;
 	}
 
-	private async Task PrepareSessionAsync(WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, TransitionContext context)
+	private async Task PrepareSessionAsync(WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback, WinUIShellDropTransition context)
 	{
 		var enteredSession = await TryCreateEnteredSessionAsync(target, context);
 		if (enteredSession is null && fallback is not null && fallback != target)
@@ -265,7 +263,7 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 		_acceptedEffect = enteredSession.AcceptedEffect;
 	}
 
-	private async Task<EnteredDropSession?> TryCreateEnteredSessionAsync(WinUIShellDropTargetLocation location, TransitionContext context)
+	private async Task<WinUIShellDropSession?> TryCreateEnteredSessionAsync(WinUIShellDropTargetLocation location, WinUIShellDropTransition context)
 	{
 		WindowsShellDropTarget? dropTarget;
 		try
@@ -397,9 +395,4 @@ internal sealed class WinUIShellDropTargetController : IDisposable
 		return result;
 	}
 
-	private readonly record struct ShellDragState(WindowsShellDragDropModifiers Modifiers, Point ScreenPoint, WindowsShellDropEffects AllowedEffects);
-
-	private sealed record EnteredDropSession(WindowsShellDropSession Session, WindowsShellDropEffects AcceptedEffect);
-
-	private sealed record TransitionContext(IDataObject DataObject, ShellDragState DragState, long Generation, CancellationToken CancellationToken);
 }

@@ -10,15 +10,6 @@ using Windows.Win32;
 
 namespace Files.ItemProperties;
 
-internal interface IItemPropertiesFileSystem
-{
-	ItemPropertiesFileSystemSelection Inspect(IReadOnlyList<ItemPropertiesFileSystemCandidate> candidates);
-
-	ItemPropertiesFileSystemMetadata ReadMetadata(IReadOnlyList<string> paths, CancellationToken cancellationToken);
-
-	void Apply(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken);
-}
-
 internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 {
 	private const uint DriveCdRom = 5;
@@ -378,19 +369,5 @@ internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 		return value.Value ? attributes | attribute : attributes & ~attribute;
 	}
 }
-
-internal sealed record ItemPropertiesFileSystemCandidate(string Path, bool IsFolder);
-
-internal sealed record ItemPropertiesFileSystemSelection(IReadOnlyList<string> Paths, bool HasFolders, bool IsSingleFile, bool IsSingleFolder, bool IsDrive, bool? IsReadOnly, bool? IsHidden,
-	bool? IsArchive, bool? IsIndexed, bool? IsCompressed, bool? IsEncrypted, WindowsFileAttributeCapabilities Capabilities);
-
-internal sealed record ItemPropertiesFileSystemMetadata(ulong Size, ulong SizeOnDisk, int FileCount, int FolderCount, bool HasDirectory, IReadOnlyList<DateTime> CreationTimes,
-	IReadOnlyList<DateTime> ModifiedTimes, IReadOnlyList<DateTime> AccessedTimes, ItemPropertiesDriveMetadata? Drive);
-
-internal sealed record ItemPropertiesDriveMetadata(string VolumeLabel, string FileSystem, ulong UsedSpace, ulong FreeSpace, ulong Capacity, bool IsCompressed, bool IsIndexed, bool SupportsCompression,
-	bool SupportsIndexing, bool CanRename, bool SupportsStorageDetails);
-
-internal sealed record ItemPropertiesFileSystemChanges(bool IsDrive, bool InitialIsDriveCompressed, bool InitialIsDriveIndexed, bool IsDriveCompressed, bool IsDriveIndexed,
-	bool? IsReadOnly, bool? IsHidden, bool? IsArchive, bool? IsIndexed, bool? IsCompressed, bool? IsEncrypted, bool UpdateCompression, bool UpdateEncryption, bool ApplyToContents);
 
 #pragma warning restore RS0030

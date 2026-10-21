@@ -838,5 +838,3 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 		_fileSystemPaths[0] = Path.Combine(parentPath, newName);
 	}
 }
-
-internal sealed record ItemPropertyDetail(string Name, string Value);
