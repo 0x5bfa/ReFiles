@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Transfers a specific pending decision and its supported responses.</summary>
 public struct OperationInterruptionData

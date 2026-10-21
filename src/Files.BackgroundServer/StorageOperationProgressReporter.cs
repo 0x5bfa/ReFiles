@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using Files.Core.Storage;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 internal sealed class StorageOperationProgressReporter(OperationExecutionContext context, int index, int count, string fallbackName) : IProgress<StorageOperationProgress>
 {

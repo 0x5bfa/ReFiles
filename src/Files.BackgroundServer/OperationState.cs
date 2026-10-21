@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Describes the acknowledged state of a server operation.</summary>
 public enum OperationState

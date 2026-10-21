@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Transfers one item of a complete storage operation batch.</summary>
 public struct StorageOperationData

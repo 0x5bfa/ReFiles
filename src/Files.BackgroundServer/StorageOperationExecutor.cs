@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Files.Core.Storage;
 using Files.Core.Windows;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 internal sealed class StorageOperationExecutor : IAsyncDisposable
 {

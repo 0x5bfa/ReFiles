@@ -15,9 +15,9 @@
 		<EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
 		<PublishAot>true</PublishAot>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
-		<OperationsServerProject>$(MSBuildProjectDirectory)\..\Files.Operations\Files.Operations.csproj</OperationsServerProject>
-		<OperationsServerWinmd>$(MSBuildProjectDirectory)\..\Files.Operations\bin\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\Files.Operations.winmd</OperationsServerWinmd>
-		<CsWinRTIncludes>Files.Operations;$(CsWinRTIncludes)</CsWinRTIncludes>
+		<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
+		<BackgroundServerWinmd>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\bin\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\Files.BackgroundServer.winmd</BackgroundServerWinmd>
+		<CsWinRTIncludes>Files.BackgroundServer;$(CsWinRTIncludes)</CsWinRTIncludes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -49,31 +49,31 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<CsWinRTInputs Include="$(OperationsServerWinmd)" />
-		<None Include="$(OperationsServerWinmd)">
+		<CsWinRTInputs Include="$(BackgroundServerWinmd)" />
+		<None Include="$(BackgroundServerWinmd)">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Link>Files.Operations.winmd</Link>
+			<Link>Files.BackgroundServer.winmd</Link>
 			<Visible>false</Visible>
 		</None>
 	</ItemGroup>
 
-	<Target Name="BuildOperationsServerForCsWinRT" BeforeTargets="ResolveAssemblyReferences">
-		<MSBuild Projects="$(OperationsServerProject)" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
-		<Error Condition="!Exists('$(OperationsServerWinmd)')" Text="Files.Operations WinRT metadata was not generated." />
+	<Target Name="BuildBackgroundServerForCsWinRT" BeforeTargets="ResolveAssemblyReferences">
+		<MSBuild Projects="$(BackgroundServerProject)" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
+		<Error Condition="!Exists('$(BackgroundServerWinmd)')" Text="Files.BackgroundServer WinRT metadata was not generated." />
 	</Target>
 
-	<Target Name="PublishOperationsServerForMsix" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
+	<Target Name="PublishBackgroundServerForMsix" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
 		<PropertyGroup>
-			<OperationsServerProject>$(MSBuildProjectDirectory)\..\Files.Operations\Files.Operations.csproj</OperationsServerProject>
-			<OperationsServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.Operations\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\publish\</OperationsServerPublishDir>
+			<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
+			<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\publish\</BackgroundServerPublishDir>
 		</PropertyGroup>
 
-		<MSBuild Projects="$(OperationsServerProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=false;PublishDir=$(OperationsServerPublishDir)" />
-		<Error Condition="!Exists('$(OperationsServerPublishDir)Files.Operations.exe')" Text="Files.Operations publish output was not found." />
+		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=false;PublishDir=$(BackgroundServerPublishDir)" />
+		<Error Condition="!Exists('$(BackgroundServerPublishDir)Files.BackgroundServer.exe')" Text="Files.BackgroundServer publish output was not found." />
 
 		<ItemGroup>
-			<_FilesOperationsPackageFile Include="$(OperationsServerPublishDir)**\*" Exclude="$(OperationsServerPublishDir)**\*.winmd;$(OperationsServerPublishDir)**\*.pdb" />
-			<AppxPackagePayload Include="@(_FilesOperationsPackageFile)" TargetPath="Files.Operations\%(RecursiveDir)%(Filename)%(Extension)" />
+			<_FilesBackgroundServerPackageFile Include="$(BackgroundServerPublishDir)**\*" Exclude="$(BackgroundServerPublishDir)**\*.winmd;$(BackgroundServerPublishDir)**\*.pdb" />
+			<AppxPackagePayload Include="@(_FilesBackgroundServerPackageFile)" TargetPath="Files.BackgroundServer\%(RecursiveDir)%(Filename)%(Extension)" />
 		</ItemGroup>
 	</Target>
 

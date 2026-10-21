@@ -11,7 +11,7 @@ src/
       Interop/            Low-level Win32, COM, and Shell ABI declarations
   Files/                  WinUI application and presentation
   Files.Controls/         Reusable WinUI controls
-  Files.Operations/       Out-of-process operation host
+  Files.BackgroundServer/       Out-of-process operation host
   Files.SourceGenerators/ Build-time source generation
   FilesLauncher/          Native launcher/integration component
 tests/

@@ -9,7 +9,7 @@ The repository solution is [`../../Files.slnx`](../../Files.slnx). It currently 
 - `src/Files.Core`
 - `src/Files`
 - `src/Files.Controls`
-- `src/Files.Operations`
+- `src/Files.BackgroundServer`
 - `src/Files.SourceGenerators`
 - `src/FilesLauncher`
 - unit, benchmark, UI, and accessibility test projects.

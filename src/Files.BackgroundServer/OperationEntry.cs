@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Files.Core.Storage;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 internal sealed class OperationEntry
 {

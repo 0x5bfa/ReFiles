@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Files.Core.Windows;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 internal sealed class FileAttributeOperation : IServerOperation
 {

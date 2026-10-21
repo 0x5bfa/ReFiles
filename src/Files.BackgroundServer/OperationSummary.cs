@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Contains a value copy of an operation's state, independent of its provider.</summary>
 public struct OperationSummary

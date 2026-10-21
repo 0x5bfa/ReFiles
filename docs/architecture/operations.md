@@ -1,6 +1,6 @@
 # Operations architecture
 
-The target architecture routes user-initiated storage I/O through `Files.Operations`. This includes read/query services as well as mutations. The server uses ordinary `Files.Core` providers internally; its exported facade uses WinRT-compatible contracts.
+The target architecture routes user-initiated storage I/O through `Files.BackgroundServer`. This includes read/query services as well as mutations. The server uses ordinary `Files.Core` providers internally; its exported facade uses WinRT-compatible contracts.
 
 The app now uses `WinRTStorageOperationService` for copy/move/delete batches, rename/create requests, Shell New commands, and property attribute updates. Complete batches execute in the server. Browsing/enrichment reads, UI-owned Shell interactions, and application settings storage still use their existing owners.
 
@@ -18,7 +18,7 @@ The app now uses `WinRTStorageOperationService` for copy/move/delete batches, re
 flowchart LR
     UI[UI / command]
     Client[Client adapter in Files]
-    Host[Files.Operations]
+    Host[Files.BackgroundServer]
     Provider[Files.Core providers]
 
     UI --> Client
@@ -26,7 +26,7 @@ flowchart LR
     Host --> Provider
 ```
 
-This is the target runtime call flow, not the project-reference graph. Both `Files` and `Files.Operations` reference `Files.Core`; Core does not reference the server. The client projection and adapter stay in `Files`, without another client project.
+This is the target runtime call flow, not the project-reference graph. Both `Files` and `Files.BackgroundServer` reference `Files.Core`; Core does not reference the server. The client projection and adapter stay in `Files`, without another client project.
 
 ## Requests and background operations
 

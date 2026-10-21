@@ -4,7 +4,7 @@
 using System;
 using System.Threading;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 internal sealed class ServerActivityLease(ServerLifetime owner, bool isClient) : IDisposable
 {

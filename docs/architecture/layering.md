@@ -9,14 +9,14 @@ flowchart TD
     Files[Files]
     Controls[Files.Controls]
     Core[Files.Core]
-    Operations[Files.Operations]
+    Operations[Files.BackgroundServer]
 
     Files --> Controls
     Files --> Core
     Operations --> Core
 ```
 
-`Files` separately consumes `Files.Operations.winmd` through generated C#/WinRT projection code. Runtime calls cross that boundary; they do not make Core reference the server. No separate client project is needed.
+`Files` separately consumes `Files.BackgroundServer.winmd` through generated C#/WinRT projection code. Runtime calls cross that boundary; they do not make Core reference the server. No separate client project is needed.
 
 These architectural rules remain:
 
@@ -42,9 +42,9 @@ These architectural rules remain:
 | Viewport/focus/visual selection | presentation/UI boundary |
 | Generic reusable WinUI controls | `Files.Controls` |
 | App-specific control behavior | `Files` |
-| Domain I/O execution and accepted background operations | `Files.Operations`, using Core providers |
+| Domain I/O execution and accepted background operations | `Files.BackgroundServer`, using Core providers |
 | WinRT projection, conversion, and reconnection | adapter inside `Files` |
-| Authoritative operation progress and cancellation | `Files.Operations` |
+| Authoritative operation progress and cancellation | `Files.BackgroundServer` |
 | Status Center formatting and graphs | `Files` |
 
 ## Example: a new storage provider

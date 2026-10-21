@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Contains the server's operation summaries captured at one revision.</summary>
 public sealed class OperationList

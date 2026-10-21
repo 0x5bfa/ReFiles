@@ -22,7 +22,7 @@ ReFiles
 ├─ Files.Core          UI-independent application, browsing, storage, and model logic
 ├─ Files               WinUI application and presentation
 ├─ Files.Controls      Reusable WinUI controls
-├─ Files.Operations    Out-of-process operation host
+├─ Files.BackgroundServer    Out-of-process operation host
 ├─ Files.SourceGenerators
 └─ FilesLauncher       Native launcher/integration component
 ```

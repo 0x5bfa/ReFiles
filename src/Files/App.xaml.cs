@@ -74,7 +74,7 @@ public partial class App : Application
 		}
 		catch (Exception exception)
 		{
-			Debug.WriteLine($"Files.Operations server failed to start: {exception}");
+			Debug.WriteLine($"Files.BackgroundServer server failed to start: {exception}");
 		}
 	}
 

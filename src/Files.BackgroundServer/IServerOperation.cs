@@ -5,7 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Defines a complete operation owned by the server, including any item loop.</summary>
 internal interface IServerOperation

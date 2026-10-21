@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 internal sealed class OperationHost(ServerLifetime lifetime)
 {

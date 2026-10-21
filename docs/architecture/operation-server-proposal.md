@@ -1,10 +1,10 @@
-# Proposal: the Files.Operations server boundary
+# Proposal: the Files.BackgroundServer server boundary
 
 Status: Windows command integration implemented, 2026-10-21. Complete storage batches, rename/create requests, Shell New commands, attribute updates, pause/interruption control, and Status Center observation use the server. Read/query migration, additional providers, deployed scenario verification, and persistence remain separate work. See [operations.md](operations.md) for current behavior.
 
 ## Decision
 
-Keep `Files.Core` as a normal .NET library. Use `Files.Operations` as a process host with a small WinRT facade over internal .NET services. Keep the generated WinRT projection and its client adapter in the existing `Files` project.
+Keep `Files.Core` as a normal .NET library. Use `Files.BackgroundServer` as a process host with a small WinRT facade over internal .NET services. Keep the generated WinRT projection and its client adapter in the existing `Files` project.
 
 The target is server ownership of all user-initiated domain I/O. Separate short, client-owned queries from accepted background operations that survive client termination. The latter include entire file-operation batches, not just individual item calls. The application submits intent and observes state. Both processes can reference `Files.Core`; they do not share its objects or runtime instances.
 
@@ -26,7 +26,7 @@ Older UWP component documentation also discusses UWP runtime restrictions. Those
 
 | Current code or document | Architectural consequence |
 | --- | --- |
-| `Files.Operations.csproj` references `Files.Core` | The server can already reuse Core internally. |
+| `Files.BackgroundServer.csproj` references `Files.Core` | The server can already reuse Core internally. |
 | `AppService` only monitors client processes and signals exit when the count reaches zero | This bootstraps activation, but does not yet support work surviving the last client. |
 | `Program` discovers all public sealed classes through reflection | Adding public result classes would also put them into the activation-registration list. Registration must become explicit. |
 | `FolderBrowserViewModel.ExecuteTrackedStorageOperationBatchAsync` executes the item loop in the app | Remoting individual leaf calls would leave the remainder of a batch dependent on the app process. |
@@ -42,10 +42,10 @@ Normal .NET references remain:
 
 ```text
 Files -------------> Files.Core
-Files.Operations --> Files.Core
+Files.BackgroundServer --> Files.Core
 ```
 
-Separately, `Files` consumes the public `Files.Operations.winmd` through generated C#/WinRT projection code. It must not directly instantiate the server's managed implementation assembly. C#/WinRT distinguishes ordinary managed references from the out-of-process consumption scenario in its [authoring guide](https://github.com/microsoft/CsWinRT/blob/master/docs/authoring.md#consuming-from-c-applications).
+Separately, `Files` consumes the public `Files.BackgroundServer.winmd` through generated C#/WinRT projection code. It must not directly instantiate the server's managed implementation assembly. C#/WinRT distinguishes ordinary managed references from the out-of-process consumption scenario in its [authoring guide](https://github.com/microsoft/CsWinRT/blob/master/docs/authoring.md#consuming-from-c-applications).
 
 The runtime flow is:
 
@@ -58,7 +58,7 @@ flowchart LR
         Commands --> Client
         Client --> Model
     end
-    subgraph Server[Files.Operations process]
+    subgraph Server[Files.BackgroundServer process]
         Facade[AppService: WinRT facade]
         Host[OperationHost: jobs and state]
         Executor[Core operation service and providers]
@@ -77,8 +77,8 @@ flowchart LR
 | `Files.Core` | Existing storage identities, leaf requests/results, provider execution, and Shell scheduling. Add reusable pure .NET batch/state list contracts and a job-service abstraction here when implementing this proposal. |
 | `Files/Infrastructure/Operations` | `WinRTStorageOperationService`: activation, DTO conversion, reconnection, and translating WinRT async calls into normal .NET calls. No separate client project. |
 | `Files/StorageOperations` | Presentation of server state lists: localized text, graph samples, smoothing, commands, and UI notifications. It must not independently decide whether a server job succeeded or is paused. |
-| `Files.Operations` public surface | `AppService` and a small set of request/result types using supported WinRT signatures. |
-| `Files.Operations` internal services | `ServerHost`, `OperationHost`, DTO mapping, per-job execution/control, journal, provider composition, and lifetime coordination. |
+| `Files.BackgroundServer` public surface | `AppService` and a small set of request/result types using supported WinRT signatures. |
+| `Files.BackgroundServer` internal services | `ServerHost`, `OperationHost`, DTO mapping, per-job execution/control, journal, provider composition, and lifetime coordination. |
 
 The server should compose the providers and operation service it needs, without building the full `FilesCoreRuntime` window/tab/pane graph. Existing `WindowsStorageSource`, `WindowsStorageOperationHandler`, and `StorageOperationService` can be reused. A new universal host framework or DI container is unnecessary.
 
@@ -86,7 +86,7 @@ The app still owns browse state, selection, and presentation. As domain I/O migr
 
 ## Public contract
 
-Start with one externally activatable class, `Files.Operations.AppService`. Keep operations on that facade initially. Add a separate feature facade only when another actual server responsibility requires one.
+Start with one externally activatable class, `Files.BackgroundServer.AppService`. Keep operations on that facade initially. Add a separate feature facade only when another actual server responsibility requires one.
 
 The table mixes the implemented facade with remaining details/history design; future methods are marked as planned:
 

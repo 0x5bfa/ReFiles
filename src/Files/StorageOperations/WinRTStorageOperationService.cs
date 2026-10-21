@@ -15,8 +15,8 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	private readonly Lock _syncRoot = new();
 	private readonly CancellationTokenSource _shutdown = new();
 	private readonly Task _observer;
-	private Task<Operations.AppService>? _connection;
-	private Operations.OperationSummary[] _operations = [];
+	private Task<BackgroundServer.AppService>? _connection;
+	private BackgroundServer.OperationSummary[] _operations = [];
 	private TaskCompletionSource _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private Guid _serverInstanceId;
 	private ulong _revision;
@@ -57,7 +57,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		return ToResult(result);
 	}
 
-	internal Task<Operations.AppService> ConnectAsync()
+	internal Task<BackgroundServer.AppService> ConnectAsync()
 	{
 		return GetConnection();
 	}
@@ -83,10 +83,10 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 
 	internal async Task TransferPathsAsync(IReadOnlyList<string> paths, StorableReference destination, bool move, CancellationToken cancellationToken)
 	{
-		var items = paths.Select(path => new Operations.StorageOperationData
+		var items = paths.Select(path => new BackgroundServer.StorageOperationData
 		{
-			Kind = move ? Operations.StorageOperationKind.Move : Operations.StorageOperationKind.Copy,
-			Item = new Operations.StorageReferenceData { SourceId = WindowsStorageSource.DefaultSourceType, ItemId = string.Empty, HasAddress = true,
+			Kind = move ? BackgroundServer.StorageOperationKind.Move : BackgroundServer.StorageOperationKind.Copy,
+			Item = new BackgroundServer.StorageReferenceData { SourceId = WindowsStorageSource.DefaultSourceType, ItemId = string.Empty, HasAddress = true,
 				AddressScheme = WindowsStorageSource.FileAddressScheme, AddressValue = path },
 			Destination = ToData(destination),
 			Name = string.Empty,
@@ -146,7 +146,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		var indexed = changes.IsDrive ? changes.IsDriveIndexed != changes.InitialIsDriveIndexed ? changes.IsDriveIndexed : (bool?)null : changes.IsIndexed;
 		var compressed = changes.IsDrive ? changes.IsDriveCompressed != changes.InitialIsDriveCompressed ? changes.IsDriveCompressed : (bool?)null
 			: changes.UpdateCompression ? changes.IsCompressed : null;
-		var data = new Operations.FileAttributeChangesData
+		var data = new BackgroundServer.FileAttributeChangesData
 		{
 			ReadOnly = ToOptionalBoolean(changes.IsDrive ? null : changes.IsReadOnly),
 			Hidden = ToOptionalBoolean(changes.IsDrive ? null : changes.IsHidden),
@@ -180,13 +180,13 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		_shutdown.Cancel();
 	}
 
-	private Task<Operations.AppService> GetConnection()
+	private Task<BackgroundServer.AppService> GetConnection()
 	{
 		lock (_syncRoot)
 		{
 			ObjectDisposedException.ThrowIf(_disposed, this);
 
-			return _connection ??= Task.Run(() => new Operations.AppService(Environment.ProcessId));
+			return _connection ??= Task.Run(() => new BackgroundServer.AppService(Environment.ProcessId));
 		}
 	}
 
@@ -194,7 +194,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	{
 		while (!_shutdown.IsCancellationRequested)
 		{
-			Task<Operations.AppService>? connection = null;
+			Task<BackgroundServer.AppService>? connection = null;
 			try
 			{
 				connection = GetConnection();
@@ -243,12 +243,12 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		}
 	}
 
-	private Task<Operations.OperationSummary> SubmitAsync(Operations.StorageOperationData[] items, CancellationToken cancellationToken)
+	private Task<BackgroundServer.OperationSummary> SubmitAsync(BackgroundServer.StorageOperationData[] items, CancellationToken cancellationToken)
 	{
 		return RunOperationAsync((server, id) => server.SubmitStorageOperations(id, items), cancellationToken);
 	}
 
-	private async Task<Operations.OperationSummary> RunOperationAsync(Func<Operations.AppService, Guid, Guid> submit, CancellationToken cancellationToken)
+	private async Task<BackgroundServer.OperationSummary> RunOperationAsync(Func<BackgroundServer.AppService, Guid, Guid> submit, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -298,14 +298,14 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		}
 	}
 
-	private bool QueueControl(Func<Operations.AppService, bool> command)
+	private bool QueueControl(Func<BackgroundServer.AppService, bool> command)
 	{
 		_ = SendControlAsync(command);
 
 		return true;
 	}
 
-	private async Task SendControlAsync(Func<Operations.AppService, bool> command)
+	private async Task SendControlAsync(Func<BackgroundServer.AppService, bool> command)
 	{
 		try
 		{
@@ -325,7 +325,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		previous.TrySetResult();
 	}
 
-	private void PublishState(Task<Operations.AppService> connection, (Guid InstanceId, ulong Revision, Operations.OperationSummary[] Items) state)
+	private void PublishState(Task<BackgroundServer.AppService> connection, (Guid InstanceId, ulong Revision, BackgroundServer.OperationSummary[] Items) state)
 	{
 		lock (_syncRoot)
 		{
@@ -344,7 +344,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		Changed?.Invoke(this, EventArgs.Empty);
 	}
 
-	private static Task<(Guid InstanceId, ulong Revision, Operations.OperationSummary[] Items)> ReadOperationsAsync(Operations.AppService server)
+	private static Task<(Guid InstanceId, ulong Revision, BackgroundServer.OperationSummary[] Items)> ReadOperationsAsync(BackgroundServer.AppService server)
 	{
 		return Task.Run(() =>
 		{
@@ -354,7 +354,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		});
 	}
 
-	private static void TryDisconnect(Operations.AppService server)
+	private static void TryDisconnect(BackgroundServer.AppService server)
 	{
 		try
 		{
@@ -372,9 +372,9 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 			&& (!requireFileSystem || item.LastKnownAddress?.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) is true);
 	}
 
-	private static bool IsTerminal(Operations.OperationState state)
+	private static bool IsTerminal(BackgroundServer.OperationState state)
 	{
-		return state is Operations.OperationState.Succeeded or Operations.OperationState.Failed or Operations.OperationState.Canceled;
+		return state is BackgroundServer.OperationState.Succeeded or BackgroundServer.OperationState.Failed or BackgroundServer.OperationState.Canceled;
 	}
 
 	private static int ToOptionalBoolean(bool? value)
@@ -382,14 +382,14 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		return value is null ? -1 : value.Value ? 1 : 0;
 	}
 
-	private static StorageOperationResult ToResult(Operations.OperationSummary summary)
+	private static StorageOperationResult ToResult(BackgroundServer.OperationSummary summary)
 	{
-		if (summary.State == Operations.OperationState.Canceled)
+		if (summary.State == BackgroundServer.OperationState.Canceled)
 		{
 			throw new OperationCanceledException("The server acknowledged operation cancellation.");
 		}
 
-		if (summary.State == Operations.OperationState.Failed)
+		if (summary.State == BackgroundServer.OperationState.Failed)
 		{
 			return new StorageOperationResult(false, null, new COMException(summary.ErrorMessage, summary.ErrorCode));
 		}
@@ -401,18 +401,18 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		return new StorageOperationResult(true, item, skipped: summary.Skipped);
 	}
 
-	private static Operations.StorageOperationData ToData(StorageOperationRequest request)
+	private static BackgroundServer.StorageOperationData ToData(StorageOperationRequest request)
 	{
 		var data = request switch
 		{
-			CopyOperationRequest copy => new Operations.StorageOperationData { Kind = Operations.StorageOperationKind.Copy, Item = ToData(copy.Item), Destination = ToData(copy.DestinationFolder),
+			CopyOperationRequest copy => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Copy, Item = ToData(copy.Item), Destination = ToData(copy.DestinationFolder),
 				Name = copy.NewName ?? string.Empty, ConflictBehavior = (int)copy.ConflictBehavior },
-			MoveOperationRequest move => new Operations.StorageOperationData { Kind = Operations.StorageOperationKind.Move, Item = ToData(move.Item), Destination = ToData(move.DestinationFolder),
+			MoveOperationRequest move => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Move, Item = ToData(move.Item), Destination = ToData(move.DestinationFolder),
 				Name = move.NewName ?? string.Empty, ConflictBehavior = (int)move.ConflictBehavior },
-			DeleteOperationRequest delete => new Operations.StorageOperationData { Kind = Operations.StorageOperationKind.Delete, Item = ToData(delete.Item), Permanently = delete.Permanently },
-			RenameOperationRequest rename => new Operations.StorageOperationData { Kind = Operations.StorageOperationKind.Rename, Item = ToData(rename.Item), Name = rename.NewName },
-			CreateItemOperationRequest create => new Operations.StorageOperationData { Kind = create.Kind == StorageItemKind.File
-				? Operations.StorageOperationKind.CreateFile : Operations.StorageOperationKind.CreateFolder,
+			DeleteOperationRequest delete => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Delete, Item = ToData(delete.Item), Permanently = delete.Permanently },
+			RenameOperationRequest rename => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Rename, Item = ToData(rename.Item), Name = rename.NewName },
+			CreateItemOperationRequest create => new BackgroundServer.StorageOperationData { Kind = create.Kind == StorageItemKind.File
+				? BackgroundServer.StorageOperationKind.CreateFile : BackgroundServer.StorageOperationKind.CreateFolder,
 				Item = ToData(create.Parent), Name = create.Name, ConflictBehavior = (int)create.ConflictBehavior },
 			_ => throw new NotSupportedException("The operation request has no server contract."),
 		};
@@ -421,9 +421,9 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		return data;
 	}
 
-	private static Operations.StorageReferenceData ToData(StorableReference reference)
+	private static BackgroundServer.StorageReferenceData ToData(StorableReference reference)
 	{
-		return new Operations.StorageReferenceData { SourceId = reference.SourceId.Value, ItemId = reference.ItemId, HasAddress = reference.LastKnownAddress is not null,
+		return new BackgroundServer.StorageReferenceData { SourceId = reference.SourceId.Value, ItemId = reference.ItemId, HasAddress = reference.LastKnownAddress is not null,
 			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty, AddressValue = reference.LastKnownAddress?.Value ?? string.Empty };
 	}
 }

@@ -7,7 +7,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using Windows.Foundation;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Connects a UI process to the shared operation host.</summary>
 public sealed class AppService : IDisposable

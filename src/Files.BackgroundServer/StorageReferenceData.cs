@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 /// <summary>Transfers storage identity without exporting a Core model.</summary>
 public struct StorageReferenceData

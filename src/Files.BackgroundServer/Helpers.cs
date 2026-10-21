@@ -8,7 +8,7 @@ using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
 using WinRT;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 unsafe partial class Helpers
 {

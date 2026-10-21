@@ -12,7 +12,7 @@ flowchart LR
     Providers[Storage providers]
     Windows[Windows Shell / filesystem]
     Remote[Archive / FTP / future providers]
-    Operations[Files.Operations]
+    Operations[Files.BackgroundServer]
 
     UI --> Presentation
     Presentation --> Core
@@ -57,9 +57,9 @@ Presentation may adapt Core state, but it does not define storage semantics.
 
 `Files.Controls` contains reusable WinUI controls. A control may define UI contracts needed to render or interact with data, but it should not depend on application-specific ViewModels, providers, navigation state, or storage ownership unless that dependency is explicitly part of the control's purpose.
 
-## `Files.Operations`
+## `Files.BackgroundServer`
 
-`Files.Operations` is the target execution owner for user-initiated domain I/O. It references Core implementations and exports a small WinRT facade. The app consumes its generated projection and keeps presentation/local Core state. Accepted background jobs have server-owned cancellation and survive client disconnection; short requests remain cancelable with their client/browse generation.
+`Files.BackgroundServer` is the target execution owner for user-initiated domain I/O. It references Core implementations and exports a small WinRT facade. The app consumes its generated projection and keeps presentation/local Core state. Accepted background jobs have server-owned cancellation and survive client disconnection; short requests remain cancelable with their client/browse generation.
 
 The app now submits complete Windows storage batches and observes their server-owned state. Browse I/O and additional providers still need migration. See [operations](operations.md) for the implemented boundary and [the server design](operation-server-proposal.md) for the remaining feature protocols.
 

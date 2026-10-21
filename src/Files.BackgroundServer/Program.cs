@@ -8,7 +8,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
 
-namespace Files.Operations;
+namespace Files.BackgroundServer;
 
 class Program
 {
