@@ -7,6 +7,7 @@ RegisterClassEx
 CreateWindowEx
 DestroyWindow
 GetModuleHandle
+LoadImage
 RECT
 NOTIFYICONIDENTIFIER
 Shell_NotifyIconGetRect
@@ -42,6 +43,7 @@ WPARAM
 LPARAM
 WM_*
 SetForegroundWindow
+ShowWindow
 GetForegroundWindow
 GetDesktopWindow
 GetCurrentThreadId

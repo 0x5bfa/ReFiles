@@ -11,6 +11,7 @@ using Files.Core.Sessions;
 using Files.Core.Windows;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Files;
 
@@ -27,6 +28,7 @@ public partial class App : Application
 	private readonly Lock _windowsLock = new();
 	private readonly Lock _shutdownLock = new();
 	private Task? _shutdownTask;
+	private int _hasStarted;
 
 	internal AppSettingsService Settings => _settings;
 
@@ -45,6 +47,16 @@ public partial class App : Application
 
 	protected override async void OnLaunched(LaunchActivatedEventArgs args)
 	{
+		await StartAsync().ConfigureAwait(true);
+	}
+
+	private async Task StartAsync()
+	{
+		if (Interlocked.Exchange(ref _hasStarted, 1) is not 0)
+		{
+			return;
+		}
+
 		try
 		{
 			await LaunchAsync().ConfigureAwait(true);
@@ -62,7 +74,7 @@ public partial class App : Application
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UIDiagnosticLog.Write("App", "Launch START");
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
-		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore).AddWindowsStorage(_windowsStorageSource, enableOperations: false).Build();
+		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore, _storageOperations).AddWindowsStorage(_windowsStorageSource, enableOperations: false).Build();
 		_runtime = currentRuntime;
 		UIDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -107,6 +119,7 @@ public partial class App : Application
 				_commandRegistry,
 				persistPlacement,
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),
+				windowHandle => _storageOperations.SetActiveWindow(windowHandle),
 				() => CloseWindowAsync(coreWindow.Id, mainWindow),
 				() => CreateWindowAsync(persistPlacement: false));
 			mainWindow.ApplyTheme(_settings.ThemeMode);
@@ -116,6 +129,14 @@ public partial class App : Application
 			}
 
 			mainWindow.Activate();
+			try
+			{
+				await _storageOperations.RegisterWindowAsync(mainWindow.WindowHandle).ConfigureAwait(true);
+			}
+			catch (Exception exception)
+			{
+				Debug.WriteLine($"Files.BackgroundServer could not register a window: {exception}");
+			}
 		}
 		catch
 		{
@@ -127,6 +148,18 @@ public partial class App : Application
 
 	private async Task CloseWindowAsync(Guid windowId, MainWindow? mainWindow)
 	{
+		if (mainWindow is not null)
+		{
+			try
+			{
+				await _storageOperations.UnregisterWindowAsync(mainWindow.WindowHandle).ConfigureAwait(true);
+			}
+			catch (Exception exception)
+			{
+				Debug.WriteLine($"Files.BackgroundServer could not unregister a window: {exception}");
+			}
+		}
+
 		if (_runtime is not { } runtime)
 		{
 			return;

@@ -3,17 +3,20 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using Files.Core.Storage;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Windows;
 using Files.Infrastructure;
 using Files.ItemProperties;
 
 namespace Files.StorageOperations;
 
-internal sealed class WinRTStorageOperationService : IStorageOperationService, IOperationStatusSource, IDisposable
+internal sealed class WinRTStorageOperationService : IStorageOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
 {
 	private readonly Lock _syncRoot = new();
 	private readonly CancellationTokenSource _shutdown = new();
+	private readonly MemoryThumbnailCache _fallbackThumbnailCache = new();
 	private readonly Task _observer;
 	private Task<BackgroundServer.AppService>? _connection;
 	private BackgroundServer.OperationSummary[] _operations = [];
@@ -60,6 +63,133 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	internal Task<BackgroundServer.AppService> ConnectAsync()
 	{
 		return GetConnection();
+	}
+
+	internal async Task RegisterWindowAsync(nint windowHandle, CancellationToken cancellationToken = default)
+	{
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		server.RegisterWindow(windowHandle.ToInt64());
+	}
+
+	internal void SetActiveWindow(nint windowHandle)
+	{
+		_ = SetActiveWindowAsync(windowHandle);
+	}
+
+	internal async Task UnregisterWindowAsync(nint windowHandle, CancellationToken cancellationToken = default)
+	{
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		server.UnregisterWindow(windowHandle.ToInt64());
+	}
+
+	internal async Task<IReadOnlyList<WindowsShellNewItem>> GetShellNewItemsAsync(string folderPath, CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		var items = await server.GetShellNewItemsAsync(folderPath).AsTask(cancellationToken).ConfigureAwait(false);
+
+		return items.Select(static item => new WindowsShellNewItem(item.CommandOffset, item.Name,
+			string.IsNullOrEmpty(item.IconDataBase64) ? ReadOnlyMemory<byte>.Empty : Convert.FromBase64String(item.IconDataBase64), item.IsEnabled)).ToArray();
+	}
+
+	public async ValueTask<ThumbnailCacheEntry?> GetAsync(ThumbnailCacheKey key, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(key);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+			var data = server.GetThumbnailCacheEntry(ToData(key));
+			await _fallbackThumbnailCache.InvalidateAsync(new StorableReference(key.SourceId, key.ItemId), cancellationToken).ConfigureAwait(false);
+
+			return data.HasValue ? FromData(data) : null;
+		}
+		catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+		{
+			Debug.WriteLine($"Files.BackgroundServer thumbnail cache read failed: {exception}");
+
+			return await _fallbackThumbnailCache.GetAsync(key, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(key);
+		ArgumentNullException.ThrowIfNull(entry);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+			server.SetThumbnailCacheEntry(ToData(key), ToData(entry));
+			await _fallbackThumbnailCache.InvalidateAsync(new StorableReference(key.SourceId, key.ItemId), cancellationToken).ConfigureAwait(false);
+		}
+		catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+		{
+			Debug.WriteLine($"Files.BackgroundServer thumbnail cache write failed: {exception}");
+			await _fallbackThumbnailCache.SetAsync(key, entry, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(reference);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+
+			return server.GetThumbnailInvalidationVersion(ToData(reference));
+		}
+		catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+		{
+			Debug.WriteLine($"Files.BackgroundServer thumbnail cache version read failed: {exception}");
+
+			return await _fallbackThumbnailCache.GetInvalidationVersionAsync(reference, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(key);
+		ArgumentNullException.ThrowIfNull(entry);
+		ArgumentOutOfRangeException.ThrowIfNegative(expectedInvalidationVersion);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		try
+		{
+			var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+			var stored = server.TrySetThumbnailCacheEntry(ToData(key), ToData(entry), expectedInvalidationVersion);
+			await _fallbackThumbnailCache.InvalidateAsync(new StorableReference(key.SourceId, key.ItemId), cancellationToken).ConfigureAwait(false);
+
+			return stored;
+		}
+		catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+		{
+			Debug.WriteLine($"Files.BackgroundServer thumbnail cache write validation failed: {exception}");
+
+			return await _fallbackThumbnailCache.TrySetAsync(key, entry, expectedInvalidationVersion, cancellationToken).ConfigureAwait(false);
+		}
+	}
+
+	public async ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(reference);
+		cancellationToken.ThrowIfCancellationRequested();
+		await _fallbackThumbnailCache.InvalidateAsync(reference, cancellationToken).ConfigureAwait(false);
+
+		try
+		{
+			var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+			server.InvalidateThumbnails(ToData(reference));
+		}
+		catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+		{
+			Debug.WriteLine($"Files.BackgroundServer thumbnail cache invalidation failed: {exception}");
+		}
 	}
 
 	public IReadOnlyList<StorageOperationStatus> GetOperations()
@@ -188,6 +318,50 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 
 			return _connection ??= Task.Run(() => new BackgroundServer.AppService(Environment.ProcessId));
 		}
+	}
+
+	private async Task SetActiveWindowAsync(nint windowHandle)
+	{
+		try
+		{
+			var server = await GetConnection().ConfigureAwait(false);
+			server.SetActiveWindow(windowHandle.ToInt64());
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files.BackgroundServer could not activate a window: {exception}");
+		}
+	}
+
+	private static BackgroundServer.ThumbnailCacheKeyData ToData(ThumbnailCacheKey key)
+	{
+		return new BackgroundServer.ThumbnailCacheKeyData
+		{
+			SourceId = key.SourceId.Value,
+			ItemId = key.ItemId,
+			RequestedSize = key.RequestedSize,
+			Mode = (int)key.Mode,
+		};
+	}
+
+	private static BackgroundServer.ThumbnailCacheEntryData ToData(ThumbnailCacheEntry entry)
+	{
+		return new BackgroundServer.ThumbnailCacheEntryData
+		{
+			HasValue = true,
+			ContentBase64 = Convert.ToBase64String(entry.Content.Span),
+			ContentType = entry.ContentType,
+			IsFallback = entry.IsFallback,
+			Format = (int)entry.Format,
+			PixelWidth = entry.PixelWidth,
+			PixelHeight = entry.PixelHeight,
+		};
+	}
+
+	private static ThumbnailCacheEntry FromData(BackgroundServer.ThumbnailCacheEntryData data)
+	{
+		return new ThumbnailCacheEntry(Convert.FromBase64String(data.ContentBase64), data.ContentType, data.IsFallback,
+			(ThumbnailContentFormat)data.Format, data.PixelWidth, data.PixelHeight);
 	}
 
 	private async Task ObserveAsync()

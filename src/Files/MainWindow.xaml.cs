@@ -27,13 +27,17 @@ public sealed partial class MainWindow : Window
 	private static readonly Guid _mainWindowPersistedStateId = new("179e024a-24ec-4911-b93b-14e5b0a1856a");
 	private readonly RootView _rootView;
 	private readonly AppWindow _appWindow;
+	private readonly nint _windowHandle;
 	private readonly Action _activateSession;
+	private readonly Action<nint> _activateServerWindow;
 	private readonly Func<Task> _closeAsync;
 	private readonly Func<Task> _createWindowAsync;
 	private readonly ItemPropertiesService _itemPropertiesService;
 	private readonly bool _persistPlacement;
 	private int _closeStarted;
 	private int _isDisposed;
+
+	internal nint WindowHandle => _windowHandle;
 
 	internal MainWindow(
 		WindowSession coreWindow,
@@ -45,6 +49,7 @@ public sealed partial class MainWindow : Window
 		CommandRegistry commandRegistry,
 		bool persistPlacement,
 		Action activateSession,
+		Action<nint> activateServerWindow,
 		Func<Task> closeAsync,
 		Func<Task> createWindowAsync)
 	{
@@ -62,18 +67,21 @@ public sealed partial class MainWindow : Window
 
 		ArgumentNullException.ThrowIfNull(activateSession);
 
+		ArgumentNullException.ThrowIfNull(activateServerWindow);
+
 		ArgumentNullException.ThrowIfNull(closeAsync);
 
 		ArgumentNullException.ThrowIfNull(createWindowAsync);
 
 		InitializeComponent();
 		_activateSession = activateSession;
+		_activateServerWindow = activateServerWindow;
 		_closeAsync = closeAsync;
 		_createWindowAsync = createWindowAsync;
-		var windowHandle = WindowNative.GetWindowHandle(this);
-		var itemActivationService = new ItemActivationService(workspace, windowHandle);
+		_windowHandle = WindowNative.GetWindowHandle(this);
+		var itemActivationService = new ItemActivationService(workspace, _windowHandle);
 		var windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
-		_itemPropertiesService = new ItemPropertiesService(windowHandle, storageOperations, windowsSource is null ? null : new WindowsShellPropertiesService(windowsSource));
+		_itemPropertiesService = new ItemPropertiesService(_windowHandle, storageOperations, windowsSource is null ? null : new WindowsShellPropertiesService(windowsSource));
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,
@@ -83,7 +91,7 @@ public sealed partial class MainWindow : Window
 			commandRegistry,
 			itemActivationService,
 			_itemPropertiesService,
-			windowHandle);
+			_windowHandle);
 		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;
@@ -131,6 +139,7 @@ public sealed partial class MainWindow : Window
 		if (args.WindowActivationState is not WindowActivationState.Deactivated)
 		{
 			_activateSession();
+			_activateServerWindow(_windowHandle);
 		}
 	}
 

@@ -54,7 +54,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	private readonly IStorageOperationService _storageOperations;
 	private readonly AppSettingsService _appSettings;
 	private readonly WindowsStorageSource? _windowsSource;
-	private readonly WindowsShellNewMenu? _shellNewMenu;
 	private readonly WindowsShellPropertiesService? _shellProperties;
 	private readonly WindowsShellContextualCommandService? _shellContextualCommandService;
 	private readonly nint _ownerWindowHandle;
@@ -147,7 +146,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public bool CanDelete => !IsLoading && !IsBusy && SelectedItems.Count is not 0 && SelectedItems.All(item => _storageOperations.CanHandle(CreateDeleteRequest(item.Reference)));
 
-	public bool CanShowNew => !IsLoading && !IsBusy && _shellNewMenu is not null && TryGetCurrentFileSystemFolder(out _);
+	public bool CanShowNew => !IsLoading && !IsBusy && _windowsSource is not null && TryGetCurrentFileSystemFolder(out _);
 
 	public bool CanSearch => _windowsSource is not null && Location switch
 	{
@@ -218,9 +217,6 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		_dispatcher = dispatcher;
 		_browseAdapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, ownerWindowHandle: ownerWindowHandle);
 		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
-		_shellNewMenu = _windowsSource is { } windowsSource
-			? new WindowsShellNewMenu(windowsSource.Scheduler)
-			: null;
 		_shellProperties = _windowsSource is { } shellSource ? new WindowsShellPropertiesService(shellSource) : null;
 		_shellContextualCommandService = _windowsSource is { } contextualSource && ownerWindowHandle is not 0 ? new WindowsShellContextualCommandService(contextualSource) : null;
 		_ownerWindowHandle = ownerWindowHandle;
@@ -468,21 +464,21 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 
 	public async Task<IReadOnlyList<WindowsShellNewItem>> GetNewItemsAsync(CancellationToken cancellationToken = default)
 	{
-		if (_shellNewMenu is null || !TryGetCurrentFileSystemFolder(out var folder))
+		if (_windowsSource is null || !TryGetCurrentFileSystemFolder(out var folder))
 		{
 			return [];
 		}
 
 		var path = folder.LastKnownAddress!.Value;
 
-		return await _shellNewMenu.GetItemsAsync(path, cancellationToken).ConfigureAwait(false);
+		return await GetOperationServer().GetShellNewItemsAsync(path, cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task InvokeNewItemAsync(WindowsShellNewItem item, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(item);
 
-		if (_shellNewMenu is null || !TryGetCurrentFileSystemFolder(out var folder))
+		if (_windowsSource is null || !TryGetCurrentFileSystemFolder(out var folder))
 		{
 			throw new NotSupportedException("The current location does not expose a Windows Shell New menu.");
 		}

@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
+using Files.Core.Capabilities.Thumbnails;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
@@ -15,6 +16,8 @@ class Program
 	internal static readonly ServerLifetime Lifetime = new(TimeSpan.FromSeconds(30));
 	internal static readonly OperationHost Operations = new(Lifetime);
 	internal static readonly Lazy<StorageOperationExecutor> Storage = new(() => new StorageOperationExecutor());
+	internal static readonly Lazy<MemoryThumbnailCache> Thumbnails = new(() => new MemoryThumbnailCache());
+	internal static readonly ShellNewMenuCache ShellNewItems = new();
 
 	static void Main()
 	{
@@ -23,6 +26,11 @@ class Program
 		PInvoke.RoInitialize(RO_INIT_TYPE.RO_INIT_MULTITHREADED).ThrowOnFailure();
 		try
 		{
+			using (Lifetime.Acquire())
+			{
+				BackgroundServerHost.Initialize();
+			}
+
 			var className = typeof(AppService).FullName!;
 			PInvoke.WindowsCreateString(className, (uint)className.Length, out var classId).ThrowOnFailure();
 			using (classId)
@@ -47,6 +55,7 @@ class Program
 		}
 		finally
 		{
+			BackgroundServerHost.ShutdownAsync().GetAwaiter().GetResult();
 			Lifetime.Dispose();
 			if (Storage.IsValueCreated)
 			{

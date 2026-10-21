@@ -31,14 +31,16 @@ public sealed class WindowsShellNewItem
 	public bool IsEnabled { get; }
 
 	/// <summary>
-	/// Initializes a Shell New menu item.
+	/// Initializes one Shell New menu item.
 	/// </summary>
 	/// <param name="commandOffset">The command offset used by <c>IContextMenu::InvokeCommand</c>.</param>
 	/// <param name="name">The localized display name.</param>
 	/// <param name="iconData">The encoded PNG icon data.</param>
 	/// <param name="isEnabled">A value indicating whether the Shell enabled the item.</param>
-	internal WindowsShellNewItem(uint commandOffset, string name, ReadOnlyMemory<byte> iconData, bool isEnabled)
+	public WindowsShellNewItem(uint commandOffset, string name, ReadOnlyMemory<byte> iconData, bool isEnabled)
 	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
 		CommandOffset = commandOffset;
 		Name = name;
 		IconData = iconData;

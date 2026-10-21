@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
+using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Storage;
 using Windows.Foundation;
 
 namespace Files.BackgroundServer;
@@ -16,6 +19,7 @@ public sealed class AppService : IDisposable
 	private readonly CancellationToken _sessionToken;
 	private Process? _process;
 	private IDisposable? _clientLease;
+	private Guid _serverClientId;
 	private int _disposed;
 
 	/// <summary>Attaches a client without transferring ownership of accepted operations.</summary>
@@ -26,6 +30,8 @@ public sealed class AppService : IDisposable
 		try
 		{
 			_clientLease = Program.Lifetime.Acquire(isClient: true);
+			_serverClientId = Guid.NewGuid();
+			BackgroundServerHost.AddClient(_serverClientId, processId);
 			_process = Process.GetProcessById(processId);
 			_process.Exited += Process_Exited;
 			_process.EnableRaisingEvents = true;
@@ -110,6 +116,108 @@ public sealed class AppService : IDisposable
 		return Program.Operations.Submit(new ShellNewItemOperation(operationId, folderPath, commandOffset, name));
 	}
 
+	/// <summary>Gets the Windows Shell New menu items from the server's shared cache.</summary>
+	/// <param name="folderPath">The absolute file-system path of the target folder.</param>
+	/// <returns>A snapshot of the cached menu items.</returns>
+	public IAsyncOperation<IReadOnlyList<ShellNewItemData>> GetShellNewItemsAsync(string folderPath)
+	{
+		return AsyncInfo.Run(async cancellationToken =>
+		{
+			using var request = AcquireRequest();
+			ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+
+			return await Program.ShellNewItems.GetItemsAsync(folderPath, cancellationToken).ConfigureAwait(false);
+		});
+	}
+
+	/// <summary>Registers one UI window with the server-owned tray host.</summary>
+	/// <param name="windowHandle">The native window handle.</param>
+	public void RegisterWindow(long windowHandle)
+	{
+		using var request = AcquireRequest();
+		BackgroundServerHost.RegisterWindow(_serverClientId, windowHandle);
+	}
+
+	/// <summary>Marks one registered UI window as the most recently active window.</summary>
+	/// <param name="windowHandle">The native window handle.</param>
+	public void SetActiveWindow(long windowHandle)
+	{
+		using var request = AcquireRequest();
+		BackgroundServerHost.SetActiveWindow(_serverClientId, windowHandle);
+	}
+
+	/// <summary>Unregisters one UI window from the server-owned tray host.</summary>
+	/// <param name="windowHandle">The native window handle.</param>
+	public void UnregisterWindow(long windowHandle)
+	{
+		using var request = AcquireRequest();
+		BackgroundServerHost.UnregisterWindow(_serverClientId, windowHandle);
+	}
+
+	/// <summary>Gets one materialized thumbnail from the shared server cache.</summary>
+	/// <param name="key">The thumbnail identity and size.</param>
+	/// <returns>The cached entry, or a value with <see cref="ThumbnailCacheEntryData.HasValue"/> set to <see langword="false"/>.</returns>
+	public ThumbnailCacheEntryData GetThumbnailCacheEntry(ThumbnailCacheKeyData key)
+	{
+		using var request = AcquireRequest();
+		var cacheKey = ToThumbnailCacheKey(key);
+		var entry = Program.Thumbnails.Value.GetAsync(cacheKey).GetAwaiter().GetResult();
+		if (entry is null)
+		{
+			return default;
+		}
+
+		return new ThumbnailCacheEntryData
+		{
+			HasValue = true,
+			ContentBase64 = Convert.ToBase64String(entry.Content.Span),
+			ContentType = entry.ContentType,
+			IsFallback = entry.IsFallback,
+			Format = (int)entry.Format,
+			PixelWidth = entry.PixelWidth,
+			PixelHeight = entry.PixelHeight,
+		};
+	}
+
+	/// <summary>Stores a materialized thumbnail in the shared server cache.</summary>
+	/// <param name="key">The thumbnail identity and size.</param>
+	/// <param name="entry">The thumbnail payload.</param>
+	public void SetThumbnailCacheEntry(ThumbnailCacheKeyData key, ThumbnailCacheEntryData entry)
+	{
+		using var request = AcquireRequest();
+		Program.Thumbnails.Value.SetAsync(ToThumbnailCacheKey(key), ToThumbnailCacheEntry(entry)).GetAwaiter().GetResult();
+	}
+
+	/// <summary>Gets the current cache invalidation version for a storage item.</summary>
+	/// <param name="reference">The storage item identity.</param>
+	/// <returns>The current invalidation version.</returns>
+	public long GetThumbnailInvalidationVersion(StorageReferenceData reference)
+	{
+		using var request = AcquireRequest();
+
+		return Program.Thumbnails.Value.GetInvalidationVersionAsync(ToStorableReference(reference)).GetAwaiter().GetResult();
+	}
+
+	/// <summary>Stores a thumbnail only when its invalidation version is still current.</summary>
+	/// <param name="key">The thumbnail identity and size.</param>
+	/// <param name="entry">The thumbnail payload.</param>
+	/// <param name="expectedInvalidationVersion">The version observed before rendering the thumbnail.</param>
+	/// <returns>Whether the entry was stored.</returns>
+	public bool TrySetThumbnailCacheEntry(ThumbnailCacheKeyData key, ThumbnailCacheEntryData entry, long expectedInvalidationVersion)
+	{
+		using var request = AcquireRequest();
+
+		return Program.Thumbnails.Value.TrySetAsync(ToThumbnailCacheKey(key), ToThumbnailCacheEntry(entry), expectedInvalidationVersion).GetAwaiter().GetResult();
+	}
+
+	/// <summary>Invalidates cached thumbnails for a storage item.</summary>
+	/// <param name="reference">The storage item identity.</param>
+	public void InvalidateThumbnails(StorageReferenceData reference)
+	{
+		using var request = AcquireRequest();
+		Program.Thumbnails.Value.InvalidateAsync(ToStorableReference(reference)).GetAwaiter().GetResult();
+	}
+
 	/// <summary>Requests a pause or resume when the operation supports it.</summary>
 	public bool SetOperationPaused(Guid operationId, bool paused)
 	{
@@ -153,6 +261,7 @@ public sealed class AppService : IDisposable
 		_disconnected.Cancel();
 		_disconnected.Dispose();
 		Interlocked.Exchange(ref _clientLease, null)?.Dispose();
+		BackgroundServerHost.RemoveClient(_serverClientId);
 		Program.Operations.ScheduleUnattendedCancellation();
 		GC.SuppressFinalize(this);
 	}
@@ -169,5 +278,23 @@ public sealed class AppService : IDisposable
 	private void Process_Exited(object? sender, EventArgs e)
 	{
 		Dispose();
+	}
+
+	private static ThumbnailCacheKey ToThumbnailCacheKey(ThumbnailCacheKeyData data)
+	{
+		return new ThumbnailCacheKey(new StorageSourceId(data.SourceId), data.ItemId, data.RequestedSize, (ThumbnailMode)data.Mode);
+	}
+
+	private static ThumbnailCacheEntry ToThumbnailCacheEntry(ThumbnailCacheEntryData data)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(data.ContentBase64);
+
+		return new ThumbnailCacheEntry(Convert.FromBase64String(data.ContentBase64), data.ContentType, data.IsFallback,
+			(ThumbnailContentFormat)data.Format, data.PixelWidth, data.PixelHeight);
+	}
+
+	private static StorableReference ToStorableReference(StorageReferenceData data)
+	{
+		return new StorableReference(new StorageSourceId(data.SourceId), data.ItemId);
 	}
 }
