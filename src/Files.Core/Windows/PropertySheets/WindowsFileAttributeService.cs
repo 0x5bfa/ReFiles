@@ -76,4 +76,80 @@ public static unsafe class WindowsFileAttributeService
 			throw new Win32Exception(Marshal.GetLastPInvokeError());
 		}
 	}
+
+	/// <summary>Applies selected attributes to items and optionally their descendants.</summary>
+	/// <param name="paths">The item paths.</param>
+	/// <param name="readOnly">The read-only state, or null to preserve it.</param>
+	/// <param name="hidden">The hidden state, or null to preserve it.</param>
+	/// <param name="archive">The archive state, or null to preserve it.</param>
+	/// <param name="indexed">The indexing state, or null to preserve it.</param>
+	/// <param name="compressed">The compression state, or null to preserve it.</param>
+	/// <param name="encrypted">The encryption state, or null to preserve it.</param>
+	/// <param name="applyToContents">Whether to update descendants without following reparse points.</param>
+	/// <param name="cancellationToken">The cooperative cancellation token.</param>
+	public static void ApplyChanges(IReadOnlyList<string> paths, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(paths);
+
+		if (readOnly is null && hidden is null && archive is null && indexed is null && compressed is null && encrypted is null)
+		{
+			return;
+		}
+
+		foreach (var path in paths)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			ApplyItemChanges(path, readOnly, hidden, archive, indexed, compressed, encrypted);
+			if (applyToContents && Directory.Exists(path))
+			{
+				var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
+				foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", options))
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+
+					ApplyItemChanges(entry, readOnly, hidden, archive, indexed, compressed, encrypted);
+				}
+			}
+		}
+	}
+
+	private static void ApplyItemChanges(string path, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted)
+	{
+		if (readOnly.HasValue || hidden.HasValue || archive.HasValue || indexed.HasValue)
+		{
+			var attributes = File.GetAttributes(path);
+			attributes = SetAttribute(attributes, FileAttributes.ReadOnly, readOnly);
+			attributes = SetAttribute(attributes, FileAttributes.Hidden, hidden);
+			attributes = SetAttribute(attributes, FileAttributes.Archive, archive);
+			attributes = SetAttribute(attributes, FileAttributes.NotContentIndexed, indexed is null ? null : !indexed.Value);
+			File.SetAttributes(path, attributes);
+		}
+
+		if (compressed is false)
+		{
+			SetCompression(path, false);
+		}
+
+		if (encrypted is false)
+		{
+			SetEncryption(path, false);
+		}
+
+		if (compressed is true)
+		{
+			SetCompression(path, true);
+		}
+
+		if (encrypted is true)
+		{
+			SetEncryption(path, true);
+		}
+	}
+
+	private static FileAttributes SetAttribute(FileAttributes attributes, FileAttributes attribute, bool? value)
+	{
+		return value is null ? attributes : value.Value ? attributes | attribute : attributes & ~attribute;
+	}
 }

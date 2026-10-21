@@ -386,4 +386,5 @@
 	<data name="AppVersion" xml:space="preserve"><value>Version</value></data>
 	<data name="SourceCode" xml:space="preserve"><value>Source code</value></data>
 	<data name="SourceCodeDescription" xml:space="preserve"><value>View the source code and contribute to ReFiles on GitHub.</value></data>
+	<data name="StorageOperationCompleted" xml:space="preserve"><value>Operation completed</value></data>
 </root>

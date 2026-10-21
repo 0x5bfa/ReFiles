@@ -22,17 +22,19 @@ public partial class App : Application
 	private readonly WindowsStorageSource _windowsStorageSource;
 	private readonly JsonViewSettingsStore _viewSettingsStore;
 	private readonly AppSettingsService _settings;
-	private readonly StorageOperationTracker _storageOperationTracker = new();
+	private readonly WinRTStorageOperationService _storageOperations;
+	private readonly StorageOperationTracker _storageOperationTracker;
 	private readonly Lock _windowsLock = new();
 	private readonly Lock _shutdownLock = new();
 	private Task? _shutdownTask;
-	private static readonly Task<Operations.AppService> _operationsServerSession = Task.Run(() => new Operations.AppService(Environment.ProcessId));
 
 	internal AppSettingsService Settings => _settings;
 
 	public App()
 	{
 		_windowsStorageSource = new WindowsStorageSource();
+		_storageOperations = new WinRTStorageOperationService();
+		_storageOperationTracker = new StorageOperationTracker(_storageOperations);
 		_viewSettingsStore = new JsonViewSettingsStore(_windowsStorageSource, AppSettingsService.GetDefaultLocalFolderPath());
 		_settings = new AppSettingsService(_windowsStorageSource);
 		_settings.ApplyLanguage();
@@ -60,7 +62,7 @@ public partial class App : Application
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UIDiagnosticLog.Write("App", "Launch START");
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
-		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore).AddWindowsStorage(_windowsStorageSource).Build();
+		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore).AddWindowsStorage(_windowsStorageSource, enableOperations: false).Build();
 		_runtime = currentRuntime;
 		UIDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -68,7 +70,7 @@ public partial class App : Application
 		UIDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		try
 		{
-			await _operationsServerSession.ConfigureAwait(true);
+			await _storageOperations.ConnectAsync().ConfigureAwait(true);
 		}
 		catch (Exception exception)
 		{
@@ -98,7 +100,7 @@ public partial class App : Application
 			mainWindow = new MainWindow(
 				coreWindow,
 				runtime.Workspace,
-				runtime.StorageOperations,
+				_storageOperations,
 				_storageOperationTracker,
 				_settings,
 				runtime.WindowsShellPreviewSessions,
@@ -197,6 +199,7 @@ public partial class App : Application
 		{
 			_settings.PropertyChanged -= Settings_PropertyChanged;
 			_storageOperationTracker.Dispose();
+			_storageOperations.Dispose();
 		}
 	}
 }

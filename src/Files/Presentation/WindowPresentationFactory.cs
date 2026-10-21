@@ -102,7 +102,7 @@ internal sealed class WindowPresentationFactory
 
 	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
 	{
-		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _operationTracker, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
+		return new FolderBrowserViewModel(pane, _workspace, _storageOperations, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
 	}
 
 	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)

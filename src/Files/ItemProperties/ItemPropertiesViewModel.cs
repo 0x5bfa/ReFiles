@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Core.Storage;
+using Files.StorageOperations;
 using Files.Localization;
 using Files.ViewModels;
 using Files.Core.Windows;
@@ -521,10 +522,29 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 
 		var changes = new ItemPropertiesFileSystemChanges(IsDrive, _initialIsDriveCompressed, _initialIsDriveIndexed, IsDriveCompressed, IsDriveIndexed, requestedReadOnly, requestedHidden,
 			requestedArchive, requestedIndexed, requestedCompressed, requestedEncrypted, updateCompression, updateEncryption, applyToContents);
-		await Task.Run(() => _itemPropertiesFileSystem.Apply(_fileSystemPaths, changes, cancellationToken), cancellationToken);
-		if (!IsDrive && CanRename && !StringComparer.Ordinal.Equals(requestedName, _originalName))
+		var shouldRename = !IsDrive && CanRename && !StringComparer.Ordinal.Equals(requestedName, _originalName);
+		var newName = requestedName + _hiddenFileExtension;
+		if (HasPendingFileAttributeChanges && shouldRename && _renameReference is not null && _storageOperations is WinRTStorageOperationService server)
 		{
-			await RenameAsync(requestedName + _hiddenFileExtension, cancellationToken);
+			var result = await server.ApplyPropertiesAsync(_fileSystemPaths, changes, new RenameOperationRequest(_renameReference, newName), cancellationToken);
+			if (!result.Succeeded)
+			{
+				throw result.Error!;
+			}
+
+			ApplyRenameResult(result, newName);
+		}
+		else
+		{
+			if (IsDrive ? HasPendingDriveAttributeChanges : HasPendingFileAttributeChanges)
+			{
+				await Task.Run(() => _itemPropertiesFileSystem.Apply(_fileSystemPaths, changes, cancellationToken), cancellationToken);
+			}
+
+			if (shouldRename)
+			{
+				await RenameAsync(newName, cancellationToken);
+			}
 		}
 
 		_originalName = Name;
@@ -825,6 +845,11 @@ internal sealed class ItemPropertiesViewModel : ObservableObject
 			throw result.Error ?? new InvalidOperationException("The storage operation failed without an error.");
 		}
 
+		ApplyRenameResult(result, newName);
+	}
+
+	private void ApplyRenameResult(StorageOperationResult result, string newName)
+	{
 		_renameReference = result.ResultItem ?? _renameReference;
 		var resultAddress = result.ResultItem?.LastKnownAddress;
 		if (resultAddress is not null && resultAddress.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(resultAddress.Value))

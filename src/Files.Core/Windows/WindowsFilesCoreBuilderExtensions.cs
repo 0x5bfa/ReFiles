@@ -27,6 +27,7 @@ public static class WindowsFilesCoreBuilderExtensions
 	/// <param name="enablePreviews">Whether to register preview loaders.</param>
 	/// <param name="enableArchives">Whether to register archive browsing.</param>
 	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <param name="enableOperations">Whether to register local operation execution.</param>
 	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddWindowsStorage(
 		this FilesCoreBuilder builder,
@@ -34,7 +35,8 @@ public static class WindowsFilesCoreBuilderExtensions
 		IWindowsShellPreviewPolicy? shellPreviewPolicy = null,
 		bool enablePreviews = true,
 		bool enableArchives = true,
-		IArchiveCredentialResolver? archiveCredentialResolver = null)
+		IArchiveCredentialResolver? archiveCredentialResolver = null,
+		bool enableOperations = true)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 
@@ -42,7 +44,11 @@ public static class WindowsFilesCoreBuilderExtensions
 
 		try
 		{
-			builder.AddStorageSource(windowsSource).AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
+			builder.AddStorageSource(windowsSource);
+			if (enableOperations)
+			{
+				builder.AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
+			}
 			builder.AddStorageBrowseLocationHandler(workspace => new WindowsSearchBrowseLocationHandler(workspace, windowsSource));
 		}
 		catch (Exception registrationError) when (source is null)

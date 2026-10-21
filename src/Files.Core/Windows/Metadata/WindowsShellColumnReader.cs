@@ -269,6 +269,7 @@ internal static unsafe class WindowsShellColumnReader
 		}
 
 		keys = [];
+
 		return false;
 	}
 

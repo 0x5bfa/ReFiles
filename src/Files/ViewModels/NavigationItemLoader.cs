@@ -106,6 +106,7 @@ internal sealed class NavigationItemLoader
 		catch (Exception)
 		{
 			UIDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail ERROR id={reference.ItemId} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+
 			return null;
 		}
 		finally

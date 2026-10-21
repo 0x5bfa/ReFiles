@@ -32,17 +32,17 @@ public sealed class StatusCenterViewModelTests
 	{
 		using var tracker = new StorageOperationTracker();
 		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 3, "first.txt", canCancel: false);
-		var progress = new StorageOperationBatchProgress(operation, completedItems: 1, "second.txt");
+		var progress = new TestStorageOperationBatchProgress(operation, completedItems: 1, "second.txt");
 
 		progress.Report(new StorageOperationProgress(0, 1, completedBytes: 250, totalBytes: 1000));
-		var runningSnapshot = tracker.GetSnapshot()[0];
+		var runningSnapshot = tracker.GetOperations()[0];
 		Assert.AreEqual(1, runningSnapshot.CompletedItems);
 		Assert.AreEqual(250, runningSnapshot.CompletedBytes);
 		Assert.AreEqual(1000, runningSnapshot.TotalBytes);
 		Assert.AreEqual(41.67f, runningSnapshot.SpeedGraphPoints[^1].X, 0.01f);
 
 		progress.Report(new StorageOperationProgress(1, 1, completedBytes: 1000, totalBytes: 1000));
-		var completedItemSnapshot = tracker.GetSnapshot()[0];
+		var completedItemSnapshot = tracker.GetOperations()[0];
 		Assert.AreEqual(2, completedItemSnapshot.CompletedItems);
 		Assert.IsNull(completedItemSnapshot.CompletedBytes);
 	}
@@ -59,7 +59,7 @@ public sealed class StatusCenterViewModelTests
 		operation.Report(0, "first.bin");
 		operation.Report(1, "second.bin");
 
-		var points = tracker.GetSnapshot()[0].SpeedGraphPoints;
+		var points = tracker.GetOperations()[0].SpeedGraphPoints;
 		Assert.IsTrue(points.Count > 1);
 		Assert.AreEqual(50f, points[^1].X, 0.01f);
 		Assert.IsTrue(float.IsFinite(points[^1].Y));
@@ -75,11 +75,11 @@ public sealed class StatusCenterViewModelTests
 		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
 		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
 		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 2, "small.bin", canCancel: false);
-		var progress = new StorageOperationBatchProgress(operation, completedItems: 1, "large.bin", completedBytesBeforeCurrentItem: 10, currentItemBytes: 90, totalBatchBytes: 100);
+		var progress = new TestStorageOperationBatchProgress(operation, completedItems: 1, "large.bin", completedBytesBeforeCurrentItem: 10, currentItemBytes: 90, totalBatchBytes: 100);
 
 		progress.Report(new StorageOperationProgress(0, 1, completedBytes: 45, totalBytes: 90));
 
-		var snapshot = tracker.GetSnapshot()[0];
+		var snapshot = tracker.GetOperations()[0];
 		Assert.IsTrue(snapshot.IsByteProgressForWholeOperation);
 		Assert.AreEqual(55L, snapshot.CompletedBytes);
 		Assert.AreEqual(100L, snapshot.TotalBytes);
@@ -278,22 +278,23 @@ public sealed class StatusCenterViewModelTests
 			StorageOperationInterruptionResponses.Retry | StorageOperationInterruptionResponses.Skip | StorageOperationInterruptionResponses.Cancel);
 
 		var firstResponseTask = operation.RequestInterruptionAsync(inUse, operation.CancellationToken).AsTask();
-		var operationId = tracker.GetSnapshot()[0].Id;
-		Assert.IsTrue(tracker.ResolveInterruption(operationId, new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Skip, applyToAll: true)));
+		var operationId = tracker.GetOperations()[0].Id;
+		Assert.IsTrue(tracker.ResolveInterruption(operationId, tracker.GetOperations()[0].InterruptionId,
+			new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Skip, applyToAll: true)));
 		var firstResponse = await firstResponseTask.WaitAsync(TimeSpan.FromSeconds(5));
 		var secondResponse = await operation.RequestInterruptionAsync(inUse, operation.CancellationToken);
 
 		Assert.AreEqual(StorageOperationInterruptionDecision.Skip, firstResponse.Decision);
 		Assert.AreEqual(StorageOperationInterruptionDecision.Skip, secondResponse.Decision);
 		Assert.IsTrue(secondResponse.ApplyToAll);
-		Assert.AreEqual(TrackedStorageOperationState.Running, tracker.GetSnapshot()[0].State);
+		Assert.AreEqual(TrackedStorageOperationState.Running, tracker.GetOperations()[0].State);
 
 		var diskFull = new StorageOperationInterruption(StorageOperationInterruptionKind.DiskFull,
 			StorageOperationInterruptionResponses.Retry | StorageOperationInterruptionResponses.Skip | StorageOperationInterruptionResponses.Cancel);
 		var unrelatedResponseTask = operation.RequestInterruptionAsync(diskFull, operation.CancellationToken).AsTask();
 		Assert.IsFalse(unrelatedResponseTask.IsCompleted);
-		Assert.AreEqual(TrackedStorageOperationState.WaitingForUser, tracker.GetSnapshot()[0].State);
-		Assert.IsTrue(tracker.ResolveInterruption(operationId, new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Retry)));
+		Assert.AreEqual(TrackedStorageOperationState.WaitingForUser, tracker.GetOperations()[0].State);
+		Assert.IsTrue(tracker.ResolveInterruption(operationId, tracker.GetOperations()[0].InterruptionId, new StorageOperationInterruptionResponse(StorageOperationInterruptionDecision.Retry)));
 		Assert.AreEqual(StorageOperationInterruptionDecision.Retry, (await unrelatedResponseTask.WaitAsync(TimeSpan.FromSeconds(5))).Decision);
 	}
 
@@ -478,7 +479,7 @@ public sealed class StatusCenterViewModelTests
 
 		var spikeElapsedSeconds = Stopwatch.GetElapsedTime(spikeSampleTimestamp).TotalSeconds;
 		var rawSpikeSpeed = 100_000_000d / spikeElapsedSeconds;
-		var snapshot = tracker.GetSnapshot()[0];
+		var snapshot = tracker.GetOperations()[0];
 		Assert.IsNotNull(snapshot.BytesPerSecond);
 		Assert.IsTrue(snapshot.BytesPerSecond.Value < rawSpikeSpeed);
 		Assert.IsTrue(viewModel.Items[0].HasSpeedGraphPoints);
@@ -495,7 +496,7 @@ public sealed class StatusCenterViewModelTests
 		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
 		using var viewModel = new StatusCenterViewModel(tracker, dispatcher);
 		var operation = tracker.StartOperation(TrackedStorageOperationKind.Copy, 1, "large.iso", canCancel: true);
-		var progress = new StorageOperationBatchProgress(operation, completedItems: 0, "large.iso");
+		var progress = new TestStorageOperationBatchProgress(operation, completedItems: 0, "large.iso");
 		const long totalBytes = 100 * 1024 * 1024;
 
 		progress.Report(new StorageOperationProgress(0, 1, completedBytes: 0, totalBytes: totalBytes));

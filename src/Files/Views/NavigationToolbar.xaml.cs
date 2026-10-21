@@ -97,7 +97,8 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private async void NavigationOmnibar_TextChanged(Omnibar _, OmnibarTextChangedEventArgs args)
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0 || !ReferenceEquals(args.Mode, SearchOmnibarMode) || args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen)
+		if (Volatile.Read(ref _isDisposed) is not 0 || !ReferenceEquals(args.Mode, SearchOmnibarMode)
+			|| args.Reason is OmnibarTextChangeReason.ProgrammaticChange or OmnibarTextChangeReason.SuggestionChosen)
 		{
 			return;
 		}

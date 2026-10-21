@@ -3,6 +3,7 @@
 
 using Files.Core.Storage;
 using Files.ViewModels;
+using Files.StorageOperations;
 using Files.Core.Windows;
 using Microsoft.UI.Xaml;
 using Windows.Win32;
@@ -25,7 +26,7 @@ internal sealed class ItemPropertiesService : IItemPropertiesService, IDisposabl
 		ArgumentNullException.ThrowIfNull(storageOperations);
 
 		_owner = owner;
-		_fileSystem = fileSystem ?? new ItemPropertiesFileSystem();
+		_fileSystem = fileSystem ?? new ItemPropertiesFileSystem(storageOperations as WinRTStorageOperationService);
 		_shellProperties = shellProperties;
 		_storageOperations = storageOperations;
 	}

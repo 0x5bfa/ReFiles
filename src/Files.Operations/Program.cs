@@ -3,11 +3,7 @@
 
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.ExceptionServices;
-using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.WinRT;
@@ -16,70 +12,48 @@ namespace Files.Operations;
 
 class Program
 {
-	internal static readonly TaskCompletionSource<bool> ExitSignal = new(TaskCreationOptions.RunContinuationsAsynchronously);
-	private static readonly CancellationTokenSource _cancellationTokenSource = new();
+	internal static readonly ServerLifetime Lifetime = new(TimeSpan.FromSeconds(30));
+	internal static readonly OperationHost Operations = new(Lifetime);
+	internal static readonly Lazy<StorageOperationExecutor> Storage = new(() => new StorageOperationExecutor());
 
-	static async Task Main()
+	static void Main()
 	{
 		AppDomain.CurrentDomain.FirstChanceException += OnFirstChanceException;
 
-		RO_REGISTRATION_COOKIE cookie = default;
-
-		_ = PInvoke.RoInitialize(RO_INIT_TYPE.RO_INIT_MULTITHREADED);
-
-		var classIds = typeof(Program).Assembly.GetTypes()
-			.Where(t => t.IsSealed && t.IsPublic && t.IsClass)
-			.Select(t => t.FullName!)
-			.Where(name => name.StartsWith("Files.Operations.", StringComparison.Ordinal))
-			.Select(name =>
-			{
-				if (PInvoke.WindowsCreateString(name, (uint)name.Length, out var classId) is HRESULT hr && hr.Value is not 0)
-				{
-					Marshal.ThrowExceptionForHR(hr);
-				}
-
-				return new HSTRING(classId.DangerousGetHandle());
-			})
-			.ToArray();
-
-		unsafe
-		{
-			delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>[] callbacks = new delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>[classIds.Length];
-			for (int i = 0; i < callbacks.Length; i++)
-			{
-				callbacks[i] = &Helpers.GetActivationFactory;
-			}
-
-			fixed (delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT>* pCallbacks = callbacks)
-			{
-				if (PInvoke.RoRegisterActivationFactories(classIds, pCallbacks, out cookie) is HRESULT hr && hr.Value != 0)
-				{
-					Marshal.ThrowExceptionForHR(hr);
-				}
-			}
-		}
-
-		foreach (var str in classIds)
-		{
-			_ = PInvoke.WindowsDeleteString(str);
-		}
-
-		AppDomain.CurrentDomain.ProcessExit += (_, _) => _cancellationTokenSource.Cancel();
-
+		PInvoke.RoInitialize(RO_INIT_TYPE.RO_INIT_MULTITHREADED).ThrowOnFailure();
 		try
 		{
-			await ExitSignal.Task.WaitAsync(_cancellationTokenSource.Token);
-		}
-		catch (OperationCanceledException)
-		{
-			return;
+			var className = typeof(AppService).FullName!;
+			PInvoke.WindowsCreateString(className, (uint)className.Length, out var classId).ThrowOnFailure();
+			using (classId)
+			{
+				RO_REGISTRATION_COOKIE cookie;
+				unsafe
+				{
+					HSTRING[] classIds = [new(classId.DangerousGetHandle())];
+					delegate* unmanaged[Stdcall]<HSTRING, IActivationFactory_unmanaged**, HRESULT> callback = &Helpers.GetActivationFactory;
+					PInvoke.RoRegisterActivationFactories(classIds, &callback, out cookie).ThrowOnFailure();
+				}
+
+				try
+				{
+					Lifetime.ExitTask.GetAwaiter().GetResult();
+				}
+				finally
+				{
+					PInvoke.RoRevokeActivationFactories(cookie);
+				}
+			}
 		}
 		finally
 		{
-			if (cookie != 0)
+			Lifetime.Dispose();
+			if (Storage.IsValueCreated)
 			{
-				PInvoke.RoRevokeActivationFactories(cookie);
+				Storage.Value.DisposeAsync().AsTask().GetAwaiter().GetResult();
 			}
+
+			PInvoke.RoUninitialize();
 		}
 	}
 

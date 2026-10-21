@@ -6,6 +6,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using Files.Core.Windows;
+using Files.StorageOperations;
 using Windows.Win32;
 
 namespace Files.ItemProperties;
@@ -14,6 +15,12 @@ internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 {
 	private const uint DriveCdRom = 5;
 	private const uint FileReadOnlyVolume = 0x00080000;
+	private readonly WinRTStorageOperationService? _operations;
+
+	internal ItemPropertiesFileSystem(WinRTStorageOperationService? operations = null)
+	{
+		_operations = operations;
+	}
 
 	public ItemPropertiesFileSystemSelection Inspect(IReadOnlyList<ItemPropertiesFileSystemCandidate> candidates)
 	{
@@ -100,29 +107,13 @@ internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 
 		ArgumentNullException.ThrowIfNull(changes);
 
-		if (changes.IsDrive)
+		if (paths.Count == 0)
 		{
-			ApplyDriveChanges(paths[0], changes, cancellationToken);
-
 			return;
 		}
 
-		foreach (var path in paths)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			ApplyAttributes(path, changes.IsReadOnly, changes.IsHidden, changes.IsArchive, changes.IsIndexed);
-			ApplyAdvancedAttributes(path, changes.IsCompressed, changes.IsEncrypted, changes.UpdateCompression, changes.UpdateEncryption);
-			if (changes.ApplyToContents && Directory.Exists(path))
-			{
-				var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-				foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", options))
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					ApplyAttributes(entry, changes.IsReadOnly, changes.IsHidden, changes.IsArchive, changes.IsIndexed);
-					ApplyAdvancedAttributes(entry, changes.IsCompressed, changes.IsEncrypted, changes.UpdateCompression, changes.UpdateEncryption);
-				}
-			}
-		}
+		var operations = _operations ?? throw new InvalidOperationException("Attribute changes must use the operation server.");
+		operations.ApplyAttributesAsync(paths, changes, cancellationToken).GetAwaiter().GetResult();
 	}
 
 	private static bool? GetCommonAttributeState(IReadOnlyList<string> paths, FileAttributes attribute)
@@ -292,82 +283,4 @@ internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 		return !string.IsNullOrWhiteSpace(root) && Path.TrimEndingDirectorySeparator(paths[0]).Equals(Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase);
 	}
 
-	private static void ApplyDriveChanges(string rootPath, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
-	{
-		cancellationToken.ThrowIfCancellationRequested();
-		if (changes.IsDriveIndexed != changes.InitialIsDriveIndexed)
-		{
-			ApplyAttributes(rootPath, null, null, null, changes.IsDriveIndexed);
-		}
-
-		if (changes.IsDriveCompressed != changes.InitialIsDriveCompressed)
-		{
-			WindowsFileAttributeService.SetCompression(rootPath, changes.IsDriveCompressed);
-		}
-
-		if (!changes.ApplyToContents)
-		{
-			return;
-		}
-
-		var options = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint };
-		foreach (var entry in Directory.EnumerateFileSystemEntries(rootPath, "*", options))
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			if (changes.IsDriveIndexed != changes.InitialIsDriveIndexed)
-			{
-				ApplyAttributes(entry, null, null, null, changes.IsDriveIndexed);
-			}
-
-			if (changes.IsDriveCompressed != changes.InitialIsDriveCompressed)
-			{
-				WindowsFileAttributeService.SetCompression(entry, changes.IsDriveCompressed);
-			}
-		}
-	}
-
-	private static void ApplyAdvancedAttributes(string path, bool? compressed, bool? encrypted, bool updateCompression, bool updateEncryption)
-	{
-		if (updateCompression && compressed is false)
-		{
-			WindowsFileAttributeService.SetCompression(path, false);
-		}
-
-		if (updateEncryption && encrypted is false)
-		{
-			WindowsFileAttributeService.SetEncryption(path, false);
-		}
-
-		if (updateCompression && compressed is true)
-		{
-			WindowsFileAttributeService.SetCompression(path, true);
-		}
-
-		if (updateEncryption && encrypted is true)
-		{
-			WindowsFileAttributeService.SetEncryption(path, true);
-		}
-	}
-
-	private static void ApplyAttributes(string path, bool? readOnly, bool? hidden, bool? archive, bool? indexed)
-	{
-		var attributes = File.GetAttributes(path);
-		attributes = SetAttribute(attributes, FileAttributes.ReadOnly, readOnly);
-		attributes = SetAttribute(attributes, FileAttributes.Hidden, hidden);
-		attributes = SetAttribute(attributes, FileAttributes.Archive, archive);
-		attributes = SetAttribute(attributes, FileAttributes.NotContentIndexed, Invert(indexed));
-		File.SetAttributes(path, attributes);
-	}
-
-	private static FileAttributes SetAttribute(FileAttributes attributes, FileAttributes attribute, bool? value)
-	{
-		if (value is null)
-		{
-			return attributes;
-		}
-
-		return value.Value ? attributes | attribute : attributes & ~attribute;
-	}
 }
-
-#pragma warning restore RS0030
