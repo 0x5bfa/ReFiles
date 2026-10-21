@@ -90,7 +90,7 @@ public sealed class RectangleSelectionModelTests
 	{
 		if (mode is RectangleSelectionMode.Replace)
 		{
-			return intersection.ToHashSet();
+			return [.. intersection];
 		}
 
 		var result = baseline.ToHashSet();

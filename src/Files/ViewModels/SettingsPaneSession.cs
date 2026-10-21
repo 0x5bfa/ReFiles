@@ -7,5 +7,8 @@ namespace Files.ViewModels;
 
 internal sealed class SettingsPaneSession : IPaneContentSession
 {
-	public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+	public ValueTask DisposeAsync()
+	{
+		return ValueTask.CompletedTask;
+	}
 }

@@ -28,5 +28,8 @@ public sealed record StorageAddress
 
 	/// <summary>Returns the address in scheme/value form.</summary>
 	/// <returns>The formatted storage address.</returns>
-	public override string ToString() => $"{Scheme}:{Value}";
+	public override string ToString()
+	{
+		return $"{Scheme}:{Value}";
+	}
 }

@@ -53,34 +53,55 @@ internal sealed class FtpOwnedStream : Stream
 		_session = session;
 	}
 
-	public override void Flush() => _innerStream.Flush();
+	public override void Flush()
+	{
+		_innerStream.Flush();
+	}
 
 	public override Task FlushAsync(CancellationToken cancellationToken)
-		=> _innerStream.FlushAsync(cancellationToken);
+	{
+		return _innerStream.FlushAsync(cancellationToken);
+	}
 
 	public override int Read(byte[] buffer, int offset, int count)
-		=> _innerStream.Read(buffer, offset, count);
+	{
+		return _innerStream.Read(buffer, offset, count);
+	}
 
 	public override int Read(Span<byte> buffer)
-		=> _innerStream.Read(buffer);
+	{
+		return _innerStream.Read(buffer);
+	}
 
 	public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-		=> _innerStream.ReadAsync(buffer, cancellationToken);
+	{
+		return _innerStream.ReadAsync(buffer, cancellationToken);
+	}
 
 	public override long Seek(long offset, SeekOrigin origin)
-		=> _innerStream.Seek(offset, origin);
+	{
+		return _innerStream.Seek(offset, origin);
+	}
 
 	public override void SetLength(long value)
-		=> _innerStream.SetLength(value);
+	{
+		_innerStream.SetLength(value);
+	}
 
 	public override void Write(byte[] buffer, int offset, int count)
-		=> _innerStream.Write(buffer, offset, count);
+	{
+		_innerStream.Write(buffer, offset, count);
+	}
 
 	public override void Write(ReadOnlySpan<byte> buffer)
-		=> _innerStream.Write(buffer);
+	{
+		_innerStream.Write(buffer);
+	}
 
 	public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-		=> _innerStream.WriteAsync(buffer, cancellationToken);
+	{
+		return _innerStream.WriteAsync(buffer, cancellationToken);
+	}
 
 	public override async ValueTask DisposeAsync()
 	{

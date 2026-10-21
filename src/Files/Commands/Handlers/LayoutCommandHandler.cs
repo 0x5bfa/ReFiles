@@ -42,8 +42,9 @@ internal sealed class LayoutCommandHandler(CommandId id) : ICommandHandler
 		return CommandExecutionResult.Succeeded();
 	}
 
-	private static ViewLayoutMode GetLayoutMode(CommandId commandId) =>
-		commandId switch
+	private static ViewLayoutMode GetLayoutMode(CommandId commandId)
+	{
+		return commandId switch
 		{
 			var id when id == CommandIds.LayoutDetails => ViewLayoutMode.Details,
 			var id when id == CommandIds.LayoutList => ViewLayoutMode.List,
@@ -52,9 +53,11 @@ internal sealed class LayoutCommandHandler(CommandId id) : ICommandHandler
 			var id when id == CommandIds.LayoutColumns => ViewLayoutMode.Columns,
 			_ => throw new InvalidOperationException($"Unsupported layout command '{commandId}'."),
 		};
+	}
 
-	private static FolderViewMode ToFolderViewMode(ViewLayoutMode mode) =>
-		mode switch
+	private static FolderViewMode ToFolderViewMode(ViewLayoutMode mode)
+	{
+		return mode switch
 		{
 			ViewLayoutMode.Details => FolderViewMode.Details,
 			ViewLayoutMode.List => FolderViewMode.List,
@@ -63,4 +66,5 @@ internal sealed class LayoutCommandHandler(CommandId id) : ICommandHandler
 			ViewLayoutMode.Columns => FolderViewMode.Columns,
 			_ => throw new InvalidOperationException($"Unsupported folder layout mode '{mode}'."),
 		};
+	}
 }

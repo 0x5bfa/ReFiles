@@ -502,10 +502,14 @@ public sealed class WindowsShellPreviewTests
 	}
 
 	private static WindowsShellPreviewResult CreateResult(StorableReference reference)
-		=> new(reference, Guid.NewGuid());
+	{
+		return new(reference, Guid.NewGuid());
+	}
 
 	private static WindowsPreviewHost CreateHost(WindowsPreviewAcceleratorForwarder? acceleratorForwarder = null)
-		=> new(PInvoke.GetDesktopWindow(), new WindowsPreviewBounds(0, 0, 640, 480), acceleratorForwarder);
+	{
+		return new(PInvoke.GetDesktopWindow(), new WindowsPreviewBounds(0, 0, 640, 480), acceleratorForwarder);
+	}
 
 	private static WindowsPreviewTarget CreateTarget(string id, string name, bool includeContext = true, string? fileSystemPath = null)
 	{
@@ -592,7 +596,10 @@ public sealed class WindowsShellPreviewTests
 
 	private sealed class TargetBoundShellPolicy : IWindowsShellPreviewPolicy
 	{
-		public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid) => PreviewBlockReason.Untrusted;
+		public PreviewBlockReason? GetBlockReason(ItemContext context, Guid handlerClsid)
+		{
+			return PreviewBlockReason.Untrusted;
+		}
 
 		public PreviewBlockReason? GetBlockReason(PreviewRequest request, ItemContext context, Guid handlerClsid)
 		{
@@ -610,7 +617,9 @@ public sealed class WindowsShellPreviewTests
 	private sealed class AllowPreviewPolicy : IPreviewStreamAccessPolicy
 	{
 		public ValueTask<PreviewBlockReason?> GetBlockReasonAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
-			=> ValueTask.FromResult<PreviewBlockReason?>(null);
+		{
+			return ValueTask.FromResult<PreviewBlockReason?>(null);
+		}
 	}
 
 	private sealed class FakeTargetResolver : IWindowsPreviewTargetResolver
@@ -656,7 +665,10 @@ public sealed class WindowsShellPreviewTests
 	{
 		public static AllowHandlerRegistrationValidator Instance { get; } = new();
 
-		public bool IsCurrentHandler(ItemContext context, Guid handlerClsid) => true;
+		public bool IsCurrentHandler(ItemContext context, Guid handlerClsid)
+		{
+			return true;
+		}
 	}
 
 	private sealed class FixedHandlerRegistrationValidator : IWindowsPreviewHandlerRegistrationValidator
@@ -701,7 +713,10 @@ public sealed class WindowsShellPreviewTests
 			_order = order;
 		}
 
-		public void SetSite() => _order.Add("site");
+		public void SetSite()
+		{
+			_order.Add("site");
+		}
 
 		public void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 		{
@@ -732,15 +747,24 @@ public sealed class WindowsShellPreviewTests
 		}
 
 		public void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds)
-			=> _order.Add("window");
+		{
+			_order.Add("window");
+		}
 
 		public void SetBounds(WindowsPreviewBounds bounds)
-			=> _order.Add("bounds");
+		{
+			_order.Add("bounds");
+		}
 
 		public void SetTheme(WindowsPreviewColor background, WindowsPreviewColor foreground)
-			=> _order.Add("theme");
+		{
+			_order.Add("theme");
+		}
 
-		public void ApplySystemVisuals() => _order.Add("visuals");
+		public void ApplySystemVisuals()
+		{
+			_order.Add("visuals");
+		}
 
 		public void DoPreview()
 		{
@@ -751,9 +775,15 @@ public sealed class WindowsShellPreviewTests
 			}
 		}
 
-		public void SetFocus() => _order.Add("focus");
+		public void SetFocus()
+		{
+			_order.Add("focus");
+		}
 
-		public HWND QueryFocus() => (HWND)(nint)123;
+		public HWND QueryFocus()
+		{
+			return (HWND)(nint)123;
+		}
 
 		public void Dispose()
 		{
@@ -765,17 +795,29 @@ public sealed class WindowsShellPreviewTests
 	private sealed class InlineScheduler : IWindowsShellScheduler
 	{
 		public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
-			=> Invoke(action, cancellationToken);
+		{
+			return Invoke(action, cancellationToken);
+		}
 
 		public Task<T> InvokeConcurrentAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
-			=> Invoke(action, cancellationToken);
+		{
+			return Invoke(action, cancellationToken);
+		}
 
-		public Task<T> InvokeSearchAsync<T>(Func<T> action, CancellationToken cancellationToken = default) => Invoke(action, cancellationToken);
+		public Task<T> InvokeSearchAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
+		{
+			return Invoke(action, cancellationToken);
+		}
 
 		public Task<T> InvokeOperationAsync<T>(Func<T> action, CancellationToken cancellationToken = default)
-			=> Invoke(action, cancellationToken);
+		{
+			return Invoke(action, cancellationToken);
+		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 
 		private static Task<T> Invoke<T>(Func<T> action, CancellationToken cancellationToken)
 		{
@@ -816,7 +858,9 @@ public sealed class WindowsShellPreviewTests
 		}
 
 		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
-			=> Task.FromResult<IFolder?>(null);
+		{
+			return Task.FromResult<IFolder?>(null);
+		}
 
 		public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
 		{
@@ -825,6 +869,9 @@ public sealed class WindowsShellPreviewTests
 			return await StreamFactory(cancellationToken);
 		}
 
-		public void Dispose() => IsDisposed = true;
+		public void Dispose()
+		{
+			IsDisposed = true;
+		}
 	}
 }

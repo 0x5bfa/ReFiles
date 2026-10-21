@@ -82,7 +82,7 @@ public sealed class CapabilityBuilder
 
 	private static Dictionary<Type, IReadOnlyList<object>> CloneLists(Dictionary<Type, List<object>> registrations)
 	{
-		return registrations.ToDictionary(static pair => pair.Key, static pair => (IReadOnlyList<object>)pair.Value.ToArray());
+		return registrations.ToDictionary(static pair => pair.Key, static pair => (IReadOnlyList<object>)[.. pair.Value]);
 	}
 }
 

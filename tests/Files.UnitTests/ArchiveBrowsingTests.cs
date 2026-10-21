@@ -288,7 +288,9 @@ public sealed class ArchiveBrowsingTests
 		}
 
 		public ValueTask DisposeAsync()
-			=> ValueTask.CompletedTask;
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class TestArchiveFolder : IFolder
@@ -398,10 +400,14 @@ public sealed class ArchiveBrowsingTests
 		}
 
 		public bool CanResolve(StorageAddress address)
-			=> false;
+		{
+			return false;
+		}
 
 		public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
-			=> ValueTask.FromException<IStorable>(new NotSupportedException());
+		{
+			return ValueTask.FromException<IStorable>(new NotSupportedException());
+		}
 
 		public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 		{
@@ -414,6 +420,8 @@ public sealed class ArchiveBrowsingTests
 		}
 
 		public ValueTask DisposeAsync()
-			=> ValueTask.CompletedTask;
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 }

@@ -42,5 +42,8 @@ public sealed partial class AboutSettingsView : UserControl
 		}
 	}
 
-	private async void OpenSourceCode_Click(object sender, RoutedEventArgs e) => await Launcher.LaunchUriAsync(new Uri(SourceCodeUrl));
+	private async void OpenSourceCode_Click(object sender, RoutedEventArgs e)
+	{
+		await Launcher.LaunchUriAsync(new Uri(SourceCodeUrl));
+	}
 }

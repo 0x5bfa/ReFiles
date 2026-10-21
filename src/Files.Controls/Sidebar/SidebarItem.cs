@@ -141,7 +141,10 @@ namespace Files.Controls
 		}
 
 		// Allows SidebarView to refresh every realized row after selection changes.
-		internal void ReevaluateSelectionFromOwner() => ReevaluateSelection();
+		internal void ReevaluateSelectionFromOwner()
+		{
+			ReevaluateSelection();
+		}
 
 		internal void Clicked(PointerUpdateKind pointerUpdateKind)
 		{
@@ -215,16 +218,10 @@ namespace Files.Controls
 
 		private void HandleMenuItemsSourceChange(object? newValue)
 		{
-			if (_childrenSource is not null)
-			{
-				_childrenSource.CollectionChanged -= ChildItems_CollectionChanged;
-			}
+			_childrenSource?.CollectionChanged -= ChildItems_CollectionChanged;
 
 			_childrenSource = newValue as INotifyCollectionChanged;
-			if (_childrenSource is not null)
-			{
-				_childrenSource.CollectionChanged += ChildItems_CollectionChanged;
-			}
+			_childrenSource?.CollectionChanged += ChildItems_CollectionChanged;
 
 			UpdateFlyoutChildrenSource();
 			UpdateExpansionState();
@@ -332,7 +329,9 @@ namespace Files.Controls
 
 		// Chevron press: suppress the bubbling press; otherwise ElementBorder treats the chevron click as a row click and raises ItemInvoked.
 		private void ChevronContainer_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-			=> e.Handled = TryToggleExpansion();
+		{
+			e.Handled = TryToggleExpansion();
+		}
 
 		private void ItemBorder_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
 		{

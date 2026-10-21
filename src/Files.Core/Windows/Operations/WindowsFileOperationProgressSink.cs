@@ -116,7 +116,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	}
 
 	/// <inheritdoc />
-	public HRESULT PreRenameItem(uint dwFlags, IShellItem psiItem, PCWSTR pszNewName) => GetCancellationResult();
+	public HRESULT PreRenameItem(uint dwFlags, IShellItem psiItem, PCWSTR pszNewName)
+	{
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PostRenameItem(uint dwFlags, IShellItem psiItem, PCWSTR pszNewName, HRESULT hrRename, IShellItem psiNewlyCreated)
@@ -127,7 +130,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	}
 
 	/// <inheritdoc />
-	public HRESULT PreMoveItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName) => GetCancellationResult();
+	public HRESULT PreMoveItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName)
+	{
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PostMoveItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName, HRESULT hrMove, IShellItem psiNewlyCreated)
@@ -138,7 +144,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	}
 
 	/// <inheritdoc />
-	public HRESULT PreCopyItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName) => GetCancellationResult();
+	public HRESULT PreCopyItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName)
+	{
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PostCopyItem(uint dwFlags, IShellItem psiItem, IShellItem psiDestinationFolder, PCWSTR pszNewName, HRESULT hrCopy, IShellItem psiNewlyCreated)
@@ -149,7 +158,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	}
 
 	/// <inheritdoc />
-	public HRESULT PreDeleteItem(uint dwFlags, IShellItem psiItem) => GetCancellationResult();
+	public HRESULT PreDeleteItem(uint dwFlags, IShellItem psiItem)
+	{
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PostDeleteItem(uint dwFlags, IShellItem psiItem, HRESULT hrDelete, IShellItem psiNewlyCreated)
@@ -160,7 +172,10 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	}
 
 	/// <inheritdoc />
-	public HRESULT PreNewItem(uint dwFlags, IShellItem psiDestinationFolder, PCWSTR pszNewName) => GetCancellationResult();
+	public HRESULT PreNewItem(uint dwFlags, IShellItem psiDestinationFolder, PCWSTR pszNewName)
+	{
+		return GetCancellationResult();
+	}
 
 	/// <inheritdoc />
 	public HRESULT PostNewItem(uint dwFlags, IShellItem psiDestinationFolder, PCWSTR pszNewName, PCWSTR pszTemplateName, uint dwFileAttributes, HRESULT hrNew, IShellItem psiNewItem)

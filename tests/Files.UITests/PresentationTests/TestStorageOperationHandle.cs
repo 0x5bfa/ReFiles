@@ -26,9 +26,15 @@ internal sealed class TestStorageOperationHandle : IStorageOperationControl
 		CancellationToken = cancellationToken;
 	}
 
-	public void AcknowledgePauseState(bool isPaused) => _tracker.AcknowledgePauseState(_id, isPaused);
+	public void AcknowledgePauseState(bool isPaused)
+	{
+		_tracker.AcknowledgePauseState(_id, isPaused);
+	}
 
-	public void AcknowledgeCancellationRequest() => _tracker.AcknowledgeCancellationRequest(_id);
+	public void AcknowledgeCancellationRequest()
+	{
+		_tracker.AcknowledgeCancellationRequest(_id);
+	}
 
 	public ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
 	{

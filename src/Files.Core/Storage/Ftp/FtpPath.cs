@@ -166,7 +166,10 @@ public sealed record FtpPath
 
 	/// <summary>Returns the normalized path value.</summary>
 	/// <returns>The normalized path.</returns>
-	public override string ToString() => Value;
+	public override string ToString()
+	{
+		return Value;
+	}
 
 	private static void ValidateSegment(string segment, string parameterName)
 	{

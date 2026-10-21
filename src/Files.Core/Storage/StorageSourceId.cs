@@ -22,5 +22,8 @@ public sealed record StorageSourceId
 
 	/// <summary>Returns the identifier value.</summary>
 	/// <returns>The identifier value.</returns>
-	public override string ToString() => Value;
+	public override string ToString()
+	{
+		return Value;
+	}
 }

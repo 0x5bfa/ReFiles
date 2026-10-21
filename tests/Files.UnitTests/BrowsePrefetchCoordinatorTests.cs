@@ -1046,7 +1046,10 @@ public sealed class BrowsePrefetchCoordinatorTests
 			CancellationToken,
 			ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>>>? Handler { get; set; }
 
-		public bool CanRead(ItemContext context) => true;
+		public bool CanRead(ItemContext context)
+		{
+			return true;
+		}
 
 		public ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>> GetPropertiesAsync(
 			PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken = default)

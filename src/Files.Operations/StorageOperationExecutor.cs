@@ -21,7 +21,10 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 		_handler = new WindowsStorageOperationHandler(_source);
 	}
 
-	public ValueTask DisposeAsync() => _source.DisposeAsync();
+	public ValueTask DisposeAsync()
+	{
+		return _source.DisposeAsync();
+	}
 
 	internal async Task<StorageOperationRequest> CreateRequestAsync(StorageOperationData data, CancellationToken cancellationToken)
 	{
@@ -102,5 +105,8 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 		}
 	}
 
-	private static string? EmptyToNull(string? value) => string.IsNullOrEmpty(value) ? null : value;
+	private static string? EmptyToNull(string? value)
+	{
+		return string.IsNullOrEmpty(value) ? null : value;
+	}
 }

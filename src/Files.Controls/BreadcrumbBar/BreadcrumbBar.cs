@@ -148,10 +148,7 @@ namespace Files.Controls
 
 		private void ItemsSourceView_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
 		{
-			if (_lastBreadcrumbBarItem is not null)
-			{
-				_lastBreadcrumbBarItem.IsLastItem = false;
-			}
+			_lastBreadcrumbBarItem?.IsLastItem = false;
 
 			if (e.NewItems is not null && e.NewItems.Count > 0 && e.NewItems[e.NewItems.Count - 1] is BreadcrumbBarItem item)
 			{

@@ -315,7 +315,10 @@ namespace Files.SourceGenerators.Generators
 			};
 		}
 
-		private static bool IsNumeric(SettingKind kind) => kind is SettingKind.Integer or SettingKind.FloatingPoint;
+		private static bool IsNumeric(SettingKind kind)
+		{
+			return kind is SettingKind.Integer or SettingKind.FloatingPoint;
+		}
 
 		private static string? GetConstraintValue(AttributeData attribute, string name, ITypeSymbol targetType, out object? rawValue, out string? errorMessage)
 		{
@@ -439,9 +442,14 @@ namespace Files.SourceGenerators.Generators
 			return true;
 		}
 
-		private static bool IsNumericSpecialType(SpecialType specialType) => IsIntegerSpecialType(specialType) || specialType is SpecialType.System_Single or SpecialType.System_Double;
+		private static bool IsNumericSpecialType(SpecialType specialType)
+		{
+			return IsIntegerSpecialType(specialType) || specialType is SpecialType.System_Single or SpecialType.System_Double;
+		}
 
-		private static bool IsIntegerSpecialType(SpecialType specialType) => specialType is
+		private static bool IsIntegerSpecialType(SpecialType specialType)
+		{
+			return specialType is
 			SpecialType.System_Byte
 			or SpecialType.System_SByte
 			or SpecialType.System_Int16
@@ -450,8 +458,12 @@ namespace Files.SourceGenerators.Generators
 			or SpecialType.System_UInt32
 			or SpecialType.System_Int64
 			or SpecialType.System_UInt64;
+		}
 
-		private static bool IsNumericValue(object? value) => value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double;
+		private static bool IsNumericValue(object? value)
+		{
+			return value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double;
+		}
 
 		private static bool IsFiniteNumericValue(object value)
 		{
@@ -594,7 +606,10 @@ namespace Files.SourceGenerators.Generators
 
 			internal bool RequiresNormalizer => Kind is SettingKind.Enum or SettingKind.FloatingPoint || MinValueExpression is not null || MaxValueExpression is not null;
 
-			internal static SettingModel Invalid(string name, Location location, string errorMessage) => new(name, location, errorMessage);
+			internal static SettingModel Invalid(string name, Location location, string errorMessage)
+			{
+				return new(name, location, errorMessage);
+			}
 		}
 	}
 }

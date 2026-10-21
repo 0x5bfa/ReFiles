@@ -101,7 +101,10 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		Load();
 	}
 
-	public void ApplyLanguage() => ApplicationLanguages.PrimaryLanguageOverride = LanguageTag;
+	public void ApplyLanguage()
+	{
+		ApplicationLanguages.PrimaryLanguageOverride = LanguageTag;
+	}
 
 	public void SaveNow()
 	{

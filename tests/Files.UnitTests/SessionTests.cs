@@ -188,7 +188,7 @@ public sealed class SessionTests
 		var resolver = new TestBrowseLocationResolver([]);
 		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
 		var pane = GetBrowsePane(paneOwner);
-		var empty = new BrowseNavigationHistorySnapshot(Array.Empty<BrowseLocation>(), currentIndex: -1);
+		var empty = new BrowseNavigationHistorySnapshot([], currentIndex: -1);
 
 		await pane.RestoreAsync(empty);
 		Assert.IsNull(pane.Location);

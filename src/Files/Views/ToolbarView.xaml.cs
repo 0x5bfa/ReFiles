@@ -30,8 +30,10 @@ public sealed partial class ToolbarView : UserControl
 		InitializeComponent();
 	}
 
-	private void LayoutButton_Click(object sender, RoutedEventArgs e) =>
+	private void LayoutButton_Click(object sender, RoutedEventArgs e)
+	{
 		LayoutFlyout.Hide();
+	}
 
 	private async void NewMenuFlyout_Opening(object sender, object e)
 	{

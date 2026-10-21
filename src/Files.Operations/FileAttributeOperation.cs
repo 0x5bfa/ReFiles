@@ -76,5 +76,8 @@ internal sealed class FileAttributeOperation : IServerOperation
 		}
 	}
 
-	private static bool? ToNullable(int value) => value < 0 ? null : value == 1;
+	private static bool? ToNullable(int value)
+	{
+		return value < 0 ? null : value == 1;
+	}
 }

@@ -21,7 +21,10 @@ public sealed class FolderBrowseLocationHandler : IBrowseLocationHandler
 	}
 
 	/// <inheritdoc />
-	public bool CanHandle(BrowseLocation location) => location is FolderLocation;
+	public bool CanHandle(BrowseLocation location)
+	{
+		return location is FolderLocation;
+	}
 
 	/// <inheritdoc />
 	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)

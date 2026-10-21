@@ -381,7 +381,10 @@ public sealed partial class NavigationToolbar : UserControl
 		ResetDropController();
 	}
 
-	private void CancelPendingSearchTextChange() => _searchTextDebouncer.Cancel();
+	private void CancelPendingSearchTextChange()
+	{
+		_searchTextDebouncer.Cancel();
+	}
 
 	private WinUIShellDropTargetController GetDropController(FolderBrowserViewModel browser)
 	{

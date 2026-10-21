@@ -142,7 +142,7 @@ public sealed class CapabilityRegistry
 	{
 		if (!_factories.TryGetValue(typeof(TCapability), out var registrations))
 		{
-			return Array.Empty<CapabilityRegistration<TCapability>>();
+			return [];
 		}
 
 		if (_typedFactories.TryGetValue(typeof(TCapability), out var cached))
@@ -161,7 +161,7 @@ public sealed class CapabilityRegistry
 	{
 		if (!_wrappers.TryGetValue(typeof(TCapability), out var registrations))
 		{
-			return Array.Empty<ICapabilityWrapper<TCapability>>();
+			return [];
 		}
 
 		if (_typedWrappers.TryGetValue(typeof(TCapability), out var cached))
@@ -199,5 +199,5 @@ public sealed class CapabilityRegistry
 internal sealed record CapabilityResolution<TCapability>(TCapability? Capability, IReadOnlyList<object> OwnedInstances)
 	where TCapability : class
 {
-	public static CapabilityResolution<TCapability> Empty { get; } = new(null, Array.Empty<object>());
+	public static CapabilityResolution<TCapability> Empty { get; } = new(null, []);
 }

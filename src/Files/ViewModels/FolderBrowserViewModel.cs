@@ -240,17 +240,25 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		QueueContextualCommandRefresh();
 	}
 
-	public Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default) =>
-		_browseAdapter.NavigateToPathAsync(path, cancellationToken);
+	public Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.NavigateToPathAsync(path, cancellationToken);
+	}
 
-	public Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
-		_browseAdapter.NavigateHomeAsync(cancellationToken);
+	public Task NavigateHomeAsync(CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.NavigateHomeAsync(cancellationToken);
+	}
 
-	public Task NavigateToItemAsync(BrowseItemViewModel item, CancellationToken cancellationToken = default) =>
-		_browseAdapter.NavigateToItemAsync(item, cancellationToken);
+	public Task NavigateToItemAsync(BrowseItemViewModel item, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.NavigateToItemAsync(item, cancellationToken);
+	}
 
-	public Task NavigateToReferenceAsync(StorableReference reference, CancellationToken cancellationToken = default) =>
-		_browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
+	public Task NavigateToReferenceAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
+	}
 
 	public Task SearchAsync(string query, CancellationToken cancellationToken = default)
 	{
@@ -279,17 +287,25 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return _browseAdapter.NavigateToLocationAsync(new SearchLocation(query, scope), cancellationToken, PaneNavigationMode.UpdateSearch);
 	}
 
-	public Task GoBackAsync(CancellationToken cancellationToken = default) =>
-		_browseAdapter.GoBackAsync(cancellationToken);
+	public Task GoBackAsync(CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.GoBackAsync(cancellationToken);
+	}
 
-	public Task GoForwardAsync(CancellationToken cancellationToken = default) =>
-		_browseAdapter.GoForwardAsync(cancellationToken);
+	public Task GoForwardAsync(CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.GoForwardAsync(cancellationToken);
+	}
 
-	public Task GoUpAsync(CancellationToken cancellationToken = default) =>
-		_browseAdapter.GoUpAsync(cancellationToken);
+	public Task GoUpAsync(CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.GoUpAsync(cancellationToken);
+	}
 
-	public Task RefreshAsync(CancellationToken cancellationToken = default) =>
-		_browseAdapter.RefreshAsync(cancellationToken);
+	public Task RefreshAsync(CancellationToken cancellationToken = default)
+	{
+		return _browseAdapter.RefreshAsync(cancellationToken);
+	}
 
 	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
@@ -323,8 +339,10 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		};
 	}
 
-	public void UpdateViewport(BrowseViewport viewport) =>
+	public void UpdateViewport(BrowseViewport viewport)
+	{
 		_browseAdapter.UpdateViewport(viewport);
+	}
 
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)
 	{
@@ -1984,8 +2002,9 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 		return completion.Task;
 	}
 
-	private static FolderViewMode ToFolderViewMode(ViewLayoutMode mode) =>
-		mode switch
+	private static FolderViewMode ToFolderViewMode(ViewLayoutMode mode)
+	{
+		return mode switch
 		{
 			ViewLayoutMode.Details => FolderViewMode.Details,
 			ViewLayoutMode.List => FolderViewMode.List,
@@ -1994,9 +2013,11 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			ViewLayoutMode.Columns => FolderViewMode.Columns,
 			_ => throw new InvalidOperationException($"Unsupported folder layout mode '{mode}'."),
 		};
+	}
 
-	private static ViewLayoutMode ToViewLayoutMode(FolderViewMode mode) =>
-		mode switch
+	private static ViewLayoutMode ToViewLayoutMode(FolderViewMode mode)
+	{
+		return mode switch
 		{
 			FolderViewMode.Details => ViewLayoutMode.Details,
 			FolderViewMode.List => ViewLayoutMode.List,
@@ -2005,6 +2026,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			FolderViewMode.Columns => ViewLayoutMode.Columns,
 			_ => throw new InvalidOperationException($"Unsupported folder view mode '{mode}'."),
 		};
+	}
 
 	private void EnsureActive()
 	{

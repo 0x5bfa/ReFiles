@@ -181,6 +181,9 @@ public sealed class StatusCenterViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(AverageProgressPercentage));
 	}
 
-	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+	private static bool IsActiveState(TrackedStorageOperationState state)
+	{
+		return state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
 		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
+	}
 }

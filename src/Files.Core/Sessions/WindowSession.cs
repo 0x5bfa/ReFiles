@@ -368,7 +368,7 @@ public sealed class WindowSession : IAsyncDisposable
 		{
 			lock (_syncRoot)
 			{
-				ownedTabs = _tabs.ToArray();
+				ownedTabs = [.. _tabs];
 				_tabs.Clear();
 				_activeTabId = Guid.Empty;
 				UpdateSnapshot();

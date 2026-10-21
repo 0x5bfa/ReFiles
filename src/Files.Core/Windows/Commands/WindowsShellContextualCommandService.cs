@@ -104,7 +104,7 @@ public sealed class WindowsShellContextualCommandService
 
 		RemoveSingleSelectionCommands(commands, selection.Count);
 
-		return isRecycleBin ? commands.Values.Where(static command => IsRecycleBinCommand(command.Id)).ToArray() : commands.Values.ToArray();
+		return isRecycleBin ? commands.Values.Where(static command => IsRecycleBinCommand(command.Id)).ToArray() : [.. commands.Values];
 	}
 
 	/// <summary>

@@ -46,10 +46,7 @@ public sealed partial class TableView : Control
 
 	protected override void OnApplyTemplate()
 	{
-		if (_columnHeadersPresenter is not null)
-		{
-			_columnHeadersPresenter.Detach(this);
-		}
+		_columnHeadersPresenter?.Detach(this);
 
 		base.OnApplyTemplate();
 		_columnHeadersPresenter = GetTemplateChild(PartColumnHeadersPresenter) as TableViewColumnHeadersPresenter;
@@ -246,10 +243,7 @@ public sealed partial class TableView : Control
 
 		if (ReferenceEquals(rowsHost, _attachedRowsHost))
 		{
-			if (_rowsHostPresenter is not null)
-			{
-				_rowsHostPresenter.Content = rowsHost.Element;
-			}
+			_rowsHostPresenter?.Content = rowsHost.Element;
 
 			UpdateRowsHostProperties();
 
@@ -260,10 +254,7 @@ public sealed partial class TableView : Control
 		_attachedRowsHost = rowsHost;
 		_attachedRowsHost.RowChanging += RowsHost_RowChanging;
 		_attachedRowsHost.ViewportChanged += RowsHost_ViewportChanged;
-		if (_rowsHostPresenter is not null)
-		{
-			_rowsHostPresenter.Content = rowsHost.Element;
-		}
+		_rowsHostPresenter?.Content = rowsHost.Element;
 
 		UpdateRowsHostProperties();
 	}
@@ -522,10 +513,7 @@ public sealed partial class TableView : Control
 
 	private void SynchronizeHeaderOffset()
 	{
-		if (_headerScrollViewer is not null)
-		{
-			_headerScrollViewer.ChangeView(_attachedRowsHost?.HorizontalOffset ?? 0, null, null, true);
-		}
+		_headerScrollViewer?.ChangeView(_attachedRowsHost?.HorizontalOffset ?? 0, null, null, true);
 	}
 
 	private void RebindRealizedRows()

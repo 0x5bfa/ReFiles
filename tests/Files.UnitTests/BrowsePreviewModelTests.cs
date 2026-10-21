@@ -412,7 +412,10 @@ public sealed class BrowsePreviewModelTests
 			_items = [item];
 		}
 
-		public bool Contains(StorableKey key) => _items.Any(item => item.Reference.GetKey() == key);
+		public bool Contains(StorableKey key)
+		{
+			return _items.Any(item => item.Reference.GetKey() == key);
+		}
 
 		public bool TryGet(StorableKey key, out IStorableModel item)
 		{
@@ -421,13 +424,25 @@ public sealed class BrowsePreviewModelTests
 			return item is not null;
 		}
 
-		public ValueTask NavigateAsync(BrowseLocation location, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask NavigateAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask RefreshAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask RefreshAsync(CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask UpdateViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask UpdateDisplaySettingsAsync(BrowseDisplaySettings settings, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
 		public bool TryGetPresentation(StorableKey key, out BrowseItemPresentation presentation)
 		{
@@ -451,7 +466,10 @@ public sealed class BrowsePreviewModelTests
 		{
 		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class ThrowingPreviewResult : PreviewResult
@@ -472,7 +490,10 @@ public sealed class BrowsePreviewModelTests
 
 		public TestPreviewResult Result { get; } = new();
 
-		public bool CanLoad(ItemContext context) => true;
+		public bool CanLoad(ItemContext context)
+		{
+			return true;
+		}
 
 		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 		{

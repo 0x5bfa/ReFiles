@@ -31,16 +31,10 @@ namespace Files.Controls
 
 		private void ObserveSubItems(IList<ToolbarItem>? newItems)
 		{
-			if (_subItemsCollection is not null)
-			{
-				_subItemsCollection.CollectionChanged -= OnSubItemsCollectionChanged;
-			}
+			_subItemsCollection?.CollectionChanged -= OnSubItemsCollectionChanged;
 
 			_subItemsCollection = newItems as INotifyCollectionChanged;
-			if (_subItemsCollection is not null)
-			{
-				_subItemsCollection.CollectionChanged += OnSubItemsCollectionChanged;
-			}
+			_subItemsCollection?.CollectionChanged += OnSubItemsCollectionChanged;
 		}
 
 		private void OnSubItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
@@ -50,16 +44,10 @@ namespace Files.Controls
 
 		private void ObserveKeyboardAccelerators(IList<KeyboardAccelerator>? newAccelerators)
 		{
-			if (_keyboardAcceleratorsCollection is not null)
-			{
-				_keyboardAcceleratorsCollection.CollectionChanged -= OnKeyboardAcceleratorsCollectionChanged;
-			}
+			_keyboardAcceleratorsCollection?.CollectionChanged -= OnKeyboardAcceleratorsCollectionChanged;
 
 			_keyboardAcceleratorsCollection = newAccelerators as INotifyCollectionChanged;
-			if (_keyboardAcceleratorsCollection is not null)
-			{
-				_keyboardAcceleratorsCollection.CollectionChanged += OnKeyboardAcceleratorsCollectionChanged;
-			}
+			_keyboardAcceleratorsCollection?.CollectionChanged += OnKeyboardAcceleratorsCollectionChanged;
 		}
 
 		private void OnKeyboardAcceleratorsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)

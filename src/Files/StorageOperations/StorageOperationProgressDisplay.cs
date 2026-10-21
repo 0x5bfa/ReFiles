@@ -34,8 +34,7 @@ internal sealed class StorageOperationProgressDisplay
 
 	internal StorageOperationStatus Update(StorageOperationStatus status)
 	{
-		if (_initialized && State == status.State && TotalItems == status.TotalItems && CompletedItems == status.CompletedItems && CompletedBytes == status.CompletedBytes
-			&& TotalBytes == status.TotalBytes && _isByteProgressForWholeOperation == status.IsByteProgressForWholeOperation)
+		if (_initialized && State == status.State && TotalItems == status.TotalItems && CompletedItems == status.CompletedItems && CompletedBytes == status.CompletedBytes && TotalBytes == status.TotalBytes && _isByteProgressForWholeOperation == status.IsByteProgressForWholeOperation)
 		{
 			return WithDisplayProgress(status);
 		}

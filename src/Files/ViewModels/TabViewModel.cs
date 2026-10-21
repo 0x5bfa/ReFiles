@@ -302,7 +302,10 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 		}
 	}
 
-	private void PaneViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e) => OperationErrorReported?.Invoke(this, e);
+	private void PaneViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e)
+	{
+		OperationErrorReported?.Invoke(this, e);
+	}
 
 	private static IconSource CreateSettingsIconSource()
 	{
@@ -311,7 +314,8 @@ public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposab
 			: new FontIconSource { Glyph = SettingsIconGlyph };
 	}
 
-	private void EnsureActive() =>
+	private void EnsureActive()
+	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
-
+	}
 }

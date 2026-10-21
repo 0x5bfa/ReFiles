@@ -311,16 +311,10 @@ public sealed partial class ToolbarViewModel : ObservableObject, IDisposable
 			return;
 		}
 
-		if (_activeFolderBrowser is not null)
-		{
-			_activeFolderBrowser.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
-		}
+		_activeFolderBrowser?.PropertyChanged -= ActiveFolderBrowser_PropertyChanged;
 
 		_activeFolderBrowser = browser;
-		if (_activeFolderBrowser is not null)
-		{
-			_activeFolderBrowser.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
-		}
+		_activeFolderBrowser?.PropertyChanged += ActiveFolderBrowser_PropertyChanged;
 
 		OnPropertyChanged(nameof(CanShowNew));
 		OnPropertyChanged(nameof(LayoutIconData));

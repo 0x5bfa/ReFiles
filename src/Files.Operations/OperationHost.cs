@@ -66,7 +66,7 @@ internal sealed class OperationHost(ServerLifetime lifetime)
 	{
 		lock (_syncRoot)
 		{
-			return new OperationList(_serverInstanceId, _revision, _operations.Values.Select(static entry => entry.Summary).ToArray());
+			return new OperationList(_serverInstanceId, _revision, [.. _operations.Values.Select(static entry => entry.Summary)]);
 		}
 	}
 
@@ -397,7 +397,10 @@ internal sealed class OperationHost(ServerLifetime lifetime)
 		previous.TrySetResult();
 	}
 
-	private static bool IsTerminal(OperationState state) => state is OperationState.Succeeded or OperationState.Failed or OperationState.Canceled;
+	private static bool IsTerminal(OperationState state)
+	{
+		return state is OperationState.Succeeded or OperationState.Failed or OperationState.Canceled;
+	}
 
 	private static void ValidateCounts(long? completed, long? total)
 	{

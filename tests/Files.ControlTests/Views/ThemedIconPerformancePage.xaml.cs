@@ -254,7 +254,10 @@ namespace Files.ControlTests.Views
 			return ordered[ordered.Length / 2];
 		}
 
-		private static string FormatBytes(long bytes) => $"{bytes / 1024d:N1} KiB";
+		private static string FormatBytes(long bytes)
+		{
+			return $"{bytes / 1024d:N1} KiB";
+		}
 
 		private sealed record Measurement(double BuildMilliseconds, double DisplayMilliseconds, long UIThreadAllocatedBytes, long TotalAllocatedBytes);
 	}

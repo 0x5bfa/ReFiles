@@ -61,7 +61,10 @@ public sealed class WindowsStorageSource : IStorageSource
 
 	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
 
-	internal bool IsFileSystemIdentity(string itemId) => _storableFactory.IsFileSystemIdentity(itemId);
+	internal bool IsFileSystemIdentity(string itemId)
+	{
+		return _storableFactory.IsFileSystemIdentity(itemId);
+	}
 
 	/// <summary>Initializes a Windows Shell storage source.</summary>
 	/// <param name="sourceId">The optional source identifier.</param>

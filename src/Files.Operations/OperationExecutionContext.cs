@@ -11,13 +11,25 @@ internal sealed class OperationExecutionContext(OperationHost host, OperationEnt
 {
 	public bool IsPauseRequested => host.IsPauseRequested(entry);
 
-	public void Report(OperationProgress progress) => host.Report(entry, progress);
+	public void Report(OperationProgress progress)
+	{
+		host.Report(entry, progress);
+	}
 
-	public void SetResult(StorageOperationResult result) => host.SetResult(entry, result);
+	public void SetResult(StorageOperationResult result)
+	{
+		host.SetResult(entry, result);
+	}
 
-	public void AcknowledgePauseState(bool isPaused) => host.AcknowledgePause(entry, isPaused);
+	public void AcknowledgePauseState(bool isPaused)
+	{
+		host.AcknowledgePause(entry, isPaused);
+	}
 
-	public void AcknowledgeCancellationRequest() => host.AcknowledgeCancellation(entry);
+	public void AcknowledgeCancellationRequest()
+	{
+		host.AcknowledgeCancellation(entry);
+	}
 
 	public ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
 	{

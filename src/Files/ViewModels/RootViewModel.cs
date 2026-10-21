@@ -916,7 +916,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private void TabViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e) => OperationErrorReported?.Invoke(this, e);
+	private void TabViewModel_OperationErrorReported(object? sender, OperationErrorEventArgs e)
+	{
+		OperationErrorReported?.Invoke(this, e);
+	}
 
 	private void RefreshFromCore()
 	{

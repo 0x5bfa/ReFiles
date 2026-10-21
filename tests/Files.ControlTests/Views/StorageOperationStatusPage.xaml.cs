@@ -140,18 +140,12 @@ public sealed partial class StorageOperationStatusPage : Page
 
 	private void CardWidthSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
 	{
-		if (InteractiveItem is not null)
-		{
-			InteractiveItem.Width = e.NewValue;
-		}
+		InteractiveItem?.Width = e.NewValue;
 	}
 
 	private void TextSizeSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
 	{
-		if (InteractiveItem is not null)
-		{
-			InteractiveItem.FontSize = e.NewValue;
-		}
+		InteractiveItem?.FontSize = e.NewValue;
 	}
 
 	private void RightToLeftToggle_Toggled(object sender, RoutedEventArgs e)

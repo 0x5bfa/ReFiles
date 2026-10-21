@@ -53,7 +53,7 @@ internal sealed class StoredBrowseViewState
 		return new StoredBrowseViewState
 		{
 			LayoutMode = (int)settings.LayoutMode,
-			Columns = settings.Columns.Select(StoredBrowseViewColumnState.FromSettings).ToList(),
+			Columns = [.. settings.Columns.Select(StoredBrowseViewColumnState.FromSettings)],
 			SortPropertyId = settings.SortPropertyId,
 			SortDirection = (int)settings.SortDirection,
 			ItemSize = settings.ItemSize,

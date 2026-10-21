@@ -403,16 +403,26 @@ public sealed class StreamPreviewLoaderTests
 		}
 
 		public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-			=> ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+		{
+			return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+		}
 
-		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+		public override long Seek(long offset, SeekOrigin origin)
+		{
+			throw new NotSupportedException();
+		}
 
-		public override void SetLength(long value) => throw new NotSupportedException();
+		public override void SetLength(long value)
+		{
+			throw new NotSupportedException();
+		}
 
 		public override void Flush() { }
 
 		public override void Write(byte[] buffer, int offset, int count)
-			=> throw new NotSupportedException();
+		{
+			throw new NotSupportedException();
+		}
 
 		protected override void Dispose(bool disposing)
 		{

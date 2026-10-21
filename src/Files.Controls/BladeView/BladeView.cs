@@ -69,10 +69,7 @@ namespace Files.Controls
 		protected override void ClearContainerForItemOverride(DependencyObject element, object item)
 		{
 			var blade = element as BladeItem;
-			if (blade != null)
-			{
-				blade.VisibilityChanged -= BladeOnVisibilityChanged;
-			}
+			blade?.VisibilityChanged -= BladeOnVisibilityChanged;
 
 			base.ClearContainerForItemOverride(element, item);
 		}

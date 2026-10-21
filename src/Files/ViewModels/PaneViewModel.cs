@@ -90,7 +90,10 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 		await FolderBrowser.DisposeAsync().ConfigureAwait(false);
 	}
 
-	private void FolderBrowser_OperationErrorReported(object? sender, OperationErrorEventArgs e) => OperationErrorReported?.Invoke(this, e);
+	private void FolderBrowser_OperationErrorReported(object? sender, OperationErrorEventArgs e)
+	{
+		OperationErrorReported?.Invoke(this, e);
+	}
 
 	private void FolderBrowser_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{

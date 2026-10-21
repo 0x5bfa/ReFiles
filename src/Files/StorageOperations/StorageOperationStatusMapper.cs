@@ -36,7 +36,7 @@ internal static class StorageOperationStatusMapper
 		return new StorageOperationStatus(summary.Id, kind, state, checked((int)summary.CompletedItems), checked((int)summary.TotalItems), summary.CurrentItemName, summary.DestinationPath,
 			summary.HasByteProgress ? summary.CompletedBytes : null, summary.HasByteProgress ? summary.TotalBytes : null, summary.IsByteProgressForWholeOperation, null, null, interruption,
 			data.Id, error, IsActiveState(state), summary.CanPause, summary.IsCancellationRequested, summary.IsCancellationAcknowledged, summary.AcceptedAt,
-			summary.HasCompletedAt ? summary.CompletedAt : null, Array.Empty<System.Numerics.Vector2>());
+			summary.HasCompletedAt ? summary.CompletedAt : null, []);
 	}
 
 	private static bool IsActiveState(TrackedStorageOperationState state)

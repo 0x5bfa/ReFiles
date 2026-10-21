@@ -380,7 +380,10 @@ public sealed class BrowsePerformanceTests
 		return builder.Build();
 	}
 
-	private static int ReadPositiveInt32(string name, int fallback) => int.TryParse(Environment.GetEnvironmentVariable(name), out var value) && value > 0 ? value : fallback;
+	private static int ReadPositiveInt32(string name, int fallback)
+	{
+		return int.TryParse(Environment.GetEnvironmentVariable(name), out var value) && value > 0 ? value : fallback;
+	}
 
 	private static IReadOnlyList<string> ReadRealFolderPaths()
 	{
@@ -701,7 +704,10 @@ public sealed class BrowsePerformanceTests
 			}
 		}
 
-		public void MarkEnumerationCompleted() => Interlocked.CompareExchange(ref _enumerationCompletedTimestamp, Stopwatch.GetTimestamp(), 0);
+		public void MarkEnumerationCompleted()
+		{
+			Interlocked.CompareExchange(ref _enumerationCompletedTimestamp, Stopwatch.GetTimestamp(), 0);
+		}
 
 		public void CaptureFinalState()
 		{
@@ -903,7 +909,10 @@ public sealed class BrowsePerformanceTests
 			}
 		}
 
-		private void TableDiagnostics_RealizedRowCountChanged(object? sender, EventArgs e) => UpdateMaximumRealizedRows();
+		private void TableDiagnostics_RealizedRowCountChanged(object? sender, EventArgs e)
+		{
+			UpdateMaximumRealizedRows();
+		}
 
 		private void ObserveItem(BrowseItemViewModel item)
 		{
@@ -1003,7 +1012,10 @@ public sealed class BrowsePerformanceTests
 			}
 		}
 
-		private double? ElapsedMilliseconds(long timestamp) => timestamp is 0 ? null : Stopwatch.GetElapsedTime(_startTimestamp, timestamp).TotalMilliseconds;
+		private double? ElapsedMilliseconds(long timestamp)
+		{
+			return timestamp is 0 ? null : Stopwatch.GetElapsedTime(_startTimestamp, timestamp).TotalMilliseconds;
+		}
 
 		private static bool HasRequestedProperties(BrowseViewSettings settings)
 		{
@@ -1025,7 +1037,10 @@ public sealed class BrowsePerformanceTests
 			_dispatcherQueue = dispatcherQueue ?? throw new ArgumentNullException(nameof(dispatcherQueue));
 		}
 
-		public bool TryEnqueue(Action callback) => TryEnqueue(DispatcherQueuePriority.Normal, callback);
+		public bool TryEnqueue(Action callback)
+		{
+			return TryEnqueue(DispatcherQueuePriority.Normal, callback);
+		}
 
 		public bool TryEnqueue(DispatcherQueuePriority priority, Action callback)
 		{
@@ -1070,8 +1085,15 @@ public sealed class BrowsePerformanceTests
 			_dispatcherQueue = dispatcherQueue ?? throw new ArgumentNullException(nameof(dispatcherQueue));
 		}
 
-		public void Start() => _producer ??= Task.Run(ProduceAsync);
-		public int CountOver(TimeSpan threshold) => _samples.Count(sample => sample > threshold);
+		public void Start()
+		{
+			_producer ??= Task.Run(ProduceAsync);
+		}
+
+		public int CountOver(TimeSpan threshold)
+		{
+			return _samples.Count(sample => sample > threshold);
+		}
 
 		public async Task StopAsync()
 		{
@@ -1189,15 +1211,29 @@ public sealed class BrowsePerformanceTests
 		public CommandId Id { get; } = id;
 		public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.AllowParallel;
 		public CommandStateInvalidation StateDependencies => CommandStateInvalidation.None;
-		public CommandState GetState(CommandContext context) => new(IsVisible: true, IsEnabled: true);
-		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default) => ValueTask.FromResult(CommandExecutionResult.Succeeded());
+		public CommandState GetState(CommandContext context)
+		{
+			return new(IsVisible: true, IsEnabled: true);
+		}
+
+		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
+		{
+			return ValueTask.FromResult(CommandExecutionResult.Succeeded());
+		}
 	}
 
 	private sealed class NoOpStorageOperationService : IStorageOperationService
 	{
-		public bool CanHandle(StorageOperationRequest request) => false;
+		public bool CanHandle(StorageOperationRequest request)
+		{
+			return false;
+		}
+
 		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
-			IStorageOperationControl? operationControl = null) => throw new NotSupportedException();
+					IStorageOperationControl? operationControl = null)
+		{
+			throw new NotSupportedException();
+		}
 	}
 
 	private sealed class PerformanceBrowseLocationResolver(
@@ -1244,7 +1280,10 @@ public sealed class BrowsePerformanceTests
 			await Task.CompletedTask;
 		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class PerformanceStorageWorkspace : IStorageWorkspace
@@ -1259,10 +1298,25 @@ public sealed class BrowsePerformanceTests
 			yield break;
 		}
 
-		public ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-		public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-		public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
+
+		public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
+
+		public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
+
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class PerformanceStorageSource : IStorageSource
@@ -1280,10 +1334,25 @@ public sealed class BrowsePerformanceTests
 			yield break;
 		}
 
-		public bool CanResolve(StorageAddress address) => false;
-		public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-		public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public bool CanResolve(StorageAddress address)
+		{
+			return false;
+		}
+
+		public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
+
+		public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
+
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class PerformanceStorable(
@@ -1295,10 +1364,12 @@ public sealed class BrowsePerformanceTests
 		public string Id { get; } = id;
 		public string Name { get; } = name;
 
-		public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default) =>
-			getPropertiesAsync is null
+		public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
+		{
+			return getPropertiesAsync is null
 				? ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?>())
 				: getPropertiesAsync(index, request, cancellationToken);
+		}
 	}
 
 	private static class BrowsePerformanceResultWriter

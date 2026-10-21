@@ -27,13 +27,10 @@ internal sealed class StorageOperationTracker : IDisposable
 
 	internal void Attach(IOperationStatusSource server)
 	{
-		if (_server is not null)
-		{
-			_server.Changed -= Server_Changed;
-		}
-
+		_server?.Changed -= Server_Changed;
 		_server = server;
 		_server.Changed += Server_Changed;
+
 		Update();
 	}
 
@@ -45,15 +42,30 @@ internal sealed class StorageOperationTracker : IDisposable
 		}
 	}
 
-	public bool RequestCancellation(Guid id) => _server?.Cancel(id) ?? false;
+	public bool RequestCancellation(Guid id)
+	{
+		return _server?.Cancel(id) ?? false;
+	}
 
-	public bool RequestPause(Guid id) => _server?.SetPaused(id, true) ?? false;
+	public bool RequestPause(Guid id)
+	{
+		return _server?.SetPaused(id, true) ?? false;
+	}
 
-	public bool RequestResume(Guid id) => _server?.SetPaused(id, false) ?? false;
+	public bool RequestResume(Guid id)
+	{
+		return _server?.SetPaused(id, false) ?? false;
+	}
 
-	public bool ResolveInterruption(Guid id, Guid interruptionId, StorageOperationInterruptionResponse response) => _server?.ResolveInterruption(id, interruptionId, response) ?? false;
+	public bool ResolveInterruption(Guid id, Guid interruptionId, StorageOperationInterruptionResponse response)
+	{
+		return _server?.ResolveInterruption(id, interruptionId, response) ?? false;
+	}
 
-	public bool Remove(Guid id) => _server?.Forget(id) ?? false;
+	public bool Remove(Guid id)
+	{
+		return _server?.Forget(id) ?? false;
+	}
 
 	public void ClearCompleted()
 	{
@@ -68,10 +80,7 @@ internal sealed class StorageOperationTracker : IDisposable
 		lock (_syncRoot)
 		{
 			_disposed = true;
-			if (_server is not null)
-			{
-				_server.Changed -= Server_Changed;
-			}
+			_server?.Changed -= Server_Changed;
 			_progress.Clear();
 			_operations = [];
 			Changed = null;
@@ -85,7 +94,8 @@ internal sealed class StorageOperationTracker : IDisposable
 
 	private void Update()
 	{
-		var summaries = _server?.GetOperations() ?? Array.Empty<StorageOperationStatus>();
+		var summaries = _server?.GetOperations() ?? [];
+
 		lock (_syncRoot)
 		{
 			if (_disposed)
@@ -99,7 +109,7 @@ internal sealed class StorageOperationTracker : IDisposable
 				_progress.Remove(id);
 			}
 
-			_operations = summaries.OrderByDescending(static summary => summary.StartedAt).Select(summary =>
+			_operations = [.. summaries.OrderByDescending(static summary => summary.StartedAt).Select(summary =>
 			{
 				if (!_progress.TryGetValue(summary.Id, out var display))
 				{
@@ -108,7 +118,7 @@ internal sealed class StorageOperationTracker : IDisposable
 				}
 
 				return display.Update(summary);
-			}).ToArray();
+			})];
 		}
 
 		try

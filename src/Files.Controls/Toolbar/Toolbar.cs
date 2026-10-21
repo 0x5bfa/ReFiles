@@ -67,7 +67,7 @@ namespace Files.Controls
 			if (_itemsPanel is not null)
 			{
 				_itemsPanel.Children.Clear();
-				_itemsPanel.SetVisibleChildren(Array.Empty<UIElement>());
+				_itemsPanel.SetVisibleChildren([]);
 			}
 
 			ReleaseMaterializedItems();
@@ -82,10 +82,7 @@ namespace Files.Controls
 			_overflowButton = GetTemplateChild(OverflowButtonPartName) as ToolbarFlyoutButton;
 			_overflowFlyout = GetTemplateChild(OverflowFlyoutPartName) as MenuFlyout ?? _overflowButton?.Flyout as MenuFlyout;
 
-			if (_overflowFlyout is not null)
-			{
-				_overflowFlyout.Opening += OnOverflowFlyoutOpening;
-			}
+			_overflowFlyout?.Opening += OnOverflowFlyoutOpening;
 
 			if (_overflowButton is not null)
 			{
@@ -137,17 +134,11 @@ namespace Files.Controls
 			}
 
 			ClearItemSubscriptions();
-			if (_itemsCollection is not null)
-			{
-				_itemsCollection.CollectionChanged -= OnItemsCollectionChanged;
-			}
+			_itemsCollection?.CollectionChanged -= OnItemsCollectionChanged;
 
 			_observedItems = newItems;
 			_itemsCollection = newItems as INotifyCollectionChanged;
-			if (_itemsCollection is not null)
-			{
-				_itemsCollection.CollectionChanged += OnItemsCollectionChanged;
-			}
+			_itemsCollection?.CollectionChanged += OnItemsCollectionChanged;
 
 			RebuildMaterializedItems();
 			InvalidateMeasure();
@@ -164,7 +155,7 @@ namespace Files.Controls
 			if (_itemsPanel is not null)
 			{
 				_itemsPanel.Children.Clear();
-				_itemsPanel.SetVisibleChildren(Array.Empty<UIElement>());
+				_itemsPanel.SetVisibleChildren([]);
 			}
 
 			ReleaseMaterializedItems();
@@ -853,10 +844,7 @@ namespace Files.Controls
 
 		private void OverflowButtonLabelChanged(string newOverflowButtonLabel)
 		{
-			if (_overflowButton is not null)
-			{
-				_overflowButton.Label = newOverflowButtonLabel;
-			}
+			_overflowButton?.Label = newOverflowButtonLabel;
 		}
 
 		private void UpdateMinSizesFromResources()
@@ -960,7 +948,7 @@ namespace Files.Controls
 				}
 			}
 
-			visibleItems = NormalizeToolbarItems(participatingItems.Where(item => visibleItems.Contains(item.Item)).Select(static item => item.Item)).ToHashSet();
+			visibleItems = [.. NormalizeToolbarItems(participatingItems.Where(item => visibleItems.Contains(item.Item)).Select(static item => item.Item))];
 			overflowItems = NormalizeToolbarItems(overflowItems);
 			_itemsPanel?.SetVisibleChildren(_materializedItems.Where(item => visibleItems.Contains(item.Item)).Select(item => item.Host));
 			foreach (var materializedItem in _materializedItems)
@@ -979,17 +967,11 @@ namespace Files.Controls
 			_overflowMenuDirty |= overflowChanged;
 			if (_overflowItems.Count > 0)
 			{
-				if (_overflowStackPanel is not null)
-				{
-					_overflowStackPanel.Visibility = Visibility.Visible;
-				}
+				_overflowStackPanel?.Visibility = Visibility.Visible;
 			}
 			else
 			{
-				if (_overflowStackPanel is not null)
-				{
-					_overflowStackPanel.Visibility = Visibility.Collapsed;
-				}
+				_overflowStackPanel?.Visibility = Visibility.Collapsed;
 			}
 
 			if (_overflowMenuDirty)

@@ -375,12 +375,21 @@ public sealed class StatusCenterItemViewModel : ObservableObject
 		OnPropertyChanged(nameof(InterruptionItemDetails));
 	}
 
-	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+	private static bool IsActiveState(TrackedStorageOperationState state)
+	{
+		return state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
 		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
+	}
 
-	private static bool IsTransferActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing;
+	private static bool IsTransferActiveState(TrackedStorageOperationState state)
+	{
+		return state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing;
+	}
 
-	private static bool IsTransferPausedState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming;
+	private static bool IsTransferPausedState(TrackedStorageOperationState state)
+	{
+		return state is TrackedStorageOperationState.Paused or TrackedStorageOperationState.Resuming;
+	}
 
 	private static StorageOperationStatusActions MapAvailableActions(StorageOperationInterruptionResponses responses)
 	{

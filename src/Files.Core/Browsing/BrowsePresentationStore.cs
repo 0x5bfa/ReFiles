@@ -129,7 +129,7 @@ internal sealed class BrowsePresentationStore
 			}
 		}
 
-		return changes.ToArray();
+		return [.. changes];
 	}
 
 	internal void Remove(StorableKey key)

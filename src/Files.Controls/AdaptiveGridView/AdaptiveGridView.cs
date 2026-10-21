@@ -230,10 +230,7 @@ namespace Files.Controls
 
 					_needToRestoreScrollStates = false;
 
-					if (itemsWrapGridPanel != null)
-					{
-						itemsWrapGridPanel.Orientation = _savedOrientation;
-					}
+					itemsWrapGridPanel?.Orientation = _savedOrientation;
 
 					ScrollViewer.SetVerticalScrollMode(this, _savedVerticalScrollMode);
 					ScrollViewer.SetVerticalScrollBarVisibility(this, _savedVerticalScrollBarVisibility);

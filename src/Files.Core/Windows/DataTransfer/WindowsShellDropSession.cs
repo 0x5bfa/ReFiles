@@ -141,7 +141,10 @@ public sealed class WindowsShellDropSession : IDisposable
 		}
 	}
 
-	private static DROPEFFECT ToNativeEffects(WindowsShellDropEffects effects) => (DROPEFFECT)(uint)(effects & TransferEffects);
+	private static DROPEFFECT ToNativeEffects(WindowsShellDropEffects effects)
+	{
+		return (DROPEFFECT)(uint)(effects & TransferEffects);
+	}
 
 	private static POINTL ToNativePoint(Point point)
 	{
@@ -152,7 +155,10 @@ public sealed class WindowsShellDropSession : IDisposable
 		return result;
 	}
 
-	private static WindowsShellDropEffects ToPublicEffects(DROPEFFECT effects) => (WindowsShellDropEffects)((uint)effects & (uint)TransferEffects);
+	private static WindowsShellDropEffects ToPublicEffects(DROPEFFECT effects)
+	{
+		return (WindowsShellDropEffects)((uint)effects & (uint)TransferEffects);
+	}
 
 	private void VerifyAccess()
 	{

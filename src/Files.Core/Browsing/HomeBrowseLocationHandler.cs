@@ -22,7 +22,10 @@ public sealed class HomeBrowseLocationHandler : IBrowseLocationHandler
 	}
 
 	/// <inheritdoc />
-	public bool CanHandle(BrowseLocation location) => location is HomeLocation;
+	public bool CanHandle(BrowseLocation location)
+	{
+		return location is HomeLocation;
+	}
 
 	/// <inheritdoc />
 	public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)

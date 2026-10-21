@@ -14,5 +14,8 @@ public readonly record struct CommandId
 		Value = value;
 	}
 
-	public override string ToString() => Value;
+	public override string ToString()
+	{
+		return Value;
+	}
 }

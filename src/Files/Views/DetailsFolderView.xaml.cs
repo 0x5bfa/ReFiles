@@ -69,10 +69,7 @@ public sealed partial class DetailsFolderView : UserControl
 
 	private void FolderView_Unloaded(object sender, RoutedEventArgs e)
 	{
-		if (ViewModel is not null)
-		{
-			ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-		}
+		ViewModel?.PropertyChanged -= ViewModel_PropertyChanged;
 	}
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

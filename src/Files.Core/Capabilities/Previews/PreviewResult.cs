@@ -10,5 +10,8 @@ public abstract class PreviewResult : IAsyncDisposable
 {
 	/// <summary>Asynchronously releases resources owned by the preview result.</summary>
 	/// <returns>A value task that represents the disposal operation.</returns>
-	public virtual ValueTask DisposeAsync() => ValueTask.CompletedTask;
+	public virtual ValueTask DisposeAsync()
+	{
+		return ValueTask.CompletedTask;
+	}
 }

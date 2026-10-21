@@ -28,7 +28,7 @@ public class TableViewColumnLayoutBenchmarks
 	[GlobalSetup]
 	public void Setup()
 	{
-		_columns = Enumerable.Range(0, ColumnCount).Select(index => (ITableViewColumn)new BenchmarkColumn($"column-{index}", 72 + index % 160)).ToArray();
+		_columns = [.. Enumerable.Range(0, ColumnCount).Select(index => (ITableViewColumn)new BenchmarkColumn($"column-{index}", 72 + index % 160))];
 	}
 
 	/// <summary>

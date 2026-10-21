@@ -488,16 +488,10 @@ namespace Files.Controls
 				return;
 			}
 
-			if (_observedModes is not null)
-			{
-				_observedModes.CollectionChanged -= Modes_CollectionChanged;
-			}
+			_observedModes?.CollectionChanged -= Modes_CollectionChanged;
 
 			_observedModes = modes as INotifyCollectionChanged;
-			if (_observedModes is not null)
-			{
-				_observedModes.CollectionChanged += Modes_CollectionChanged;
-			}
+			_observedModes?.CollectionChanged += Modes_CollectionChanged;
 		}
 
 		private void Modes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

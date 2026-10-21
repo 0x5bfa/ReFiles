@@ -129,10 +129,9 @@ internal sealed partial class ThemedIconVisualSource : IAnimatedVisualSource2
 		{
 			IconVariant.Outline => CreatePrimaryLayers(data.OutlineData, variant),
 			IconVariant.Filled => CreatePrimaryLayers(data.FilledData, variant),
-			_ => data.Layers
+			_ => [.. data.Layers
 				.Where(static layer => !string.IsNullOrWhiteSpace(layer.PathData))
-				.Select(static layer => new LayerDefinition(layer.PathData, IconVariant.Layered, layer.LayerType, layer.Opacity))
-				.ToArray(),
+				.Select(static layer => new LayerDefinition(layer.PathData, IconVariant.Layered, layer.LayerType, layer.Opacity))],
 		};
 	}
 

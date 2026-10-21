@@ -38,7 +38,9 @@ public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 
 	/// <inheritdoc />
 	public bool CanHandle(BrowseLocation location)
-		=> location is ArchiveLocation;
+	{
+		return location is ArchiveLocation;
+	}
 
 	/// <inheritdoc />
 	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)

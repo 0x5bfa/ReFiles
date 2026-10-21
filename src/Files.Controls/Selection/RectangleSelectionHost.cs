@@ -465,10 +465,7 @@ public sealed partial class RectangleSelectionHost : ContentControl
 			}
 
 			_state = SelectionState.Active;
-			if (_selectionRectangle is not null)
-			{
-				_selectionRectangle.Visibility = Visibility.Visible;
-			}
+			_selectionRectangle?.Visibility = Visibility.Visible;
 		}
 
 		UpdateSelection();

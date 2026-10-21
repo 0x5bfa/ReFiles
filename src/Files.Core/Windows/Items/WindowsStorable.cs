@@ -79,13 +79,22 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 	/// <summary>Determines whether another object has the same Windows item identity.</summary>
 	/// <param name="obj">The object to compare.</param>
 	/// <returns><see langword="true"/> when the object is the same item.</returns>
-	public override bool Equals(object? obj) => Equals(obj as WindowsStorable);
+	public override bool Equals(object? obj)
+	{
+		return Equals(obj as WindowsStorable);
+	}
 
 	/// <summary>Gets a hash code based on the item identity.</summary>
 	/// <returns>The identity hash code.</returns>
-	public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Id);
+	public override int GetHashCode()
+	{
+		return StringComparer.Ordinal.GetHashCode(Id);
+	}
 
 	/// <summary>Returns the Shell parsing name.</summary>
 	/// <returns>The parsing name.</returns>
-	public override string ToString() => ParsingName;
+	public override string ToString()
+	{
+		return ParsingName;
+	}
 }

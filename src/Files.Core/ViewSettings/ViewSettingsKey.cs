@@ -65,7 +65,10 @@ public sealed record ViewSettingsKey
 
 	/// <summary>Returns the serialized key value.</summary>
 	/// <returns>The serialized key value.</returns>
-	public override string ToString() => Value;
+	public override string ToString()
+	{
+		return Value;
+	}
 
 	private static string EncodeReference(StorableReference reference)
 	{

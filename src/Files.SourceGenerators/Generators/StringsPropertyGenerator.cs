@@ -264,22 +264,29 @@ namespace Files.SourceGenerators.Generators
 				: result;
 		}
 
-		private static string EscapeDocumentation(string value) =>
-			value
+		private static string EscapeDocumentation(string value)
+		{
+			return value
 				.Replace("&", "&amp;")
 				.Replace("<", "&lt;")
 				.Replace(">", "&gt;")
 				.Replace('\r', ' ')
 				.Replace('\n', ' ');
+		}
 
-		private static string EscapeStringLiteral(string value) =>
-			value
+		private static string EscapeStringLiteral(string value)
+		{
+			return value
 				.Replace("\\", "\\\\")
 				.Replace("\"", "\\\"")
 				.Replace("\r", "\\r")
 				.Replace("\n", "\\n")
 				.Replace("\t", "\\t");
+		}
 
-		private static string Spacing(int count) => new(' ', count * 4);
+		private static string Spacing(int count)
+		{
+			return new(' ', count * 4);
+		}
 	}
 }

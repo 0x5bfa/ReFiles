@@ -19,11 +19,20 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 
 	public event EventHandler? Changed;
 
-	public bool Cancel(Guid id) => RequestCancellation(id);
+	public bool Cancel(Guid id)
+	{
+		return RequestCancellation(id);
+	}
 
-	public bool SetPaused(Guid id, bool paused) => paused ? RequestPause(id) : RequestResume(id);
+	public bool SetPaused(Guid id, bool paused)
+	{
+		return paused ? RequestPause(id) : RequestResume(id);
+	}
 
-	public bool Forget(Guid id) => Remove(id);
+	public bool Forget(Guid id)
+	{
+		return Remove(id);
+	}
 
 	public bool ResolveInterruption(Guid id, Guid interruptionId, StorageOperationInterruptionResponse response)
 	{
@@ -242,7 +251,7 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 			}
 
 			_isDisposed = true;
-			cancellations = _operations.Values.Select(static operation => operation.Cancellation).OfType<CancellationTokenSource>().ToArray();
+			cancellations = [.. _operations.Values.Select(static operation => operation.Cancellation).OfType<CancellationTokenSource>()];
 			_operations.Clear();
 			_operationOrder.Clear();
 			Changed = null;
@@ -381,8 +390,11 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 		return new ValueTask<StorageOperationInterruptionResponse>(responseTask.WaitAsync(cancellationToken));
 	}
 
-	private static bool IsActiveState(TrackedStorageOperationState state) => state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+	private static bool IsActiveState(TrackedStorageOperationState state)
+	{
+		return state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
 		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
+	}
 
 	internal static bool IsDecisionAvailable(StorageOperationInterruption interruption, StorageOperationInterruptionDecision decision)
 	{

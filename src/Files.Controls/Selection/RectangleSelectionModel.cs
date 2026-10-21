@@ -19,7 +19,7 @@ internal sealed class RectangleSelectionModel
 	{
 		ArgumentNullException.ThrowIfNull(baselineSelection);
 
-		_baselineSelection = baselineSelection.ToHashSet();
+		_baselineSelection = [.. baselineSelection];
 		_mode = mode;
 	}
 

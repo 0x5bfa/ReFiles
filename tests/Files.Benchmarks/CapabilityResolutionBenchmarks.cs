@@ -54,7 +54,10 @@ public class CapabilityResolutionBenchmarks
 	/// Releases the cached capability set after the benchmark completes.
 	/// </summary>
 	[GlobalCleanup]
-	public void Cleanup() => cachedCapabilities.Dispose();
+	public void Cleanup()
+	{
+		cachedCapabilities.Dispose();
+	}
 
 	/// <summary>
 	/// Measures resolving a capability from a newly created capability set.
@@ -73,7 +76,10 @@ public class CapabilityResolutionBenchmarks
 	/// </summary>
 	/// <returns>The resolved capability value.</returns>
 	[Benchmark]
-	public string CachedResolution() => cachedCapabilities.Get<BenchmarkCapability>()!.Value;
+	public string CachedResolution()
+	{
+		return cachedCapabilities.Get<BenchmarkCapability>()!.Value;
+	}
 }
 
 internal sealed class BenchmarkCapability
@@ -112,13 +118,23 @@ internal sealed class BenchmarkStorageSource : IStorageSource
 		yield break;
 	}
 
-	public bool CanResolve(StorageAddress address) => false;
+	public bool CanResolve(StorageAddress address)
+	{
+		return false;
+	}
 
 	public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException();
+	{
+		throw new NotSupportedException();
+	}
 
 	public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException();
+	{
+		throw new NotSupportedException();
+	}
 
-	public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+	public ValueTask DisposeAsync()
+	{
+		return ValueTask.CompletedTask;
+	}
 }

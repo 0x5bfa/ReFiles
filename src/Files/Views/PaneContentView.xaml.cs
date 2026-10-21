@@ -34,7 +34,13 @@ public sealed partial class PaneContentView : UserControl
 		view.UpdateContent();
 	}
 
-	private void PaneContentView_Loaded(object sender, RoutedEventArgs e) => UpdateContent();
+	private void PaneContentView_Loaded(object sender, RoutedEventArgs e)
+	{
+		UpdateContent();
+	}
 
-	private void UpdateContent() => PaneContentPresenter.Content = ViewModel?.Content;
+	private void UpdateContent()
+	{
+		PaneContentPresenter.Content = ViewModel?.Content;
+	}
 }

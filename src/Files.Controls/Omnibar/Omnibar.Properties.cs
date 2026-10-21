@@ -30,10 +30,7 @@ namespace Files.Controls
 			if (e.NewValue is not OmnibarMode newMode)
 			{
 				CurrentSelectedModeName = null;
-				if (_textBoxSuggestionsPopup is not null)
-				{
-					_textBoxSuggestionsPopup.IsOpen = false;
-				}
+				_textBoxSuggestionsPopup?.IsOpen = false;
 
 				return;
 			}

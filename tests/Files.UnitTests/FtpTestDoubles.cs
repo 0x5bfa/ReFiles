@@ -37,7 +37,7 @@ internal sealed class InMemoryFtpSessionFactory :
 	public void AddFile(string path, byte[] content, DateTimeOffset? dateModified = null)
 	{
 		var ftpPath = FtpPath.Parse(path);
-		entries[ftpPath.Value] = new FtpTestEntry(new FtpEntryInfo(ftpPath, ftpPath.Name, FtpEntryKind.File, content.LongLength, dateModified), content.ToArray());
+		entries[ftpPath.Value] = new FtpTestEntry(new FtpEntryInfo(ftpPath, ftpPath.Name, FtpEntryKind.File, content.LongLength, dateModified), [.. content]);
 	}
 
 	public bool Contains(string path)
@@ -47,9 +47,8 @@ internal sealed class InMemoryFtpSessionFactory :
 
 	public byte[] ReadContent(string path)
 	{
-		return entries[FtpPath.Parse(path).Value]
-			.Content
-			.ToArray();
+		return [.. entries[FtpPath.Parse(path).Value]
+			.Content];
 	}
 
 	public ValueTask<IFtpSession> ConnectAsync(FtpConnectionProfile profile, FtpCredential credential, CancellationToken cancellationToken = default)
@@ -125,7 +124,7 @@ internal sealed class InMemoryFtpSession : IFtpSession
 			throw new FileNotFoundException("FTP test file was not found.", path.Value);
 		}
 
-		return ValueTask.FromResult<Stream>(new MemoryStream(entry.Content.ToArray(), writable: false));
+		return ValueTask.FromResult<Stream>(new MemoryStream([.. entry.Content], writable: false));
 	}
 
 	public ValueTask<Stream> OpenWriteAsync(FtpPath path, CancellationToken cancellationToken = default)

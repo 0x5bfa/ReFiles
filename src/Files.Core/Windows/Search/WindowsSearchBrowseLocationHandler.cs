@@ -26,7 +26,10 @@ internal sealed class WindowsSearchBrowseLocationHandler : IBrowseLocationHandle
 	}
 
 	/// <inheritdoc />
-	public bool CanHandle(BrowseLocation location) => location is SearchLocation search && (search.Scope is null || search.Scope.SourceId == _source.SourceId);
+	public bool CanHandle(BrowseLocation location)
+	{
+		return location is SearchLocation search && (search.Scope is null || search.Scope.SourceId == _source.SourceId);
+	}
 
 	/// <inheritdoc />
 	public async ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)

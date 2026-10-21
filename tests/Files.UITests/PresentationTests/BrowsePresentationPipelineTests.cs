@@ -970,7 +970,10 @@ public sealed class BrowsePresentationPipelineTests
 		{
 		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class CountingStateCalls
@@ -979,7 +982,10 @@ public sealed class BrowsePresentationPipelineTests
 
 		public int Count => Volatile.Read(ref _count);
 
-		public void Increment() => Interlocked.Increment(ref _count);
+		public void Increment()
+		{
+			Interlocked.Increment(ref _count);
+		}
 	}
 
 	private sealed class CountingCommandHandler(CommandId id, CountingStateCalls stateCalls) : ICommandHandler
@@ -999,8 +1005,10 @@ public sealed class BrowsePresentationPipelineTests
 			return new CommandState(IsVisible: true, IsEnabled: true);
 		}
 
-		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default) =>
-			ValueTask.FromResult(CommandExecutionResult.Succeeded());
+		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
+		{
+			return ValueTask.FromResult(CommandExecutionResult.Succeeded());
+		}
 	}
 
 	private sealed class NoOpCommandHandler(CommandId id) : ICommandHandler
@@ -1011,9 +1019,15 @@ public sealed class BrowsePresentationPipelineTests
 
 		public CommandStateInvalidation StateDependencies => CommandStateInvalidation.None;
 
-		public CommandState GetState(CommandContext context) => new(IsVisible: true, IsEnabled: true);
+		public CommandState GetState(CommandContext context)
+		{
+			return new(IsVisible: true, IsEnabled: true);
+		}
 
-		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default) => ValueTask.FromResult(CommandExecutionResult.Succeeded());
+		public ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
+		{
+			return ValueTask.FromResult(CommandExecutionResult.Succeeded());
+		}
 	}
 
 	private sealed class SerializingCommandHandler : ICommandHandler
@@ -1044,7 +1058,10 @@ public sealed class BrowsePresentationPipelineTests
 			Id = id;
 		}
 
-		public CommandState GetState(CommandContext context) => new(IsVisible: true, IsEnabled: true);
+		public CommandState GetState(CommandContext context)
+		{
+			return new(IsVisible: true, IsEnabled: true);
+		}
 
 		public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 		{
@@ -1077,7 +1094,10 @@ public sealed class BrowsePresentationPipelineTests
 			}
 		}
 
-		public void AllowFirstCallToFinish() => _firstCallRelease.TrySetResult(true);
+		public void AllowFirstCallToFinish()
+		{
+			_firstCallRelease.TrySetResult(true);
+		}
 
 		private static void UpdateMaximum(ref int target, int candidate)
 		{
@@ -1097,11 +1117,16 @@ public sealed class BrowsePresentationPipelineTests
 
 	private sealed class NoOpStorageOperationService : IStorageOperationService
 	{
-		public bool CanHandle(StorageOperationRequest request) => false;
+		public bool CanHandle(StorageOperationRequest request)
+		{
+			return false;
+		}
 
 		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
-			IStorageOperationControl? operationControl = null) =>
+			IStorageOperationControl? operationControl = null)
+		{
 			throw new NotSupportedException();
+		}
 	}
 
 	private sealed class PresentationBrowseLocationResolver(
@@ -1281,7 +1306,10 @@ public sealed class BrowsePresentationPipelineTests
 			}
 		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class PresentationStorageWorkspace : IStorageWorkspace
@@ -1296,13 +1324,25 @@ public sealed class BrowsePresentationPipelineTests
 			yield break;
 		}
 
-		public ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask<IStorableModel> ResolveAsync(StorageSourceId sourceId, StorageAddress address, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask<IStorableModel> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class PresentationStorageSource : IStorageSource
@@ -1321,13 +1361,25 @@ public sealed class BrowsePresentationPipelineTests
 			yield break;
 		}
 
-		public bool CanResolve(StorageAddress address) => false;
+		public bool CanResolve(StorageAddress address)
+		{
+			return false;
+		}
 
-		public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+		public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
+		{
+			throw new NotSupportedException();
+		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 	}
 
 	private sealed class PresentationStorable(

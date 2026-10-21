@@ -13,12 +13,15 @@ internal sealed class BrowseEnvironmentMetadata
 	public long AvailableMemoryBytes { get; init; }
 	public string? Notes { get; init; }
 
-	public static BrowseEnvironmentMetadata Create(string? notes) => new()
+	public static BrowseEnvironmentMetadata Create(string? notes)
 	{
-		OsVersion = Environment.OSVersion.VersionString,
-		ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
-		Processor = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER"),
-		AvailableMemoryBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes,
-		Notes = notes,
-	};
+		return new()
+		{
+			OsVersion = Environment.OSVersion.VersionString,
+			ProcessArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+			Processor = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER"),
+			AvailableMemoryBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes,
+			Notes = notes,
+		};
+	}
 }

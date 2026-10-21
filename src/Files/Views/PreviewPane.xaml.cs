@@ -282,11 +282,8 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 	private void UnsubscribePreviewRoot()
 	{
-		if (_subscribedXamlRoot is not null)
-		{
-			_subscribedXamlRoot.Changed -= PreviewXamlRoot_Changed;
-			_subscribedXamlRoot = null;
-		}
+		_subscribedXamlRoot?.Changed -= PreviewXamlRoot_Changed;
+		_subscribedXamlRoot = null;
 
 		if (_inputRoot is not null)
 		{
@@ -361,16 +358,10 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			return;
 		}
 
-		if (_subscribedViewModel is not null)
-		{
-			_subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-		}
+		_subscribedViewModel?.PropertyChanged -= ViewModel_PropertyChanged;
 
 		_subscribedViewModel = value;
-		if (_subscribedViewModel is not null)
-		{
-			_subscribedViewModel.PropertyChanged += ViewModel_PropertyChanged;
-		}
+		_subscribedViewModel?.PropertyChanged += ViewModel_PropertyChanged;
 	}
 
 	private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

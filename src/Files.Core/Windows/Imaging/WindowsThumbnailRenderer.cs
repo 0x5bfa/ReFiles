@@ -561,18 +561,21 @@ internal static unsafe class WindowsThumbnailRenderer
 		return result;
 	}
 
-	private static BITMAPINFO CreateBitmapInfo(int width, int height) => new()
+	private static BITMAPINFO CreateBitmapInfo(int width, int height)
 	{
-		bmiHeader = new BITMAPINFOHEADER
+		return new()
 		{
-			biSize = (uint)sizeof(BITMAPINFOHEADER),
-			biWidth = width,
-			biHeight = -height,
-			biPlanes = 1,
-			biBitCount = 32,
-			biCompression = BitmapInfoCompressionRgb,
-		},
-	};
+			bmiHeader = new BITMAPINFOHEADER
+			{
+				biSize = (uint)sizeof(BITMAPINFOHEADER),
+				biWidth = width,
+				biHeight = -height,
+				biPlanes = 1,
+				biBitCount = 32,
+				biCompression = BitmapInfoCompressionRgb,
+			},
+		};
+	}
 
 	private static void SetRenderedAlpha(byte[] bgra)
 	{

@@ -443,10 +443,7 @@ internal sealed class ItemContextMenu
 
 		_isClosed = true;
 		_flyout.Closed -= Flyout_Closed;
-		if (_target is not null)
-		{
-			_target.Unloaded -= Target_Unloaded;
-		}
+		_target?.Unloaded -= Target_Unloaded;
 
 		_lifetime.Cancel();
 		_ = CloseAsync();

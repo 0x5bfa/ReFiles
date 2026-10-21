@@ -119,7 +119,10 @@ public sealed class PreviewPaneViewModelTests
 			return true;
 		}
 
-		public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+		public ValueTask DisposeAsync()
+		{
+			return ValueTask.CompletedTask;
+		}
 
 		public void Publish(BrowsePreviewSnapshot snapshot)
 		{

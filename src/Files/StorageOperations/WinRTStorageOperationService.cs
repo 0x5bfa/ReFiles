@@ -57,7 +57,10 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		return ToResult(result);
 	}
 
-	internal Task<Operations.AppService> ConnectAsync() => GetConnection();
+	internal Task<Operations.AppService> ConnectAsync()
+	{
+		return GetConnection();
+	}
 
 	public IReadOnlyList<StorageOperationStatus> GetOperations()
 	{
@@ -98,16 +101,25 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		}
 	}
 
-	public bool Cancel(Guid id) => QueueControl(server => server.CancelOperation(id));
+	public bool Cancel(Guid id)
+	{
+		return QueueControl(server => server.CancelOperation(id));
+	}
 
-	public bool SetPaused(Guid id, bool paused) => QueueControl(server => server.SetOperationPaused(id, paused));
+	public bool SetPaused(Guid id, bool paused)
+	{
+		return QueueControl(server => server.SetOperationPaused(id, paused));
+	}
 
 	public bool ResolveInterruption(Guid id, Guid interruptionId, StorageOperationInterruptionResponse response)
 	{
 		return QueueControl(server => server.ResolveOperationInterruption(id, interruptionId, (int)response.Decision, response.ApplyToAll));
 	}
 
-	public bool Forget(Guid id) => QueueControl(server => server.ForgetOperation(id));
+	public bool Forget(Guid id)
+	{
+		return QueueControl(server => server.ForgetOperation(id));
+	}
 
 	internal async Task InvokeNewItemAsync(string folderPath, uint commandOffset, string name, CancellationToken cancellationToken)
 	{
@@ -360,9 +372,15 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 			&& (!requireFileSystem || item.LastKnownAddress?.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) is true);
 	}
 
-	private static bool IsTerminal(Operations.OperationState state) => state is Operations.OperationState.Succeeded or Operations.OperationState.Failed or Operations.OperationState.Canceled;
+	private static bool IsTerminal(Operations.OperationState state)
+	{
+		return state is Operations.OperationState.Succeeded or Operations.OperationState.Failed or Operations.OperationState.Canceled;
+	}
 
-	private static int ToOptionalBoolean(bool? value) => value is null ? -1 : value.Value ? 1 : 0;
+	private static int ToOptionalBoolean(bool? value)
+	{
+		return value is null ? -1 : value.Value ? 1 : 0;
+	}
 
 	private static StorageOperationResult ToResult(Operations.OperationSummary summary)
 	{

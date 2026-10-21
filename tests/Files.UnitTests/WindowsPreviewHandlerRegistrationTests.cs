@@ -253,8 +253,14 @@ public sealed class WindowsPreviewHandlerRegistrationTests
 			Address = new StorageAddress("file", name);
 		}
 
-		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default) => Task.FromResult<IFolder?>(null);
+		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
+		{
+			return Task.FromResult<IFolder?>(null);
+		}
 
-		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(new MemoryStream());
+		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		{
+			return Task.FromResult<Stream>(new MemoryStream());
+		}
 	}
 }

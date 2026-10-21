@@ -160,8 +160,10 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		return _activeFolderBrowser?.NavigateToLocationAsync(item.Location, cancellationToken) ?? Task.CompletedTask;
 	}
 
-	internal Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
-		_activeFolderBrowser?.NavigateHomeAsync(cancellationToken) ?? Task.CompletedTask;
+	internal Task NavigateHomeAsync(CancellationToken cancellationToken = default)
+	{
+		return _activeFolderBrowser?.NavigateHomeAsync(cancellationToken) ?? Task.CompletedTask;
+	}
 
 	internal Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbChildrenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
@@ -188,7 +190,10 @@ public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
 		}
 	}
 
-	private void SetSearchText(string value) => SetProperty(ref _searchText, value, nameof(SearchText));
+	private void SetSearchText(string value)
+	{
+		SetProperty(ref _searchText, value, nameof(SearchText));
+	}
 
 	private async Task RefreshBreadcrumbItemsAsync()
 	{

@@ -313,10 +313,7 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		try
 		{
 			var siteInterface = _handler as IObjectWithSite;
-			if (siteInterface is not null)
-			{
-				siteInterface.SetSite(null!).ThrowOnFailure();
-			}
+			siteInterface?.SetSite(null!).ThrowOnFailure();
 		}
 		finally
 		{

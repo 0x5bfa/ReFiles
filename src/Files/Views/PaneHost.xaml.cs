@@ -69,8 +69,10 @@ public sealed partial class PaneHost : UserControl
 		UpdatePaneLayout();
 	}
 
-	private void PaneHost_Unloaded(object sender, RoutedEventArgs e) =>
+	private void PaneHost_Unloaded(object sender, RoutedEventArgs e)
+	{
 		SetSubscribedViewModel(null);
+	}
 
 	private void SetSubscribedViewModel(TabViewModel? value)
 	{
@@ -105,7 +107,10 @@ public sealed partial class PaneHost : UserControl
 		}
 	}
 
-	private void Panes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdatePaneLayout();
+	private void Panes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+	{
+		UpdatePaneLayout();
+	}
 
 	private void UpdatePaneLayout()
 	{
@@ -157,10 +162,7 @@ public sealed partial class PaneHost : UserControl
 			var paneViewModel = viewModel.Panes[index];
 			if (!_paneViews.TryGetValue(paneViewModel.Id, out var paneView) || !ReferenceEquals(paneView.ViewModel, paneViewModel))
 			{
-				if (paneView is not null)
-				{
-					paneView.Activated -= PaneView_Activated;
-				}
+				paneView?.Activated -= PaneView_Activated;
 
 				paneView = new PaneView
 				{

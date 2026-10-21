@@ -58,10 +58,16 @@ public sealed class BrowseSession : IBrowseSession, IBrowsePrefetchTarget, IInte
 	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _itemProjection).Items;
 
 	/// <inheritdoc />
-	public bool Contains(StorableKey key) => Volatile.Read(ref _itemProjection).Contains(key);
+	public bool Contains(StorableKey key)
+	{
+		return Volatile.Read(ref _itemProjection).Contains(key);
+	}
 
 	/// <inheritdoc />
-	public bool TryGet(StorableKey key, out IStorableModel item) => Volatile.Read(ref _itemProjection).TryGet(key, out item!);
+	public bool TryGet(StorableKey key, out IStorableModel item)
+	{
+		return Volatile.Read(ref _itemProjection).TryGet(key, out item!);
+	}
 
 	/// <inheritdoc />
 	public long ItemsVersion => Volatile.Read(ref _itemsVersion);

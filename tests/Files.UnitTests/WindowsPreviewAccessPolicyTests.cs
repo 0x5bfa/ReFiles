@@ -293,7 +293,10 @@ public sealed class WindowsPreviewAccessPolicyTests
 		return new ItemContext(source, item, new StorableReference(source.SourceId, item.Id));
 	}
 
-	private static string GetZoneIdentifierPath(string filePath) => $"{filePath}:Zone.Identifier";
+	private static string GetZoneIdentifierPath(string filePath)
+	{
+		return $"{filePath}:Zone.Identifier";
+	}
 
 	private static bool UsesExpectedPreviewZonePolicy(string localPath, string internetPath)
 	{
@@ -372,7 +375,10 @@ public sealed class WindowsPreviewAccessPolicyTests
 			_allowsUntrusted = allowsUntrusted;
 		}
 
-		public bool AllowsUntrustedPreviews(Guid handlerClsid) => _allowsUntrusted;
+		public bool AllowsUntrustedPreviews(Guid handlerClsid)
+		{
+			return _allowsUntrusted;
+		}
 	}
 
 	private sealed class FixedEnterpriseIdResolver : IWindowsPreviewEnterpriseIdResolver
@@ -384,7 +390,10 @@ public sealed class WindowsPreviewAccessPolicyTests
 			_hasEnterpriseId = hasEnterpriseId;
 		}
 
-		public bool HasEnterpriseId(ItemContext context) => _hasEnterpriseId;
+		public bool HasEnterpriseId(ItemContext context)
+		{
+			return _hasEnterpriseId;
+		}
 	}
 
 	private sealed class FixedHandlerResolver : IWindowsPreviewHandlerResolver
@@ -440,8 +449,14 @@ public sealed class WindowsPreviewAccessPolicyTests
 			FileSystemPath = fileSystemPath;
 		}
 
-		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default) => Task.FromResult<IFolder?>(null);
+		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
+		{
+			return Task.FromResult<IFolder?>(null);
+		}
 
-		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default) => throw new AssertFailedException("Policy evaluation must not open content.");
+		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		{
+			throw new AssertFailedException("Policy evaluation must not open content.");
+		}
 	}
 }

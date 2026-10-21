@@ -166,5 +166,8 @@ public sealed class AppService : IDisposable
 		return Program.Lifetime.Acquire();
 	}
 
-	private void Process_Exited(object? sender, EventArgs e) => Dispose();
+	private void Process_Exited(object? sender, EventArgs e)
+	{
+		Dispose();
+	}
 }

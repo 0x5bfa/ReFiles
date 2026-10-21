@@ -87,7 +87,10 @@ internal sealed class ItemActivationService : IItemActivationService
 		return invoked ? ItemActivationOutcome.Invoked : ItemActivationOutcome.Unsupported;
 	}
 
-	internal static IItemActivationService CreateStorageOnly() => new ItemActivationService(null, 0, null);
+	internal static IItemActivationService CreateStorageOnly()
+	{
+		return new ItemActivationService(null, 0, null);
+	}
 
 	private static bool IsNavigationVerb(string? verb)
 	{

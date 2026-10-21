@@ -142,7 +142,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var parentFolder = WindowsShellColumnReader.TryGetFolder(parentShellItem, ((WindowsStorable)contexts[0].CoreModel).Locator.ParentFolder!.ParsingName, cancellationToken);
 		if (parentFolder is null)
 		{
-			return contexts.Select(context => ReadOneOnCurrentSta(request, context, cancellationToken)).ToArray();
+			return [.. contexts.Select(context => ReadOneOnCurrentSta(request, context, cancellationToken))];
 		}
 
 		var relativePidls = contexts.Select(static context => ((WindowsStorable)context.CoreModel).Locator.RelativePidl).ToArray();

@@ -112,7 +112,10 @@ public sealed partial class StorageOperationStatusItem : UserControl
 		UpdatePresentation();
 	}
 
-	partial void OnOperationKindChanged(StorageOperationStatusKind newValue) => UpdatePresentation();
+	partial void OnOperationKindChanged(StorageOperationStatusKind newValue)
+	{
+		UpdatePresentation();
+	}
 
 	partial void OnStateChanged(StorageOperationStatusState newValue)
 	{
@@ -120,37 +123,85 @@ public sealed partial class StorageOperationStatusItem : UserControl
 		UpdatePresentation();
 	}
 
-	partial void OnAvailableActionsChanged(StorageOperationStatusActions newValue) => UpdatePresentation();
+	partial void OnAvailableActionsChanged(StorageOperationStatusActions newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnIsExpandedChanged(bool newValue) => UpdatePresentation();
+	partial void OnIsExpandedChanged(bool newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnCanPauseChanged(bool newValue) => UpdatePresentation();
+	partial void OnCanPauseChanged(bool newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnCanCancelChanged(bool newValue) => UpdatePresentation();
+	partial void OnCanCancelChanged(bool newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnCanApplyToAllChanged(bool newValue) => UpdatePresentation();
+	partial void OnCanApplyToAllChanged(bool newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnDetailChanged(string newValue) => UpdatePresentation();
+	partial void OnDetailChanged(string newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnCurrentItemTextChanged(string newValue) => UpdatePresentation();
+	partial void OnCurrentItemTextChanged(string newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnRemainingTextChanged(string newValue) => UpdatePresentation();
+	partial void OnRemainingTextChanged(string newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnInterruptionItemNameChanged(string newValue) => UpdatePresentation();
+	partial void OnInterruptionItemNameChanged(string newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnInterruptionItemDetailsChanged(string newValue) => UpdatePresentation();
+	partial void OnInterruptionItemDetailsChanged(string newValue)
+	{
+		UpdatePresentation();
+	}
 
-	partial void OnPauseButtonTextChanged(string newValue) => UpdateAutomationNames();
+	partial void OnPauseButtonTextChanged(string newValue)
+	{
+		UpdateAutomationNames();
+	}
 
-	partial void OnResumeButtonTextChanged(string newValue) => UpdateAutomationNames();
+	partial void OnResumeButtonTextChanged(string newValue)
+	{
+		UpdateAutomationNames();
+	}
 
-	partial void OnExpandButtonTextChanged(string newValue) => UpdateAutomationNames();
+	partial void OnExpandButtonTextChanged(string newValue)
+	{
+		UpdateAutomationNames();
+	}
 
-	partial void OnCollapseButtonTextChanged(string newValue) => UpdateAutomationNames();
+	partial void OnCollapseButtonTextChanged(string newValue)
+	{
+		UpdateAutomationNames();
+	}
 
-	partial void OnRemoveButtonTextChanged(string newValue) => UpdateAutomationNames();
+	partial void OnRemoveButtonTextChanged(string newValue)
+	{
+		UpdateAutomationNames();
+	}
 
-	private static Visibility ToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+	private static Visibility ToVisibility(bool value)
+	{
+		return value ? Visibility.Visible : Visibility.Collapsed;
+	}
 
 	private void RaiseAction(StorageOperationStatusAction action, bool includeApplyToAll = false)
 	{
@@ -243,23 +294,53 @@ public sealed partial class StorageOperationStatusItem : UserControl
 		RaiseAction(IsExpanded ? StorageOperationStatusAction.Collapse : StorageOperationStatusAction.Expand);
 	}
 
-	private void RemoveButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Remove);
+	private void RemoveButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Remove);
+	}
 
-	private void ProgressCancelButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Cancel);
+	private void ProgressCancelButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Cancel);
+	}
 
-	private void ContinueButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Continue, includeApplyToAll: true);
+	private void ContinueButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Continue, includeApplyToAll: true);
+	}
 
-	private void DeleteResponseButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Delete, includeApplyToAll: true);
+	private void DeleteResponseButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Delete, includeApplyToAll: true);
+	}
 
-	private void RetryButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Retry, includeApplyToAll: true);
+	private void RetryButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Retry, includeApplyToAll: true);
+	}
 
-	private void YesButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Yes, includeApplyToAll: true);
+	private void YesButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Yes, includeApplyToAll: true);
+	}
 
-	private void OkButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Ok, includeApplyToAll: true);
+	private void OkButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Ok, includeApplyToAll: true);
+	}
 
-	private void SkipButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Skip, includeApplyToAll: true);
+	private void SkipButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Skip, includeApplyToAll: true);
+	}
 
-	private void NoButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.No, includeApplyToAll: true);
+	private void NoButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.No, includeApplyToAll: true);
+	}
 
-	private void InterruptionCancelButton_Click(object sender, RoutedEventArgs e) => RaiseAction(StorageOperationStatusAction.Cancel, includeApplyToAll: true);
+	private void InterruptionCancelButton_Click(object sender, RoutedEventArgs e)
+	{
+		RaiseAction(StorageOperationStatusAction.Cancel, includeApplyToAll: true);
+	}
 }

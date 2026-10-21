@@ -28,5 +28,8 @@ public sealed class FtpCredential
 
 	/// <summary>Returns a redacted credential description.</summary>
 	/// <returns>The user name and a redacted password marker.</returns>
-	public override string ToString() => $"{UserName}:***";
+	public override string ToString()
+	{
+		return $"{UserName}:***";
+	}
 }

@@ -36,7 +36,7 @@ namespace Files.SourceGenerators.Parser
 
 			return keys is not null
 				? keys.OrderBy(item => item.Key)
-				: Enumerable.Empty<ParserItem>();
+				: [];
 		}
 	}
 }

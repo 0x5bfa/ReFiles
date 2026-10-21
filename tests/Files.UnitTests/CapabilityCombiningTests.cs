@@ -161,7 +161,9 @@ public sealed class CapabilityCombiningTests
 	private sealed class BlockedPreviewSource : IPreviewSource
 	{
 		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
-			=> ValueTask.FromResult<PreviewResult?>(new BlockedPreviewResult(PreviewBlockReason.RequiresHydration));
+		{
+			return ValueTask.FromResult<PreviewResult?>(new BlockedPreviewResult(PreviewBlockReason.RequiresHydration));
+		}
 	}
 
 	private sealed class TestPropertySource : IPropertySource
@@ -171,6 +173,8 @@ public sealed class CapabilityCombiningTests
 		public TestPropertySource(IReadOnlyDictionary<string, object?> values) => this.values = values;
 
 		public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
-			=> ValueTask.FromResult(values);
+		{
+			return ValueTask.FromResult(values);
+		}
 	}
 }

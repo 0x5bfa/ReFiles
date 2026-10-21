@@ -21,5 +21,7 @@ public sealed class ArchiveCredential
 	/// <summary>Returns a non-sensitive credential description.</summary>
 	/// <returns>The credential type name.</returns>
 	public override string ToString()
-		=> nameof(ArchiveCredential);
+	{
+		return nameof(ArchiveCredential);
+	}
 }

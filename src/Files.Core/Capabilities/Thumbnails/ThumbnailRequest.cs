@@ -53,5 +53,7 @@ public sealed record ThumbnailRequest
 	}
 
 	private static long CalculatePixelSize(int requestedSize, int dpi)
-		=> ((long)requestedSize * dpi + (DefaultDpi / 2)) / DefaultDpi;
+	{
+		return ((long)requestedSize * dpi + (DefaultDpi / 2)) / DefaultDpi;
+	}
 }

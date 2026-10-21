@@ -34,13 +34,20 @@ internal sealed class TestStorageSource : IStorageSource
 		yield break;
 	}
 
-	public bool CanResolve(StorageAddress address) => false;
+	public bool CanResolve(StorageAddress address)
+	{
+		return false;
+	}
 
 	public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException();
+	{
+		throw new NotSupportedException();
+	}
 
 	public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
-		=> throw new NotSupportedException();
+	{
+		throw new NotSupportedException();
+	}
 
 	public ValueTask DisposeAsync()
 	{
@@ -231,7 +238,7 @@ internal sealed class TestBrowseLocationResolver : IBrowseLocationResolver
 
 	public TestBrowseLocationResolver(IEnumerable<IStorableModel> items, Exception? exception = null)
 	{
-		Items = items.ToList();
+		Items = [.. items];
 		Exception = exception;
 	}
 
@@ -458,16 +465,24 @@ internal sealed class TestThumbnailCache : IThumbnailCache
 	public IList<StorableReference> InvalidatedReferences { get; } = [];
 
 	public ValueTask<ThumbnailCacheEntry?> GetAsync(ThumbnailCacheKey key, CancellationToken cancellationToken = default)
-		=> ValueTask.FromResult<ThumbnailCacheEntry?>(null);
+	{
+		return ValueTask.FromResult<ThumbnailCacheEntry?>(null);
+	}
 
 	public ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default)
-		=> ValueTask.CompletedTask;
+	{
+		return ValueTask.CompletedTask;
+	}
 
 	public ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
-		=> ValueTask.FromResult(Volatile.Read(ref invalidationVersion));
+	{
+		return ValueTask.FromResult(Volatile.Read(ref invalidationVersion));
+	}
 
 	public ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default)
-		=> ValueTask.FromResult(expectedInvalidationVersion == Volatile.Read(ref invalidationVersion));
+	{
+		return ValueTask.FromResult(expectedInvalidationVersion == Volatile.Read(ref invalidationVersion));
+	}
 
 	public ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{

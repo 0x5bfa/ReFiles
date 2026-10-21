@@ -43,8 +43,10 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		UpdateFolderView();
 	}
 
-	private void FolderBrowser_Unloaded(object sender, RoutedEventArgs e) =>
+	private void FolderBrowser_Unloaded(object sender, RoutedEventArgs e)
+	{
 		SetSubscribedViewModel(null);
+	}
 
 	private void SetSubscribedViewModel(FolderBrowserViewModel? value)
 	{
@@ -53,16 +55,10 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 			return;
 		}
 
-		if (_subscribedViewModel is not null)
-		{
-			_subscribedViewModel.PropertyChanged -= ViewModel_PropertyChanged;
-		}
+		_subscribedViewModel?.PropertyChanged -= ViewModel_PropertyChanged;
 
 		_subscribedViewModel = value;
-		if (_subscribedViewModel is not null)
-		{
-			_subscribedViewModel.PropertyChanged += ViewModel_PropertyChanged;
-		}
+		_subscribedViewModel?.PropertyChanged += ViewModel_PropertyChanged;
 	}
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)

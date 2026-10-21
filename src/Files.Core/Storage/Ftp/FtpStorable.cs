@@ -79,14 +79,21 @@ public abstract class FtpStorable :
 	/// <param name="obj">The object to compare.</param>
 	/// <returns><see langword="true"/> when the object is the same FTP item.</returns>
 	public override bool Equals(object? obj)
-		=> Equals(obj as FtpStorable);
+	{
+		return Equals(obj as FtpStorable);
+	}
 
 	/// <summary>Gets a hash code based on source and path.</summary>
 	/// <returns>The identity hash code.</returns>
 	public override int GetHashCode()
-		=> HashCode.Combine(_source.SourceId, StringComparer.Ordinal.GetHashCode(Id));
+	{
+		return HashCode.Combine(_source.SourceId, StringComparer.Ordinal.GetHashCode(Id));
+	}
 
 	/// <summary>Returns the item address.</summary>
 	/// <returns>The item address.</returns>
-	public override string ToString() => Address.ToString();
+	public override string ToString()
+	{
+		return Address.ToString();
+	}
 }

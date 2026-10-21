@@ -136,7 +136,10 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 	{
 		public static TrustedAssociationRegistrationAllowlist Instance { get; } = new();
 
-		public bool IsRegistered(Guid handlerClsid) => true;
+		public bool IsRegistered(Guid handlerClsid)
+		{
+			return true;
+		}
 	}
 }
 
@@ -169,7 +172,7 @@ public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandl
 		ArgumentException.ThrowIfNullOrWhiteSpace(normalizedExtension);
 
 		uint characterCount = 0;
-		var firstResult = _queryAssociation(normalizedExtension, Span<char>.Empty, ref characterCount);
+		var firstResult = _queryAssociation(normalizedExtension, [], ref characterCount);
 
 		if (characterCount is 0 || characterCount > MaximumAssociationCharacterCount || firstResult != HRESULT.S_FALSE && firstResult != HRESULT.S_OK)
 		{
@@ -256,7 +259,10 @@ public sealed class WindowsPreviewHandlerRegistrationAllowlist : IWindowsPreview
 		return IsRegistrationValueKind(previewHandlersKey.GetValueKind(valueName));
 	}
 
-	internal static bool IsRegistrationValueKind(RegistryValueKind valueKind) => valueKind is RegistryValueKind.String;
+	internal static bool IsRegistrationValueKind(RegistryValueKind valueKind)
+	{
+		return valueKind is RegistryValueKind.String;
+	}
 }
 
 [SupportedOSPlatform("windows5.0")]

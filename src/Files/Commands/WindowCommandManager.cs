@@ -231,8 +231,10 @@ public sealed class WindowCommandManager : IDisposable
 		return state.IsVisible && state.IsEnabled;
 	}
 
-	private void Clipboard_ContentChanged(object? sender, object args) =>
+	private void Clipboard_ContentChanged(object? sender, object args)
+	{
 		RefreshStates(CommandStateInvalidation.Clipboard);
+	}
 
 	private void ReportError(Exception exception)
 	{
@@ -254,8 +256,10 @@ public sealed class WindowCommandManager : IDisposable
 		}
 	}
 
-	private void EnsureActive() =>
+	private void EnsureActive()
+	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
+	}
 
 	private sealed class CommandCall : IDisposable
 	{

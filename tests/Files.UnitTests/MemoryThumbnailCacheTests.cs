@@ -185,8 +185,12 @@ public sealed class MemoryThumbnailCacheTests
 	}
 
 	private static ThumbnailCacheKey CreateKey(string itemId, int size)
-		=> new(new StorageSourceId("test"), itemId, size, ThumbnailMode.Content);
+	{
+		return new(new StorageSourceId("test"), itemId, size, ThumbnailMode.Content);
+	}
 
 	private static ThumbnailCacheEntry CreateEntry(string value)
-		=> new(System.Text.Encoding.UTF8.GetBytes(value), "text/plain");
+	{
+		return new(System.Text.Encoding.UTF8.GetBytes(value), "text/plain");
+	}
 }

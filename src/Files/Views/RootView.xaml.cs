@@ -103,13 +103,20 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		await _viewModel.DisposeAsync();
 	}
 
-	private void TabStrip_NewWindowRequested(object? sender, EventArgs e) =>
+	private void TabStrip_NewWindowRequested(object? sender, EventArgs e)
+	{
 		NewWindowRequested?.Invoke(this, e);
+	}
 
-	private void NavigationToolbarView_FolderViewFocusRequested(object? sender, EventArgs e) =>
+	private void NavigationToolbarView_FolderViewFocusRequested(object? sender, EventArgs e)
+	{
 		PaneHostView.FocusActiveFolderView();
+	}
 
-	private void NavigationToolbarView_FolderViewKeyboardFocusRequested(object? sender, EventArgs e) => PaneHostView.FocusActiveFolderView(FocusState.Keyboard);
+	private void NavigationToolbarView_FolderViewKeyboardFocusRequested(object? sender, EventArgs e)
+	{
+		PaneHostView.FocusActiveFolderView(FocusState.Keyboard);
+	}
 
 	private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
 	{

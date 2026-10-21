@@ -38,23 +38,38 @@ public class WindowsFileExplorerAppExtensionCatalogBenchmarks
 
 	/// <summary>Clears the Files-side cache before each uncached lookup.</summary>
 	[IterationSetup(Target = nameof(CacheMiss))]
-	public void ResetCache() => WindowsFileExplorerAppExtensionCatalog.ResetCache();
+	public void ResetCache()
+	{
+		WindowsFileExplorerAppExtensionCatalog.ResetCache();
+	}
 
 	/// <summary>Warms the Files-side cache before each cached lookup.</summary>
 	[IterationSetup(Target = nameof(CacheHit))]
-	public void WarmCache() => _scheduler.InvokeOperationAsync(() => WindowsFileExplorerAppExtensionCatalog.GetRegistrations(_itemTypes).Count).GetAwaiter().GetResult();
+	public void WarmCache()
+	{
+		_scheduler.InvokeOperationAsync(() => WindowsFileExplorerAppExtensionCatalog.GetRegistrations(_itemTypes).Count).GetAwaiter().GetResult();
+	}
 
 	/// <summary>Measures a lookup after clearing the Files-side cache.</summary>
 	/// <returns>The number of registrations found.</returns>
 	[Benchmark(Baseline = true)]
-	public Task<int> CacheMiss() => _scheduler.InvokeOperationAsync(() => WindowsFileExplorerAppExtensionCatalog.GetRegistrations(_itemTypes).Count);
+	public Task<int> CacheMiss()
+	{
+		return _scheduler.InvokeOperationAsync(() => WindowsFileExplorerAppExtensionCatalog.GetRegistrations(_itemTypes).Count);
+	}
 
 	/// <summary>Measures a lookup using the warmed Files-side cache.</summary>
 	/// <returns>The number of registrations found.</returns>
 	[Benchmark]
-	public Task<int> CacheHit() => _scheduler.InvokeOperationAsync(() => WindowsFileExplorerAppExtensionCatalog.GetRegistrations(_itemTypes).Count);
+	public Task<int> CacheHit()
+	{
+		return _scheduler.InvokeOperationAsync(() => WindowsFileExplorerAppExtensionCatalog.GetRegistrations(_itemTypes).Count);
+	}
 
 	/// <summary>Disposes the Shell STA scheduler.</summary>
 	[GlobalCleanup]
-	public ValueTask Cleanup() => _scheduler.DisposeAsync();
+	public ValueTask Cleanup()
+	{
+		return _scheduler.DisposeAsync();
+	}
 }

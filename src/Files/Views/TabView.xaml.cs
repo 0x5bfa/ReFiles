@@ -50,10 +50,7 @@ public sealed partial class TabView : UserControl, IDisposable
 
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 
-		if (_appWindow is not null)
-		{
-			_appWindow.Changed -= AppWindow_Changed;
-		}
+		_appWindow?.Changed -= AppWindow_Changed;
 
 		var windowHandle = WindowNative.GetWindowHandle(window);
 		var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
@@ -78,30 +75,15 @@ public sealed partial class TabView : UserControl, IDisposable
 
 		Loaded -= TabView_Loaded;
 		SizeChanged -= TitleBarElement_SizeChanged;
-		if (_appWindow is not null)
-		{
-			_appWindow.Changed -= AppWindow_Changed;
-		}
+		_appWindow?.Changed -= AppWindow_Changed;
 
-		if (_xamlRoot is not null)
-		{
-			_xamlRoot.Changed -= XamlRoot_Changed;
-		}
+		_xamlRoot?.Changed -= XamlRoot_Changed;
 
-		if (_tabViewListView is not null)
-		{
-			_tabViewListView.SizeChanged -= TitleBarElement_SizeChanged;
-		}
+		_tabViewListView?.SizeChanged -= TitleBarElement_SizeChanged;
 
-		if (_rightContentPresenter is not null)
-		{
-			_rightContentPresenter.SizeChanged -= TitleBarElement_SizeChanged;
-		}
+		_rightContentPresenter?.SizeChanged -= TitleBarElement_SizeChanged;
 
-		if (_leftContentPresenter is not null)
-		{
-			_leftContentPresenter.SizeChanged -= TitleBarElement_SizeChanged;
-		}
+		_leftContentPresenter?.SizeChanged -= TitleBarElement_SizeChanged;
 	}
 
 	private void NativeTabView_SelectionChanged(object sender, SelectionChangedEventArgs args)
@@ -112,8 +94,10 @@ public sealed partial class TabView : UserControl, IDisposable
 		}
 	}
 
-	private void NewWindowMenuItem_Click(object sender, RoutedEventArgs e) =>
+	private void NewWindowMenuItem_Click(object sender, RoutedEventArgs e)
+	{
 		NewWindowRequested?.Invoke(this, EventArgs.Empty);
+	}
 
 	private void CompactOverlayMenuItem_Click(object sender, RoutedEventArgs e)
 	{
@@ -159,9 +143,15 @@ public sealed partial class TabView : UserControl, IDisposable
 		DispatcherQueue.TryEnqueue(UpdateTitleBarDragRegion);
 	}
 
-	private void XamlRoot_Changed(XamlRoot sender, XamlRootChangedEventArgs args) => UpdateTitleBarDragRegion();
+	private void XamlRoot_Changed(XamlRoot sender, XamlRootChangedEventArgs args)
+	{
+		UpdateTitleBarDragRegion();
+	}
 
-	private void TitleBarElement_SizeChanged(object sender, SizeChangedEventArgs args) => UpdateTitleBarDragRegion();
+	private void TitleBarElement_SizeChanged(object sender, SizeChangedEventArgs args)
+	{
+		UpdateTitleBarDragRegion();
+	}
 
 	private void UpdateCompactOverlayMenu()
 	{
@@ -202,16 +192,10 @@ public sealed partial class TabView : UserControl, IDisposable
 
 		if (!ReferenceEquals(_xamlRoot, XamlRoot))
 		{
-			if (_xamlRoot is not null)
-			{
-				_xamlRoot.Changed -= XamlRoot_Changed;
-			}
+			_xamlRoot?.Changed -= XamlRoot_Changed;
 
 			_xamlRoot = XamlRoot;
-			if (_xamlRoot is not null)
-			{
-				_xamlRoot.Changed += XamlRoot_Changed;
-			}
+			_xamlRoot?.Changed += XamlRoot_Changed;
 		}
 	}
 
@@ -274,7 +258,10 @@ public sealed partial class TabView : UserControl, IDisposable
 		return (int)Math.Ceiling(ActualHeight);
 	}
 
-	private static int ScaleLength(double value, double scaleFactor) => (int)Math.Round(value * scaleFactor);
+	private static int ScaleLength(double value, double scaleFactor)
+	{
+		return (int)Math.Round(value * scaleFactor);
+	}
 
 	private static RectInt32 GetScaledRect(UIElement element, RectInt32? logicalRect = null)
 	{

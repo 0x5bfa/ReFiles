@@ -270,10 +270,7 @@ namespace Files.Controls
 		{
 			UpdateDisplayMode();
 			UpdateResizerAvailability();
-			if (_paneColumnGrid is not null)
-			{
-				_paneColumnGrid.Translation = new System.Numerics.Vector3(0, 0, 32);
-			}
+			_paneColumnGrid?.Translation = new System.Numerics.Vector3(0, 0, 32);
 		}
 
 		private void SidebarResizer_ManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
@@ -489,18 +486,9 @@ namespace Files.Controls
 				_paneLightDismissLayer.PointerPressed -= PaneLightDismissLayer_PointerPressed;
 				_paneLightDismissLayer.Tapped -= PaneLightDismissLayer_Tapped;
 			}
-			if (_menuItemHostScrollViewer is not null)
-			{
-				_menuItemHostScrollViewer.ContextRequested -= MenuItemHostScrollViewer_ContextRequested;
-			}
-			if (_menuItemsHost is not null)
-			{
-				_menuItemsHost.ElementPrepared -= MenuItemsHost_ElementPrepared;
-			}
-			if (_footerMenuItemsHost is not null)
-			{
-				_footerMenuItemsHost.ElementPrepared -= FooterMenuItemsHost_ElementPrepared;
-			}
+			_menuItemHostScrollViewer?.ContextRequested -= MenuItemHostScrollViewer_ContextRequested;
+			_menuItemsHost?.ElementPrepared -= MenuItemsHost_ElementPrepared;
+			_footerMenuItemsHost?.ElementPrepared -= FooterMenuItemsHost_ElementPrepared;
 			if (_sidebarResizer is not null)
 			{
 				_sidebarResizer.DoubleTapped -= SidebarResizer_DoubleTapped;
@@ -511,10 +499,7 @@ namespace Files.Controls
 				_sidebarResizer.PointerEntered -= SidebarResizer_PointerEntered;
 				_sidebarResizer.PointerExited -= SidebarResizer_PointerExited;
 			}
-			if (_sidebarResizerControl is not null)
-			{
-				_sidebarResizerControl.KeyDown -= SidebarResizerControl_KeyDown;
-			}
+			_sidebarResizerControl?.KeyDown -= SidebarResizerControl_KeyDown;
 		}
 
 		private T GetRequiredTemplatePart<T>(string name) where T : DependencyObject

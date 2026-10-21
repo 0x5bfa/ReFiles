@@ -150,7 +150,10 @@ public sealed class StorageOperationServiceTests
 
 	private sealed class NullOperationHandler : IStorageOperationHandler
 	{
-		public bool CanHandle(StorageOperationRequest request) => true;
+		public bool CanHandle(StorageOperationRequest request)
+		{
+			return true;
+		}
 
 		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
 			IStorageOperationControl? operationControl = null)
@@ -175,7 +178,10 @@ public sealed class StorageOperationServiceTests
 			_exception = exception;
 		}
 
-		public bool CanHandle(StorageOperationRequest request) => _canHandle;
+		public bool CanHandle(StorageOperationRequest request)
+		{
+			return _canHandle;
+		}
 
 		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
 			IStorageOperationControl? operationControl = null)

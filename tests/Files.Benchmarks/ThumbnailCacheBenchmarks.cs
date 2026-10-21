@@ -37,14 +37,20 @@ public class ThumbnailCacheBenchmarks
 	/// </summary>
 	/// <returns>A task containing the cached entry.</returns>
 	[Benchmark(Baseline = true)]
-	public ValueTask<ThumbnailCacheEntry?> CacheHit() => cache.GetAsync(hitKey);
+	public ValueTask<ThumbnailCacheEntry?> CacheHit()
+	{
+		return cache.GetAsync(hitKey);
+	}
 
 	/// <summary>
 	/// Measures retrieving a missing thumbnail cache entry.
 	/// </summary>
 	/// <returns>A task containing the missing lookup result.</returns>
 	[Benchmark]
-	public ValueTask<ThumbnailCacheEntry?> CacheMiss() => cache.GetAsync(missKey);
+	public ValueTask<ThumbnailCacheEntry?> CacheMiss()
+	{
+		return cache.GetAsync(missKey);
+	}
 
 	/// <summary>
 	/// Measures inserting a new entry while evicting when the cache is full.

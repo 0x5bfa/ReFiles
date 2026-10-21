@@ -14,7 +14,7 @@ public sealed partial class TableViewRow : Panel, ITableViewRow
 	private const string ThumbnailPropertyName = "Thumbnail";
 
 	private readonly Dictionary<ITableViewColumn, FrameworkElement> _cells = new(ReferenceEqualityComparer.Instance);
-	private IReadOnlyList<ITableViewColumn> _columns = Array.Empty<ITableViewColumn>();
+	private IReadOnlyList<ITableViewColumn> _columns = [];
 	private TableViewColumnLayout _layout = TableViewColumnLayout.Empty;
 	private object? _item;
 	private INotifyPropertyChanged? _observableItem;
@@ -128,17 +128,11 @@ public sealed partial class TableViewRow : Panel, ITableViewRow
 			return;
 		}
 
-		if (_observableItem is not null)
-		{
-			_observableItem.PropertyChanged -= Item_PropertyChanged;
-		}
+		_observableItem?.PropertyChanged -= Item_PropertyChanged;
 
 		_item = item;
 		_observableItem = item as INotifyPropertyChanged;
-		if (_observableItem is not null)
-		{
-			_observableItem.PropertyChanged += Item_PropertyChanged;
-		}
+		_observableItem?.PropertyChanged += Item_PropertyChanged;
 	}
 
 	private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)

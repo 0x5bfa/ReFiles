@@ -100,7 +100,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_statusBarGeneration = _pane.BrowseSession.Generation;
 		_itemLayoutMetrics = new BrowseItemLayoutMetrics(_viewSettings.ItemSize);
 
-		SelectedKeys = Array.Empty<StorableKey>();
+		SelectedKeys = [];
 		LocationText = _text.Home;
 		_pane.NavigationStateChanged += Pane_StateChanged;
 		_pane.BrowseSession.ItemsChanged += BrowseSession_ItemsChanged;
@@ -190,8 +190,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	public Task NavigateHomeAsync(CancellationToken cancellationToken = default) =>
-		InitializeAsync(cancellationToken);
+	public Task NavigateHomeAsync(CancellationToken cancellationToken = default)
+	{
+		return InitializeAsync(cancellationToken);
+	}
 
 	public async Task NavigateToPathAsync(string path, CancellationToken cancellationToken = default)
 	{
@@ -579,7 +581,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		{
 			_currentStatusBarSizeLoad?.Cancel();
 			_currentStatusBarSizeLoad = null;
-			statusBarSizeLoads = _statusBarSizeLoads.ToArray();
+			statusBarSizeLoads = [.. _statusBarSizeLoads];
 		}
 
 		Task? locationNavigationTask;
@@ -605,7 +607,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		Task[] thumbnailTasks;
 		lock (_thumbnailTaskLock)
 		{
-			thumbnailTasks = _thumbnailTasks.ToArray();
+			thumbnailTasks = [.. _thumbnailTasks];
 		}
 
 		if (thumbnailTasks.Length is not 0)
@@ -1097,13 +1099,15 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		return selected.ToArray();
 	}
 
-	private static int GetItemCount(BrowseItemViewModelChange change) =>
-		change switch
+	private static int GetItemCount(BrowseItemViewModelChange change)
+	{
+		return change switch
 		{
 			BrowseItemViewModelsAdded added => added.Items.Count,
 			BrowseItemViewModelsReset reset => reset.Items.Count,
 			_ => 1,
 		};
+	}
 
 	private static int GetItemCount(IReadOnlyList<BrowseItemViewModelChange> changes)
 	{
@@ -1477,7 +1481,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		KeyValuePair<StorableKey, ThumbnailApplyState>[] states;
 		lock (_thumbnailTaskLock)
 		{
-			states = _thumbnailApplyStates.ToArray();
+			states = [.. _thumbnailApplyStates];
 		}
 
 		foreach (var state in states)
@@ -2070,8 +2074,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private BrowseItemViewModelChange ProjectChange(BrowseItemChange change) =>
-		change switch
+	private BrowseItemViewModelChange ProjectChange(BrowseItemChange change)
+	{
+		return change switch
 		{
 			BrowseItemAdded added => new BrowseItemViewModelAdded(added.Index, CreateItemViewModel(added.Item)),
 			BrowseItemsAdded added => new BrowseItemViewModelsAdded(added.StartingIndex, added.Items.Select(CreateItemViewModel).ToArray()),
@@ -2080,6 +2085,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			BrowseItemMoved moved => new BrowseItemViewModelMoved(moved.PreviousIndex, moved.CurrentIndex),
 			_ => throw new InvalidOperationException($"Unsupported Core browse item change '{change.GetType().Name}'."),
 		};
+	}
 
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
 	{
@@ -2146,8 +2152,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken) =>
-		CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+	private CancellationTokenSource CreateLinkedCancellation(CancellationToken cancellationToken)
+	{
+		return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+	}
 
 	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken, PaneNavigationMode mode = PaneNavigationMode.Push)
 	{
@@ -2247,8 +2255,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		};
 	}
 
-	private void EnsureActive() =>
+	private void EnsureActive()
+	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
+	}
 
 	private static void UpdateMaximum(ref long target, long candidate)
 	{

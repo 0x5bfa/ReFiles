@@ -59,7 +59,9 @@ internal static unsafe class HStringStringMarshaller
 		/// <summary>Gets the marshalled HSTRING.</summary>
 		/// <returns>The HSTRING.</returns>
 		public HSTRING ToUnmanaged()
-			=> _hstring;
+		{
+			return _hstring;
+		}
 
 		/// <summary>Releases the marshalled HSTRING.</summary>
 		public void Free()
@@ -83,7 +85,9 @@ internal static unsafe class HStringStringMarshaller
 		/// <summary>Gets the marshalled HSTRING.</summary>
 		/// <returns>The HSTRING.</returns>
 		public HSTRING ToUnmanaged()
-			=> _hstring;
+		{
+			return _hstring;
+		}
 
 		/// <summary>Leaves ownership of the HSTRING with the native caller.</summary>
 		public void Free()

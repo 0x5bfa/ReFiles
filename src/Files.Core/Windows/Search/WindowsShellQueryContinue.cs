@@ -14,7 +14,10 @@ namespace Files.Core.Windows;
 internal sealed partial class WindowsShellQueryContinue(CancellationToken cancellationToken) : IQueryContinue, IQueryContinueServiceProvider
 {
 	/// <inheritdoc />
-	public HRESULT QueryContinue() => cancellationToken.IsCancellationRequested ? HRESULT.S_FALSE : HRESULT.S_OK;
+	public HRESULT QueryContinue()
+	{
+		return cancellationToken.IsCancellationRequested ? HRESULT.S_FALSE : HRESULT.S_OK;
+	}
 
 	/// <inheritdoc />
 	public HRESULT QueryService(in Guid serviceId, in Guid interfaceId, out IQueryContinue? service)

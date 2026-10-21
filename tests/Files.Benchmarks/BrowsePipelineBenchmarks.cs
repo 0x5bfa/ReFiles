@@ -128,7 +128,10 @@ internal sealed class BenchmarkBrowseLocationContext(BrowseLocation location, in
 		}
 	}
 
-	public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+	public ValueTask DisposeAsync()
+	{
+		return ValueTask.CompletedTask;
+	}
 }
 
 internal sealed class BrowseBenchmarkStorageSource : IStorageSource
@@ -147,13 +150,25 @@ internal sealed class BrowseBenchmarkStorageSource : IStorageSource
 		yield break;
 	}
 
-	public bool CanResolve(StorageAddress address) => false;
+	public bool CanResolve(StorageAddress address)
+	{
+		return false;
+	}
 
-	public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+	public ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
+	{
+		throw new NotSupportedException();
+	}
 
-	public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+	public ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	{
+		throw new NotSupportedException();
+	}
 
-	public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+	public ValueTask DisposeAsync()
+	{
+		return ValueTask.CompletedTask;
+	}
 }
 
 internal sealed class BrowseBenchmarkStorable(string id, string name) : IStorable

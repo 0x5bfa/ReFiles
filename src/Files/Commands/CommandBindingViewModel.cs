@@ -47,8 +47,10 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 		Command = new BindingCommand(this);
 	}
 
-	public Task<CommandExecutionResult> ExecuteAsync(object? parameter = null, CancellationToken cancellationToken = default) =>
-		_manager.ExecuteAsync(Id, parameter, cancellationToken);
+	public Task<CommandExecutionResult> ExecuteAsync(object? parameter = null, CancellationToken cancellationToken = default)
+	{
+		return _manager.ExecuteAsync(Id, parameter, cancellationToken);
+	}
 
 	internal void UpdateState(CommandState newState)
 	{
@@ -104,12 +106,19 @@ public sealed partial class CommandBindingViewModel : ObservableObject
 	{
 		public event EventHandler? CanExecuteChanged;
 
-		public bool CanExecute(object? parameter) => owner._manager.CanExecute(owner.Id, parameter);
+		public bool CanExecute(object? parameter)
+		{
+			return owner._manager.CanExecute(owner.Id, parameter);
+		}
 
-		public void Execute(object? parameter) =>
+		public void Execute(object? parameter)
+		{
 			_ = owner.ExecuteFromBindingAsync(parameter);
+		}
 
-		public void RaiseCanExecuteChanged() =>
+		public void RaiseCanExecuteChanged()
+		{
 			CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+		}
 	}
 }
