@@ -1,11 +1,13 @@
 # Operations architecture
 
-Operations represent mutations or other long-running actions that may outlive a single UI interaction. ReFiles separates operation intent/state from presentation and, where appropriate, executes work in `Files.Operations` outside the UI process.
+The target architecture routes user-initiated storage I/O through `Files.Operations`. This includes read/query services as well as mutations. The server uses ordinary `Files.Core` providers internally; its exported facade uses WinRT-compatible contracts.
+
+The app now uses `WinRTStorageOperationService` for copy/move/delete batches, rename/create requests, Shell New commands, and property attribute updates. Complete batches execute in the server. Browsing/enrichment reads, UI-owned Shell interactions, and application settings storage still use their existing owners.
 
 ## Goals
 
 - keep the UI responsive during expensive file work;
-- isolate operation execution from WinUI lifetime where appropriate;
+- let accepted background operations finish after normal or unexpected UI termination;
 - express intent through explicit contracts;
 - make progress, cancellation, failure, and ownership observable;
 - keep provider-specific execution behind provider/operation boundaries.
@@ -15,25 +17,53 @@ Operations represent mutations or other long-running actions that may outlive a 
 ```mermaid
 flowchart LR
     UI[UI / command]
-    Core[Core operation intent]
-    Router[Operation routing]
+    Client[Client adapter in Files]
     Host[Files.Operations]
-    Provider[Storage/provider implementation]
+    Provider[Files.Core providers]
 
-    UI --> Core --> Router
-    Router --> Host
-    Router --> Provider
+    UI --> Client
+    Client -->|WinRT| Host
+    Host --> Provider
 ```
 
-The exact route depends on the operation/provider, but UI objects must not be shared into the operation host.
+This is the target runtime call flow, not the project-reference graph. Both `Files` and `Files.Operations` reference `Files.Core`; Core does not reference the server. The client projection and adapter stay in `Files`, without another client project.
+
+## Requests and background operations
+
+All domain I/O belongs behind server services, but not every request is a retained Status Center operation:
+
+| Work | Ownership and reporting |
+| --- | --- |
+| Enumeration, properties, thumbnail bytes, short queries | Client/browse-generation request; cancel when stale or disconnected; no durable history entry by default. |
+| Copy, move, delete, extraction, transfers, other tracked user jobs | Submit complete intent to a server-owned operation; progress, outcome, and cancellation are observable after reconnecting. |
+| Search or another potentially long read | Choose request or background-operation lifetime explicitly according to the feature. |
+| Selection, visual models, image decoding, graphs, localization, HWND-bound UI | Presentation ownership; storage data comes through server services after migration. |
+
+Do not make a universal remote Core object model. Transfer stable identities and value data; acquire provider objects in the server. Shell UI integration and native window contracts need individual designs rather than moving their objects across processes.
 
 ## Lifetime
 
-Starting an operation transfers responsibility to an explicit operation/session owner. Closing a view must not accidentally corrupt an operation that is designed to continue. Conversely, operations tied to a browse/session lifetime should cancel and clean up when that owner is disposed.
+The server independently holds activity leases for client connections, in-flight requests, and accepted operations. Disconnecting a client cancels its observation requests, not its operations. Operation execution uses a server-owned cancellation source.
+
+With no activity leases, the server waits 30 seconds and exits. Acquiring a lease and entering shutdown are synchronized; an admitted operation prevents idle exit. New admission after shutdown begins fails so a client can reconnect. Retained terminal summaries do not keep the process resident.
+
+The entire batch/item loop must move to the server. Remoting one item at a time while the ViewModel owns the loop does not survive UI termination.
+
+Server-process failure, OS shutdown, and power loss are separate from UI failure. No replay or server-restart recovery is currently implemented. The later journal must record unknown/interrupted outcomes without automatically repeating mutations.
 
 ## Progress and cancellation
 
-Progress reporting must be asynchronous and bounded; avoid flooding the UI dispatcher with per-file updates. Cancellation is cooperative and must leave storage state and owned resources in a defined condition.
+`IServerOperation` is the internal provider-independent execution contract. An implementation has an identity, a stable kind, and one complete asynchronous execution method with progress and a server-owned cancellation token. It can use Core types internally. It must continue using its provider's scheduler, including the Shell operation STA.
+
+`OperationHost` owns execution, revisions, terminal outcomes, and cancellation. `OperationList` returns value summaries for any operation kind. Unavailable byte progress is explicit; a flag identifies whether byte counts describe the whole job or its current item. Cancellation requested and cancellation acknowledged are distinct: an operation that successfully completes despite a late cancellation request is successful.
+
+The WinRT facade exposes `GetOperations()`, `WaitForOperationChangesAsync(instanceId, revision)`, `CancelOperation(id)`, and `ForgetOperation(id)`. Waiting is an `IAsyncAction`; after it completes, read a fresh operation list. This avoids a custom async generic result contract. Checking a revision and registering the waiter share the state lock. Waits are limited to 25 seconds and observations are spaced by at least 100 ms.
+
+The in-memory host retains at most 256 active and terminal entries, and a storage batch contains at most 10000 items. Further admission fails explicitly until terminal entries are forgotten. Duplicate retained IDs are rejected; they do not trigger a second execution. Submission is typed (`SubmitStorageOperations`, `SubmitShellNewItem`, `SubmitAttributeChanges`, `SubmitPropertyChanges`), and a lost submission reply is never retried automatically.
+
+Status Center projects server state through `IOperationStatusSource`. Its tracker samples graphs and formats local presentation data; it no longer owns execution, cancellation sources, or interruption decisions. Pause/resume requests and backend acknowledgements are distinct. Interruption replies include the displayed interruption ID, so an obsolete reply cannot answer a new conflict. Apply-to-all decisions belong to the server job.
+
+Disconnecting the last client leaves ordinary execution running. If a job is paused or awaiting a decision with no reconnecting client for two minutes, the host requests cooperative cancellation rather than leaving it resident indefinitely.
 
 ## Failure
 
@@ -46,3 +76,7 @@ Generic operation intent should not contain Windows Shell, FTP, archive, or othe
 ## Tests
 
 Protect operation routing, enum/input validation, progress/result invariants, cancellation, cleanup, provider fallback behavior, and process-boundary contracts where practical.
+
+## Names and source files
+
+`OperationList` means an immutable value copy of the operation summaries at one revision. It is not a second operation owner or a live model shared with the server. The client materializes its values once, and Status Center displays local `StorageOperationStatus` records. Each introduced type has its own source file; owned acronym names use `WinRT`, `WinUI`, and `UI`.

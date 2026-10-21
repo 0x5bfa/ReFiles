@@ -13,10 +13,12 @@ flowchart TD
 
     Files --> Controls
     Files --> Core
-    Core --> Operations
+    Operations --> Core
 ```
 
-The concrete project-reference graph may evolve, but these architectural rules remain:
+`Files` separately consumes `Files.Operations.winmd` through generated C#/WinRT projection code. Runtime calls cross that boundary; they do not make Core reference the server. No separate client project is needed.
+
+These architectural rules remain:
 
 - presentation may depend on Core;
 - Core must not depend on presentation;
@@ -40,7 +42,10 @@ The concrete project-reference graph may evolve, but these architectural rules r
 | Viewport/focus/visual selection | presentation/UI boundary |
 | Generic reusable WinUI controls | `Files.Controls` |
 | App-specific control behavior | `Files` |
-| Isolated long-running operation execution | `Files.Operations` |
+| Domain I/O execution and accepted background operations | `Files.Operations`, using Core providers |
+| WinRT projection, conversion, and reconnection | adapter inside `Files` |
+| Authoritative operation progress and cancellation | `Files.Operations` |
+| Status Center formatting and graphs | `Files` |
 
 ## Example: a new storage provider
 

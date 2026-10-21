@@ -19,7 +19,7 @@ flowchart LR
     Core --> Providers
     Providers --> Windows
     Providers --> Remote
-    Core --> Operations
+    Operations --> Core
 ```
 
 Dependency direction is intentional: lower layers must not acquire presentation responsibilities.
@@ -59,7 +59,9 @@ Presentation may adapt Core state, but it does not define storage semantics.
 
 ## `Files.Operations`
 
-`Files.Operations` is an out-of-process execution boundary. Long-running or isolated operations should communicate through explicit contracts rather than sharing UI state or object ownership with the application process.
+`Files.Operations` is the target execution owner for user-initiated domain I/O. It references Core implementations and exports a small WinRT facade. The app consumes its generated projection and keeps presentation/local Core state. Accepted background jobs have server-owned cancellation and survive client disconnection; short requests remain cancelable with their client/browse generation.
+
+The app now submits complete Windows storage batches and observes their server-owned state. Browse I/O and additional providers still need migration. See [operations](operations.md) for the implemented boundary and [the server design](operation-server-proposal.md) for the remaining feature protocols.
 
 ## Storage providers and capabilities
 

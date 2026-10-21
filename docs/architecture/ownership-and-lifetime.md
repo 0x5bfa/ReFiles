@@ -40,6 +40,12 @@ Cancellation asks work to stop. Disposal releases ownership. They are related, n
 
 ViewModels and presentation adapters generally **borrow** Core state. Displaying a model does not imply permission to dispose it. Conversely, Core must not own WinUI controls or UI-specific resources.
 
+## Operation server ownership
+
+Client connections, in-flight server requests, and accepted operations each hold independent server activity leases. Closing a client cancels its outstanding observation requests and releases its connection; it does not cancel accepted work. A server operation owns its cancellation source until execution and cancellation callbacks finish.
+
+The server exits after 30 seconds without activity. Terminal history alone does not keep it running, and history is currently in memory. UI termination resilience applies to the complete storage commands submitted to the server, including their item loops. UI-owned native Shell interactions and browse reads remain separate. Server crash recovery and a persistence journal are later milestones.
+
 ## Streams and owned results
 
 Every stream/resource-returning contract should make clear:
