@@ -270,7 +270,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		var deferral = args.RawEvent.GetDeferral();
 		try
 		{
-			var dragSource = await browser.PrepareShellDragSourceAsync([reference], cancellation.Token);
+			var dragSource = await browser.PrepareShellDragSourceAsync(new[] { reference }, cancellation.Token);
 			if (Volatile.Read(ref _isDisposed) is not 0 || cancellation.IsCancellationRequested || generation != Volatile.Read(ref _sidebarDragSourceGeneration)
 				|| !ReferenceEquals(ViewModel.ActiveFolderBrowser, browser) || dragSource is null)
 			{

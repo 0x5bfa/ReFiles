@@ -26,6 +26,7 @@ public partial class App : Application
 	private readonly Lock _windowsLock = new();
 	private readonly Lock _shutdownLock = new();
 	private Task? _shutdownTask;
+	private static readonly Task<Operations.AppService> _operationsServerSession = Task.Run(() => new Operations.AppService(Environment.ProcessId));
 
 	internal AppSettingsService Settings => _settings;
 
@@ -65,6 +66,14 @@ public partial class App : Application
 
 		await CreateWindowAsync(persistPlacement: true).ConfigureAwait(true);
 		UiDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		try
+		{
+			await _operationsServerSession.ConfigureAwait(true);
+		}
+		catch (Exception exception)
+		{
+			Debug.WriteLine($"Files.Operations server failed to start: {exception}");
+		}
 	}
 
 	private async Task CreateWindowAsync(bool persistPlacement)

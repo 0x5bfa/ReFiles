@@ -20,8 +20,7 @@ public sealed partial class CompatibilityPropertyView : UserControl
 	{
 		Compatibility = compatibility;
 		_launchSystemTool = launchSystemTool;
-		CompatibilityVersions =
-		[
+		CompatibilityVersions = (string[])[
 			Strings.Windows8.GetLocalized(),
 			Strings.Windows7.GetLocalized(),
 			Strings.WindowsVistaServicePack2.GetLocalized(),

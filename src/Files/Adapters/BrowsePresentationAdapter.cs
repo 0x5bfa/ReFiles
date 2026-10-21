@@ -27,7 +27,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private const int MaxThumbnailsPerDrain = 8;
 	private const int MaxDecodedFallbackThumbnails = 128;
 	private const string SizePropertyId = "System.Size";
-	private static readonly PropertyRequest StatusBarSizePropertyRequest = new([SizePropertyId]);
+	private static readonly PropertyRequest StatusBarSizePropertyRequest = new((string[])[SizePropertyId]);
 	private static readonly TimeSpan UiDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly BrowsePaneSession _pane;
@@ -2033,7 +2033,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		var viewModels = items.Select(GetOrCreateItemViewModel).ToArray();
 		if (viewModels.Length <= MaxItemsPerDrain)
 		{
-			return [new BrowseItemViewModelsReset(viewModels)];
+			return (BrowseItemViewModelChange[])[new BrowseItemViewModelsReset(viewModels)];
 		}
 
 		var projectedChanges = new List<BrowseItemViewModelChange>

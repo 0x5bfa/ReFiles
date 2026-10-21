@@ -309,7 +309,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 			HomeLocation => [],
 			FolderLocation folderLocation => await CreateFolderBreadcrumbItemsAsync(folderLocation, cancellationToken).ConfigureAwait(false),
 			ArchiveLocation archiveLocation => await CreateArchiveBreadcrumbItemsAsync(archiveLocation, cancellationToken).ConfigureAwait(false),
-			{ } location => [new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false)],
+			{ } location => (NavigationToolbarBreadcrumbItem[])[new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false)],
 			null => [],
 		};
 	}
@@ -736,7 +736,7 @@ public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsy
 	{
 		if (_pane.BrowseSession.Context is not { Location: FolderLocation contextLocation, LocationModel: IFolderModel currentFolder } || !Equals(contextLocation, location))
 		{
-			return [new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false, supportsShellDragDrop: SupportsShellDragDrop(location.Folder))];
+			return (NavigationToolbarBreadcrumbItem[])[new NavigationToolbarBreadcrumbItem(LocationDisplayName, location, false, supportsShellDragDrop: SupportsShellDragDrop(location.Folder))];
 		}
 
 		var reversedItems = new List<(string Text, FolderLocation Location)>();

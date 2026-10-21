@@ -19,7 +19,7 @@ internal sealed record BrowsePresentationText(string Home, BrowseStatusBarText S
 				Strings.SelectedItemCountPlural.GetLocalized(),
 				Strings.SelectedItemsWithSizeFormat.GetLocalized(),
 				Strings.StorageOperationSizeFormat.GetLocalized(),
-				[
+				(string[])[
 					Strings.ByteSymbol.GetLocalized(),
 					Strings.KilobyteSymbol.GetLocalized(),
 					Strings.MegabyteSymbol.GetLocalized(),

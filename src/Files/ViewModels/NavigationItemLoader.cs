@@ -233,7 +233,7 @@ internal sealed class NavigationItemLoader
 
 		try
 		{
-			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest([HomeIsPinned]), cancellationToken).ConfigureAwait(false);
+			var properties = await propertySource.GetPropertiesAsync(new PropertyRequest((string[])[HomeIsPinned]), cancellationToken).ConfigureAwait(false);
 
 			return properties.TryGetValue(HomeIsPinned, out var value) && value is bool isPinned && isPinned;
 		}

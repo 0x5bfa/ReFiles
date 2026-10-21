@@ -482,7 +482,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 			_synchronizingSelection = false;
 		}
 
-		_viewModel.SetSelection([item]);
+		_viewModel.SetSelection((BrowseItemViewModel[])[item]);
 	}
 
 	private async void Element_DragOver(object sender, DragEventArgs e)

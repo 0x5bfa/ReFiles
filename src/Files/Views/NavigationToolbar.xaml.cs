@@ -238,7 +238,7 @@ public sealed partial class NavigationToolbar : UserControl
 		var deferral = args.GetDeferral();
 		try
 		{
-			var dragSource = await browser.PrepareShellDragSourceAsync([reference], cancellation.Token);
+			var dragSource = await browser.PrepareShellDragSourceAsync(new[] { reference }, cancellation.Token);
 			if (cancellation.IsCancellationRequested || generation != Volatile.Read(ref _dragSourceGeneration) || !ReferenceEquals(ViewModel?.ActiveFolderBrowser, browser) || dragSource is null)
 			{
 				args.Cancel = true;
