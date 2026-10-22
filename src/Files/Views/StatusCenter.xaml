@@ -18,15 +18,27 @@
 			<RowDefinition Height="*" />
 		</Grid.RowDefinitions>
 
-		<Grid Height="40" Padding="16,0" ColumnSpacing="8">
+		<Grid
+			Height="40"
+			Padding="16,0"
+			ColumnSpacing="8">
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="*" />
 				<ColumnDefinition Width="Auto" />
 			</Grid.ColumnDefinitions>
 
-			<TextBlock VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" Text="{localization:Localized ResourceKey=StatusCenter}" />
+			<TextBlock
+				VerticalAlignment="Center"
+				Style="{StaticResource BodyStrongTextBlockStyle}"
+				Text="{localization:Localized ResourceKey=StatusCenter}" />
 
-			<Button Grid.Column="1" Height="24" Padding="8,0" VerticalAlignment="Center" Click="ClearCompletedButton_Click" IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}">
+			<Button
+				Grid.Column="1"
+				Height="24"
+				Padding="8,0"
+				VerticalAlignment="Center"
+				Click="ClearCompletedButton_Click"
+				IsEnabled="{x:Bind ViewModel.HasCompletedItems, Mode=OneWay}">
 				<TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{localization:Localized ResourceKey=ClearCompleted}" />
 			</Button>
 		</Grid>
@@ -48,6 +60,7 @@
 			<ListView.ItemTemplate>
 				<DataTemplate x:DataType="viewModels:StatusCenterItemViewModel">
 					<controls:StorageOperationStatusItem
+						Title="{x:Bind Title, Mode=OneWay}"
 						ActionInvoked="StatusItem_ActionInvoked"
 						ApplyToAllText="{x:Bind ApplyToAllText, Mode=OneWay}"
 						AvailableActions="{x:Bind AvailableActions, Mode=OneWay}"
@@ -78,7 +91,6 @@
 						SkipButtonText="{x:Bind SkipButtonText, Mode=OneWay}"
 						State="{x:Bind ControlState, Mode=OneWay}"
 						Tag="{x:Bind Id}"
-						Title="{x:Bind Title, Mode=OneWay}"
 						TransferText="{x:Bind TransferText, Mode=OneWay}"
 						YesButtonText="{x:Bind YesButtonText, Mode=OneWay}" />
 				</DataTemplate>

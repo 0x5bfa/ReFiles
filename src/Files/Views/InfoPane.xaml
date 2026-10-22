@@ -3,6 +3,5 @@
 	x:Class="Files.Views.InfoPane"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-	<Border Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-	</Border>
+	<Border Padding="12,8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
 </UserControl>

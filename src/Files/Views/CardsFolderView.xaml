@@ -12,8 +12,8 @@
 		<GridView
 			x:Name="ItemGrid"
 			controls:RectangleSelection.IsTarget="True"
-			ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
 			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}"
+			ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
 			SelectionMode="Extended">
 			<GridView.ItemContainerTransitions>
 				<TransitionCollection />

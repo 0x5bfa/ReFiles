@@ -2,8 +2,8 @@
 <UserControl
 	x:Class="Files.ItemProperties.GeneralPropertyView"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:converters="using:CommunityToolkit.WinUI.Converters"
 	xmlns:localization="using:Files.Localization">
 
 	<UserControl.Resources>

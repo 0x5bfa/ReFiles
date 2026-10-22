@@ -12,9 +12,9 @@
 		<ListView
 			x:Name="ItemList"
 			controls:RectangleSelection.IsTarget="True"
+			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}"
 			IsMultiSelectCheckBoxEnabled="False"
 			ItemsSource="{x:Bind ViewModel.ItemsViewSource.View, Mode=OneWay}"
-			selection:FolderViewInteraction.ViewModel="{x:Bind ViewModel, Mode=OneWay}"
 			SelectionMode="Extended">
 			<ListView.ItemContainerTransitions>
 				<TransitionCollection />
