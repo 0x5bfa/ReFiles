@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace Files.BackgroundServer;
 
-internal sealed class ServerActivityLease(ServerLifetime owner, bool isClient) : IDisposable
+internal sealed partial class ServerActivityLease(ServerLifetime owner, bool isClient) : IDisposable
 {
 	private ServerLifetime? _owner = owner;
 

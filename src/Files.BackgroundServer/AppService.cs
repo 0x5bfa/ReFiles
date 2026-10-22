@@ -13,7 +13,7 @@ using Windows.Foundation;
 namespace Files.BackgroundServer;
 
 /// <summary>Connects a UI process to the shared operation host.</summary>
-public sealed class AppService : IDisposable
+public sealed partial class AppService : IDisposable
 {
 	private readonly CancellationTokenSource _disconnected = new();
 	private readonly CancellationToken _sessionToken;

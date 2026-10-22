@@ -11,7 +11,6 @@
 		<RuntimeIdentifier>win-$(Platform)</RuntimeIdentifier>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
-		<PublishAot>true</PublishAot>
 		<SelfContained>true</SelfContained>
 		<CsWinRTComponent>true</CsWinRTComponent>
 		<CsWinRTWindowsMetadata>$(TargetWindowsVersion)</CsWinRTWindowsMetadata>

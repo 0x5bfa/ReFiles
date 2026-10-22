@@ -16,7 +16,7 @@ using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.BackgroundServer;
 
-internal sealed class SystemTrayIcon : IDisposable
+internal sealed partial class SystemTrayIcon : IDisposable
 {
 	private const uint CallbackMessage = 0x8001;
 	private const uint OpenCommandId = 1;

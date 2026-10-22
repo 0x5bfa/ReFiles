@@ -12,7 +12,7 @@ using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.BackgroundServer;
 
-internal sealed class SystemTrayIconWindow : IDisposable
+internal sealed partial class SystemTrayIconWindow : IDisposable
 {
 	private readonly ManagedWNDPROC _windowProcedure;
 	private readonly string _className = $"Files.BackgroundServer.Tray.{Guid.NewGuid():N}";

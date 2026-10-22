@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Files.BackgroundServer;
 
-internal sealed class ServerLifetime : IDisposable
+internal sealed partial class ServerLifetime : IDisposable
 {
 	private readonly object _syncRoot = new();
 	private readonly TimeSpan _idleTimeout;
