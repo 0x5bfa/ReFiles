@@ -24,7 +24,7 @@ ReFiles
 ├─ Files.Controls      Reusable WinUI controls
 ├─ Files.BackgroundServer    Out-of-process operation host
 ├─ Files.SourceGenerators
-└─ FilesLauncher       Native launcher/integration component
+└─ FilesLauncher       C# Native AOT launcher/integration component
 ```
 
 The most important dependency rule is:

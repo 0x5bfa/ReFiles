@@ -1,6 +1,6 @@
 # Building ReFiles
 
-ReFiles is a Windows solution containing WinUI/.NET projects plus a native launcher. Use a supported Windows development environment with the SDK/tooling required by the projects.
+ReFiles is a Windows solution containing WinUI/.NET projects and a C# Native AOT launcher. Use a supported Windows development environment with the SDK/tooling required by the projects.
 
 ## Solution
 

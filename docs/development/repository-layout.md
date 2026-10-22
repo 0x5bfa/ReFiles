@@ -13,7 +13,7 @@ src/
   Files.Controls/         Reusable WinUI controls
   Files.BackgroundServer/       Out-of-process operation host
   Files.SourceGenerators/ Build-time source generation
-  FilesLauncher/          Native launcher/integration component
+  FilesLauncher/          C# Native AOT launcher/integration component
 tests/
   Files.UnitTests/        Unit and Windows integration tests
   Files.Benchmarks/       Deterministic micro/architecture benchmarks

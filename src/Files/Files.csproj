@@ -17,7 +17,10 @@
 		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
 		<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
+		<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\publish\</BackgroundServerPublishDir>
 		<BackgroundServerWinmd>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\bin\$(Platform)\$(Configuration)\$(TargetFramework)\Files.BackgroundServer.winmd</BackgroundServerWinmd>
+		<LauncherProject>$(MSBuildProjectDirectory)\..\FilesLauncher\FilesLauncher.csproj</LauncherProject>
+		<LauncherPublishDir>$(MSBuildProjectDirectory)\obj\FilesLauncher\$(Platform)\$(Configuration)\$(TargetFramework)\publish\</LauncherPublishDir>
 		<CsWinRTIncludes>Files.BackgroundServer;$(CsWinRTIncludes)</CsWinRTIncludes>
 	</PropertyGroup>
 
@@ -59,20 +62,26 @@
 		</None>
 	</ItemGroup>
 
-	<Target Name="BuildBackgroundServerForCsWinRT" BeforeTargets="ResolveAssemblyReferences">
-		<MSBuild Projects="$(BackgroundServerProject)" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
+	<Target Name="BuildBackgroundServer" BeforeTargets="ResolveAssemblyReferences">
+		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
 		<Error Condition="!Exists('$(BackgroundServerWinmd)')" Text="Files.BackgroundServer WinRT metadata was not generated." />
 	</Target>
 
-	<Target Name="PublishBackgroundServerForMsix" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
-		<PropertyGroup>
-			<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
-			<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\publish\</BackgroundServerPublishDir>
-		</PropertyGroup>
+	<Target Name="BuildLauncher" BeforeTargets="ResolveAssemblyReferences">
+		<MSBuild Projects="$(LauncherProject)" Targets="Restore;Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
+	</Target>
 
+	<Target Name="PublishLauncher" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
+		<MSBuild Projects="$(LauncherProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=true;PublishDir=$(LauncherPublishDir)" />
+		<Error Condition="!Exists('$(LauncherPublishDir)FilesLauncher.exe')" Text="FilesLauncher publish output was not found." />
+		<ItemGroup>
+			<AppxPackagePayload Include="$(LauncherPublishDir)FilesLauncher.exe" TargetPath="FilesLauncher.exe" />
+		</ItemGroup>
+	</Target>
+
+	<Target Name="PublishBackgroundServer" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
 		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=true;PublishDir=$(BackgroundServerPublishDir)" />
 		<Error Condition="!Exists('$(BackgroundServerPublishDir)Files.BackgroundServer.exe')" Text="Files.BackgroundServer publish output was not found." />
-
 		<ItemGroup>
 			<_FilesBackgroundServerPackageFile Include="$(BackgroundServerPublishDir)**\*" Exclude="$(BackgroundServerPublishDir)**\*.winmd;$(BackgroundServerPublishDir)**\*.pdb" />
 			<AppxPackagePayload Include="@(_FilesBackgroundServerPackageFile)" TargetPath="Files.BackgroundServer\%(RecursiveDir)%(Filename)%(Extension)" />
