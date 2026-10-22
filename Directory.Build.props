@@ -8,6 +8,7 @@
 		<MinimalWindowsVersion>10.0.19041.0</MinimalWindowsVersion>
 		<WindowsSdkPackageVersion>10.0.26100.67-preview</WindowsSdkPackageVersion>
 		<WindowsTargetFramework>$(TargetFrameworkVersion)-windows$(TargetWindowsVersion)</WindowsTargetFramework>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
 		<LangVersion>preview</LangVersion>
 		<Nullable>enable</Nullable>
 		<IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</IsAotCompatible>

@@ -16,6 +16,7 @@
 		<WinUIDSKReferences>false</WinUIDSKReferences>
 		<EnableMsixTooling>false</EnableMsixTooling>
 		<WindowsPackageType>None</WindowsPackageType>
+		<ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
 		<WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
 		<SelfContained>false</SelfContained>
 		<PrependPriInitialPath>true</PrependPriInitialPath>
@@ -23,7 +24,7 @@
 		<!-- Keep the bootstrap-disabled Files reference isolated from the normal app build output. -->
 		<FilesReferenceOutputPath>bin\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceOutputPath>
 		<FilesReferenceIntermediateOutputPath>obj\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceIntermediateOutputPath>
-		<FilesReferenceBuildProperties>WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false</FilesReferenceBuildProperties>
+		<FilesReferenceBuildProperties>SelfContained=false;WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false</FilesReferenceBuildProperties>
 		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);OutputPath=$(FilesReferenceOutputPath);IntermediateOutputPath=$(FilesReferenceIntermediateOutputPath)</FilesReferenceBuildProperties>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -44,7 +45,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.Runtime" />
 		<PackageReference Include="MSTest.TestAdapter" />
 		<PackageReference Include="MSTest.TestFramework" />
 	</ItemGroup>

@@ -10,6 +10,8 @@
 		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<PublishAot>true</PublishAot>
+		<SelfContained>true</SelfContained>
 		<CsWinRTComponent>true</CsWinRTComponent>
 		<CsWinRTWindowsMetadata>$(TargetWindowsVersion)</CsWinRTWindowsMetadata>
 		<CsWinRTEnableLogging>true</CsWinRTEnableLogging>

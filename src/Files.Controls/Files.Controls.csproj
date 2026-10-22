@@ -15,14 +15,8 @@
 		<PackageReference Include="CommunityToolkit.WinUI.Extensions" />
 		<PackageReference Include="CommunityToolkit.Labs.WinUI.DependencyPropertyGenerator" />
 		<PackageReference Include="Microsoft.Graphics.Win2D" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<PackageReference Update="Microsoft.WindowsAppSDK.AI" ExcludeAssets="all" />
-		<PackageReference Update="Microsoft.WindowsAppSDK.ML" ExcludeAssets="all" />
-		<PackageReference Update="Microsoft.WindowsAppSDK.Widgets" ExcludeAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup>

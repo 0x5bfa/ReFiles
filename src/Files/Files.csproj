@@ -14,9 +14,10 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
 		<PublishAot>true</PublishAot>
+		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
 		<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
-		<BackgroundServerWinmd>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\bin\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\Files.BackgroundServer.winmd</BackgroundServerWinmd>
+		<BackgroundServerWinmd>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\bin\$(Platform)\$(Configuration)\$(TargetFramework)\Files.BackgroundServer.winmd</BackgroundServerWinmd>
 		<CsWinRTIncludes>Files.BackgroundServer;$(CsWinRTIncludes)</CsWinRTIncludes>
 	</PropertyGroup>
 
@@ -34,7 +35,8 @@
 		<PackageReference Include="CommunityToolkit.WinUI.Extensions" />
 		<PackageReference Include="Microsoft.Windows.CsWinRT" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
-		<PackageReference Include="Microsoft.WindowsAppSDK" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
+		<PackageReference Include="Microsoft.WindowsAppSDK.Runtime" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -65,10 +67,10 @@
 	<Target Name="PublishBackgroundServerForMsix" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
 		<PropertyGroup>
 			<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
-			<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\win-$(Platform)\publish\</BackgroundServerPublishDir>
+			<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\publish\</BackgroundServerPublishDir>
 		</PropertyGroup>
 
-		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=false;PublishDir=$(BackgroundServerPublishDir)" />
+		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=true;PublishDir=$(BackgroundServerPublishDir)" />
 		<Error Condition="!Exists('$(BackgroundServerPublishDir)Files.BackgroundServer.exe')" Text="Files.BackgroundServer publish output was not found." />
 
 		<ItemGroup>
