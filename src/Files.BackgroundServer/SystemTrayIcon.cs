@@ -18,9 +18,9 @@ namespace Files.BackgroundServer;
 
 internal sealed class SystemTrayIcon : IDisposable
 {
-	private const uint _callbackMessage = 0x8001;
-	private const uint _openCommandId = 1;
-	private const uint _quitCommandId = 2;
+	private const uint CallbackMessage = 0x8001;
+	private const uint OpenCommandId = 1;
+	private const uint QuitCommandId = 2;
 	private static readonly Guid _iconId = new("a1bc2580-99dd-4e58-b4ec-ec9f1a7ca40e");
 
 	private readonly ResourceLoader _resources = ResourceLoader.GetForViewIndependentUse();
@@ -37,7 +37,7 @@ internal sealed class SystemTrayIcon : IDisposable
 		HANDLE iconHandle;
 		fixed (char* path = iconPath)
 		{
-			iconHandle = PInvoke.LoadImage(default(HINSTANCE), path, GDI_IMAGE_TYPE.IMAGE_ICON, 0, 0, IMAGE_FLAGS.LR_LOADFROMFILE);
+			iconHandle = PInvoke.LoadImage(default, path, GDI_IMAGE_TYPE.IMAGE_ICON, 0, 0, IMAGE_FLAGS.LR_LOADFROMFILE);
 		}
 		if (iconHandle.IsNull)
 		{
@@ -84,7 +84,7 @@ internal sealed class SystemTrayIcon : IDisposable
 	{
 		try
 		{
-			if (message == _callbackMessage)
+			if (message == CallbackMessage)
 			{
 				var callbackMessage = unchecked((uint)(lParam.Value & 0xFFFF));
 				if (callbackMessage is PInvoke.WM_LBUTTONUP or PInvoke.WM_USER or PInvoke.WM_USER + 1)
@@ -171,7 +171,7 @@ internal sealed class SystemTrayIcon : IDisposable
 		var data = default(NOTIFYICONDATAW);
 		data.cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATAW>();
 		data.hWnd = _iconWindow.WindowHandle;
-		data.uCallbackMessage = _callbackMessage;
+		data.uCallbackMessage = CallbackMessage;
 		data.hIcon = _icon;
 		data.guidItem = _iconId;
 		data.uFlags = NOTIFY_ICON_DATA_FLAGS.NIF_MESSAGE | NOTIFY_ICON_DATA_FLAGS.NIF_ICON | NOTIFY_ICON_DATA_FLAGS.NIF_TIP
@@ -185,18 +185,18 @@ internal sealed class SystemTrayIcon : IDisposable
 	{
 		PInvoke.GetCursorPos(out var point);
 		using var menu = PInvoke.CreatePopupMenu_SafeHandle();
-		PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_BYCOMMAND, _openCommandId, GetString("BackgroundServerTrayOpen", "Open ReFiles"));
+		PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_BYCOMMAND, OpenCommandId, GetString("BackgroundServerTrayOpen", "Open ReFiles"));
 		PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_SEPARATOR, 0, string.Empty);
-		PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_BYCOMMAND, _quitCommandId, GetString("BackgroundServerTrayQuit", "Quit ReFiles"));
+		PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_BYCOMMAND, QuitCommandId, GetString("BackgroundServerTrayQuit", "Quit ReFiles"));
 		PInvoke.SetForegroundWindow(_iconWindow.WindowHandle);
 		var flags = TRACK_POPUP_MENU_FLAGS.TPM_RETURNCMD;
 		var commandId = PInvoke.TrackPopupMenuEx(menu, (uint)flags, point.X, point.Y, _iconWindow.WindowHandle, null).Value;
 		PInvoke.PostMessage(_iconWindow.WindowHandle, PInvoke.WM_NULL, default, default);
-		if (commandId == _openCommandId)
+		if (commandId == OpenCommandId)
 		{
 			OpenApplication();
 		}
-		else if (commandId == _quitCommandId)
+		else if (commandId == QuitCommandId)
 		{
 			BackgroundServerHost.RequestQuit();
 		}
