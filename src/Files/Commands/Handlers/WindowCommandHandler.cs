@@ -21,7 +21,7 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 		var isEnabled = id switch
 		{
 			var commandId when commandId == CommandIds.NewTab => true,
-			var commandId when commandId == CommandIds.DuplicateTab => hasInvokedTab,
+			var commandId when commandId == CommandIds.DuplicateTab => hasInvokedTab && context.InvokedTab?.CanDuplicate is true,
 			var commandId when commandId == CommandIds.CloseTab => hasInvokedTab,
 			var commandId when commandId == CommandIds.CloseTabsToLeft => invokedTabIndex > 0,
 			var commandId when commandId == CommandIds.CloseTabsToRight => hasInvokedTab && invokedTabIndex < context.Root.Tabs.Count - 1,
@@ -42,7 +42,7 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 					.ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.DuplicateTab:
-				if (context.InvokedTab is not { } duplicateTab)
+				if (context.InvokedTab is not { CanDuplicate: true } duplicateTab)
 				{
 					return CommandExecutionResult.Unsupported();
 				}
@@ -77,6 +77,7 @@ internal sealed class WindowCommandHandler(CommandId id) : ICommandHandler
 				await context.Root.ReopenTabAsync(cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.MoveTabToNewWindow:
+
 				return CommandExecutionResult.Unsupported();
 			case var commandId when commandId == CommandIds.CloseTab:
 				if (context.InvokedTab is not { } tab)

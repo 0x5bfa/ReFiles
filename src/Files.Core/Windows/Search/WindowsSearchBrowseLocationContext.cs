@@ -5,6 +5,7 @@
 
 using System.Runtime.CompilerServices;
 using Files.Core.Browsing;
+using Files.Core.Capabilities;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
@@ -18,7 +19,7 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	IBrowseLocationItemSorter,
 	IBrowseLocationParentResolver,
 	IInteractiveBrowseLocationContext,
-	IWindowsShellColumnProvider,
+	IBrowseColumnProvider,
 	IViewSettingsCapabilityProvider
 {
 	private readonly IFolderModel _folderModel;
@@ -28,10 +29,11 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	private readonly IStorageWorkspace _workspace;
 
 	private readonly Lock _columnsLock = new();
+	private readonly CancellationTokenSource _lifetime = new();
 
 	private int _isDisposed;
 
-	private Task<WindowsShellColumnSet?>? _columnsTask;
+	private Task<BrowseColumnSet?>? _columnsTask;
 
 	/// <inheritdoc />
 	public bool CanGetParent => true;
@@ -56,13 +58,15 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	}
 
 	/// <inheritdoc />
-	public async ValueTask<WindowsShellColumnSet?> GetColumnsAsync(CancellationToken cancellationToken = default)
+	public async ValueTask<BrowseColumnSet?> GetColumnsAsync(CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		Task<WindowsShellColumnSet?> columnsTask;
+		Task<BrowseColumnSet?> columnsTask;
 		lock (_columnsLock)
 		{
+			ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
 			columnsTask = _columnsTask ??= LoadColumnsAsync();
 		}
 
@@ -74,7 +78,7 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	{
 		var columnSet = await GetColumnsAsync(cancellationToken).ConfigureAwait(false);
 
-		return columnSet is null ? null : BrowseViewCapabilities.FromWindowsShell(columnSet);
+		return columnSet is null ? null : BrowseViewCapabilities.FromColumns(columnSet);
 	}
 
 	/// <inheritdoc />
@@ -95,7 +99,7 @@ internal sealed class WindowsSearchBrowseLocationContext :
 
 		cancellationToken.ThrowIfCancellationRequested();
 
-		return ValueTask.FromResult<BrowseLocation?>(_location.Scope is { } scope ? new FolderLocation(scope) : HomeLocation.Instance);
+		return ValueTask.FromResult<BrowseLocation?>(_location.Origin);
 	}
 
 	/// <inheritdoc />
@@ -111,29 +115,56 @@ internal sealed class WindowsSearchBrowseLocationContext :
 	/// <inheritdoc />
 	public async ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
 		{
-			await _folderModel.DisposeAsync().ConfigureAwait(false);
+			return;
 		}
 
-		GC.SuppressFinalize(this);
+		try
+		{
+			_lifetime.Cancel();
+			Task? columns;
+			lock (_columnsLock)
+			{
+				columns = _columnsTask;
+			}
+
+			if (columns is not null)
+			{
+				try
+				{
+					await columns.ConfigureAwait(false);
+				}
+				catch (Exception)
+				{
+					// Retrieval failures are observed by the column request; cleanup still waits for completion.
+				}
+			}
+		}
+		finally
+		{
+			try
+			{
+				await _folderModel.DisposeAsync().ConfigureAwait(false);
+			}
+			finally
+			{
+				_lifetime.Dispose();
+				GC.SuppressFinalize(this);
+			}
+		}
 	}
 
-	private async Task<WindowsShellColumnSet?> LoadColumnsAsync()
+	private Task<BrowseColumnSet?> LoadColumnsAsync()
 	{
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return null;
-		}
-
-		return await folder.GetColumnsAsync(CancellationToken.None).ConfigureAwait(false);
+		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata ? metadata.GetColumnsAsync(_lifetime.Token).AsTask() : Task.FromResult<BrowseColumnSet?>(null);
 	}
 
 	async IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		var items = ownerWindowHandle is not 0 && _folderModel is FolderModel folderModel
+		var items = ownerWindowHandle is not 0 && _folderModel is IInteractiveFolderModel folderModel
 			? folderModel.GetItemsAsync(StorableType.All, ownerWindowHandle, cancellationToken)
 			: _folderModel.GetItemsAsync(cancellationToken: cancellationToken);
 		await foreach (var item in items.ConfigureAwait(false))
@@ -142,34 +173,12 @@ internal sealed class WindowsSearchBrowseLocationContext :
 		}
 	}
 
-	async ValueTask<IReadOnlyList<IStorableModel>?> IBrowseLocationItemSorter.SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken)
+	ValueTask<IReadOnlyList<IStorableModel>?> IBrowseLocationItemSorter.SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return null;
-		}
-
-		var windowsItems = new WindowsStorable[items.Count];
-		var modelsByCoreModel = new Dictionary<WindowsStorable, IStorableModel>(ReferenceEqualityComparer.Instance);
-		for (var index = 0; index < items.Count; index++)
-		{
-			if (items[index].GetCoreModel() is not WindowsStorable windowsItem)
-			{
-				return null;
-			}
-
-			windowsItems[index] = windowsItem;
-			modelsByCoreModel.Add(windowsItem, items[index]);
-		}
-
-		var sortedItems = await folder.SortChildrenAsync(windowsItems, settings.SortPropertyId, settings.SortDirection, cancellationToken).ConfigureAwait(false);
-		if (sortedItems is null)
-		{
-			return null;
-		}
-
-		return Array.AsReadOnly(sortedItems.Select(item => modelsByCoreModel[item]).ToArray());
+		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata
+			? metadata.SortItemsAsync(items, settings, cancellationToken)
+			: ValueTask.FromResult<IReadOnlyList<IStorableModel>?>(null);
 	}
 }

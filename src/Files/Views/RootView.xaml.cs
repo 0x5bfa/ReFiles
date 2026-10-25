@@ -178,9 +178,10 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 	private void UpdateActiveTabPresentation()
 	{
 		var isSettings = ViewModel.ActiveTab?.IsSettings is true;
-		NavigationToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
-		FolderToolbarView.Visibility = isSettings ? Visibility.Collapsed : Visibility.Visible;
-		var isPreviewPaneVisible = !isSettings && ViewModel.IsPreviewPaneVisible;
+		var hasBrowseContent = ViewModel.ActiveTab?.HasBrowseContent is true;
+		NavigationToolbarView.Visibility = hasBrowseContent ? Visibility.Visible : Visibility.Collapsed;
+		FolderToolbarView.Visibility = hasBrowseContent ? Visibility.Visible : Visibility.Collapsed;
+		var isPreviewPaneVisible = hasBrowseContent && ViewModel.IsPreviewPaneVisible;
 		PreviewPaneSplitterColumn.Width = new GridLength(isPreviewPaneVisible ? 16 : 0);
 		PreviewPaneColumn.MinWidth = isPreviewPaneVisible ? RootViewModel.MinimumPreviewPaneWidth : 0;
 		PreviewPaneColumn.MaxWidth = isPreviewPaneVisible ? double.PositiveInfinity : 0;
@@ -198,7 +199,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 	private void PreviewPaneView_SizeChanged(object sender, SizeChangedEventArgs e)
 	{
-		if (ViewModel.IsPreviewPaneVisible && ViewModel.ActiveTab?.IsSettings is not true && e.NewSize.Width >= RootViewModel.MinimumPreviewPaneWidth)
+		if (ViewModel.IsPreviewPaneVisible && ViewModel.ActiveTab?.HasBrowseContent is true && e.NewSize.Width >= RootViewModel.MinimumPreviewPaneWidth)
 		{
 			ViewModel.PreviewPaneWidth = e.NewSize.Width;
 		}

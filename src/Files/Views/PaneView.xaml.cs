@@ -27,7 +27,10 @@ public sealed partial class PaneView : UserControl
 
 	internal void SetShadow(bool isActive, bool isMultiPane)
 	{
-		PaneBorder.Translation = new System.Numerics.Vector3(0, 0, isActive ? (isMultiPane ? 32 : 8) : 0);
+		var hasChrome = ViewModel?.HasPaneChrome is true;
+		PaneBorder.BorderThickness = new Thickness(hasChrome ? 1 : 0);
+		StatusBar.Visibility = hasChrome ? Visibility.Visible : Visibility.Collapsed;
+		PaneBorder.Translation = new System.Numerics.Vector3(0, 0, hasChrome && isActive ? (isMultiPane ? 32 : 8) : 0);
 	}
 
 	private void Pane_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)

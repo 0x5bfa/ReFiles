@@ -11,7 +11,7 @@ using Windows.Win32.Foundation;
 namespace Files.Core.Windows;
 
 /// <summary>Represents a folder exposed by the Windows Shell.</summary>
-public sealed class WindowsFolder : WindowsStorable, IChildFolder
+public sealed class WindowsFolder : WindowsStorable, IChildFolder, IInteractiveFolder
 {
 	internal WindowsFolder(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 		: base(descriptor, factory)
@@ -40,7 +40,8 @@ public sealed class WindowsFolder : WindowsStorable, IChildFolder
 		}
 	}
 
-	internal async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	/// <inheritdoc />
+	public async IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 

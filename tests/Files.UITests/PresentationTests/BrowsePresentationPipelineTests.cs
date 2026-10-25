@@ -63,7 +63,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 		var maximumItemsPerUpdate = 0;
 		var itemUpdateCount = 0;
 		adapter.Updated += (_, args) =>
@@ -115,7 +115,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 		dispatcher.DrainAll();
 
 		var navigation = adapter.InitializeAsync();
@@ -150,7 +150,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 		dispatcher.DrainAll();
 
 		await Assert.ThrowsAsync<InvalidOperationException>(async () => await adapter.InitializeAsync());
@@ -194,7 +194,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -241,7 +241,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -281,7 +281,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -342,7 +342,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -373,7 +373,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -413,7 +413,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -451,7 +451,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 		Task? disposal = null;
 		try
 		{
@@ -508,7 +508,7 @@ public sealed class BrowsePresentationPipelineTests
 			await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 			await using var workspace = new PresentationStorageWorkspace();
 			var dispatcher = new ManualDispatcher();
-			var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+			var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 			var disposalStarted = false;
 			var lateUpdateCount = 0;
 			adapter.Updated += (_, _) =>
@@ -578,7 +578,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, text: CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, text: CreateText());
 		var settings = new BrowseViewSettings(columns: (Files.Core.ViewSettings.ViewColumnSettings[])[new ViewColumnSettings("System.Size", 120, 0)]);
 
 		await adapter.InitializeAsync();
@@ -617,7 +617,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
 		await using var workspace = new PresentationStorageWorkspace();
 		var dispatcher = new ManualDispatcher();
-		await using var adapter = new BrowsePresentationAdapter(pane, workspace, dispatcher, new NullPrefetchCoordinator(), CreateText());
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, new NullPrefetchCoordinator(), CreateText());
 
 		await adapter.InitializeAsync();
 		dispatcher.DrainAll();
@@ -1142,6 +1142,7 @@ public sealed class BrowsePresentationPipelineTests
 		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(location);
+
 			cancellationToken.ThrowIfCancellationRequested();
 
 			return ValueTask.FromResult<IBrowseLocationContext>(new PresentationBrowseLocationContext(location, _itemCount, _source, _beforeYieldAsync, _getPropertiesAsync));
@@ -1156,6 +1157,7 @@ public sealed class BrowsePresentationPipelineTests
 		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(location);
+
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var context = location switch
@@ -1193,6 +1195,7 @@ public sealed class BrowsePresentationPipelineTests
 		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(location);
+
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var context = location switch
@@ -1237,6 +1240,7 @@ public sealed class BrowsePresentationPipelineTests
 		public ValueTask<IBrowseLocationContext> OpenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 		{
 			ArgumentNullException.ThrowIfNull(location);
+
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var context = location switch

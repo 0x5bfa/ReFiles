@@ -4,12 +4,11 @@
 using System.Runtime.CompilerServices;
 using Files.Core.Capabilities;
 using Files.Core.Storage;
-using Files.Core.Windows;
 
 namespace Files.Core.Models;
 
 /// <summary>Adapts a Files folder to the Files folder model contract.</summary>
-public sealed class FolderModel : StorableModel, IFolderModel
+public sealed class FolderModel : StorableModel, IInteractiveFolderModel
 {
 	private readonly IFolder _folder;
 
@@ -29,6 +28,7 @@ public sealed class FolderModel : StorableModel, IFolderModel
 		: base(folder, reference, capabilities)
 	{
 		ArgumentNullException.ThrowIfNull(source);
+
 		ArgumentNullException.ThrowIfNull(modelFactory);
 
 		_source = source;
@@ -80,7 +80,8 @@ public sealed class FolderModel : StorableModel, IFolderModel
 		throw new InvalidOperationException($"The parent of '{Reference.ItemId}' is not a folder.");
 	}
 
-	internal async IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	/// <inheritdoc />
+	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(StorableType type, nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		await foreach (var item in GetItemsCoreAsync(type, ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
@@ -92,8 +93,8 @@ public sealed class FolderModel : StorableModel, IFolderModel
 	{
 		ThrowIfDisposed();
 
-		var items = ownerWindowHandle is not 0 && _folder is WindowsFolder windowsFolder
-			? windowsFolder.GetItemsAsync(type, ownerWindowHandle, cancellationToken)
+		var items = ownerWindowHandle is not 0 && _folder is IInteractiveFolder interactiveFolder
+			? interactiveFolder.GetItemsAsync(type, ownerWindowHandle, cancellationToken)
 			: _folder.GetItemsAsync(type, cancellationToken);
 		await foreach (var item in items.ConfigureAwait(false))
 		{

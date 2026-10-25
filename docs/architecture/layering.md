@@ -89,3 +89,13 @@ Ask:
 2. Does it define application/storage semantics, or only how those semantics are displayed?
 
 If it is meaningful without WinUI, it usually belongs at or below the Core boundary.
+
+## Application models and provider boundaries
+
+`Files.Core.Storage` remains the project's own storage abstraction. It has no OwlCore dependency. Provider items implement the small storage contracts; Files item models compose optional capabilities over them.
+
+`BrowseApplicationServices` supplies borrowed workspace, search, and operation dependencies to the pane factory. `BrowsePaneSession` owns application intent: search navigation, selection deletion, history, and the browse lifetime. `BrowseNavigationModel` traverses hierarchy and produces navigation values while disposing temporary provider models. ViewModels format these values and bind application behavior; they do not resolve storage addresses or select search backends.
+
+Optional provider differences use `IStorageItemAttributes`, `IInteractiveFolder`, and `IFolderBrowseMetadata`. `BrowseColumnSet` is the shared column contract. Windows metadata conversion and native ordering live in `WindowsFolderBrowseMetadata`; generic folder models and browse contexts do not inspect Windows implementation types.
+
+The composition root selects operation execution with `FilesCoreBuilder.UseStorageOperations`. The runtime, browse models, and presentation use the same borrowed service. The runtime exposes its optional `IStorageOperationMonitor` without requiring a ViewModel or WinRT client type. The host that supplies an external execution service retains its lifetime ownership.

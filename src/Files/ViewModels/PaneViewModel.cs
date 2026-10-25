@@ -6,6 +6,8 @@ using Files.Commands;
 using Files.Core.Sessions;
 using Files.Presentation;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace Files.ViewModels;
 
@@ -13,54 +15,66 @@ namespace Files.ViewModels;
 public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private readonly PaneSession _pane;
+	private readonly PaneContentPresentation _presentation;
 
 	private int _isDisposed;
 
 	public Guid Id => _pane.Id;
 
-	public FolderBrowserViewModel FolderBrowser { get; }
+	public FolderBrowserViewModel? FolderBrowser => _presentation.FolderBrowser;
 
-	public PreviewPaneViewModel Preview { get; }
+	public PreviewPaneViewModel? Preview => _presentation.Preview;
 
-	public object Content => FolderBrowser;
+	public object Content => _presentation.Content;
+
+	public bool HasBrowseContent => FolderBrowser is not null;
+
+	public bool HasPaneChrome => _presentation.HasPaneChrome;
+
+	public IconSource? IconSource => _presentation.IconSource;
 
 	[ObservableProperty]
 	public partial bool IsActive { get; private set; }
 
-	public string Title => FolderBrowser.LocationDisplayName;
+	public string Title => _presentation.Title;
 
-	public ImageSource? Icon => FolderBrowser.LocationIcon;
+	public ImageSource? Icon => _presentation.Icon;
 
-	public string StatusText => FolderBrowser.StatusText;
+	public string StatusText => FolderBrowser?.StatusText ?? string.Empty;
 
-	public bool IsLoading => FolderBrowser.IsBusy;
+	public bool IsLoading => FolderBrowser?.IsBusy ?? false;
 
-	public bool CanGoBack => FolderBrowser.CanGoBack;
+	public bool CanGoBack => FolderBrowser?.CanGoBack ?? false;
 
-	public bool CanGoForward => FolderBrowser.CanGoForward;
+	public bool CanGoForward => FolderBrowser?.CanGoForward ?? false;
 
-	public bool CanGoUp => FolderBrowser.CanGoUp;
+	public bool CanGoUp => FolderBrowser?.CanGoUp ?? false;
 
-	public bool CanRefresh => FolderBrowser.CanRefresh;
+	public bool CanRefresh => FolderBrowser?.CanRefresh ?? false;
 
 	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	internal PaneViewModel(PaneSession pane, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
+
 		ArgumentNullException.ThrowIfNull(presentationFactory);
+
 		ArgumentNullException.ThrowIfNull(commandManager);
 
 		_pane = pane;
-		if (pane.Content is not BrowsePaneSession browsePane)
+		_presentation = presentationFactory.CreatePaneContent(pane.Content, commandManager);
+		if (FolderBrowser is { } browser)
 		{
-			throw new NotSupportedException($"Pane content '{pane.Content.GetType().Name}' has no presentation mapping.");
+			browser.PropertyChanged += FolderBrowser_PropertyChanged;
+			browser.OperationErrorReported += FolderBrowser_OperationErrorReported;
 		}
 
-		FolderBrowser = presentationFactory.CreateFolderBrowser(browsePane, commandManager);
-		Preview = presentationFactory.CreatePreviewPane(browsePane);
-		FolderBrowser.PropertyChanged += FolderBrowser_PropertyChanged;
-		FolderBrowser.OperationErrorReported += FolderBrowser_OperationErrorReported;
+	}
+
+	internal UIElement CreateContentView()
+	{
+		return _presentation.CreateView();
 	}
 
 	public void SetActive(bool value)
@@ -84,10 +98,13 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 			return;
 		}
 
-		FolderBrowser.PropertyChanged -= FolderBrowser_PropertyChanged;
-		FolderBrowser.OperationErrorReported -= FolderBrowser_OperationErrorReported;
-		Preview.Dispose();
-		await FolderBrowser.DisposeAsync().ConfigureAwait(false);
+		if (FolderBrowser is { } browser)
+		{
+			browser.PropertyChanged -= FolderBrowser_PropertyChanged;
+			browser.OperationErrorReported -= FolderBrowser_OperationErrorReported;
+		}
+
+		await _presentation.DisposeAsync().ConfigureAwait(false);
 	}
 
 	private void FolderBrowser_OperationErrorReported(object? sender, OperationErrorEventArgs e)

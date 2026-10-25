@@ -6,14 +6,15 @@ using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
+using Files.Core.Capabilities;
 
 namespace Files.Core.Browsing;
 
 /// <summary>
 /// Keeps a resolved folder model alive for the duration of a browse location.
 /// </summary>
-public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext, IWindowsShellColumnProvider, IViewSettingsCapabilityProvider
+public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrowseLocationItemResolver, IBrowseLocationItemSorter, IInteractiveBrowseLocationContext, IBrowseColumnProvider,
+	IViewSettingsCapabilityProvider
 {
 	private readonly FolderLocation _location;
 
@@ -22,10 +23,11 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	private readonly IStorageWorkspace _workspace;
 
 	private readonly Lock _columnsLock = new();
+	private readonly CancellationTokenSource _lifetime = new();
 
 	private int _isDisposed;
 
-	private Task<WindowsShellColumnSet?>? _columnsTask;
+	private Task<BrowseColumnSet?>? _columnsTask;
 
 	/// <inheritdoc />
 	public BrowseLocation Location => _location;
@@ -40,7 +42,9 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	public FolderBrowseLocationContext(FolderLocation location, IFolderModel folderModel, IStorageWorkspace workspace)
 	{
 		ArgumentNullException.ThrowIfNull(location);
+
 		ArgumentNullException.ThrowIfNull(folderModel);
+
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		_location = location;
@@ -49,17 +53,19 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	}
 
 	/// <summary>
-	/// Gets the Windows Shell columns exposed by this folder when the folder is backed by Windows Shell.
+	/// Gets optional property columns exposed by the folder.
 	/// </summary>
-	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
-	/// <returns>The Shell column metadata, or <see langword="null"/> for non-Windows storage.</returns>
-	public async ValueTask<WindowsShellColumnSet?> GetColumnsAsync(CancellationToken cancellationToken = default)
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The property columns, or <see langword="null"/> when unavailable.</returns>
+	public async ValueTask<BrowseColumnSet?> GetColumnsAsync(CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		Task<WindowsShellColumnSet?> columnsTask;
+		Task<BrowseColumnSet?> columnsTask;
 		lock (_columnsLock)
 		{
+			ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
 			columnsTask = _columnsTask ??= LoadColumnsAsync();
 		}
 
@@ -71,7 +77,7 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	{
 		var columnSet = await GetColumnsAsync(cancellationToken).ConfigureAwait(false);
 
-		return columnSet is null ? null : BrowseViewCapabilities.FromWindowsShell(columnSet);
+		return columnSet is null ? null : BrowseViewCapabilities.FromColumns(columnSet);
 	}
 
 	/// <inheritdoc />
@@ -89,6 +95,7 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
 		ArgumentNullException.ThrowIfNull(reference);
 
 		return _workspace.ResolveAsync(reference, cancellationToken);
@@ -97,29 +104,56 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 	/// <inheritdoc />
 	public async ValueTask DisposeAsync()
 	{
-		if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
+		if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
 		{
-			await _folderModel.DisposeAsync().ConfigureAwait(false);
+			return;
 		}
 
-		GC.SuppressFinalize(this);
+		try
+		{
+			_lifetime.Cancel();
+			Task? columns;
+			lock (_columnsLock)
+			{
+				columns = _columnsTask;
+			}
+
+			if (columns is not null)
+			{
+				try
+				{
+					await columns.ConfigureAwait(false);
+				}
+				catch (Exception)
+				{
+					// Retrieval failures are observed by the column request; cleanup still waits for completion.
+				}
+			}
+		}
+		finally
+		{
+			try
+			{
+				await _folderModel.DisposeAsync().ConfigureAwait(false);
+			}
+			finally
+			{
+				_lifetime.Dispose();
+				GC.SuppressFinalize(this);
+			}
+		}
 	}
 
-	private async Task<WindowsShellColumnSet?> LoadColumnsAsync()
+	private Task<BrowseColumnSet?> LoadColumnsAsync()
 	{
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return null;
-		}
-
-		return await folder.GetColumnsAsync(CancellationToken.None).ConfigureAwait(false);
+		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata ? metadata.GetColumnsAsync(_lifetime.Token).AsTask() : Task.FromResult<BrowseColumnSet?>(null);
 	}
 
 	async IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		var items = ownerWindowHandle is not 0 && _folderModel is FolderModel folderModel
+		var items = ownerWindowHandle is not 0 && _folderModel is IInteractiveFolderModel folderModel
 			? folderModel.GetItemsAsync(StorableType.All, ownerWindowHandle, cancellationToken)
 			: _folderModel.GetItemsAsync(cancellationToken: cancellationToken);
 		await foreach (var item in items.ConfigureAwait(false))
@@ -128,34 +162,12 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 	}
 
-	async ValueTask<IReadOnlyList<IStorableModel>?> IBrowseLocationItemSorter.SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken)
+	ValueTask<IReadOnlyList<IStorableModel>?> IBrowseLocationItemSorter.SortItemsAsync(IReadOnlyList<IStorableModel> items, BrowseViewSettings settings, CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-		if (_folderModel.GetCoreModel() is not WindowsFolder folder)
-		{
-			return null;
-		}
-
-		var windowsItems = new WindowsStorable[items.Count];
-		var modelsByCoreModel = new Dictionary<WindowsStorable, IStorableModel>(ReferenceEqualityComparer.Instance);
-		for (var index = 0; index < items.Count; index++)
-		{
-			if (items[index].GetCoreModel() is not WindowsStorable windowsItem)
-			{
-				return null;
-			}
-
-			windowsItems[index] = windowsItem;
-			modelsByCoreModel.Add(windowsItem, items[index]);
-		}
-
-		var sortedItems = await folder.SortChildrenAsync(windowsItems, settings.SortPropertyId, settings.SortDirection, cancellationToken).ConfigureAwait(false);
-		if (sortedItems is null)
-		{
-			return null;
-		}
-
-		return Array.AsReadOnly(sortedItems.Select(item => modelsByCoreModel[item]).ToArray());
+		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata
+			? metadata.SortItemsAsync(items, settings, cancellationToken)
+			: ValueTask.FromResult<IReadOnlyList<IStorableModel>?>(null);
 	}
 }

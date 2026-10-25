@@ -23,17 +23,17 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 	private readonly Func<IBrowseSession> _sessionFactory;
 	private readonly Func<IBrowseSession, IBrowsePreviewModel> _previewFactory;
 	private readonly int _historyCapacity;
+	private readonly BrowseApplicationServices? _services;
 
 	/// <summary>Initializes a factory from browse services.</summary>
 	/// <param name="locationResolver">The resolver used to open browse locations.</param>
 	/// <param name="viewSettingsStore">The optional view settings store.</param>
 	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
 	/// <param name="historyCapacity">The maximum navigation history length.</param>
-	public BrowsePaneSessionFactory(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, int historyCapacity = 50)
-		: this(
-			() => new BrowseSession(locationResolver, viewSettingsStore, thumbnailCache),
-			static session => new BrowsePreviewModel(session),
-			historyCapacity)
+	/// <param name="services">The optional borrowed application services.</param>
+	public BrowsePaneSessionFactory(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, int historyCapacity = 50,
+		BrowseApplicationServices? services = null)
+		: this(() => new BrowseSession(locationResolver, viewSettingsStore, thumbnailCache), static session => new BrowsePreviewModel(session), historyCapacity, services)
 	{
 		ArgumentNullException.ThrowIfNull(locationResolver);
 
@@ -43,22 +43,28 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 	/// <param name="sessionFactory">The browse session factory.</param>
 	/// <param name="previewFactory">The preview model factory.</param>
 	/// <param name="historyCapacity">The maximum navigation history length.</param>
-	public BrowsePaneSessionFactory(
-		Func<IBrowseSession> sessionFactory,
-		Func<IBrowseSession, IBrowsePreviewModel> previewFactory,
-		int historyCapacity = 50)
+	/// <param name="services">The optional borrowed application services.</param>
+	public BrowsePaneSessionFactory(Func<IBrowseSession> sessionFactory, Func<IBrowseSession, IBrowsePreviewModel> previewFactory, int historyCapacity = 50, BrowseApplicationServices? services = null)
 	{
 		ArgumentNullException.ThrowIfNull(sessionFactory);
+
 		ArgumentNullException.ThrowIfNull(previewFactory);
+
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(historyCapacity);
 
 		_sessionFactory = sessionFactory;
 		_previewFactory = previewFactory;
 		_historyCapacity = historyCapacity;
+		_services = services;
 	}
 
 	/// <inheritdoc />
 	public PaneSession Create()
+	{
+		return new PaneSession(CreateContent());
+	}
+
+	private BrowsePaneSession CreateContent()
 	{
 		var session = _sessionFactory() ?? throw new InvalidOperationException("The browse session factory returned null.");
 
@@ -68,11 +74,11 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 		try
 		{
 			preview = _previewFactory(session) ?? throw new InvalidOperationException("The browse preview factory returned null.");
-			content = new BrowsePaneSession(session, preview, _historyCapacity);
+			content = new BrowsePaneSession(session, preview, _historyCapacity, _services, CreateContent);
 			session = null!;
 			preview = null;
 
-			return new PaneSession(content);
+			return content;
 		}
 		catch (Exception creationError)
 		{

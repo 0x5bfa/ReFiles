@@ -23,6 +23,9 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 	/// <summary>Gets the projected items in display order.</summary>
 	IReadOnlyList<IStorableModel> Items { get; }
 
+	/// <summary>Gets the item count without requiring a collection snapshot.</summary>
+	int ItemCount => Items.Count;
+
 	/// <summary>Determines whether an item key exists in the current projection.</summary>
 	/// <param name="key">The item key to find.</param>
 	/// <returns><see langword="true"/> when the key exists.</returns>

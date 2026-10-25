@@ -206,6 +206,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory)
 	{
 		ArgumentNullException.ThrowIfNull(window);
+
 		ArgumentNullException.ThrowIfNull(presentationFactory);
 
 		_window = window;
@@ -292,10 +293,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		try
 		{
-			if (ActiveTab?.ActivePane is { } pane)
+			if (ActiveTab?.ActivePane?.FolderBrowser is { } browser)
 			{
 				var folderStartTimestamp = Stopwatch.GetTimestamp();
-				await pane.FolderBrowser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
+				await browser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
 				UIDiagnosticLog.Write("RootViewModel", $"Folder initialization END elapsedMs={Stopwatch.GetElapsedTime(folderStartTimestamp).TotalMilliseconds:F1}");
 			}
 		}
@@ -397,15 +398,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		var tab = Tabs.First(tab => tab.Id == tabId);
-		if (tab.IsSettings)
+		if (tab.CaptureContentFactory() is { } factory)
 		{
-			await OpenSettingsTabAsync(cancellationToken).ConfigureAwait(false);
-
-			return;
+			await _window.OpenContentTabAsync(factory, cancellationToken).ConfigureAwait(false);
 		}
-
-		var location = tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance;
-		await _window.OpenTabAsync(location, cancellationToken).ConfigureAwait(false);
 	}
 
 	internal async Task CloseTabsToLeftAsync(Guid tabId, CancellationToken cancellationToken = default)
@@ -475,14 +471,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		try
 		{
-			if (closedTab.IsSettings)
-			{
-				await OpenSettingsTabAsync(cancellationToken).ConfigureAwait(false);
-			}
-			else
-			{
-				await _window.OpenTabAsync(closedTab.Location, cancellationToken).ConfigureAwait(false);
-			}
+			await _window.OpenContentTabAsync(closedTab.ContentFactory, cancellationToken).ConfigureAwait(false);
 		}
 		catch
 		{
@@ -978,7 +967,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private async Task CloseTabsAsync((Guid Id, ClosedTab Content)[] tabs, CancellationToken cancellationToken)
+	private async Task CloseTabsAsync((Guid Id, ClosedTab? Content)[] tabs, CancellationToken cancellationToken)
 	{
 		foreach (var tab in tabs)
 		{
@@ -989,23 +978,29 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private static ClosedTab CreateClosedTab(TabViewModel tab)
+	private static ClosedTab? CreateClosedTab(TabViewModel tab)
 	{
-		return new ClosedTab(tab.IsSettings, tab.ActivePane?.FolderBrowser.Location ?? HomeLocation.Instance);
+		return tab.CaptureContentFactory() is { } factory ? new ClosedTab(factory) : null;
 	}
 
-	private void RememberClosedTab(ClosedTab closedTab)
+	private void RememberClosedTab(ClosedTab? closedTab)
 	{
+		if (closedTab is not { } snapshot)
+		{
+			return;
+		}
+
 		lock (_closedTabsLock)
 		{
-			_closedTabs.Push(closedTab);
+			_closedTabs.Push(snapshot);
 		}
 	}
 
 	private void EnsureActive()
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
+
 	}
 
-	private readonly record struct ClosedTab(bool IsSettings, BrowseLocation Location);
+	private readonly record struct ClosedTab(Func<IPaneContentSession> ContentFactory);
 }

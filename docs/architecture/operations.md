@@ -80,3 +80,13 @@ Protect operation routing, enum/input validation, progress/result invariants, ca
 ## Names and source files
 
 `OperationList` means an immutable value copy of the operation summaries at one revision. It is not a second operation owner or a live model shared with the server. The client materializes its values once, and Status Center displays local `StorageOperationStatus` records. Each introduced type has its own source file; owned acronym names use `WinRT`, `WinUI`, and `UI`.
+
+## Shared composition and headless observation
+
+`UseStorageOperations` injects the execution boundary into both `FilesCoreRuntime.StorageOperations` and every browse application model. The app configures its WinRT implementation once. `ExecuteBatchAsync` transfers the complete selection to that implementation; its accepted work remains server-owned. The default local batch implementation snapshots and preflights all requests, then stops at the first execution failure. It does not promise atomicity or rollback of completed requests.
+
+`IStorageOperationMonitor` exposes snapshots, cancellation, pause/resume, interruption responses, and terminal-history removal without UI dependencies. `StorageOperationSnapshot` contains execution data and acknowledgements. Transfer-rate smoothing, estimated time remaining, localized text, and graph points remain presentation data.
+
+The server's `StorageOperationExecutor` owns a configured `FilesCoreRuntime` and routes through its operation service rather than invoking a Windows handler directly. The default server configuration still registers Windows storage. Additional providers must be configured in the server explicitly; source identity alone does not establish a remote connection or transfer client-owned provider objects.
+
+This restructuring does not add crash replay, durable journals, automatic retry of uncertain submissions, or a universal cross-source transfer implementation. Unsupported transfers continue to fail through explicit provider routing. These remain separate feature protocols; no mutation is silently retried or downgraded to a stream copy.

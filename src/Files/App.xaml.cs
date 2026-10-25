@@ -74,7 +74,7 @@ public partial class App : Application
 		var startTimestamp = Stopwatch.GetTimestamp();
 		UIDiagnosticLog.Write("App", "Launch START");
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
-		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore, _storageOperations).AddWindowsStorage(_windowsStorageSource, enableOperations: false).Build();
+		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore, _storageOperations).UseStorageOperations(_storageOperations).AddWindowsStorage(_windowsStorageSource, enableOperations: false).Build();
 		_runtime = currentRuntime;
 		UIDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -112,7 +112,7 @@ public partial class App : Application
 			mainWindow = new MainWindow(
 				coreWindow,
 				runtime.Workspace,
-				_storageOperations,
+				runtime.StorageOperations,
 				_storageOperationTracker,
 				_settings,
 				runtime.WindowsShellPreviewSessions,

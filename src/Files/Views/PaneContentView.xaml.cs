@@ -9,6 +9,8 @@ namespace Files.Views;
 
 public sealed partial class PaneContentView : UserControl
 {
+	private PaneViewModel? _presentedViewModel;
+
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(PaneViewModel), typeof(PaneContentView), new PropertyMetadata(null, ViewModelChanged));
 
@@ -41,6 +43,13 @@ public sealed partial class PaneContentView : UserControl
 
 	private void UpdateContent()
 	{
-		PaneContentPresenter.Content = ViewModel?.Content;
+		if (ReferenceEquals(_presentedViewModel, ViewModel))
+		{
+			return;
+		}
+
+		_presentedViewModel = ViewModel;
+		PaneContentPresenter.ContentTemplate = null;
+		PaneContentPresenter.Content = ViewModel?.CreateContentView();
 	}
 }

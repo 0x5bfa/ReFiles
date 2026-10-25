@@ -5,17 +5,12 @@ using Files.Core.Storage;
 
 namespace Files.StorageOperations;
 
-internal interface IOperationStatusSource
+internal interface IOperationStatusSource : IStorageOperationMonitor
 {
-	event EventHandler? Changed;
-
 	IReadOnlyList<StorageOperationStatus> GetOperations();
 
-	bool Cancel(Guid id);
-
-	bool SetPaused(Guid id, bool paused);
-
-	bool ResolveInterruption(Guid id, Guid interruptionId, StorageOperationInterruptionResponse response);
-
-	bool Forget(Guid id);
+	IReadOnlyList<StorageOperationSnapshot> IStorageOperationMonitor.GetOperationSnapshots()
+	{
+		return GetOperations().Select(StorageOperationStatusMapper.ToSnapshot).ToArray();
+	}
 }

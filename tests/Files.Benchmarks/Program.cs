@@ -20,7 +20,8 @@ if (args.Contains("--shell-menu-scenario", StringComparer.OrdinalIgnoreCase))
 
 if (args.Contains("--browse-scenario", StringComparer.OrdinalIgnoreCase))
 {
-	foreach (var itemCount in new[] { 100, 1_000, 10_000, 44_000 })
+	var itemCounts = args.Contains("--large", StringComparer.OrdinalIgnoreCase) ? new[] { 10_000, 100_000, 1_000_000 } : new[] { 100, 1_000, 10_000, 44_000 };
+	foreach (var itemCount in itemCounts)
 	{
 		var results = new List<BrowsePipelineScenarioResult>();
 		for (var iteration = 0; iteration < 5; iteration++)

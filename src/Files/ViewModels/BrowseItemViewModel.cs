@@ -48,6 +48,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	public BrowseItemViewModel(string name, bool isFolder, StorableReference reference, bool isHidden = false, bool showFileExtensions = true)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
 		ArgumentNullException.ThrowIfNull(reference);
 
 		Name = name;
@@ -73,6 +74,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	internal void SetProperties(IReadOnlyDictionary<string, object?> value)
 	{
 		ArgumentNullException.ThrowIfNull(value);
+
 		if (ReferenceEquals(_properties, value))
 		{
 			return;
@@ -89,7 +91,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		var nameChanged = !string.Equals(Name, item.Name, StringComparison.Ordinal);
 		var folderChanged = IsFolder != (item is IFolderModel);
 		var hiddenChanged = IsHidden != item.IsHidden;
-		var referenceChanged = !Equals(Reference, item.Reference);
+		var referenceChanged = !Equals(Reference, item.Reference) || !Equals(Reference.LastKnownAddress, item.Reference.LastKnownAddress);
 		var displayName = GetDisplayName(item.Name, item is IFolderModel, showFileExtensions);
 		var displayNameChanged = !string.Equals(DisplayName, displayName, StringComparison.Ordinal);
 		Name = item.Name;

@@ -68,3 +68,24 @@ Windows/Shell/filesystem measurements must record environment metadata and remai
 4. Change one architectural cost at a time.
 5. Verify allocation/notification/realization counts.
 6. Confirm correctness, cancellation, and lifetime behavior did not regress.
+
+## Append projection costs
+
+Append-only enumeration updates the key-to-index map for the appended range. It does not rebuild indices for previously published rows. Sorting and structural edits retain their explicit reindexing costs.
+
+`IBrowseSession.ItemCount` provides a count without forcing an immutable item snapshot. Diagnostics use this count; a log message must not trigger a full collection copy. `Items` remains a cached immutable snapshot, rebuilt only when requested after a mutation. Consumers should use keyed lookup or `ItemCount` when they do not need the snapshot.
+
+Compare Release `--browse-scenario` results before and after projection changes. Report these as synthetic Core timings, separately from actual Shell enumeration and WinUI row realization. The architecture refactoring retains bounded publication and does not imply a measured improvement in real-folder rendering.
+
+### Local refactoring measurements (2026-10-26)
+
+Windows 10.0.26300, x64, Intel Family 6 Model 170. Release Core scenarios report the median of five runs. The before measurement was taken before incremental append indexing and count-only diagnostics; these figures are informational, not a regression gate.
+
+| Core scenario | Before total (ms) | After total (ms) | After first batch (ms) | After notifications |
+| --- | ---: | ---: | ---: | ---: |
+| 10,000 items | 20.86 | 19.74 | 0.085 | 12 |
+| 44,000 items | 154.27 | 131.55 | 0.069 | 46 |
+
+Use `--browse-scenario --large` for 10,000, 100,000, and 1,000,000 items. A separate run measured 268.36 ms / 80,729,968 allocated bytes for 100,000 items and 3,150.68 ms / 783,709,984 allocated bytes for 1,000,000 items. First batches were 0.102 ms and 0.104 ms, with 100 and 980 notifications respectively. These scenarios include enumeration and final ordering; they do not isolate every sorting or snapshot cost.
+
+The Debug WinUI synthetic scenario also passed through real row realization. In the final local run, 44,000 items produced the first realized row in 15.95 ms, completed enumeration in 489.22 ms, and realized at most 24 rows. With property enrichment, those values were 15.69 ms, 570.48 ms, and 26 rows. There is no equivalent before-run UI measurement, and no real-folder throughput improvement is claimed.

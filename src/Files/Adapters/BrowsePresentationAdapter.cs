@@ -9,12 +9,10 @@ using Files.Core.Capabilities;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Sessions;
 using Files.Core.Browsing;
-using Files.Core.Data;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
 using Microsoft.UI.Dispatching;
 
 namespace Files.Adapters;
@@ -31,7 +29,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private static readonly TimeSpan UIDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly BrowsePaneSession _pane;
-	private readonly IStorageWorkspace _workspace;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly IBrowsePrefetchCoordinator _prefetch;
 	private readonly BrowsePresentationText _text;
@@ -58,10 +55,9 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private IReadOnlyList<StorableKey>? _pendingSelection;
 	private PendingStatusBarSize? _pendingStatusBarSize;
 	private LocationNavigation? _locationNavigation;
-	private ColumnLoad? _columnLoad;
-	private ColumnCache? _columnCache;
+	private readonly BrowseColumnPresentation _columns;
 	private StatusBarSizeLoad? _currentStatusBarSizeLoad;
-	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = CreateFallbackColumns();
+	private IReadOnlyList<DetailsColumnViewModel> _detailsColumns = BrowseColumnPresentation.CreateFallbackColumns();
 	private BrowseViewSettings _viewSettings;
 	private BrowseViewSettings _prefetchViewSettings;
 	private ulong? _selectedSize;
@@ -81,15 +77,14 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private int _isApplyingItemBatch;
 	private int _isDisposed;
 
-	public BrowsePresentationAdapter(BrowsePaneSession pane, IStorageWorkspace workspace, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
-		nint ownerWindowHandle = 0)
+	public BrowsePresentationAdapter(BrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null, nint ownerWindowHandle = 0)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
-		ArgumentNullException.ThrowIfNull(workspace);
+
 		ArgumentNullException.ThrowIfNull(dispatcher);
 
 		_pane = pane;
-		_workspace = workspace;
+		_columns = new BrowseColumnPresentation(pane, QueueColumns);
 		_dispatcher = dispatcher;
 		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
 		_text = text ?? BrowsePresentationText.CreateLocalized();
@@ -200,9 +195,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath START path={path}");
-
 		if (string.Equals(path, _text.Home, StringComparison.OrdinalIgnoreCase) || string.Equals(path, "Home", StringComparison.OrdinalIgnoreCase))
 		{
 			await InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -213,26 +205,11 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
-			var resolveStartTimestamp = Stopwatch.GetTimestamp();
-			var model = await _workspace.ResolveAsync(new StorageAddress("file", path), linkedCancellation.Token).ConfigureAwait(false);
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath resolved elapsedMs={Stopwatch.GetElapsedTime(resolveStartTimestamp).TotalMilliseconds:F1} model={model.GetType().Name}");
-			try
-			{
-				if (model is not IFolderModel)
-				{
-					throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, _text.NotFolderFormat, path));
-				}
-
-				await NavigateToLocationAsync(new FolderLocation(model.Reference), linkedCancellation.Token).ConfigureAwait(false);
-			}
-			finally
-			{
-				await model.DisposeAsync().ConfigureAwait(false);
-			}
+			await _pane.NavigateToAddressAsync(new StorageAddress("file", path), linkedCancellation.Token, _ownerWindowHandle).ConfigureAwait(false);
 		}
-		finally
+		catch (StorageItemNotFolderException exception)
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToPath END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}");
+			throw new InvalidOperationException(string.Format(CultureInfo.CurrentCulture, _text.NotFolderFormat, path), exception);
 		}
 	}
 
@@ -469,6 +446,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	{
 		EnsureActive();
 		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
+
 		if (!Enum.IsDefined(direction))
 		{
 			throw new ArgumentOutOfRangeException(nameof(direction));
@@ -498,6 +476,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		if (propertyId is not null)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
+
 		}
 
 		if (!Enum.IsDefined(direction))
@@ -569,12 +548,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		_pane.BrowseSession.ItemPresentationChanged -=
 			BrowseSession_ItemPresentationChanged;
 		_pane.BrowseSession.SelectionChanged -= BrowseSession_SelectionChanged;
-		ColumnLoad? columnLoad;
-		lock (_pendingLock)
-		{
-			columnLoad = _columnLoad;
-			_columnCache = null;
-		}
 
 		StatusBarSizeLoad[] statusBarSizeLoads;
 		lock (_statusBarSizeLock)
@@ -590,11 +563,10 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			locationNavigationTask = _locationNavigation?.Task;
 		}
 
-		columnLoad?.Cancel();
+		await _columns.DisposeAsync().ConfigureAwait(false);
 		_lifetime.Cancel();
 		var backgroundTasks = new List<Task>
 		{
-			ObserveBackgroundTaskAsync(columnLoad?.Task),
 			ObserveBackgroundTaskAsync(locationNavigationTask),
 		};
 		backgroundTasks.AddRange(statusBarSizeLoads.Select(static load => ObserveBackgroundTaskAsync(load.Task)));
@@ -658,7 +630,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			_pendingState = new PendingState(session.Generation, session.IsLoading, session.Error?.Message, GetLocationText(session.Location), session.ViewSettings);
 		}
 
-		StartColumnsLoad();
+		_columns.Update();
 		ScheduleDrain();
 	}
 
@@ -670,7 +642,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		UIDiagnosticLog.Write(
 			"BrowsePresentationAdapter",
 			$"ItemsChanged version={args.Version} previous={args.PreviousVersion} changes={args.Changes.Count} projected={changes.Count} " +
-			$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.Items.Count}");
+			$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.ItemCount}");
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.AddLast(new PendingItemBatch(generation, args.PreviousVersion, args.Version, changes));
@@ -1618,150 +1590,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		Interlocked.Increment(ref _diagnosticPropertyChangeCount);
 	}
 
-	private void StartColumnsLoad()
-	{
-		if (Volatile.Read(ref _isDisposed) is not 0)
-		{
-			return;
-		}
-
-		var session = _pane.BrowseSession;
-		if (session.Context is not IWindowsShellColumnProvider context || session.Generation is 0)
-		{
-			CancelColumnsLoad();
-			QueueColumns(session.Generation, CreateFallbackColumns());
-
-			return;
-		}
-
-		var hasCachedColumns = false;
-		WindowsShellColumnSet? cachedColumnSet = null;
-		ColumnLoad? previousLoad = null;
-		ColumnLoad? loadToStart = null;
-		Task previousTask = Task.CompletedTask;
-		lock (_pendingLock)
-		{
-			if (_columnCache is { } cache && cache.Generation == session.Generation && ReferenceEquals(cache.Context, context))
-			{
-				hasCachedColumns = true;
-				cachedColumnSet = cache.ColumnSet;
-			}
-			else if (_columnLoad is { } activeLoad && activeLoad.Generation == session.Generation && ReferenceEquals(activeLoad.Context, context))
-			{
-				return;
-			}
-			else
-			{
-				previousLoad = _columnLoad;
-				previousTask = previousLoad?.Task ?? Task.CompletedTask;
-				loadToStart = new ColumnLoad(context, session.Generation, _lifetime.Token);
-				_columnLoad = loadToStart;
-				_columnCache = null;
-			}
-		}
-
-		previousLoad?.Cancel();
-		if (loadToStart is { } load)
-		{
-			load.Start(() => LoadColumnsAsync(load, previousTask));
-		}
-
-		if (hasCachedColumns)
-		{
-			QueueColumns(session.Generation, cachedColumnSet is null ? CreateFallbackColumns() : CreateDetailsColumns(cachedColumnSet, session.ViewSettings));
-		}
-	}
-
-	private async Task LoadColumnsAsync(ColumnLoad load, Task previousTask)
-	{
-		try
-		{
-			await previousTask.ConfigureAwait(false);
-			load.Token.ThrowIfCancellationRequested();
-
-			var columnSet = await load.Context.GetColumnsAsync(load.Token).ConfigureAwait(false);
-			if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
-			{
-				return;
-			}
-
-			lock (_pendingLock)
-			{
-				if (IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
-				{
-					_columnCache = new ColumnCache(load.Context, load.Generation, columnSet);
-				}
-			}
-
-			if (columnSet is null)
-			{
-				QueueColumns(load.Generation, CreateFallbackColumns());
-
-				return;
-			}
-
-			var session = _pane.BrowseSession;
-			var capabilities = BrowseViewCapabilities.FromWindowsShell(columnSet);
-			if (load.Context is IViewSettingsCapabilityProvider capabilityProvider)
-			{
-				capabilities = await capabilityProvider.GetViewSettingsCapabilitiesAsync(load.Token).ConfigureAwait(false) ?? capabilities;
-			}
-
-			if (session is IViewSettingsSession viewSettingsSession)
-			{
-				await viewSettingsSession.ApplyViewCapabilitiesAsync(capabilities, load.Token).ConfigureAwait(false);
-				if (!IsCurrentColumnsContext(load.Context, load.Generation, load.Token))
-				{
-					return;
-				}
-			}
-
-			QueueColumns(load.Generation, CreateDetailsColumns(columnSet, session.ViewSettings));
-		}
-		catch (OperationCanceledException) when (load.IsCancellationRequested)
-		{
-		}
-		catch
-		{
-			if (IsCurrentColumnsContext(load.Context, load.Generation, CancellationToken.None))
-			{
-				QueueColumns(load.Generation, CreateFallbackColumns());
-			}
-		}
-		finally
-		{
-			lock (_pendingLock)
-			{
-				if (ReferenceEquals(_columnLoad, load))
-				{
-					_columnLoad = null;
-				}
-			}
-
-			load.Dispose();
-		}
-	}
-
-	private void CancelColumnsLoad()
-	{
-		ColumnLoad? load;
-		lock (_pendingLock)
-		{
-			load = _columnLoad;
-			_columnCache = null;
-		}
-
-		load?.Cancel();
-	}
-
-	private bool IsCurrentColumnsContext(IWindowsShellColumnProvider context, long generation, CancellationToken cancellationToken)
-	{
-		return !cancellationToken.IsCancellationRequested &&
-			_pane.BrowseSession.Generation == generation &&
-			ReferenceEquals(_pane.BrowseSession.Context, context) &&
-			Volatile.Read(ref _isDisposed) is 0;
-	}
-
 	private void QueueColumns(long generation, IReadOnlyList<DetailsColumnViewModel> columns)
 	{
 		lock (_pendingLock)
@@ -1775,79 +1603,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 
 		ScheduleDrain();
-	}
-
-	private static IReadOnlyList<DetailsColumnViewModel> CreateDetailsColumns(WindowsShellColumnSet columnSet, BrowseViewSettings settings)
-	{
-		var availableColumns = columnSet.All
-			.Where(static column => !column.IsHidden)
-			.GroupBy(static column => column.PropertyId, StringComparer.Ordinal)
-			.ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
-		var selectedColumns = new List<WindowsShellColumn>();
-		var selectedPropertyIds = new HashSet<string>(StringComparer.Ordinal);
-
-		foreach (var configuredColumn in settings.Columns.Where(static column => column.IsVisible).OrderBy(static column => column.Order))
-		{
-			if (availableColumns.TryGetValue(configuredColumn.PropertyId, out var column) && selectedPropertyIds.Add(column.PropertyId))
-			{
-				selectedColumns.Add(column);
-			}
-		}
-
-		if (selectedColumns.Count is 0)
-		{
-			foreach (var column in columnSet.DefaultVisible)
-			{
-				if (availableColumns.ContainsKey(column.PropertyId) && selectedPropertyIds.Add(column.PropertyId))
-				{
-					selectedColumns.Add(column);
-				}
-			}
-		}
-
-		if (selectedColumns.Count is 0)
-		{
-			foreach (var column in availableColumns.Values.OrderBy(static column => column.Index))
-			{
-				if (selectedPropertyIds.Add(column.PropertyId))
-				{
-					selectedColumns.Add(column);
-				}
-			}
-		}
-
-		if (selectedColumns.Count is 0)
-		{
-			return CreateFallbackColumns();
-		}
-
-		var result = new List<DetailsColumnViewModel>(selectedColumns.Count);
-		foreach (var column in selectedColumns)
-		{
-			var configuredColumn = settings.Columns.FirstOrDefault(setting => setting.PropertyId.Equals(column.PropertyId, StringComparison.Ordinal));
-			var width = configuredColumn?.Width ?? GetDefaultColumnWidth(column);
-			var isNameColumn = column.PropertyId.Equals("System.ItemNameDisplay", StringComparison.Ordinal) || column.PropertyId.Equals("name", StringComparison.OrdinalIgnoreCase);
-			result.Add(new DetailsColumnViewModel(column.PropertyId, column.DisplayName, width, column.Alignment, isNameColumn, !column.IsFixedWidth, canGroup: column.CanGroup));
-		}
-
-		return Array.AsReadOnly(result.ToArray());
-	}
-
-	private static double GetDefaultColumnWidth(WindowsShellColumn column)
-	{
-		return column.HeaderWidthCharacters is > 0
-			? column.HeaderWidthCharacters * 8d
-			: 120d;
-	}
-
-	private static IReadOnlyList<DetailsColumnViewModel> CreateFallbackColumns()
-	{
-		return Array.AsReadOnly(new[]
-		{
-			new DetailsColumnViewModel("System.ItemNameDisplay", "System.ItemNameDisplay", 180, WindowsShellColumnAlignment.Left, isPrimary: true),
-			new DetailsColumnViewModel("System.ItemTypeText", "System.ItemTypeText", 100, WindowsShellColumnAlignment.Left),
-			new DetailsColumnViewModel("reference", "reference", 220, WindowsShellColumnAlignment.Left),
-		});
 	}
 
 	private bool TryApplyChanges(IReadOnlyList<BrowseItemViewModelChange> changes, ICollection<BrowseItemViewModelChange> appliedChanges)
@@ -1913,6 +1668,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 					case BrowseItemViewModelReplaced replaced
 						when replaced.Index >= 0 && replaced.Index < _items.Count:
 						var previousItem = _items[replaced.Index];
+						UpdateMaterializedItem(replaced.Item);
 						_items[replaced.Index] = replaced.Item;
 						_itemsByKey.Remove(previousItem.Reference.GetKey());
 						_itemsByKey.Add(replaced.Item.Reference.GetKey(), replaced.Item);
@@ -2081,10 +1837,23 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 			BrowseItemAdded added => new BrowseItemViewModelAdded(added.Index, CreateItemViewModel(added.Item)),
 			BrowseItemsAdded added => new BrowseItemViewModelsAdded(added.StartingIndex, added.Items.Select(CreateItemViewModel).ToArray()),
 			BrowseItemRemoved removed => new BrowseItemViewModelRemoved(removed.Index),
-			BrowseItemReplaced replaced => new BrowseItemViewModelReplaced(replaced.Index, CreateItemViewModel(replaced.NewItem)),
+			BrowseItemReplaced replaced => new BrowseItemViewModelReplaced(replaced.Index, GetReplacementItemViewModel(replaced)),
 			BrowseItemMoved moved => new BrowseItemViewModelMoved(moved.PreviousIndex, moved.CurrentIndex),
 			_ => throw new InvalidOperationException($"Unsupported Core browse item change '{change.GetType().Name}'."),
 		};
+	}
+
+	private BrowseItemViewModel GetReplacementItemViewModel(BrowseItemReplaced replacement)
+	{
+		lock (_itemsLock)
+		{
+			if (replacement.PreviousKey == replacement.NewItem.Reference.GetKey() && _itemsByKey.TryGetValue(replacement.PreviousKey, out var existing))
+			{
+				return existing;
+			}
+		}
+
+		return CreateItemViewModel(replacement.NewItem);
 	}
 
 	private BrowseItemViewModel CreateItemViewModel(IStorableModel item)
@@ -2258,6 +2027,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 	private void EnsureActive()
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
+
 	}
 
 	private static void UpdateMaximum(ref long target, long candidate)
@@ -2285,7 +2055,6 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 
 	private sealed record LocationNavigation(BrowseLocation Location, PaneNavigationMode Mode, Task Task);
 
-	private sealed record ColumnCache(IWindowsShellColumnProvider Context, long Generation, WindowsShellColumnSet? ColumnSet);
 
 	private sealed record ThumbnailApplyState(long Version, BrowseItemViewModel Target, ThumbnailResult? Thumbnail);
 
@@ -2393,66 +2162,5 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private sealed class ColumnLoad : IDisposable
-	{
-		private readonly CancellationTokenSource _cancellation;
-		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-		public IWindowsShellColumnProvider Context { get; }
-
-		public long Generation { get; }
-
-		public CancellationToken Token => _cancellation.Token;
-
-		public bool IsCancellationRequested => _cancellation.IsCancellationRequested;
-
-		public Task Task => _completion.Task;
-
-		public ColumnLoad(IWindowsShellColumnProvider context, long generation, CancellationToken lifetimeToken)
-		{
-			Context = context;
-			Generation = generation;
-			_cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeToken);
-		}
-
-		public void Start(Func<Task> action)
-		{
-			ArgumentNullException.ThrowIfNull(action);
-
-			_ = RunAsync(action);
-		}
-
-		public void Cancel()
-		{
-			try
-			{
-				_cancellation.Cancel();
-			}
-			catch (ObjectDisposedException)
-			{
-			}
-		}
-
-		public void Dispose()
-		{
-			_cancellation.Dispose();
-		}
-
-		private async Task RunAsync(Func<Task> action)
-		{
-			try
-			{
-				await action().ConfigureAwait(false);
-				_completion.TrySetResult(true);
-			}
-			catch (OperationCanceledException exception)
-			{
-				_completion.TrySetCanceled(exception.CancellationToken);
-			}
-			catch (Exception exception)
-			{
-				_completion.TrySetException(exception);
-			}
-		}
-	}
 }

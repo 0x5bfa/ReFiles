@@ -12,7 +12,7 @@ using Files.ItemProperties;
 
 namespace Files.StorageOperations;
 
-internal sealed class WinRTStorageOperationService : IStorageOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
+internal sealed class WinRTStorageOperationService : IStorageOperationService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
 {
 	private readonly Lock _syncRoot = new();
 	private readonly CancellationTokenSource _shutdown = new();
@@ -27,6 +27,8 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	private bool _disposed;
 
 	public event EventHandler? Changed;
+
+	public IStorageOperationMonitor Monitor => this;
 
 	internal WinRTStorageOperationService()
 	{
@@ -82,7 +84,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		server.UnregisterWindow(windowHandle.ToInt64());
 	}
 
-	internal async Task<IReadOnlyList<WindowsShellNewItem>> GetShellNewItemsAsync(string folderPath, CancellationToken cancellationToken = default)
+	public async Task<IReadOnlyList<WindowsShellNewItem>> GetShellNewItemsAsync(string folderPath, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
 
@@ -96,6 +98,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	public async ValueTask<ThumbnailCacheEntry?> GetAsync(ThumbnailCacheKey key, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
+
 		cancellationToken.ThrowIfCancellationRequested();
 
 		try
@@ -117,7 +120,9 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	public async ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
+
 		ArgumentNullException.ThrowIfNull(entry);
+
 		cancellationToken.ThrowIfCancellationRequested();
 
 		try
@@ -136,6 +141,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	public async ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+
 		cancellationToken.ThrowIfCancellationRequested();
 
 		try
@@ -155,8 +161,11 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	public async ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
+
 		ArgumentNullException.ThrowIfNull(entry);
+
 		ArgumentOutOfRangeException.ThrowIfNegative(expectedInvalidationVersion);
+
 		cancellationToken.ThrowIfCancellationRequested();
 
 		try
@@ -178,6 +187,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 	public async ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
+
 		cancellationToken.ThrowIfCancellationRequested();
 		await _fallbackThumbnailCache.InvalidateAsync(reference, cancellationToken).ConfigureAwait(false);
 
@@ -200,18 +210,27 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		}
 	}
 
-	internal async Task ExecuteBatchAsync(IReadOnlyList<StorageOperationRequest> requests, CancellationToken cancellationToken)
+	public async ValueTask<StorageOperationResult> ExecuteBatchAsync(IReadOnlyList<StorageOperationRequest> requests, CancellationToken cancellationToken = default)
 	{
+		ArgumentNullException.ThrowIfNull(requests);
+
+		if (requests.Count is 0)
+		{
+			return new StorageOperationResult(true, null);
+		}
+
+		if (requests.Any(request => request is null || !CanHandle(request)))
+		{
+			return new StorageOperationResult(false, null, new NotSupportedException("The batch contains an unsupported operation."));
+		}
+
 		var items = requests.Select(ToData).ToArray();
 		var summary = await SubmitAsync(items, cancellationToken).ConfigureAwait(false);
-		var result = ToResult(summary);
-		if (!result.Succeeded)
-		{
-			throw result.Error!;
-		}
+
+		return ToResult(summary);
 	}
 
-	internal async Task TransferPathsAsync(IReadOnlyList<string> paths, StorableReference destination, bool move, CancellationToken cancellationToken)
+	public async Task TransferPathsAsync(IReadOnlyList<string> paths, StorableReference destination, bool move, CancellationToken cancellationToken)
 	{
 		var items = paths.Select(path => new BackgroundServer.StorageOperationData
 		{
@@ -251,7 +270,7 @@ internal sealed class WinRTStorageOperationService : IStorageOperationService, I
 		return QueueControl(server => server.ForgetOperation(id));
 	}
 
-	internal async Task InvokeNewItemAsync(string folderPath, uint commandOffset, string name, CancellationToken cancellationToken)
+	public async Task InvokeNewItemAsync(string folderPath, uint commandOffset, string name, CancellationToken cancellationToken)
 	{
 		var summary = await RunOperationAsync((server, id) => server.SubmitShellNewItem(id, folderPath, commandOffset, name), cancellationToken).ConfigureAwait(false);
 		var result = ToResult(summary);

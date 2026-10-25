@@ -3,7 +3,6 @@
 
 using Files.Core.Capabilities;
 using Files.Core.Storage;
-using Files.Core.Windows;
 
 namespace Files.Core.Models;
 
@@ -33,7 +32,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	/// <summary>
 	/// Gets a value indicating whether the storage item is marked as hidden.
 	/// </summary>
-	public bool IsHidden => _coreModel is IWindowsStorable { IsHidden: true };
+	public bool IsHidden => _coreModel is IStorageItemAttributes { IsHidden: true };
 
 	/// <summary>
 	/// Gets the composed optional item capabilities.
@@ -49,7 +48,9 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	public StorableModel(IStorable coreModel, StorableReference reference, ICapabilities capabilities)
 	{
 		ArgumentNullException.ThrowIfNull(coreModel);
+
 		ArgumentNullException.ThrowIfNull(reference);
+
 		ArgumentNullException.ThrowIfNull(capabilities);
 
 		_coreModel = coreModel;

@@ -23,6 +23,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	private readonly List<IStorageSource> _sources = [];
 
 	private readonly List<IStorageOperationHandler> _operationHandlers = [];
+	private IStorageOperationService? _storageOperations;
 
 	private readonly List<Func<StorageWorkspace, IBrowseLocationHandler>> _locationHandlerFactories = [];
 
@@ -103,6 +104,19 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		return this;
 	}
 
+	/// <summary>Selects the operation boundary used by the runtime and all its browse models.</summary>
+	/// <param name="operations">The borrowed operation service.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder UseStorageOperations(IStorageOperationService operations)
+	{
+		EnsureMutable();
+		ArgumentNullException.ThrowIfNull(operations);
+
+		_storageOperations = operations;
+
+		return this;
+	}
+
 	/// <summary>Builds the runtime and transfers ownership of configured resources.</summary>
 	/// <returns>The composed runtime.</returns>
 	public FilesCoreRuntime Build()
@@ -132,9 +146,11 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			}
 
 			var locationResolver = new BrowseLocationResolver(handlers);
-			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache);
+			var storageOperations = _storageOperations ?? new StorageOperationService(_operationHandlers);
+			var search = new BrowseSearchService(handlers.OfType<IBrowseSearchProvider>());
+			var services = new BrowseApplicationServices(workspace, storageOperations, search);
+			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache, services: services);
 			shellSession = new FilesApplicationSession(paneFactory);
-			var storageOperations = new StorageOperationService(_operationHandlers);
 			IWindowsShellPreviewSessionFactory? previewSessions = null;
 			if (_windowsShellPreviewSessionFactory is not null)
 			{

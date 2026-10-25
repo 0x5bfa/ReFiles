@@ -184,11 +184,12 @@ public sealed class StatusCenterViewModelTests
 		Assert.IsTrue(item.ShowRunningCompactProgress);
 		Assert.IsFalse(item.ShowPausedCompactProgress);
 		Assert.AreEqual("Copying item 1 of 1 (30%)", item.Title);
+		Assert.AreEqual("---", item.SpeedText);
 
 		operation.Report(0, "large.iso", completedBytes: 40, totalBytes: 100, isByteProgressForWholeOperation: true);
 
 		Assert.AreEqual("Copying item 1 of 1 (40%)", item.Title);
-		Assert.AreEqual("---", item.SpeedText);
+		Assert.AreNotEqual("---", item.SpeedText);
 	}
 
 	/// <summary>

@@ -153,6 +153,7 @@ public sealed class WindowSession : IAsyncDisposable
 		{
 			EnsureActive();
 			content = contentFactory() ?? throw new InvalidOperationException("The pane content factory returned null.");
+			await content.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
 			pane = new PaneSession(content);
 			content = null;
 			tab = new TabSession(_paneFactory, pane);

@@ -24,6 +24,18 @@ internal sealed class BrowseItemProjection
 	private bool _isSorted = true;
 	private bool _snapshotDirty;
 
+	/// <summary>Gets the current item count without materializing a snapshot.</summary>
+	public int Count
+	{
+		get
+		{
+			lock (_syncRoot)
+			{
+				return _orderedItems.Count;
+			}
+		}
+	}
+
 	public IReadOnlyList<IStorableModel> Items
 	{
 		get
@@ -64,6 +76,7 @@ internal sealed class BrowseItemProjection
 	internal bool TryApplyToCurrent(StorableKey key, IStorableModel expectedModel, Func<bool> apply)
 	{
 		ArgumentNullException.ThrowIfNull(expectedModel);
+
 		ArgumentNullException.ThrowIfNull(apply);
 
 		lock (_syncRoot)
@@ -181,7 +194,9 @@ internal sealed class BrowseItemProjection
 						_isSorted = false;
 					}
 
-					_modelsByKey.Add(model.Reference.GetKey(), model);
+					var key = model.Reference.GetKey();
+					_modelsByKey.Add(key, model);
+					_indicesByKey.Add(key, _orderedItems.Count);
 					_orderedItems.Add(model);
 					previousItem = model;
 				}
@@ -191,7 +206,6 @@ internal sealed class BrowseItemProjection
 					_isSorted = false;
 				}
 
-				RebuildIndices();
 				UpdateSnapshot();
 
 				return new BrowseItemChangeSet([new BrowseItemsAdded(startingIndex, addedItems)]);

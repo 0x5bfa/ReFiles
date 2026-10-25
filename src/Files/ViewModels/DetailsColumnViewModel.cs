@@ -1,9 +1,10 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
+
+using Files.Core.Browsing;
 
 namespace Files.ViewModels;
 
@@ -24,7 +25,7 @@ public sealed partial class DetailsColumnViewModel : ObservableObject
 	public partial double Width { get; set; }
 
 	/// <summary>Gets the value alignment suggested by the storage source.</summary>
-	public WindowsShellColumnAlignment Alignment { get; }
+	public BrowseColumnAlignment Alignment { get; }
 
 	/// <summary>Gets a value indicating whether this is the primary display column.</summary>
 	public bool IsPrimary { get; }
@@ -47,8 +48,8 @@ public sealed partial class DetailsColumnViewModel : ObservableObject
 	/// <summary>Gets the text alignment used by the table.</summary>
 	public TextAlignment TextAlignment => Alignment switch
 	{
-		WindowsShellColumnAlignment.Right => Microsoft.UI.Xaml.TextAlignment.Right,
-		WindowsShellColumnAlignment.Center => Microsoft.UI.Xaml.TextAlignment.Center,
+		BrowseColumnAlignment.Right => Microsoft.UI.Xaml.TextAlignment.Right,
+		BrowseColumnAlignment.Center => Microsoft.UI.Xaml.TextAlignment.Center,
 		_ => Microsoft.UI.Xaml.TextAlignment.Left,
 	};
 
@@ -67,7 +68,7 @@ public sealed partial class DetailsColumnViewModel : ObservableObject
 		string propertyId,
 		string displayName,
 		double width,
-		WindowsShellColumnAlignment alignment,
+		BrowseColumnAlignment alignment,
 		bool isPrimary = false,
 		bool canResize = true,
 		bool canSort = true,

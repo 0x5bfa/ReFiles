@@ -10,7 +10,7 @@ namespace Files.Core.Windows;
 /// <summary>
 /// Describes a Files storage item backed by the Windows Shell namespace.
 /// </summary>
-public interface IWindowsStorable : IStorableChild, IStorageAddressSource
+public interface IWindowsStorable : IStorableChild, IStorageAddressSource, IStorageItemAttributes
 {
 	/// <summary>Gets the Windows Shell parsing name.</summary>
 	string ParsingName { get; }
@@ -27,5 +27,7 @@ public interface IWindowsStorable : IStorableChild, IStorageAddressSource
 	/// <summary>
 	/// Gets a value indicating whether the Shell marks the item as hidden.
 	/// </summary>
-	bool IsHidden => false;
+	new bool IsHidden => false;
+
+	bool IStorageItemAttributes.IsHidden => IsHidden;
 }

@@ -48,6 +48,9 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 	/// </summary>
 	public IStorageOperationService StorageOperations { get; }
 
+	/// <summary>Gets the optional monitor for accepted operations.</summary>
+	public IStorageOperationMonitor? OperationMonitor => StorageOperations.Monitor;
+
 	/// <summary>
 	/// Gets the view settings store shared by browse sessions.
 	/// </summary>

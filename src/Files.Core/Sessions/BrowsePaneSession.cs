@@ -25,8 +25,12 @@ public enum PaneNavigationMode
 /// <summary>
 /// Owns browsing, history, and preview state for browse pane content.
 /// </summary>
-public sealed class BrowsePaneSession : IPaneContentSession
+public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittablePaneContent, IRestorablePaneContent
 {
+	private readonly BrowseApplicationServices? _services;
+	private readonly Func<BrowsePaneSession>? _splitFactory;
+	private BrowseLocation? _initialLocation;
+
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
 
 	private readonly CancellationTokenSource _lifetime = new();
@@ -44,6 +48,9 @@ public sealed class BrowsePaneSession : IPaneContentSession
 
 	/// <summary>Gets the preview state owned by this content session.</summary>
 	public IBrowsePreviewModel Preview { get; }
+
+	/// <summary>Gets the scoped navigation hierarchy, when application services are configured.</summary>
+	public BrowseNavigationModel? Navigation { get; }
 
 	/// <summary>Gets the navigation history.</summary>
 	public BrowseNavigationHistory History { get; }
@@ -71,12 +78,18 @@ public sealed class BrowsePaneSession : IPaneContentSession
 	/// <param name="browseSession">The browse session to own.</param>
 	/// <param name="preview">The preview model to own.</param>
 	/// <param name="historyCapacity">The maximum navigation history length.</param>
-	public BrowsePaneSession(IBrowseSession browseSession, IBrowsePreviewModel preview, int historyCapacity = 50)
+	/// <param name="services">The optional borrowed application services.</param>
+	/// <param name="splitFactory">The factory for independently owned browse content.</param>
+	public BrowsePaneSession(IBrowseSession browseSession, IBrowsePreviewModel preview, int historyCapacity = 50, BrowseApplicationServices? services = null, Func<BrowsePaneSession>? splitFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(browseSession);
+
 		ArgumentNullException.ThrowIfNull(preview);
 
+		_services = services;
+		_splitFactory = splitFactory;
 		BrowseSession = browseSession;
+		Navigation = services is null ? null : new BrowseNavigationModel(browseSession, services.Workspace);
 		Preview = preview;
 		History = new BrowseNavigationHistory(historyCapacity);
 

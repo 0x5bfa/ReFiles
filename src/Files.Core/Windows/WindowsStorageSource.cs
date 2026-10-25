@@ -12,7 +12,7 @@ namespace Files.Core.Windows;
 /// <summary>
 /// Resolves file-system and virtual items through the Windows Shell namespace.
 /// </summary>
-public sealed class WindowsStorageSource : IStorageSource
+public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolicy
 {
 	/// <summary>Gets the default Windows Shell source type.</summary>
 	public const string DefaultSourceType = "windows-shell";
@@ -60,6 +60,12 @@ public sealed class WindowsStorageSource : IStorageSource
 	internal WindowsShellItemResolver ShellItemResolver => _storableFactory.Resolver;
 
 	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
+
+	/// <inheritdoc />
+	public bool CanRecycle(StorableReference reference)
+	{
+		return reference.SourceId == SourceId;
+	}
 
 	internal bool IsFileSystemIdentity(string itemId)
 	{
@@ -155,6 +161,7 @@ public sealed class WindowsStorageSource : IStorageSource
 	public async ValueTask<IStorable> ResolveAsync(StorageAddress address, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 		ArgumentNullException.ThrowIfNull(address);
 
 		if (!CanResolve(address))
@@ -172,6 +179,7 @@ public sealed class WindowsStorageSource : IStorageSource
 	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
 		ArgumentNullException.ThrowIfNull(reference);
 
 		if (reference.SourceId != SourceId)

@@ -4,26 +4,27 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 using Files.Core.Storage;
+using Files.Core.Composition;
 using Files.Core.Windows;
 
 namespace Files.BackgroundServer;
 
 internal sealed class StorageOperationExecutor : IAsyncDisposable
 {
-	private readonly WindowsStorageSource _source = new();
-	private readonly WindowsStorageOperationHandler _handler;
+	private readonly FilesCoreRuntime _runtime;
 
-	internal WindowsStorageSource Source => _source;
+	internal WindowsStorageSource Source => _runtime.Workspace.Sources.OfType<WindowsStorageSource>().First();
 
-	internal StorageOperationExecutor()
+	internal StorageOperationExecutor(FilesCoreRuntime? runtime = null)
 	{
-		_handler = new WindowsStorageOperationHandler(_source);
+		_runtime = runtime ?? new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false, enableArchives: false).Build();
 	}
 
 	public ValueTask DisposeAsync()
 	{
-		return _source.DisposeAsync();
+		return _runtime.DisposeAsync();
 	}
 
 	internal async Task<StorageOperationRequest> CreateRequestAsync(StorageOperationData data, CancellationToken cancellationToken)
@@ -46,7 +47,7 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 	internal ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, StorageOperationProgressReporter progress, OperationExecutionContext control,
 		CancellationToken cancellationToken)
 	{
-		return _handler.ExecuteAsync(request, progress, cancellationToken, control);
+		return _runtime.StorageOperations.ExecuteAsync(request, progress, cancellationToken, control);
 	}
 
 	internal static void Validate(StorageOperationData data)
@@ -56,15 +57,16 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 			throw new ArgumentException("The storage operation kind or conflict behavior is invalid.");
 		}
 
-		ValidateReference(data.Item, data.Kind is not StorageOperationKind.Delete);
+		ValidateReference(data.Item);
 		if (data.Kind is StorageOperationKind.Copy or StorageOperationKind.Move)
 		{
-			ValidateReference(data.Destination, true);
+			ValidateReference(data.Destination);
 		}
 
 		if (data.Kind is StorageOperationKind.Rename or StorageOperationKind.CreateFile or StorageOperationKind.CreateFolder)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(data.Name);
+
 		}
 	}
 
@@ -82,16 +84,16 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 			return new StorableReference(new StorageSourceId(data.SourceId), data.ItemId, address);
 		}
 
-		var item = await _source.ResolveAsync(address!, cancellationToken).ConfigureAwait(false);
+		await using var item = await _runtime.Workspace.ResolveAsync(new StorageSourceId(data.SourceId), address!, cancellationToken).ConfigureAwait(false);
 
-		return new StorableReference(_source.SourceId, item.Id, address);
+		return item.Reference;
 	}
 
-	private static void ValidateReference(StorageReferenceData data, bool requireFileSystem)
+	private static void ValidateReference(StorageReferenceData data)
 	{
-		if (data.SourceId != WindowsStorageSource.DefaultSourceType || (!data.HasAddress && string.IsNullOrWhiteSpace(data.ItemId)))
+		if (string.IsNullOrWhiteSpace(data.SourceId) || (!data.HasAddress && string.IsNullOrWhiteSpace(data.ItemId)))
 		{
-			throw new NotSupportedException("The operation requires a configured Windows storage reference.");
+			throw new NotSupportedException("The operation requires a configured storage reference.");
 		}
 
 		if (data.HasAddress && (string.IsNullOrWhiteSpace(data.AddressScheme) || string.IsNullOrWhiteSpace(data.AddressValue)))
@@ -99,10 +101,6 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 			throw new ArgumentException("The storage address is incomplete.");
 		}
 
-		if (requireFileSystem && (!data.HasAddress || !data.AddressScheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)))
-		{
-			throw new NotSupportedException("The operation requires a file-system reference.");
-		}
 	}
 
 	private static string? EmptyToNull(string? value)

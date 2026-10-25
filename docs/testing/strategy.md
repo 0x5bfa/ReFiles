@@ -58,3 +58,9 @@ flowchart TB
 - [`integration-tests.md`](integration-tests.md)
 - [`ui-tests.md`](ui-tests.md)
 - [`performance-tests.md`](performance-tests.md)
+
+## Application and content boundary coverage
+
+`BrowseApplicationModelTests` covers headless provider-routed search, search rollback/history, one-batch selection deletion, configured operation execution, content initialization/splitting/restoration, non-Windows attributes and columns, and FTP hierarchy navigation using the in-memory session double.
+
+`ArchitectureBoundaryTests` covers registered custom content presentation, immutable same-key model replacement with a stable UI row, locator-display updates, and operation-control acknowledgements through the Core monitor. Existing progressive browse, cancellation, prefetch, grouping, and Status Center tests remain applicable.

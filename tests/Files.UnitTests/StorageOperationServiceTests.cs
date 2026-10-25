@@ -141,6 +141,33 @@ public sealed class StorageOperationServiceTests
 		Assert.Throws<ArgumentOutOfRangeException>(() => new StorageOperationProgress(0, 1, completedBytes: 2, totalBytes: 1));
 	}
 
+	/// <summary>Invalid batch entries are rejected before any request executes.</summary>
+	[TestMethod]
+	public async Task BatchValidatesAllEntriesBeforeExecution()
+	{
+		var handler = new TestOperationHandler(canHandle: true);
+		IStorageOperationService service = new StorageOperationService([handler]);
+
+		await Assert.ThrowsAsync<ArgumentException>(async () => await service.ExecuteBatchAsync([CreateRenameRequest(), null!]));
+
+		Assert.AreEqual(0, handler.ExecuteCount);
+	}
+
+	/// <summary>A local batch stops after failure and preserves its error.</summary>
+	[TestMethod]
+	public async Task BatchStopsAfterTheFirstFailure()
+	{
+		var expected = new IOException("operation failed");
+		var handler = new TestOperationHandler(canHandle: true, exception: expected);
+		IStorageOperationService service = new StorageOperationService([handler]);
+
+		var result = await service.ExecuteBatchAsync([CreateRenameRequest(), CreateRenameRequest()]);
+
+		Assert.IsFalse(result.Succeeded);
+		Assert.AreSame(expected, result.Error);
+		Assert.AreEqual(1, handler.ExecuteCount);
+	}
+
 	private static RenameOperationRequest CreateRenameRequest()
 	{
 		return new RenameOperationRequest(new StorableReference(new StorageSourceId("test"), "item-1", new StorageAddress("test", "item-1")), "renamed.txt");

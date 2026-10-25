@@ -76,3 +76,13 @@ Adapters/ViewModels must unsubscribe and cancel presentation-specific work durin
 ## Tests
 
 Presentation tests should protect incremental publication, stable row identity, cancellation, command invalidation, grouping behavior, control layout contracts, and the end-to-end realization/performance boundary described by issue #5.
+
+## Content registration and column projection
+
+`WindowPresentationFactory.RegisterPaneContent<TContent>` maps a content session to its presentation and a lazy view factory. `PaneViewModel`, `PaneContentView`, and `PaneHost` consume the registered presentation without switching on settings or browsing content. The view factory runs once per bound presentation. Reusable controls continue to receive data through dependency properties.
+
+Content owns its behavior through `IPaneContentSession.InitializeAsync`, optional `ISplittablePaneContent`, and optional `IRestorablePaneContent`. The window awaits initialization before publishing restored content. Tabs ask the active content to create split content. A captured restore factory retains application services and immutable state, not the disposed pane's live resources. Content without restoration support can still close; duplication is unavailable and it is not added to reopen history.
+
+`BrowseColumnPresentation` owns asynchronous column loading, cached column metadata, and cancellation. It converts `BrowseColumnSet` into display columns and publishes generation-tagged values to the adapter's bounded UI queue. It does not own browse models. Disposal waits for its request chain.
+
+Immutable item-model replacement does not require a new row ViewModel when the key is unchanged. The adapter applies the current model to the existing row on the UI dispatcher. A recovery-address change still notifies reference display bindings even when identity equality is unchanged.

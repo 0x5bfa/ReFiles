@@ -8,4 +8,13 @@ namespace Files.Core.Sessions;
 /// </summary>
 public interface IPaneContentSession : IAsyncDisposable
 {
+	/// <summary>Initializes restored content before it is published to its owner.</summary>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The initialization operation.</returns>
+	ValueTask InitializeAsync(CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return ValueTask.CompletedTask;
+	}
 }

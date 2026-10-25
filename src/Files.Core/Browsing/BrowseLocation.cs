@@ -73,15 +73,20 @@ public sealed record SearchLocation : BrowseLocation
 	/// <summary>Gets the optional location used to scope the search.</summary>
 	public StorableReference? Scope { get; }
 
+	/// <summary>Gets the location to restore when the query is cleared.</summary>
+	public BrowseLocation Origin { get; }
+
 	/// <summary>Initializes a search location.</summary>
 	/// <param name="query">The query text.</param>
 	/// <param name="scope">The optional search scope.</param>
-	public SearchLocation(string query, StorableReference? scope = null)
+	/// <param name="origin">The original location, when different from the scope.</param>
+	public SearchLocation(string query, StorableReference? scope = null, BrowseLocation? origin = null)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(query);
 
 		Query = query;
 		Scope = scope;
+		Origin = origin ?? (scope is null ? HomeLocation.Instance : new FolderLocation(scope));
 	}
 }
 

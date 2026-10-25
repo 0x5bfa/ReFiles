@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Windows;
+using Files.Core.Browsing;
 
 namespace Files.Core.ViewSettings;
 
@@ -88,10 +88,10 @@ public sealed class BrowseViewCapabilities
 		DefaultSettings = defaultSettings ?? new BrowseViewSettings(columns: CreateDefaultColumns(columnArray));
 	}
 
-	/// <summary>Creates capabilities from Windows Shell column metadata.</summary>
-	/// <param name="columnSet">The Windows Shell column set.</param>
+	/// <summary>Creates capabilities from provider column metadata.</summary>
+	/// <param name="columnSet">The provider column set.</param>
 	/// <returns>The corresponding browse view capabilities.</returns>
-	public static BrowseViewCapabilities FromWindowsShell(WindowsShellColumnSet columnSet)
+	public static BrowseViewCapabilities FromColumns(BrowseColumnSet columnSet)
 	{
 		ArgumentNullException.ThrowIfNull(columnSet);
 
@@ -101,7 +101,8 @@ public sealed class BrowseViewCapabilities
 			.Select(static group =>
 			{
 				var column = group.First();
-				return new BrowseViewColumnCapabilities(column.PropertyId, GetDefaultColumnWidth(column), column.IsVisibleByDefault, canGroup: column.CanGroup);
+
+				return new BrowseViewColumnCapabilities(column.PropertyId, GetDefaultColumnWidth(column), column.IsVisibleByDefault, canSort: column.CanSort, canGroup: column.CanGroup);
 			})
 			.ToArray();
 		var defaultColumns = CreateDefaultColumns(columnSet.DefaultVisible);
@@ -148,7 +149,7 @@ public sealed class BrowseViewCapabilities
 		return Array.AsReadOnly(result.ToArray());
 	}
 
-	private static IReadOnlyList<ViewColumnSettings> CreateDefaultColumns(IEnumerable<WindowsShellColumn> columns)
+	private static IReadOnlyList<ViewColumnSettings> CreateDefaultColumns(IEnumerable<BrowseColumn> columns)
 	{
 		var result = new List<ViewColumnSettings>();
 		var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -163,8 +164,8 @@ public sealed class BrowseViewCapabilities
 		return Array.AsReadOnly(result.ToArray());
 	}
 
-	private static double GetDefaultColumnWidth(WindowsShellColumn column)
+	private static double GetDefaultColumnWidth(BrowseColumn column)
 	{
-		return column.HeaderWidthCharacters is > 0 ? column.HeaderWidthCharacters * 8d : 120d;
+		return column.DefaultWidth;
 	}
 }

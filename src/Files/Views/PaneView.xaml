@@ -30,6 +30,7 @@
 				ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
 
 			<Border
+				x:Name="StatusBar"
 				Grid.Row="1"
 				Padding="12,6"
 				Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">

@@ -91,6 +91,7 @@ public sealed class TabSession : IAsyncDisposable
 	public TabSession(IBrowsePaneSessionFactory paneFactory, PaneSession primaryPane, Guid? id = null)
 	{
 		ArgumentNullException.ThrowIfNull(paneFactory);
+
 		ArgumentNullException.ThrowIfNull(primaryPane);
 
 		Id = id ?? Guid.NewGuid();
@@ -105,12 +106,24 @@ public sealed class TabSession : IAsyncDisposable
 		_activePaneId = primaryPane.Id;
 	}
 
+	/// <summary>Gets whether the active content can create a split pane.</summary>
+	public bool CanSplit => ActivePane?.Content is ISplittablePaneContent;
+
+	/// <summary>Opens and activates a second pane using the content's split policy.</summary>
+	/// <param name="orientation">The split orientation.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The created pane session.</returns>
+	public ValueTask<PaneSession> OpenSplitAsync(PaneSplitOrientation orientation, CancellationToken cancellationToken = default)
+	{
+		return OpenSplitAsync(orientation, null, cancellationToken);
+	}
+
 	/// <summary>Opens and activates a second pane.</summary>
 	/// <param name="orientation">The split orientation.</param>
 	/// <param name="initialLocation">The optional initial browse location.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>The created pane session.</returns>
-	public async ValueTask<PaneSession> OpenSplitAsync(PaneSplitOrientation orientation, BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default)
+	public async ValueTask<PaneSession> OpenSplitAsync(PaneSplitOrientation orientation, BrowseLocation? initialLocation, CancellationToken cancellationToken = default)
 	{
 		if (orientation is not PaneSplitOrientation.Vertical and not PaneSplitOrientation.Horizontal)
 		{
@@ -133,10 +146,12 @@ public sealed class TabSession : IAsyncDisposable
 					throw new InvalidOperationException("A tab cannot contain more than two panes.");
 				}
 
-				initialLocation ??= _panes.FirstOrDefault(candidate => candidate.Id == _activePaneId) is { } activePane ? GetBrowseContent(activePane).Location : null;
 			}
 
-			pane = _paneFactory.Create();
+			var splitSource = ActivePane?.Content as ISplittablePaneContent
+				?? throw new NotSupportedException("The active content does not support split panes.");
+			var content = await splitSource.CreateSplitAsync(linkedCancellation.Token).ConfigureAwait(false);
+			pane = new PaneSession(content);
 			if (initialLocation is not null)
 			{
 				await GetBrowseContent(pane).NavigateAsync(initialLocation, cancellationToken: linkedCancellation.Token).ConfigureAwait(false);

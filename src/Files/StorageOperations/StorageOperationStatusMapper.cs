@@ -39,6 +39,32 @@ internal static class StorageOperationStatusMapper
 			summary.HasCompletedAt ? summary.CompletedAt : null, []);
 	}
 
+	internal static StorageOperationSnapshot ToSnapshot(StorageOperationStatus status)
+	{
+		var kind = status.Kind switch
+		{
+			TrackedStorageOperationKind.Copy => StorageJobKind.Copy,
+			TrackedStorageOperationKind.Move => StorageJobKind.Move,
+			TrackedStorageOperationKind.Delete => StorageJobKind.Delete,
+			_ => StorageJobKind.Other,
+		};
+		var state = status.State switch
+		{
+			TrackedStorageOperationState.Running => StorageJobState.Running,
+			TrackedStorageOperationState.Pausing => StorageJobState.Pausing,
+			TrackedStorageOperationState.Paused => StorageJobState.Paused,
+			TrackedStorageOperationState.Resuming => StorageJobState.Resuming,
+			TrackedStorageOperationState.WaitingForUser => StorageJobState.WaitingForUser,
+			TrackedStorageOperationState.Succeeded => StorageJobState.Succeeded,
+			TrackedStorageOperationState.Canceled => StorageJobState.Canceled,
+			_ => StorageJobState.Failed,
+		};
+
+		return new StorageOperationSnapshot(status.Id, kind, state, status.CompletedItems, status.TotalItems, status.CompletedBytes, status.TotalBytes,
+			status.IsByteProgressForWholeOperation, status.CurrentItemName, status.DestinationPath, status.Interruption, status.InterruptionId, status.Error,
+			status.CanCancel, status.CanPause, status.IsCancellationRequested, status.IsCancellationAcknowledged, status.StartedAt, status.CompletedAt);
+	}
+
 	private static bool IsActiveState(TrackedStorageOperationState state)
 	{
 		return state is not (TrackedStorageOperationState.Succeeded or TrackedStorageOperationState.Failed or TrackedStorageOperationState.Canceled);

@@ -51,3 +51,11 @@ A command invocation may start asynchronous or out-of-process work; the command 
 ## Tests
 
 Cover routing, availability changes for relevant dependencies, unsupported capabilities, cancellation/errors, and the absence of unrelated global refresh behavior on hot browse paths.
+
+## Browse application intent
+
+Search providers implement `IBrowseSearchProvider` alongside their registered location handler. `BrowseSearchService` chooses the first compatible provider. `BrowsePaneSession.SearchAsync` owns query navigation and history updates; clearing a query returns to the captured `SearchLocation.Origin`. A failed or superseded search follows the same generation and rollback rules as other navigation.
+
+Selection deletion captures references from the active Core selection and submits one complete batch through `IStorageOperationService.ExecuteBatchAsync`. Optional `IStorageDeletionPolicy` determines whether recycling can be requested. ViewModels do not choose a provider or downcast the operation service.
+
+Native clipboard adaptation, drag/drop, Shell menus, HWND ownership, and coordinate conversion remain presentation concerns. `WindowsBrowseInteraction` composes the per-window integrations; `IWindowsShellOperationService` represents Shell-specific submitted intents without exposing a concrete WinRT client.

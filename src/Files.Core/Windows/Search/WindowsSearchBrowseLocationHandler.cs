@@ -9,7 +9,7 @@ using Files.Core.Models;
 
 namespace Files.Core.Windows;
 
-internal sealed class WindowsSearchBrowseLocationHandler : IBrowseLocationHandler
+internal sealed class WindowsSearchBrowseLocationHandler : IBrowseLocationHandler, IBrowseSearchProvider
 {
 	private readonly WindowsStorageSource _source;
 
@@ -29,6 +29,39 @@ internal sealed class WindowsSearchBrowseLocationHandler : IBrowseLocationHandle
 	public bool CanHandle(BrowseLocation location)
 	{
 		return location is SearchLocation search && (search.Scope is null || search.Scope.SourceId == _source.SourceId);
+	}
+
+	/// <inheritdoc />
+	public bool CanSearch(BrowseLocation location)
+	{
+		return location switch
+		{
+			HomeLocation => true,
+			FolderLocation folder => folder.Folder.SourceId == _source.SourceId,
+			SearchLocation search => search.Scope is null || search.Scope.SourceId == _source.SourceId,
+			_ => false,
+		};
+	}
+
+	/// <inheritdoc />
+	public BrowseLocation CreateSearch(string query, BrowseLocation location)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+		if (!CanSearch(location))
+		{
+			throw new NotSupportedException("The location does not support Windows Shell search.");
+		}
+
+		var scope = location switch
+		{
+			FolderLocation folder => folder.Folder,
+			SearchLocation search => search.Scope,
+			_ => null,
+		};
+		var origin = location is SearchLocation current ? current.Origin : location;
+
+		return new SearchLocation(query, scope, origin);
 	}
 
 	/// <inheritdoc />
