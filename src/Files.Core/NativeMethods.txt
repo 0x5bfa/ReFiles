@@ -555,3 +555,4 @@ DesktopWallpaper
 ApplicationActivationManager
 IOleWindow
 GetPackagesByPackageFamily
+WM_QUIT

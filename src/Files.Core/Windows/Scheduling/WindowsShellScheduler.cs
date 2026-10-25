@@ -22,7 +22,8 @@ namespace Files.Core.Windows;
 /// Delegates must be synchronous. Cancellation applies while work is waiting to
 /// start; a running delegate must finish or observe cancellation itself. Raw COM
 /// interfaces must never escape a delegate unless a private wrapper routes every
-/// later access back through the same ordered lane.
+/// later access and release back through the same ordered lane. See
+/// <see cref="IWindowsShellScheduler"/> for ordering and lifetime requirements.
 /// </remarks>
 [SupportedOSPlatform("windows5.1.2600")]
 public sealed class WindowsShellScheduler : IWindowsShellScheduler
@@ -94,6 +95,11 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 	/// <summary>Stops all scheduler lanes.</summary>
 	/// <returns>A value task that represents scheduler disposal.</returns>
+	/// <remarks>
+	/// Rejects new work, faults queued work, and waits for active delegates to finish.
+	/// Release retained COM objects on their owning lane before calling this method.
+	/// Do not synchronously wait for disposal from any of this scheduler's lanes.
+	/// </remarks>
 	public ValueTask DisposeAsync()
 	{
 		lock (_syncRoot)
@@ -124,6 +130,8 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 	private sealed class MessagePumpedStaScheduler : IAsyncDisposable
 	{
+		private const int MaxMessagesPerIteration = 64;
+
 		private readonly string _threadName;
 		private readonly Lock _stateLock = new();
 		private readonly ConcurrentQueue<WorkItem> _workItems = [];
@@ -161,13 +169,8 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken)
 		{
 			ArgumentNullException.ThrowIfNull(action);
-			cancellationToken.ThrowIfCancellationRequested();
 
-			if (ReferenceEquals(_activeScheduler, this))
-			{
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"invoke inline lane={_threadName} action={action.Method.Name}");
-				return InvokeInline(action, cancellationToken);
-			}
+			cancellationToken.ThrowIfCancellationRequested();
 
 			lock (_stateLock)
 			{
@@ -175,6 +178,14 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				{
 					return Task.FromException<T>(_terminalException);
 				}
+			}
+
+			// Inline work accepted under the lock may finish during disposal.
+			if (ReferenceEquals(_activeScheduler, this))
+			{
+				CoreDiagnosticLog.Write("WindowsShellScheduler", $"invoke inline lane={_threadName} action={action.Method.Name}");
+
+				return InvokeInline(action, cancellationToken);
 			}
 
 			return Enqueue(action, cancellationToken);
@@ -237,7 +248,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			var workItem = new WorkItem<T>(_threadName, Interlocked.Increment(ref _nextWorkItemId), action, cancellationToken);
+			WorkItem<T> workItem;
 			var queueLength = 0;
 
 			lock (_stateLock)
@@ -246,6 +257,8 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				{
 					return Task.FromException<T>(_terminalException);
 				}
+
+				workItem = new WorkItem<T>(_threadName, Interlocked.Increment(ref _nextWorkItemId), action, cancellationToken);
 
 				if (!workItem.TryPrepareForQueue())
 				{
@@ -290,7 +303,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 				while (!IsStopping())
 				{
-					PumpMessages();
+					if (!PumpMessages())
+					{
+						break;
+					}
 
 					if (TryExecuteNextWorkItem())
 					{
@@ -375,8 +391,6 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 				if (resultValue == (uint)WAIT_EVENT.WAIT_OBJECT_0 + handles.Length)
 				{
-					PumpMessages();
-
 					return;
 				}
 
@@ -404,13 +418,32 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		}
 
 		[SupportedOSPlatform("windows5.1.2600")]
-		private static void PumpMessages()
+		private bool PumpMessages()
 		{
-			while (PInvoke.PeekMessage(out var message, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_REMOVE))
+			for (var index = 0; index < MaxMessagesPerIteration; index++)
 			{
+				if (IsStopping())
+				{
+					return false;
+				}
+
+				if (!PInvoke.PeekMessage(out var message, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_REMOVE))
+				{
+					break;
+				}
+
+				if (message.message == PInvoke.WM_QUIT)
+				{
+					Fault(new InvalidOperationException("The Windows Shell STA received WM_QUIT."));
+
+					return false;
+				}
+
 				PInvoke.TranslateMessage(message);
 				PInvoke.DispatchMessage(message);
 			}
+
+			return !IsStopping();
 		}
 
 		private void Fault(Exception exception)
