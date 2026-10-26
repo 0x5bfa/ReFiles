@@ -10,7 +10,7 @@ public sealed partial class BrowsePaneSession
 	/// <inheritdoc />
 	public ValueTask InitializeAsync(CancellationToken cancellationToken = default)
 	{
-		return NavigateAsync(_initialLocation ?? HomeLocation.Instance, cancellationToken: cancellationToken);
+		return _initialHistory is { } history ? RestoreAsync(history, cancellationToken) : NavigateAsync(HomeLocation.Instance, cancellationToken: cancellationToken);
 	}
 
 	/// <inheritdoc />
@@ -36,12 +36,17 @@ public sealed partial class BrowsePaneSession
 		EnsureActive();
 
 		var factory = _splitFactory ?? throw new NotSupportedException("This browse content has no restoration factory.");
-		var location = Location ?? _initialLocation ?? HomeLocation.Instance;
+		var history = History.Capture();
+		if (history.Current is null)
+		{
+			history = _initialHistory ?? new BrowseNavigationHistorySnapshot([HomeLocation.Instance], 0);
+		}
+
 
 		return () =>
 		{
 			var content = factory();
-			content._initialLocation = location;
+			content._initialHistory = history;
 
 			return content;
 		};

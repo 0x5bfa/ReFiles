@@ -29,7 +29,7 @@ public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittable
 {
 	private readonly BrowseApplicationServices? _services;
 	private readonly Func<BrowsePaneSession>? _splitFactory;
-	private BrowseLocation? _initialLocation;
+	private BrowseNavigationHistorySnapshot? _initialHistory;
 
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
 

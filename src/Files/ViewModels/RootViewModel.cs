@@ -38,10 +38,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	private readonly Dictionary<Guid, TabViewModel> _tabViewModels = [];
 
-	private readonly Stack<ClosedTab> _closedTabs = [];
-
-	private readonly Lock _closedTabsLock = new();
-
 	private readonly Dictionary<int, NavigationItemViewModel> _navigationSectionViewModels = [];
 
 	private readonly HashSet<NavigationItemViewModel> _trackedNavigationItems = [];
@@ -196,16 +192,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
-	internal bool CanReopenTab
-	{
-		get
-		{
-			lock (_closedTabsLock)
-			{
-				return _closedTabs.Count > 0;
-			}
-		}
-	}
+	internal bool CanReopenTab => _window.CanReopenTab;
 
 	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory)
 	{
@@ -385,11 +372,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			return;
 		}
 
-		var closedTab = CreateClosedTab(tab);
-		if (await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false))
-		{
-			RememberClosedTab(closedTab);
-		}
+		await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false);
 	}
 
 	internal async Task DuplicateTabAsync(Guid tabId, CancellationToken cancellationToken = default)
@@ -401,11 +384,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			return;
 		}
 
-		var tab = Tabs.First(tab => tab.Id == tabId);
-		if (tab.CaptureContentFactory() is { } factory)
-		{
-			await _window.OpenContentTabAsync(factory, cancellationToken).ConfigureAwait(false);
-		}
+		await _window.DuplicateTabAsync(tabId, cancellationToken).ConfigureAwait(false);
 	}
 
 	internal async Task CloseTabsToLeftAsync(Guid tabId, CancellationToken cancellationToken = default)
@@ -420,7 +399,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		var tabsToClose = Tabs
 			.Take(tabIndex)
-			.Select(static tab => (tab.Id, Content: CreateClosedTab(tab)))
+			.Select(static tab => tab.Id)
 			.ToArray();
 		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
 	}
@@ -437,7 +416,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		var tabsToClose = Tabs
 			.Skip(tabIndex + 1)
-			.Select(static tab => (tab.Id, Content: CreateClosedTab(tab)))
+			.Select(static tab => tab.Id)
 			.ToArray();
 		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
 	}
@@ -453,7 +432,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		var tabsToClose = Tabs
 			.Where(tab => tab.Id != tabId)
-			.Select(static tab => (tab.Id, Content: CreateClosedTab(tab)))
+			.Select(static tab => tab.Id)
 			.ToArray();
 		await CloseTabsAsync(tabsToClose, cancellationToken).ConfigureAwait(false);
 	}
@@ -462,26 +441,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		EnsureActive();
 
-		ClosedTab closedTab;
-		lock (_closedTabsLock)
-		{
-			if (_closedTabs.Count is 0)
-			{
-				return;
-			}
-
-			closedTab = _closedTabs.Pop();
-		}
-
-		try
-		{
-			await _window.OpenContentTabAsync(closedTab.ContentFactory, cancellationToken).ConfigureAwait(false);
-		}
-		catch
-		{
-			RememberClosedTab(closedTab);
-			throw;
-		}
+		await _window.ReopenTabAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	public bool SetActiveTab(Guid tabId)
@@ -548,11 +508,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		_tabViewModels.Clear();
 		Tabs.Clear();
-		lock (_closedTabsLock)
-		{
-			_closedTabs.Clear();
-		}
-
 		_navigationSectionViewModels.Clear();
 		NavigationItems.CollectionChanged -= NavigationItems_CollectionChanged;
 		UnsubscribeNavigationItems();
@@ -971,32 +926,11 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 	}
 
-	private async Task CloseTabsAsync((Guid Id, ClosedTab? Content)[] tabs, CancellationToken cancellationToken)
+	private async Task CloseTabsAsync(Guid[] tabs, CancellationToken cancellationToken)
 	{
-		foreach (var tab in tabs)
+		foreach (var tabId in tabs)
 		{
-			if (await _window.CloseTabAsync(tab.Id, cancellationToken).ConfigureAwait(false))
-			{
-				RememberClosedTab(tab.Content);
-			}
-		}
-	}
-
-	private static ClosedTab? CreateClosedTab(TabViewModel tab)
-	{
-		return tab.CaptureContentFactory() is { } factory ? new ClosedTab(factory) : null;
-	}
-
-	private void RememberClosedTab(ClosedTab? closedTab)
-	{
-		if (closedTab is not { } snapshot)
-		{
-			return;
-		}
-
-		lock (_closedTabsLock)
-		{
-			_closedTabs.Push(snapshot);
+			await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false);
 		}
 	}
 
@@ -1006,5 +940,4 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	}
 
-	private readonly record struct ClosedTab(Func<IPaneContentSession> ContentFactory);
 }

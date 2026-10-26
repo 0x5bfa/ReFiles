@@ -58,9 +58,9 @@ Every stream/resource-returning contract should make clear:
 
 Useful vocabulary:
 
-- **borrowed reference** — usable by the caller, not disposed by the caller;
-- **owned result** — disposal responsibility transfers to the caller;
-- **shared lifetime** — validity is tied to another owner/session.
+- **borrowed reference** â€” usable by the caller, not disposed by the caller;
+- **owned result** â€” disposal responsibility transfers to the caller;
+- **shared lifetime** â€” validity is tied to another owner/session.
 
 ## Thumbnail and preview resources
 
@@ -97,3 +97,9 @@ Factories/builders that acquire multiple resources must release already-acquired
 ## Tests
 
 Protect disposal hierarchies, canceled-navigation cleanup, stale-publication rejection, stream ownership, partial-construction cleanup, async disposal completion, and retained-object behavior after navigation.
+
+## Tab restoration
+
+`TabRestoreState` captures every pane's restoration factory, the split orientation, and the active-pane index. Browse content captures the complete immutable navigation history, including its current cursor. Factories borrow application services and create new content; they do not retain live models or the original tab.
+
+`WindowSession` owns duplication and the closed-tab stack. A restored tab becomes visible only after all panes initialize. A failed attempt disposes every partial pane and leaves the closed state available for retry. Presentation delegates these operations to the window session. Closing the last UI tab still follows the application's window-close policy.

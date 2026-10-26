@@ -64,7 +64,7 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 	public bool CanClosePane => Panes.Count > 1;
 
-	public bool CanDuplicate => _tab.ActivePane?.Content is IRestorablePaneContent;
+	public bool CanDuplicate => _tab.CanRestore;
 
 	public bool HasBrowseContent => ActivePane?.HasBrowseContent is true;
 
@@ -153,12 +153,6 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 		return _tab.SetActivePane(paneId);
 	}
 
-	internal Func<IPaneContentSession>? CaptureContentFactory()
-	{
-		return _tab.ActivePane?.Content is IRestorablePaneContent content
-			? content.CaptureRestoreFactory()
-			: null;
-	}
 
 	public void ReportOperationError(Exception exception)
 	{

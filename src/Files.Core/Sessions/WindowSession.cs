@@ -22,6 +22,8 @@ public sealed class WindowSession : IAsyncDisposable
 
 	private readonly List<TabSession> _tabs = [];
 
+	private readonly Stack<TabRestoreState> _closedTabs = [];
+
 	private IReadOnlyList<TabSession> _tabSnapshot = [];
 
 	private Guid _activeTabId;
@@ -44,6 +46,18 @@ public sealed class WindowSession : IAsyncDisposable
 			lock (_syncRoot)
 			{
 				return _tabs.FirstOrDefault(tab => tab.Id == _activeTabId);
+			}
+		}
+	}
+
+	/// <summary>Gets whether a closed tab is available for restoration.</summary>
+	public bool CanReopenTab
+	{
+		get
+		{
+			lock (_syncRoot)
+			{
+				return _closedTabs.Count > 0;
 			}
 		}
 	}
@@ -138,60 +152,73 @@ public sealed class WindowSession : IAsyncDisposable
 	/// <param name="contentFactory">The factory used to create the owned pane content.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>The created tab session.</returns>
-	public async ValueTask<TabSession> OpenContentTabAsync(Func<IPaneContentSession> contentFactory, CancellationToken cancellationToken = default)
+	public ValueTask<TabSession> OpenContentTabAsync(Func<IPaneContentSession> contentFactory, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(contentFactory);
 
+		return OpenRestoredTabAsync(new TabRestoreState([contentFactory], 0, PaneSplitOrientation.None), cancellationToken);
+	}
+
+	/// <summary>Opens an independently owned tab from captured state.</summary>
+	/// <param name="state">The complete tab state.</param>
+	/// <param name="cancellationToken">The restoration cancellation token.</param>
+	/// <returns>The restored tab, published only after every pane initializes.</returns>
+	public async ValueTask<TabSession> OpenRestoredTabAsync(TabRestoreState state, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(state);
+
 		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
-
-		IPaneContentSession? content = null;
-		PaneSession? pane = null;
-		TabSession? tab = null;
-
 		try
 		{
 			EnsureActive();
-			content = contentFactory() ?? throw new InvalidOperationException("The pane content factory returned null.");
-			await content.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
-			pane = new PaneSession(content);
-			content = null;
-			tab = new TabSession(_paneFactory, pane);
-			pane = null;
 
+			return await OpenRestoredTabCoreAsync(state, linkedCancellation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_mutationLock.Release();
+		}
+	}
+
+	/// <summary>Duplicates every pane and the layout of an existing tab.</summary>
+	/// <param name="tabId">The tab identity.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The duplicate, or null if the tab is absent or cannot be restored.</returns>
+	public async ValueTask<TabSession?> DuplicateTabAsync(Guid tabId, CancellationToken cancellationToken = default)
+	{
+		TabRestoreState? state;
+		lock (_syncRoot)
+		{
+			EnsureActive();
+
+			state = _tabs.FirstOrDefault(tab => tab.Id == tabId)?.CaptureRestoreState();
+		}
+
+		return state is null ? null : await OpenRestoredTabAsync(state, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Restores the most recently closed tab, retaining its state if restoration fails.</summary>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The restored tab, or null when no state is available.</returns>
+	public async ValueTask<TabSession?> ReopenTabAsync(CancellationToken cancellationToken = default)
+	{
+		using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+		await _mutationLock.WaitAsync(linkedCancellation.Token).ConfigureAwait(false);
+		try
+		{
+			TabRestoreState state;
 			lock (_syncRoot)
 			{
 				EnsureActive();
-				_tabs.Add(tab);
-				_activeTabId = tab.Id;
-				UpdateSnapshot();
+
+				if (!_closedTabs.TryPeek(out state!))
+				{
+					return null;
+				}
 			}
 
-			var result = tab;
-			tab = null;
-			SessionEvent.Raise(this, TabsChanged);
-			SessionEvent.Raise(this, ActiveTabChanged);
-
-			return result;
-		}
-		catch (Exception creationError)
-		{
-			var incompleteModel = (IAsyncDisposable?)tab ?? (IAsyncDisposable?)pane ?? content;
-			if (incompleteModel is null)
-			{
-				throw;
-			}
-
-			try
-			{
-				await incompleteModel.DisposeAsync().ConfigureAwait(false);
-			}
-			catch (Exception cleanupError)
-			{
-				throw new AggregateException("Tab creation and cleanup failed.", creationError, cleanupError);
-			}
-
-			throw;
+			return await OpenRestoredTabCoreAsync(state, linkedCancellation.Token, consumeClosedState: true).ConfigureAwait(false);
 		}
 		finally
 		{
@@ -228,6 +255,11 @@ public sealed class WindowSession : IAsyncDisposable
 				}
 
 				removed = _tabs[index];
+				if (removed.CaptureRestoreState() is { } state)
+				{
+					_closedTabs.Push(state);
+				}
+
 				_tabs.RemoveAt(index);
 				if (_activeTabId == tabId)
 				{
@@ -371,6 +403,7 @@ public sealed class WindowSession : IAsyncDisposable
 			{
 				ownedTabs = [.. _tabs];
 				_tabs.Clear();
+				_closedTabs.Clear();
 				_activeTabId = Guid.Empty;
 				UpdateSnapshot();
 			}
@@ -406,6 +439,37 @@ public sealed class WindowSession : IAsyncDisposable
 		{
 			throw new AggregateException("One or more window tabs could not be disposed.", errors);
 		}
+	}
+
+	private async ValueTask<TabSession> OpenRestoredTabCoreAsync(TabRestoreState state, CancellationToken cancellationToken, bool consumeClosedState = false)
+	{
+		var tab = await TabSession.RestoreAsync(_paneFactory, state, cancellationToken).ConfigureAwait(false);
+		try
+		{
+			lock (_syncRoot)
+			{
+				EnsureActive();
+
+				_tabs.Add(tab);
+				if (consumeClosedState)
+				{
+					_closedTabs.Pop();
+				}
+
+				_activeTabId = tab.Id;
+				UpdateSnapshot();
+			}
+		}
+		catch
+		{
+			await tab.DisposeAsync().ConfigureAwait(false);
+			throw;
+		}
+
+		SessionEvent.Raise(this, TabsChanged);
+		SessionEvent.Raise(this, ActiveTabChanged);
+
+		return tab;
 	}
 
 	private void UpdateSnapshot()

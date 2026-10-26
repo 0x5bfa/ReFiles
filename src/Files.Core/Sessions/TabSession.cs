@@ -21,7 +21,7 @@ public enum PaneSplitOrientation
 /// <summary>
 /// Owns one or two panes and the active-pane state for a tab.
 /// </summary>
-public sealed class TabSession : IAsyncDisposable
+public sealed partial class TabSession : IAsyncDisposable
 {
 	private readonly IBrowsePaneSessionFactory _paneFactory;
 
