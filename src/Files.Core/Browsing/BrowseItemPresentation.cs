@@ -11,6 +11,12 @@ namespace Files.Core.Browsing;
 /// </summary>
 public sealed record BrowseItemPresentation
 {
+	/// <summary>Gets the browse generation that owns this snapshot.</summary>
+	public long Generation { get; }
+
+	/// <summary>Gets the monotonically increasing presentation revision.</summary>
+	public long Version { get; }
+
 	/// <summary>Gets the property values captured for the item.</summary>
 	public IReadOnlyDictionary<string, object?> Properties { get; }
 
@@ -20,8 +26,12 @@ public sealed record BrowseItemPresentation
 	/// <summary>Initializes a presentation snapshot.</summary>
 	/// <param name="properties">The property values to capture.</param>
 	/// <param name="thumbnail">The thumbnail to capture.</param>
-	public BrowseItemPresentation(IReadOnlyDictionary<string, object?>? properties = null, ThumbnailResult? thumbnail = null)
+	/// <param name="generation">The owning browse generation.</param>
+	/// <param name="version">The presentation revision.</param>
+	public BrowseItemPresentation(IReadOnlyDictionary<string, object?>? properties = null, ThumbnailResult? thumbnail = null, long generation = 0, long version = 0)
 	{
+		Generation = generation;
+		Version = version;
 		Properties = new ReadOnlyDictionary<string, object?>(new Dictionary<string, object?>(properties ?? new Dictionary<string, object?>(), StringComparer.Ordinal));
 		Thumbnail = thumbnail is null
 			? null

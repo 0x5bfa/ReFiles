@@ -832,6 +832,28 @@ public sealed class BrowsePrefetchCoordinatorTests
 		CollectionAssert.AreEqual(new byte[] { 4, 5, 6 }, presentation.Thumbnail!.Content.ToArray());
 	}
 
+	/// <summary>Presentation revisions increase across updates and retain their owning generation.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task PresentationSnapshotsCarryGenerationAndIncreasingRevisions()
+	{
+		var factory = new TestModelFactory();
+		var item = factory.CreateModel("item", "Item", out _);
+		using var session = new BrowseSession(new TestBrowseLocationResolver([item]));
+		await session.NavigateAsync(HomeLocation.Instance);
+		var target = (IBrowsePrefetchTarget)session;
+		await target.PublishPropertiesAsync(session.Generation, item, new Dictionary<string, object?> { ["size"] = 1 }, CancellationToken.None);
+		Assert.IsTrue(session.TryGetPresentation(item.Reference.GetKey(), out var first));
+		await target.PublishPropertiesAsync(session.Generation, item, new Dictionary<string, object?> { ["size"] = 2 }, CancellationToken.None);
+		Assert.IsTrue(session.TryGetPresentation(item.Reference.GetKey(), out var second));
+
+		Assert.AreEqual(session.Generation, first.Generation);
+		Assert.AreEqual(first.Generation, second.Generation);
+		Assert.IsTrue(second.Version > first.Version);
+		Assert.AreEqual(1, first.Properties["size"]);
+		Assert.AreEqual(2, second.Properties["size"]);
+	}
+
 	/// <summary>
 	/// Test case: publishes concurrently loaded thumbnails in sorted display order.
 	/// </summary>

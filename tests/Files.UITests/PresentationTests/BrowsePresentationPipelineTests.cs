@@ -686,6 +686,43 @@ public sealed class BrowsePresentationPipelineTests
 		Assert.IsTrue(stateCalls.Count > callsBeforeNavigation);
 	}
 
+	/// <summary>Queued metadata cannot cross a refresh that reuses the same item identities.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task RefreshRejectsQueuedPropertiesFromThePreviousGeneration()
+	{
+		var published = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var propertyRequests = 0;
+		var resolver = new PresentationBrowseLocationResolver(1, static (_, _) => ValueTask.CompletedTask, async (_, _, cancellationToken) =>
+		{
+			if (Interlocked.Increment(ref propertyRequests) > 1)
+			{
+				await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+			}
+
+			return new Dictionary<string, object?> { ["System.Size"] = 123UL };
+		});
+		var session = new BrowseSession(resolver);
+		await using var pane = new BrowsePaneSession(session, new BrowsePreviewModel(session));
+		var dispatcher = new ManualDispatcher();
+		await using var adapter = new BrowsePresentationAdapter(pane, dispatcher, text: CreateText());
+		await adapter.InitializeAsync();
+		await session.UpdateViewSettingsAsync(new BrowseViewSettings(columns: (ViewColumnSettings[])[new ViewColumnSettings("System.Size", 120, 0)]));
+		dispatcher.DrainAll();
+		var row = adapter.Items.Single();
+		session.ItemPresentationChanged += (_, _) => published.TrySetResult();
+		adapter.UpdateViewport(new BrowseViewport(0, 1));
+		await published.Task.WaitAsync(TimeSpan.FromSeconds(5));
+		var oldGeneration = session.Generation;
+
+		await session.RefreshAsync();
+		dispatcher.DrainAll();
+
+		Assert.IsTrue(session.Generation > oldGeneration);
+		Assert.AreSame(row, adapter.Items.Single());
+		Assert.AreEqual(0, row.Properties.Count);
+	}
+
 	/// <summary>
 	/// Verifies that pane operation errors are reported without replacing the status bar text.
 	/// </summary>

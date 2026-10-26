@@ -11,6 +11,7 @@ internal sealed class BrowsePresentationStore
 {
 	private readonly Lock _lock = new();
 	private readonly Dictionary<StorableKey, Entry> _entries = [];
+	private long _version;
 
 	internal bool TryGet(StorableKey key, out BrowseItemPresentation presentation)
 	{
@@ -29,7 +30,7 @@ internal sealed class BrowsePresentationStore
 		return false;
 	}
 
-	internal BrowseItemPresentation UpdateProperties(StorableKey key, IStorableModel item, IReadOnlyDictionary<string, object?> properties)
+	internal BrowseItemPresentation UpdateProperties(long generation, StorableKey key, IStorableModel item, IReadOnlyDictionary<string, object?> properties)
 	{
 		lock (_lock)
 		{
@@ -40,14 +41,14 @@ internal sealed class BrowsePresentationStore
 				mergedProperties[pair.Key] = pair.Value;
 			}
 
-			var next = new BrowseItemPresentation(mergedProperties, current.Thumbnail);
+			var next = new BrowseItemPresentation(mergedProperties, current.Thumbnail, generation, checked(++_version));
 			_entries[key] = new Entry(item, next);
 
 			return next;
 		}
 	}
 
-	internal bool TryUpdateThumbnail(StorableKey key, IStorableModel item, ThumbnailResult thumbnail, out BrowseItemPresentation presentation)
+	internal bool TryUpdateThumbnail(long generation, StorableKey key, IStorableModel item, ThumbnailResult thumbnail, out BrowseItemPresentation presentation)
 	{
 		lock (_lock)
 		{
@@ -59,7 +60,7 @@ internal sealed class BrowsePresentationStore
 				return false;
 			}
 
-			presentation = new BrowseItemPresentation(current.Properties, thumbnail);
+			presentation = new BrowseItemPresentation(current.Properties, thumbnail, generation, checked(++_version));
 			_entries[key] = new Entry(item, presentation);
 
 			return true;
@@ -123,7 +124,7 @@ internal sealed class BrowsePresentationStore
 					continue;
 				}
 
-				var presentation = new BrowseItemPresentation(pair.Value.Presentation.Properties);
+				var presentation = new BrowseItemPresentation(pair.Value.Presentation.Properties, generation: pair.Value.Presentation.Generation, version: checked(++_version));
 				_entries[pair.Key] = new Entry(pair.Value.Item, presentation);
 				changes.Add(new BrowseItemPresentationChangedEventArgs(pair.Key, presentation, BrowseItemPresentationChangeFlags.Thumbnail));
 			}

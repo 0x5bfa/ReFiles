@@ -44,8 +44,8 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private readonly Dictionary<ThumbnailResult, Lazy<Task<Microsoft.UI.Xaml.Media.ImageSource>>> _fallbackThumbnailDecodeCache = new(ThumbnailResultContentComparer.Instance);
 	private readonly Lock _pendingLock = new();
 	private readonly LinkedList<PendingItemBatch> _pendingItemBatches = new();
-	private readonly Dictionary<StorableKey, ThumbnailResult?> _pendingThumbnails = [];
-	private readonly Dictionary<StorableKey, IReadOnlyDictionary<string, object?>> _pendingProperties = [];
+	private readonly Dictionary<StorableKey, BrowseItemPresentation> _pendingThumbnails = [];
+	private readonly Dictionary<StorableKey, BrowseItemPresentation> _pendingProperties = [];
 	private readonly List<BrowseItemViewModel> _items = [];
 	private readonly Lock _itemsLock = new();
 	private readonly Dictionary<StorableKey, BrowseItemViewModel> _itemsByKey = [];
@@ -670,14 +670,15 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			$"hasThumbnail={args.Presentation.Thumbnail is not null}");
 		lock (_pendingLock)
 		{
-			if (args.Changed.HasFlag(BrowseItemPresentationChangeFlags.Properties) && args.Presentation.Properties.Count is not 0)
+			if (args.Presentation.Properties.Count is not 0 && (!_pendingProperties.TryGetValue(args.Key, out var pendingProperties) || pendingProperties.Version <= args.Presentation.Version))
 			{
-				_pendingProperties[args.Key] = args.Presentation.Properties;
+				_pendingProperties[args.Key] = args.Presentation;
 			}
 
-			if (args.Changed.HasFlag(BrowseItemPresentationChangeFlags.Thumbnail))
+			if ((args.Presentation.Thumbnail is not null || args.Changed.HasFlag(BrowseItemPresentationChangeFlags.Thumbnail))
+				&& (!_pendingThumbnails.TryGetValue(args.Key, out var pendingThumbnail) || pendingThumbnail.Version <= args.Presentation.Version))
 			{
-				_pendingThumbnails[args.Key] = args.Presentation.Thumbnail;
+				_pendingThumbnails[args.Key] = args.Presentation;
 			}
 		}
 
@@ -701,12 +702,12 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				{
 					if (presentation.Properties.Count is not 0)
 					{
-						_pendingProperties[key] = presentation.Properties;
+						_pendingProperties[key] = presentation;
 					}
 
 					if (presentation.Thumbnail is not null)
 					{
-						_pendingThumbnails[key] = presentation.Thumbnail;
+						_pendingThumbnails[key] = presentation;
 					}
 				}
 			}
@@ -760,8 +761,8 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		PendingColumns? columns;
 		IReadOnlyList<StorableKey>? selection;
 		PendingStatusBarSize? statusBarSize;
-		KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] properties;
-		KeyValuePair<StorableKey, ThumbnailResult?>[] thumbnails;
+		KeyValuePair<StorableKey, BrowseItemPresentation>[] properties;
+		KeyValuePair<StorableKey, BrowseItemPresentation>[] thumbnails;
 		lock (_pendingLock)
 		{
 			if (Volatile.Read(ref _isDisposed) is not 0)
@@ -1092,7 +1093,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		return count;
 	}
 
-	private KeyValuePair<StorableKey, IReadOnlyDictionary<string, object?>>[] TakePendingPropertiesLocked()
+	private KeyValuePair<StorableKey, BrowseItemPresentation>[] TakePendingPropertiesLocked()
 	{
 		var properties = _pendingProperties.Take(MaxPropertiesPerDrain).ToArray();
 		foreach (var property in properties)
@@ -1103,7 +1104,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		return properties;
 	}
 
-	private KeyValuePair<StorableKey, ThumbnailResult?>[] TakePendingThumbnailsLocked()
+	private KeyValuePair<StorableKey, BrowseItemPresentation>[] TakePendingThumbnailsLocked()
 	{
 		var thumbnails = _pendingThumbnails.Take(MaxThumbnailsPerDrain).ToArray();
 		foreach (var thumbnail in thumbnails)
@@ -1338,17 +1339,18 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 	}
 
-	private async Task ApplyThumbnailAsync(StorableKey key, BrowseItemViewModel target, ThumbnailResult? thumbnail, long version)
+	private async Task ApplyThumbnailAsync(StorableKey key, BrowseItemViewModel target, BrowseItemPresentation presentation, long version)
 	{
 		try
 		{
-			var image = thumbnail is null ? null : await DecodeThumbnailAsync(thumbnail).ConfigureAwait(true);
+			var image = presentation.Thumbnail is not { } thumbnail ? null : await DecodeThumbnailAsync(thumbnail).ConfigureAwait(true);
 			if (Volatile.Read(ref _isDisposed) is not 0)
 			{
 				return;
 			}
 
-			if (TryGetItemViewModel(key, out var current) && ReferenceEquals(current, target) && IsThumbnailApplyCurrent(key, target, version))
+			if (TryGetItemViewModel(key, out var current) && ReferenceEquals(current, target)
+				&& IsThumbnailApplyCurrent(key, target, version) && IsThumbnailPresentationCurrent(key, presentation))
 			{
 				target.SetThumbnail(image);
 				if (image is not null)
@@ -1370,16 +1372,16 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 	}
 
-	private void QueueThumbnailApply(StorableKey key, ThumbnailResult? thumbnail)
+	private void QueueThumbnailApply(StorableKey key, BrowseItemPresentation presentation)
 	{
-		if (Volatile.Read(ref _isDisposed) is not 0)
+		if (Volatile.Read(ref _isDisposed) is not 0 || !IsPresentationCurrent(key, presentation))
 		{
 			return;
 		}
 
 		if (!TryGetItemViewModel(key, out var target))
 		{
-			RequeueThumbnailIfCurrent(key, thumbnail);
+			RequeueThumbnailIfCurrent(key, presentation);
 
 			return;
 		}
@@ -1392,16 +1394,17 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				return;
 			}
 
-			if (_thumbnailApplyStates.TryGetValue(key, out var state) && ReferenceEquals(state.Target, target) && AreEquivalent(state.Thumbnail, thumbnail))
+			if (_thumbnailApplyStates.TryGetValue(key, out var state) && ReferenceEquals(state.Target, target)
+				&& state.Presentation?.Generation == presentation.Generation && AreEquivalent(state.Presentation.Thumbnail, presentation.Thumbnail))
 			{
 				return;
 			}
 
 			version = checked(++_thumbnailApplyVersion);
-			_thumbnailApplyStates[key] = new ThumbnailApplyState(version, target, thumbnail);
+			_thumbnailApplyStates[key] = new ThumbnailApplyState(version, target, presentation);
 		}
 
-		var task = ApplyThumbnailAsync(key, target, thumbnail, version);
+		var task = ApplyThumbnailAsync(key, target, presentation, version);
 		lock (_thumbnailTaskLock)
 		{
 			_thumbnailTasks.Add(task);
@@ -1523,7 +1526,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 	}
 
-	private void RequeueThumbnailIfCurrent(StorableKey key, ThumbnailResult? thumbnail)
+	private void RequeueThumbnailIfCurrent(StorableKey key, BrowseItemPresentation presentation)
 	{
 		if (!_pane.BrowseSession.Contains(key))
 		{
@@ -1534,7 +1537,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			if (Volatile.Read(ref _isDisposed) is 0)
 			{
-				_pendingThumbnails[key] = thumbnail;
+				_pendingThumbnails[key] = presentation;
 			}
 		}
 
@@ -1556,6 +1559,16 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		return ThumbnailResultContentComparer.Instance.Equals(current, candidate);
 	}
 
+	private bool IsPresentationCurrent(StorableKey key, BrowseItemPresentation presentation)
+	{
+		return presentation.Generation == _pane.BrowseSession.Generation && _pane.BrowseSession.TryGetPresentation(key, out var current) && current.Version == presentation.Version;
+	}
+
+	private bool IsThumbnailPresentationCurrent(StorableKey key, BrowseItemPresentation presentation)
+	{
+		return presentation.Generation == _pane.BrowseSession.Generation && _pane.BrowseSession.TryGetPresentation(key, out var current) && AreEquivalent(current.Thumbnail, presentation.Thumbnail);
+	}
+
 	private bool TryGetItemViewModel(StorableKey key, out BrowseItemViewModel item)
 	{
 		lock (_itemsLock)
@@ -1564,8 +1577,13 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 	}
 
-	private void ApplyProperties(StorableKey key, IReadOnlyDictionary<string, object?> properties)
+	private void ApplyProperties(StorableKey key, BrowseItemPresentation presentation)
 	{
+		if (!IsPresentationCurrent(key, presentation))
+		{
+			return;
+		}
+
 		if (!TryGetItemViewModel(key, out var item))
 		{
 			if (!_pane.BrowseSession.Contains(key))
@@ -1577,7 +1595,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			{
 				if (Volatile.Read(ref _isDisposed) is 0)
 				{
-					_pendingProperties[key] = properties;
+					_pendingProperties[key] = presentation;
 				}
 			}
 
@@ -1586,7 +1604,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			return;
 		}
 
-		item.SetProperties(properties);
+		item.SetProperties(presentation.Properties);
 		Interlocked.Increment(ref _diagnosticPropertyChangeCount);
 	}
 
@@ -1883,9 +1901,9 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				viewModel.SetProperties(BrowseItemViewModel.EmptyProperties);
 			}
 
-			if (presentation.Thumbnail is { } thumbnail)
+			if (presentation.Thumbnail is not null)
 			{
-				QueuePendingThumbnail(key, thumbnail);
+				QueuePendingThumbnail(key, presentation);
 			}
 			else
 			{
@@ -1910,13 +1928,13 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		viewModel.SetThumbnail(null);
 	}
 
-	private void QueuePendingThumbnail(StorableKey key, ThumbnailResult thumbnail)
+	private void QueuePendingThumbnail(StorableKey key, BrowseItemPresentation presentation)
 	{
 		lock (_pendingLock)
 		{
 			if (Volatile.Read(ref _isDisposed) is 0)
 			{
-				_pendingThumbnails[key] = thumbnail;
+				_pendingThumbnails[key] = presentation;
 			}
 		}
 	}
@@ -2056,7 +2074,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private sealed record LocationNavigation(BrowseLocation Location, PaneNavigationMode Mode, Task Task);
 
 
-	private sealed record ThumbnailApplyState(long Version, BrowseItemViewModel Target, ThumbnailResult? Thumbnail);
+	private sealed record ThumbnailApplyState(long Version, BrowseItemViewModel Target, BrowseItemPresentation? Presentation);
 
 	private sealed class ThumbnailResultContentComparer : IEqualityComparer<ThumbnailResult>
 	{

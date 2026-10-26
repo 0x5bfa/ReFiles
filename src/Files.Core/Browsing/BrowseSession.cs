@@ -603,7 +603,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 				return false;
 			}
 
-			var presentation = _presentationStore.UpdateProperties(key, item, properties);
+			var presentation = _presentationStore.UpdateProperties(generation, key, item, properties);
 			presentationChanged = new BrowseItemPresentationChangedEventArgs(key, presentation, BrowseItemPresentationChangeFlags.Properties);
 
 			if (!string.IsNullOrWhiteSpace(ViewSettings.SortPropertyId) && properties.ContainsKey(ViewSettings.SortPropertyId))
@@ -641,7 +641,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 				return false;
 			}
 
-			if (!_presentationStore.TryUpdateThumbnail(key, item, thumbnail, out var presentation))
+			if (!_presentationStore.TryUpdateThumbnail(generation, key, item, thumbnail, out var presentation))
 			{
 				return true;
 			}
