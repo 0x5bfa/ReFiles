@@ -89,10 +89,20 @@ Protect operation routing, enum/input validation, progress/result invariants, ca
 
 ## Shared composition and headless observation
 
-`UseStorageOperations` injects the execution boundary into both `FilesCoreRuntime.StorageOperations` and every browse application model. The app configures its WinRT implementation once. `ExecuteBatchAsync` transfers the complete selection to that implementation; its accepted work remains server-owned. The default local batch implementation snapshots and preflights all requests, then stops at the first execution failure. It does not promise atomicity or rollback of completed requests.
+`UseStorageOperations` injects the execution boundary into both `FilesCoreRuntime.StorageOperations` and every browse application model. The app configures its WinRT implementation once. `Jobs.SubmitBatchAsync` transfers the complete selection to an independent executor and returns its accepted identity; its work remains server-owned. The default local batch implementation snapshots and preflights all requests, then stops at the first execution failure. It does not promise atomicity or rollback of completed requests.
 
 `IStorageOperationMonitor` exposes snapshots, cancellation, pause/resume, interruption responses, and terminal-history removal without UI dependencies. `StorageOperationSnapshot` contains execution data and acknowledgements. Transfer-rate smoothing, estimated time remaining, localized text, and graph points remain presentation data.
 
 The server's `StorageOperationExecutor` owns a configured `FilesCoreRuntime` and routes through its operation service rather than invoking a Windows handler directly. The default server configuration still registers Windows storage. Additional providers must be configured in the server explicitly; source identity alone does not establish a remote connection or transfer client-owned provider objects.
 
 This restructuring does not add crash replay, durable journals, automatic retry of uncertain submissions, or a universal cross-source transfer implementation. Unsupported transfers continue to fail through explicit provider routing. These remain separate feature protocols; no mutation is silently retried or downgraded to a stream copy.
+
+## Job acceptance and observation
+
+`IStorageOperationService.ExecuteAsync` and `ExecuteBatchAsync` describe inline execution. Independent executors expose `Jobs` and reject inline execution. `IStorageJobService.SubmitBatchAsync` accepts a caller-selected ID and returns a `StorageJobHandle` after acceptance, before completion. Cancellation applies before dispatch; an in-flight acceptance call is awaited without automatically retrying it.
+
+`WaitForCompletionAsync` observes that handle. Canceling observation does not send job cancellation. `StorageJobObservationCanceledException` retains the accepted handle; the same job can be observed again. Explicit cancellation continues through `IStorageOperationMonitor.Cancel` and the server acknowledgement.
+
+`StorageJobUnknownException.Accepted` distinguishes a lost acceptance reply from an unknown outcome after confirmed acceptance. Both retain the job and server identities. A lost reply, disconnected server, restarted server, or forgotten result is not an operation failure and must not trigger automatic resubmission. There is no restart recovery or durable journal implied by this contract.
+
+Application flows that need completion use the explicitly named `ExecuteAndWaitAsync` convenience workflow. Callers needing an immediate receipt can submit through `Jobs` directly and retain the handle independently of a pane's lifetime.

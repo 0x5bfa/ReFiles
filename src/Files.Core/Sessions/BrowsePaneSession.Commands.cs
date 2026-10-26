@@ -85,7 +85,7 @@ public sealed partial class BrowsePaneSession
 		var services = _services ?? throw new InvalidOperationException("No browse application services were configured.");
 		var requests = references.Select(reference => (StorageOperationRequest)CreateDeleteRequest(reference)).ToArray();
 
-		return await services.Operations.ExecuteBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+		return await services.Operations.ExecuteAndWaitAsync(requests, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Resolves captured addresses and submits one complete transfer through the configured executor.</summary>
@@ -112,7 +112,7 @@ public sealed partial class BrowsePaneSession
 				: new CopyOperationRequest(item.Reference, destination, conflictBehavior: StorageConflictBehavior.Prompt));
 		}
 
-		return await services.Operations.ExecuteBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+		return await services.Operations.ExecuteAndWaitAsync(requests, cancellationToken).ConfigureAwait(false);
 	}
 
 	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)

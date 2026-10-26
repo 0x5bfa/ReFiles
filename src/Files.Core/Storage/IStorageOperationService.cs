@@ -11,6 +11,9 @@ public interface IStorageOperationService
 	/// <summary>Gets the optional monitor for accepted operations.</summary>
 	IStorageOperationMonitor? Monitor => null;
 
+	/// <summary>Gets the optional independent job execution boundary. Use it instead of inline execution when present.</summary>
+	IStorageJobService? Jobs => null;
+
 	/// <summary>Determines whether a registered handler supports a request.</summary>
 	/// <param name="request">The operation request.</param>
 	/// <returns><see langword="true"/> when a handler can execute the request.</returns>
@@ -27,7 +30,7 @@ public interface IStorageOperationService
 
 	/// <summary>Executes a complete batch through the selected execution boundary.</summary>
 	/// <param name="requests">The complete, immutable operation intent.</param>
-	/// <param name="cancellationToken">The cancellation token; remote services retain accepted jobs independently.</param>
+	/// <param name="cancellationToken">The token used to cancel inline execution.</param>
 	/// <returns>The last successful result or the first failure. Local execution stops on failure.</returns>
 	async ValueTask<StorageOperationResult> ExecuteBatchAsync(IReadOnlyList<StorageOperationRequest> requests, CancellationToken cancellationToken = default)
 	{

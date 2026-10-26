@@ -839,7 +839,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 			throw new NotSupportedException("A storage operation service is required to rename this item.");
 		}
 
-		var result = await _storageOperations.ExecuteAsync(new RenameOperationRequest(_renameReference, newName), cancellationToken: cancellationToken);
+		var result = await _storageOperations.ExecuteAndWaitAsync((StorageOperationRequest[])[new RenameOperationRequest(_renameReference, newName)], cancellationToken);
 		if (!result.Succeeded)
 		{
 			throw result.Error ?? new InvalidOperationException("The storage operation failed without an error.");

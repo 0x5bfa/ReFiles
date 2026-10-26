@@ -12,7 +12,7 @@ using Files.ItemProperties;
 
 namespace Files.StorageOperations;
 
-internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
+internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IStorageJobService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
 {
 	private readonly Lock _syncRoot = new();
 	private readonly CancellationTokenSource _shutdown = new();
@@ -29,6 +29,8 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 	public event EventHandler? Changed;
 
 	public IStorageOperationMonitor Monitor => this;
+
+	public IStorageJobService Jobs => this;
 
 	internal WinRTStorageOperationService()
 	{
@@ -48,18 +50,10 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		};
 	}
 
-	public async ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+	public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
 		IStorageOperationControl? operationControl = null)
 	{
-		if (!CanHandle(request))
-		{
-			return new StorageOperationResult(false, null, new NotSupportedException("The operation server does not support this storage request."));
-		}
-
-		// Once accepted, lifetime and controls belong to the server, including single-item commands.
-		var result = await SubmitAsync([ToData(request)], cancellationToken).ConfigureAwait(false);
-
-		return ToResult(result);
+		throw new NotSupportedException("Use Jobs.SubmitBatchAsync and Jobs.WaitForCompletionAsync for independent server operations.");
 	}
 
 	internal Task<BackgroundServer.AppService> ConnectAsync()
@@ -210,24 +204,29 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		}
 	}
 
-	public async ValueTask<StorageOperationResult> ExecuteBatchAsync(IReadOnlyList<StorageOperationRequest> requests, CancellationToken cancellationToken = default)
+	public ValueTask<StorageOperationResult> ExecuteBatchAsync(IReadOnlyList<StorageOperationRequest> requests, CancellationToken cancellationToken = default)
+	{
+		throw new NotSupportedException("Use Jobs.SubmitBatchAsync and Jobs.WaitForCompletionAsync for independent server operations.");
+	}
+
+	public async ValueTask<StorageJobHandle> SubmitBatchAsync(Guid id, IReadOnlyList<StorageOperationRequest> requests, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(requests);
 
-		if (requests.Count is 0)
+		var snapshot = requests.ToArray();
+		if (snapshot.Length is 0 || snapshot.Any(request => request is null || !CanHandle(request)))
 		{
-			return new StorageOperationResult(true, null);
+			throw new NotSupportedException("The job must contain a nonempty batch of supported operations.");
 		}
 
-		if (requests.Any(request => request is null || !CanHandle(request)))
-		{
-			return new StorageOperationResult(false, null, new NotSupportedException("The batch contains an unsupported operation."));
-		}
+		var items = snapshot.Select(ToData).ToArray();
 
-		var items = requests.Select(ToData).ToArray();
-		var summary = await SubmitAsync(items, cancellationToken).ConfigureAwait(false);
+		return await SubmitOperationAsync(id, (server, jobId) => server.SubmitStorageOperations(jobId, items), cancellationToken).ConfigureAwait(false);
+	}
 
-		return ToResult(summary);
+	public async ValueTask<StorageOperationResult> WaitForCompletionAsync(StorageJobHandle job, CancellationToken cancellationToken = default)
+	{
+		return ToResult(await WaitForSummaryAsync(job, cancellationToken).ConfigureAwait(false));
 	}
 
 	public async Task TransferPathsAsync(IReadOnlyList<string> paths, StorableReference destination, bool move, CancellationToken cancellationToken)
@@ -443,51 +442,93 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 
 	private async Task<BackgroundServer.OperationSummary> RunOperationAsync(Func<BackgroundServer.AppService, Guid, Guid> submit, CancellationToken cancellationToken)
 	{
-		cancellationToken.ThrowIfCancellationRequested();
+		var job = await SubmitOperationAsync(Guid.NewGuid(), submit, cancellationToken).ConfigureAwait(false);
 
-		var connection = GetConnection();
-		var server = await connection.WaitAsync(cancellationToken).ConfigureAwait(false);
-		var initial = await ReadOperationsAsync(server).ConfigureAwait(false);
-		cancellationToken.ThrowIfCancellationRequested();
+		return await WaitForSummaryAsync(job, cancellationToken).ConfigureAwait(false);
+	}
 
-		var id = Guid.NewGuid();
-		// Never retry submission automatically: a lost reply does not prove that the server rejected it.
-		await Task.Run(() => submit(server, id)).ConfigureAwait(false);
-		var accepted = await ReadOperationsAsync(server).ConfigureAwait(false);
-		PublishState(connection, accepted);
-		while (true)
+	private async Task<StorageJobHandle> SubmitOperationAsync(Guid id, Func<BackgroundServer.AppService, Guid, Guid> submit, CancellationToken cancellationToken)
+	{
+		if (id == Guid.Empty)
 		{
-			Task changed;
-			lock (_syncRoot)
+			throw new ArgumentException("A job identity is required.", nameof(id));
+		}
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		var initial = await ReadOperationsAsync(server).WaitAsync(cancellationToken).ConfigureAwait(false);
+		cancellationToken.ThrowIfCancellationRequested();
+
+		var job = new StorageJobHandle(id, initial.InstanceId);
+		try
+		{
+			// Dispatch is never retried, including when the acceptance reply is lost.
+			var acceptedId = await Task.Run(() => submit(server, id)).ConfigureAwait(false);
+			if (acceptedId != id)
 			{
-				ObjectDisposedException.ThrowIf(_disposed, this);
-
-				if (_connectionError is { } error)
-				{
-					throw new IOException("The operation connection was interrupted. Its outcome is unknown; the operation was not retried.", error);
-				}
-
-				if (_serverInstanceId != Guid.Empty && _serverInstanceId != initial.InstanceId)
-				{
-					throw new IOException("The operation server restarted. The previous operation outcome is unknown.");
-				}
-
-				var item = _operations.FirstOrDefault(item => item.Id == id);
-				if (IsTerminal(item.State) && item.Id == id)
-				{
-					return item;
-				}
-
-				if (item.Id != id && _revision >= accepted.Revision)
-				{
-					throw new IOException("The operation is no longer retained by the server. Its outcome cannot be recovered.");
-				}
-
-				changed = _changed.Task;
+				throw new InvalidOperationException("The server returned a different job identity.");
 			}
 
-			// UI/navigation cancellation detaches this waiter; Status Center sends explicit job cancellation.
-			await changed.WaitAsync(cancellationToken).ConfigureAwait(false);
+			return job;
+		}
+		catch (Exception error)
+		{
+			throw new StorageJobUnknownException(job, false, "Job acceptance could not be confirmed. Do not resubmit automatically.", error);
+		}
+	}
+
+	private async Task<BackgroundServer.OperationSummary> WaitForSummaryAsync(StorageJobHandle job, CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(job);
+
+		try
+		{
+			var connection = GetConnection();
+			var server = await connection.WaitAsync(cancellationToken).ConfigureAwait(false);
+			var accepted = await ReadOperationsAsync(server).WaitAsync(cancellationToken).ConfigureAwait(false);
+			PublishState(connection, accepted);
+			while (true)
+			{
+				Task changed;
+				lock (_syncRoot)
+				{
+					ObjectDisposedException.ThrowIf(_disposed, this);
+
+					if (_connectionError is { } error)
+					{
+						throw new IOException("The operation connection was interrupted.", error);
+					}
+
+					if (_serverInstanceId != job.ServerInstanceId)
+					{
+						throw new IOException("The operation server restarted.");
+					}
+
+					var item = _operations.FirstOrDefault(item => item.Id == job.Id);
+					if (item.Id != job.Id)
+					{
+						throw new IOException("The operation is no longer retained by the server.");
+					}
+
+					if (IsTerminal(item.State))
+					{
+						return item;
+					}
+
+					changed = _changed.Task;
+				}
+
+				await changed.WaitAsync(cancellationToken).ConfigureAwait(false);
+			}
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw new StorageJobObservationCanceledException(job, cancellationToken);
+		}
+		catch (Exception error) when (error is not StorageJobUnknownException)
+		{
+			throw new StorageJobUnknownException(job, true, "The accepted job outcome is unknown. Keep its identity for subsequent observation.", error);
 		}
 	}
 
