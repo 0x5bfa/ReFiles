@@ -13,7 +13,7 @@ namespace Files.Infrastructure;
 /// Provides an observable collection that can replace its contents with a single reset notification.
 /// </summary>
 [DebuggerDisplay("Count = {Count}")]
-public sealed class BulkObservableCollection<T> : ObservableCollection<T>
+public sealed partial class BulkObservableCollection<T> : ObservableCollection<T>
 {
 	private static readonly NotifyCollectionChangedEventArgs _resetEventArgs = new(NotifyCollectionChangedAction.Reset);
 	private static readonly PropertyChangedEventArgs _countPropertyChangedEventArgs = new(nameof(Count));

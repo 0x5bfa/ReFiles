@@ -326,6 +326,8 @@ public sealed partial class NavigationToolbar : UserControl
 		args.Flyout.Items.Clear();
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+	[WinRT.DynamicWindowsRuntimeCast(typeof(Button))]
 	private void PathBreadcrumbBar_Tapped(object sender, TappedRoutedEventArgs e)
 	{
 		var source = e.OriginalSource as DependencyObject;
@@ -343,6 +345,7 @@ public sealed partial class NavigationToolbar : UserControl
 		NavigationOmnibar.FocusTextBox();
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(DependencyObject))]
 	private void NavigationButtons_PointerReleased(object sender, PointerRoutedEventArgs e)
 	{
 		var pointerUpdateKind = e.GetCurrentPoint(NavigationButtons).Properties.PointerUpdateKind;
@@ -407,6 +410,7 @@ public sealed partial class NavigationToolbar : UserControl
 		_dropBrowser = null;
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(ButtonBase))]
 	private bool IsNavigationButtonSource(DependencyObject? source)
 	{
 		for (var current = source; current is not null && !ReferenceEquals(current, NavigationButtons); current = VisualTreeHelper.GetParent(current))

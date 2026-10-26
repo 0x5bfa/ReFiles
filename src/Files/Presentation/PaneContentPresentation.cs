@@ -8,7 +8,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Files.Presentation;
 
-internal sealed class PaneContentPresentation : IAsyncDisposable
+internal sealed partial class PaneContentPresentation : IAsyncDisposable
 {
 	private readonly Func<UIElement> _viewFactory;
 	private readonly string _title;

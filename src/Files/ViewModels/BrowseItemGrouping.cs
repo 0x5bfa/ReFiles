@@ -19,7 +19,7 @@ internal static class BrowseDisplayPropertyIds
 	public const string Type = "System.ItemTypeText";
 }
 
-public sealed class BrowseItemGroupViewModel : ObservableCollection<BrowseItemViewModel>
+public sealed partial class BrowseItemGroupViewModel : ObservableCollection<BrowseItemViewModel>
 {
 	internal BrowseItemGroupKind Kind { get; }
 

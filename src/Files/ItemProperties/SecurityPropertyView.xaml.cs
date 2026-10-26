@@ -92,7 +92,7 @@ public sealed partial class SecurityPropertyView : UserControl
 	}
 }
 
-internal sealed class SecurityPrincipalViewModel : INotifyPropertyChanged
+internal sealed partial class SecurityPrincipalViewModel : INotifyPropertyChanged
 {
 	private BitmapImage? _icon;
 

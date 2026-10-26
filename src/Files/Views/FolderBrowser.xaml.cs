@@ -69,6 +69,7 @@ public sealed partial class FolderBrowser : Microsoft.UI.Xaml.Controls.UserContr
 		}
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(DataTemplate))]
 	private void UpdateFolderView()
 	{
 		if (ViewModel is not { } viewModel)

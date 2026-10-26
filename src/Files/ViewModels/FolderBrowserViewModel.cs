@@ -44,7 +44,7 @@ public enum FolderViewMode
 	Columns,
 }
 
-public sealed class FolderBrowserViewModel : ObservableObject, IDisposable, IAsyncDisposable
+public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private const int BulkNotificationThreshold = 32;
 	private const int LocationIconSize = 16;

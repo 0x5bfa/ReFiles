@@ -17,7 +17,7 @@ using Windows.Win32.Storage.FileSystem;
 
 namespace Files.Settings;
 
-internal sealed class JsonViewSettingsStore : IViewSettingsStore, IDisposable
+internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDisposable
 {
 	private const string SettingsDirectoryName = "Settings";
 	private const string SettingsFileName = "view-state.json";

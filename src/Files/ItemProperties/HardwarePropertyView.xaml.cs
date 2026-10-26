@@ -105,7 +105,7 @@ public sealed partial class HardwarePropertyView : UserControl
 	}
 }
 
-internal sealed class HardwareDeviceViewModel : INotifyPropertyChanged
+internal sealed partial class HardwareDeviceViewModel : INotifyPropertyChanged
 {
 	private BitmapImage? _icon;
 

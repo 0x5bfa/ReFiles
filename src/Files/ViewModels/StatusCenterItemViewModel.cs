@@ -13,7 +13,7 @@ using Files.StorageOperations;
 
 namespace Files.ViewModels;
 
-public sealed class StatusCenterItemViewModel : ObservableObject
+public sealed partial class StatusCenterItemViewModel : ObservableObject
 {
 	private string _title = string.Empty;
 	private string _detail = string.Empty;

@@ -3,7 +3,7 @@
 
 namespace Files.Infrastructure;
 
-internal sealed class SearchTextDebouncer : IDisposable
+internal sealed partial class SearchTextDebouncer : IDisposable
 {
 	private readonly TimeSpan _delay;
 	private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;

@@ -8,7 +8,7 @@ using Windows.ApplicationModel.DataTransfer;
 
 namespace Files.Commands;
 
-public sealed class WindowCommandManager : IDisposable
+public sealed partial class WindowCommandManager : IDisposable
 {
 	private readonly RootViewModel _root;
 	private readonly IUIDispatcher _dispatcher;
@@ -261,7 +261,7 @@ public sealed class WindowCommandManager : IDisposable
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 	}
 
-	private sealed class CommandCall : IDisposable
+	private sealed partial class CommandCall : IDisposable
 	{
 		private readonly CancellationTokenSource _cancellation;
 		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);

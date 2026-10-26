@@ -102,6 +102,9 @@ public sealed partial class NavigationItemViewModel : ObservableObject
 		OnPropertyChanged(nameof(Icon));
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(SymbolIcon))]
+	[WinRT.DynamicWindowsRuntimeCast(typeof(FontIcon))]
+	[WinRT.DynamicWindowsRuntimeCast(typeof(ImageIcon))]
 	private IconElement CreateIconElement()
 	{
 		return _icon switch

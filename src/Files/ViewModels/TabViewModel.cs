@@ -15,7 +15,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Files.ViewModels;
 
-public sealed class TabViewModel : ObservableObject, IDisposable, IAsyncDisposable
+public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
 	private readonly TabSession _tab;
 

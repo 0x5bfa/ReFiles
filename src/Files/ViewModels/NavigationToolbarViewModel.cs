@@ -9,7 +9,7 @@ using Files.Infrastructure;
 
 namespace Files.ViewModels;
 
-public sealed class NavigationToolbarViewModel : ObservableObject, IDisposable
+public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisposable
 {
 	private FolderBrowserViewModel? _activeFolderBrowser;
 

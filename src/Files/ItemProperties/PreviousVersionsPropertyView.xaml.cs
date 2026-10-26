@@ -57,7 +57,7 @@ public sealed partial class PreviousVersionsPropertyView : UserControl
 	}
 }
 
-internal sealed class PreviousVersionViewModel : INotifyPropertyChanged
+internal sealed partial class PreviousVersionViewModel : INotifyPropertyChanged
 {
 	private BitmapImage? _icon;
 

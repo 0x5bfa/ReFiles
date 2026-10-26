@@ -13,7 +13,7 @@ using Files.StorageOperations;
 
 namespace Files.ViewModels;
 
-public sealed class StatusCenterViewModel : ObservableObject, IDisposable
+public sealed partial class StatusCenterViewModel : ObservableObject, IDisposable
 {
 	private readonly StorageOperationTracker _tracker;
 	private readonly IUIDispatcher _dispatcher;

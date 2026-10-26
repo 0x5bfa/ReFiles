@@ -8,7 +8,7 @@ using Files.ViewModels;
 
 namespace Files.Adapters;
 
-internal sealed class BrowseColumnPresentation : IAsyncDisposable
+internal sealed partial class BrowseColumnPresentation : IAsyncDisposable
 {
 	private readonly BrowsePaneSession _pane;
 	private readonly Action<long, IReadOnlyList<DetailsColumnViewModel>> _publish;
@@ -281,7 +281,7 @@ internal sealed class BrowseColumnPresentation : IAsyncDisposable
 
 	private sealed record ColumnCache(IBrowseColumnProvider Context, long Generation, BrowseColumnSet? ColumnSet);
 
-	private sealed class ColumnLoad : IDisposable
+	private sealed partial class ColumnLoad : IDisposable
 	{
 		private readonly CancellationTokenSource _cancellation;
 		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);

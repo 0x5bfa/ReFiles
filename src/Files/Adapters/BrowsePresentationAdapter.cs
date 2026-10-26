@@ -17,7 +17,7 @@ using Microsoft.UI.Dispatching;
 
 namespace Files.Adapters;
 
-internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
+internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 {
 	private const int MaxItemsPerDrain = 1_024;
 	private const int MaxPropertiesPerDrain = 128;
@@ -2099,7 +2099,7 @@ internal sealed class BrowsePresentationAdapter : IDisposable, IAsyncDisposable
 		}
 	}
 
-	private sealed class StatusBarSizeLoad : IDisposable
+	private sealed partial class StatusBarSizeLoad : IDisposable
 	{
 		private readonly CancellationTokenSource _cancellation;
 		private readonly TaskCompletionSource<bool> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);

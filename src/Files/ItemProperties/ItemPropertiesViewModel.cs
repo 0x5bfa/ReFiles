@@ -15,7 +15,7 @@ using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
 
-internal sealed class ItemPropertiesViewModel : ObservableObject
+internal sealed partial class ItemPropertiesViewModel : ObservableObject
 {
 	private const string FileDescriptionPropertyId = "System.FileDescription";
 	private readonly IItemPropertiesFileSystem _itemPropertiesFileSystem;

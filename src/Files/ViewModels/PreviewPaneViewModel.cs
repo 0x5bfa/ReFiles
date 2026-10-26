@@ -11,7 +11,7 @@ using Files.Core.Windows;
 
 namespace Files.ViewModels;
 
-public sealed class PreviewPaneViewModel : ObservableObject, IDisposable
+public sealed partial class PreviewPaneViewModel : ObservableObject, IDisposable
 {
 	private readonly IBrowsePreviewModel _preview;
 	private readonly IUIDispatcher _dispatcher;

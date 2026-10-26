@@ -24,7 +24,7 @@ namespace Files.Views.Selection;
 /// <summary>
 /// Connects a folder view target to its view model while the target is loaded.
 /// </summary>
-public static class FolderViewInteraction
+public static partial class FolderViewInteraction
 {
 	private static readonly ConditionalWeakTable<FrameworkElement, InteractionRegistration> _registrations = new();
 
@@ -52,6 +52,7 @@ public static class FolderViewInteraction
 		element.SetValue(ViewModelProperty, value);
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
 	{
 		if (sender is not FrameworkElement target)
@@ -74,7 +75,7 @@ public static class FolderViewInteraction
 		registration.UpdateViewModel(viewModel);
 	}
 
-	private sealed class InteractionRegistration : IDisposable
+	private sealed partial class InteractionRegistration : IDisposable
 	{
 		private readonly FrameworkElement _target;
 		private FolderViewInteractionSession? _session;
@@ -147,6 +148,7 @@ public static class FolderViewInteraction
 			DisposeSession();
 		}
 
+		[WinRT.DynamicWindowsRuntimeCast(typeof(ListViewBase))]
 		private void TryCreateSession()
 		{
 			if (_session is not null || !_target.IsLoaded || _viewModel is null)
@@ -178,7 +180,7 @@ public static class FolderViewInteraction
 	}
 }
 
-internal sealed class FolderViewInteractionSession : IDisposable
+internal sealed partial class FolderViewInteractionSession : IDisposable
 {
 	private readonly FrameworkElement _element;
 	private readonly IList<object> _selectedItems;
@@ -232,6 +234,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		SynchronizeSelection();
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(ListViewBase))]
 	internal FolderViewInteractionSession(ITableViewRowsHost rowsHost, ITableViewSelectionHost selectionHost, FolderBrowserViewModel viewModel)
 	{
 		ArgumentNullException.ThrowIfNull(rowsHost);
@@ -311,6 +314,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		UIDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(SelectorItem))]
 	private void InitializeDragDrop()
 	{
 		_originalAllowDrop = _element.AllowDrop;
@@ -533,6 +537,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		await _dropTargetController.DropAsync(e, target, fallback);
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(DependencyObject))]
 	private bool TryGetDropTargetLocations(DragEventArgs args, out WinUIShellDropTargetLocation target, out WinUIShellDropTargetLocation? fallback)
 	{
 		var item = args.OriginalSource is DependencyObject source ? FindInvokedListItem(source) : null;
@@ -559,6 +564,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		return true;
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(DependencyObject))]
 	private async void ListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
 	{
 		if (_listView is null || e.OriginalSource is not DependencyObject source || FindInvokedListItem(source) is not { } item)
@@ -578,6 +584,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		}
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(SelectorItem))]
 	private void ListView_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
 	{
 		if (args.ItemContainer is SelectorItem container)
@@ -616,6 +623,7 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		UpdateViewModelSelection();
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(SelectorItem))]
 	private void RowsHost_RowChanging(object? sender, TableViewRowChangingEventArgs e)
 	{
 		if (_itemsControl?.ContainerFromIndex(e.Index) is SelectorItem container)
@@ -650,6 +658,8 @@ internal sealed class FolderViewInteractionSession : IDisposable
 		await _viewModel.CommandManager.ExecuteAsync(CommandIds.SelectAll);
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(DependencyObject))]
+	[WinRT.DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
 	private void Element_ContextRequested(UIElement sender, ContextRequestedEventArgs e)
 	{
 		var invokedItem = e.OriginalSource is DependencyObject source ? FindInvokedListItem(source) : null;

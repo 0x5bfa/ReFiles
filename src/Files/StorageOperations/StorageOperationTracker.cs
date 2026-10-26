@@ -7,7 +7,7 @@ using Files.Infrastructure;
 
 namespace Files.StorageOperations;
 
-internal sealed class StorageOperationTracker : IDisposable
+internal sealed partial class StorageOperationTracker : IDisposable
 {
 	private readonly Lock _syncRoot = new();
 	private IOperationStatusSource? _server;

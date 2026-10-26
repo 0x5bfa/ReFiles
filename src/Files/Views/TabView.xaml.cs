@@ -86,6 +86,7 @@ public sealed partial class TabView : UserControl, IDisposable
 		_leftContentPresenter?.SizeChanged -= TitleBarElement_SizeChanged;
 	}
 
+	[WinRT.DynamicWindowsRuntimeCast(typeof(NativeTabView))]
 	private void NativeTabView_SelectionChanged(object sender, SelectionChangedEventArgs args)
 	{
 		if (ViewModel is { } viewModel && sender is NativeTabView tabView)

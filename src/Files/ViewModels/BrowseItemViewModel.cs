@@ -212,7 +212,7 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 	}
 }
 
-internal sealed class BrowseItemLayoutMetrics : ObservableObject
+internal sealed partial class BrowseItemLayoutMetrics : ObservableObject
 {
 	private double _layoutSize;
 

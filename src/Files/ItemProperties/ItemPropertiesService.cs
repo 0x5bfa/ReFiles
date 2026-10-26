@@ -12,7 +12,7 @@ using WinRT.Interop;
 
 namespace Files.ItemProperties;
 
-internal sealed class ItemPropertiesService : IItemPropertiesService, IDisposable
+internal sealed partial class ItemPropertiesService : IItemPropertiesService, IDisposable
 {
 	private readonly nint _owner;
 	private readonly IItemPropertiesFileSystem _fileSystem;

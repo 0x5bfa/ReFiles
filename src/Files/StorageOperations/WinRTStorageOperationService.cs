@@ -12,7 +12,7 @@ using Files.ItemProperties;
 
 namespace Files.StorageOperations;
 
-internal sealed class WinRTStorageOperationService : IStorageOperationService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
+internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
 {
 	private readonly Lock _syncRoot = new();
 	private readonly CancellationTokenSource _shutdown = new();

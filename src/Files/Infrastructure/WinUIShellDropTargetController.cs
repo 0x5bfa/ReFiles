@@ -12,7 +12,7 @@ using Windows.Win32.System.Com;
 
 namespace Files.Infrastructure;
 
-internal sealed class WinUIShellDropTargetController : IDisposable
+internal sealed partial class WinUIShellDropTargetController : IDisposable
 {
 	private readonly Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> _prepareDropTargetAsync;
 	private readonly nint _ownerWindowHandle;
