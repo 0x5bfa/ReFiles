@@ -88,6 +88,33 @@ public sealed partial class BrowsePaneSession
 		return await services.Operations.ExecuteBatchAsync(requests, cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <summary>Resolves captured addresses and submits one complete transfer through the configured executor.</summary>
+	/// <param name="addresses">The captured source addresses.</param>
+	/// <param name="destination">The captured destination folder.</param>
+	/// <param name="move">Whether to move instead of copy.</param>
+	/// <param name="cancellationToken">Cancels resolution or observation, according to the execution boundary.</param>
+	/// <returns>The aggregate operation result.</returns>
+	public async ValueTask<StorageOperationResult> TransferAddressesAsync(IReadOnlyList<StorageAddress> addresses, StorableReference destination, bool move, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		ArgumentNullException.ThrowIfNull(addresses);
+
+		ArgumentNullException.ThrowIfNull(destination);
+
+		var services = _services ?? throw new InvalidOperationException("No browse application services were configured.");
+		var snapshot = addresses.ToArray();
+		var requests = new List<StorageOperationRequest>(snapshot.Length);
+		foreach (var address in snapshot)
+		{
+			await using var item = await services.Workspace.ResolveAsync(address, cancellationToken).ConfigureAwait(false);
+			requests.Add(move ? new MoveOperationRequest(item.Reference, destination, conflictBehavior: StorageConflictBehavior.Prompt)
+				: new CopyOperationRequest(item.Reference, destination, conflictBehavior: StorageConflictBehavior.Prompt));
+		}
+
+		return await services.Operations.ExecuteBatchAsync(requests, cancellationToken).ConfigureAwait(false);
+	}
+
 	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)
 	{
 		var canRecycle = _services!.Workspace.Sources.OfType<IStorageDeletionPolicy>().Any(policy => policy.CanRecycle(reference));

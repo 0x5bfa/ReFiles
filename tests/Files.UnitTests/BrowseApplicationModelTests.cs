@@ -102,6 +102,41 @@ public sealed class BrowseApplicationModelTests
 		Assert.AreEqual(first.Reference, ((DeleteOperationRequest)operations.Requests.Single()).Item);
 	}
 
+	/// <summary>Transfers resolve captured addresses and submit one provider-independent batch.</summary>
+	/// <param name="move">Whether the batch contains move requests.</param>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task TransferAddressesSubmitsOneCapturedBatch(bool move)
+	{
+		var sessions = new InMemoryFtpSessionFactory();
+		sessions.AddFolder("/destination");
+		sessions.AddFile("/one.txt", [1]);
+		sessions.AddFile("/two.txt", [2]);
+		var operations = new RecordingOperations();
+		var profile = new FtpConnectionProfile("transfer", "Transfer", "example.test");
+		await using var runtime = new FilesCoreBuilder().AddFtpStorage(profile, sessionFactory: sessions, enableArchives: false).UseStorageOperations(operations).Build();
+		var source = (FtpStorageSource)runtime.Workspace.Sources.Single();
+		var window = await runtime.ShellSession.CreateWindowAsync();
+		var pane = (BrowsePaneSession)window.ActiveTab!.ActivePane!.Content;
+		var destination = source.CreateReference(FtpPath.Parse("/destination"));
+		var addresses = new[] { source.CreateAddress(FtpPath.Parse("/one.txt")), source.CreateAddress(FtpPath.Parse("/two.txt")) };
+
+		await pane.TransferAddressesAsync(addresses, destination, move);
+
+		Assert.AreEqual(1, operations.BatchCount);
+		Assert.AreEqual(2, operations.Requests.Count);
+		if (move)
+		{
+			Assert.IsTrue(operations.Requests.Cast<MoveOperationRequest>().All(request => request.DestinationFolder == destination));
+		}
+		else
+		{
+			Assert.IsTrue(operations.Requests.Cast<CopyOperationRequest>().All(request => request.DestinationFolder == destination));
+		}
+	}
+
 	/// <summary>The runtime exposes the same operation implementation passed to its model graph.</summary>
 	[TestMethod]
 	public async Task RuntimeUsesTheInjectedOperationBoundary()

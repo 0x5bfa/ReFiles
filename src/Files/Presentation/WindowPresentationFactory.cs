@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Commands;
+using Files.Adapters;
 using Files.Activation;
 using Files.Core.Data;
 using Files.Core.Sessions;
@@ -23,7 +24,7 @@ internal sealed class WindowPresentationFactory
 {
 	private readonly Dictionary<Type, Func<IPaneContentSession, WindowCommandManager, PaneContentPresentation>> _contentPresenters = [];
 	private readonly IStorageWorkspace _workspace;
-	private readonly WindowsBrowseInteraction _shellInteraction;
+	private readonly IStorageOperationService _storageOperations;
 	private readonly StorageOperationTracker _operationTracker;
 	private readonly AppSettingsService _appSettings;
 	private readonly IUIDispatcher _dispatcher;
@@ -64,7 +65,7 @@ internal sealed class WindowPresentationFactory
 		ArgumentNullException.ThrowIfNull(commandRegistry);
 
 		_workspace = workspace;
-		_shellInteraction = new WindowsBrowseInteraction(workspace, storageOperations, ownerWindowHandle);
+		_storageOperations = storageOperations;
 		_operationTracker = operationTracker;
 		_appSettings = appSettings;
 		_dispatcher = dispatcher;
@@ -133,7 +134,10 @@ internal sealed class WindowPresentationFactory
 
 	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
 	{
-		return new FolderBrowserViewModel(pane, _shellInteraction, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
+		var adapter = new BrowsePresentationAdapter(pane, _dispatcher, ownerWindowHandle: _ownerWindowHandle);
+		var interaction = new WindowsBrowseInteraction(pane, adapter, _workspace, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle);
+
+		return new FolderBrowserViewModel(pane, adapter, interaction, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
 	}
 
 	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)
