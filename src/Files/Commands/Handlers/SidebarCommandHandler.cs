@@ -11,6 +11,8 @@ internal sealed class SidebarCommandHandler : ICommandHandler
 
 	public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.AllowParallel;
 
+	public CommandExecutionScope ExecutionScope => CommandExecutionScope.Window;
+
 	public CommandStateInvalidation StateDependencies => CommandStateInvalidation.Pane;
 
 	public CommandState GetState(CommandContext context)

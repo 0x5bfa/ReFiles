@@ -13,6 +13,8 @@ internal sealed class PaneCommandHandler(CommandId id) : ICommandHandler
 	public CommandConcurrencyPolicy ConcurrencyPolicy =>
 		CommandConcurrencyPolicy.RejectWhileRunning;
 
+	public CommandExecutionScope ExecutionScope => id == CommandIds.TogglePreviewPane ? CommandExecutionScope.Window : CommandExecutionScope.Tab;
+
 	public CommandStateInvalidation StateDependencies =>
 		CommandStateInvalidation.ActiveTab |
 		CommandStateInvalidation.Pane;

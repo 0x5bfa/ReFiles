@@ -182,6 +182,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	internal Func<Task>? CloseWindowAsync { get; set; }
 
+	internal Guid WindowId => _window.Id;
+
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
+
 	public TabViewModel? ActiveTab => Tabs.FirstOrDefault(tab => tab.Id == _window.ActiveTab?.Id);
 
 	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;

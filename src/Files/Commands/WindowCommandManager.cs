@@ -14,7 +14,7 @@ public sealed partial class WindowCommandManager : IDisposable
 	private readonly IUIDispatcher _dispatcher;
 	private readonly Dictionary<CommandId, ICommandHandler> _handlers;
 	private readonly Dictionary<CommandId, CommandBindingViewModel> _bindings = [];
-	private readonly Dictionary<CommandId, CommandCall> _activeCalls = [];
+	private readonly Dictionary<CommandCallKey, CommandCall> _activeCalls = [];
 	private readonly CancellationTokenSource _lifetime = new();
 	private readonly Lock _syncRoot = new();
 	private int _isDisposed;
@@ -129,24 +129,25 @@ public sealed partial class WindowCommandManager : IDisposable
 			return CommandExecutionResult.Unsupported();
 		}
 
+		var key = new CommandCallKey(id, context.GetScopeId(handler.ExecutionScope), handler.ConcurrencyPolicy is CommandConcurrencyPolicy.AllowParallel ? Guid.NewGuid() : Guid.Empty);
 		CommandCall call;
 		CommandCall? previousCall = null;
 		lock (_syncRoot)
 		{
 			EnsureActive();
 
-			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.RejectWhileRunning && _activeCalls.ContainsKey(id))
+			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.RejectWhileRunning && _activeCalls.ContainsKey(key))
 			{
 				return CommandExecutionResult.Unsupported();
 			}
 
-			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.CancelPrevious && _activeCalls.TryGetValue(id, out previousCall))
+			if (handler.ConcurrencyPolicy is CommandConcurrencyPolicy.CancelPrevious && _activeCalls.TryGetValue(key, out previousCall))
 			{
 				previousCall.Cancel();
 			}
 
 			call = new CommandCall(cancellationToken, _lifetime.Token);
-			_activeCalls[id] = call;
+			_activeCalls[key] = call;
 		}
 
 		try
@@ -155,6 +156,13 @@ public sealed partial class WindowCommandManager : IDisposable
 			{
 				await previousCall.Completion.ConfigureAwait(false);
 				call.Token.ThrowIfCancellationRequested();
+			}
+
+			call.Token.ThrowIfCancellationRequested();
+
+			if (!context.IsCurrent(handler.ExecutionScope))
+			{
+				return CommandExecutionResult.Canceled();
 			}
 
 			var result = await handler
@@ -181,9 +189,9 @@ public sealed partial class WindowCommandManager : IDisposable
 		{
 			lock (_syncRoot)
 			{
-				if (_activeCalls.TryGetValue(id, out var active) && ReferenceEquals(active, call))
+				if (_activeCalls.TryGetValue(key, out var active) && ReferenceEquals(active, call))
 				{
-					_activeCalls.Remove(id);
+					_activeCalls.Remove(key);
 				}
 			}
 
@@ -260,6 +268,8 @@ public sealed partial class WindowCommandManager : IDisposable
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 	}
+
+	private readonly record struct CommandCallKey(CommandId Id, Guid ScopeId, Guid InvocationId);
 
 	private sealed partial class CommandCall : IDisposable
 	{

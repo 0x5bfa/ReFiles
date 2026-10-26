@@ -31,16 +31,21 @@ internal sealed class OpenItemCommandHandler : ICommandHandler
 
 	public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 	{
-		if (context.ActiveFolderBrowser is not { } browser || context.InvokedItem is not { } item)
+		if (context.ActiveFolderBrowser is not { } browser || context.InvokedReference is not { } reference)
 		{
 			return CommandExecutionResult.Unsupported();
 		}
 
-		var request = new ItemActivationRequest(item.Reference, item.IsFolder, GetWorkingDirectory(browser.Location), context.InvocationPoint);
+		var request = new ItemActivationRequest(reference, context.InvokedItemIsFolder, GetWorkingDirectory(context.Location), context.InvocationPoint);
 		var outcome = await _activationService.ActivateAsync(request, cancellationToken).ConfigureAwait(false);
 		if (outcome is ItemActivationOutcome.Navigate)
 		{
-			await browser.NavigateToItemAsync(item, cancellationToken).ConfigureAwait(false);
+			if (!context.IsCurrent(CommandExecutionScope.Pane))
+			{
+				return CommandExecutionResult.Canceled();
+			}
+
+			await browser.NavigateToReferenceAsync(reference, cancellationToken).ConfigureAwait(false);
 		}
 
 		return outcome is ItemActivationOutcome.Unsupported ? CommandExecutionResult.Unsupported() : CommandExecutionResult.Succeeded();

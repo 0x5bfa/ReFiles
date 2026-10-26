@@ -21,6 +21,8 @@ internal sealed class DisplayCommandHandler(CommandId id) : ICommandHandler
 
 	public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.CancelPrevious;
 
+	public CommandExecutionScope ExecutionScope => id == CommandIds.ShowHiddenItems || id == CommandIds.ShowFileExtensions ? CommandExecutionScope.Window : CommandExecutionScope.Pane;
+
 	public CommandStateInvalidation StateDependencies =>
 		CommandStateInvalidation.ActiveTab |
 		CommandStateInvalidation.Loading |

@@ -9,3 +9,10 @@ public enum CommandConcurrencyPolicy
 	CancelPrevious,
 	RejectWhileRunning,
 }
+
+public enum CommandExecutionScope
+{
+	Window,
+	Tab,
+	Pane,
+}

@@ -25,6 +25,8 @@ public interface ICommandHandler
 
 	CommandConcurrencyPolicy ConcurrencyPolicy { get; }
 
+	CommandExecutionScope ExecutionScope => CommandExecutionScope.Pane;
+
 	CommandStateInvalidation StateDependencies { get; }
 
 	CommandState GetState(CommandContext context);

@@ -848,18 +848,36 @@ public sealed class BrowsePresentationPipelineTests
 	/// <summary>
 	/// Verifies that canceling a previous command waits for its call to finish.
 	/// </summary>
+	/// <param name="refreshWhileWaiting">Whether to invalidate the captured generation before execution.</param>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
-	[TestMethod]
-	public async Task CancelPreviousCommandWaitsForCanceledCallToFinish()
+	[UITestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task CancelPreviousCommandWaitsForCanceledCallToFinish(bool refreshWhileWaiting)
 	{
 		var dispatcher = new ManualDispatcher();
 		var handler = new SerializingCommandHandler(CommandIds.NavigatePath);
-		var root = (RootViewModel)RuntimeHelpers.GetUninitializedObject(typeof(RootViewModel));
+		await using var window = new WindowSession(new BrowsePaneSessionFactory(new PresentationBrowseLocationResolver(0, static (_, _) => ValueTask.CompletedTask)));
+		await using var workspace = new PresentationStorageWorkspace();
+		using var settings = new AppSettingsService(new AppSettingsData());
+		using var tracker = new StorageOperationTracker();
+		var factory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), tracker, settings, dispatcher, CreateSerializingCommandRegistry(handler));
+		await using var root = factory.Create(window);
 		using var manager = new WindowCommandManager(root, CreateSerializingCommandRegistry(handler), dispatcher);
+		await window.OpenTabAsync(HomeLocation.Instance);
+		dispatcher.DrainAll();
+		var originalPaneId = root.ActiveTab!.ActivePane!.Id;
 		var firstCall = manager.ExecuteAsync(CommandIds.NavigatePath, "first");
 		await handler.FirstCallStarted.WaitAsync(TimeSpan.FromSeconds(5));
 		var secondCall = manager.ExecuteAsync(CommandIds.NavigatePath, "second");
 		await handler.FirstCallCancellationObserved.WaitAsync(TimeSpan.FromSeconds(5));
+		if (refreshWhileWaiting)
+		{
+			await root.ActiveFolderBrowser!.RefreshAsync();
+		}
+
+		await window.OpenTabAsync(HomeLocation.Instance);
+		dispatcher.DrainAll();
 		try
 		{
 			Assert.AreEqual(1, handler.InvocationCount);
@@ -873,9 +891,47 @@ public sealed class BrowsePresentationPipelineTests
 		var results = await Task.WhenAll(firstCall, secondCall).WaitAsync(TimeSpan.FromSeconds(5));
 
 		Assert.AreEqual(CommandExecutionStatus.Canceled, results[0].Status);
-		Assert.AreEqual(CommandExecutionStatus.Succeeded, results[1].Status);
-		Assert.AreEqual(2, handler.InvocationCount);
+		Assert.AreEqual(refreshWhileWaiting ? CommandExecutionStatus.Canceled : CommandExecutionStatus.Succeeded, results[1].Status);
+		Assert.AreEqual(refreshWhileWaiting ? 1 : 2, handler.InvocationCount);
 		Assert.AreEqual(1, handler.MaximumConcurrency);
+		Assert.AreEqual(originalPaneId, handler.LastPaneId);
+	}
+
+	/// <summary>The same command can run independently in two panes.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[UITestMethod]
+	public async Task CommandsInAnotherPaneDoNotCancelTheFirstPane()
+	{
+		var dispatcher = new ManualDispatcher();
+		var handler = new SerializingCommandHandler(CommandIds.NavigatePath);
+		await using var window = new WindowSession(new BrowsePaneSessionFactory(new PresentationBrowseLocationResolver(0, static (_, _) => ValueTask.CompletedTask)));
+		await using var workspace = new PresentationStorageWorkspace();
+		using var settings = new AppSettingsService(new AppSettingsData());
+		using var tracker = new StorageOperationTracker();
+		var factory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), tracker, settings, dispatcher, CreateSerializingCommandRegistry(handler));
+		await using var root = factory.Create(window);
+		using var manager = new WindowCommandManager(root, CreateSerializingCommandRegistry(handler), dispatcher);
+		await window.OpenTabAsync(HomeLocation.Instance);
+		dispatcher.DrainAll();
+		using var cancellation = new CancellationTokenSource();
+		var firstCall = manager.ExecuteAsync(CommandIds.NavigatePath, "first", cancellation.Token);
+		await handler.FirstCallStarted.WaitAsync(TimeSpan.FromSeconds(5));
+		try
+		{
+			await window.OpenTabAsync(HomeLocation.Instance);
+			dispatcher.DrainAll();
+			var result = await manager.ExecuteAsync(CommandIds.NavigatePath, "second").WaitAsync(TimeSpan.FromSeconds(5));
+
+			Assert.AreEqual(CommandExecutionStatus.Succeeded, result.Status);
+			Assert.IsFalse(handler.FirstCallCancellationObserved.IsCompleted);
+			Assert.AreEqual(2, handler.MaximumConcurrency);
+		}
+		finally
+		{
+			cancellation.Cancel();
+			handler.AllowFirstCallToFinish();
+			await firstCall.WaitAsync(TimeSpan.FromSeconds(5));
+		}
 	}
 
 	private static int ReadDisposalStressIterationCount()
@@ -1090,6 +1146,8 @@ public sealed class BrowsePresentationPipelineTests
 
 		public int MaximumConcurrency => Volatile.Read(ref _maximumConcurrency);
 
+		public Guid? LastPaneId { get; private set; }
+
 		public SerializingCommandHandler(CommandId id)
 		{
 			Id = id;
@@ -1102,6 +1160,7 @@ public sealed class BrowsePresentationPipelineTests
 
 		public async ValueTask<CommandExecutionResult> ExecuteAsync(CommandContext context, CancellationToken cancellationToken = default)
 		{
+			LastPaneId = context.ActivePane?.Id;
 			var invocation = Interlocked.Increment(ref _invocationCount);
 			var activeCount = Interlocked.Increment(ref _activeCount);
 			UpdateMaximum(ref _maximumConcurrency, activeCount);

@@ -81,6 +81,27 @@ public sealed class BrowseApplicationModelTests
 		Assert.IsTrue(operations.Requests.Cast<DeleteOperationRequest>().All(static request => request.Permanently));
 	}
 
+	/// <summary>Changing the live selection does not retarget a captured deletion.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task DeleteItemsKeepsTheCapturedTargets()
+	{
+		var factory = new TestModelFactory();
+		var first = factory.CreateModel("one", "One", out _);
+		var second = factory.CreateModel("two", "Two", out _);
+		await using var workspace = new StorageWorkspace([factory.Source], new StorableModelFactory());
+		var operations = new RecordingOperations();
+		var services = new BrowseApplicationServices(workspace, operations);
+		await using var owner = new BrowsePaneSessionFactory(new TestBrowseLocationResolver([first, second]), services: services).Create();
+		var pane = (BrowsePaneSession)owner.Content;
+		await pane.NavigateAsync(HomeLocation.Instance);
+		pane.BrowseSession.SetSelection([second.Reference.GetKey()], null, null);
+
+		await pane.DeleteItemsAsync([first.Reference]);
+
+		Assert.AreEqual(first.Reference, ((DeleteOperationRequest)operations.Requests.Single()).Item);
+	}
+
 	/// <summary>The runtime exposes the same operation implementation passed to its model graph.</summary>
 	[TestMethod]
 	public async Task RuntimeUsesTheInjectedOperationBoundary()

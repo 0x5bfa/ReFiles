@@ -19,6 +19,8 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	private int _isDisposed;
 
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
+
 	public Guid Id => _pane.Id;
 
 	public FolderBrowserViewModel? FolderBrowser => _presentation.FolderBrowser;

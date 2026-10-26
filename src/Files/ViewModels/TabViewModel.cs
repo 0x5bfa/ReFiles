@@ -32,6 +32,8 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 	private bool _isRefreshing;
 
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
+
 	public Guid Id => _tab.Id;
 
 	public ObservableCollection<PaneViewModel> Panes { get; }

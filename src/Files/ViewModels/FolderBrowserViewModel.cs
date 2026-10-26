@@ -85,6 +85,10 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 
 	private FolderViewMode _viewMode = FolderViewMode.Details;
 
+	internal long Generation => _pane.BrowseSession.Generation;
+
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
+
 	internal WindowCommandManager CommandManager { get; }
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
@@ -379,9 +383,13 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		SetSelectionCore([]);
 	}
 
-	public async Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
+	public Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
 	{
-		var selection = GetSelectedShellClipboardItems();
+		return CopyItemsAsync(GetSelectedShellClipboardItems(), move, cancellationToken);
+	}
+
+	internal async Task CopyItemsAsync(IReadOnlyList<StorableReference> selection, bool move, CancellationToken cancellationToken)
+	{
 		if (_windowsSource is null || selection.Count is 0)
 		{
 			throw new NotSupportedException("Only Windows Shell items can be copied to the Windows clipboard.");
@@ -413,9 +421,14 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
 	}
 
-	public async Task DeleteSelectionAsync(CancellationToken cancellationToken = default)
+	public Task DeleteSelectionAsync(CancellationToken cancellationToken = default)
 	{
-		var result = await _pane.DeleteSelectionAsync(cancellationToken).ConfigureAwait(false);
+		return DeleteItemsAsync(SelectedItems.Select(static item => item.Reference).ToArray(), cancellationToken);
+	}
+
+	internal async Task DeleteItemsAsync(IReadOnlyList<StorableReference> references, CancellationToken cancellationToken)
+	{
+		var result = await _pane.DeleteItemsAsync(references, cancellationToken).ConfigureAwait(false);
 		if (!result.Succeeded)
 		{
 			throw result.Error!;

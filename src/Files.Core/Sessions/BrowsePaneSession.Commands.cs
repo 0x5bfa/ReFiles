@@ -67,9 +67,23 @@ public sealed partial class BrowsePaneSession
 	{
 		EnsureActive();
 
+		var references = BrowseSession.Selection.SelectedKeys.Select(key => BrowseSession.TryGet(key, out var item) ? item.Reference : null).OfType<StorableReference>().ToArray();
+
+		return await DeleteItemsAsync(references, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Deletes immutable item references captured by the caller.</summary>
+	/// <param name="references">The captured operation targets.</param>
+	/// <param name="cancellationToken">Cancels before acceptance.</param>
+	/// <returns>The aggregate operation result.</returns>
+	public async ValueTask<StorageOperationResult> DeleteItemsAsync(IReadOnlyList<StorableReference> references, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		ArgumentNullException.ThrowIfNull(references);
+
 		var services = _services ?? throw new InvalidOperationException("No browse application services were configured.");
-		var requests = BrowseSession.Selection.SelectedKeys.Select(key => BrowseSession.TryGet(key, out var item)
-			? (StorageOperationRequest)CreateDeleteRequest(item.Reference) : null).OfType<StorageOperationRequest>().ToArray();
+		var requests = references.Select(reference => (StorageOperationRequest)CreateDeleteRequest(reference)).ToArray();
 
 		return await services.Operations.ExecuteBatchAsync(requests, cancellationToken).ConfigureAwait(false);
 	}

@@ -46,16 +46,16 @@ internal sealed class FileCommandHandler(CommandId id) : ICommandHandler
 		switch (id)
 		{
 			case var commandId when commandId == CommandIds.Copy:
-				await browser.CopySelectionAsync(move: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+				await browser.CopyItemsAsync(context.SelectedReferences, move: false, cancellationToken: cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.Cut:
-				await browser.CopySelectionAsync(move: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+				await browser.CopyItemsAsync(context.SelectedReferences, move: true, cancellationToken: cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.Paste:
 				await browser.PasteFromClipboardAsync(cancellationToken).ConfigureAwait(false);
 				break;
 			case var commandId when commandId == CommandIds.Delete:
-				await browser.DeleteSelectionAsync(cancellationToken).ConfigureAwait(false);
+				await browser.DeleteItemsAsync(context.SelectedReferences, cancellationToken).ConfigureAwait(false);
 				break;
 			default:
 				throw new InvalidOperationException($"Unsupported file command '{id}'.");
