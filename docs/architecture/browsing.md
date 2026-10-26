@@ -116,3 +116,11 @@ Tests should cover first-row-before-completion behavior, bounded publication, st
 - large sort/group work synchronously on the UI thread;
 - relying only on cancellation tokens for stale-result safety;
 - provider-specific branches in generic browse code.
+
+## Aggregate Home sources
+
+Home enumerates sources concurrently through a bounded merge queue and publishes roots immediately. One source's failure is represented by `HomeSourceState`, not a failed Home navigation. A slow source cannot delay roots already available from other sources. `BrowseSession.HomeSources` and its state notifications expose loading, ready, and failed source states.
+
+`HomeBrowseLocationContext.RetrySourceAsync` serializes retries per source and waits for that source's initial attempt. It re-enumerates only the requested source. A failed or canceled retry retains the previously published roots. A successful retry publishes reference changes through the normal generation-checked browse change pipeline. Temporary models and abandoned merge buffers are disposed by their owning enumeration.
+
+A workspace may expose `IStorageSourceRegistry`. Visible-source changes invalidate Home so the next context reflects the current collection. Removing a source hides it from new resolution and enumeration; its connection remains owned until workspace disposal because existing item models may still borrow it. The same instance can be reactivated. A different instance cannot reuse its identity during that workspace lifetime. Registration concerns browsing only and does not configure an operation executor or server provider.

@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using Files.Core.Models;
 using Files.Core.Storage;
@@ -11,9 +10,13 @@ namespace Files.Core.Data;
 /// <summary>
 /// Composes configured storage sources and owns their lifetime.
 /// </summary>
-public sealed class StorageWorkspace : IStorageWorkspace
+public sealed class StorageWorkspace : IStorageWorkspace, IStorageSourceRegistry
 {
-	private readonly ReadOnlyDictionary<StorageSourceId, IStorageSource> _sourcesById;
+	private readonly Dictionary<StorageSourceId, IStorageSource> _sourcesById;
+
+	private readonly Dictionary<StorageSourceId, IStorageSource> _ownedSourcesById;
+
+	private IReadOnlyList<IStorageSource> _sourceSnapshot;
 
 	private readonly Lock _disposalLock = new();
 
@@ -22,7 +25,10 @@ public sealed class StorageWorkspace : IStorageWorkspace
 	private volatile bool _isDisposed;
 
 	/// <inheritdoc />
-	public IReadOnlyList<IStorageSource> Sources { get; }
+	public IReadOnlyList<IStorageSource> Sources => Volatile.Read(ref _sourceSnapshot);
+
+	/// <inheritdoc />
+	public event EventHandler? SourcesChanged;
 
 	internal IStorableModelFactory ModelFactory { get; }
 
@@ -47,9 +53,54 @@ public sealed class StorageWorkspace : IStorageWorkspace
 			}
 		}
 
-		Sources = Array.AsReadOnly(sourceList);
-		_sourcesById = new ReadOnlyDictionary<StorageSourceId, IStorageSource>(sourceMap);
+		_sourceSnapshot = Array.AsReadOnly(sourceList);
+		_sourcesById = sourceMap;
+		_ownedSourcesById = new Dictionary<StorageSourceId, IStorageSource>(sourceMap);
 		ModelFactory = modelFactory;
+	}
+
+	/// <inheritdoc />
+	public void AddSource(IStorageSource source)
+	{
+		ArgumentNullException.ThrowIfNull(source);
+
+		lock (_disposalLock)
+		{
+			ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+			if (_sourcesById.ContainsKey(source.SourceId) || (_ownedSourcesById.TryGetValue(source.SourceId, out var owned) && !ReferenceEquals(source, owned)))
+			{
+				throw new ArgumentException("The source identity is already owned by this workspace.", nameof(source));
+			}
+
+			_ownedSourcesById.TryAdd(source.SourceId, source);
+			_sourcesById.Add(source.SourceId, source);
+			Volatile.Write(ref _sourceSnapshot, Array.AsReadOnly(_sourcesById.Values.ToArray()));
+		}
+
+		SourcesChanged?.Invoke(this, EventArgs.Empty);
+	}
+
+	/// <inheritdoc />
+	public bool RemoveSource(StorageSourceId sourceId)
+	{
+		ArgumentNullException.ThrowIfNull(sourceId);
+
+		lock (_disposalLock)
+		{
+			ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+			if (!_sourcesById.Remove(sourceId))
+			{
+				return false;
+			}
+
+			Volatile.Write(ref _sourceSnapshot, Array.AsReadOnly(_sourcesById.Values.ToArray()));
+		}
+
+		SourcesChanged?.Invoke(this, EventArgs.Empty);
+
+		return true;
 	}
 
 	/// <inheritdoc />
@@ -133,21 +184,25 @@ public sealed class StorageWorkspace : IStorageWorkspace
 
 	private IStorageSource GetSource(StorageSourceId sourceId)
 	{
-		ObjectDisposedException.ThrowIf(_isDisposed, this);
 		ArgumentNullException.ThrowIfNull(sourceId);
 
-		if (!_sourcesById.TryGetValue(sourceId, out var source))
+		lock (_disposalLock)
 		{
-			throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered.");
-		}
+			ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-		return source;
+			if (!_sourcesById.TryGetValue(sourceId, out var source))
+			{
+				throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered.");
+			}
+
+			return source;
+		}
 	}
 
 	private async Task DisposeCoreAsync()
 	{
 		List<Exception>? errors = null;
-		foreach (var source in Sources.Reverse())
+		foreach (var source in _ownedSourcesById.Values.Reverse())
 		{
 			try
 			{

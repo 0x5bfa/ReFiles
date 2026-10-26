@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Models;
+using Files.Core.Capabilities.Changes;
 
 namespace Files.Core.Browsing;
 
@@ -15,6 +16,9 @@ public interface IBrowseLocationContext : IAsyncDisposable
 
 	/// <summary>Gets the model for the location, if one exists.</summary>
 	IStorableModel? LocationModel { get; }
+
+	/// <summary>Gets optional location-level changes, including aggregate locations without a location model.</summary>
+	IFolderChangeSource? ChangeSource => null;
 
 	/// <summary>Enumerates the items in the location.</summary>
 	/// <param name="cancellationToken">The token used to cancel enumeration.</param>

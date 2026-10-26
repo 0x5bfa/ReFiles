@@ -54,6 +54,9 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	/// <inheritdoc />
 	public long Generation => Volatile.Read(ref _activeContext)?.Generation ?? 0;
 
+	/// <summary>Gets independent source loading states when browsing Home.</summary>
+	public IReadOnlyList<HomeSourceState> HomeSources => (Context as HomeBrowseLocationContext)?.Sources ?? [];
+
 	/// <inheritdoc />
 	public IReadOnlyList<IStorableModel> Items => Volatile.Read(ref _itemProjection).Items;
 
@@ -189,7 +192,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 			CoreDiagnosticLog.Write("BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 
-			var changes = nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
+			var changes = nextLocationContext.ChangeSource ?? nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
 			var generation = Interlocked.Increment(ref _generationCounter);
 			nextContext = new BrowseContextState(this, nextLocationContext, changes, generation);
 			Volatile.Write(ref _preparingContext, nextContext);
@@ -203,7 +206,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
 			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
-			var targetBatchSize = location is SearchLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
+			var targetBatchSize = location is SearchLocation or HomeLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
 			var pendingBatch = new List<IStorableModel>(targetBatchSize);
 			var firstItemReturned = false;
 			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
@@ -239,7 +242,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
 				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState, ref enumerationActivated);
 				pendingBatch.Clear();
-				targetBatchSize = targetBatchSize switch
+				targetBatchSize = location is HomeLocation ? 1 : targetBatchSize switch
 				{
 					SearchInitialEnumerationBatchSize => InitialEnumerationBatchSize,
 					InitialEnumerationBatchSize => EnumerationBatchSize,
@@ -1012,6 +1015,10 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 			_changes.Changed += OnChanged;
 			_changes.Faulted += OnFaulted;
+			if (Context is HomeBrowseLocationContext home)
+			{
+				home.SourceStatesChanged += OnSourceStatesChanged;
+			}
 			Volatile.Write(ref _handlersAttached, 1);
 
 			try
@@ -1040,6 +1047,15 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 			_changes.Changed -= OnChanged;
 			_changes.Faulted -= OnFaulted;
+			if (Context is HomeBrowseLocationContext home)
+			{
+				home.SourceStatesChanged -= OnSourceStatesChanged;
+			}
+		}
+
+		private void OnSourceStatesChanged(object? sender, EventArgs args)
+		{
+			_owner.OnStateChanged();
 		}
 
 		private void OnChanged(object? sender, FolderChangeEventArgs args)

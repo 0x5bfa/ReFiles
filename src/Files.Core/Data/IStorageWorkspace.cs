@@ -19,6 +19,9 @@ public interface IStorageWorkspace : IAsyncDisposable
 	/// </summary>
 	IReadOnlyList<IStorageSource> Sources { get; }
 
+	/// <summary>Gets the optional registry for changing the visible source set.</summary>
+	IStorageSourceRegistry? SourceRegistry => this as IStorageSourceRegistry;
+
 	/// <summary>
 	/// Gets the root folder models exposed by a storage source.
 	/// </summary>
