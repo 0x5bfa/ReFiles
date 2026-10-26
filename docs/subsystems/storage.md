@@ -43,6 +43,12 @@ Folder enumeration supplies the browse pipeline. Providers should yield useful i
 
 Properties, thumbnails, preview, streams, operations, search, and change observation belong behind capability contracts. An item lacking a capability is valid; generic code must tolerate that absence.
 
+## Mutations
+
+Folder types describe hierarchy, not write permissions. A Windows folder can be a read-only namespace, an access-controlled directory, or a writable directory; its CLR type does not establish whether a particular mutation is allowed.
+
+Mutation intent goes through `IStorageOperationService` and `IStorageOperationHandler`. `CanHandle(request)` checks routing support for the actual references and operation. It is not an authorization guarantee: execution must still validate current permissions and report failures. Do not infer writability from a folder type or add a parallel mutable-folder API.
+
 ## Ownership
 
 A resolved model, stream, provider session, or capability result may have different lifetime semantics. APIs must document whether results are borrowed, owned, or tied to a parent/session lifetime. See [`../architecture/ownership-and-lifetime.md`](../architecture/ownership-and-lifetime.md).
