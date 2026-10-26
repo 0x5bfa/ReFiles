@@ -7,7 +7,6 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
 
 namespace Files.UnitTests;
 
@@ -259,16 +258,22 @@ public sealed class BrowsePreviewModelTests
 	}
 
 	/// <summary>
-	/// Test case: an activation-time Shell policy block becomes an exact retryable snapshot.
+	/// Test case: a provider-independent presentation policy block retains exact snapshot and result ownership.
 	/// </summary>
+	/// <param name="reason">The provider-independent policy reason.</param>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
-	public async Task ActivationBlockBecomesExactRetryableSnapshot()
+	[DataRow(PreviewBlockReason.AccessDenied)]
+	[DataRow(PreviewBlockReason.Untrusted)]
+	[DataRow(PreviewBlockReason.RequiresHydration)]
+	[DataRow(PreviewBlockReason.TooLarge)]
+	[DataRow(PreviewBlockReason.DisabledByPolicy)]
+	public async Task PresentationBlockRetainsTheExactSnapshotAndResult(PreviewBlockReason reason)
 	{
 		var factory = new TestModelFactory();
 		var folder = factory.CreateModel("folder", "Folder", out _);
-		var shellResult = new WindowsShellPreviewResult(new StorableReference(new StorageSourceId("source"), "item"), Guid.NewGuid());
-		var source = new TestPreviewSource { Result = shellResult };
+		var result = new TestPreviewResult();
+		var source = new TestPreviewSource { Result = result };
 		var item = factory.CreateModel("item", "Item", out _, previewSource: source);
 		var resolver = new TestBrowseLocationResolver([item]) { LocationModelFactory = _ => folder };
 		using var session = new BrowseSession(resolver);
@@ -279,11 +284,40 @@ public sealed class BrowsePreviewModelTests
 		await WaitUntilAsync(() => preview.Current.Status is BrowsePreviewStatus.Ready);
 		var readySnapshot = preview.Current;
 
-		Assert.IsTrue(preview.TryReportShellPreviewBlocked(readySnapshot, PreviewBlockReason.Untrusted));
+		Assert.IsFalse(preview.TryReportPreviewBlocked(readySnapshot with { }, reason));
+		Assert.Throws<ArgumentOutOfRangeException>(() => preview.TryReportPreviewBlocked(readySnapshot, (PreviewBlockReason)(-1)));
+		Assert.AreSame(readySnapshot, preview.Current);
+		Assert.IsTrue(preview.TryReportPreviewBlocked(readySnapshot, reason));
 		Assert.AreEqual(BrowsePreviewStatus.Blocked, preview.Current.Status);
-		Assert.AreEqual(PreviewBlockReason.Untrusted, preview.Current.BlockReason);
-		Assert.AreSame(shellResult, preview.Current.Result);
-		Assert.IsFalse(preview.TryReportShellPreviewBlocked(readySnapshot, PreviewBlockReason.Untrusted));
+		Assert.AreEqual(reason, preview.Current.BlockReason);
+		Assert.AreSame(result, preview.Current.Result);
+		Assert.IsFalse(result.IsDisposed);
+		Assert.IsFalse(preview.TryReportPreviewBlocked(readySnapshot, reason));
+	}
+
+	/// <summary>A delayed presentation failure cannot block the newly selected item's preview.</summary>
+	/// <returns>The test task.</returns>
+	[TestMethod]
+	public async Task LatePresentationBlockDoesNotReplaceTheNewSelection()
+	{
+		var factory = new TestModelFactory();
+		var folder = factory.CreateModel("folder", "Folder", out _);
+		var first = factory.CreateModel("first", "First", out _, previewSource: new TestPreviewSource { Result = new TestPreviewResult() });
+		var secondResult = new TestPreviewResult();
+		var second = factory.CreateModel("second", "Second", out _, previewSource: new TestPreviewSource { Result = secondResult });
+		var resolver = new TestBrowseLocationResolver([first, second]) { LocationModelFactory = _ => folder };
+		using var session = new BrowseSession(resolver);
+		await session.NavigateAsync(new FolderLocation(folder.Reference));
+		await using var preview = new BrowsePreviewModel(session, TimeSpan.Zero);
+		session.SetSelection([first.Reference.GetKey()], first.Reference.GetKey(), null);
+		await WaitUntilAsync(() => preview.Current.Status is BrowsePreviewStatus.Ready);
+		var previous = preview.Current;
+		session.SetSelection([second.Reference.GetKey()], second.Reference.GetKey(), null);
+		Assert.IsFalse(preview.TryReportPreviewBlocked(previous, PreviewBlockReason.Untrusted));
+		await WaitUntilAsync(() => preview.Current.Status is BrowsePreviewStatus.Ready && preview.Current.TargetKey == second.Reference.GetKey());
+		Assert.IsFalse(preview.TryReportPreviewBlocked(previous, PreviewBlockReason.AccessDenied));
+		Assert.AreSame(secondResult, preview.Current.Result);
+		Assert.AreEqual(BrowsePreviewStatus.Ready, preview.Current.Status);
 	}
 
 	/// <summary>

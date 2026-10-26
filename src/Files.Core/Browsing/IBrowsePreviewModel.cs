@@ -29,11 +29,11 @@ public interface IBrowsePreviewModel : IAsyncDisposable
 		return ValueTask.CompletedTask;
 	}
 
-	/// <summary>Publishes an activation-time Shell preview policy block when the supplied snapshot is still current.</summary>
-	/// <param name="expectedSnapshot">The Shell preview snapshot whose activation was blocked.</param>
-	/// <param name="reason">The policy reason reported by activation.</param>
+	/// <summary>Publishes a presentation-time policy block when the supplied ready snapshot is still current.</summary>
+	/// <param name="expectedSnapshot">The exact preview snapshot whose presentation was blocked.</param>
+	/// <param name="reason">The provider-independent policy reason reported by the presenter.</param>
 	/// <returns><see langword="true"/> when the block was published; otherwise, <see langword="false"/>.</returns>
-	bool TryReportShellPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
+	bool TryReportPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
 	{
 		return false;
 	}

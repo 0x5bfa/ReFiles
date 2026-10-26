@@ -70,7 +70,9 @@ public sealed partial class PreviewPaneViewModel : ObservableObject, IDisposable
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) is not 0, this);
 
-		return _preview.TryReportShellPreviewBlocked(expectedSnapshot, reason);
+		ArgumentNullException.ThrowIfNull(expectedSnapshot);
+
+		return expectedSnapshot.Result is WindowsShellPreviewResult && _preview.TryReportPreviewBlocked(expectedSnapshot, reason);
 	}
 
 	public void Dispose()

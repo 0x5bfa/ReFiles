@@ -42,3 +42,7 @@ Previewing untrusted content crosses a high-risk parser/handler boundary. Avoid 
 ## Tests
 
 Use deterministic preview doubles for selection coordination, cancellation, ownership, stream limits, and stale-result rejection. Keep third-party handler compatibility outside deterministic CI tests.
+
+## Presentation-time policy blocks
+
+Providers and their presenters translate native activation failures into `PreviewBlockReason`. `IBrowsePreviewModel.TryReportPreviewBlocked` accepts only the exact current ready snapshot and retains its result ownership when publishing the blocked state. It does not inspect provider-specific result types. A Windows Shell presenter validates its own result type before reporting a Shell activation failure. Exact-snapshot consent and retry remain owned by the common preview state model.

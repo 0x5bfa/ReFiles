@@ -272,7 +272,7 @@ public sealed class ShellPreviewVisualTests
 			return ValueTask.CompletedTask;
 		}
 
-		public bool TryReportShellPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
+		public bool TryReportPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
 		{
 			return false;
 		}

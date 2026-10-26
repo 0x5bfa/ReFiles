@@ -5,7 +5,6 @@ using System.Diagnostics;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
-using Files.Core.Windows;
 
 namespace Files.Core.Browsing;
 
@@ -124,9 +123,14 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 	}
 
 	/// <inheritdoc />
-	public bool TryReportShellPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
+	public bool TryReportPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
 	{
 		ArgumentNullException.ThrowIfNull(expectedSnapshot);
+
+		if (!Enum.IsDefined(reason))
+		{
+			throw new ArgumentOutOfRangeException(nameof(reason));
+		}
 
 		lock (_stateLock)
 		{
@@ -134,7 +138,7 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 				|| !ReferenceEquals(_current, expectedSnapshot)
 				|| expectedSnapshot.RequestVersion != Volatile.Read(ref _currentRequestVersion)
 				|| expectedSnapshot.Status is not BrowsePreviewStatus.Ready
-				|| expectedSnapshot.Result is not WindowsShellPreviewResult)
+				|| expectedSnapshot.Result is null)
 			{
 				return false;
 			}

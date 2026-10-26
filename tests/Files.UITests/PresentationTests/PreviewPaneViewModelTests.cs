@@ -87,6 +87,24 @@ public sealed class PreviewPaneViewModelTests
 		Assert.AreSame(shellResult, viewModel.Result);
 	}
 
+	/// <summary>Windows presentation rejects Shell failure reports for another provider's result.</summary>
+	[TestMethod]
+	public void ShellActivationBlockDoesNotApplyToAnotherProvider()
+	{
+		var preview = new TestPreviewModel();
+		using var viewModel = new PreviewPaneViewModel(preview, new InlineDispatcher());
+		var snapshot = new BrowsePreviewSnapshot(1, null, BrowsePreviewStatus.Ready, new OtherPreviewResult());
+		preview.Publish(snapshot);
+
+		Assert.IsFalse(viewModel.TryReportShellPreviewBlocked(snapshot, PreviewBlockReason.Untrusted));
+		Assert.AreSame(snapshot, preview.Current);
+		Assert.AreEqual(BrowsePreviewStatus.Ready, viewModel.Status);
+	}
+
+	private sealed class OtherPreviewResult : PreviewResult
+	{
+	}
+
 	private sealed class TestPreviewModel : IBrowsePreviewModel
 	{
 		public BrowsePreviewSnapshot Current { get; private set; } = new(0, null, BrowsePreviewStatus.Empty);
@@ -107,9 +125,9 @@ public sealed class PreviewPaneViewModelTests
 			return ValueTask.CompletedTask;
 		}
 
-		public bool TryReportShellPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
+		public bool TryReportPreviewBlocked(BrowsePreviewSnapshot expectedSnapshot, PreviewBlockReason reason)
 		{
-			if (!ReferenceEquals(Current, expectedSnapshot) || expectedSnapshot.Result is not WindowsShellPreviewResult)
+			if (!ReferenceEquals(Current, expectedSnapshot) || expectedSnapshot.Status is not BrowsePreviewStatus.Ready || expectedSnapshot.Result is null)
 			{
 				return false;
 			}
