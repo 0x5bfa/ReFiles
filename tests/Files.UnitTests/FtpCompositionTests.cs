@@ -16,6 +16,39 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class FtpCompositionTests
 {
+	/// <summary>Client-side FTP storage uses the explicitly selected execution boundary in either registration order.</summary>
+	/// <param name="externalFirst">Whether the external service is configured first.</param>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task ClientSourcesDoNotRegisterLocalOperations(bool externalFirst)
+	{
+		var sessions = new InMemoryFtpSessionFactory();
+		sessions.AddFile("/notes.txt", [1]);
+		var profile = new FtpConnectionProfile("client", "Client", "example.test");
+		var external = new StorageOperationService([]);
+		await using var builder = new FilesCoreBuilder();
+		if (externalFirst)
+		{
+			builder.UseStorageOperations(external);
+		}
+
+		builder.AddFtpStorage(profile, sessionFactory: sessions, enableArchives: false, enableOperations: false);
+		if (!externalFirst)
+		{
+			builder.UseStorageOperations(external);
+		}
+
+		await using var runtime = builder.Build();
+		var source = (FtpStorageSource)runtime.Workspace.Sources.Single();
+		await using var model = await runtime.Workspace.ResolveAsync(source.CreateReference(FtpPath.Parse("/notes.txt")));
+
+		Assert.AreEqual("notes.txt", model.Name);
+		Assert.AreSame(external, runtime.StorageOperations);
+		Assert.IsFalse(runtime.StorageOperations.CanHandle(new DeleteOperationRequest(model.Reference)));
+	}
+
 	/// <summary>
 	/// Test case: builder adds ftp properties and operations.
 	/// </summary>

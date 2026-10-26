@@ -6,6 +6,7 @@ using Files.Core.Composition;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Sessions;
+using Files.Core.Storage;
 
 namespace Files.UnitTests;
 
@@ -15,6 +16,28 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class FilesCoreBuilderTests
 {
+	/// <summary>An external execution boundary cannot silently discard local operation handlers.</summary>
+	/// <param name="externalFirst">Whether the external service is configured first.</param>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task RejectsMixedExecutionOwners(bool externalFirst)
+	{
+		await using var builder = new FilesCoreBuilder();
+		var external = new StorageOperationService([]);
+		if (externalFirst)
+		{
+			builder.UseStorageOperations(external);
+			Assert.Throws<InvalidOperationException>(() => builder.AddStorageOperationHandler(new LocalHandler()));
+		}
+		else
+		{
+			builder.AddStorageOperationHandler(new LocalHandler());
+			Assert.Throws<InvalidOperationException>(() => builder.UseStorageOperations(external));
+		}
+	}
+
 	/// <summary>
 	/// Test case: runtime builds navigable home and owns storage sources.
 	/// </summary>
@@ -154,4 +177,18 @@ public sealed class FilesCoreBuilderTests
 		Assert.IsTrue(source.IsDisposed);
 		Assert.AreEqual(1, source.DisposeCount);
 	}
+	private sealed class LocalHandler : IStorageOperationHandler
+	{
+		public bool CanHandle(StorageOperationRequest request)
+		{
+			return true;
+		}
+
+		public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
+			IStorageOperationControl? operationControl = null)
+		{
+			return ValueTask.FromResult(new StorageOperationResult(true, null));
+		}
+	}
+
 }

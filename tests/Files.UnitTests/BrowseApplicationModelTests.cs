@@ -116,7 +116,7 @@ public sealed class BrowseApplicationModelTests
 		sessions.AddFile("/two.txt", [2]);
 		var operations = new RecordingOperations();
 		var profile = new FtpConnectionProfile("transfer", "Transfer", "example.test");
-		await using var runtime = new FilesCoreBuilder().AddFtpStorage(profile, sessionFactory: sessions, enableArchives: false).UseStorageOperations(operations).Build();
+		await using var runtime = new FilesCoreBuilder().AddFtpStorage(profile, sessionFactory: sessions, enableArchives: false, enableOperations: false).UseStorageOperations(operations).Build();
 		var source = (FtpStorageSource)runtime.Workspace.Sources.Single();
 		var window = await runtime.ShellSession.CreateWindowAsync();
 		var pane = (BrowsePaneSession)window.ActiveTab!.ActivePane!.Content;

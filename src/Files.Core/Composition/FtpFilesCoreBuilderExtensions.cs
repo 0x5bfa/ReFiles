@@ -19,6 +19,7 @@ public static class FtpFilesCoreBuilderExtensions
 	/// <param name="sessionFactory">The optional FTP session factory.</param>
 	/// <param name="enableArchives">Whether to register archive browsing.</param>
 	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <param name="enableOperations">Whether to register in-process execution; disable this in clients that use an external executor.</param>
 	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddFtpStorage(
 		this FilesCoreBuilder builder,
@@ -26,7 +27,8 @@ public static class FtpFilesCoreBuilderExtensions
 		IFtpCredentialResolver? credentialResolver = null,
 		IFtpSessionFactory? sessionFactory = null,
 		bool enableArchives = true,
-		IArchiveCredentialResolver? archiveCredentialResolver = null)
+		IArchiveCredentialResolver? archiveCredentialResolver = null,
+		bool enableOperations = true)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(profile);
@@ -35,7 +37,7 @@ public static class FtpFilesCoreBuilderExtensions
 
 		try
 		{
-			RegisterStorage(builder, source);
+			RegisterStorage(builder, source, enableOperations);
 		}
 		catch (Exception registrationError)
 		{
@@ -59,24 +61,35 @@ public static class FtpFilesCoreBuilderExtensions
 	/// <param name="source">The FTP storage source to register.</param>
 	/// <param name="enableArchives">Whether to register archive browsing.</param>
 	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <param name="enableOperations">Whether to register in-process execution; disable this in clients that use an external executor.</param>
 	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddFtpStorage(
 		this FilesCoreBuilder builder,
 		FtpStorageSource source,
 		bool enableArchives = true,
-		IArchiveCredentialResolver? archiveCredentialResolver = null)
+		IArchiveCredentialResolver? archiveCredentialResolver = null,
+		bool enableOperations = true)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 		ArgumentNullException.ThrowIfNull(source);
 
-		RegisterStorage(builder, source);
+		RegisterStorage(builder, source, enableOperations);
 
 		return AddFtpCapabilities(builder, source, enableArchives, archiveCredentialResolver);
 	}
 
-	private static void RegisterStorage(FilesCoreBuilder builder, FtpStorageSource source)
+	private static void RegisterStorage(FilesCoreBuilder builder, FtpStorageSource source, bool enableOperations)
 	{
-		builder.AddStorageSource(source).AddStorageOperationHandler(new FtpStorageOperationHandler(source));
+		if (enableOperations)
+		{
+			builder.EnsureLocalStorageOperations();
+		}
+
+		builder.AddStorageSource(source);
+		if (enableOperations)
+		{
+			builder.AddStorageOperationHandler(new FtpStorageOperationHandler(source));
+		}
 	}
 
 	private static FilesCoreBuilder AddFtpCapabilities(FilesCoreBuilder builder, FtpStorageSource source, bool enableArchives, IArchiveCredentialResolver? archiveCredentialResolver)

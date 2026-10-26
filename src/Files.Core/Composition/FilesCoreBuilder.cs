@@ -86,6 +86,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(handler);
 
+		EnsureLocalStorageOperations();
 		_operationHandlers.Add(handler);
 
 		return this;
@@ -111,6 +112,11 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	{
 		EnsureMutable();
 		ArgumentNullException.ThrowIfNull(operations);
+
+		if (_operationHandlers.Count is not 0)
+		{
+			throw new InvalidOperationException("External execution cannot replace registered local handlers. Disable local operations when registering client-side storage sources.");
+		}
 
 		_storageOperations = operations;
 
@@ -216,6 +222,15 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			_disposeTask = _isBuilt ? Task.CompletedTask : DisposeUnbuiltResourcesAsync();
 
 			return new ValueTask(_disposeTask);
+		}
+	}
+
+	internal void EnsureLocalStorageOperations()
+	{
+		EnsureMutable();
+		if (_storageOperations is not null)
+		{
+			throw new InvalidOperationException("Local operation handlers cannot be registered when an external execution service is configured.");
 		}
 	}
 

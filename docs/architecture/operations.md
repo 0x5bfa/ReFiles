@@ -28,6 +28,12 @@ flowchart LR
 
 This is the target runtime call flow, not the project-reference graph. Both `Files` and `Files.BackgroundServer` reference `Files.Core`; Core does not reference the server. The client projection and adapter stay in `Files`, without another client project.
 
+## Composition
+
+A runtime has one execution owner. The main app supplies `WinRTStorageOperationService` with `UseStorageOperations` and registers client-side sources with `enableOperations: false`. Windows and FTP registration both support this option. Browsing a source does not imply that the configured server can mutate it.
+
+The builder rejects mixing an external executor with local handlers in either registration order. It never silently discards provider handlers or falls back to in-process mutations. In-process hosts, including the background server, register local provider handlers instead. Additional server providers require server-side configuration and a corresponding execution contract before the client advertises those operations.
+
 ## Requests and background operations
 
 All domain I/O belongs behind server services, but not every request is a retained Status Center operation:

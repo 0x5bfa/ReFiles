@@ -42,6 +42,11 @@ public static class WindowsFilesCoreBuilderExtensions
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 
+		if (enableOperations)
+		{
+			builder.EnsureLocalStorageOperations();
+		}
+
 		var windowsSource = source ?? new WindowsStorageSource();
 
 		try
