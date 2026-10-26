@@ -8,6 +8,7 @@
 		<Configurations>Debug;Release</Configurations>
 		<Platforms>x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+		<RuntimeIdentifier>win-$(Platform)</RuntimeIdentifier>
 		<UseWinUI>true</UseWinUI>
 		<EnableMsixTooling>true</EnableMsixTooling>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
@@ -43,9 +44,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Files.BackgroundServer\Files.BackgroundServer.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" />
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
 		<ProjectReference Include="..\Files.Controls\Files.Controls.csproj" />
 		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\FilesLauncher\FilesLauncher.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" />
 		<AdditionalFiles Include="Strings\en-US\Resources.resw" />
 	</ItemGroup>
 
@@ -62,13 +65,8 @@
 		</None>
 	</ItemGroup>
 
-	<Target Name="BuildBackgroundServer" BeforeTargets="ResolveAssemblyReferences">
-		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
+	<Target Name="VerifyBackgroundServerMetadata" BeforeTargets="ResolveAssemblyReferences">
 		<Error Condition="!Exists('$(BackgroundServerWinmd)')" Text="Files.BackgroundServer WinRT metadata was not generated." />
-	</Target>
-
-	<Target Name="BuildLauncher" BeforeTargets="ResolveAssemblyReferences">
-		<MSBuild Projects="$(LauncherProject)" Targets="Restore;Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform)" />
 	</Target>
 
 	<Target Name="PublishLauncher" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">

@@ -37,10 +37,12 @@ jobs:
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          global-json-file: global.json
+      - name: Verify .NET SDK
+        shell: pwsh
+        run: |
+          dotnet --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet --info
 
       - name: Pack the project
         shell: pwsh

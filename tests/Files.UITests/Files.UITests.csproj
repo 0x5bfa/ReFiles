@@ -24,7 +24,7 @@
 		<!-- Keep the bootstrap-disabled Files reference isolated from the normal app build output. -->
 		<FilesReferenceOutputPath>bin\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceOutputPath>
 		<FilesReferenceIntermediateOutputPath>obj\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceIntermediateOutputPath>
-		<FilesReferenceBuildProperties>SelfContained=false;WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false</FilesReferenceBuildProperties>
+		<FilesReferenceBuildProperties>SelfContained=false;WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false;ValidateExecutableReferencesMatchSelfContained=false</FilesReferenceBuildProperties>
 		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);OutputPath=$(FilesReferenceOutputPath);IntermediateOutputPath=$(FilesReferenceIntermediateOutputPath)</FilesReferenceBuildProperties>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
