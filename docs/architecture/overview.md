@@ -1,6 +1,6 @@
 # Architecture overview
 
-ReFiles is built around a UI-independent Core with platform/provider implementations and a WinUI presentation layer around it. The architecture is designed for multiple storage backends, progressive browsing, capability-based item behavior, responsive presentation, and isolated execution of long-running operations.
+ReFiles puts a UI-independent Core behind platform/provider implementations and a WinUI presentation layer. It supports multiple storage backends, progressive browsing, capability-based item behavior, responsive presentation, and isolated long-running operations.
 
 ## High-level architecture
 
@@ -59,9 +59,9 @@ Presentation may adapt Core state, but it does not define storage semantics.
 
 ## `Files.BackgroundServer`
 
-`Files.BackgroundServer` is the target execution owner for user-initiated domain I/O. It references Core implementations and exports a small WinRT facade. The app consumes its generated projection and keeps presentation/local Core state. Accepted background jobs have server-owned cancellation and survive client disconnection; short requests remain cancelable with their client/browse generation.
+`Files.BackgroundServer` is the target owner for user-initiated domain I/O, running accepted operations out of process through a small WinRT facade over Core. The app consumes its generated projection and retains presentation and local Core state.
 
-The app now submits complete Windows storage batches and observes their server-owned state. Browse I/O and additional providers still need migration. See [operations](operations.md) for the implemented boundary and [the server design](operation-server-proposal.md) for the remaining feature protocols.
+Accepted jobs use server-owned cancellation and survive client disconnection; short requests remain cancelable with their client/browse generation. The app submits complete Windows storage batches and observes server-owned state; browse I/O and additional providers still need migration. See [operations](operations.md) for current behavior and [the server design](operation-server-proposal.md) for remaining protocols.
 
 ## Storage providers and capabilities
 

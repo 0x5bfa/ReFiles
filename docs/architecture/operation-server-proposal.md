@@ -1,6 +1,6 @@
 # Proposal: the Files.BackgroundServer server boundary
 
-Status: Windows command integration implemented, 2026-10-21. Complete storage batches, rename/create requests, Shell New commands, attribute updates, pause/interruption control, and Status Center observation use the server. Read/query migration, additional providers, deployed scenario verification, and persistence remain separate work. See [operations.md](operations.md) for current behavior.
+Status (2026-10-21): Initial Windows command integration is implemented. See [operations.md](operations.md) for current behavior; remaining work is listed at the end.
 
 ## Decision
 

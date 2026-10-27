@@ -1,8 +1,6 @@
 # ReFiles technical documentation
 
-This directory is the technical handbook for contributors working on ReFiles.
-
-The documentation is organized around **architectural contracts, invariants, ownership, data flow, concurrency, extension points, testing, and performance** rather than around individual classes. Class names and implementations may change; the rules that keep the system correct should remain understandable.
+This directory documents ReFiles' **architectural contracts, invariants, ownership, data flow, concurrency, extension points, testing, and performance**. It focuses on durable rules rather than individual classes and implementations.
 
 ## Start here
 

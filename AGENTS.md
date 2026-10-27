@@ -1,67 +1,64 @@
 # Files Development Guidelines
 
-This project is a C#/.NET WinUI 3 desktop app; an alternative to File Explorer.
+This C#/.NET WinUI 3 desktop app is an alternative to File Explorer.
 
-- Protect context usage. Any command with unknown or potentially large output must be capped. Prefer targeted commands such as `rg`, `Get-Content -TotalCount`, `Select-Object -First`, or focused `git diff -- <path>`; for example, `COMMAND 2>&1 | Select-Object -First 200`. If a line cap is still too noisy, narrow the query instead of dumping full output.
-- Always follow `.editorconfig`
-- Keep changed text files in CRLF line endings
-- Keep comments concise and useful. Do not add comments that restate obvious code.
-- Follow the mandatory C# style and API documentation rules below.
+## General
+
+- Follow `.editorconfig`. Keep changed text files in CRLF and avoid line-ending-only diffs.
+- Cap unknown or large command output. Prefer targeted `rg`, `Get-Content -TotalCount`, `Select-Object -First`, and scoped `git diff`; narrow noisy results.
+- Keep comments concise and useful; do not restate obvious code.
+- Identify the smallest relevant project and feature, then read nearby code before adding abstractions. Reuse existing WinUI, MVVM, service, command, and storage patterns.
+- Keep changes scoped. Avoid unrelated refactors, formatting churn, dependency updates, and generated-file edits. Touch only necessary files and clean up only files changed for the task.
 - Never read entire generated files in `bin` or `obj` unless the generated source is directly needed.
-- Prefer targeted search over full file reads.
-- Touch only what you must. Clean up only files you created or changed for the task.
-- Treat file operations, shell integration, drag/drop, preview handlers, archive actions, settings persistence, and localization as high-risk areas.
-- For Win32, COM, Shell, clipboard, hotkey, and file operation interop, prefer `src/Files.Core/NativeMethods.txt` and the existing wrappers/helpers in `src/Files.Core/Windows/Interop`.
-- Avoid ad hoc P/Invoke declarations when CsWin32 or existing interop code can cover the API.
-- Do not edit generated CsWin32 output directly. Update source declarations, wrappers, or generator inputs instead.
-- CsWin32 output is build-generated under `src/Files.Core/obj/<platform>/<configuration>/<target-framework>/Generated/CsWin32`; the large `Windows.Win32.NativeMethods.g.cs` file and its manifest are disposable build artifacts. Inspect targeted declarations only and never edit them.
-- `src/Files.Core/NativeMethods.txt` and `NativeMethods.json` are the inputs. The current JSON enables public output, source-generated COM interop, and `preserveSig` for all COM methods; change those inputs or a wrapper when behavior must change.
-- Native entry points are emitted as `Windows.Win32.PInvoke` partial methods using `LibraryImport`, `DefaultDllImportSearchPaths(System32)`, Unicode `W` entry points where applicable, and `SupportedOSPlatform` annotations. Do not add a duplicate `DllImport` for an API already listed in `NativeMethods.txt`.
-- `Files.Core` enables `DisableRuntimeMarshalling` and `AllowUnsafeBlocks`; generated declarations therefore rely on source-generated marshalling and pointer-safe code. Keep unsafe code at the interop boundary instead of reintroducing runtime-marshalling assumptions.
-- For APIs whose metadata permits it, the generator emits both an unsafe pointer-level declaration and managed overloads using `string`, `Span`/`ReadOnlySpan`, nullable structs, `SafeHandle`, or generic COM outputs. Prefer the managed overload; use the raw overload only when the pointer, buffer, or ownership contract requires it.
-- Native typedefs are represented by generated types such as `HANDLE`, `HWND`, `PCWSTR`, `PWSTR`, `HSTRING`, `BOOL`, `HRESULT`, and typed enums. Keep those types at the interop boundary instead of replacing them with `IntPtr`, `string`, or untyped integers.
-- Generated SafeHandle overloads encode ownership and invalid-handle values and protect input handles with `DangerousAddRef`/`DangerousRelease`. Preserve the generated ownership semantics; do not manually close a borrowed handle or call `DangerousGetHandle` unless crossing an unavoidable raw-pointer boundary.
-- `HRESULT` results expose `Succeeded`, `Failed`, and `ThrowOnFailure`; APIs marked `SetLastError` use the Win32 last-error channel. Check the correct channel for each API and read `Marshal.GetLastPInvokeError()` immediately after a failing last-error call.
-- COM declarations use `[GeneratedComInterface]`, an explicit GUID, `InterfaceIsIUnknown`, and preserved HRESULT signatures. CsWin32-generated co-creatable classes expose `CreateInstance<T>()` and reject direct construction; pass a generated COM interface type and handle the returned HRESULT.
-- When an undocumented COM interface is required, define its recovered ABI with `[GeneratedComInterface]`; do not invoke it through raw ABI pointers, vtable slot offsets, or magic numbers in product code. Only declare methods whose order and signatures are supported by reverse-engineering evidence.
-- Declare every recovered COM method in ABI order, including members not currently called. Add XML documentation to each recovered interface and method, and distinguish ABI revisions with neutral numeric suffixes such as `IExample2` rather than Windows build numbers.
-- Name the WinRT base interface `IInspectable` when that name is available; use `IWinRTInspectable` only to resolve a real type-name collision.
-- Express COM interface parameters and results as generated interface types when the signature is known. For deliberately untyped interface values, use `[MarshalAs(UnmanagedType.Interface)] object`; do not introduce raw COM pointers, placeholder `IUnknown` interfaces, or custom marshallers solely to control lifetime.
-- Source-generated COM wrappers own their native references and release them when collected. Do not call `Marshal.ReleaseComObject`, `ComObject.FinalRelease`, or equivalent helpers, and do not request unique wrappers unless an independently verified native ownership contract requires deterministic release.
-- Use direct generated activation calls and normal managed casts. Prefer `PInvoke.CoCreateInstance<T>` and `PInvoke.RoGetActivationFactory<T>`, and use `as` for optional `QueryInterface` checks instead of adding activation, query, or release helpers.
-- Put custom native declarations that are absent from Win32 metadata, or whose generated declarations cannot safely express the required ABI contract, in the existing `Windows.Win32.PInvoke` partial class in `src/Files.Core/Windows/Interop/Extras.cs`. Keep them as declarations without per-API forwarding helpers, and keep all such declarations in that file.
-- Represent a CLSID that is absent from CsWin32 with a documented `[Guid]` coclass marker type and obtain its value through `typeof(CoclassType).GUID`; do not duplicate it in a `Guid` field.
-- Prefer `in`, `ref`, and `out` for fixed-size native value types whenever the generated or recovered signature permits it. Use raw pointers only for variable buffers, callbacks, optional pointer semantics that cannot be represented safely, or other unavoidable ABI boundaries.
-- Reuse one local named `hr` for sequential HRESULT-returning calls within a method when practical.
-- Initialize CsWin32 structures with `default`, then assign fields individually. Do not use constructors or object initializers for generated structures, and rely on their implicit pointer conversions instead of redundant `PCWSTR` or `PWSTR` casts.
-- Pointer outputs such as PIDLs, `PWSTR*`, HSTRINGs, and other native buffers retain their native allocator contract. Release them exactly once with the matching existing helper (`CoTaskMemFree`, `WindowsDeleteString`, `LocalFree`, or a generated SafeHandle) on every path.
-- Generated structs may contain explicit unions, inline arrays, and unmanaged `Stdcall` function pointers. Use the generated layout and callback type exactly, keep buffers valid for the full call, and avoid hand-written layout substitutes.
-- For UI work, use existing XAML resources, controls, converters, commands, and localization patterns. Avoid one-off styles or hard-coded user-visible strings.
-- Start by identifying the smallest relevant project, feature area, and files for the task.
-- Read nearby code before adding new abstractions. Prefer existing WinUI, MVVM, service, command, and storage patterns.
-- Keep implementation scoped to the requested behavior. Avoid opportunistic refactors, formatting churn, dependency updates, and generated file edits.
-- Treat tool output as evidence. When behavior changes, run the focused build that can prove it and report anything left unverified.
+- Treat file operations, shell integration, drag/drop, preview handlers, archive actions, settings persistence, and localization as high-risk.
+- For UI, use existing XAML resources, controls, converters, commands, and localization. Avoid one-off styles and hard-coded user-facing strings.
+- Treat tool output as evidence. For behavior changes, run a focused build and report what remains unverified.
+
+## Win32, COM, Shell, and CsWin32
+
+- Prefer `src/Files.Core/NativeMethods.txt` and existing wrappers in `src/Files.Core/Windows/Interop` for Win32, COM, Shell, clipboard, hotkey, and file-operation interop. Avoid ad hoc P/Invokes when CsWin32 or an existing wrapper covers the API.
+- Do not edit generated CsWin32 output. Update `src/Files.Core/NativeMethods.txt`, `NativeMethods.json`, or a wrapper instead. Output is under `src/Files.Core/obj/<platform>/<configuration>/<target-framework>/Generated/CsWin32`; inspect only targeted declarations, and treat the large `Windows.Win32.NativeMethods.g.cs` file and manifest as disposable.
+- `NativeMethods.txt` and `NativeMethods.json` are generator inputs. The current JSON enables public output, source-generated COM interop, and `preserveSig` for all COM methods.
+- Native entry points are emitted as `Windows.Win32.PInvoke` partial methods using `LibraryImport`, `DefaultDllImportSearchPaths(System32)`, Unicode `W` entry points where applicable, and `SupportedOSPlatform` annotations. Do not add duplicate `DllImport` declarations for listed APIs.
+- `Files.Core` enables `DisableRuntimeMarshalling` and `AllowUnsafeBlocks`. Keep unsafe code at the interop boundary and use source-generated marshalling rather than runtime-marshalling assumptions.
+- Prefer generated managed overloads (`string`, `Span`/`ReadOnlySpan`, nullable structs, `SafeHandle`, or generic COM outputs) when they express the contract. Use raw pointer overloads only when the pointer, buffer, or ownership contract requires them.
+- Keep generated native types (`HANDLE`, `HWND`, `PCWSTR`, `PWSTR`, `HSTRING`, `BOOL`, `HRESULT`, and typed enums) at the interop boundary; do not replace them with `IntPtr`, `string`, or untyped integers.
+- Use generated `SafeHandle` overloads; they encode ownership and invalid-handle values and protect inputs with `DangerousAddRef`/`DangerousRelease`. Preserve these semantics; do not close borrowed handles or call `DangerousGetHandle` except at an unavoidable raw-pointer boundary.
+- Check the correct error channel: use `HRESULT.Succeeded`, `Failed`, or `ThrowOnFailure` for HRESULTs; after a failing `SetLastError` API, read `Marshal.GetLastPInvokeError()` immediately.
+- COM declarations use `[GeneratedComInterface]`, an explicit GUID, `InterfaceIsIUnknown`, and preserved HRESULT signatures. CsWin32 co-creatable classes reject direct construction and expose `CreateInstance<T>()`; pass a generated interface type and handle the HRESULT.
+- For undocumented COM interfaces, define the recovered ABI with `[GeneratedComInterface]`; never call raw ABI pointers, vtable offsets, or magic numbers in product code. Declare only methods supported by reverse-engineering evidence.
+- Declare all recovered COM methods in ABI order, including unused members. Add XML docs to each recovered interface and method; distinguish ABI revisions with neutral suffixes such as `IExample2`, not Windows build numbers.
+- Name the WinRT base interface `IInspectable` unless that name conflicts with a real type; then use `IWinRTInspectable`.
+- Use generated COM interface types for known parameters and results. For deliberately untyped values, use `[MarshalAs(UnmanagedType.Interface)] object`; do not add raw COM pointers, placeholder `IUnknown` interfaces, or custom marshallers just to control lifetime.
+- Source-generated COM wrappers own native references and release them when collected. Do not call `Marshal.ReleaseComObject`, `ComObject.FinalRelease`, or equivalent; request unique wrappers only when a verified native ownership contract requires deterministic release.
+- Use `PInvoke.CoCreateInstance<T>` and `PInvoke.RoGetActivationFactory<T>` for activation, normal managed casts, and `as` for optional `QueryInterface` checks. Do not add activation, query, or release helpers.
+- Put custom declarations missing from Win32 metadata, or whose generated signature cannot safely express the ABI, in `Windows.Win32.PInvoke` in `src/Files.Core/Windows/Interop/Extras.cs`. Keep them as declarations; do not add per-API forwarding helpers.
+- For CLSIDs missing from CsWin32, define a documented `[Guid]` coclass marker and use `typeof(CoclassType).GUID`; do not duplicate the GUID in a field.
+- Prefer `in`, `ref`, and `out` for fixed-size native values when the signature allows. Use raw pointers only for variable buffers, callbacks, unrepresentable optional pointers, or other unavoidable ABI boundaries.
+- Reuse a local named `hr` for sequential HRESULT calls when practical.
+- Initialize generated structs with `default` and assign fields individually. Do not use constructors or object initializers; rely on implicit pointer conversions instead of redundant `PCWSTR`/`PWSTR` casts.
+- Free pointer outputs (PIDLs, `PWSTR*`, HSTRINGs, and other native buffers) exactly once with the matching allocator helper (`CoTaskMemFree`, `WindowsDeleteString`, `LocalFree`, or generated `SafeHandle`) on every path.
+- Use generated layouts, unions, inline arrays, and unmanaged `Stdcall` callback types exactly. Keep buffers alive for the full call; do not create hand-written layout substitutes.
 
 ## C# Style and API Documentation
 
 These rules are mandatory for new and modified C# code:
 
-- Do not insert line breaks in the middle of code, including argument lists, parameter lists, and expressions, unless the resulting line would be longer than 200 characters. When a break is necessary, break at a natural syntactic boundary.
-- Keep method and constructor declarations and invocations on one line when they fit within 200 characters. Do not vertically expand parameters or arguments merely for formatting preference.
-- Always use braces for `if`, `else if`, and `else` blocks. Do not use single-line or brace-less alternatives.
-- Insert a blank line immediately before every `return` statement, except when the `return` is the first statement in its block.
-- Insert a blank line immediately after every guard statement, including guards that throw `ArgumentNullException` or another argument-related exception. The blank line follows the complete guard block.
-- Add concise XML documentation comments to every public and protected API in `src/Files.Core`, including types, constructors, methods, properties, fields, events, delegates, and indexers. Document parameters and return values where applicable. Do not edit generated source; document the source declaration or wrapper instead.
-- Prefix every private field with `_` and use camel case for the remainder of the field name.
-- Order members within each type as follows: constants, fields, properties, constructors, public methods, then private methods. Keep related declarations together within their category.
-
-Before completing a C# change, inspect the diff and verify that these rules are followed. Do not suppress or relax the rules to avoid fixing a violation.
+- Keep code, argument/parameter lists, and expressions on one line unless they exceed 200 characters; break only at natural syntax boundaries. Keep method/constructor declarations and calls on one line when they fit within 200 characters.
+- Always use braces for `if`, `else if`, and `else` blocks.
+- Add a blank line before each `return`, except when it is the first statement in its block.
+- Add a blank line immediately after each guard block, including argument guards.
+- Add concise XML docs to every public or protected API in `src/Files.Core`, including types, constructors, methods, properties, fields, events, delegates, and indexers, plus applicable parameters and return values. Document source declarations or wrappers, never generated code.
+- Prefix private fields with `_` and use camel case for the rest of the name.
+- Order members within each type: constants, fields, properties, constructors, public methods, then private methods. Keep related declarations together.
+- Before completing a C# change, inspect the diff and verify these rules; fix violations instead of suppressing or relaxing them.
 
 ## Licensing
 
-- MPL-2.0 is the preferred license for new and modified code.
-- Retain MIT only for historical contributions made before the CLA was introduced by contributors who have not signed it. The CLA applies retroactively; do not change those historical headers without authorization.
-- Use this header for MPL-2.0 code:
+- Prefer MPL-2.0 for new or modified code.
+- Retain MIT headers only for historical pre-CLA contributions by contributors who have not signed the CLA. The CLA applies retroactively; do not change those headers without authorization.
+- Use this MPL-2.0 header:
+
   ```text
   // Copyright (c) Files Community
   // SPDX-License-Identifier: MPL-2.0
@@ -69,8 +66,7 @@ Before completing a C# change, inspect the diff and verify that these rules are 
 
 ## Build
 
-Run msbuild from Visual Studio Developer PowerShell. Match `-arch`, `-host_arch`, and `-p:Platform` to the platform you're verifying; use `x64` for x64 work and `arm64` for ARM64 work.
-Unless the task is specifically about resolving or inspecting warnings, add `-v:quiet -clp:ErrorsOnly` to `msbuild` commands so the log proves success or shows only actionable errors.
+Run MSBuild from Visual Studio Developer PowerShell. Match `-arch`, `-host_arch`, and `-p:Platform`; use `x64` for x64 work and `arm64` for ARM64. Unless investigating warnings, use `-v:quiet -clp:ErrorsOnly`.
 
 ```powershell
 pwsh.exe -NoProfile -Command "& {
@@ -80,8 +76,7 @@ pwsh.exe -NoProfile -Command "& {
 }"
 ```
 
-For focused C# work, build the affected project first.
-Do not run build commands in parallel.
+For focused C# work, build the affected project first. Run builds sequentially, not in parallel.
 
 ```powershell
 msbuild -restore src/Files.Shared/Files.Shared.csproj -p:Configuration=Debug -p:Platform=x64 -v:quiet -clp:ErrorsOnly
@@ -91,21 +86,18 @@ msbuild -restore src/Files/Files.csproj -p:Configuration=Debug -p:Platform=x64 -
 
 ## Test
 
-Most of the backend code resides in `Files.Core` and is covered by unit tests. The UI code is covered by interaction tests and UI tests.
-Make sure to run the relevant tests for your change. If you are unsure, run all tests under `/tests`.
+Backend code is mainly in `Files.Core` and covered by unit tests; UI code has interaction and UI tests. Run relevant tests for each change. If unsure which tests apply, run all tests under `/tests`.
 
-## Commit & Push
+## Commit and Push
 
-When asked to commit, run these commands beforehand:
+Before committing, run:
 
 ```powershell
 git status --short
 git diff --check
 ```
 
-Do not revert unrelated user changes. Stage only files that belong to the requested change.
-
-Use concise commit messages that describe the behavior change, for example:
+Do not revert unrelated user changes. Stage only files for this task. Use concise commit messages describing behavior, for example:
 
 ```text
 Add source-generated settings storage
@@ -113,15 +105,13 @@ Add source-generated settings storage
 
 ## Open a PR
 
-When asked to open a PR, use a short PR title that names the behavior, not the implementation mechanics only, and prepend the PR type:
+Use a short title naming the behavior and prepend its type:
 
-- "Fix": use this prefix when the linked issue is a bug
-- "Feature": use this prefix when the linked issue is a feature request
-- "Code Quality": anything else
+- `Fix`: linked issue is a bug.
+- `Feature`: linked issue is a feature request.
+- `Code Quality`: all other changes.
 
-The repository maintainers draft release notes based on these PR types: only fixes and feature requests are listed.
-
-Good examples:
+Maintainers draft release notes from these types; only fixes and features are listed.
 
 ```text
 Fix: Fixed an issue where thumbnails wouldn't refresh when a file was updated
@@ -129,4 +119,4 @@ Feature: Add support for previewing AVI files in the Preview Pane
 Code Quality: Add source-generated settings serialization
 ```
 
-For the PR body, follow `./.github/PULL_REQUEST_TEMPLATE.md`.
+Follow `./.github/PULL_REQUEST_TEMPLATE.md` for the PR body.
