@@ -11,8 +11,9 @@ public sealed class ArchiveCredentialRequiredException : Exception
 
 	/// <summary>Initializes a credential-required exception.</summary>
 	/// <param name="challenge">The credential challenge.</param>
-	public ArchiveCredentialRequiredException(ArchiveCredentialChallenge challenge)
-		: base(CreateMessage(challenge))
+	/// <param name="innerException">The optional read failure retained for diagnostics.</param>
+	public ArchiveCredentialRequiredException(ArchiveCredentialChallenge challenge, Exception? innerException = null)
+		: base(CreateMessage(challenge), innerException)
 	{
 		Challenge = challenge;
 	}

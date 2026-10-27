@@ -130,9 +130,9 @@ internal sealed class ArchiveStorageSource : IStorageSource
 						throw;
 					}
 				}
-				catch (ArchiveCredentialRequiredException)
+				catch (ArchiveCredentialRequiredException failure)
 				{
-					await ReopenAsync(cancellationToken).ConfigureAwait(false);
+					await ReopenAsync(failure, cancellationToken).ConfigureAwait(false);
 				}
 			}
 		}
@@ -153,14 +153,20 @@ internal sealed class ArchiveStorageSource : IStorageSource
 		}
 	}
 
-	private async Task ReopenAsync(CancellationToken cancellationToken)
+	private async Task ReopenAsync(ArchiveCredentialRequiredException failure, CancellationToken cancellationToken)
 	{
+		var rejected = failure.Challenge.PreviousCredentialRejected;
 		while (true)
 		{
-			var challenge = new ArchiveCredentialChallenge(Archive, DisplayName, ++_credentialAttempt, previousCredentialRejected: true);
+			var challenge = new ArchiveCredentialChallenge(Archive, DisplayName, ++_credentialAttempt, rejected);
 			if (_credentials is null || _credentialAttempt > 5)
 			{
-				throw new ArchiveCredentialRequiredException(challenge);
+				if (!rejected && failure.InnerException is not null)
+				{
+					throw new ArchiveOpenException("Encrypted archive content could not be verified; the password or content may be invalid.", failure.InnerException);
+				}
+
+				throw new ArchiveCredentialRequiredException(challenge, failure.InnerException);
 			}
 
 			var credential = await _credentials.ResolveAsync(challenge, cancellationToken).ConfigureAwait(false)
@@ -174,8 +180,9 @@ internal sealed class ArchiveStorageSource : IStorageSource
 
 			_input.Position = 0;
 			var result = await _backend.TryOpenAsync(new ArchiveOpenRequest(Archive, DisplayName, _input, credential, _credentialAttempt), cancellationToken).ConfigureAwait(false);
-			if (result is ArchiveOpenResult.CredentialRequired)
+			if (result is ArchiveOpenResult.CredentialRequired required)
 			{
+				rejected = required.Challenge.PreviousCredentialRejected;
 				continue;
 			}
 

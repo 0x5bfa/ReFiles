@@ -171,6 +171,32 @@ public sealed class ArchiveLifetimeTests
 		Assert.AreEqual(0, backend.OpenCount);
 	}
 
+	/// <summary>Ambiguous encrypted corruption retains its diagnostic after bounded credential attempts.</summary>
+	/// <returns>The asynchronous test.</returns>
+	[TestMethod]
+	public async Task AmbiguousEncryptedCorruptionHasBoundedRetries()
+	{
+		await using var source = new ArchiveTestSource();
+		var corruption = new InvalidDataException("Encrypted CRC validation failed.");
+		var backend = new ArchiveTestBackend(_ => new ArchiveOpenResult.Success(new ArchiveTestSession([new("0", "file.txt", false, 1)],
+			(_, _) => throw new ArchiveCredentialRequiredException(new(source.Reference, source.Name, 1, false), corruption))));
+		var credentials = new Credentials();
+		var models = backend.CreateModels(credentials);
+		await using var container = models.Create(source, await source.ResolveAsync(source.Reference));
+		await using var archive = await container.Get<IArchiveSource>()!.OpenAsync();
+		var children = await ArchiveBrowsingTests.CollectAsync(archive.Root);
+		try
+		{
+			var error = await Assert.ThrowsAsync<ArchiveOpenException>(async () => await children[0].Get<IReadableContent>()!.OpenReadAsync());
+			Assert.AreSame(corruption, error.InnerException);
+			Assert.AreEqual(5, credentials.Count);
+		}
+		finally
+		{
+			await ArchiveBrowsingTests.DisposeItemsAsync(children);
+		}
+	}
+
 	private sealed class FinalizationFailureContent : IReadableContent
 	{
 		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)

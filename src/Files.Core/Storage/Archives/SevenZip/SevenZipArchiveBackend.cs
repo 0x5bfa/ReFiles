@@ -34,6 +34,11 @@ public sealed class SevenZipArchiveBackend : IArchiveBackend
 		return error is SevenZipOpenFailedException { Result: OperationResult.WrongPassword } or ExtractionFailedException { Result: OperationResult.WrongPassword };
 	}
 
+	internal static bool IsCredentialRetryCandidate(bool encrypted, Exception error)
+	{
+		return IsPasswordFailure(error) || encrypted && error is ExtractionFailedException { Result: OperationResult.CrcError or OperationResult.DataError };
+	}
+
 	private static ArchiveOpenResult Open(ArchiveOpenRequest request, CancellationToken cancellationToken)
 	{
 		SevenZipExtractor? extractor = null;
@@ -50,7 +55,9 @@ public sealed class SevenZipArchiveBackend : IArchiveBackend
 			}
 
 			var entries = records.Select(entry => new ArchiveEntryInfo(entry.Index.ToString(CultureInfo.InvariantCulture), GetPath(entry, request.Name), entry.IsDirectory, entry.Size)).ToArray();
-			var session = new SevenZipArchiveReadSession(extractor, entries, request.Archive, request.Name);
+			var encryptedRecords = records.Where(entry => entry.Encrypted || entry.Method?.Contains("AES", StringComparison.OrdinalIgnoreCase) is true)
+				.Select(entry => entry.Index.ToString(CultureInfo.InvariantCulture)).ToHashSet(StringComparer.Ordinal);
+			var session = new SevenZipArchiveReadSession(extractor, entries, encryptedRecords, request.Archive, request.Name);
 			extractor = null;
 
 			return new ArchiveOpenResult.Success(session);

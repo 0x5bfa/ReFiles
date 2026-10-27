@@ -52,6 +52,8 @@ Only an explicit `Unsupported` result permits reader fallback. Corruption, acces
 
 Credential handling belongs to the archive model/provider, including challenges discovered during extraction. Retry count is bounded. A published view retains its selected backend and catalog; reopening after a challenge must reproduce the catalog or fail. Passwords are not stored in locators or item identities.
 
+An encrypted record can report CRC/data failure for either an incorrect password or damaged content. Only records marked encrypted may offer bounded credential retries for these ambiguous results; the challenge does not claim a definite password rejection. If verification still fails, preserve the original integrity diagnostic. Unencrypted CRC failures never become credential prompts.
+
 Never log passwords or place them in addresses, diagnostics, or persisted state. Archive paths remain untrusted: extraction code must not concatenate decoded record paths into filesystem destinations, even if browsing accepts them as logical names.
 
 The SevenZip reader extracts a selected record to a temporary file and checks completion before returning it. Cancellation is checked before extraction, on output writes, and before publishing the result. A solid archive can still spend time decoding preceding data between cancellation checks. There is no hard termination guarantee for native calls.

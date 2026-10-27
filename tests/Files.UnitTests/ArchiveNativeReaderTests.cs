@@ -155,6 +155,20 @@ public sealed class ArchiveNativeReaderTests
 		}
 	}
 
+	/// <summary>Only encrypted records may retry an ambiguous integrity failure as a credential challenge.</summary>
+	/// <param name="result">The native extraction result.</param>
+	/// <param name="encrypted">Whether the selected record is encrypted.</param>
+	/// <param name="expected">Whether another credential can be requested.</param>
+	[TestMethod]
+	[DataRow(OperationResult.CrcError, true, true)]
+	[DataRow(OperationResult.CrcError, false, false)]
+	[DataRow(OperationResult.DataError, true, true)]
+	[DataRow(OperationResult.UnsupportedMethod, true, false)]
+	public void CredentialRetryDoesNotHideUnencryptedCorruption(OperationResult result, bool encrypted, bool expected)
+	{
+		Assert.AreEqual(expected, Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.IsCredentialRetryCandidate(encrypted, new ExtractionFailedException(result)));
+	}
+
 	private static byte[] CreateZip(params (string Path, string Content)[] entries)
 	{
 		using var output = new MemoryStream();

@@ -10,6 +10,7 @@ namespace Files.Core.Storage.Archives.SevenZip;
 internal sealed class SevenZipArchiveReadSession : IArchiveReadSession
 {
 	private readonly SevenZipExtractor _extractor;
+	private readonly IReadOnlySet<string> _encryptedRecords;
 	private readonly StorableReference _archive;
 	private readonly string _name;
 
@@ -17,9 +18,10 @@ internal sealed class SevenZipArchiveReadSession : IArchiveReadSession
 
 	public IReadOnlyList<ArchiveEntryInfo> Entries { get; }
 
-	public SevenZipArchiveReadSession(SevenZipExtractor extractor, ArchiveEntryInfo[] entries, StorableReference archive, string name)
+	public SevenZipArchiveReadSession(SevenZipExtractor extractor, ArchiveEntryInfo[] entries, IReadOnlySet<string> encryptedRecords, StorableReference archive, string name)
 	{
 		_extractor = extractor;
+		_encryptedRecords = encryptedRecords;
 		_archive = archive;
 		_name = name;
 		Entries = Array.AsReadOnly(entries);
@@ -50,10 +52,10 @@ internal sealed class SevenZipArchiveReadSession : IArchiveReadSession
 			await output.DisposeAsync().ConfigureAwait(false);
 			throw new OperationCanceledException(cancellationToken);
 		}
-		catch (Exception error) when (SevenZipArchiveBackend.IsPasswordFailure(error))
+		catch (Exception error) when (SevenZipArchiveBackend.IsCredentialRetryCandidate(_encryptedRecords.Contains(entryId), error))
 		{
 			await output.DisposeAsync().ConfigureAwait(false);
-			throw new ArchiveCredentialRequiredException(new ArchiveCredentialChallenge(_archive, _name, 1, previousCredentialRejected: true));
+			throw new ArchiveCredentialRequiredException(new ArchiveCredentialChallenge(_archive, _name, 1, SevenZipArchiveBackend.IsPasswordFailure(error)), error);
 		}
 		catch (OperationCanceledException)
 		{
