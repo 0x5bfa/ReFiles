@@ -29,7 +29,7 @@ public sealed class TabRestorationTests
 		var second = (BrowsePaneSession)split.Content;
 		await second.NavigateAsync(new TagLocation("other"));
 		original.SetActivePane(original.Panes[activeIndex].Id);
-		var histories = original.Panes.Select(pane => ((BrowsePaneSession)pane.Content).History.Capture()).ToArray();
+		var histories = original.Panes.Select(pane => ((BrowsePaneSession)pane.Content).History.CaptureState()).ToArray();
 		var originalPaneIds = original.Panes.Select(pane => pane.Id).ToArray();
 
 		var duplicate = await window.DuplicateTabAsync(original.Id);
@@ -72,7 +72,7 @@ public sealed class TabRestorationTests
 		Assert.IsFalse(window.CanReopenTab);
 	}
 
-	private static void Verify(TabSession tab, PaneSplitOrientation orientation, int activeIndex, BrowseNavigationHistorySnapshot[] histories, Guid[] previousIds)
+	private static void Verify(TabSession tab, PaneSplitOrientation orientation, int activeIndex, BrowseNavigationHistoryState[] histories, Guid[] previousIds)
 	{
 		Assert.AreEqual(2, tab.Panes.Count);
 		Assert.AreEqual(orientation, tab.SplitOrientation);

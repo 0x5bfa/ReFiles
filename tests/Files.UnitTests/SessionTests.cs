@@ -125,7 +125,7 @@ public sealed class SessionTests
 			.Range(0, 10)
 			.Select(index => (BrowseLocation)new TagLocation($"tag-{index}"))
 			.ToArray();
-		var restored = new BrowseNavigationHistorySnapshot(entries, currentIndex: 8);
+		var restored = new BrowseNavigationHistoryState(entries, currentIndex: 8);
 
 		await pane.RestoreAsync(restored);
 
@@ -188,7 +188,7 @@ public sealed class SessionTests
 		var resolver = new TestBrowseLocationResolver([]);
 		await using var paneOwner = new BrowsePaneSessionFactory(resolver).Create();
 		var pane = GetBrowsePane(paneOwner);
-		var empty = new BrowseNavigationHistorySnapshot([], currentIndex: -1);
+		var empty = new BrowseNavigationHistoryState([], currentIndex: -1);
 
 		await pane.RestoreAsync(empty);
 		Assert.IsNull(pane.Location);

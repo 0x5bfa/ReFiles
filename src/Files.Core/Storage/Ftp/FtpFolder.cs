@@ -9,8 +9,8 @@ namespace Files.Core.Storage.Ftp;
 /// <summary>Represents a folder exposed by an FTP source.</summary>
 public sealed class FtpFolder : FtpStorable, IFolder
 {
-	internal FtpFolder(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
-		: base(source, snapshot, factory)
+	internal FtpFolder(FtpStorageSource source, FtpEntryMetadata metadata, FtpStorableFactory factory)
+		: base(source, metadata, factory)
 	{
 	}
 

@@ -70,15 +70,15 @@ public sealed class FtpPropertyReader : IPropertyReader
 							_ => "FTP file",
 						};
 						break;
-					case Size when item.Snapshot.Size is { } size:
+					case Size when item.Metadata.Size is { } size:
 						properties[propertyId] = (ulong)size;
 						break;
 					case DateModified
-						when item.Snapshot.DateModified is { } modified:
+						when item.Metadata.DateModified is { } modified:
 						properties[propertyId] = modified;
 						break;
 					case DateCreated
-						when item.Snapshot.DateCreated is { } created:
+						when item.Metadata.DateCreated is { } created:
 						properties[propertyId] = created;
 						break;
 				}

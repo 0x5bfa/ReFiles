@@ -29,7 +29,7 @@ public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittable
 {
 	private readonly BrowseApplicationServices? _services;
 	private readonly Func<BrowsePaneSession>? _splitFactory;
-	private BrowseNavigationHistorySnapshot? _initialHistory;
+	private BrowseNavigationHistoryState? _initialHistory;
 
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
 
@@ -231,11 +231,11 @@ public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittable
 		}
 	}
 
-	/// <summary>Restores a navigation history snapshot and its current location.</summary>
-	/// <param name="restoredHistory">The snapshot to restore.</param>
+	/// <summary>Restores navigation history state and its current location.</summary>
+	/// <param name="restoredHistory">The state to restore.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>A task that represents the restore operation.</returns>
-	public async ValueTask RestoreAsync(BrowseNavigationHistorySnapshot restoredHistory, CancellationToken cancellationToken = default)
+	public async ValueTask RestoreAsync(BrowseNavigationHistoryState restoredHistory, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(restoredHistory);
 
@@ -252,12 +252,12 @@ public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittable
 					throw new InvalidOperationException("An active pane cannot be restored to an empty history.");
 				}
 
-				History.Restore(restoredHistory);
+				History.RestoreState(restoredHistory);
 
 				return;
 			}
 
-			await NavigateAndCommitAsync(target, () => History.Restore(restoredHistory), 0, navigation.Token).ConfigureAwait(false);
+			await NavigateAndCommitAsync(target, () => History.RestoreState(restoredHistory), 0, navigation.Token).ConfigureAwait(false);
 		}
 		finally
 		{

@@ -177,7 +177,7 @@ internal sealed class WindowsStorableFactory
 		var batchCount = 0;
 		var itemCount = 0;
 		var identityDuration = TimeSpan.Zero;
-		CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Snapshot.Name} parsingName={descriptor.Locator.ParsingName}");
+		CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Metadata.Name} parsingName={descriptor.Locator.ParsingName}");
 
 		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize)
 		{
@@ -234,7 +234,7 @@ internal sealed class WindowsStorableFactory
 
 			CoreDiagnosticLog.Write(
 				"WindowsStorableFactory",
-				$"Enumerate END name={descriptor.Snapshot.Name} batches={batchCount} items={itemCount} " +
+				$"Enumerate END name={descriptor.Metadata.Name} batches={batchCount} items={itemCount} " +
 				$"identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 		}
 	}
@@ -244,7 +244,7 @@ internal sealed class WindowsStorableFactory
 		ArgumentNullException.ThrowIfNull(descriptor);
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (descriptor.Snapshot.FileSystemPath is { } fileSystemPath)
+		if (descriptor.Metadata.FileSystemPath is { } fileSystemPath)
 		{
 			return Task.FromResult<Stream>(OpenFileSystemStream(fileSystemPath, accessMode));
 		}
@@ -306,7 +306,7 @@ internal sealed class WindowsStorableFactory
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
-		return descriptor.Snapshot.IsFolder
+		return descriptor.Metadata.IsFolder
 			? new WindowsFolder(descriptor, this)
 			: new WindowsFile(descriptor, this);
 	}

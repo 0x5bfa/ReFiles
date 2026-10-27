@@ -6,7 +6,7 @@ using System.IO;
 namespace Files.Core.Storage.Ftp;
 
 /// <summary>
-/// Creates immutable FTP CoreModels from source-neutral entry snapshots.
+/// Creates immutable FTP CoreModels from source-neutral entry metadata.
 /// </summary>
 internal sealed class FtpStorableFactory
 {
@@ -51,10 +51,10 @@ internal sealed class FtpStorableFactory
 	{
 		ArgumentNullException.ThrowIfNull(entry);
 
-		var snapshot = FtpStorableSnapshot.FromEntry(entry);
+		var metadata = FtpEntryMetadata.FromEntry(entry);
 
 		return entry.Kind is FtpEntryKind.Folder
-			? new FtpFolder(_source, snapshot, this)
-			: new FtpFile(_source, snapshot, this);
+			? new FtpFolder(_source, metadata, this)
+			: new FtpFile(_source, metadata, this);
 	}
 }

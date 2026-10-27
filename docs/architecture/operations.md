@@ -91,7 +91,7 @@ Protect operation routing, enum/input validation, progress/result invariants, ca
 
 `UseStorageOperations` injects the execution boundary into both `FilesCoreRuntime.StorageOperations` and every browse application model. The app configures its WinRT implementation once. `Jobs.SubmitBatchAsync` transfers the complete selection to an independent executor and returns its accepted identity; its work remains server-owned. The default local batch implementation snapshots and preflights all requests, then stops at the first execution failure. It does not promise atomicity or rollback of completed requests.
 
-`IStorageOperationMonitor` exposes snapshots, cancellation, pause/resume, interruption responses, and terminal-history removal without UI dependencies. `StorageOperationSnapshot` contains execution data and acknowledgements. Transfer-rate smoothing, estimated time remaining, localized text, and graph points remain presentation data.
+`IStorageOperationMonitor` exposes operation states, cancellation, pause/resume, interruption responses, and terminal-history removal without UI dependencies. `StorageOperationState` contains execution data and acknowledgements. Transfer-rate smoothing, estimated time remaining, localized text, and graph points remain presentation data.
 
 The server's `StorageOperationExecutor` owns a configured `FilesCoreRuntime` and routes through its operation service rather than invoking a Windows handler directly. The default server configuration still registers Windows storage. Additional providers must be configured in the server explicitly; source identity alone does not establish a remote connection or transfer client-owned provider objects.
 

@@ -8,7 +8,7 @@ using Files.Core.Storage;
 namespace Files.Core.Windows;
 
 /// <summary>
-/// Represents an apartment-neutral snapshot of a Windows Shell item.
+/// Represents a Windows Shell item using apartment-neutral metadata.
 /// </summary>
 public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStorable>
 {
@@ -18,7 +18,7 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 
 	internal WindowsStorableDescriptor Descriptor => _descriptor;
 
-	internal WindowsStorableSnapshot Snapshot => _descriptor.Snapshot;
+	internal WindowsStorableMetadata Metadata => _descriptor.Metadata;
 
 	internal WindowsItemLocator Locator => _descriptor.Locator;
 
@@ -35,18 +35,18 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 	public string ParsingName => _descriptor.Locator.ParsingName;
 
 	/// <summary>Gets the file-system path, when available.</summary>
-	public string? FileSystemPath => _descriptor.Snapshot.FileSystemPath;
+	public string? FileSystemPath => _descriptor.Metadata.FileSystemPath;
 
 	/// <summary>Gets a value indicating whether the item is file-system backed.</summary>
 	public bool IsFileSystem => FileSystemPath is not null;
 
 	/// <summary>Gets a value indicating whether the item is exposed as a stream.</summary>
-	public bool IsStream => _descriptor.Snapshot.IsStream;
+	public bool IsStream => _descriptor.Metadata.IsStream;
 
 	/// <summary>
 	/// Gets a value indicating whether the Shell marks the item as hidden.
 	/// </summary>
-	public bool IsHidden => _descriptor.Snapshot.IsHidden;
+	public bool IsHidden => _descriptor.Metadata.IsHidden;
 
 	internal WindowsStorable(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 	{
@@ -56,7 +56,7 @@ public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStor
 		_descriptor = descriptor;
 		Factory = factory;
 		Id = descriptor.ItemId;
-		Name = descriptor.Snapshot.Name;
+		Name = descriptor.Metadata.Name;
 		Address = descriptor.Address;
 	}
 

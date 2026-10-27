@@ -180,7 +180,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		var nextItems = new List<IStorableModel>();
 		IBrowseLocationContext? nextLocationContext = null;
 		BrowseContextState? nextContext = null;
-		BrowseNavigationSnapshot? previousState = null;
+		BrowseNavigationRollbackState? previousState = null;
 		var nextProjection = (BrowseItemProjection?)null;
 		var enumerationActivated = false;
 		var committed = false;
@@ -349,7 +349,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		BrowseContextState context,
 		BrowseItemProjection projection,
 		IReadOnlyList<IStorableModel> batch,
-		ref BrowseNavigationSnapshot? previousState,
+		ref BrowseNavigationRollbackState? previousState,
 		ref bool activated)
 	{
 		var changes = projection.AddRange(batch, preserveInputOrder: true);
@@ -392,13 +392,13 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		PublishItemsChanged(changes);
 	}
 
-	private BrowseNavigationSnapshot CaptureNavigationState()
+	private BrowseNavigationRollbackState CaptureNavigationState()
 	{
-		return new BrowseNavigationSnapshot(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), PersistedViewSettings, ViewSettings, _viewCapabilities, Selection, Items,
-			_presentationStore.Capture());
+		return new BrowseNavigationRollbackState(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), PersistedViewSettings, ViewSettings, _viewCapabilities, Selection, Items,
+			_presentationStore.CaptureState());
 	}
 
-	private void RestoreNavigationState(BrowseNavigationSnapshot previousState)
+	private void RestoreNavigationState(BrowseNavigationRollbackState previousState)
 	{
 		ArgumentNullException.ThrowIfNull(previousState);
 
@@ -412,7 +412,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			PersistedViewSettings = previousState.PersistedViewSettings;
 			ViewSettings = previousState.ViewSettings;
 			_viewCapabilities = previousState.ViewCapabilities;
-			_presentationStore.Restore(previousState.Presentations);
+			_presentationStore.RestoreState(previousState.Presentations);
 		});
 		SetSelectionState(previousState.Selection);
 		PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(previousState.Items)]));
@@ -936,7 +936,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		}
 	}
 
-	private sealed record BrowseNavigationSnapshot(
+	private sealed record BrowseNavigationRollbackState(
 		BrowseLocation? Location,
 		BrowseContextState? ActiveContext,
 		BrowseItemProjection ItemProjection,
@@ -945,7 +945,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		BrowseViewCapabilities? ViewCapabilities,
 		BrowseSelectionState Selection,
 		IReadOnlyList<IStorableModel> Items,
-		BrowsePresentationStore.Snapshot Presentations);
+		BrowsePresentationStore.State Presentations);
 
 	private sealed class NavigationOperation : IDisposable
 	{

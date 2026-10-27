@@ -39,7 +39,7 @@ internal static class StorageOperationStatusMapper
 			summary.HasCompletedAt ? summary.CompletedAt : null, []);
 	}
 
-	internal static StorageOperationSnapshot ToSnapshot(StorageOperationStatus status)
+	internal static StorageOperationState ToState(StorageOperationStatus status)
 	{
 		var kind = status.Kind switch
 		{
@@ -60,7 +60,7 @@ internal static class StorageOperationStatusMapper
 			_ => StorageJobState.Failed,
 		};
 
-		return new StorageOperationSnapshot(status.Id, kind, state, status.CompletedItems, status.TotalItems, status.CompletedBytes, status.TotalBytes,
+		return new StorageOperationState(status.Id, kind, state, status.CompletedItems, status.TotalItems, status.CompletedBytes, status.TotalBytes,
 			status.IsByteProgressForWholeOperation, status.CurrentItemName, status.DestinationPath, status.Interruption, status.InterruptionId, status.Error,
 			status.CanCancel, status.CanPause, status.IsCancellationRequested, status.IsCancellationAcknowledged, status.StartedAt, status.CompletedAt);
 	}

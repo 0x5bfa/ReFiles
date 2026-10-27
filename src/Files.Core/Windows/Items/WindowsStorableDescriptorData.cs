@@ -7,4 +7,4 @@ using Files.Core.Storage;
 
 namespace Files.Core.Windows;
 
-internal sealed record WindowsStorableDescriptorData(StorageAddress Address, WindowsItemLocator Locator, WindowsStorableSnapshot Snapshot);
+internal sealed record WindowsStorableDescriptorData(StorageAddress Address, WindowsItemLocator Locator, WindowsStorableMetadata Metadata);

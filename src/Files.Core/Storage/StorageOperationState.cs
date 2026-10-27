@@ -23,7 +23,7 @@ namespace Files.Core.Storage;
 /// <param name="IsCancellationAcknowledged">Whether execution acknowledged cancellation.</param>
 /// <param name="StartedAt">The acceptance timestamp.</param>
 /// <param name="CompletedAt">The terminal timestamp, when available.</param>
-public sealed record StorageOperationSnapshot(
+public sealed record StorageOperationState(
 	Guid Id, StorageJobKind Kind, StorageJobState State, int CompletedItems, int TotalItems, long? CompletedBytes, long? TotalBytes, bool IsByteProgressForWholeOperation, string? CurrentItemName,
 	string? DestinationPath, StorageOperationInterruption? Interruption, Guid InterruptionId, Exception? Error, bool CanCancel, bool CanPause, bool IsCancellationRequested,
 	bool IsCancellationAcknowledged, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt);

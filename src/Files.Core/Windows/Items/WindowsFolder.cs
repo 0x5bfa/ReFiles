@@ -54,7 +54,7 @@ public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			var include = descriptor.Snapshot.IsFolder
+			var include = descriptor.Metadata.IsFolder
 				? type.HasFlag(StorableType.Folder)
 				: type.HasFlag(StorableType.File);
 

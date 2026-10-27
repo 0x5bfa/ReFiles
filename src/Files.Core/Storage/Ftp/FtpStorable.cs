@@ -6,7 +6,7 @@ using Files.Core.Storage;
 namespace Files.Core.Storage.Ftp;
 
 /// <summary>
-/// Represents an immutable snapshot of one FTP item.
+/// Represents one FTP item using immutable metadata.
 /// </summary>
 public abstract class FtpStorable :
 	IStorableChild,
@@ -17,7 +17,7 @@ public abstract class FtpStorable :
 
 	internal FtpStorableFactory Factory { get; }
 
-	internal FtpStorableSnapshot Snapshot { get; }
+	internal FtpEntryMetadata Metadata { get; }
 
 	/// <summary>Gets the source-specific item identifier.</summary>
 	public string Id { get; }
@@ -29,23 +29,23 @@ public abstract class FtpStorable :
 	public StorageAddress Address { get; }
 
 	/// <summary>Gets the normalized FTP path.</summary>
-	public FtpPath Path => Snapshot.Path;
+	public FtpPath Path => Metadata.Path;
 
 	/// <summary>Gets the entry kind.</summary>
-	public FtpEntryKind Kind => Snapshot.Kind;
+	public FtpEntryKind Kind => Metadata.Kind;
 
-	internal FtpStorable(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
+	internal FtpStorable(FtpStorageSource source, FtpEntryMetadata metadata, FtpStorableFactory factory)
 	{
 		ArgumentNullException.ThrowIfNull(source);
-		ArgumentNullException.ThrowIfNull(snapshot);
+		ArgumentNullException.ThrowIfNull(metadata);
 		ArgumentNullException.ThrowIfNull(factory);
 
 		_source = source;
-		Snapshot = snapshot;
+		Metadata = metadata;
 		Factory = factory;
-		Id = snapshot.Path.Value;
-		Name = snapshot.Name;
-		Address = source.CreateAddress(snapshot.Path);
+		Id = metadata.Path.Value;
+		Name = metadata.Name;
+		Address = source.CreateAddress(metadata.Path);
 	}
 
 	/// <summary>Gets the parent folder, when one exists.</summary>

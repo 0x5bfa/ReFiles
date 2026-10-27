@@ -9,8 +9,8 @@ internal interface IOperationStatusSource : IStorageOperationMonitor
 {
 	IReadOnlyList<StorageOperationStatus> GetOperations();
 
-	IReadOnlyList<StorageOperationSnapshot> IStorageOperationMonitor.GetOperationSnapshots()
+	IReadOnlyList<StorageOperationState> IStorageOperationMonitor.GetOperationStates()
 	{
-		return GetOperations().Select(StorageOperationStatusMapper.ToSnapshot).ToArray();
+		return GetOperations().Select(StorageOperationStatusMapper.ToState).ToArray();
 	}
 }

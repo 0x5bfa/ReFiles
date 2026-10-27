@@ -67,8 +67,8 @@ internal static unsafe class WindowsShellItemSorter
 			return null;
 		}
 
-		var sortedFolders = items.Where(static item => item.Snapshot.IsFolder).ToArray();
-		var sortedFiles = items.Where(static item => !item.Snapshot.IsFolder).ToArray();
+		var sortedFolders = items.Where(static item => item.Metadata.IsFolder).ToArray();
+		var sortedFiles = items.Where(static item => !item.Metadata.IsFolder).ToArray();
 		Array.Sort(sortedFolders, (left, right) => CompareChildren(folder, columnIndex.Value, direction, left, right));
 		Array.Sort(sortedFiles, (left, right) => CompareChildren(folder, columnIndex.Value, direction, left, right));
 		var sortedItems = sortedFolders.Concat(sortedFiles).ToArray();

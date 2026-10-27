@@ -10,8 +10,8 @@ namespace Files.Core.Storage.Ftp;
 /// <summary>Represents a file exposed by an FTP source.</summary>
 public sealed class FtpFile : FtpStorable, IFile, IReadableContent, IWritableContent
 {
-	internal FtpFile(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
-		: base(source, snapshot, factory)
+	internal FtpFile(FtpStorageSource source, FtpEntryMetadata metadata, FtpStorableFactory factory)
+		: base(source, metadata, factory)
 	{
 	}
 

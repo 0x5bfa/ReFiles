@@ -8,7 +8,7 @@ namespace Files.Core.Sessions;
 /// <summary>
 /// Immutable representation of a pane's navigation history.
 /// </summary>
-public sealed record BrowseNavigationHistorySnapshot
+public sealed record BrowseNavigationHistoryState
 {
 	/// <summary>Gets the committed locations.</summary>
 	public IReadOnlyList<BrowseLocation> Entries { get; }
@@ -20,10 +20,10 @@ public sealed record BrowseNavigationHistorySnapshot
 	public BrowseLocation? Current =>
 		CurrentIndex < 0 ? null : Entries[CurrentIndex];
 
-	/// <summary>Initializes an immutable navigation history snapshot.</summary>
+	/// <summary>Initializes an immutable navigation history state.</summary>
 	/// <param name="entries">The committed locations.</param>
 	/// <param name="currentIndex">The current entry index, or <c>-1</c> for an empty history.</param>
-	public BrowseNavigationHistorySnapshot(IEnumerable<BrowseLocation> entries, int currentIndex)
+	public BrowseNavigationHistoryState(IEnumerable<BrowseLocation> entries, int currentIndex)
 	{
 		ArgumentNullException.ThrowIfNull(entries);
 
@@ -130,13 +130,13 @@ public sealed class BrowseNavigationHistory
 		_capacity = capacity;
 	}
 
-	/// <summary>Captures an immutable history snapshot.</summary>
-	/// <returns>The captured snapshot.</returns>
-	public BrowseNavigationHistorySnapshot Capture()
+	/// <summary>Captures the immutable state of the navigation history.</summary>
+	/// <returns>The captured state.</returns>
+	public BrowseNavigationHistoryState CaptureState()
 	{
 		lock (_syncRoot)
 		{
-			return new BrowseNavigationHistorySnapshot(_entries, _currentIndex);
+			return new BrowseNavigationHistoryState(_entries, _currentIndex);
 		}
 	}
 
@@ -269,23 +269,23 @@ public sealed class BrowseNavigationHistory
 		return true;
 	}
 
-	internal void Restore(BrowseNavigationHistorySnapshot restored)
+	internal void RestoreState(BrowseNavigationHistoryState state)
 	{
-		ArgumentNullException.ThrowIfNull(restored);
+		ArgumentNullException.ThrowIfNull(state);
 
 		lock (_syncRoot)
 		{
 			_entries.Clear();
 
-			var sourceEntries = restored.Entries;
-			var firstIndex = sourceEntries.Count <= _capacity ? 0 : Math.Clamp(restored.CurrentIndex - (_capacity / 2), 0, sourceEntries.Count - _capacity);
+			var sourceEntries = state.Entries;
+			var firstIndex = sourceEntries.Count <= _capacity ? 0 : Math.Clamp(state.CurrentIndex - (_capacity / 2), 0, sourceEntries.Count - _capacity);
 			var lastIndex = Math.Min(sourceEntries.Count, firstIndex + _capacity);
 			for (var index = firstIndex; index < lastIndex; index++)
 			{
 				_entries.Add(sourceEntries[index]);
 			}
 
-			_currentIndex = restored.CurrentIndex < 0 ? -1 : restored.CurrentIndex - firstIndex;
+			_currentIndex = state.CurrentIndex < 0 ? -1 : state.CurrentIndex - firstIndex;
 			UpdateSnapshot();
 		}
 

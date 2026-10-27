@@ -36,10 +36,10 @@ public sealed partial class BrowsePaneSession
 		EnsureActive();
 
 		var factory = _splitFactory ?? throw new NotSupportedException("This browse content has no restoration factory.");
-		var history = History.Capture();
+		var history = History.CaptureState();
 		if (history.Current is null)
 		{
-			history = _initialHistory ?? new BrowseNavigationHistorySnapshot([HomeLocation.Instance], 0);
+			history = _initialHistory ?? new BrowseNavigationHistoryState([HomeLocation.Instance], 0);
 		}
 
 

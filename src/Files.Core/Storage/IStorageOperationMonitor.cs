@@ -6,12 +6,12 @@ namespace Files.Core.Storage;
 /// <summary>Observes and controls accepted operations independently of presentation and client requests.</summary>
 public interface IStorageOperationMonitor
 {
-	/// <summary>Occurs when a fresh operation snapshot is available.</summary>
+	/// <summary>Occurs when a fresh operation state is available.</summary>
 	event EventHandler? Changed;
 
 	/// <summary>Gets the latest authoritative operation values.</summary>
-	/// <returns>The operation snapshots.</returns>
-	IReadOnlyList<StorageOperationSnapshot> GetOperationSnapshots();
+	/// <returns>The operation states.</returns>
+	IReadOnlyList<StorageOperationState> GetOperationStates();
 
 	/// <summary>Requests cooperative cancellation.</summary>
 	/// <param name="id">The operation identity.</param>

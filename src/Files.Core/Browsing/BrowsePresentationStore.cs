@@ -90,22 +90,22 @@ internal sealed class BrowsePresentationStore
 		}
 	}
 
-	internal Snapshot Capture()
+	internal State CaptureState()
 	{
 		lock (_lock)
 		{
-			return new Snapshot(new Dictionary<StorableKey, Entry>(_entries));
+			return new State(new Dictionary<StorableKey, Entry>(_entries));
 		}
 	}
 
-	internal void Restore(Snapshot snapshot)
+	internal void RestoreState(State state)
 	{
-		ArgumentNullException.ThrowIfNull(snapshot);
+		ArgumentNullException.ThrowIfNull(state);
 
 		lock (_lock)
 		{
 			_entries.Clear();
-			foreach (var pair in snapshot.Entries)
+			foreach (var pair in state.Entries)
 			{
 				_entries.Add(pair.Key, pair.Value);
 			}
@@ -161,13 +161,13 @@ internal sealed class BrowsePresentationStore
 			&& current.Content.Span.SequenceEqual(candidate.Content.Span);
 	}
 
-	internal sealed class Snapshot
+	internal sealed class State
 	{
 		private readonly Dictionary<StorableKey, Entry> _entries;
 
 		internal Dictionary<StorableKey, Entry> Entries => _entries;
 
-		internal Snapshot(Dictionary<StorableKey, Entry> entries)
+		internal State(Dictionary<StorableKey, Entry> entries)
 		{
 			_entries = entries;
 		}

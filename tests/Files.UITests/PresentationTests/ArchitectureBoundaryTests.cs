@@ -107,21 +107,21 @@ public sealed class ArchitectureBoundaryTests
 		using var controller = new TestStorageOperationController();
 		IStorageOperationMonitor monitor = controller;
 		var operation = controller.StartOperation(TrackedStorageOperationKind.Copy, 2, "one.txt", canCancel: true, canPause: true);
-		var id = monitor.GetOperationSnapshots().Single().Id;
+		var id = monitor.GetOperationStates().Single().Id;
 
 		Assert.IsTrue(monitor.SetPaused(id, true));
-		Assert.AreEqual(StorageJobState.Pausing, monitor.GetOperationSnapshots().Single().State);
+		Assert.AreEqual(StorageJobState.Pausing, monitor.GetOperationStates().Single().State);
 		operation.AcknowledgePauseState(true);
-		Assert.AreEqual(StorageJobState.Paused, monitor.GetOperationSnapshots().Single().State);
+		Assert.AreEqual(StorageJobState.Paused, monitor.GetOperationStates().Single().State);
 		Assert.IsTrue(monitor.Cancel(id));
-		var pending = monitor.GetOperationSnapshots().Single();
+		var pending = monitor.GetOperationStates().Single();
 		Assert.IsTrue(pending.IsCancellationRequested);
 		Assert.IsFalse(pending.IsCancellationAcknowledged);
 		operation.AcknowledgeCancellationRequest();
 		operation.MarkCanceled();
 
-		Assert.AreEqual(StorageJobState.Canceled, monitor.GetOperationSnapshots().Single().State);
-		Assert.IsTrue(monitor.GetOperationSnapshots().Single().IsCancellationAcknowledged);
+		Assert.AreEqual(StorageJobState.Canceled, monitor.GetOperationStates().Single().State);
+		Assert.IsTrue(monitor.GetOperationStates().Single().IsCancellationAcknowledged);
 	}
 
 	private sealed class CustomContent : IPaneContentSession

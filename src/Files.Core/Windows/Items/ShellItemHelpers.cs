@@ -44,7 +44,7 @@ internal static unsafe class ShellItemHelpers
 			? TryGetDisplayName(shellItem, SIGDN.SIGDN_FILESYSPATH)
 			: null;
 		var isFolder = (attributes & SFGAO_FLAGS.SFGAO_FOLDER) != 0;
-		var snapshot = new WindowsStorableSnapshot(name, fileSystemPath, isFolder, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0, (attributes & SFGAO_FLAGS.SFGAO_HIDDEN) != 0);
+		var metadata = new WindowsStorableMetadata(name, fileSystemPath, isFolder, (attributes & SFGAO_FLAGS.SFGAO_STREAM) != 0, (attributes & SFGAO_FLAGS.SFGAO_HIDDEN) != 0);
 		var address = fileSystemPath is null
 			? new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName)
 			: new StorageAddress(WindowsStorageSource.FileAddressScheme, fileSystemPath);
@@ -59,7 +59,7 @@ internal static unsafe class ShellItemHelpers
 			relativePidl = GetLastId(absolutePidl);
 		}
 
-		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName, relativePidl.IsEmpty ? null : parentFolder, relativePidl, itemStoreReference), snapshot);
+		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName, relativePidl.IsEmpty ? null : parentFolder, relativePidl, itemStoreReference), metadata);
 	}
 
 	public static WindowsStorableDescriptor CreateDescriptor(WindowsStorableDescriptorData data, IWindowsItemIdReader itemIdReader)
@@ -67,9 +67,9 @@ internal static unsafe class ShellItemHelpers
 		ArgumentNullException.ThrowIfNull(data);
 		ArgumentNullException.ThrowIfNull(itemIdReader);
 
-		var itemId = itemIdReader.GetItemId(data.Locator.ParsingName, data.Snapshot.FileSystemPath);
+		var itemId = itemIdReader.GetItemId(data.Locator.ParsingName, data.Metadata.FileSystemPath);
 
-		return new WindowsStorableDescriptor(itemId, data.Address, data.Locator, data.Snapshot);
+		return new WindowsStorableDescriptor(itemId, data.Address, data.Locator, data.Metadata);
 	}
 
 	public static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)
