@@ -26,6 +26,7 @@
 		<FilesReferenceIntermediateOutputPath>obj\UITestReference\$(Platform)\$(Configuration)\$(TargetFramework)\</FilesReferenceIntermediateOutputPath>
 		<FilesReferenceBuildProperties>SelfContained=false;WindowsAppSDKSelfContained=false;WindowsAppSdkBootstrapInitialize=false;WindowsAppSdkDeploymentManagerInitialize=false;ValidateExecutableReferencesMatchSelfContained=false</FilesReferenceBuildProperties>
 		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);OutputPath=$(FilesReferenceOutputPath);IntermediateOutputPath=$(FilesReferenceIntermediateOutputPath)</FilesReferenceBuildProperties>
+		<FilesReferenceBuildProperties>$(FilesReferenceBuildProperties);BackgroundServerWinmd=$(MSBuildProjectDirectory)\..\..\src\Files.BackgroundServer\$(FilesReferenceOutputPath)Files.BackgroundServer.winmd</FilesReferenceBuildProperties>
 		<Nullable>enable</Nullable>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Configurations>Debug;Release</Configurations>

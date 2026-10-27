@@ -36,7 +36,7 @@ internal static class StorageOperationStatusMapper
 		return new StorageOperationStatus(summary.Id, kind, state, checked((int)summary.CompletedItems), checked((int)summary.TotalItems), summary.CurrentItemName, summary.DestinationPath,
 			summary.HasByteProgress ? summary.CompletedBytes : null, summary.HasByteProgress ? summary.TotalBytes : null, summary.IsByteProgressForWholeOperation, null, null, interruption,
 			data.Id, error, IsActiveState(state), summary.CanPause, summary.IsCancellationRequested, summary.IsCancellationAcknowledged, summary.AcceptedAt,
-			summary.HasCompletedAt ? summary.CompletedAt : null, []);
+			summary.HasCompletedAt ? summary.CompletedAt : null, [], GetTransferOutcome(summary));
 	}
 
 	internal static StorageOperationState ToState(StorageOperationStatus status)
@@ -62,7 +62,22 @@ internal static class StorageOperationStatusMapper
 
 		return new StorageOperationState(status.Id, kind, state, status.CompletedItems, status.TotalItems, status.CompletedBytes, status.TotalBytes,
 			status.IsByteProgressForWholeOperation, status.CurrentItemName, status.DestinationPath, status.Interruption, status.InterruptionId, status.Error,
-			status.CanCancel, status.CanPause, status.IsCancellationRequested, status.IsCancellationAcknowledged, status.StartedAt, status.CompletedAt);
+			status.CanCancel, status.CanPause, status.IsCancellationRequested, status.IsCancellationAcknowledged, status.StartedAt, status.CompletedAt, status.Transfer);
+	}
+
+	internal static StorageTransferOutcome? GetTransferOutcome(BackgroundServer.OperationSummary summary)
+	{
+		if (!summary.HasTransferOutcome)
+		{
+			return null;
+		}
+
+		var data = summary.TransferDestination;
+		var destination = summary.TransferCommittedItems > 0 ? new StorableReference(new StorageSourceId(data.SourceId), data.ItemId,
+			data.HasAddress ? new StorageAddress(data.AddressScheme, data.AddressValue) : null) : null;
+
+		return new StorageTransferOutcome((StorageTransferPublication)summary.TransferPublication, (StorageTransferPhase)summary.TransferPhase, destination,
+			summary.TransferCompletedBytes, summary.TransferCommittedItems);
 	}
 
 	private static bool IsActiveState(TrackedStorageOperationState state)

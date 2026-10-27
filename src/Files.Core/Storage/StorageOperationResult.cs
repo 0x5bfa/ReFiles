@@ -20,12 +20,16 @@ public sealed record StorageOperationResult
 	/// <summary>Gets a value indicating whether the operation was skipped by a user decision.</summary>
 	public bool Skipped { get; }
 
+	/// <summary>Gets transfer effects independently of overall success.</summary>
+	public StorageTransferOutcome? Transfer { get; }
+
 	/// <summary>Initializes an operation result.</summary>
 	/// <param name="succeeded">Whether the operation succeeded.</param>
 	/// <param name="resultItem">The item produced by the operation.</param>
 	/// <param name="error">The error produced by a failed operation.</param>
 	/// <param name="skipped">Whether the operation was skipped by a user decision.</param>
-	public StorageOperationResult(bool succeeded, StorableReference? resultItem, Exception? error = null, bool skipped = false)
+	/// <param name="transfer">The optional acknowledged transfer effects.</param>
+	public StorageOperationResult(bool succeeded, StorableReference? resultItem, Exception? error = null, bool skipped = false, StorageTransferOutcome? transfer = null)
 	{
 		if (succeeded && error is not null)
 		{
@@ -51,5 +55,6 @@ public sealed record StorageOperationResult
 		ResultItem = resultItem;
 		Error = error;
 		Skipped = skipped;
+		Transfer = transfer;
 	}
 }

@@ -1,18 +1,30 @@
 # Cross-source storage transfers
 
-Status: implementation plan after archive commit `11c963dae`. The transfer contracts below are proposals, not implemented APIs.
+Status: file-transfer slices 1 and 2 are implemented. Tree traversal, batch archive extraction, additional destinations, and generic cross-source Move remain follow-up work. Sections describing those later slices are proposals.
+
+## Implemented entry points
+
+`AddStorageTransfers` registers the Core fallback after native handlers. Copy/Move now carry `StorageItemLocator` values; their existing reference constructors remain available. `StorageItemLocator.Capture` preserves exact archive provenance before selected models are disposed. `BrowsePaneSession.TransferSelectionAsync` and `TransferItemsAsync` submit complete captured batches through the configured execution boundary.
+
+The WinRT client uses `StorageTransferData` and a flat `ArchiveLocatorStepData` array. The server validates and preflights the complete request before `OperationHost` accepts it. FTP connections are registered explicitly through `RegisterFtpConnection`, separately from transfer intent. The server owns the source and credential resolver after registration; password updates preserve the configured account and endpoint identity. Client disconnection does not dispose these sources.
+
+The file implementation uses an internal `IStorageImportProvider` and owned `IStorageImportFile`. A folder import session is unnecessary until tree transfers are implemented. Only the Windows composition adapter knows about the Windows import implementation. It validates the destination/name, stages locally, completes the source stream, and finalizes through the existing Shell Move operation. Cleanup checks the remaining staging identity and does not remove a replacement or an acknowledged published destination.
+
+`StorageTransferOutcome` records publication, phase, bytes, committed count, and the last acknowledged destination independently of the success-only `ResultItem`. Both local batches and server observation retain preceding commits on later failure. Publication failures without acknowledgement remain unknown and are not retried automatically.
+
+This slice copies file names and content. Generic metadata preservation, recursive folders, archive writes, encrypted-archive credential dialogs in the server, and virtual Shell destinations are not implemented. Existing provider-native operations retain their own metadata behavior. Archive credential resolvers can still be supplied by a headless Core owner.
 
 ## Decision and first scope
 
 Keep one Copy/Move intent and one operation-owned transfer coordinator. Existing provider handlers retain native operations when they support both endpoints. A generic fallback reads through existing storage models and imports through a destination adapter. Do not implement a separate handler for every source/destination pair.
 
-The first usable slice is **file Copy from FTP or a selected archive record into a Windows file-system folder**, executed entirely by the existing server job. Add folder trees and batch archive extraction next. Preserve existing Windows-to-Windows and same-source FTP behavior.
+The first usable slice is **file Copy from FTP or a selected archive record into a Windows file-system folder**, executed entirely by the existing server job. Folder trees and batch archive extraction come next. Existing Windows-to-Windows and same-source FTP behavior is preserved.
 
 | Request | Route and limit |
 | --- | --- |
 | Windows file-system item to Windows file-system folder | Existing Windows handler and Shell operation scheduler. |
 | FTP file to Windows file-system folder | Generic reader, staged Windows import, then confirmed publication. |
-| Selected 7z/ZIP record or archive folder contents to Windows | Job-owned archive model; exact record selection; batch extraction for trees. |
+| Selected 7z/ZIP record to Windows | Job-owned archive model and exact record selection. Folder contents require the later tree/batch slice. |
 | The archive container file itself to another source | Copy the container bytes. Opening an archive is not implicit extraction. |
 | Nested archive record to Windows | Reopen and prepare the complete container chain within the job. |
 | Any source to a virtual Shell destination | Unsupported until that destination has an explicit import adapter. Shell membership alone is insufficient. |
@@ -22,13 +34,13 @@ The first usable slice is **file Copy from FTP or a selected archive record into
 
 No OwlCore dependency, mutable-folder API, generic write extension on `IFile`, transaction framework, durable replay, or global archive-session pool is needed.
 
-## Current gaps verified in the code
+## Gaps addressed by the first file slices
 
-- `StorageOperationRequest.cs` carries a `StorableReference` for Copy/Move. An archive reference belongs to one open view and cannot survive that view or cross the process boundary.
-- `WinRTStorageOperationService.CanHandle` admits Windows references, and `StorageOperationData` has no archive selector or container chain.
-- `StorageOperationExecutor` creates a Windows-only runtime with archives disabled. A client-side FTP source is not a server connection registration.
+- Copy/Move previously carried only `StorableReference`; archive selections now use independently resolvable locators.
+- The legacy `StorageOperationData` has no archive selector; typed transfer submission now projects the complete container chain separately.
+- `StorageOperationExecutor` now enables archive transfers and explicit server-owned FTP registration. A client-side source alone still does not register a server connection.
 - Windows and FTP handlers accept transfers only when they own both references. `StorageOperationService` picks the first compatible handler; it must not retry another strategy after mutation starts.
-- `StorageOperationResult` forbids a result item on failure. The server batch currently throws on failure before recording that result, and its summary keeps only the latest successful result item. This cannot describe a committed copy followed by failed source deletion.
+- `StorageOperationResult` still reserves `ResultItem` for success, while its separate `Transfer` value and server summary preserve acknowledged effects before failure is propagated.
 - `FtpOwnedStream.DisposeAsync` completes the data transfer and can fail after all bytes have been read. EOF alone is insufficient.
 - Archive entry reads already verify content and return independent temporary streams, but repeating them can decode a solid block repeatedly.
 
@@ -51,7 +63,7 @@ Use the existing `IStorageJobService`, `OperationHost`, and interruption protoco
 
 ## Transfer source values
 
-Introduce a small discriminated `StorageItemLocator` for Copy/Move sources:
+Copy/Move sources use a small discriminated `StorageItemLocator`:
 
 | Variant | Value |
 | --- | --- |
@@ -61,7 +73,7 @@ Introduce a small discriminated `StorageItemLocator` for Copy/Move sources:
 
 Files with identical paths remain separate records. Folders use the common provider's logical hierarchy. Capture these values from `IArchiveEntry` while the selected model is alive. Never substitute the outer container reference for a selected archive entry: a native handler could otherwise copy or delete the whole archive.
 
-Evolve the existing Copy/Move requests to carry this source value, keeping constructors that accept a normal reference. Update handlers and serializers together; native handlers must explicitly match a configured-item variant. Keep the destination as a configured folder reference while archive writing is unsupported. Do not keep a second ambiguous `Item` field containing the outer archive.
+Copy/Move requests carry this source value and keep constructors accepting a normal reference. Native handlers explicitly match a configured-item variant. The destination remains a configured folder reference while archive writing is unsupported. There is no second ambiguous `Item` field containing the outer archive.
 
 The WinRT projection should use bounded value DTOs and validate kind, offsets, nesting, and paths before execution. A flat `StorageTransferData[]` plus `ArchiveLocatorStepData[]` method input can represent the chain without arrays inside WinRT structs. Use a new typed/versioned transfer submission entry point; retain the existing method for existing clients and non-transfer operations. Both enter the same operation host and coordinator. This is a transport adaptation, not a second Copy/Move engine.
 
@@ -125,7 +137,7 @@ Keep `OpenReadAsync` for preview, nested input, and small reads. Its independent
 
 There is no atomic cross-provider Move. Treat it as confirmed destination publication followed by source removal under a provider-specific guarantee. A source adapter must prove it is removing the prepared item, not an item recreated at the same path. FTP path identity plus size/mtime checks does not prove this. Start with Copy; admit generic Move only when the source offers the required removal guarantee. Keep currently supported native Move routes intact.
 
-Extend `StorageOperationResult` with a structured transfer outcome while preserving its existing success/result-item invariants. The outcome should carry publication state, the known destination root, completed/failed counts, source-removal state, and a failure phase. Distinguish at least: no publication, confirmed publication, partial publication, and unknown publication. A failed source deletion can therefore report a committed destination without claiming overall success.
+`StorageOperationResult.Transfer` now preserves publication state, the last known destination, bytes, committed count, and execution phase. Source-removal state belongs to the later generic Move slice. The publication states distinguish no publication, confirmed publication, partial publication, and unknown publication. Failed source deletion must eventually report a committed destination without claiming overall success.
 
 Record the outcome in `StorageOperationBatch` **before** propagating failure, and project it through `OperationHost`, `OperationSummary`, and the client monitor. Keep terminal data bounded per selected top-level item; progressive per-entry events need not become an unbounded in-memory manifest. A copied folder's destination root and counters identify partial effects. Any later detailed report store is separate from crash replay.
 

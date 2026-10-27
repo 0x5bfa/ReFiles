@@ -38,10 +38,10 @@ public sealed class FtpStorageOperationHandler :
 			CreateItemOperationRequest create =>
 				IsOwned(create.Parent),
 			CopyOperationRequest copy =>
-				IsOwned(copy.Item)
+				copy.Source is ConfiguredItemLocator copySource && IsOwned(copySource.Reference)
 					&& IsOwned(copy.DestinationFolder),
 			MoveOperationRequest move =>
-				IsOwned(move.Item)
+				move.Source is ConfiguredItemLocator moveSource && IsOwned(moveSource.Reference)
 					&& IsOwned(move.DestinationFolder),
 			DeleteOperationRequest delete =>
 				IsOwned(delete.Item),
@@ -156,7 +156,7 @@ public sealed class FtpStorageOperationHandler :
 
 	private async ValueTask<StorageOperationResult> ExecuteCopyAsync(CopyOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
-		var item = await ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
+		var item = await ResolveAsync(((ConfiguredItemLocator)request.Source).Reference, cancellationToken).ConfigureAwait(false);
 		var destinationFolder = await ResolveFolderAsync(request.DestinationFolder, cancellationToken).ConfigureAwait(false);
 		var requestedName = request.NewName ?? item.Name;
 		FtpPath.ValidateName(requestedName);
@@ -167,7 +167,7 @@ public sealed class FtpStorageOperationHandler :
 		}
 
 		var destinationPath = await ResolveDestinationPathAsync(destinationFolder.Path, requestedName, request.ConflictBehavior, cancellationToken).ConfigureAwait(false);
-		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
+		progress?.Report(new StorageOperationProgress(0, 1, ((ConfiguredItemLocator)request.Source).Reference));
 
 		await CopyAsync(item, destinationPath, cancellationToken).ConfigureAwait(false);
 
@@ -179,7 +179,7 @@ public sealed class FtpStorageOperationHandler :
 
 	private async ValueTask<StorageOperationResult> ExecuteMoveAsync(MoveOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
-		var item = await ResolveAsync(request.Item, cancellationToken).ConfigureAwait(false);
+		var item = await ResolveAsync(((ConfiguredItemLocator)request.Source).Reference, cancellationToken).ConfigureAwait(false);
 		var destinationFolder = await ResolveFolderAsync(request.DestinationFolder, cancellationToken).ConfigureAwait(false);
 		var requestedName = request.NewName ?? item.Name;
 		FtpPath.ValidateName(requestedName);
@@ -190,7 +190,7 @@ public sealed class FtpStorageOperationHandler :
 		}
 
 		var desiredPath = destinationFolder.Path.Combine(requestedName);
-		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
+		progress?.Report(new StorageOperationProgress(0, 1, ((ConfiguredItemLocator)request.Source).Reference));
 		if (StringComparer.Ordinal.Equals(item.Path.Value, desiredPath.Value))
 		{
 			var unchanged = _source.CreateReference(item.Path);

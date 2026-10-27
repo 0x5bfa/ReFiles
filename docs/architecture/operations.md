@@ -79,7 +79,7 @@ Operation results should distinguish success, cancellation, unsupported behavior
 
 Generic operation intent should not contain Windows Shell, FTP, archive, or other backend-specific implementation logic. Providers/operation executors decide how an intent is fulfilled.
 
-The [cross-source transfer plan](storage-transfers.md) defines the next slices for FTP and archive sources, staged destination import, and structured partial outcomes. It is a proposal; the current implementation still routes only supported provider operations.
+Cross-source file Copy now uses staged destination import and structured transfer effects. The [transfer design](storage-transfers.md) documents the implemented FTP/archive-to-Windows slice and the remaining tree, batch extraction, destination, and Move work. Native handlers remain first in routing order.
 
 ## Tests
 

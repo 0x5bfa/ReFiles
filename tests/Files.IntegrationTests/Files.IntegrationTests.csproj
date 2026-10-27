@@ -5,6 +5,8 @@
 		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
 		<OutputType>Exe</OutputType>
+		<!-- The WinRT component copies a private hostfxr; launch the managed test entry point through dotnet. -->
+		<UseAppHost>false</UseAppHost>
 		<IsPackable>false</IsPackable>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<Nullable>enable</Nullable>
@@ -24,6 +26,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\..\src\Files.BackgroundServer\Files.BackgroundServer.csproj"
+			AdditionalProperties="SelfContained=false;OutputPath=bin\IntegrationReference\$(Platform)\$(Configuration)\;IntermediateOutputPath=obj\IntegrationReference\$(Platform)\$(Configuration)\" />
 	</ItemGroup>
 
 </Project>

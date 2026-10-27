@@ -23,6 +23,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 	private readonly List<IStorageSource> _sources = [];
 
 	private readonly List<IStorageOperationHandler> _operationHandlers = [];
+	private readonly List<Func<StorageWorkspace, IStorageOperationHandler>> _operationHandlerFactories = [];
 	private IStorageOperationService? _storageOperations;
 
 	private readonly List<Func<StorageWorkspace, IBrowseLocationHandler>> _locationHandlerFactories = [];
@@ -152,7 +153,7 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 			}
 
 			var locationResolver = new BrowseLocationResolver(handlers);
-			var storageOperations = _storageOperations ?? new StorageOperationService(_operationHandlers);
+			var storageOperations = _storageOperations ?? new StorageOperationService(_operationHandlers.Concat(_operationHandlerFactories.Select(factory => factory(workspace))));
 			var search = new BrowseSearchService(handlers.OfType<IBrowseSearchProvider>());
 			var services = new BrowseApplicationServices(workspace, storageOperations, search);
 			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache, services: services);
@@ -240,6 +241,13 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		ArgumentException.ThrowIfNullOrWhiteSpace(moduleId);
 
 		return _configuredModules.Add(moduleId);
+	}
+
+	internal void AddStorageOperationHandlerFactory(Func<StorageWorkspace, IStorageOperationHandler> factory)
+	{
+		EnsureMutable();
+
+		_operationHandlerFactories.Add(factory);
 	}
 
 	internal FilesCoreBuilder AddStorageBrowseLocationHandler(Func<StorageWorkspace, IBrowseLocationHandler> handlerFactory)

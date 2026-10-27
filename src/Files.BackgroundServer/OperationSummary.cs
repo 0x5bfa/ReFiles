@@ -50,4 +50,10 @@ public struct OperationSummary
 	public bool HasResultItem;
 	public StorageReferenceData ResultItem;
 	public bool Skipped;
+	public bool HasTransferOutcome;
+	public int TransferPublication;
+	public int TransferPhase;
+	public long TransferCompletedBytes;
+	public int TransferCommittedItems;
+	public StorageReferenceData TransferDestination;
 }

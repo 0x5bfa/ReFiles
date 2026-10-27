@@ -88,6 +88,22 @@ public sealed partial class AppService : IDisposable
 		return Program.Operations.Submit(new StorageOperationBatch(operationId, items));
 	}
 
+	/// <summary>Registers server-owned FTP connection settings and credentials outside transfer intent.</summary>
+	public string RegisterFtpConnection(FtpConnectionData connection, string userName, string password)
+	{
+		using var request = AcquireRequest();
+
+		return Program.Storage.Value.RegisterFtpConnection(connection, userName, password);
+	}
+
+	/// <summary>Accepts captured transfer sources independently of any browse-session lifetime.</summary>
+	public Guid SubmitStorageTransfers(Guid operationId, [ReadOnlyArray] StorageTransferData[] items, [ReadOnlyArray] ArchiveLocatorStepData[] steps)
+	{
+		using var request = AcquireRequest();
+
+		return Program.Operations.Submit(new StorageTransferBatch(operationId, items, steps));
+	}
+
 	/// <summary>Accepts attribute changes for execution independently of the UI.</summary>
 	public Guid SubmitAttributeChanges(Guid operationId, [ReadOnlyArray] string[] paths, FileAttributeChangesData changes)
 	{

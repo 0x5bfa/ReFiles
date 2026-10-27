@@ -29,4 +29,8 @@
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<InternalsVisibleTo Include="Files.IntegrationTests" />
+	</ItemGroup>
+
 </Project>

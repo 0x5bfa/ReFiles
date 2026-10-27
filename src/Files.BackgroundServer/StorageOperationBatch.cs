@@ -50,12 +50,12 @@ internal sealed class StorageOperationBatch : IServerOperation
 			var request = await executor.CreateRequestAsync(item, cancellationToken).ConfigureAwait(false);
 			var progress = new StorageOperationProgressReporter(context, index, _items.Length, item.DisplayName);
 			var result = await executor.ExecuteAsync(request, progress, context, cancellationToken).ConfigureAwait(false);
+			context.SetResult(result);
 			if (!result.Succeeded)
 			{
 				throw result.Error ?? new IOException("The storage operation failed.");
 			}
 
-			context.SetResult(result);
 			context.Report(new OperationProgress(index + 1, _items.Length, CurrentItemName: item.DisplayName));
 		}
 	}

@@ -28,4 +28,4 @@ internal sealed record StorageOperationStatus(
 	bool IsCancellationAcknowledged,
 	DateTimeOffset StartedAt,
 	DateTimeOffset? CompletedAt,
-	IReadOnlyList<Vector2> SpeedGraphPoints);
+	IReadOnlyList<Vector2> SpeedGraphPoints, StorageTransferOutcome? Transfer = null);

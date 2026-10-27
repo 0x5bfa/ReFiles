@@ -67,6 +67,13 @@ public sealed class StorageOperationService : IStorageOperationService
 		try
 		{
 			StorageOperationResult? result = await handler.ExecuteAsync(request, progress, cancellationToken, operationControl).ConfigureAwait(false);
+			if (result is { Transfer: null } && request is CopyOperationRequest or MoveOperationRequest)
+			{
+				var publication = result.Succeeded && result.Skipped ? StorageTransferPublication.None
+					: result.Succeeded && result.ResultItem is not null ? StorageTransferPublication.Committed : StorageTransferPublication.Unknown;
+				var transfer = new StorageTransferOutcome(publication, result.Succeeded ? StorageTransferPhase.Completed : StorageTransferPhase.Publishing, result.ResultItem, 0);
+				result = new StorageOperationResult(result.Succeeded, result.ResultItem, result.Error, result.Skipped, transfer);
+			}
 
 			return result ?? Failed(new InvalidOperationException($"Storage operation handler '{handler.GetType().FullName}' returned null."));
 		}
@@ -76,7 +83,9 @@ public sealed class StorageOperationService : IStorageOperationService
 		}
 		catch (Exception exception)
 		{
-			return Failed(exception);
+			var transfer = request is CopyOperationRequest or MoveOperationRequest ? new StorageTransferOutcome(StorageTransferPublication.Unknown, StorageTransferPhase.Publishing, null, 0) : null;
+
+			return new StorageOperationResult(false, null, exception, transfer: transfer);
 		}
 	}
 

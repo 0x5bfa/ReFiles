@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Files.Core.Storage;
+using Files.Core.Storage.Ftp;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Windows;
 using Files.Infrastructure;
@@ -15,6 +16,7 @@ namespace Files.StorageOperations;
 internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IStorageJobService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
 {
 	private readonly Lock _syncRoot = new();
+	private readonly HashSet<string> _ftpSources = [];
 	private readonly CancellationTokenSource _shutdown = new();
 	private readonly MemoryThumbnailCache _fallbackThumbnailCache = new();
 	private readonly Task _observer;
@@ -43,11 +45,23 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		{
 			RenameOperationRequest rename => IsWindowsReference(rename.Item, true),
 			CreateItemOperationRequest create => IsWindowsReference(create.Parent, true),
-			CopyOperationRequest copy => IsWindowsReference(copy.Item, true) && IsWindowsReference(copy.DestinationFolder, true),
-			MoveOperationRequest move => IsWindowsReference(move.Item, true) && IsWindowsReference(move.DestinationFolder, true),
+			CopyOperationRequest copy => copy.Source is ConfiguredItemLocator or ArchiveRecordLocator && IsTransferSource(copy.Source) && IsWindowsReference(copy.DestinationFolder, true),
+			MoveOperationRequest { Source: ConfiguredItemLocator source } move => IsWindowsReference(source.Reference, true) && IsWindowsReference(move.DestinationFolder, true),
 			DeleteOperationRequest delete => IsWindowsReference(delete.Item, false),
 			_ => false,
 		};
+	}
+
+	internal async Task RegisterFtpConnectionAsync(FtpConnectionProfile profile, FtpCredential? credential = null, CancellationToken cancellationToken = default)
+	{
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		var data = new BackgroundServer.FtpConnectionData { ConnectionId = profile.ConnectionId, DisplayName = profile.DisplayName, Host = profile.Host, Port = profile.Port,
+			SecurityMode = (int)profile.SecurityMode, RootPath = profile.RootPath.Value, UserNameHint = profile.UserNameHint ?? string.Empty, PathComparison = (int)profile.PathComparison };
+		var sourceId = server.RegisterFtpConnection(data, credential?.UserName ?? "anonymous", credential?.Password ?? "anonymous@");
+		lock (_syncRoot)
+		{
+			_ftpSources.Add(sourceId);
+		}
 	}
 
 	public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
@@ -217,6 +231,13 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		if (snapshot.Length is 0 || snapshot.Any(request => request is null || !CanHandle(request)))
 		{
 			throw new NotSupportedException("The job must contain a nonempty batch of supported operations.");
+		}
+
+		if (snapshot.All(request => request is CopyOperationRequest or MoveOperationRequest))
+		{
+			var transfer = StorageTransferDataMapper.ToData(snapshot);
+
+			return await SubmitOperationAsync(id, (server, jobId) => server.SubmitStorageTransfers(jobId, transfer.Items, transfer.Steps), cancellationToken).ConfigureAwait(false);
 		}
 
 		var items = snapshot.Select(ToData).ToArray();
@@ -411,6 +432,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 					if (ReferenceEquals(connection, _connection))
 					{
 						_connection = null;
+						_ftpSources.Clear();
 					}
 
 					SignalChange();
@@ -625,24 +647,33 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 
 		if (summary.State == BackgroundServer.OperationState.Failed)
 		{
-			return new StorageOperationResult(false, null, new COMException(summary.ErrorMessage, summary.ErrorCode));
+			return new StorageOperationResult(false, null, new COMException(summary.ErrorMessage, summary.ErrorCode), transfer: StorageOperationStatusMapper.GetTransferOutcome(summary));
 		}
 
 		var data = summary.ResultItem;
 		var item = summary.HasResultItem ? new StorableReference(new StorageSourceId(data.SourceId), data.ItemId,
 			data.HasAddress ? new StorageAddress(data.AddressScheme, data.AddressValue) : null) : null;
 
-		return new StorageOperationResult(true, item, skipped: summary.Skipped);
+		return new StorageOperationResult(true, item, skipped: summary.Skipped, transfer: StorageOperationStatusMapper.GetTransferOutcome(summary));
+	}
+
+	private bool IsTransferSource(StorageItemLocator source)
+	{
+		if (IsWindowsReference(source.Root, false))
+		{
+			return true;
+		}
+
+		lock (_syncRoot)
+		{
+			return _ftpSources.Contains(source.Root.SourceId.Value);
+		}
 	}
 
 	private static BackgroundServer.StorageOperationData ToData(StorageOperationRequest request)
 	{
 		var data = request switch
 		{
-			CopyOperationRequest copy => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Copy, Item = ToData(copy.Item), Destination = ToData(copy.DestinationFolder),
-				Name = copy.NewName ?? string.Empty, ConflictBehavior = (int)copy.ConflictBehavior },
-			MoveOperationRequest move => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Move, Item = ToData(move.Item), Destination = ToData(move.DestinationFolder),
-				Name = move.NewName ?? string.Empty, ConflictBehavior = (int)move.ConflictBehavior },
 			DeleteOperationRequest delete => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Delete, Item = ToData(delete.Item), Permanently = delete.Permanently },
 			RenameOperationRequest rename => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Rename, Item = ToData(rename.Item), Name = rename.NewName },
 			CreateItemOperationRequest create => new BackgroundServer.StorageOperationData { Kind = create.Kind == StorageItemKind.File

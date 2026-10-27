@@ -48,8 +48,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		{
 			RenameOperationRequest rename => IsOwnedFileSystemItem(rename.Item),
 			CreateItemOperationRequest create => IsOwnedFileSystemItem(create.Parent),
-			CopyOperationRequest copy => IsOwnedFileSystemItem(copy.Item) && IsOwnedFileSystemItem(copy.DestinationFolder),
-			MoveOperationRequest move => IsOwnedFileSystemItem(move.Item) && IsOwnedFileSystemItem(move.DestinationFolder),
+			CopyOperationRequest copy => copy.Source is ConfiguredItemLocator copySource && IsOwnedFileSystemItem(copySource.Reference) && IsOwnedFileSystemItem(copy.DestinationFolder),
+			MoveOperationRequest move => move.Source is ConfiguredItemLocator moveSource && IsOwnedFileSystemItem(moveSource.Reference) && IsOwnedFileSystemItem(move.DestinationFolder),
 			DeleteOperationRequest delete => IsOwned(delete.Item),
 			_ => false,
 		};
@@ -83,10 +83,12 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 				CreateItemOperationRequest create =>
 					await ExecuteCreateAsync(create, progress, cancellationToken).ConfigureAwait(false),
 				CopyOperationRequest copy =>
-					await ExecuteTransferAsync(copy.Item, copy.DestinationFolder, copy.NewName, copy.ConflictBehavior, move: false, progress: progress, cancellationToken: cancellationToken,
+					await ExecuteTransferAsync(((ConfiguredItemLocator)copy.Source).Reference, copy.DestinationFolder, copy.NewName, copy.ConflictBehavior,
+						move: false, progress: progress, cancellationToken: cancellationToken,
 						operationControl: operationControl).ConfigureAwait(false),
 				MoveOperationRequest move =>
-					await ExecuteTransferAsync(move.Item, move.DestinationFolder, move.NewName, move.ConflictBehavior, move: true, progress: progress, cancellationToken: cancellationToken,
+					await ExecuteTransferAsync(((ConfiguredItemLocator)move.Source).Reference, move.DestinationFolder, move.NewName, move.ConflictBehavior,
+						move: true, progress: progress, cancellationToken: cancellationToken,
 						operationControl: operationControl).ConfigureAwait(false),
 				DeleteOperationRequest delete =>
 					await ExecuteDeleteAsync(delete, progress, cancellationToken, operationControl).ConfigureAwait(false),
@@ -793,7 +795,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase);
 	}
 
-	private static void ValidateName(string newName)
+	internal static void ValidateName(string newName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(newName);
 

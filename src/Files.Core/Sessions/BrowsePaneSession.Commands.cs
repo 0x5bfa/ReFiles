@@ -139,11 +139,48 @@ public sealed partial class BrowsePaneSession
 		foreach (var address in snapshot)
 		{
 			await using var item = await services.Workspace.ResolveAsync(address, cancellationToken).ConfigureAwait(false);
-			requests.Add(move ? new MoveOperationRequest(item.Reference, destination, conflictBehavior: StorageConflictBehavior.Prompt)
-				: new CopyOperationRequest(item.Reference, destination, conflictBehavior: StorageConflictBehavior.Prompt));
+			requests.Add(move ? new MoveOperationRequest(StorageItemLocator.Capture(item), destination, conflictBehavior: StorageConflictBehavior.Prompt)
+				: new CopyOperationRequest(StorageItemLocator.Capture(item), destination, conflictBehavior: StorageConflictBehavior.Prompt));
 		}
 
 		return await services.Operations.ExecuteAndWaitAsync(requests, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Captures the current selection and submits an independently owned transfer job.</summary>
+	/// <param name="destination">The configured destination folder.</param>
+	/// <param name="move">Whether to request a supported Move instead of Copy.</param>
+	/// <param name="cancellationToken">Cancels acceptance or observation, not an already accepted job.</param>
+	/// <returns>The transfer result, including acknowledged effects.</returns>
+	public ValueTask<StorageOperationResult> TransferSelectionAsync(StorableReference destination, bool move = false, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		var sources = BrowseSession.Selection.SelectedKeys.Select(key => BrowseSession.TryGet(key, out var item) ? StorageItemLocator.Capture(item)
+			: throw new InvalidOperationException("The captured selection is no longer available.")).ToArray();
+
+		return TransferItemsAsync(sources, destination, move, cancellationToken);
+	}
+
+	/// <summary>Submits captured source locators without retaining the selected item models.</summary>
+	/// <param name="sources">The captured source values.</param>
+	/// <param name="destination">The configured destination folder.</param>
+	/// <param name="move">Whether to request a supported Move instead of Copy.</param>
+	/// <param name="cancellationToken">Cancels acceptance or observation according to the job boundary.</param>
+	/// <returns>The transfer result, including acknowledged effects.</returns>
+	public ValueTask<StorageOperationResult> TransferItemsAsync(IReadOnlyList<StorageItemLocator> sources, StorableReference destination, bool move = false,
+		CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		ArgumentNullException.ThrowIfNull(sources);
+
+		ArgumentNullException.ThrowIfNull(destination);
+
+		var services = _services ?? throw new InvalidOperationException("No browse application services were configured.");
+		var requests = sources.Select(source => move ? (StorageOperationRequest)new MoveOperationRequest(source, destination, conflictBehavior: StorageConflictBehavior.Prompt)
+			: new CopyOperationRequest(source, destination, conflictBehavior: StorageConflictBehavior.Prompt)).ToArray();
+
+		return services.Operations.ExecuteAndWaitAsync(requests, cancellationToken);
 	}
 
 	private static BrowseLocation? GetItemLocation(IStorableModel item)

@@ -50,9 +50,12 @@ public interface IStorageOperationService
 		}
 
 		var result = new StorageOperationResult(true, null);
+		StorageTransferOutcome? transfer = null;
 		foreach (var request in snapshot)
 		{
 			result = await ExecuteAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+			transfer = StorageTransferOutcome.Accumulate(transfer, result.Transfer, result.Succeeded);
+			result = new StorageOperationResult(result.Succeeded, result.ResultItem, result.Error, result.Skipped, transfer);
 			if (!result.Succeeded)
 			{
 				return result;

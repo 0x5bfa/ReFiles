@@ -107,7 +107,7 @@ public sealed record CreateItemOperationRequest : StorageOperationRequest
 public sealed record CopyOperationRequest : StorageOperationRequest
 {
 	/// <summary>Gets the item to copy.</summary>
-	public StorableReference Item { get; }
+	public StorageItemLocator Source { get; }
 
 	/// <summary>Gets the destination folder.</summary>
 	public StorableReference DestinationFolder { get; }
@@ -124,8 +124,19 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 	/// <param name="newName">The optional destination name.</param>
 	/// <param name="conflictBehavior">The conflict behavior.</param>
 	public CopyOperationRequest(StorableReference item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
+		: this(new ConfiguredItemLocator(item), destinationFolder, newName, conflictBehavior)
+	{
+	}
+
+	/// <summary>Creates a transfer request from independently resolvable source values.</summary>
+	/// <param name="item">The captured source locator.</param>
+	/// <param name="destinationFolder">The configured destination folder.</param>
+	/// <param name="newName">The optional destination name.</param>
+	/// <param name="conflictBehavior">The destination conflict policy.</param>
+	public CopyOperationRequest(StorageItemLocator item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(item);
+
 		ArgumentNullException.ThrowIfNull(destinationFolder);
 
 		if (newName is not null)
@@ -135,7 +146,7 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 		}
 
 		ValidateConflictBehavior(conflictBehavior);
-		Item = item;
+		Source = item;
 		DestinationFolder = destinationFolder;
 		NewName = newName;
 		ConflictBehavior = conflictBehavior;
@@ -156,7 +167,7 @@ public sealed record CopyOperationRequest : StorageOperationRequest
 public sealed record MoveOperationRequest : StorageOperationRequest
 {
 	/// <summary>Gets the item to move.</summary>
-	public StorableReference Item { get; }
+	public StorageItemLocator Source { get; }
 
 	/// <summary>Gets the destination folder.</summary>
 	public StorableReference DestinationFolder { get; }
@@ -173,8 +184,19 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 	/// <param name="newName">The optional destination name.</param>
 	/// <param name="conflictBehavior">The conflict behavior.</param>
 	public MoveOperationRequest(StorableReference item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
+		: this(new ConfiguredItemLocator(item), destinationFolder, newName, conflictBehavior)
+	{
+	}
+
+	/// <summary>Creates a transfer request from independently resolvable source values.</summary>
+	/// <param name="item">The captured source locator.</param>
+	/// <param name="destinationFolder">The configured destination folder.</param>
+	/// <param name="newName">The optional destination name.</param>
+	/// <param name="conflictBehavior">The destination conflict policy.</param>
+	public MoveOperationRequest(StorageItemLocator item, StorableReference destinationFolder, string? newName = null, StorageConflictBehavior conflictBehavior = StorageConflictBehavior.Fail)
 	{
 		ArgumentNullException.ThrowIfNull(item);
+
 		ArgumentNullException.ThrowIfNull(destinationFolder);
 
 		if (newName is not null)
@@ -184,7 +206,7 @@ public sealed record MoveOperationRequest : StorageOperationRequest
 		}
 
 		ValidateConflictBehavior(conflictBehavior);
-		Item = item;
+		Source = item;
 		DestinationFolder = destinationFolder;
 		NewName = newName;
 		ConflictBehavior = conflictBehavior;

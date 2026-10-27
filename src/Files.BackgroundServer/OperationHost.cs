@@ -268,6 +268,21 @@ internal sealed class OperationHost(ServerLifetime lifetime)
 			entry.Summary.HasResultItem = result.ResultItem is not null;
 			entry.Summary.ResultItem = result.ResultItem is null ? default : StorageOperationExecutor.ToData(result.ResultItem);
 			entry.Summary.Skipped = result.Skipped;
+			if (result.Transfer is { } transfer)
+			{
+				entry.Summary.HasTransferOutcome = true;
+				entry.Summary.TransferPhase = (int)transfer.Phase;
+				entry.Summary.TransferCompletedBytes += transfer.CompletedBytes;
+				entry.Summary.TransferCommittedItems += transfer.CommittedItems;
+				if (transfer.Destination is { } destination)
+				{
+					entry.Summary.TransferDestination = StorageOperationExecutor.ToData(destination);
+				}
+
+				entry.Summary.TransferPublication = (int)(transfer.Publication == StorageTransferPublication.Unknown || entry.Summary.TransferPublication == (int)StorageTransferPublication.Unknown
+					? StorageTransferPublication.Unknown
+					: entry.Summary.TransferCommittedItems > 0 ? result.Succeeded ? StorageTransferPublication.Committed : StorageTransferPublication.Partial : StorageTransferPublication.None);
+			}
 		}
 	}
 
@@ -377,6 +392,12 @@ internal sealed class OperationHost(ServerLifetime lifetime)
 		lock (_syncRoot)
 		{
 			entry.Summary.State = state;
+			if (state is OperationState.Failed or OperationState.Canceled && entry.Summary.HasTransferOutcome && entry.Summary.TransferCommittedItems > 0
+				&& entry.Summary.TransferPublication != (int)StorageTransferPublication.Unknown)
+			{
+				entry.Summary.TransferPublication = (int)StorageTransferPublication.Partial;
+			}
+
 			entry.Summary.IsPauseRequested = false;
 			entry.Summary.HasInterruption = false;
 			entry.Decision?.TrySetCanceled();
