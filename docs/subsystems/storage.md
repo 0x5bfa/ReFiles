@@ -42,7 +42,7 @@ Current provider guarantees differ:
 | Windows native file ID | Can survive same-volume rename/move. Cross-volume moves and file ID reuse do not preserve an incarnation guarantee. |
 | Windows address fallback | Identifies a namespace entry by parsing name, including hard links. Path changes change the key; changing hard-link topology can also change the selected identity scheme. |
 | FTP path | Identifies the normalized path within one configured source. Rename changes the key; deletion and recreation at the same path can reuse it. |
-| SevenZip entry path | Identifies a path within an archive-reference-derived namespace. A remount can reuse the key for changed content; resolved objects still borrow the active mount. |
+| Archive session and record | A fresh source identity scopes physical record IDs to one open view. Reopening creates different references, even for unchanged content; models borrow the active view. |
 
 Equality is not proof of unchanged content or an unchanged object incarnation. Keep `LastKnownAddress` outside equality. Path-changing operation results can relate old and new references explicitly; they must not redefine equality. Caches also need change invalidation or content revisions, particularly when refreshing path-backed sources or remounting an archive.
 
@@ -52,7 +52,7 @@ Files and folders implement `IFile` and `IFolder` directly. Parent traversal is 
 
 Folder enumeration supplies the browse pipeline. Providers should yield useful items progressively and honor cancellation instead of materializing the complete folder before returning whenever the backend supports streaming enumeration.
 
-An archive entry has a parent inside its mounted hierarchy; the mounted root has none there. `IArchiveEntry.Archive` identifies the containing archive item separately. Browse navigation crosses the mount boundary: Up from an archive root returns the folder containing the archive, not the archive file as a parent folder. Nested mounts currently require an explicit mount-chain and lifetime contract before they can be supported.
+An archive entry has a parent inside its hierarchy; the archive root has none there. `IArchiveEntry.Archive` records the observed containing item, while `Locator` describes the reopenable container chain. Up from a root returns the folder containing its backing file, including the enclosing folder of a nested archive. See [archives](archives.md) for record identity and ownership contracts.
 
 Cross-source parent relationships need references carrying `SourceId`; callers must not assume that a returned raw parent's source matches the child's. A storage parent also cannot represent every occurrence of an item in search results or collections; the browse location determines those navigation relationships.
 

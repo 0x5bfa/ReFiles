@@ -5,6 +5,8 @@ using Files.Core.Storage;
 using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
 using Files.Core.Windows;
+using Files.Core.Models;
+using Files.Core.Storage.Archives.SevenZip;
 
 namespace Files.Core.Capabilities.Archives;
 
@@ -25,10 +27,14 @@ public sealed class ArchiveSourceFactory
 	];
 
 	private readonly IReadOnlyList<string> _extensions;
+	private readonly ArchiveBackendSelector _readers;
+	private readonly IArchiveCredentialResolver? _credentials;
 
 	/// <summary>Initializes an archive source factory.</summary>
 	/// <param name="extensions">The optional supported extension list.</param>
-	public ArchiveSourceFactory(IEnumerable<string>? extensions = null)
+	/// <param name="readers">The optional configured archive readers.</param>
+	/// <param name="credentials">The optional credential resolver.</param>
+	public ArchiveSourceFactory(IEnumerable<string>? extensions = null, ArchiveBackendSelector? readers = null, IArchiveCredentialResolver? credentials = null)
 	{
 		var extensionArray = (extensions ?? _defaultExtensions).Select(NormalizeExtension).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 		if (extensionArray.Length is 0)
@@ -37,21 +43,14 @@ public sealed class ArchiveSourceFactory
 		}
 
 		_extensions = Array.AsReadOnly(extensionArray);
+		_readers = readers ?? new ArchiveBackendSelector([new SevenZipArchiveBackend()]);
+		_credentials = credentials;
 	}
 
 	/// <inheritdoc />
 	public IArchiveSource? Create(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
-
-		// SevenZip archive entries belong to a scoped mount that is not
-		// registered in StorageWorkspace. Nested archives require an explicit
-		// mount-chain contract rather than a reference that becomes stale
-		// when the containing browse context is replaced.
-		if (context.CoreModel is IArchiveEntry || context.CoreModel is IArchiveSource)
-		{
-			return null;
-		}
 
 		var isArchiveFile = context.CoreModel is IFile;
 		var isShellArchiveFolder =
@@ -75,8 +74,17 @@ public sealed class ArchiveSourceFactory
 				: context.CoreModel.Name;
 
 		return _extensions.Any(extension => extensionSource.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
-			? new ArchiveSource(context.Reference)
+			? CreateSource(context)
 			: null;
+	}
+
+	private IArchiveSource CreateSource(ItemContext context)
+	{
+		var rootSource = context.Source is ArchiveStorageSource archiveSource ? archiveSource.RootSource : context.Source;
+		var locator = context.CoreModel is IArchiveEntry entry ? entry.Locator.Append(entry.EntryId, entry.EntryPath) : new ArchiveLocator(context.Reference);
+		var models = context.ModelFactory ?? new StorableModelFactory();
+
+		return new ArchiveSource(context.Reference, locator, rootSource, models, _readers, _credentials);
 	}
 
 	private static string NormalizeExtension(string extension)
@@ -90,5 +98,12 @@ public sealed class ArchiveSourceFactory
 			: $".{trimmedExtension}";
 	}
 
-	private sealed record ArchiveSource(StorableReference Archive) : IArchiveSource;
+	private sealed record ArchiveSource(StorableReference Archive, ArchiveLocator Locator, IStorageSource RootSource, IStorableModelFactory Models, ArchiveBackendSelector Readers,
+		IArchiveCredentialResolver? Credentials) : IArchiveSource
+	{
+		public ValueTask<ArchiveModel> OpenAsync(CancellationToken cancellationToken = default)
+		{
+			return ArchiveModel.OpenAsync(RootSource, Locator, Models, Readers, Credentials, cancellationToken);
+		}
+	}
 }

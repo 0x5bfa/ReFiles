@@ -8,6 +8,12 @@ namespace Files.Core.Storage.Archives;
 /// </summary>
 public interface IArchiveEntry
 {
+	/// <summary>Gets the locator of the archive containing this item.</summary>
+	ArchiveLocator Locator { get; }
+
+	/// <summary>Gets the physical record identifier, or a projected folder identifier.</summary>
+	string EntryId { get; }
+
 	/// <summary>Gets the archive reference.</summary>
 	StorableReference Archive { get; }
 

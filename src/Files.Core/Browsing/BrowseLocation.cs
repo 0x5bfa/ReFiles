@@ -29,7 +29,10 @@ public sealed record FolderLocation : BrowseLocation
 public sealed record ArchiveLocation : BrowseLocation
 {
 	/// <summary>Gets the archive reference.</summary>
-	public StorableReference Archive { get; }
+	public StorableReference Archive => Locator.Root;
+
+	/// <summary>Gets the reopenable archive container chain.</summary>
+	public ArchiveLocator Locator { get; }
 
 	/// <summary>Gets the normalized path of the archive entry.</summary>
 	public string EntryPath { get; }
@@ -38,17 +41,25 @@ public sealed record ArchiveLocation : BrowseLocation
 	/// <param name="archive">The archive reference.</param>
 	/// <param name="entryPath">The optional path of the entry inside the archive.</param>
 	public ArchiveLocation(StorableReference archive, string? entryPath = null)
+		: this(new ArchiveLocator(archive), entryPath)
 	{
-		ArgumentNullException.ThrowIfNull(archive);
+	}
 
-		Archive = archive;
+	/// <summary>Creates a location inside a possibly nested archive.</summary>
+	/// <param name="locator">The container chain.</param>
+	/// <param name="entryPath">The folder path inside the selected archive.</param>
+	public ArchiveLocation(ArchiveLocator locator, string? entryPath = null)
+	{
+		ArgumentNullException.ThrowIfNull(locator);
+
+		Locator = locator;
 		EntryPath = ArchiveEntryPath.Normalize(entryPath);
 	}
 
 	/// <summary>Initializes an archive location from an archive entry.</summary>
 	/// <param name="entry">The archive entry.</param>
 	public ArchiveLocation(IArchiveEntry entry)
-		: this(entry?.Archive ?? throw new ArgumentNullException(nameof(entry)), entry?.EntryPath)
+		: this(entry?.Locator ?? throw new ArgumentNullException(nameof(entry)), entry?.EntryPath)
 	{
 	}
 }

@@ -33,8 +33,6 @@ public sealed class ContentCapabilityTests
 		Assert.IsNull(model.Get<IReadableContent>());
 		Assert.IsNull(model.Get<IPreviewSource>());
 		Assert.IsNull(model.Get<IArchiveSource>());
-		var result = await new SevenZipArchiveBackend().TryMountAsync(new ArchiveMountRequest(source, model));
-		Assert.IsInstanceOfType<ArchiveMountResult.Unsupported>(result);
 	}
 
 	/// <summary>Preview resolves registered and wrapped read access and borrows the capability until model disposal.</summary>
@@ -81,35 +79,33 @@ public sealed class ContentCapabilityTests
 	[TestMethod]
 	public async Task ArchiveOpeningUsesTheComposedReaderAndPreservesAccessFailures()
 	{
-		await using var source = new TestStorageSource();
+		await using var source = new ArchiveTestSource(readable: false);
 		var error = new UnauthorizedAccessException("Denied by the composed reader.");
 		var reader = new TestContent(() => Task.FromException<Stream>(error));
 		var registry = new CapabilityBuilder()
-			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(_ => reader))
+			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(_ => reader), lifetime: CapabilityLifetime.Shared)
 			.Add<IArchiveSource>(new ArchiveSourceFactory())
 			.Build();
-		await using var model = new StorableModelFactory(registry).Create(source, new ClassifiedFile("archive.zip"));
+		await using var model = new StorableModelFactory(registry).Create(source, await source.ResolveAsync(source.Reference));
 
 		Assert.IsNotNull(model.Get<IArchiveSource>());
-		var result = await new SevenZipArchiveBackend().TryMountAsync(new ArchiveMountRequest(source, model));
-		Assert.IsInstanceOfType<ArchiveMountResult.Failed>(result);
-		Assert.AreSame(error, ((ArchiveMountResult.Failed)result).Error);
+		var actual = await Assert.ThrowsAsync<UnauthorizedAccessException>(async () => await model.Get<IArchiveSource>()!.OpenAsync());
+		Assert.AreSame(error, actual);
 		Assert.AreEqual(1, reader.OpenCount);
 	}
 
-	/// <summary>Archive stream setup releases an opened stream when seeking fails or opening completes after cancellation.</summary>
+	/// <summary>Archive input materialization releases its read stream on copy failure or late cancellation.</summary>
 	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
 	public async Task ArchiveStreamSetupDisposesOnFailureAndCancellation()
 	{
-		await using var source = new TestStorageSource();
-		var stream = new SeekFailureStream();
+		await using var source = new ArchiveTestSource(readable: false);
+		var stream = new CopyFailureStream();
 		var reader = new TestContent(() => Task.FromResult<Stream>(stream));
-		var registry = new CapabilityBuilder().Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(_ => reader)).Build();
-		await using var model = new StorableModelFactory(registry).Create(source, new ClassifiedFile("archive.zip"));
-		var result = await new SevenZipArchiveBackend().TryMountAsync(new ArchiveMountRequest(source, model));
-
-		Assert.IsInstanceOfType<ArchiveMountResult.Failed>(result);
+		var registry = new CapabilityBuilder().Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(_ => reader), lifetime: CapabilityLifetime.Shared)
+			.Add<IArchiveSource>(new ArchiveSourceFactory()).Build();
+		await using var model = new StorableModelFactory(registry).Create(source, await source.ResolveAsync(source.Reference));
+		await Assert.ThrowsAsync<IOException>(async () => await model.Get<IArchiveSource>()!.OpenAsync());
 		Assert.AreEqual(1, stream.DisposeCount);
 
 		using var cancellation = new CancellationTokenSource();
@@ -120,9 +116,10 @@ public sealed class ContentCapabilityTests
 
 			return Task.FromResult<Stream>(cancelledStream);
 		});
-		var cancelledRegistry = new CapabilityBuilder().Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(_ => cancelledReader)).Build();
-		await using var cancelledModel = new StorableModelFactory(cancelledRegistry).Create(source, new ClassifiedFile("cancelled.zip"));
-		await Assert.ThrowsAsync<OperationCanceledException>(async () => await new SevenZipArchiveBackend().TryMountAsync(new ArchiveMountRequest(source, cancelledModel), cancellation.Token));
+		var cancelledRegistry = new CapabilityBuilder().Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(_ => cancelledReader), lifetime: CapabilityLifetime.Shared)
+			.Add<IArchiveSource>(new ArchiveSourceFactory()).Build();
+		await using var cancelledModel = new StorableModelFactory(cancelledRegistry).Create(source, await source.ResolveAsync(source.Reference));
+		await Assert.ThrowsAsync<OperationCanceledException>(async () => await cancelledModel.Get<IArchiveSource>()!.OpenAsync(cancellation.Token));
 		Assert.IsFalse(cancelledStream.CanRead);
 	}
 
@@ -242,14 +239,13 @@ public sealed class ContentCapabilityTests
 		}
 	}
 
-	private sealed class SeekFailureStream : MemoryStream
+	private sealed class CopyFailureStream : MemoryStream
 	{
 		public int DisposeCount { get; private set; }
 
-		public override long Position
+		public override Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
 		{
-			get => base.Position;
-			set => throw new IOException("Seeking failed.");
+			return Task.FromException(new IOException("Reading failed."));
 		}
 
 		protected override void Dispose(bool disposing)

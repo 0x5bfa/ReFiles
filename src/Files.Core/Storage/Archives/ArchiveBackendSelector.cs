@@ -3,140 +3,52 @@
 
 namespace Files.Core.Storage.Archives;
 
-/// <summary>
-/// Selects exactly one backend before archive items are exposed to a browse session.
-/// </summary>
+/// <summary>Selects a reader before exposing any archive items.</summary>
 public sealed class ArchiveBackendSelector
 {
-	private readonly IReadOnlyList<IArchiveBackend> _backends;
+	/// <summary>Gets readers ordered by descending priority.</summary>
+	public IReadOnlyList<IArchiveBackend> Backends { get; }
 
-	private readonly IArchiveProbe? _probe;
-
-	/// <summary>Gets the backends ordered by descending priority.</summary>
-	public IReadOnlyList<IArchiveBackend> Backends => _backends;
-
-	/// <summary>Initializes an archive backend selector.</summary>
-	/// <param name="backends">The archive backends.</param>
-	/// <param name="probe">The optional archive probe.</param>
-	public ArchiveBackendSelector(IEnumerable<IArchiveBackend> backends, IArchiveProbe? probe = null)
+	/// <summary>Creates a reader selector.</summary>
+	/// <param name="backends">The registered readers.</param>
+	public ArchiveBackendSelector(IEnumerable<IArchiveBackend> backends)
 	{
 		ArgumentNullException.ThrowIfNull(backends);
 
-		var suppliedBackends = backends.ToArray();
-		if (suppliedBackends.Length is 0)
+		var readers = backends.ToArray();
+		if (readers.Length == 0 || readers.Any(reader => reader is null || string.IsNullOrWhiteSpace(reader.Id)))
 		{
-			throw new ArgumentException("At least one archive backend is required.", nameof(backends));
+			throw new ArgumentException("Supply at least one reader with a nonempty identifier.", nameof(backends));
 		}
 
-		if (suppliedBackends.Any(static backend => backend is null))
+		if (readers.Select(reader => reader.Id).Distinct(StringComparer.Ordinal).Count() != readers.Length)
 		{
-			throw new ArgumentException("Archive backends cannot contain null values.", nameof(backends));
+			throw new ArgumentException("Reader identifiers must be unique.", nameof(backends));
 		}
 
-		if (suppliedBackends.Any(static backend => string.IsNullOrWhiteSpace(backend.Id)))
-		{
-			throw new ArgumentException("Archive backend IDs cannot be empty.", nameof(backends));
-		}
-
-		var backendArray = suppliedBackends.OrderByDescending(static backend => backend.Priority).ToArray();
-		var duplicateId = backendArray.GroupBy(static backend => backend.Id, StringComparer.Ordinal).FirstOrDefault(static group => group.Count() > 1);
-		if (duplicateId is not null)
-		{
-			throw new ArgumentException($"Archive backend ID '{duplicateId.Key}' was supplied more than once.", nameof(backends));
-		}
-
-		_backends = Array.AsReadOnly(backendArray);
-		_probe = probe;
+		Backends = Array.AsReadOnly(readers.OrderByDescending(reader => reader.Priority).ToArray());
 	}
 
-	/// <summary>Attempts to mount an archive using the selected backends.</summary>
-	/// <param name="request">The mount request.</param>
-	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The mount result.</returns>
-	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
+	/// <summary>Tries another reader only when a reader explicitly reports unsupported input.</summary>
+	/// <param name="request">The borrowed input request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The first supported reader outcome.</returns>
+	public async ValueTask<ArchiveOpenResult> TryOpenAsync(ArchiveOpenRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
-		cancellationToken.ThrowIfCancellationRequested();
 
-		ArchiveProbeResult probeResult = ArchiveProbeResult.Unknown;
-		Exception? probeError = null;
-		if (_probe is not null)
-		{
-			try
-			{
-				probeResult = await _probe.ProbeAsync(request, cancellationToken).ConfigureAwait(false);
-			}
-			catch (OperationCanceledException)
-				when (cancellationToken.IsCancellationRequested)
-			{
-				throw;
-			}
-			catch (Exception error)
-			{
-				probeError = error;
-			}
-		}
-
-		if (probeResult is { Kind: ArchiveProbeKind.CredentialRequired, Challenge: { } challenge, })
-		{
-			return new ArchiveMountResult.CredentialRequired(challenge);
-		}
-
-		var requireEncryptedSupport =
-			probeResult.Kind is ArchiveProbeKind.Encrypted;
-		List<Exception>? errors = probeError is null
-			? null
-			: [probeError];
-
-		foreach (var backend in _backends)
+		foreach (var backend in Backends)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			if (requireEncryptedSupport && !backend.SupportsEncryptedArchives)
+			request.Input.Position = 0;
+			var result = await backend.TryOpenAsync(request, cancellationToken).ConfigureAwait(false);
+			if (result is not ArchiveOpenResult.Unsupported)
 			{
-				continue;
-			}
-
-			ArchiveMountResult result;
-			try
-			{
-				result = await backend.TryMountAsync(request, cancellationToken).ConfigureAwait(false);
-			}
-			catch (OperationCanceledException)
-				when (cancellationToken.IsCancellationRequested)
-			{
-				throw;
-			}
-			catch (Exception error)
-			{
-				(errors ??= []).Add(error);
-				continue;
-			}
-
-			switch (result)
-			{
-				case ArchiveMountResult.Success:
-				case ArchiveMountResult.CredentialRequired:
-
-					return result;
-				case ArchiveMountResult.Failed failed:
-					(errors ??= []).Add(failed.Error);
-					break;
-				case ArchiveMountResult.Unsupported:
-					break;
-				default:
-					throw new InvalidOperationException($"Archive backend '{backend.Id}' returned an unknown result.");
+				return result;
 			}
 		}
 
-		return errors switch
-		{
-			null or { Count: 0 } =>
-				ArchiveMountResult.Unsupported.Instance,
-			{ Count: 1 } =>
-				new ArchiveMountResult.Failed(errors[0]),
-			_ =>
-				new ArchiveMountResult.Failed(new AggregateException("No archive backend could mount the item.", errors)),
-		};
+		return ArchiveOpenResult.Unsupported.Instance;
 	}
 }

@@ -4,63 +4,61 @@
 using System.IO;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Content;
+using Files.Core.Models;
 
 namespace Files.Core.Storage.Archives;
 
 internal static class ArchiveStreamResolver
 {
-	public static async ValueTask<Stream?> OpenSeekableReadAsync(ArchiveMountRequest request, CancellationToken cancellationToken)
+	public static async ValueTask<Stream> OpenReadAsync(IStorableModel model, CancellationToken cancellationToken)
 	{
-		ArgumentNullException.ThrowIfNull(request);
-
-		cancellationToken.ThrowIfCancellationRequested();
-
-		if (request.ArchiveModel.Get<IReadableContent>() is not { } content)
-		{
-			return null;
-		}
-
-		Stream? input = await content.OpenReadAsync(cancellationToken).ConfigureAwait(false);
-		FileStream? seekableCopy = null;
+		var content = model.Get<IReadableContent>() ?? throw new UnsupportedArchiveException(model.Name);
+		var stream = content is IArchiveInput input ? await input.OpenReadAsync(cancellationToken).ConfigureAwait(false) : await MaterializeAsync(content, cancellationToken).ConfigureAwait(false);
 		try
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			if (input.CanSeek)
+			if (!stream.CanRead || !stream.CanSeek)
 			{
-				input.Position = 0;
-				var result = input;
-				input = null;
-
-				return result;
+				throw new InvalidDataException("Archive inputs must provide an independent, readable, seekable stream.");
 			}
 
-			seekableCopy = CreateTemporaryStream();
-			await input.CopyToAsync(seekableCopy, cancellationToken).ConfigureAwait(false);
-			seekableCopy.Position = 0;
-			var source = input;
-			input = null;
-			await source.DisposeAsync().ConfigureAwait(false);
-			var copy = seekableCopy;
-			seekableCopy = null;
+			stream.Position = 0;
 
-			return copy;
+			return stream;
+		}
+		catch
+		{
+			await stream.DisposeAsync().ConfigureAwait(false);
+			throw;
+		}
+	}
+
+	public static async Task<Stream> MaterializeAsync(IReadableContent content, CancellationToken cancellationToken)
+	{
+		FileStream? output = CreateTemporaryStream();
+		try
+		{
+			await using (var input = await content.OpenReadAsync(cancellationToken).ConfigureAwait(false))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+
+				await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			output.Position = 0;
+			var result = output;
+			output = null;
+
+			return result;
 		}
 		finally
 		{
-			try
+			if (output is not null)
 			{
-				if (seekableCopy is not null)
-				{
-					await seekableCopy.DisposeAsync().ConfigureAwait(false);
-				}
-			}
-			finally
-			{
-				if (input is not null)
-				{
-					await input.DisposeAsync().ConfigureAwait(false);
-				}
+				await output.DisposeAsync().ConfigureAwait(false);
 			}
 		}
 	}

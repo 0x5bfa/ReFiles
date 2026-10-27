@@ -4,6 +4,7 @@
 using System.IO;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Content;
+using Files.Core.Storage.Archives;
 
 namespace Files.Core.Windows;
 
@@ -30,11 +31,16 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 		return context.CoreModel is WindowsFile { IsFileSystem: true } file ? new WritableContent(file) : null;
 	}
 
-	private sealed record ReadableContent(WindowsStorable Item) : IReadableContent
+	private sealed record ReadableContent(WindowsStorable Item) : IReadableContent, IArchiveInput
 	{
 		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 		{
 			return Item.Factory.OpenStreamAsync(Item.Descriptor, FileAccess.Read, cancellationToken);
+		}
+
+		Task<Stream> IArchiveInput.OpenReadAsync(CancellationToken cancellationToken)
+		{
+			return Item.FileSystemPath is null ? ArchiveStreamResolver.MaterializeAsync(this, cancellationToken) : Item.Factory.OpenArchiveInputAsync(Item.Descriptor, cancellationToken);
 		}
 	}
 

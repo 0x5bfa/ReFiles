@@ -37,6 +37,19 @@ internal sealed class OpenItemCommandHandler : ICommandHandler
 		}
 
 		var request = new ItemActivationRequest(reference, context.InvokedItemIsFolder, GetWorkingDirectory(context.Location), context.InvocationPoint);
+		var location = await browser.GetItemLocationAsync(reference, cancellationToken).ConfigureAwait(false);
+		if (location is not null)
+		{
+			if (!context.IsCurrent(CommandExecutionScope.Pane))
+			{
+				return CommandExecutionResult.Canceled();
+			}
+
+			await browser.NavigateToLocationAsync(location, cancellationToken).ConfigureAwait(false);
+
+			return CommandExecutionResult.Succeeded();
+		}
+
 		var outcome = await _activationService.ActivateAsync(request, cancellationToken).ConfigureAwait(false);
 		if (outcome is ItemActivationOutcome.Navigate)
 		{

@@ -6,41 +6,32 @@ using Files.Core.Capabilities;
 using Files.Core.Capabilities.Archives;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Archives.SevenZip;
-using Files.Core.Windows;
 
 namespace Files.Core.Composition;
 
-/// <summary>Provides archive browsing composition extensions.</summary>
+/// <summary>Registers archive models and browsing over a common provider.</summary>
 public static class ArchiveFilesCoreBuilderExtensions
 {
 	private const string ArchiveBrowsingModule = "Files.Core.Archives.Browsing";
 
-	/// <summary>Adds the built-in archive browsing backends.</summary>
-	/// <param name="builder">The Files.Core builder.</param>
-	/// <param name="credentialResolver">The optional archive credential resolver.</param>
+	/// <summary>Registers the standard archive reader and application-model capability.</summary>
+	/// <param name="builder">The Core builder.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
 	/// <returns>The builder.</returns>
 	public static FilesCoreBuilder AddArchiveBrowsing(this FilesCoreBuilder builder, IArchiveCredentialResolver? credentialResolver = null)
 	{
-		ArgumentNullException.ThrowIfNull(builder);
-
-		var sevenZipBackend = new SevenZipArchiveBackend();
-
-		return builder.AddArchiveBrowsing([new WindowsShellArchiveBackend(), sevenZipBackend,], sevenZipBackend, credentialResolver);
+		return builder.AddArchiveBrowsing([new SevenZipArchiveBackend()], credentialResolver);
 	}
 
-	/// <summary>Adds archive browsing with explicit backends.</summary>
-	/// <param name="builder">The Files.Core builder.</param>
-	/// <param name="backends">The archive backends.</param>
-	/// <param name="probe">The optional archive probe.</param>
-	/// <param name="credentialResolver">The optional archive credential resolver.</param>
+	/// <summary>Registers explicit readers behind the common archive provider.</summary>
+	/// <param name="builder">The Core builder.</param>
+	/// <param name="backends">The archive readers.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
 	/// <returns>The builder.</returns>
-	public static FilesCoreBuilder AddArchiveBrowsing(
-		this FilesCoreBuilder builder,
-		IEnumerable<IArchiveBackend> backends,
-		IArchiveProbe? probe = null,
-		IArchiveCredentialResolver? credentialResolver = null)
+	public static FilesCoreBuilder AddArchiveBrowsing(this FilesCoreBuilder builder, IEnumerable<IArchiveBackend> backends, IArchiveCredentialResolver? credentialResolver = null)
 	{
 		ArgumentNullException.ThrowIfNull(builder);
+
 		ArgumentNullException.ThrowIfNull(backends);
 
 		if (!builder.TryAddModule(ArchiveBrowsingModule))
@@ -48,9 +39,10 @@ public static class ArchiveFilesCoreBuilderExtensions
 			return builder;
 		}
 
-		var selector = new ArchiveBackendSelector(backends, probe);
-		builder.Capabilities.SetCombiner<IArchiveSource>(new PriorityCapabilityCombiner<IArchiveSource>()).Add<IArchiveSource>(new ArchiveSourceFactory(), priority: 100, origin: "Archive browsing");
-		builder.AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, selector, credentialResolver));
+		var readers = new ArchiveBackendSelector(backends);
+		builder.Capabilities.SetCombiner<IArchiveSource>(new PriorityCapabilityCombiner<IArchiveSource>())
+			.Add<IArchiveSource>(new ArchiveSourceFactory(readers: readers, credentials: credentialResolver), priority: 100, origin: "Archive models");
+		builder.AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, readers, credentialResolver));
 
 		return builder;
 	}

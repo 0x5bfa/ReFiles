@@ -8,32 +8,31 @@ using Files.Core.Storage.Archives;
 
 namespace Files.Core.Browsing;
 
-/// <summary>
-/// Mounts an archive before publishing any of its entries to a browse session.
-/// </summary>
+/// <summary>Adapts independently opened archive models to browse locations.</summary>
 public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 {
-	private const int _maximumCredentialAttempts = 5;
 	private readonly IStorageWorkspace _workspace;
-	private readonly IStorableModelFactory _modelFactory;
-	private readonly ArchiveBackendSelector _backendSelector;
-	private readonly IArchiveCredentialResolver? _credentialResolver;
+	private readonly IStorableModelFactory _models;
+	private readonly ArchiveBackendSelector _readers;
+	private readonly IArchiveCredentialResolver? _credentials;
 
-	/// <summary>Initializes an archive browse location handler.</summary>
-	/// <param name="workspace">The storage workspace.</param>
-	/// <param name="modelFactory">The internal model factory for mounted entries.</param>
-	/// <param name="backendSelector">The archive backend selector.</param>
+	/// <summary>Creates an archive navigation adapter.</summary>
+	/// <param name="workspace">The borrowed configured workspace.</param>
+	/// <param name="modelFactory">The item model factory.</param>
+	/// <param name="backendSelector">The configured readers.</param>
 	/// <param name="credentialResolver">The optional credential resolver.</param>
 	public ArchiveBrowseLocationHandler(IStorageWorkspace workspace, IStorableModelFactory modelFactory, ArchiveBackendSelector backendSelector, IArchiveCredentialResolver? credentialResolver = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
+
 		ArgumentNullException.ThrowIfNull(modelFactory);
+
 		ArgumentNullException.ThrowIfNull(backendSelector);
 
 		_workspace = workspace;
-		_modelFactory = modelFactory;
-		_backendSelector = backendSelector;
-		_credentialResolver = credentialResolver;
+		_models = modelFactory;
+		_readers = backendSelector;
+		_credentials = credentialResolver;
 	}
 
 	/// <inheritdoc />
@@ -50,117 +49,54 @@ public sealed class ArchiveBrowseLocationHandler : IBrowseLocationHandler
 			throw new ArgumentException("The location must identify an archive.", nameof(location));
 		}
 
-		var archiveModel = await _workspace.ResolveAsync(archiveLocation.Archive, cancellationToken).ConfigureAwait(false);
-		IArchiveMount? mount = null;
-		IStorableModel? locationModel = null;
-
+		var source = _workspace.Sources.Single(source => source.SourceId == archiveLocation.Archive.SourceId);
+		var archive = await ArchiveModel.OpenAsync(source, archiveLocation.Locator, _models, _readers, _credentials, cancellationToken).ConfigureAwait(false);
+		IFolderModel? folder = null;
 		try
 		{
-			var source = GetSource(archiveLocation.Archive.SourceId);
-			ArchiveCredential? credential = null;
-			var credentialAttempt = 0;
-			var credentialPromptCount = 0;
+			folder = await archive.OpenFolderAsync(archiveLocation.EntryPath, cancellationToken).ConfigureAwait(false);
+			var parent = await GetParentAsync(archiveLocation, source, cancellationToken).ConfigureAwait(false);
 
-			while (true)
+			return new ArchiveBrowseLocationContext(archiveLocation, archive, folder, _workspace, parent);
+		}
+		catch
+		{
+			try
 			{
-				var request = new ArchiveMountRequest(source, archiveModel, credential, credentialAttempt, _credentialResolver);
-				var result = await _backendSelector.TryMountAsync(request, cancellationToken).ConfigureAwait(false);
-
-				switch (result)
+				if (folder is not null)
 				{
-					case ArchiveMountResult.Success success:
-						mount = success.Mount;
-						break;
-					case ArchiveMountResult.CredentialRequired required:
-						if (_credentialResolver is null)
-						{
-							throw new ArchiveCredentialRequiredException(required.Challenge);
-						}
-
-						credentialPromptCount++;
-						if (credentialPromptCount > _maximumCredentialAttempts || required.Challenge.Attempt > _maximumCredentialAttempts)
-						{
-							throw new ArchiveOpenException($"Archive credential attempts exceeded {_maximumCredentialAttempts}.");
-						}
-
-						credential = await _credentialResolver.ResolveAsync(required.Challenge, cancellationToken).ConfigureAwait(false)
-							?? throw new OperationCanceledException("The archive credential request was canceled.");
-						credentialAttempt = Math.Max(required.Challenge.Attempt, credentialPromptCount);
-						continue;
-					case ArchiveMountResult.Unsupported:
-						throw new UnsupportedArchiveException(archiveModel.Name);
-					case ArchiveMountResult.Failed failed:
-						throw new ArchiveOpenException($"Archive '{archiveModel.Name}' could not be opened.", failed.Error);
-					default:
-						throw new InvalidOperationException("The archive backend selector returned an unknown result.");
+					await folder.DisposeAsync().ConfigureAwait(false);
 				}
-
-				break;
 			}
-
-			var locationCoreModel = await mount.ResolveAsync(archiveLocation.EntryPath, cancellationToken).ConfigureAwait(false);
-			if (locationCoreModel is not IFolder)
+			finally
 			{
-				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' is not a folder.");
+				await archive.DisposeAsync().ConfigureAwait(false);
 			}
 
-			locationModel = ReferenceEquals(locationCoreModel, archiveModel.GetCoreModel())
-				? archiveModel
-				: _modelFactory.Create(mount.ItemSource, locationCoreModel);
-			if (locationModel is not IFolderModel folderModel)
-			{
-				throw new InvalidOperationException($"Archive entry '{archiveLocation.EntryPath}' did not produce a folder model.");
-			}
-
-			var context = new ArchiveBrowseLocationContext(archiveLocation, archiveModel, folderModel, mount, _workspace, _modelFactory);
-
-			return context;
-		}
-		catch (Exception openError)
-		{
-			var cleanupErrors = new List<Exception>();
-			if (locationModel is not null && !ReferenceEquals(locationModel, archiveModel))
-			{
-				await TryDisposeAsync(locationModel, cleanupErrors).ConfigureAwait(false);
-			}
-
-			if (mount is not null)
-			{
-				await TryDisposeAsync(mount, cleanupErrors).ConfigureAwait(false);
-			}
-
-			await TryDisposeAsync(archiveModel, cleanupErrors).ConfigureAwait(false);
-			if (cleanupErrors.Count is 0)
-			{
-				throw;
-			}
-
-			cleanupErrors.Insert(0, openError);
-			throw new AggregateException("Archive location opening and cleanup failed.", cleanupErrors);
+			throw;
 		}
 	}
 
-	private IStorageSource GetSource(StorageSourceId sourceId)
+	private async ValueTask<BrowseLocation?> GetParentAsync(ArchiveLocation location, IStorageSource source, CancellationToken cancellationToken)
 	{
-		var matches = _workspace.Sources.Where(source => source.SourceId == sourceId).Take(2).ToArray();
-
-		return matches.Length switch
+		if (location.EntryPath.Length != 0)
 		{
-			1 => matches[0],
-			0 => throw new KeyNotFoundException($"Storage source '{sourceId}' is not registered."),
-			_ => throw new InvalidOperationException($"Storage source '{sourceId}' is registered more than once."),
-		};
-	}
-
-	private static async ValueTask TryDisposeAsync(IAsyncDisposable disposable, ICollection<Exception> errors)
-	{
-		try
-		{
-			await disposable.DisposeAsync().ConfigureAwait(false);
+			return new ArchiveLocation(location.Locator, ArchiveEntryPath.GetParent(location.EntryPath));
 		}
-		catch (Exception error)
+
+		if (location.Locator.Parent is { } parentArchive)
 		{
-			errors.Add(error);
+			return new ArchiveLocation(parentArchive, ArchiveEntryPath.GetParent(location.Locator.EntryPath!));
 		}
+
+		await using var container = await _workspace.ResolveAsync(location.Archive, cancellationToken).ConfigureAwait(false);
+		if (container.GetCoreModel() is not IStorableChild child || await child.GetParentAsync(cancellationToken).ConfigureAwait(false) is not { } parent)
+		{
+			return null;
+		}
+
+		await using var model = _models.Create(source, parent);
+
+		return new FolderLocation(model.Reference);
 	}
 }

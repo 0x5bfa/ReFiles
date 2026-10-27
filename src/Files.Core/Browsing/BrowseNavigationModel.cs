@@ -121,6 +121,7 @@ public sealed class BrowseNavigationModel
 	private async Task<IReadOnlyList<BrowseNavigationEntry>> CreateArchiveBreadcrumbItemsAsync(ArchiveLocation location, CancellationToken cancellationToken)
 	{
 		await using var archiveModel = await _workspace.ResolveAsync(location.Archive, cancellationToken).ConfigureAwait(false);
+		var archiveName = location.Locator.EntryPath is { } nestedPath ? ArchiveEntryPath.GetName(nestedPath) : archiveModel.Name;
 		var context = _session.Context;
 		var leafHasChildren = context is { Location: ArchiveLocation contextLocation, LocationModel: IFolderModel currentFolder }
 			&& Equals(contextLocation, location)
@@ -128,13 +129,13 @@ public sealed class BrowseNavigationModel
 		var segments = string.IsNullOrEmpty(location.EntryPath) ? [] : location.EntryPath.Split('/');
 		var items = new List<BrowseNavigationEntry>(segments.Length + 1)
 		{
-			new(archiveModel.Name, new ArchiveLocation(location.Archive), segments.Length > 0 || leafHasChildren),
+			new(archiveName, new ArchiveLocation(location.Locator), segments.Length > 0 || leafHasChildren),
 		};
 		var entryPath = string.Empty;
 		for (var index = 0; index < segments.Length; index++)
 		{
 			entryPath = ArchiveEntryPath.Combine(entryPath, segments[index]);
-			items.Add(new BrowseNavigationEntry(segments[index], new ArchiveLocation(location.Archive, entryPath), index < segments.Length - 1 || leafHasChildren));
+			items.Add(new BrowseNavigationEntry(segments[index], new ArchiveLocation(location.Locator, entryPath), index < segments.Length - 1 || leafHasChildren));
 		}
 
 		return items;
@@ -199,7 +200,7 @@ public sealed class BrowseNavigationModel
 
 	private async Task<IReadOnlyList<BrowseNavigationEntry>> CreateArchiveBreadcrumbChildrenAsync(ArchiveLocation location, CancellationToken cancellationToken)
 	{
-		if (_session.Context is not ArchiveBrowseLocationContext context || context.Location is not ArchiveLocation contextLocation || !Equals(contextLocation.Archive, location.Archive))
+		if (_session.Context is not ArchiveBrowseLocationContext context || context.Location is not ArchiveLocation contextLocation || contextLocation.Locator != location.Locator)
 		{
 			return [];
 		}
@@ -216,7 +217,7 @@ public sealed class BrowseNavigationModel
 
 				var entryPath = ArchiveEntryPath.Combine(location.EntryPath, child.Name);
 				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
-				items.Add(new BrowseNavigationEntry(child.Name, new ArchiveLocation(location.Archive, entryPath), false, thumbnail));
+				items.Add(new BrowseNavigationEntry(child.Name, new ArchiveLocation(location.Locator, entryPath), false, thumbnail));
 			}
 			finally
 			{

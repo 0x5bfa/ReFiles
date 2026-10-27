@@ -286,6 +286,28 @@ internal sealed class WindowsStorableFactory
 			cancellationToken);
 	}
 
+	internal Task<Stream> OpenArchiveInputAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		var path = descriptor.Metadata.FileSystemPath ?? throw new NotSupportedException("Pinned archive input requires a file-system item.");
+		var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.Asynchronous | FileOptions.RandomAccess);
+		try
+		{
+			if (_itemIdReader.GetItemId(descriptor.Locator.ParsingName, path) != descriptor.ItemId)
+			{
+				throw new FileNotFoundException("The archive item was replaced before its input could be opened.", path);
+			}
+
+			return Task.FromResult<Stream>(input);
+		}
+		catch
+		{
+			input.Dispose();
+			throw;
+		}
+	}
+
 	private static Stream OpenFileSystemStream(string fileSystemPath, FileAccess accessMode)
 	{
 		if (accessMode is not (FileAccess.Read or FileAccess.Write or FileAccess.ReadWrite))

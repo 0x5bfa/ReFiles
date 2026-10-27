@@ -1,183 +1,98 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using System.Globalization;
 using System.IO;
-using Files.Core.Models;
-using Files.Core.Windows;
+using System.Runtime.InteropServices;
 using global::SevenZip;
-using Files.Core.Storage;
 
 namespace Files.Core.Storage.Archives.SevenZip;
 
-/// <summary>
-/// Provides the Windows 10 and encrypted-archive fallback through SevenZipSharp.
-/// </summary>
-public sealed class SevenZipArchiveBackend
-	: IArchiveBackend, IArchiveProbe
+/// <summary>Reads archive records through SevenZipSharp without exposing its types to application models.</summary>
+public sealed class SevenZipArchiveBackend : IArchiveBackend
 {
-	/// <summary>Gets the stable backend identifier.</summary>
+	/// <summary>Gets the reader identifier.</summary>
 	public const string DefaultBackendId = "sevenzip";
+	private static readonly Lazy<bool> _library = new(InitializeLibrary);
 
-	/// <summary>Gets the backend identifier.</summary>
+	/// <inheritdoc />
 	public string Id => DefaultBackendId;
 
-	/// <summary>Gets the backend priority.</summary>
+	/// <inheritdoc />
 	public int Priority => 100;
 
-	/// <summary>Gets a value indicating whether encrypted archives are supported.</summary>
-	public bool SupportsEncryptedArchives => true;
-
-	/// <summary>Probes an archive for encryption and credential requirements.</summary>
-	/// <param name="request">The mount request.</param>
-	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The probe result.</returns>
-	public async ValueTask<ArchiveProbeResult> ProbeAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
+	/// <inheritdoc />
+	public async ValueTask<ArchiveOpenResult> TryOpenAsync(ArchiveOpenRequest request, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
 
-		// A probe is only needed before a Shell folder is selected. Other
-		// items reach this backend directly, where mounting performs the same
-		// password and encryption checks without parsing the archive twice.
-		if (request.Source is not WindowsStorageSource || request.ArchiveModel.GetCoreModel() is not IFolder)
-		{
-			return ArchiveProbeResult.Unknown;
-		}
-
-		Stream? stream = null;
-		SevenZipExtractor? extractor = null;
-		try
-		{
-			stream = await ArchiveStreamResolver.OpenSeekableReadAsync(request, cancellationToken).ConfigureAwait(false);
-			if (stream is null)
-			{
-				return ArchiveProbeResult.Unknown;
-			}
-
-			extractor = CreateExtractor(stream, request.Credential);
-			var entries = extractor.ArchiveFileData;
-			var encrypted = entries.Any(IsEncrypted);
-
-			if (encrypted && request.Credential is null)
-			{
-				return ArchiveProbeResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: false));
-			}
-
-			return encrypted
-				? ArchiveProbeResult.Encrypted
-				: ArchiveProbeResult.Unencrypted;
-		}
-		catch (OperationCanceledException)
-			when (cancellationToken.IsCancellationRequested)
-		{
-			throw;
-		}
-		catch (Exception error)
-			when (IsPasswordFailure(error))
-		{
-			return ArchiveProbeResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: request.Credential is not null));
-		}
-		catch
-		{
-			return ArchiveProbeResult.Unknown;
-		}
-		finally
-		{
-			extractor?.Dispose();
-			if (stream is not null)
-			{
-				await stream.DisposeAsync().ConfigureAwait(false);
-			}
-		}
-	}
-
-	/// <summary>Attempts to mount an archive with SevenZipSharp.</summary>
-	/// <param name="request">The mount request.</param>
-	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The mount result.</returns>
-	public async ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(request);
-
-		Stream? stream = null;
-		SevenZipExtractor? extractor = null;
-		try
-		{
-			stream = await ArchiveStreamResolver.OpenSeekableReadAsync(request, cancellationToken).ConfigureAwait(false);
-			if (stream is null)
-			{
-				return ArchiveMountResult.Unsupported.Instance;
-			}
-
-			extractor = CreateExtractor(stream, request.Credential);
-			var entries = extractor.ArchiveFileData.ToArray();
-			if (entries.Any(IsEncrypted) && request.Credential is null)
-			{
-				return new ArchiveMountResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: false));
-			}
-
-			var index = SevenZipArchiveIndex.Create(entries, request.ArchiveModel.Name);
-			var mount = new SevenZipArchiveMount(request, stream, extractor, index);
-			stream = null;
-			extractor = null;
-
-			return new ArchiveMountResult.Success(mount);
-		}
-		catch (OperationCanceledException)
-			when (cancellationToken.IsCancellationRequested)
-		{
-			throw;
-		}
-		catch (Exception error)
-			when (IsPasswordFailure(error))
-		{
-			return new ArchiveMountResult.CredentialRequired(CreateChallenge(request, previousCredentialRejected: request.Credential is not null));
-		}
-		catch (SevenZipOpenFailedException)
-		{
-			return ArchiveMountResult.Unsupported.Instance;
-		}
-		catch (Exception error)
-		{
-			return new ArchiveMountResult.Failed(error);
-		}
-		finally
-		{
-			extractor?.Dispose();
-			if (stream is not null)
-			{
-				await stream.DisposeAsync().ConfigureAwait(false);
-			}
-		}
+		return await Task.Run(() => Open(request, cancellationToken), cancellationToken).ConfigureAwait(false);
 	}
 
 	internal static bool IsPasswordFailure(Exception error)
 	{
-		return error is SevenZipOpenFailedException
+		return error is SevenZipOpenFailedException { Result: OperationResult.WrongPassword } or ExtractionFailedException { Result: OperationResult.WrongPassword };
+	}
+
+	private static ArchiveOpenResult Open(ArchiveOpenRequest request, CancellationToken cancellationToken)
+	{
+		SevenZipExtractor? extractor = null;
+		try
+		{
+			_ = _library.Value;
+			extractor = request.Credential is null ? new SevenZipExtractor(request.Input, leaveOpen: true) : new SevenZipExtractor(request.Input, request.Credential.Password, leaveOpen: true);
+			var records = extractor.ArchiveFileData;
+			cancellationToken.ThrowIfCancellationRequested();
+
+			if (request.Credential is null && records.Any(entry => entry.Encrypted || entry.Method?.Contains("AES", StringComparison.OrdinalIgnoreCase) is true))
 			{
-				Result: OperationResult.WrongPassword,
+				return RequiredCredential(request);
 			}
-			|| error is ExtractionFailedException
-			{
-				Result: OperationResult.WrongPassword,
-			};
+
+			var entries = records.Select(entry => new ArchiveEntryInfo(entry.Index.ToString(CultureInfo.InvariantCulture), GetPath(entry, request.Name), entry.IsDirectory, entry.Size)).ToArray();
+			var session = new SevenZipArchiveReadSession(extractor, entries, request.Archive, request.Name);
+			extractor = null;
+
+			return new ArchiveOpenResult.Success(session);
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch (Exception error) when (IsPasswordFailure(error))
+		{
+			return RequiredCredential(request);
+		}
+		catch (Exception error)
+		{
+			return new ArchiveOpenResult.Failed(error);
+		}
+		finally
+		{
+			extractor?.Dispose();
+		}
 	}
 
-	internal static SevenZipExtractor CreateExtractor(Stream stream, ArchiveCredential? credential)
+	private static string GetPath(ArchiveFileInfo entry, string name)
 	{
-		return credential is null
-			? new SevenZipExtractor(stream, leaveOpen: true)
-			: new SevenZipExtractor(stream, credential.Password, leaveOpen: true);
+		return string.IsNullOrEmpty(entry.FileName) || entry.FileName == "[no name]" ? System.IO.Path.GetFileNameWithoutExtension(name) : entry.FileName;
 	}
 
-	private static bool IsEncrypted(ArchiveFileInfo entry)
+	private static ArchiveOpenResult RequiredCredential(ArchiveOpenRequest request)
 	{
-		return entry.Encrypted
-			|| entry.Method?.Contains("Crypto", StringComparison.OrdinalIgnoreCase) is true
-			|| entry.Method?.Contains("AES", StringComparison.OrdinalIgnoreCase) is true;
+		return new ArchiveOpenResult.CredentialRequired(new ArchiveCredentialChallenge(request.Archive, request.Name, request.CredentialAttempt + 1, request.CredentialAttempt != 0));
 	}
 
-	private static ArchiveCredentialChallenge CreateChallenge(ArchiveMountRequest request, bool previousCredentialRejected)
+	private static bool InitializeLibrary()
 	{
-		return new ArchiveCredentialChallenge(request.Archive, request.ArchiveModel.Name, request.CredentialAttempt + 1, previousCredentialRejected);
+		var fileName = RuntimeInformation.ProcessArchitecture switch
+		{
+			Architecture.X64 => "7z64.dll",
+			Architecture.Arm64 => "7zArm64.dll",
+			_ => throw new PlatformNotSupportedException("The archive reader supports x64 and ARM64 processes."),
+		};
+		SevenZipBase.SetLibraryPath(Path.Combine(AppContext.BaseDirectory, fileName));
+
+		return true;
 	}
 }

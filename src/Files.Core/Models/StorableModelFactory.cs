@@ -32,7 +32,7 @@ public sealed class StorableModelFactory : IStorableModelFactory
 		try
 		{
 			var reference = new StorableReference(source.SourceId, coreModel.Id, (coreModel as IStorageAddressSource)?.Address);
-			var context = new ItemContext(source, coreModel, reference);
+			var context = new ItemContext(source, coreModel, reference) { ModelFactory = this };
 			capabilities = _capabilityRegistry.CreateCapabilities(context);
 
 			return coreModel switch

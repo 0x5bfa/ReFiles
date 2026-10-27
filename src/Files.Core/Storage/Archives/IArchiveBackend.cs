@@ -3,7 +3,7 @@
 
 namespace Files.Core.Storage.Archives;
 
-/// <summary>Mounts archives using one archive technology.</summary>
+/// <summary>Opens archives using one reader technology.</summary>
 public interface IArchiveBackend
 {
 	/// <summary>Gets the unique backend identifier.</summary>
@@ -12,12 +12,9 @@ public interface IArchiveBackend
 	/// <summary>Gets the backend priority.</summary>
 	int Priority { get; }
 
-	/// <summary>Gets a value indicating whether encrypted archives are supported.</summary>
-	bool SupportsEncryptedArchives { get; }
-
-	/// <summary>Attempts to mount an archive.</summary>
-	/// <param name="request">The mount request.</param>
+	/// <summary>Attempts to open a borrowed input without publishing storage items.</summary>
+	/// <param name="request">The reader request.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The mount result.</returns>
-	ValueTask<ArchiveMountResult> TryMountAsync(ArchiveMountRequest request, CancellationToken cancellationToken = default);
+	/// <returns>The reader result; only Unsupported permits trying another backend.</returns>
+	ValueTask<ArchiveOpenResult> TryOpenAsync(ArchiveOpenRequest request, CancellationToken cancellationToken = default);
 }

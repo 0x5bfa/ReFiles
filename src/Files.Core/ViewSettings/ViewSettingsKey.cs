@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Files.Core.Browsing;
 using Files.Core.Storage;
+using Files.Core.Storage.Archives;
 
 namespace Files.Core.ViewSettings;
 
@@ -52,6 +53,7 @@ public sealed record ViewSettingsKey
 		key = location switch
 		{
 			FolderLocation folder => new ViewSettingsKey($"v1/folder/{EncodeReference(folder.Folder)}"),
+			ArchiveLocation { Locator.Parent: not null } archive => new ViewSettingsKey($"v1/archive-nested/{EncodeArchive(archive.Locator)}/{EncodeComponent(archive.EntryPath)}"),
 			ArchiveLocation archive => new ViewSettingsKey($"v1/archive/{EncodeReference(archive.Archive)}/{EncodeComponent(archive.EntryPath)}"),
 			HomeLocation => new ViewSettingsKey("v1/home"),
 			SearchLocation { Scope: null } => new ViewSettingsKey("v1/search/global"),
@@ -73,6 +75,11 @@ public sealed record ViewSettingsKey
 	private static string EncodeReference(StorableReference reference)
 	{
 		return $"{EncodeComponent(reference.SourceId.Value)}/{EncodeComponent(reference.ItemId)}";
+	}
+
+	private static string EncodeArchive(ArchiveLocator locator)
+	{
+		return locator.Parent is { } parent ? $"{EncodeArchive(parent)}/{EncodeComponent(locator.EntryId!)}/{EncodeComponent(locator.EntryPath!)}" : EncodeReference(locator.Root);
 	}
 
 	private static string EncodeComponent(string value)

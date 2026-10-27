@@ -43,6 +43,7 @@ The most important dependency rule is:
 ### Storage providers
 
 - [`subsystems/storage-providers.md`](subsystems/storage-providers.md)
+- [`subsystems/archives.md`](subsystems/archives.md)
 - [`development/adding-a-storage-provider.md`](development/adding-a-storage-provider.md)
 - [`architecture/layering.md`](architecture/layering.md)
 

@@ -4,6 +4,9 @@
 using Files.Core.Browsing;
 using Files.Core.Models;
 using Files.Core.Storage;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Archives;
+using Files.Core.Storage.Archives;
 
 namespace Files.Core.Sessions;
 
@@ -24,16 +27,43 @@ public sealed partial class BrowsePaneSession
 	public async ValueTask NavigateToAddressAsync(StorageAddress address, CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		EnsureActive();
+
 		ArgumentNullException.ThrowIfNull(address);
 
 		var services = _services ?? throw new InvalidOperationException("No browse application services were configured.");
 		await using var item = await services.Workspace.ResolveAsync(address, cancellationToken).ConfigureAwait(false);
-		if (item is not IFolderModel)
+		var location = GetItemLocation(item);
+		if (location is null)
 		{
 			throw new StorageItemNotFolderException(address);
 		}
 
-		await NavigateAsync(new FolderLocation(item.Reference), cancellationToken: cancellationToken, ownerWindowHandle: ownerWindowHandle).ConfigureAwait(false);
+		await NavigateAsync(location, cancellationToken: cancellationToken, ownerWindowHandle: ownerWindowHandle).ConfigureAwait(false);
+	}
+
+	/// <summary>Resolves an item's folder or archive navigation target without changing pane state.</summary>
+	/// <param name="reference">The captured item reference.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The target location, or <see langword="null"/> for an ordinary file.</returns>
+	public async ValueTask<BrowseLocation?> GetItemLocationAsync(StorableReference reference, CancellationToken cancellationToken = default)
+	{
+		EnsureActive();
+
+		ArgumentNullException.ThrowIfNull(reference);
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		if (BrowseSession.TryGet(reference.GetKey(), out var current))
+		{
+			return GetItemLocation(current);
+		}
+
+		var services = _services ?? throw new InvalidOperationException("No browse application services were configured.");
+		await using var item = BrowseSession.Context is IBrowseLocationItemResolver resolver
+			? await resolver.ResolveAsync(reference, cancellationToken).ConfigureAwait(false)
+			: await services.Workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+
+		return GetItemLocation(item);
 	}
 
 	/// <summary>Runs a search or returns to its original location when the query is cleared.</summary>
@@ -44,6 +74,7 @@ public sealed partial class BrowsePaneSession
 	public ValueTask SearchAsync(string query, CancellationToken cancellationToken = default, nint ownerWindowHandle = 0)
 	{
 		EnsureActive();
+
 		ArgumentNullException.ThrowIfNull(query);
 
 		var location = Location ?? HomeLocation.Instance;
@@ -113,6 +144,21 @@ public sealed partial class BrowsePaneSession
 		}
 
 		return await services.Operations.ExecuteAndWaitAsync(requests, cancellationToken).ConfigureAwait(false);
+	}
+
+	private static BrowseLocation? GetItemLocation(IStorableModel item)
+	{
+		if (item.Get<IArchiveSource>() is { } archive)
+		{
+			return new ArchiveLocation(archive.Locator);
+		}
+
+		if (item is IFolderModel)
+		{
+			return item.GetCoreModel() is IArchiveEntry entry ? new ArchiveLocation(entry) : new FolderLocation(item.Reference);
+		}
+
+		return null;
 	}
 
 	private DeleteOperationRequest CreateDeleteRequest(StorableReference reference)

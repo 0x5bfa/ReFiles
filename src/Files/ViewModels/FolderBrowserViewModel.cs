@@ -234,6 +234,11 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
 	}
 
+	internal ValueTask<BrowseLocation?> GetItemLocationAsync(StorableReference reference, CancellationToken cancellationToken)
+	{
+		return _pane.GetItemLocationAsync(reference, cancellationToken);
+	}
+
 	public Task SearchAsync(string query, CancellationToken cancellationToken = default)
 	{
 		return _pane.SearchAsync(query, cancellationToken, _ownerWindowHandle).AsTask();

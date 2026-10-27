@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage;
+using Files.Core.Models;
 
 namespace Files.Core.Capabilities;
 
@@ -11,6 +12,7 @@ namespace Files.Core.Capabilities;
 public sealed record ItemContext(IStorageSource Source, IStorable CoreModel, StorableReference Reference)
 {
 	internal ICapabilities? Capabilities { get; init; }
+	internal IStorableModelFactory? ModelFactory { get; init; }
 
 	/// <summary>Gets a borrowed capability from this item's composition, or directly from an unbound storage item.</summary>
 	/// <typeparam name="TCapability">The optional capability type.</typeparam>
