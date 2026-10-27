@@ -5,6 +5,7 @@ using System.Runtime.Versioning;
 using Files.Core.Capabilities;
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Changes;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Capabilities.Thumbnails;
@@ -74,7 +75,10 @@ public static class WindowsFilesCoreBuilderExtensions
 
 		if (builder.TryAddModule(WindowsCapabilitiesModule))
 		{
+			var contentFactory = new WindowsContentSourceFactory();
 			builder.Capabilities
+				.Add<IReadableContent>(contentFactory, origin: "Windows content")
+				.Add<IWritableContent>(contentFactory, origin: "Windows content")
 				.Add<IFolderBrowseMetadata>(new DelegateCapabilityFactory<IFolderBrowseMetadata>(static context => context.CoreModel is WindowsFolder folder ? new WindowsFolderBrowseMetadata(folder) : null))
 				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()), priority: 100, origin: "Windows Shell")
 				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), priority: 100, origin: "Windows Shell")

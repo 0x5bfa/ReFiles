@@ -16,14 +16,19 @@ public sealed class WindowsFile : WindowsStorable, IFile
 	{
 	}
 
-	/// <summary>Opens the Windows item for the requested access mode.</summary>
-	/// <param name="accessMode">The requested access mode.</param>
+	/// <summary>Opens an owned stream for reading this Windows file.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The opened stream.</returns>
-	public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+	/// <returns>The stream owned by the caller. Keep the storage source alive until the stream is disposed.</returns>
+	public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 	{
-		cancellationToken.ThrowIfCancellationRequested();
+		return Factory.OpenStreamAsync(Descriptor, FileAccess.Read, cancellationToken);
+	}
 
-		return await Factory.OpenStreamAsync(Descriptor, accessMode, cancellationToken).ConfigureAwait(false);
+	/// <summary>Opens an owned write stream to the existing file without truncating its content.</summary>
+	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>The stream owned by the caller. Keep the storage source alive until the stream is disposed.</returns>
+	public Task<Stream> OpenWriteAsync(CancellationToken cancellationToken = default)
+	{
+		return Factory.OpenStreamAsync(Descriptor, FileAccess.Write, cancellationToken);
 	}
 }

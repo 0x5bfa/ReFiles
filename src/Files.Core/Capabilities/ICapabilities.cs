@@ -12,13 +12,13 @@ public interface ICapabilities : IDisposable, IAsyncDisposable
 {
 	/// <summary>Gets an optional capability of the requested type.</summary>
 	/// <typeparam name="TCapability">The capability type.</typeparam>
-	/// <returns>The capability, or <see langword="null"/> when it is unavailable.</returns>
+	/// <returns>A borrowed capability, or <see langword="null"/> when unavailable. The caller must not dispose the capability.</returns>
 	TCapability? Get<TCapability>()
 		where TCapability : class;
 
 	/// <summary>Attempts to get an optional capability of the requested type.</summary>
 	/// <typeparam name="TCapability">The capability type.</typeparam>
-	/// <param name="capability">Receives the capability when one is available.</param>
+	/// <param name="capability">Receives a borrowed capability when available. The caller must not dispose it.</param>
 	/// <returns><see langword="true"/> when a capability was found.</returns>
 	bool TryGet<TCapability>([NotNullWhen(true)] out TCapability? capability)
 		where TCapability : class;

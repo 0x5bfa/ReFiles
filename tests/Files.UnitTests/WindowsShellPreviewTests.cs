@@ -4,6 +4,7 @@
 using System.Text;
 using Files.Core.Browsing;
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
@@ -827,7 +828,7 @@ public sealed class WindowsShellPreviewTests
 		}
 	}
 
-	private sealed class FakeWindowsFile : IWindowsStorable, IFile, IDisposable
+	private sealed class FakeWindowsFile : IWindowsStorable, IFile, IReadableContent, IDisposable
 	{
 		public string Id { get; }
 
@@ -862,7 +863,7 @@ public sealed class WindowsShellPreviewTests
 			return Task.FromResult<IFolder?>(null);
 		}
 
-		public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		public async Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 		{
 			OpenCount++;
 

@@ -4,6 +4,7 @@
 using System.Text;
 using Files.Core.Browsing;
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Models;
 using Files.Core.Storage;
@@ -237,7 +238,7 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(fileReference.GetKey(), preview.Current.TargetKey);
 		Assert.AreEqual("text/plain", result!.ContentType);
 		Assert.AreEqual(file.Name, result.SuggestedFileName);
-		Assert.AreEqual(FileAccess.Read, file.LastAccess);
+		Assert.AreEqual(1, file.OpenCount);
 		Assert.AreEqual("preview content", await ReadTextAsync(result.Content));
 
 		await preview.DisposeAsync();
@@ -291,9 +292,9 @@ public sealed class StreamPreviewLoaderTests
 		}
 	}
 
-	private sealed class TestFile : IFile, IStorageAddressSource
+	private sealed class TestFile : IFile, IReadableContent, IStorageAddressSource
 	{
-		private readonly Func<CancellationToken, Task<Stream>> openStream;
+		private readonly Func<CancellationToken, Task<Stream>> _openStream;
 
 		public string Id { get; }
 
@@ -303,22 +304,19 @@ public sealed class StreamPreviewLoaderTests
 
 		public int OpenCount { get; private set; }
 
-		public FileAccess? LastAccess { get; private set; }
-
 		public TestFile(string id, string name, Func<CancellationToken, Task<Stream>> openStream, string? addressValue = null)
 		{
 			Id = id;
 			Name = name;
-			this.openStream = openStream;
+			_openStream = openStream;
 			Address = new StorageAddress("test", addressValue ?? name);
 		}
 
-		public async Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken)
+		public async Task<Stream> OpenReadAsync(CancellationToken cancellationToken)
 		{
 			OpenCount++;
-			LastAccess = accessMode;
 
-			return await openStream(cancellationToken);
+			return await _openStream(cancellationToken);
 		}
 	}
 

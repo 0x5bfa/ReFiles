@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using Files.Core.Models;
-using Files.Core.Storage;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 
 namespace Files.Core.Storage.Archives;
 
@@ -12,56 +12,56 @@ internal static class ArchiveStreamResolver
 	public static async ValueTask<Stream?> OpenSeekableReadAsync(ArchiveMountRequest request, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(request);
+
 		cancellationToken.ThrowIfCancellationRequested();
 
-		Stream? input = null;
-		var archiveItem = request.ArchiveModel.GetCoreModel();
-		if (archiveItem is IFile file)
+		if (request.ArchiveModel.Get<IReadableContent>() is not { } content)
 		{
-			input = await file.OpenStreamAsync(FileAccess.Read, cancellationToken).ConfigureAwait(false);
-		}
-		else if (archiveItem is IStorageAddressSource { Address: { Scheme: var scheme, Value: var path, }, } && scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
-		{
-			input = new FileStream(path, new FileStreamOptions
-			{
-				Mode = FileMode.Open,
-				Access = FileAccess.Read,
-				Share = FileShare.ReadWrite | FileShare.Delete,
-				Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
-			});
+			return null;
 		}
 
-		if (input is null)
-		{
-			return input;
-		}
-
-		if (input.CanSeek)
-		{
-			input.Position = 0;
-
-			return input;
-		}
-
+		Stream? input = await content.OpenReadAsync(cancellationToken).ConfigureAwait(false);
 		FileStream? seekableCopy = null;
 		try
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			if (input.CanSeek)
+			{
+				input.Position = 0;
+				var result = input;
+				input = null;
+
+				return result;
+			}
+
 			seekableCopy = CreateTemporaryStream();
 			await input.CopyToAsync(seekableCopy, cancellationToken).ConfigureAwait(false);
 			seekableCopy.Position = 0;
-			await input.DisposeAsync().ConfigureAwait(false);
+			var source = input;
+			input = null;
+			await source.DisposeAsync().ConfigureAwait(false);
+			var copy = seekableCopy;
+			seekableCopy = null;
 
-			return seekableCopy;
+			return copy;
 		}
-		catch
+		finally
 		{
-			if (seekableCopy is not null)
+			try
 			{
-				await seekableCopy.DisposeAsync().ConfigureAwait(false);
+				if (seekableCopy is not null)
+				{
+					await seekableCopy.DisposeAsync().ConfigureAwait(false);
+				}
 			}
-
-			await input.DisposeAsync().ConfigureAwait(false);
-			throw;
+			finally
+			{
+				if (input is not null)
+				{
+					await input.DisposeAsync().ConfigureAwait(false);
+				}
+			}
 		}
 	}
 
@@ -69,17 +69,12 @@ internal static class ArchiveStreamResolver
 	{
 		var path = Path.Combine(Path.GetTempPath(), $"Files-{Guid.NewGuid():N}.archive");
 
-		return new FileStream(
-			path,
-			new FileStreamOptions
-			{
-				Mode = FileMode.CreateNew,
-				Access = FileAccess.ReadWrite,
-				Share = FileShare.Read | FileShare.Delete,
-				Options =
-					FileOptions.Asynchronous
-					| FileOptions.DeleteOnClose
-					| FileOptions.SequentialScan,
-			});
+		return new FileStream(path, new FileStreamOptions
+		{
+			Mode = FileMode.CreateNew,
+			Access = FileAccess.ReadWrite,
+			Share = FileShare.Read | FileShare.Delete,
+			Options = FileOptions.Asynchronous | FileOptions.DeleteOnClose | FileOptions.SequentialScan,
+		});
 	}
 }

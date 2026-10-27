@@ -13,6 +13,7 @@ internal sealed class Capabilities : ICapabilities
 	private readonly ItemContext _context;
 	private Lock? _syncRoot;
 	private Dictionary<Type, object>? _resolvedCapabilities;
+	private HashSet<Type>? _resolvingCapabilities;
 	private List<object>? _ownedInstances;
 	private Task? _disposeTask;
 	private bool _isDisposed;
@@ -23,7 +24,7 @@ internal sealed class Capabilities : ICapabilities
 		ArgumentNullException.ThrowIfNull(context);
 
 		_registry = registry;
-		_context = context;
+		_context = context with { Capabilities = this };
 	}
 
 	public TCapability? Get<TCapability>()
@@ -40,23 +41,35 @@ internal sealed class Capabilities : ICapabilities
 					: (TCapability)cached;
 			}
 
-			var resolution = _registry.Resolve<TCapability>(_context);
-
-			if (resolution.OwnedInstances.Count is not 0)
+			if (!(_resolvingCapabilities ??= []).Add(typeof(TCapability)))
 			{
-				_ownedInstances ??= [];
-				foreach (var instance in resolution.OwnedInstances)
-				{
-					if (!_ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
-					{
-						_ownedInstances.Add(instance);
-					}
-				}
+				throw new InvalidOperationException($"Item capability '{typeof(TCapability).FullName}' has a circular dependency.");
 			}
 
-			(_resolvedCapabilities ??= [])[typeof(TCapability)] = resolution.Capability ?? _missingCapability;
+			try
+			{
+				var resolution = _registry.Resolve<TCapability>(_context);
 
-			return resolution.Capability;
+				if (resolution.OwnedInstances.Count is not 0)
+				{
+					_ownedInstances ??= [];
+					foreach (var instance in resolution.OwnedInstances)
+					{
+						if (!_ownedInstances.Any(existing => ReferenceEquals(existing, instance)))
+						{
+							_ownedInstances.Add(instance);
+						}
+					}
+				}
+
+				(_resolvedCapabilities ??= [])[typeof(TCapability)] = resolution.Capability ?? _missingCapability;
+
+				return resolution.Capability;
+			}
+			finally
+			{
+				_resolvingCapabilities.Remove(typeof(TCapability));
+			}
 		}
 	}
 

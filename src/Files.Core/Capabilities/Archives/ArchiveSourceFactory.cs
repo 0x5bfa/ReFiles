@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage;
+using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
 using Files.Core.Windows;
 
@@ -59,6 +60,11 @@ public sealed class ArchiveSourceFactory
 			context.CoreModel is IWindowsStorable { IsStream: true, };
 
 		if (!isArchiveFile && !isShellArchiveFolder)
+		{
+			return null;
+		}
+
+		if (context.GetCapability<IReadableContent>() is null)
 		{
 			return null;
 		}

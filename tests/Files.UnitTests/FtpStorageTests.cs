@@ -66,8 +66,10 @@ public sealed class FtpStorageTests
 		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
 		var file = (FtpFile)await source.ResolveAsync(source.CreateAddress(FtpPath.Parse("/payload.bin")));
 
-		var stream = await file.OpenStreamAsync(FileAccess.Read);
+		var stream = await file.OpenReadAsync();
 		var session = sessions.Sessions[^1];
+		Assert.IsFalse(session.IsDisposed);
+		await source.DisposeAsync();
 		Assert.IsFalse(session.IsDisposed);
 
 		var content = new byte[4];
@@ -97,7 +99,7 @@ public sealed class FtpStorageTests
 		await using var source = new FtpStorageSource(profile, sessionFactory: sessions);
 		var file = (FtpFile)await source.ResolveAsync(source.CreateAddress(FtpPath.Parse("/payload.bin")));
 
-		var stream = await file.OpenStreamAsync(FileAccess.Read);
+		var stream = await file.OpenReadAsync();
 		var session = sessions.Sessions[^1];
 
 		await Assert.ThrowsAsync<IOException>(() => stream.DisposeAsync().AsTask());

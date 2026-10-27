@@ -3,7 +3,7 @@
 
 using System.IO;
 using Files.Core.Capabilities;
-using Files.Core.Storage;
+using Files.Core.Capabilities.Content;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -21,6 +21,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 	public StreamPreviewLoader(IPreviewContentTypeResolver contentTypeResolver, IPreviewStreamAccessPolicy accessPolicy)
 	{
 		ArgumentNullException.ThrowIfNull(contentTypeResolver);
+
 		ArgumentNullException.ThrowIfNull(accessPolicy);
 
 		_contentTypeResolver = contentTypeResolver;
@@ -34,8 +35,7 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
-		return context.CoreModel is IFile
-			&& _contentTypeResolver.TryResolve(context, out _);
+		return context.GetCapability<IReadableContent>() is not null && _contentTypeResolver.TryResolve(context, out _);
 	}
 
 	/// <summary>Loads a stream preview for a file item.</summary>
@@ -46,10 +46,12 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 	public async ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, ItemContext context, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(request);
+
 		ArgumentNullException.ThrowIfNull(context);
+
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (context.CoreModel is not IFile file || !_contentTypeResolver.TryResolve(context, out var contentType))
+		if (context.GetCapability<IReadableContent>() is not { } content || !_contentTypeResolver.TryResolve(context, out var contentType))
 		{
 			return null;
 		}
@@ -62,9 +64,9 @@ public sealed class StreamPreviewLoader : IPreviewLoader
 			return new BlockedPreviewResult(blockReason.Value);
 		}
 
-		var stream = await file.OpenStreamAsync(FileAccess.Read, cancellationToken).ConfigureAwait(false);
+		var stream = await content.OpenReadAsync(cancellationToken).ConfigureAwait(false);
 
-		return await CreateResultAsync(stream, request.MaximumBytes, contentType.MediaType, file.Name, cancellationToken).ConfigureAwait(false);
+		return await CreateResultAsync(stream, request.MaximumBytes, contentType.MediaType, context.CoreModel.Name, cancellationToken).ConfigureAwait(false);
 	}
 
 	private static async ValueTask<PreviewResult> CreateResultAsync(Stream stream, long? maximumBytes, string contentType, string suggestedFileName, CancellationToken cancellationToken)

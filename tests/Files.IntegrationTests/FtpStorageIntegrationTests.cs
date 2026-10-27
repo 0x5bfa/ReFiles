@@ -61,7 +61,7 @@ public sealed class FtpStorageIntegrationTests
 		Assert.IsTrue(createdFile.Succeeded, createdFile.Error?.ToString());
 
 		var file = (FtpFile)await source.ResolveAsync(createdFile.ResultItem!);
-		await using (var writeStream = await file.OpenStreamAsync(FileAccess.Write))
+		await using (var writeStream = await file.OpenWriteAsync())
 		{
 			await writeStream.WriteAsync(content);
 		}
@@ -74,7 +74,7 @@ public sealed class FtpStorageIntegrationTests
 		}
 
 		var listedFile = (FtpFile)items.Single(item => item.Name == fileName);
-		await using (var readStream = await listedFile.OpenStreamAsync(FileAccess.Read))
+		await using (var readStream = await listedFile.OpenReadAsync())
 		using (var readBuffer = new MemoryStream())
 		{
 			await readStream.CopyToAsync(readBuffer);
@@ -112,7 +112,7 @@ public sealed class FtpStorageIntegrationTests
 		Assert.IsTrue(sourceFile.Succeeded, sourceFile.Error?.ToString());
 
 		var file = (FtpFile)await source.ResolveAsync(sourceFile.ResultItem!);
-		await using (var stream = await file.OpenStreamAsync(FileAccess.Write))
+		await using (var stream = await file.OpenWriteAsync())
 		{
 			await stream.WriteAsync(content);
 		}
@@ -125,7 +125,7 @@ public sealed class FtpStorageIntegrationTests
 		await Assert.ThrowsAsync<FileNotFoundException>(() => source.ResolveAsync(copied.ResultItem!).AsTask());
 
 		var movedFile = (FtpFile)await source.ResolveAsync(moved.ResultItem!);
-		await using (var stream = await movedFile.OpenStreamAsync(FileAccess.Read))
+		await using (var stream = await movedFile.OpenReadAsync())
 		using (var buffer = new MemoryStream())
 		{
 			await stream.CopyToAsync(buffer);

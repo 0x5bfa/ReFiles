@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
+using Files.Core.Capabilities.Content;
 using Files.Core.Storage;
 
 namespace Files.Core.Storage.Archives.SevenZip;
 
 internal sealed class SevenZipArchiveFile
-	: SevenZipArchiveStorable, IFile
+	: SevenZipArchiveStorable, IFile, IReadableContent
 {
 	public SevenZipArchiveFile(SevenZipArchiveMount mount, SevenZipArchiveNode node)
 		: base(mount, node)
@@ -18,13 +19,8 @@ internal sealed class SevenZipArchiveFile
 		}
 	}
 
-	public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+	public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 	{
-		if (accessMode is not FileAccess.Read)
-		{
-			throw new NotSupportedException("Archive entries are read-only.");
-		}
-
 		return Mount.OpenFileAsync(Node, cancellationToken);
 	}
 }

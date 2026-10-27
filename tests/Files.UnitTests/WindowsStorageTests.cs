@@ -234,8 +234,8 @@ public sealed class WindowsStorageTests
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var storable = await source.ResolveAsync(new Files.Core.Storage.StorageAddress("file", filePath));
-			var file = (IFile)storable;
-			using var stream = await file.OpenStreamAsync(FileAccess.Read);
+			var file = (WindowsFile)storable;
+			using var stream = await file.OpenReadAsync();
 			Assert.AreEqual(expected.Length, stream.Length);
 			stream.Seek(32, SeekOrigin.Begin);
 			var buffer = new byte[16];

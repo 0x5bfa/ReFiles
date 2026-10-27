@@ -163,7 +163,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 		try
 		{
-			using var stream = settingsFile.OpenStreamAsync(FileAccess.Read).GetAwaiter().GetResult();
+			using var stream = settingsFile.OpenReadAsync().GetAwaiter().GetResult();
 			using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), detectEncodingFromByteOrderMarks: true);
 			var json = reader.ReadToEnd();
 			if (string.IsNullOrWhiteSpace(json))
@@ -408,7 +408,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 	private static void WriteText(WindowsFile file, string json)
 	{
-		using var stream = file.OpenStreamAsync(FileAccess.Write).GetAwaiter().GetResult();
+		using var stream = file.OpenWriteAsync().GetAwaiter().GetResult();
 		using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: false);
 		writer.Write(json);
 		writer.Flush();

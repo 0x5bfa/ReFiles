@@ -4,6 +4,7 @@
 using System.Runtime.CompilerServices;
 using Files.Core.Browsing;
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Archives;
 using Files.Core.Data;
 using Files.Core.Models;
@@ -314,7 +315,7 @@ public sealed class ArchiveBrowsingTests
 		}
 	}
 
-	private sealed class TestArchiveFile : IFile
+	private sealed class TestArchiveFile : IFile, IReadableContent
 	{
 		public string Id { get; }
 
@@ -326,7 +327,7 @@ public sealed class ArchiveBrowsingTests
 			Name = name;
 		}
 
-		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
@@ -335,7 +336,7 @@ public sealed class ArchiveBrowsingTests
 	}
 
 	private sealed class TestWindowsArchiveFile
-		: IWindowsStorable, IFile
+		: IWindowsStorable, IFile, IReadableContent
 	{
 		public string Id { get; }
 
@@ -367,7 +368,7 @@ public sealed class ArchiveBrowsingTests
 			return Task.FromResult<IFolder?>(null);
 		}
 
-		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 

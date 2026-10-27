@@ -4,6 +4,7 @@
 using System.IO;
 using System.Security;
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Storage;
 using Files.Core.Windows;
@@ -235,7 +236,7 @@ public sealed class WindowsPreviewHandlerRegistrationTests
 		}
 	}
 
-	private sealed class TestWindowsFile : TestStorable, IWindowsStorable, IFile
+	private sealed class TestWindowsFile : TestStorable, IWindowsStorable, IFile, IReadableContent
 	{
 		public StorageAddress Address { get; }
 
@@ -258,7 +259,7 @@ public sealed class WindowsPreviewHandlerRegistrationTests
 			return Task.FromResult<IFolder?>(null);
 		}
 
-		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 		{
 			return Task.FromResult<Stream>(new MemoryStream());
 		}

@@ -16,6 +16,7 @@ public interface IFolder : IStorable
 	/// </summary>
 	/// <param name="type">The kinds of items to include.</param>
 	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
-	/// <returns>An asynchronous sequence of child items.</returns>
+	/// <returns>Child items transferred to the caller one at a time. The caller must dispose disposable items or transfer them to an owning model.</returns>
+	/// <remarks>Keep the storage source or mount alive while enumerating or using the returned items. Stopping enumeration does not dispose items already yielded.</remarks>
 	IAsyncEnumerable<IStorableChild> GetItemsAsync(StorableType type = StorableType.All, CancellationToken cancellationToken = default);
 }

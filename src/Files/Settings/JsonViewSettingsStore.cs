@@ -162,7 +162,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		{
 			try
 			{
-				using var stream = await settingsFile.OpenStreamAsync(FileAccess.Read, CancellationToken.None).ConfigureAwait(false);
+				using var stream = await settingsFile.OpenReadAsync(CancellationToken.None).ConfigureAwait(false);
 				using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), detectEncodingFromByteOrderMarks: true);
 				var json = await reader.ReadToEndAsync().ConfigureAwait(false);
 				if (!string.IsNullOrWhiteSpace(json))
@@ -433,7 +433,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 
 	private static async Task WriteTextAsync(WindowsFile file, string json, CancellationToken cancellationToken)
 	{
-		await using var stream = await file.OpenStreamAsync(FileAccess.Write, cancellationToken).ConfigureAwait(false);
+		await using var stream = await file.OpenWriteAsync(cancellationToken).ConfigureAwait(false);
 		await using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: false);
 		await writer.WriteAsync(json).ConfigureAwait(false);
 		await writer.FlushAsync(cancellationToken).ConfigureAwait(false);

@@ -15,6 +15,7 @@ public interface IStorableChild : IStorable
 	/// Gets the containing folder for this item, when one exists.
 	/// </summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The containing parent folder, or <see langword="null"/> when none exists.</returns>
+	/// <returns>An owned parent folder, or <see langword="null"/> when none exists in this source's hierarchy.</returns>
+	/// <remarks>The caller must dispose a disposable result or transfer it to an owning model. The result borrows its storage source or mount.</remarks>
 	Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default);
 }

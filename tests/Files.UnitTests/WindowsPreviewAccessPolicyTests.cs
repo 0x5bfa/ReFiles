@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Storage;
 using Files.Core.Windows;
@@ -427,7 +428,7 @@ public sealed class WindowsPreviewAccessPolicyTests
 		}
 	}
 
-	private sealed class FakeWindowsFile : IWindowsStorable, IFile
+	private sealed class FakeWindowsFile : IWindowsStorable, IFile, IReadableContent
 	{
 		public string Id { get; }
 
@@ -454,7 +455,7 @@ public sealed class WindowsPreviewAccessPolicyTests
 			return Task.FromResult<IFolder?>(null);
 		}
 
-		public Task<Stream> OpenStreamAsync(FileAccess accessMode, CancellationToken cancellationToken = default)
+		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
 		{
 			throw new AssertFailedException("Policy evaluation must not open content.");
 		}
