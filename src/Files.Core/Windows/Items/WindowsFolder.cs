@@ -11,7 +11,7 @@ using Windows.Win32.Foundation;
 namespace Files.Core.Windows;
 
 /// <summary>Represents a folder exposed by the Windows Shell.</summary>
-public sealed class WindowsFolder : WindowsStorable, IChildFolder, IInteractiveFolder
+public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 {
 	internal WindowsFolder(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 		: base(descriptor, factory)

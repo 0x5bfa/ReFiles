@@ -7,7 +7,7 @@ using Files.Core.Storage;
 namespace Files.Core.Storage.Ftp;
 
 /// <summary>Represents a file exposed by an FTP source.</summary>
-public sealed class FtpFile : FtpStorable, IChildFile
+public sealed class FtpFile : FtpStorable, IFile
 {
 	internal FtpFile(FtpStorageSource source, FtpStorableSnapshot snapshot, FtpStorableFactory factory)
 		: base(source, snapshot, factory)

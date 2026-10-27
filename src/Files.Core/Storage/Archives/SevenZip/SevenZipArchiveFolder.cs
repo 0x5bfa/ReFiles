@@ -7,7 +7,7 @@ using Files.Core.Storage;
 namespace Files.Core.Storage.Archives.SevenZip;
 
 internal sealed class SevenZipArchiveFolder
-	: SevenZipArchiveStorable, IChildFolder
+	: SevenZipArchiveStorable, IFolder
 {
 	public SevenZipArchiveFolder(SevenZipArchiveMount mount, SevenZipArchiveNode node)
 		: base(mount, node)

@@ -9,7 +9,7 @@ using Files.Core.Storage;
 namespace Files.Core.Windows;
 
 /// <summary>Represents a file exposed by the Windows Shell.</summary>
-public sealed class WindowsFile : WindowsStorable, IChildFile
+public sealed class WindowsFile : WindowsStorable, IFile
 {
 	internal WindowsFile(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 		: base(descriptor, factory)

@@ -37,11 +37,15 @@ Rename/move/change-notification handling should preserve identity where the back
 
 ## Hierarchy and enumeration
 
+Files and folders implement `IFile` and `IFolder` directly. Parent traversal is a separate contract; folder enumeration does not establish write permissions.
+
 Folder enumeration supplies the browse pipeline. Providers should yield useful items progressively and honor cancellation instead of materializing the complete folder before returning whenever the backend supports streaming enumeration.
 
 ## Optional behavior
 
 Properties, thumbnails, preview, streams, operations, search, and change observation belong behind capability contracts. An item lacking a capability is valid; generic code must tolerate that absence.
+
+Item resolution goes through the configured storage source and workspace. Folder change observation uses `IFolderChangeSource`; there is no separate mutable-folder watcher API.
 
 ## Mutations
 
