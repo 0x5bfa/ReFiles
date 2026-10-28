@@ -4,12 +4,17 @@
 using Files.Core.Sessions;
 using Files.Core.Browsing;
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Archives;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
+using Files.Core.Storage.Archives;
+using Files.Core.Storage.Archives.SevenZip;
+using Files.Core.Storage.Ftp;
+using Files.Core.Storage.Transfers;
 using Files.Core.ViewSettings;
 using Files.Core.Storage.Windows;
 
@@ -20,6 +25,10 @@ namespace Files.Core.Composition;
 /// </summary>
 public sealed class FilesCoreBuilder : IAsyncDisposable
 {
+	private const string ArchiveBrowsingModule = "Files.Core.Archives.Browsing";
+
+	private const string StorageTransfersModule = "Files.Core.Storage.Transfers";
+
 	private readonly List<IStorageSource> _sources = [];
 
 	private readonly List<IStorageOperationHandler> _operationHandlers = [];
@@ -59,6 +68,87 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 
 		Capabilities = new CapabilityBuilder().SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner()).SetCombiner<IPropertySource>(new PropertySourceCombiner())
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner()).AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(_thumbnailCache));
+	}
+
+	/// <summary>Registers archive capabilities and browsing with the standard reader.</summary>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder AddArchiveBrowsing(IArchiveCredentialResolver? credentialResolver = null)
+	{
+		return AddArchiveBrowsing([new SevenZipArchiveBackend()], credentialResolver);
+	}
+
+	/// <summary>Registers archive capabilities and browsing with the specified readers.</summary>
+	/// <param name="backends">The archive readers.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder AddArchiveBrowsing(IEnumerable<IArchiveBackend> backends, IArchiveCredentialResolver? credentialResolver = null)
+	{
+		ArgumentNullException.ThrowIfNull(backends);
+
+		if (!TryAddModule(ArchiveBrowsingModule))
+		{
+			return this;
+		}
+
+		var readers = new ArchiveBackendSelector(backends);
+		Capabilities.SetCombiner<IArchiveSource>(new PriorityCapabilityCombiner<IArchiveSource>())
+			.Add<IArchiveSource>(new ArchiveSourceFactory(readers: readers, credentials: credentialResolver), priority: 100, origin: "Archive models");
+		AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, readers, credentialResolver));
+
+		return this;
+	}
+
+	/// <summary>Adds an FTP source with its property capability, optional local operations, and archive browsing.</summary>
+	/// <param name="profile">The FTP connection profile.</param>
+	/// <param name="credentialResolver">The optional credential resolver.</param>
+	/// <param name="sessionFactory">The optional FTP session factory.</param>
+	/// <param name="enableArchives">Whether to register archive browsing.</param>
+	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <param name="enableOperations">Whether to register in-process execution; disable this in clients that use an external executor.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder AddFtpStorage(FtpConnectionProfile profile, IFtpCredentialResolver? credentialResolver = null, IFtpSessionFactory? sessionFactory = null,
+		bool enableArchives = true, IArchiveCredentialResolver? archiveCredentialResolver = null, bool enableOperations = true)
+	{
+		ArgumentNullException.ThrowIfNull(profile);
+
+		var source = new FtpStorageSource(profile, credentialResolver, sessionFactory);
+
+		try
+		{
+			RegisterFtpStorage(source, enableOperations);
+		}
+		catch (Exception registrationError)
+		{
+			try
+			{
+				source.DisposeAsync().AsTask().GetAwaiter().GetResult();
+			}
+			catch (Exception cleanupError)
+			{
+				throw new AggregateException("FTP storage registration and cleanup failed.", registrationError, cleanupError);
+			}
+
+			throw;
+		}
+
+		return AddFtpCapabilities(source, enableArchives, archiveCredentialResolver);
+	}
+
+	/// <summary>Registers an existing FTP storage source and its optional capabilities.</summary>
+	/// <param name="source">The FTP storage source to register.</param>
+	/// <param name="enableArchives">Whether to register archive browsing.</param>
+	/// <param name="archiveCredentialResolver">The optional archive credential resolver.</param>
+	/// <param name="enableOperations">Whether to register in-process execution; disable this in clients that use an external executor.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder AddFtpStorage(FtpStorageSource source, bool enableArchives = true, IArchiveCredentialResolver? archiveCredentialResolver = null,
+		bool enableOperations = true)
+	{
+		ArgumentNullException.ThrowIfNull(source);
+
+		RegisterFtpStorage(source, enableOperations);
+
+		return AddFtpCapabilities(source, enableArchives, archiveCredentialResolver);
 	}
 
 	/// <summary>Adds an owned storage source.</summary>
@@ -102,6 +192,24 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		ArgumentNullException.ThrowIfNull(handlerFactory);
 
 		_locationHandlerFactories.Add(workspace => handlerFactory(workspace));
+
+		return this;
+	}
+
+	/// <summary>Adds file transfers into supported Windows file-system destinations.</summary>
+	/// <param name="readers">The optional archive reader selection.</param>
+	/// <param name="credentials">The optional execution-owned archive credential resolver.</param>
+	/// <returns>This builder.</returns>
+	public FilesCoreBuilder AddStorageTransfers(ArchiveBackendSelector? readers = null, IArchiveCredentialResolver? credentials = null)
+	{
+		EnsureLocalStorageOperations();
+		if (TryAddModule(StorageTransfersModule))
+		{
+			readers ??= new ArchiveBackendSelector([new SevenZipArchiveBackend()]);
+			AddArchiveBrowsing(readers.Backends, credentials);
+			AddStorageOperationHandlerFactory(workspace => new StorageTransferHandler(workspace, readers, credentials,
+				workspace.Sources.OfType<WindowsStorageSource>().Select(source => (IStorageImportProvider)new WindowsStorageImportProvider(source)).ToArray()));
+		}
 
 		return this;
 	}
@@ -282,6 +390,32 @@ public sealed class FilesCoreBuilder : IAsyncDisposable
 		{
 			_ownedServices.Add(service);
 		}
+	}
+
+	private void RegisterFtpStorage(FtpStorageSource source, bool enableOperations)
+	{
+		if (enableOperations)
+		{
+			EnsureLocalStorageOperations();
+		}
+
+		AddStorageSource(source);
+		if (enableOperations)
+		{
+			AddStorageOperationHandler(new FtpStorageOperationHandler(source));
+		}
+	}
+
+	private FilesCoreBuilder AddFtpCapabilities(FtpStorageSource source, bool enableArchives, IArchiveCredentialResolver? archiveCredentialResolver)
+	{
+		Capabilities.Add<IPropertySource>(new PropertySourceFactory(new FtpPropertyReader(source)), priority: 100, origin: $"FTP:{source.Profile.ConnectionId}");
+
+		if (enableArchives)
+		{
+			AddArchiveBrowsing(archiveCredentialResolver);
+		}
+
+		return this;
 	}
 
 	private void DisposeSources(ICollection<Exception> errors)

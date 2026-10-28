@@ -17,8 +17,7 @@ public sealed record BrowseNavigationHistoryState
 	public int CurrentIndex { get; }
 
 	/// <summary>Gets the current location.</summary>
-	public BrowseLocation? Current =>
-		CurrentIndex < 0 ? null : Entries[CurrentIndex];
+	public BrowseLocation? Current => CurrentIndex < 0 ? null : Entries[CurrentIndex];
 
 	/// <summary>Initializes an immutable navigation history state.</summary>
 	/// <param name="entries">The committed locations.</param>
@@ -55,7 +54,7 @@ public sealed record BrowseNavigationHistoryState
 /// </summary>
 public sealed class BrowseNavigationHistory
 {
-	private const int _defaultCapacity = 50;
+	private const int DefaultCapacity = 50;
 
 	private readonly Lock _syncRoot = new();
 
@@ -123,7 +122,7 @@ public sealed class BrowseNavigationHistory
 
 	/// <summary>Initializes an empty bounded navigation history.</summary>
 	/// <param name="capacity">The maximum number of retained locations.</param>
-	public BrowseNavigationHistory(int capacity = _defaultCapacity)
+	public BrowseNavigationHistory(int capacity = DefaultCapacity)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
 
