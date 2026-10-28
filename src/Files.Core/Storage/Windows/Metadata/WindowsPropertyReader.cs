@@ -7,7 +7,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Files.Core.Diagnostics;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Storage;
@@ -68,13 +67,13 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		ArgumentNullException.ThrowIfNull(contexts);
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		CoreDiagnosticLog.Write("WindowsPropertyReader", $"GetProperties START propertyCount={request.PropertyIds.Count} contextCount={contexts.Count}");
+		Logger.Write("WindowsPropertyReader", $"GetProperties START propertyCount={request.PropertyIds.Count} contextCount={contexts.Count}");
 
 		var readableContexts = contexts.Where(CanRead).ToArray();
 
 		if (readableContexts.Length is 0)
 		{
-			CoreDiagnosticLog.Write("WindowsPropertyReader", $"GetProperties END readableContexts=0 elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			Logger.Write("WindowsPropertyReader", $"GetProperties END readableContexts=0 elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 			return EmptyResults.Instance;
 		}
@@ -108,7 +107,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var entries = (await Task.WhenAll(tasks).ConfigureAwait(false)).SelectMany(static group => group).ToArray();
 
 		var results = entries.ToDictionary(static entry => entry.Reference, static entry => entry.Properties);
-		CoreDiagnosticLog.Write(
+		Logger.Write(
 			"WindowsPropertyReader",
 			$"GetProperties END readableContexts={readableContexts.Length} parentGroups={parentGroups.Count} resultCount={results.Count} " +
 			$"elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");

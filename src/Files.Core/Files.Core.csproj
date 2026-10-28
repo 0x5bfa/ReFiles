@@ -41,7 +41,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\LICENSE-MPL" Pack="true" PackagePath="" />
+		<None Include="..\..\LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
 		<None Update="PACKAGE.md" Pack="true" PackagePath="" />
 	</ItemGroup>
 

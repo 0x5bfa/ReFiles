@@ -18,7 +18,7 @@ using Files.Core.Storage.Transfers;
 using Files.Core.ViewSettings;
 using Files.Core.Storage.Windows;
 
-namespace Files.Core.Composition;
+namespace Files.Core;
 
 /// <summary>
 /// Configures storage sources, item capabilities, workspace services, and shell sessions.

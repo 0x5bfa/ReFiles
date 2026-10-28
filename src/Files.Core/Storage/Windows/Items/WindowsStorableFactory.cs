@@ -7,7 +7,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using Files.Core.Diagnostics;
 using Files.Core.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -177,7 +176,7 @@ internal sealed class WindowsStorableFactory
 		var batchCount = 0;
 		var itemCount = 0;
 		var identityDuration = TimeSpan.Zero;
-		CoreDiagnosticLog.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Metadata.Name} parsingName={descriptor.Locator.ParsingName}");
+		Logger.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Metadata.Name} parsingName={descriptor.Locator.ParsingName}");
 
 		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize)
 		{
@@ -232,7 +231,7 @@ internal sealed class WindowsStorableFactory
 				}
 			}
 
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"WindowsStorableFactory",
 				$"Enumerate END name={descriptor.Metadata.Name} batches={batchCount} items={itemCount} " +
 				$"identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
@@ -433,7 +432,7 @@ internal sealed class WindowsStorableFactory
 		var nextDuration = TimeSpan.Zero;
 		var descriptorDuration = TimeSpan.Zero;
 		var channelWriteDuration = TimeSpan.Zero;
-		CoreDiagnosticLog.Write("WindowsStorableFactory", "EnumerateOnSTA START");
+		Logger.Write("WindowsStorableFactory", "EnumerateOnSTA START");
 		using var cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>>)state!).TryComplete(), writer);
 		try
 		{
@@ -468,7 +467,7 @@ internal sealed class WindowsStorableFactory
 			{
 				if (cancellationToken.IsCancellationRequested)
 				{
-					CoreDiagnosticLog.Write(
+					Logger.Write(
 						"WindowsStorableFactory",
 						$"EnumerateOnSTA CANCELLED batches={batchCount} items={itemCount} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 
@@ -564,7 +563,7 @@ internal sealed class WindowsStorableFactory
 			}
 
 			writer.TryComplete();
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"WindowsStorableFactory",
 				$"EnumerateOnSTA END batches={batchCount} items={itemCount} nextCalls={nextCallCount} nextMs={nextDuration.TotalMilliseconds:F1} " +
 				$"descriptorMs={descriptorDuration.TotalMilliseconds:F1} channelWriteMs={channelWriteDuration.TotalMilliseconds:F1} " +
@@ -574,7 +573,7 @@ internal sealed class WindowsStorableFactory
 		}
 		catch (Exception exception)
 		{
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"WindowsStorableFactory",
 				$"EnumerateOnSTA ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
 			writer.TryComplete(exception);

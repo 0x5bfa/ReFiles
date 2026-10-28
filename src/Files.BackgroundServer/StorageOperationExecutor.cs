@@ -6,10 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using Files.Core.Storage;
-using Files.Core.Composition;
 using Files.Core.Storage.Windows;
 using Files.Core.Storage.Ftp;
 using System.Collections.Generic;
+using Files.Core;
 
 namespace Files.BackgroundServer;
 

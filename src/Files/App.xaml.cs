@@ -6,12 +6,12 @@ using Files.Commands;
 using Files.Infrastructure;
 using Files.Settings;
 using Files.StorageOperations;
-using Files.Core.Composition;
 using Files.Core.Sessions;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
 using System.Threading;
+using Files.Core;
 
 namespace Files;
 

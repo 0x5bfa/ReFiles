@@ -8,7 +8,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Files.Core.Diagnostics;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -50,7 +49,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		_concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount);
 		_searchScheduler = new MessagePumpedStaScheduler("Files Windows Shell search STA", workerCount: 1);
 		_operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1);
-		CoreDiagnosticLog.Write("WindowsShellScheduler", $"created concurrentWorkers={workerCount}");
+		Logger.Write("WindowsShellScheduler", $"created concurrentWorkers={workerCount}");
 	}
 
 	/// <summary>Invokes a delegate on the ordered Shell lane.</summary>
@@ -152,7 +151,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			_threadName = threadName;
 			_workerCount = workerCount;
 			_remainingWorkers = workerCount;
-			CoreDiagnosticLog.Write("WindowsShellScheduler", $"lane created name={_threadName} workers={_workerCount}");
+			Logger.Write("WindowsShellScheduler", $"lane created name={_threadName} workers={_workerCount}");
 
 			for (var index = 0; index < workerCount; index++)
 			{
@@ -183,7 +182,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			// Inline work accepted under the lock may finish during disposal.
 			if (ReferenceEquals(_activeScheduler, this))
 			{
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"invoke inline lane={_threadName} action={action.Method.Name}");
+				Logger.Write("WindowsShellScheduler", $"invoke inline lane={_threadName} action={action.Method.Name}");
 
 				return InvokeInline(action, cancellationToken);
 			}
@@ -200,7 +199,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			{
 				if (_disposeTask is null)
 				{
-					CoreDiagnosticLog.Write("WindowsShellScheduler", $"dispose lane={_threadName}");
+					Logger.Write("WindowsShellScheduler", $"dispose lane={_threadName}");
 					stopException = new ObjectDisposedException(nameof(WindowsShellScheduler));
 					pendingWork = StopLocked(stopException);
 					_disposeTask = CompleteDisposalAsync();
@@ -223,21 +222,21 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				cancellationToken.ThrowIfCancellationRequested();
 
 				var result = action();
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"invoke inline END lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				Logger.Write("WindowsShellScheduler", $"invoke inline END lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
 				return Task.FromResult(result);
 			}
 			catch (OperationCanceledException exception)
 				when (exception.CancellationToken.IsCancellationRequested)
 			{
-				CoreDiagnosticLog.Write(
+				Logger.Write(
 					"WindowsShellScheduler",
 					$"invoke inline CANCELLED lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 				return Task.FromCanceled<T>(exception.CancellationToken);
 			}
 			catch (Exception exception)
 			{
-				CoreDiagnosticLog.Write(
+				Logger.Write(
 					"WindowsShellScheduler",
 					$"invoke inline ERROR lane={_threadName} action={action.Method.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 				return Task.FromException<T>(exception);
@@ -273,7 +272,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				queueLength = _workItems.Count;
 			}
 
-			CoreDiagnosticLog.Write("WindowsShellScheduler", $"queued lane={_threadName} id={workItem.Id} action={workItem.ActionName} queue={queueLength}");
+			Logger.Write("WindowsShellScheduler", $"queued lane={_threadName} id={workItem.Id} action={workItem.ActionName} queue={queueLength}");
 
 			return workItem.Task;
 		}
@@ -282,7 +281,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		private unsafe void Run()
 		{
 			var oleInitialized = false;
-			CoreDiagnosticLog.Write("WindowsShellScheduler", $"STA thread START lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+			Logger.Write("WindowsShellScheduler", $"STA thread START lane={_threadName} thread={Environment.CurrentManagedThreadId}");
 
 			try
 			{
@@ -297,7 +296,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 				oleInitialized = true;
 				_activeScheduler = this;
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"STA thread READY lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+				Logger.Write("WindowsShellScheduler", $"STA thread READY lane={_threadName} thread={Environment.CurrentManagedThreadId}");
 
 				PInvoke.PeekMessage(out _, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_NOREMOVE);
 
@@ -334,7 +333,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 					_stopped.TrySetResult(true);
 				}
 
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"STA thread END lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+				Logger.Write("WindowsShellScheduler", $"STA thread END lane={_threadName} thread={Environment.CurrentManagedThreadId}");
 			}
 		}
 
@@ -448,7 +447,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private void Fault(Exception exception)
 		{
-			CoreDiagnosticLog.Write("WindowsShellScheduler", $"FAULT lane={_threadName} type={exception.GetType().Name} message={exception.Message}");
+			Logger.Write("WindowsShellScheduler", $"FAULT lane={_threadName} type={exception.GetType().Name} message={exception.Message}");
 			List<WorkItem> pendingWork;
 
 			lock (_stateLock)
@@ -487,7 +486,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				}
 			}
 
-			CoreDiagnosticLog.Write("WindowsShellScheduler", $"STOP lane={_threadName} pending={pendingWork.Count}");
+			Logger.Write("WindowsShellScheduler", $"STOP lane={_threadName} pending={pendingWork.Count}");
 
 			return pendingWork;
 		}
@@ -581,7 +580,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			if (_cancellationToken.IsCancellationRequested)
 			{
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"cancelled before start lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}");
+				Logger.Write("WindowsShellScheduler", $"cancelled before start lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}");
 				CancelIfPending();
 				DisposeCancellationRegistration();
 
@@ -597,7 +596,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 			var startTimestamp = Stopwatch.GetTimestamp();
 			var outcome = "completed";
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"WindowsShellScheduler",
 				$"work START lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1} thread={Environment.CurrentManagedThreadId}");
 
@@ -620,7 +619,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			{
 				Volatile.Write(ref _state, Completed);
 				DisposeCancellationRegistration();
-				CoreDiagnosticLog.Write(
+				Logger.Write(
 					"WindowsShellScheduler",
 					$"work END lane={_laneName} id={_id} action={_actionName} outcome={outcome} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 			}
@@ -630,7 +629,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			if (Interlocked.CompareExchange(ref _state, Completed, Pending) == Pending)
 			{
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"work STOPPED lane={_laneName} id={_id} action={_actionName} type={exception.GetType().Name}");
+				Logger.Write("WindowsShellScheduler", $"work STOPPED lane={_laneName} id={_id} action={_actionName} type={exception.GetType().Name}");
 				_completion.TrySetException(exception);
 			}
 
@@ -646,7 +645,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			if (Interlocked.CompareExchange(ref _state, Completed, Pending) == Pending)
 			{
-				CoreDiagnosticLog.Write("WindowsShellScheduler", $"work CANCELLED lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}");
+				Logger.Write("WindowsShellScheduler", $"work CANCELLED lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}");
 				_completion.TrySetCanceled(_cancellationToken);
 			}
 		}

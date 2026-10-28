@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Threading.Channels;
-using Files.Core.Diagnostics;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Capabilities.Thumbnails;
@@ -113,7 +112,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		_propertyRequests.Writer.TryWrite(request);
 		_thumbnailRequests.Writer.TryWrite(request);
 		var viewportUpdateCount = Interlocked.Increment(ref _diagnosticViewportUpdateCount);
-		CoreDiagnosticLog.Write(
+		Logger.Write(
 			"BrowsePrefetchCoordinator",
 			$"Viewport queued count={viewportUpdateCount} work={request.Id} generation={browseGeneration} " +
 			$"first={viewport.FirstVisibleIndex} visible={viewport.VisibleCount} lookAhead={viewport.LookAheadCount}");
@@ -146,7 +145,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 		Cancel(thumbnailCancellation);
 		await Task.WhenAll(_propertyWorkerTask, _thumbnailWorkerTask).ConfigureAwait(false);
 		_lifetime.Dispose();
-		CoreDiagnosticLog.Write(
+		Logger.Write(
 			"BrowsePrefetchCoordinator",
 			$"disposed viewportUpdates={_diagnosticViewportUpdateCount} propertyRequests={_diagnosticPropertyRequestCount} " +
 			$"thumbnailRequests={_diagnosticThumbnailRequestCount}");
@@ -204,7 +203,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			{
 				var backgroundIndices = EnumerateIndices(request.Items.Count, request.Viewport).Skip(visibleIndices.Length).ToArray();
 				await PrefetchPropertyItemsAsync(backgroundIndices, propertyRequest, request, cancellation.Token).ConfigureAwait(false);
-				CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Property viewport completed work={request.Id} visible={visibleIndices.Length} background={backgroundIndices.Length}");
+				Logger.Write("BrowsePrefetchCoordinator", $"Property viewport completed work={request.Id} visible={visibleIndices.Length} background={backgroundIndices.Length}");
 			}
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -248,7 +247,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				}
 			}
 
-			CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail viewport completed work={request.Id} visible={visibleIndices.Length} background={backgroundIndices.Length}");
+			Logger.Write("BrowsePrefetchCoordinator", $"Thumbnail viewport completed work={request.Id} visible={visibleIndices.Length} background={backgroundIndices.Length}");
 		}
 		catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 		{
@@ -304,7 +303,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			}
 		}
 
-		CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"Thumbnail pass completed work={request.Id} mode={thumbnailMode} items={indices.Length}");
+		Logger.Write("BrowsePrefetchCoordinator", $"Thumbnail pass completed work={request.Id} mode={thumbnailMode} items={indices.Length}");
 	}
 
 	private async Task PrefetchPropertyItemsAsync(IReadOnlyList<int> indices, PropertyRequest propertyRequest, PrefetchRequest request, CancellationToken cancellationToken)
@@ -418,7 +417,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			var propertyRequestCount = Interlocked.Increment(ref _diagnosticPropertyRequestCount);
 			if (propertyRequestCount is 1)
 			{
-				CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"First property load started work={request.Id}");
+				Logger.Write("BrowsePrefetchCoordinator", $"First property load started work={request.Id}");
 			}
 
 			var properties = await propertySource.GetPropertiesAsync(propertyRequest, cancellationToken).ConfigureAwait(false);
@@ -451,7 +450,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			var thumbnailRequestCount = Interlocked.Increment(ref _diagnosticThumbnailRequestCount);
 			if (thumbnailRequestCount is 1)
 			{
-				CoreDiagnosticLog.Write("BrowsePrefetchCoordinator", $"First thumbnail load started work={request.Id}");
+				Logger.Write("BrowsePrefetchCoordinator", $"First thumbnail load started work={request.Id}");
 			}
 
 			var thumbnail = await thumbnailSource.GetThumbnailAsync(new ThumbnailRequest(requestedThumbnailSize, thumbnailMode, request.Viewport.Dpi), cancellationToken).ConfigureAwait(false);

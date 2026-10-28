@@ -3,9 +3,9 @@
 
 using System.Diagnostics;
 
-namespace Files.Core.Diagnostics;
+namespace Files.Core;
 
-internal static class CoreDiagnosticLog
+internal static class Logger
 {
 	private static readonly bool _isEnabled = string.Equals(Environment.GetEnvironmentVariable("FILES_DIAGNOSTIC_LOG"), "1", StringComparison.Ordinal);
 

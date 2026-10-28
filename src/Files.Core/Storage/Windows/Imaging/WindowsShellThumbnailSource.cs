@@ -5,7 +5,6 @@
 
 using System.Diagnostics;
 using System.Runtime.Versioning;
-using Files.Core.Diagnostics;
 using Files.Core.Capabilities.Thumbnails;
 
 namespace Files.Core.Storage.Windows;
@@ -33,12 +32,12 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		ArgumentNullException.ThrowIfNull(request);
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		CoreDiagnosticLog.Write("WindowsShellThumbnailSource", $"GetThumbnail START size={request.RequestedPixelSize} mode={request.Mode} parsingName={_locator.ParsingName}");
+		Logger.Write("WindowsShellThumbnailSource", $"GetThumbnail START size={request.RequestedPixelSize} mode={request.Mode} parsingName={_locator.ParsingName}");
 
 		try
 		{
 			var payload = await _resolver.InvokeConcurrentAsync(_locator, shellItem => _backend.GetThumbnail(shellItem, _locator, request, cancellationToken), cancellationToken).ConfigureAwait(false);
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"WindowsShellThumbnailSource",
 				$"GetThumbnail END hasResult={payload is not null} bytes={payload?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 
@@ -48,7 +47,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		}
 		catch (Exception exception)
 		{
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"WindowsShellThumbnailSource",
 				$"GetThumbnail ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 

@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Diagnostics;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Changes;
 using Files.Core.Capabilities.Thumbnails;
@@ -172,7 +171,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 		var navigationStartTimestamp = Stopwatch.GetTimestamp();
 		Volatile.Write(ref _diagnosticNavigationStartTimestamp, navigationStartTimestamp);
-		CoreDiagnosticLog.Write("BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
+		Logger.Write("BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
 		IsLoading = true;
 		Error = null;
 		OnStateChanged();
@@ -190,7 +189,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			nextLocationContext = await _locationResolver.OpenAsync(location, cancellationToken).ConfigureAwait(false);
 			ArgumentNullException.ThrowIfNull(nextLocationContext);
 
-			CoreDiagnosticLog.Write("BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			Logger.Write("BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 
 			var changes = nextLocationContext.ChangeSource ?? nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
 			var generation = Interlocked.Increment(ref _generationCounter);
@@ -209,7 +208,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			var targetBatchSize = location is SearchLocation or HomeLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
 			var pendingBatch = new List<IStorableModel>(targetBatchSize);
 			var firstItemReturned = false;
-			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			Logger.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 			var nextItemSequence = ownerWindowHandle is not 0 && nextLocationContext is IInteractiveBrowseLocationContext interactiveContext
 				? interactiveContext.GetItemsAsync(ownerWindowHandle, cancellationToken)
 				: nextLocationContext.GetItemsAsync(cancellationToken);
@@ -228,8 +227,8 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 				{
 					firstItemReturned = true;
 					var firstItemElapsedMilliseconds = Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds;
-					CoreDiagnosticLog.Write("BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
-					CoreDiagnosticLog.Write("BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					Logger.Write("BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					Logger.Write("BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
 				}
 
 				if (pendingBatch.Count < targetBatchSize)
@@ -250,7 +249,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 				};
 				await Task.Yield();
 			}
-			CoreDiagnosticLog.Write("BrowseSession", $"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			Logger.Write("BrowseSession", $"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
 
 			if (pendingBatch.Count is not 0)
 			{
@@ -267,7 +266,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			var sortStartTimestamp = Stopwatch.GetTimestamp();
 			var finalSortChanges = await SortProjectionAsync(nextLocationContext, nextProjection, nextViewSettings, cancellationToken).ConfigureAwait(false);
 			PublishItemsChanged(finalSortChanges);
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"BrowseSession",
 				$"Initial sort completed generation={generation} changed={!finalSortChanges.IsEmpty} " +
 				$"elapsedMs={Stopwatch.GetElapsedTime(sortStartTimestamp).TotalMilliseconds:F1}");
@@ -335,7 +334,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 			IsLoading = false;
 			OnStateChanged();
-			CoreDiagnosticLog.Write(
+			Logger.Write(
 				"BrowseSession",
 				$"Navigate END location={location.GetType().Name} items={ItemCount} loading={IsLoading} error={Error is not null} " +
 				$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
@@ -354,7 +353,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	{
 		var changes = projection.AddRange(batch, preserveInputOrder: true);
 		var navigationStartTimestamp = Volatile.Read(ref _diagnosticNavigationStartTimestamp);
-		CoreDiagnosticLog.Write(
+		Logger.Write(
 			"BrowseSession",
 			$"PublishEnumerationBatch activated={activated} batchItems={batch.Count} changes={changes.Changes.Count} projectedItems={projection.Count} " +
 			$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
@@ -779,7 +778,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		{
 			if (previousCancellation is not null)
 			{
-				CoreDiagnosticLog.Write("BrowseSession", "Previous navigation cancelled");
+				Logger.Write("BrowseSession", "Previous navigation cancelled");
 			}
 
 			previousCancellation?.Cancel();
@@ -903,9 +902,9 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		var previousVersion = Interlocked.Read(ref _itemsVersion);
 		var version = Interlocked.Increment(ref _itemsVersion);
 		var eventStartTimestamp = Stopwatch.GetTimestamp();
-		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} items={Items.Count}");
+		Logger.Write("BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} items={Items.Count}");
 		RaiseEvent(ItemsChanged, new BrowseItemsChangedEventArgs(previousVersion, version, changeSet.Changes));
-		CoreDiagnosticLog.Write("BrowseSession", $"ItemsChanged END version={version} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
+		Logger.Write("BrowseSession", $"ItemsChanged END version={version} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private void SetSelectionState(BrowseSelectionState nextSelection)
@@ -1073,7 +1072,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	{
 		var eventStartTimestamp = Stopwatch.GetTimestamp();
 		RaiseEvent(StateChanged);
-		CoreDiagnosticLog.Write("BrowseSession", $"StateChanged loading={IsLoading} items={Items.Count} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
+		Logger.Write("BrowseSession", $"StateChanged loading={IsLoading} items={Items.Count} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
 	}
 
 	private NavigationOperation BeginNavigation(CancellationToken cancellationToken)

@@ -10,7 +10,6 @@ using Files.Core.Capabilities.Previews;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage.Archives;
-using Files.Core.Composition;
 
 namespace Files.Core.Storage.Windows;
 

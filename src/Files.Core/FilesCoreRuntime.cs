@@ -10,7 +10,7 @@ using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Files.Core.Storage.Windows;
 
-namespace Files.Core.Composition;
+namespace Files.Core;
 
 /// <summary>
 /// Owns the UI-independent storage workspace, shell session, and shared services for one process.
