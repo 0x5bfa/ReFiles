@@ -47,6 +47,27 @@ These architectural rules remain:
 | Authoritative operation progress and cancellation | `Files.BackgroundServer` |
 | Status Center formatting and graphs | `Files` |
 
+## Core source layout
+
+Folders group code by responsibility. Existing public namespaces are retained so source organization does not require an API migration.
+
+| Folder under `src/Files.Core` | Responsibility |
+|---|---|
+| `Application` | Application/window/tab/pane ownership, content sessions, navigation history, and user intent. The existing namespace is `Files.Core.Sessions`. |
+| `Browsing` | One pane's browse engine and its locations, navigation, selection, projection, prefetch, preview, search, changes, and view settings. |
+| `Storage/Items` | Storage item contracts and basic item types. |
+| `Storage/Identity` | Source identities, addresses, references, and operation locators. |
+| `Storage/Models` | Item models that compose storage items with optional capabilities. The existing namespace is `Files.Core.Models`. |
+| `Storage/Workspace` | Source registration, item resolution, and source lifetime ownership. The existing namespace is `Files.Core.Data`. |
+| `Storage/Operations` | Operation routing and execution contracts, with `Requests`, `Jobs`, and `Transfers` subfolders. |
+| `Storage/Windows`, `Storage/Ftp`, `Storage/Archives` | Provider implementations and their implementation-specific contracts. |
+| `Capabilities` | Optional item behavior, grouped by feature. |
+| `Composition` | Runtime construction and shared service composition. |
+
+`Application/BrowsePaneSession` owns a `Browsing/BrowseSession`, a preview model, and navigation history. It coordinates Back/Forward, search, and selection operations. `BrowseSession` loads a location, enumerates and projects items, tracks selection and changes, and applies view settings. Each split pane gets an independent browse session; a settings pane has different content and does not require one.
+
+Related interfaces and implementations stay together in their feature folder. Operation requests and Windows preview contracts use individual files named after their types. Keep partial declarations such as `BrowseSession.cs` and `BrowseSession.Changes.cs` together.
+
 ## Example: a new storage provider
 
 Identity, hierarchy, enumeration, streams, capabilities, properties, and operations belong behind Core/provider contracts. Provider-specific authentication UI belongs in `Files`.

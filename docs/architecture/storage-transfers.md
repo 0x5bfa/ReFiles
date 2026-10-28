@@ -91,7 +91,7 @@ Configure FTP profiles and an execution-scoped credential resolver in the server
 
 ## Destination import boundary
 
-Add operation-side `IStorageImportProvider`, `IStorageImportSession`, and a staged-file result under `Files.Core/Storage/Transfers`. Keep the first implementation internal until a real extension consumer requires public API.
+Add operation-side `IStorageImportProvider`, `IStorageImportSession`, and a staged-file result under `Files.Core/Storage/Operations/Transfers`. Keep the first implementation internal until a real extension consumer requires public API.
 
 - A provider checks whether it supports the actual destination and requested semantics, then begins an owned import session.
 - A session creates destination folders and stages files beneath its destination. It validates every child name and records folders already created as observable effects.
@@ -147,8 +147,8 @@ Never infer absence of effects from an exception, a canceled token, or less than
 
 | Slice | Main changes | Required proof |
 | --- | --- | --- |
-| 1. Intent and results | Source locators in `StorageOperationRequest.cs`; immutable selection capture in Core; DTO projection in `WinRTStorageOperationService`; server validation; structured effects and result recording. | Archive selection survives tab closure; duplicate records remain distinct; malformed chains fail; old native routes retain behavior; committed destination survives failed deletion in the result. |
-| 2. Working file Copy | `Storage/Transfers` coordinator, destination staging, Windows import adapter; explicit server FTP/archive composition and credential ownership. | FTP-to-Windows and archive-record-to-Windows via real server jobs; final FTP response failure, CRC failure, access denial, cancellation, conflict race, and staging cleanup. UI exit must not end an accepted job. |
+| 1. Intent and results | Source locators in the request types under `Storage/Operations/Requests`; immutable selection capture in Core; DTO projection in `WinRTStorageOperationService`; server validation; structured effects and result recording. | Archive selection survives tab closure; duplicate records remain distinct; malformed chains fail; old native routes retain behavior; committed destination survives failed deletion in the result. |
+| 2. Working file Copy | `Storage/Operations/Transfers` coordinator, destination staging, Windows import adapter; explicit server FTP/archive composition and credential ownership. | FTP-to-Windows and archive-record-to-Windows via real server jobs; final FTP response failure, CRC failure, access denial, cancellation, conflict race, and staging cleanup. UI exit must not end an accepted job. |
 | 3. Trees and archive batches | Progressive traversal, safe destination mapping, prepared parent/child archive models, managed batch sink and SevenZip adapter. | Nested archives, solid archives, duplicate/case/file-folder collisions, unsafe names, links, overlapping selection, partial publication, bounded memory, and one prepared container per group. Measure decoding work, not only wall-clock time. |
 | 4. Additional destinations and Move | FTP import; source removal guarantees only where implementable. | Upload-finalization failures, unsupported rename/replace, copied-but-not-removed outcomes, source replacement before deletion, and disconnects at publication boundaries. Read-only archive Move stays unsupported. |
 
