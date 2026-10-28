@@ -6,7 +6,7 @@ using System.IO;
 using System.Text;
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
-using Files.Core.Composition;
+using Files.Core;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Files.Views;

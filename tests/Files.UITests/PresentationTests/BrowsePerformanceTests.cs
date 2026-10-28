@@ -13,7 +13,7 @@ using System.Text.Json;
 using Files.Commands;
 using Files.Controls;
 using Files.Core.Browsing;
-using Files.Core.Composition;
+using Files.Core;
 using Files.Core.Data;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Properties;

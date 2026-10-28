@@ -8,7 +8,7 @@ using Files.Commands;
 using Files.Core.Browsing;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Changes;
-using Files.Core.Composition;
+using Files.Core;
 using Files.Core.Models;
 using Files.Core.Sessions;
 using Files.Core.Storage;

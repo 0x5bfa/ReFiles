@@ -6,7 +6,7 @@ using System.IO.Compression;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Archives;
 using Files.Core.Capabilities.Content;
-using Files.Core.Composition;
+using Files.Core;
 using Files.Core.Storage;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Ftp;

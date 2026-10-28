@@ -49,7 +49,7 @@ These architectural rules remain:
 
 ## Core source layout
 
-Folders group code by responsibility. Existing public namespaces are retained so source organization does not require an API migration.
+Folders group code by responsibility. `FilesCoreBuilder` and `FilesCoreRuntime` are public entry points in the `Files.Core` namespace. Other existing public namespaces are retained independently of folder organization.
 
 | Folder under `src/Files.Core` | Responsibility |
 |---|---|
@@ -62,11 +62,13 @@ Folders group code by responsibility. Existing public namespaces are retained so
 | `Storage/Operations` | Operation routing and execution contracts, with `Requests`, `Jobs`, and `Transfers` subfolders. |
 | `Storage/Windows`, `Storage/Ftp`, `Storage/Archives` | Provider implementations and their implementation-specific contracts. |
 | `Capabilities` | Optional item behavior, grouped by feature. |
-| `Composition` | Runtime construction and shared service composition. |
+| `FilesCoreBuilder*.cs`, `FilesCoreRuntime.cs` | Runtime construction and shared service composition at the Core root. |
 
 `Application/BrowsePaneSession` owns a `Browsing/BrowseSession`, a preview model, and navigation history. It coordinates Back/Forward, search, and selection operations. `BrowseSession` loads a location, enumerates and projects items, tracks selection and changes, and applies view settings. Each split pane gets an independent browse session; a settings pane has different content and does not require one.
 
 Related interfaces and implementations stay together in their feature folder. Operation requests and Windows preview contracts use individual files named after their types. Keep partial declarations such as `BrowseSession.cs` and `BrowseSession.Changes.cs` together.
+
+`FilesCoreBuilder.Windows.cs`, `.Ftp.cs`, `.Archives.cs`, and `.Transfers.cs` contain feature registration as partial declarations of the same builder. `AddWindowsStorage` is an instance method alongside `AddFtpStorage`, `AddArchiveBrowsing`, and `AddStorageTransfers`. Registration helpers remain private to the builder; the feature files preserve source ownership, capability ordering, and cleanup behavior.
 
 ## Example: a new storage provider
 

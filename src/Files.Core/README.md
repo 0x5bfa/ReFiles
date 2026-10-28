@@ -11,9 +11,7 @@ Construct one `FilesCoreRuntime` at process startup:
 await using var runtime = new FilesCoreBuilder(
 		persistedViewSettings,
 		thumbnailCache)
-	.AddWindowsStorage(
-		streamPreviewPolicy: streamPolicy,
-		shellPreviewPolicy: shellPolicy)
+	.AddWindowsStorage(shellPreviewPolicy: shellPolicy)
 	.Build();
 
 var window = await runtime.ShellSession.CreateWindowAsync(

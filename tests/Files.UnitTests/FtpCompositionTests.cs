@@ -3,7 +3,7 @@
 
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Properties;
-using Files.Core.Composition;
+using Files.Core;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Ftp;
