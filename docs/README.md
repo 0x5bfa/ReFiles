@@ -17,12 +17,12 @@ Read these documents before making architectural changes:
 
 ```text
 ReFiles
-├─ Files.Core          UI-independent application, browsing, storage, and model logic
-├─ Files               WinUI application and presentation
-├─ Files.Controls      Reusable WinUI controls
-├─ Files.BackgroundServer    Out-of-process operation host
+├─ Files                   WinUI application and presentation
+├─ Files.BackgroundServer  Out-of-process operation host
+├─ Files.Controls          Reusable WinUI controls
+├─ Files.Core              UI-independent application, browsing, storage, and model logic
 ├─ Files.SourceGenerators
-└─ FilesLauncher       C# Native AOT launcher/integration component
+└─ FilesLauncher           C# Native AOT launcher/integration component
 ```
 
 The most important dependency rule is:
@@ -79,7 +79,7 @@ The most important dependency rule is:
 
 ## Documentation contract
 
-When a pull request changes an architectural contract, update the relevant document in the same pull request. In particular, documentation should be reviewed when changing:
+When a pull request changes an architectural contract, revise the relevant document in the same pull request. In particular, documentation should be reviewed when changing:
 
 - layer ownership or dependency direction;
 - lifetime/disposal semantics;
@@ -92,9 +92,3 @@ When a pull request changes an architectural contract, update the relevant docum
 - extension points.
 
 A subsystem document should answer **why the subsystem exists, what it owns, what it does not own, what must remain true, and how it is tested**. Avoid documentation that only restates methods or current private implementation details.
-
-## Legacy documentation
-
-The previous documentation set is preserved under [`archive/legacy/`](archive/legacy/README.md).
-
-It is historical reference material only and must not be treated as current contributor guidance.
