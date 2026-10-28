@@ -4,7 +4,7 @@
 using Files.Adapters;
 using Files.Commands;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Windows.Foundation;
 
 namespace Files.Presentation;

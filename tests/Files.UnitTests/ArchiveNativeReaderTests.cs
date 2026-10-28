@@ -8,7 +8,7 @@ using Files.Core.Capabilities.Archives;
 using Files.Core.Capabilities.Content;
 using Files.Core.Models;
 using Files.Core.Storage.Archives;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using SevenZip;
 
 namespace Files.UnitTests;

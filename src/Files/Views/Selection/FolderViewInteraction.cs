@@ -7,7 +7,7 @@ using Files.Core.Browsing;
 using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;

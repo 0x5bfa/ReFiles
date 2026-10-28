@@ -5,7 +5,7 @@ using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
 using Files.Infrastructure;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Dispatching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

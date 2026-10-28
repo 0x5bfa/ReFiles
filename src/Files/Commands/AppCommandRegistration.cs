@@ -3,7 +3,7 @@
 
 using Files.Commands.Handlers;
 using Files.Localization;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.Commands;
 

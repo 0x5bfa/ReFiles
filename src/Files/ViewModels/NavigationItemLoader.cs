@@ -12,7 +12,7 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.Localization;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Windows.Storage.Provider;
 using Windows.Win32;
 

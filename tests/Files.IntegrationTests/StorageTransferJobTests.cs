@@ -6,7 +6,7 @@ using System.Text;
 using Files.BackgroundServer;
 using Files.Core.Storage;
 using Files.Core.Storage.Ftp;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.IntegrationTests;
 

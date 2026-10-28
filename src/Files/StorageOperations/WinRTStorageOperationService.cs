@@ -7,7 +7,7 @@ using System.Diagnostics;
 using Files.Core.Storage;
 using Files.Core.Storage.Ftp;
 using Files.Core.Capabilities.Thumbnails;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.ItemProperties;
 

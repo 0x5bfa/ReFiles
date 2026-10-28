@@ -11,7 +11,7 @@ using Files.Core.Browsing;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Windows.Win32;
 using Windows.Win32.Storage.FileSystem;
 

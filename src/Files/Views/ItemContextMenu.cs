@@ -5,7 +5,7 @@ using Files.Adapters;
 using Files.Commands;
 using Files.Localization;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;

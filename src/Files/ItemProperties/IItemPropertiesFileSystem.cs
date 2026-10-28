@@ -3,7 +3,7 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Windows.Win32;
 
 namespace Files.ItemProperties;

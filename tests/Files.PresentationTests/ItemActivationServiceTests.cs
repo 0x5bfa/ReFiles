@@ -3,7 +3,7 @@
 
 using Files.Activation;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Files.PresentationTests;

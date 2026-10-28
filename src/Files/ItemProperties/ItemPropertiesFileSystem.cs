@@ -5,7 +5,7 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Files.StorageOperations;
 using Windows.Win32;
 

@@ -18,7 +18,7 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Archives;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;

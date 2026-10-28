@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.Json;
 using Files.Controls;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Windows.ApplicationModel;
 using Windows.Globalization;
 using Windows.Win32;

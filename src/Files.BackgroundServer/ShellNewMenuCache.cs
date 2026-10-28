@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.BackgroundServer;
 

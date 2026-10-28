@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Localization;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml.Controls;
 
 namespace Files.ItemProperties;

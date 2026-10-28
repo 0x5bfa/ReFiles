@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Files.Views;
 using Files.ViewModels;
 using Microsoft.UI.Xaml;

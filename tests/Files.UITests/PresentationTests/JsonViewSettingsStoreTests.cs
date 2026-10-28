@@ -4,7 +4,7 @@
 using System.IO;
 using Files.Core.Browsing;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Files.Settings;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

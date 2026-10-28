@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.Benchmarks;
 

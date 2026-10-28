@@ -4,7 +4,7 @@
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Archives.SevenZip;
 using Files.Core.Storage.Transfers;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.Core.Composition;
 

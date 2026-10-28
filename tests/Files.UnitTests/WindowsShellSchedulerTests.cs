@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Windows.Win32.UI.WindowsAndMessaging;
 using NativeMethods = Windows.Win32.TestNativeMethods;
 

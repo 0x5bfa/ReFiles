@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.UnitTests;
 

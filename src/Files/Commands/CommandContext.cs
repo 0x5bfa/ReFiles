@@ -4,7 +4,7 @@
 using Files.ViewModels;
 using Files.Core.Browsing;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.Commands;
 

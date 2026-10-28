@@ -4,7 +4,7 @@
 using System.Runtime.InteropServices;
 using Files.Adapters;
 using Files.Localization;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;

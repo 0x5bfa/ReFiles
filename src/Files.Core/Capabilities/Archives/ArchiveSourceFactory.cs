@@ -4,7 +4,7 @@
 using Files.Core.Storage;
 using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Files.Core.Models;
 using Files.Core.Storage.Archives.SevenZip;
 

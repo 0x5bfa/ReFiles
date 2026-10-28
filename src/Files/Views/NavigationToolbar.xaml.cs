@@ -8,7 +8,7 @@ using Files.Core.Browsing;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

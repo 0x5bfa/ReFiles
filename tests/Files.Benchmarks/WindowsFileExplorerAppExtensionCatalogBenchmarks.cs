@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using BenchmarkDotNet.Attributes;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.Benchmarks;
 

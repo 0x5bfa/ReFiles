@@ -7,7 +7,7 @@ using Files.Core.Browsing;
 using Files.Core.Capabilities.Previews;
 using Files.Localization;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Content;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;

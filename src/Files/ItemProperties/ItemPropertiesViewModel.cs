@@ -9,7 +9,7 @@ using Files.Core.Storage;
 using Files.StorageOperations;
 using Files.Localization;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml.Media;
 using Windows.Win32.Foundation;
 

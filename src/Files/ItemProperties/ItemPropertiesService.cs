@@ -4,7 +4,7 @@
 using Files.Core.Storage;
 using Files.ViewModels;
 using Files.StorageOperations;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Windows.Win32;
 using Windows.Win32.UI.WindowsAndMessaging;

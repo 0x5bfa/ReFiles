@@ -15,7 +15,7 @@ Windows filesystem/Shell integration is a platform subsystem with COM apartment,
 - execute Shell-dependent operations where appropriate;
 - schedule COM work on suitable STA workers.
 
-The UI-independent mechanisms share the `Files.Core.Windows` namespace and are grouped physically by responsibility under `Files.Core/Windows`. Raw Win32, COM, and Shell ABI declarations remain under `Files.Core/Windows/Interop`. The Files UI host owns WinUI gestures, `DataPackage` adaptation, presentation, and window integration around those mechanisms.
+The UI-independent mechanisms share the `Files.Core.Storage.Windows` namespace and are grouped physically by responsibility under `Files.Core/Storage/Windows`. Raw Win32, COM, and Shell ABI declarations remain under `Files.Core/Storage/Windows/Interop`. The Files UI host owns WinUI gestures, `DataPackage` adaptation, presentation, and window integration around those mechanisms.
 
 ## Concurrency model
 
@@ -47,7 +47,7 @@ Assume a Shell COM object may be apartment-bound unless its contract/agility pro
 
 Context menus use a short-lived `WindowsShellContextMenuSession` wrapper. Every access to its retained `IContextMenu`, native menu, and Explorer-command objects returns to the same ordered operation STA. Only handle-free entry descriptions cross into presentation. Accepted invocation and icon work finish before native teardown; the session must be disposed before its storage source.
 
-`Windows/ContextMenus` owns popup construction, with AppExtension catalogs as internal inputs. `Windows/PropertySheets` owns property-page retrieval independently. See [context-menu construction](../explorer/context-menus/construction.md) for the recovered Explorer flow and the rendering boundary.
+`Storage/Windows/ContextMenus` owns popup construction, with AppExtension catalogs as internal inputs. `Storage/Windows/PropertySheets` owns property-page retrieval independently. See [context-menu construction](../explorer/context-menus/construction.md) for the recovered Explorer flow and the rendering boundary.
 
 ## Enumeration
 

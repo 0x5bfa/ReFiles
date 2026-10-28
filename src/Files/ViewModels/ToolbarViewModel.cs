@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Controls;
 using Files.Core.ViewSettings;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 
 namespace Files.ViewModels;
 

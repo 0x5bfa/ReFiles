@@ -8,7 +8,7 @@ using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage;
 using Files.Localization;
 using Files.ViewModels;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

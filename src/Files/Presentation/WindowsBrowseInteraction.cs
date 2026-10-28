@@ -9,7 +9,7 @@ using Files.Core.Browsing;
 using Files.Core.Data;
 using Files.Core.Sessions;
 using Files.Core.Storage;
-using Files.Core.Windows;
+using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
