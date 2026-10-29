@@ -10,7 +10,7 @@ using Files.Core.Storage.Windows;
 
 namespace Files.BackgroundServer;
 
-internal sealed class ShellNewItemOperation(Guid id, string folderPath, uint commandOffset, string name) : IServerOperation
+internal sealed class ShellNewItemOperation(Guid id, string folderPath, uint commandOffset, string name, StorageOperationExecutor executor) : IServerOperation
 {
 	public Guid Id => id;
 	public string Kind => "Create";
@@ -20,7 +20,7 @@ internal sealed class ShellNewItemOperation(Guid id, string folderPath, uint com
 
 	public async Task ExecuteAsync(OperationExecutionContext context, CancellationToken cancellationToken)
 	{
-		var menu = new WindowsShellNewMenu(Program.Storage.Value.Source.Scheduler);
+		var menu = new WindowsShellNewMenu(executor.Source.Scheduler);
 		var items = await menu.GetItemsAsync(folderPath, cancellationToken).ConfigureAwait(false);
 		if (!items.Any(item => item.CommandOffset == commandOffset && item.Name == name && item.IsEnabled))
 		{

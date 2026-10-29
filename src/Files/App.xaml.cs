@@ -10,17 +10,17 @@ using Files.Core.Sessions;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
-using System.IO;
 using System.Threading;
 using Files.Core;
 using Microsoft.Extensions.Logging;
-using Serilog;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Files;
 
 public partial class App : Application
 {
 	private FilesCoreRuntime? _runtime;
+	private readonly ServiceProvider _services;
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
 	private readonly WindowsStorageSource _windowsStorageSource;
@@ -39,16 +39,17 @@ public partial class App : Application
 
 	public App()
 	{
-		_loggerFactory = CreateLoggerFactory();
-		_logger = _loggerFactory.CreateLogger<App>();
+		_services = AppServiceRegistration.CreateServices().BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+		_loggerFactory = _services.GetRequiredService<ILoggerFactory>();
+		_logger = _services.GetRequiredService<ILogger<App>>();
+		_storageOperations = _services.GetRequiredService<WinRTStorageOperationService>();
+		_storageOperationTracker = _services.GetRequiredService<StorageOperationTracker>();
 		_windowsStorageSource = new WindowsStorageSource(loggerFactory: _loggerFactory);
-		_storageOperations = new WinRTStorageOperationService(_loggerFactory.CreateLogger<WinRTStorageOperationService>());
-		_storageOperationTracker = new StorageOperationTracker(_storageOperations, _loggerFactory.CreateLogger<StorageOperationTracker>());
 		_viewSettingsStore = new JsonViewSettingsStore(_windowsStorageSource, AppSettingsService.GetDefaultLocalFolderPath());
 		_settings = new AppSettingsService(_windowsStorageSource);
 		_settings.ApplyLanguage();
 		InitializeComponent();
-		_commandRegistry = AppCommandRegistration.Build();
+		_commandRegistry = _services.GetRequiredService<CommandRegistry>();
 		_settings.PropertyChanged += Settings_PropertyChanged;
 	}
 
@@ -254,31 +255,7 @@ public partial class App : Application
 		finally
 		{
 			_settings.PropertyChanged -= Settings_PropertyChanged;
-			_storageOperationTracker.Dispose();
-			_storageOperations.Dispose();
-			_loggerFactory.Dispose();
+			await _services.DisposeAsync().ConfigureAwait(true);
 		}
-	}
-
-	private static ILoggerFactory CreateLoggerFactory()
-	{
-		var logFilePath = Path.Combine(AppSettingsService.GetDefaultLocalFolderPath(), "Logs", "Files-.log");
-		var serilogLogger = new LoggerConfiguration()
-			.MinimumLevel.Debug()
-			.WriteTo.Async(writeTo => writeTo.File(
-				logFilePath,
-				rollingInterval: RollingInterval.Day,
-				fileSizeLimitBytes: 10 * 1024 * 1024,
-				rollOnFileSizeLimit: true,
-				retainedFileCountLimit: 10,
-				outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"))
-			.CreateLogger();
-
-		return LoggerFactory.Create(builder =>
-		{
-			builder.AddDebug();
-			builder.AddSerilog(serilogLogger, dispose: true);
-			builder.SetMinimumLevel(LogLevel.Debug);
-		});
 	}
 }

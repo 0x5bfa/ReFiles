@@ -15,6 +15,11 @@ namespace Files.BackgroundServer;
 /// <summary>Connects a UI process to the shared operation host.</summary>
 public sealed partial class AppService : IDisposable
 {
+	private readonly ServerLifetime _lifetime;
+	private readonly OperationHost _operations;
+	private readonly StorageOperationExecutor _storage;
+	private readonly MemoryThumbnailCache _thumbnails;
+	private readonly ShellNewMenuCache _shellNewItems;
 	private readonly CancellationTokenSource _disconnected = new();
 	private readonly CancellationToken _sessionToken;
 	private Process? _process;
@@ -24,12 +29,21 @@ public sealed partial class AppService : IDisposable
 
 	/// <summary>Attaches a client without transferring ownership of accepted operations.</summary>
 	/// <param name="processId">The client process identity.</param>
-	public AppService(int processId)
+	public AppService(int processId) : this(processId, Program.Lifetime, Program.Operations, Program.Storage, Program.Thumbnails, Program.ShellNewItems)
 	{
+	}
+
+	internal AppService(int processId, ServerLifetime lifetime, OperationHost operations, StorageOperationExecutor storage, MemoryThumbnailCache thumbnails, ShellNewMenuCache shellNewItems)
+	{
+		_lifetime = lifetime;
+		_operations = operations;
+		_storage = storage;
+		_thumbnails = thumbnails;
+		_shellNewItems = shellNewItems;
 		_sessionToken = _disconnected.Token;
 		try
 		{
-			_clientLease = Program.Lifetime.Acquire(isClient: true);
+			_clientLease = _lifetime.Acquire(isClient: true);
 			_serverClientId = Guid.NewGuid();
 			BackgroundServerHost.AddClient(_serverClientId, processId);
 			_process = Process.GetProcessById(processId);
@@ -50,7 +64,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.GetOperations();
+		return _operations.GetOperations();
 	}
 
 	/// <summary>Waits for a revision change or a bounded refresh timeout.</summary>
@@ -63,7 +77,7 @@ public sealed partial class AppService : IDisposable
 		{
 			using var request = AcquireRequest();
 			using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _sessionToken);
-			await Program.Operations.WaitForChangesAsync(serverInstanceId, knownRevision, cancellation.Token).ConfigureAwait(false);
+			await _operations.WaitForChangesAsync(serverInstanceId, knownRevision, cancellation.Token).ConfigureAwait(false);
 		});
 	}
 
@@ -74,7 +88,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.RequestCancellation(operationId);
+		return _operations.RequestCancellation(operationId);
 	}
 
 	/// <summary>Accepts an entire storage batch before starting its item loop.</summary>
@@ -85,7 +99,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.Submit(new StorageOperationBatch(operationId, items));
+		return _operations.Submit(new StorageOperationBatch(operationId, items, _storage));
 	}
 
 	/// <summary>Registers server-owned FTP connection settings and credentials outside transfer intent.</summary>
@@ -93,7 +107,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Storage.Value.RegisterFtpConnection(connection, userName, password);
+		return _storage.RegisterFtpConnection(connection, userName, password);
 	}
 
 	/// <summary>Accepts captured transfer sources independently of any browse-session lifetime.</summary>
@@ -101,7 +115,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.Submit(new StorageTransferBatch(operationId, items, steps));
+		return _operations.Submit(new StorageTransferBatch(operationId, items, steps, _storage));
 	}
 
 	/// <summary>Accepts attribute changes for execution independently of the UI.</summary>
@@ -109,7 +123,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.Submit(new FileAttributeOperation(operationId, paths, changes));
+		return _operations.Submit(new FileAttributeOperation(operationId, paths, changes, _storage));
 	}
 
 	/// <summary>Accepts attribute changes and a following rename as one server-owned operation.</summary>
@@ -118,7 +132,7 @@ public sealed partial class AppService : IDisposable
 		using var request = AcquireRequest();
 		var rename = new StorageOperationData { Kind = StorageOperationKind.Rename, Item = item, Name = newName, DisplayName = newName };
 
-		return Program.Operations.Submit(new FileAttributeOperation(operationId, paths, changes, rename));
+		return _operations.Submit(new FileAttributeOperation(operationId, paths, changes, _storage, rename));
 	}
 
 	/// <summary>Invokes a Shell New menu item in the server's own Shell apartment.</summary>
@@ -129,7 +143,7 @@ public sealed partial class AppService : IDisposable
 
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-		return Program.Operations.Submit(new ShellNewItemOperation(operationId, folderPath, commandOffset, name));
+		return _operations.Submit(new ShellNewItemOperation(operationId, folderPath, commandOffset, name, _storage));
 	}
 
 	/// <summary>Gets the Windows Shell New menu items from the server's shared cache.</summary>
@@ -142,7 +156,7 @@ public sealed partial class AppService : IDisposable
 			using var request = AcquireRequest();
 			ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
 
-			return await Program.ShellNewItems.GetItemsAsync(folderPath, cancellationToken).ConfigureAwait(false);
+			return await _shellNewItems.GetItemsAsync(folderPath, cancellationToken).ConfigureAwait(false);
 		});
 	}
 
@@ -151,7 +165,7 @@ public sealed partial class AppService : IDisposable
 	public void RegisterWindow(long windowHandle)
 	{
 		using var request = AcquireRequest();
-		BackgroundServerHost.RegisterWindow(_serverClientId, windowHandle);
+		BackgroundServerHost.RegisterWindow(_serverClientId, windowHandle, _lifetime);
 	}
 
 	/// <summary>Marks one registered UI window as the most recently active window.</summary>
@@ -177,7 +191,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 		var cacheKey = ToThumbnailCacheKey(key);
-		var entry = Program.Thumbnails.Value.GetAsync(cacheKey).GetAwaiter().GetResult();
+		var entry = _thumbnails.GetAsync(cacheKey).GetAwaiter().GetResult();
 		if (entry is null)
 		{
 			return default;
@@ -201,7 +215,7 @@ public sealed partial class AppService : IDisposable
 	public void SetThumbnailCacheEntry(ThumbnailCacheKeyData key, ThumbnailCacheEntryData entry)
 	{
 		using var request = AcquireRequest();
-		Program.Thumbnails.Value.SetAsync(ToThumbnailCacheKey(key), ToThumbnailCacheEntry(entry)).GetAwaiter().GetResult();
+		_thumbnails.SetAsync(ToThumbnailCacheKey(key), ToThumbnailCacheEntry(entry)).GetAwaiter().GetResult();
 	}
 
 	/// <summary>Gets the current cache invalidation version for a storage item.</summary>
@@ -211,7 +225,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Thumbnails.Value.GetInvalidationVersionAsync(ToStorableReference(reference)).GetAwaiter().GetResult();
+		return _thumbnails.GetInvalidationVersionAsync(ToStorableReference(reference)).GetAwaiter().GetResult();
 	}
 
 	/// <summary>Stores a thumbnail only when its invalidation version is still current.</summary>
@@ -223,7 +237,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Thumbnails.Value.TrySetAsync(ToThumbnailCacheKey(key), ToThumbnailCacheEntry(entry), expectedInvalidationVersion).GetAwaiter().GetResult();
+		return _thumbnails.TrySetAsync(ToThumbnailCacheKey(key), ToThumbnailCacheEntry(entry), expectedInvalidationVersion).GetAwaiter().GetResult();
 	}
 
 	/// <summary>Invalidates cached thumbnails for a storage item.</summary>
@@ -231,7 +245,7 @@ public sealed partial class AppService : IDisposable
 	public void InvalidateThumbnails(StorageReferenceData reference)
 	{
 		using var request = AcquireRequest();
-		Program.Thumbnails.Value.InvalidateAsync(ToStorableReference(reference)).GetAwaiter().GetResult();
+		_thumbnails.InvalidateAsync(ToStorableReference(reference)).GetAwaiter().GetResult();
 	}
 
 	/// <summary>Requests a pause or resume when the operation supports it.</summary>
@@ -239,7 +253,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.SetPaused(operationId, paused);
+		return _operations.SetPaused(operationId, paused);
 	}
 
 	/// <summary>Answers a specific interruption, rejecting obsolete decisions.</summary>
@@ -247,7 +261,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.ResolveInterruption(operationId, interruptionId, decision, applyToAll);
+		return _operations.ResolveInterruption(operationId, interruptionId, decision, applyToAll);
 	}
 
 	/// <summary>Removes a terminal operation from this server's retained history.</summary>
@@ -257,7 +271,7 @@ public sealed partial class AppService : IDisposable
 	{
 		using var request = AcquireRequest();
 
-		return Program.Operations.Forget(operationId);
+		return _operations.Forget(operationId);
 	}
 
 	/// <summary>Disconnects this client and its observation requests, leaving operations running.</summary>
@@ -278,7 +292,7 @@ public sealed partial class AppService : IDisposable
 		_disconnected.Dispose();
 		Interlocked.Exchange(ref _clientLease, null)?.Dispose();
 		BackgroundServerHost.RemoveClient(_serverClientId);
-		Program.Operations.ScheduleUnattendedCancellation();
+		_operations.ScheduleUnattendedCancellation();
 		GC.SuppressFinalize(this);
 	}
 
@@ -288,7 +302,7 @@ public sealed partial class AppService : IDisposable
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-		return Program.Lifetime.Acquire();
+		return _lifetime.Acquire();
 	}
 
 	private void Process_Exited(object? sender, EventArgs e)

@@ -23,6 +23,14 @@ flowchart TD
 
 Concrete types can change; the important part is that ownership remains explicit.
 
+## Host service composition
+
+`Files` and `Files.BackgroundServer` each build a private `Microsoft.Extensions.DependencyInjection` container at startup. Service resolution stays in the composition roots; Models, ViewModels, operations, and caches receive typed constructor dependencies.
+
+The UI container owns logging, the WinRT operation adapter, the operation tracker, and command registration. App owns settings and `FilesCoreRuntime` separately, and disposes the runtime before the container so shutdown can still use logging and operation services. The server container owns its activity lifetime, operation host, storage executor, and shared caches. It is disposed after activity ends and native host shutdown completes, before WinRT uninitialization.
+
+`FilesCoreBuilder` remains the explicit Core composition API. Runtime owns its workspace and registered sources. Window, tab, pane, job, archive, and stream lifetimes continue through their existing owners and factories; they are not container scopes or transient registrations. Borrowed services are never registered again under aliases that would make the container dispose them twice.
+
 ## Browse ownership
 
 A browse session owns the work/resources associated with its active browse state unless a contract explicitly transfers ownership.

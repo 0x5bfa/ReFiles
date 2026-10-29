@@ -4,6 +4,8 @@
 using System.IO.Compression;
 using System.Text;
 using Files.BackgroundServer;
+using Files.Core.Capabilities.Thumbnails;
+using Microsoft.Extensions.DependencyInjection;
 using Files.Core.Storage;
 using Files.Core.Storage.Ftp;
 using Files.Core.Storage.Windows;
@@ -20,6 +22,8 @@ public sealed class StorageTransferJobTests
 	[TestMethod]
 	public async Task FtpCopyCompletesAfterTheClientDisconnects()
 	{
+		await using var services = ServerServiceRegistration.CreateServices().BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+		var executor = services.GetRequiredService<StorageOperationExecutor>();
 		await using var ftpServer = await FtpTestServer.StartAsync();
 		var profile = new FtpConnectionProfile($"transfer-{Guid.NewGuid():N}", "Transfer", ftpServer.Host, ftpServer.Port);
 		var credential = new FtpCredential(ftpServer.UserName, ftpServer.Password);
@@ -40,9 +44,9 @@ public sealed class StorageTransferJobTests
 			ConnectionId = profile.ConnectionId, DisplayName = profile.DisplayName, Host = profile.Host, Port = profile.Port, SecurityMode = (int)profile.SecurityMode,
 			RootPath = profile.RootPath.Value, UserNameHint = string.Empty, PathComparison = (int)profile.PathComparison,
 		};
-		Program.Storage.Value.RegisterFtpConnection(configuration, credential.UserName, "outdated-password");
-		var registered = Program.Storage.Value.RegisterFtpConnection(configuration, credential.UserName, credential.Password);
-		Assert.Throws<InvalidOperationException>(() => Program.Storage.Value.RegisterFtpConnection(configuration, "different-account", credential.Password));
+		executor.RegisterFtpConnection(configuration, credential.UserName, "outdated-password");
+		var registered = executor.RegisterFtpConnection(configuration, credential.UserName, credential.Password);
+		Assert.Throws<InvalidOperationException>(() => executor.RegisterFtpConnection(configuration, "different-account", credential.Password));
 		Assert.AreEqual(reference.SourceId.Value, registered);
 		var directory = CreateDirectory();
 		try
@@ -52,11 +56,12 @@ public sealed class StorageTransferJobTests
 			var item = new StorageTransferData { Kind = StorageOperationKind.Copy, SourceKind = StorageTransferSourceKind.ConfiguredItem, Destination = destination,
 				Name = string.Empty, DisplayName = "remote.txt",
 				Root = new StorageReferenceData { SourceId = registered, ItemId = reference.ItemId, HasAddress = true, AddressScheme = address.Scheme, AddressValue = address.Value } };
-			using var lifetime = new ServerLifetime(TimeSpan.FromSeconds(30));
-			var clientLease = lifetime.Acquire(isClient: true);
-			var host = new OperationHost(lifetime);
-			var id = host.Submit(new StorageTransferBatch(Guid.NewGuid(), [item], []));
-			clientLease.Dispose();
+			var lifetime = services.GetRequiredService<ServerLifetime>();
+			var host = services.GetRequiredService<OperationHost>();
+			using var connection = new AppService(Environment.ProcessId, lifetime, host, executor, services.GetRequiredService<MemoryThumbnailCache>(), services.GetRequiredService<ShellNewMenuCache>());
+			var id = connection.SubmitStorageTransfers(Guid.NewGuid(), [item], []);
+			connection.Dispose();
+			Assert.IsFalse(lifetime.HasClients);
 			var result = await WaitAsync(host, id);
 			Assert.AreEqual(OperationState.Succeeded, result.State, result.ErrorMessage);
 			Assert.AreEqual("server-owned transfer", await File.ReadAllTextAsync(Path.Combine(directory, "remote.txt")));
@@ -74,6 +79,8 @@ public sealed class StorageTransferJobTests
 	[TestMethod]
 	public async Task ArchiveBatchRetainsCommittedEffectsBeforeAFailure()
 	{
+		await using var services = ServerServiceRegistration.CreateServices().BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+		var executor = services.GetRequiredService<StorageOperationExecutor>();
 		var directory = CreateDirectory();
 		var input = Path.Combine(directory, "input.zip");
 		var output = Path.Combine(directory, "output");
@@ -99,9 +106,8 @@ public sealed class StorageTransferJobTests
 			var missing = selected;
 			missing.RecordId = "99";
 			missing.Name = "missing.txt";
-			using var lifetime = new ServerLifetime(TimeSpan.FromSeconds(30));
-			var host = new OperationHost(lifetime);
-			var id = host.Submit(new StorageTransferBatch(Guid.NewGuid(), [selected, missing], []));
+			var host = services.GetRequiredService<OperationHost>();
+			var id = host.Submit(new StorageTransferBatch(Guid.NewGuid(), [selected, missing], [], executor));
 			var result = await WaitAsync(host, id);
 			Assert.AreEqual(OperationState.Failed, result.State);
 			Assert.AreEqual((int)StorageTransferPublication.Partial, result.TransferPublication);

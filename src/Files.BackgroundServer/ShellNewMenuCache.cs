@@ -11,7 +11,7 @@ using Files.Core.Storage.Windows;
 
 namespace Files.BackgroundServer;
 
-internal sealed class ShellNewMenuCache
+internal sealed class ShellNewMenuCache(StorageOperationExecutor executor)
 {
 	private static readonly TimeSpan _lifetime = TimeSpan.FromMinutes(5);
 	private readonly Lock _syncRoot = new();
@@ -60,9 +60,9 @@ internal sealed class ShellNewMenuCache
 		}
 	}
 
-	private static async Task<IReadOnlyList<ShellNewItemData>> LoadAsync(string folderPath)
+	private async Task<IReadOnlyList<ShellNewItemData>> LoadAsync(string folderPath)
 	{
-		var menu = new WindowsShellNewMenu(Program.Storage.Value.Source.Scheduler);
+		var menu = new WindowsShellNewMenu(executor.Source.Scheduler);
 		var items = await menu.GetItemsAsync(folderPath).ConfigureAwait(false);
 
 		return items.Select(static item => new ShellNewItemData

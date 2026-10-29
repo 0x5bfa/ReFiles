@@ -35,16 +35,6 @@ internal static class BackgroundServerHost
 		{
 			Debug.WriteLine($"Files.BackgroundServer could not initialize its dispatcher: {exception}");
 		}
-
-		try
-		{
-			_ = Program.Storage.Value;
-			_ = Program.Thumbnails.Value;
-		}
-		catch (Exception exception)
-		{
-			Debug.WriteLine($"Files.BackgroundServer could not initialize shared services: {exception}");
-		}
 	}
 
 	internal static void AddClient(Guid clientId, int processId)
@@ -58,7 +48,7 @@ internal static class BackgroundServerHost
 		}
 	}
 
-	internal static void RegisterWindow(Guid clientId, long windowHandle)
+	internal static void RegisterWindow(Guid clientId, long windowHandle, ServerLifetime lifetime)
 	{
 		var handle = new HWND((nint)windowHandle);
 		if (handle.IsNull || !PInvoke.IsWindow(handle) || PInvoke.GetWindowThreadProcessId(handle, out var processId) is 0)
@@ -76,7 +66,7 @@ internal static class BackgroundServerHost
 
 			_windows.RemoveAll(window => window.Handle == handle);
 			_windows.Add(new ClientWindow(clientId, handle, processId));
-			_backgroundLease ??= Program.Lifetime.Acquire();
+			_backgroundLease ??= lifetime.Acquire();
 			closeWindow = _isQuitting;
 		}
 

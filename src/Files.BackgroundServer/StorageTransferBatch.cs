@@ -13,6 +13,7 @@ namespace Files.BackgroundServer;
 
 internal sealed class StorageTransferBatch : IServerOperation
 {
+	private readonly StorageOperationExecutor _executor;
 	private readonly StorageOperationRequest[] _requests;
 	private readonly string[] _names;
 	public Guid Id { get; }
@@ -21,7 +22,7 @@ internal sealed class StorageTransferBatch : IServerOperation
 	public string? DestinationPath { get; }
 	public bool CanPause => true;
 
-	internal StorageTransferBatch(Guid id, StorageTransferData[] items, ArchiveLocatorStepData[] steps)
+	internal StorageTransferBatch(Guid id, StorageTransferData[] items, ArchiveLocatorStepData[] steps, StorageOperationExecutor executor)
 	{
 		ArgumentNullException.ThrowIfNull(items);
 
@@ -32,8 +33,9 @@ internal sealed class StorageTransferBatch : IServerOperation
 			throw new ArgumentException("A transfer batch requires bounded, homogeneous item values.", nameof(items));
 		}
 
+		_executor = executor;
 		_requests = items.Select(item => CreateRequest(item, steps)).ToArray();
-		if (_requests.Any(request => !Program.Storage.Value.CanHandle(request)))
+		if (_requests.Any(request => !_executor.CanHandle(request)))
 		{
 			throw new NotSupportedException("The server has no configured route for this transfer.");
 		}
@@ -52,7 +54,7 @@ internal sealed class StorageTransferBatch : IServerOperation
 
 			context.Report(new OperationProgress(index, ItemCount, CurrentItemName: _names[index]));
 			var progress = new StorageOperationProgressReporter(context, index, ItemCount, _names[index]);
-			var result = await Program.Storage.Value.ExecuteAsync(_requests[index], progress, context, cancellationToken).ConfigureAwait(false);
+			var result = await _executor.ExecuteAsync(_requests[index], progress, context, cancellationToken).ConfigureAwait(false);
 			context.SetResult(result);
 			if (!result.Succeeded)
 			{

@@ -10,6 +10,7 @@ namespace Files.BackgroundServer;
 
 internal sealed class FileAttributeOperation : IServerOperation
 {
+	private readonly StorageOperationExecutor _executor;
 	private readonly string[] _paths;
 	private readonly FileAttributeChangesData _changes;
 	private readonly StorageOperationData? _rename;
@@ -20,7 +21,7 @@ internal sealed class FileAttributeOperation : IServerOperation
 	public string? DestinationPath => null;
 	public bool CanPause => false;
 
-	internal FileAttributeOperation(Guid id, string[] paths, FileAttributeChangesData changes, StorageOperationData? rename = null)
+	internal FileAttributeOperation(Guid id, string[] paths, FileAttributeChangesData changes, StorageOperationExecutor executor, StorageOperationData? rename = null)
 	{
 		if (paths.Length is 0 or > 10000)
 		{
@@ -40,6 +41,7 @@ internal sealed class FileAttributeOperation : IServerOperation
 			}
 		}
 
+		_executor = executor;
 		Id = id;
 		_paths = (string[])paths.Clone();
 		_changes = changes;
@@ -62,10 +64,9 @@ internal sealed class FileAttributeOperation : IServerOperation
 
 		if (_rename is { } rename)
 		{
-			var executor = Program.Storage.Value;
-			var request = await executor.CreateRequestAsync(rename, cancellationToken).ConfigureAwait(false);
+			var request = await _executor.CreateRequestAsync(rename, cancellationToken).ConfigureAwait(false);
 			var progress = new StorageOperationProgressReporter(context, _paths.Length, ItemCount, rename.DisplayName);
-			var result = await executor.ExecuteAsync(request, progress, context, cancellationToken).ConfigureAwait(false);
+			var result = await _executor.ExecuteAsync(request, progress, context, cancellationToken).ConfigureAwait(false);
 			if (!result.Succeeded)
 			{
 				throw result.Error!;
