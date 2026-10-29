@@ -110,23 +110,26 @@ public sealed class ItemPropertiesViewModelTests
 	}
 
 	/// <summary>
-	/// Verifies that applying an attribute change updates a filesystem item.
+	/// Verifies that applying an attribute change submits the requested value and clears pending changes.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
-	public async Task ApplyUpdatesFileAttributesAsync()
+	public async Task ApplySubmitsFileAttributeChangesAsync()
 	{
 		var directory = CreateTemporaryDirectory();
 		var path = Path.Combine(directory, "item.txt");
 		try
 		{
 			File.WriteAllText(path, "content");
-			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)]);
+			var fileSystem = new RecordingItemPropertiesFileSystem();
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)], null, fileSystem);
 			viewModel.IsReadOnly = true;
 
 			await viewModel.ApplyAsync();
 
-			Assert.IsTrue(File.GetAttributes(path).HasFlag(FileAttributes.ReadOnly));
+			CollectionAssert.AreEqual(new[] { path }, fileSystem.Paths);
+			Assert.IsNotNull(fileSystem.Changes);
+			Assert.AreEqual(true, fileSystem.Changes.IsReadOnly);
 			Assert.IsFalse(viewModel.HasChanges);
 		}
 		finally
@@ -203,24 +206,26 @@ public sealed class ItemPropertiesViewModelTests
 	}
 
 	/// <summary>
-	/// Verifies that archive and indexing choices from Advanced Attributes are applied.
+	/// Verifies that archive and indexing choices are submitted to the file-operation adapter.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test operation.</returns>
 	[TestMethod]
-	public async Task ApplyUpdatesAdvancedFileAttributesAsync()
+	public async Task ApplySubmitsAdvancedFileAttributeChangesAsync()
 	{
 		var directory = CreateTemporaryDirectory();
 		var path = Path.Combine(directory, "item.txt");
 		try
 		{
 			File.WriteAllText(path, "content");
-			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)]) { IsArchive = true, IsIndexed = false };
+			var fileSystem = new RecordingItemPropertiesFileSystem();
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)], null, fileSystem) { IsArchive = true, IsIndexed = false };
 
 			await viewModel.ApplyAsync();
 
-			var attributes = File.GetAttributes(path);
-			Assert.IsTrue(attributes.HasFlag(FileAttributes.Archive));
-			Assert.IsTrue(attributes.HasFlag(FileAttributes.NotContentIndexed));
+			CollectionAssert.AreEqual(new[] { path }, fileSystem.Paths);
+			Assert.IsNotNull(fileSystem.Changes);
+			Assert.AreEqual(true, fileSystem.Changes.IsArchive);
+			Assert.AreEqual(false, fileSystem.Changes.IsIndexed);
 			Assert.IsFalse(viewModel.HasChanges);
 		}
 		finally
@@ -276,6 +281,32 @@ public sealed class ItemPropertiesViewModelTests
 		}
 	}
 
+	/// <summary>Failed attribute operations preserve pending edits and propagate the error.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task ApplyPreservesChangesWhenAttributeOperationFailsAsync()
+	{
+		var directory = CreateTemporaryDirectory();
+		var path = Path.Combine(directory, "item.txt");
+		try
+		{
+			File.WriteAllText(path, "content");
+			var error = new IOException("The attribute operation failed.");
+			var fileSystem = new RecordingItemPropertiesFileSystem { ApplyError = error };
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[CreateItem(Path.GetFileName(path), false, path)], null, fileSystem) { IsReadOnly = true };
+
+			var actual = await Assert.ThrowsAsync<IOException>(() => viewModel.ApplyAsync());
+
+			Assert.AreSame(error, actual);
+			Assert.IsTrue(viewModel.HasChanges);
+			Assert.AreEqual(true, viewModel.IsReadOnly);
+		}
+		finally
+		{
+			DeleteTemporaryDirectory(directory);
+		}
+	}
+
 	private static BrowseItemViewModel CreateItem(string name, bool isFolder, string? path, params (string PropertyId, object? Value)[] properties)
 	{
 		var address = path is null ? new StorageAddress("test", name) : new StorageAddress("file", path);
@@ -302,6 +333,37 @@ public sealed class ItemPropertiesViewModelTests
 		if (Directory.Exists(path))
 		{
 			Directory.Delete(path, true);
+		}
+	}
+
+	private sealed class RecordingItemPropertiesFileSystem : IItemPropertiesFileSystem
+	{
+		private readonly ItemPropertiesFileSystem _fileSystem = new();
+
+		public string[] Paths { get; private set; } = [];
+		public ItemPropertiesFileSystemChanges? Changes { get; private set; }
+		public Exception? ApplyError { get; init; }
+
+		public ItemPropertiesFileSystemSelection Inspect(IReadOnlyList<ItemPropertiesFileSystemCandidate> candidates)
+		{
+			return _fileSystem.Inspect(candidates);
+		}
+
+		public ItemPropertiesFileSystemMetadata ReadMetadata(IReadOnlyList<string> paths, CancellationToken cancellationToken)
+		{
+			return _fileSystem.ReadMetadata(paths, cancellationToken);
+		}
+
+		public void Apply(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			Paths = paths.ToArray();
+			Changes = changes;
+			if (ApplyError is { } error)
+			{
+				throw error;
+			}
 		}
 	}
 

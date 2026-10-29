@@ -225,10 +225,11 @@ public sealed class BrowsePerformanceTests
 					return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = (long)index });
 				}
 				: null);
+		var location = new FolderLocation(new StorableReference(new StorageSourceId("performance"), "root", new StorageAddress("performance", "root")));
 		var settingsStore = new InMemoryViewSettingsStore();
 		if (scenario.EnablePropertyEnrichment)
 		{
-			await settingsStore.SetAsync(HomeLocation.Instance, new BrowseViewSettings(columns: (Files.Core.ViewSettings.ViewColumnSettings[])[new ViewColumnSettings("System.Size", 120, 0)]));
+			await settingsStore.SetAsync(location, new BrowseViewSettings(columns: (Files.Core.ViewSettings.ViewColumnSettings[])[new ViewColumnSettings("System.Size", 120, 0)]));
 		}
 
 		var session = new BrowseSession(resolver, settingsStore);
@@ -254,7 +255,7 @@ public sealed class BrowsePerformanceTests
 
 		dispatcherProbe.Start();
 		metrics.Start();
-		var navigation = root.InitializeAsync();
+		var navigation = folder.NavigateToReferenceAsync(location.Folder);
 
 		try
 		{
@@ -287,7 +288,8 @@ public sealed class BrowsePerformanceTests
 		Assert.IsTrue(metrics.MaximumRealizedRowCount < VirtualizationSafetyLimit,
 			$"Expected virtualization to keep realized rows below {VirtualizationSafetyLimit}, but observed {metrics.MaximumRealizedRowCount}.");
 		Assert.IsTrue(dispatcherProbe.MaximumLatency < TimeSpan.FromMilliseconds(500), $"Observed a catastrophic UI-thread stall of {dispatcherProbe.MaximumLatency.TotalMilliseconds:F1} ms.");
-		Assert.IsTrue(metrics.CollectionNotificationCount < Math.Max(8, scenario.ItemCount / 8), "Collection notifications grew too quickly relative to the folder size.");
+		Assert.IsTrue(metrics.CollectionNotificationCount < Math.Max(8, scenario.ItemCount / 8),
+			$"{scenario.Name}: observed {metrics.CollectionNotificationCount} collection notifications for {scenario.ItemCount} items.");
 		Assert.AreEqual(scenario.ItemCount, metrics.UniqueViewModelCount, "Progressive updates should not create replacement row view models for already-published items.");
 
 		return metrics.CreateResult(

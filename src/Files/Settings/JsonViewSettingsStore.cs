@@ -417,7 +417,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 	{
 		await foreach (var child in folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
 		{
-			if (child is WindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(item.Name, name))
+			if (child is WindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(item.FileSystemPath), name))
 			{
 				return item;
 			}

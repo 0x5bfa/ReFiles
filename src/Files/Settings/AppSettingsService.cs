@@ -397,7 +397,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 	{
 		await foreach (var child in folder.GetItemsAsync(type, CancellationToken.None).ConfigureAwait(false))
 		{
-			if (child is WindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(item.Name, name))
+			if (child is WindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(item.FileSystemPath), name))
 			{
 				return item;
 			}
