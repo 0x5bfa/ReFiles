@@ -10,9 +10,11 @@ using Files.Core.Sessions;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using Files.Core;
 using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace Files;
 
@@ -37,12 +39,7 @@ public partial class App : Application
 
 	public App()
 	{
-		var diagnosticLoggingEnabled = string.Equals(Environment.GetEnvironmentVariable("FILES_DIAGNOSTIC_LOG"), "1", StringComparison.Ordinal);
-		_loggerFactory = LoggerFactory.Create(builder =>
-		{
-			builder.AddDebug();
-			builder.SetMinimumLevel(diagnosticLoggingEnabled ? LogLevel.Debug : LogLevel.Warning);
-		});
+		_loggerFactory = CreateLoggerFactory();
 		_logger = _loggerFactory.CreateLogger<App>();
 		_windowsStorageSource = new WindowsStorageSource(loggerFactory: _loggerFactory);
 		_storageOperations = new WinRTStorageOperationService(_loggerFactory.CreateLogger<WinRTStorageOperationService>());
@@ -261,5 +258,27 @@ public partial class App : Application
 			_storageOperations.Dispose();
 			_loggerFactory.Dispose();
 		}
+	}
+
+	private static ILoggerFactory CreateLoggerFactory()
+	{
+		var logFilePath = Path.Combine(AppSettingsService.GetDefaultLocalFolderPath(), "Logs", "Files-.log");
+		var serilogLogger = new LoggerConfiguration()
+			.MinimumLevel.Debug()
+			.WriteTo.Async(writeTo => writeTo.File(
+				logFilePath,
+				rollingInterval: RollingInterval.Day,
+				fileSizeLimitBytes: 10 * 1024 * 1024,
+				rollOnFileSizeLimit: true,
+				retainedFileCountLimit: 10,
+				outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"))
+			.CreateLogger();
+
+		return LoggerFactory.Create(builder =>
+		{
+			builder.AddDebug();
+			builder.AddSerilog(serilogLogger, dispose: true);
+			builder.SetMinimumLevel(LogLevel.Debug);
+		});
 	}
 }
