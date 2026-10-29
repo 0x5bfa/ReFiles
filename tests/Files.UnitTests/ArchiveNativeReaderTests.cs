@@ -82,8 +82,6 @@ public sealed class ArchiveNativeReaderTests
 	[DataRow(true)]
 	public async Task NativeReaderOpensEncryptedSevenZipAfterARejectedCredential(bool encryptHeaders)
 	{
-		var nativeName = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "7zArm64.dll" : "7z64.dll";
-		SevenZipBase.SetLibraryPath(Path.Combine(AppContext.BaseDirectory, nativeName));
 		using var output = new MemoryStream();
 		using var content = new MemoryStream(Encoding.UTF8.GetBytes("encrypted content"));
 		var compressor = new SevenZipCompressor { ArchiveFormat = OutArchiveFormat.SevenZip, EncryptHeaders = encryptHeaders };

@@ -557,7 +557,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		{
 			uint signerCount = 0;
 			var countSize = checked((uint)sizeof(uint));
-			if (message is null || !PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerCount, 0, new Span<byte>(&signerCount, sizeof(uint)), ref countSize))
+			if (message is null || !PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerCount, 0, &signerCount, ref countSize))
 			{
 				return [];
 			}
@@ -589,7 +589,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 	private static string ReadSignerName(HCERTSTORE certificateStore, CERT_QUERY_ENCODING_TYPE encoding, void* message, uint index)
 	{
 		uint size = 0;
-		PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, [], ref size);
+		PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, null, ref size);
 		if (size is 0)
 		{
 			return string.Empty;
@@ -598,7 +598,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var buffer = NativeMemory.Alloc(size);
 		try
 		{
-			if (!PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, new Span<byte>(buffer, checked((int)size)), ref size))
+			if (!PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, buffer, ref size))
 			{
 				return string.Empty;
 			}
@@ -640,7 +640,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 	private static string ReadSignerDigestAlgorithm(void* message, uint index)
 	{
 		uint size = 0;
-		PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, [], ref size);
+		PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, null, ref size);
 		if (size is 0)
 		{
 			return string.Empty;
@@ -649,7 +649,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var buffer = NativeMemory.Alloc(size);
 		try
 		{
-			if (!PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, new Span<byte>(buffer, checked((int)size)), ref size))
+			if (!PInvoke.CryptMsgGetParam(message, CryptographicMessageSignerInfo, index, buffer, ref size))
 			{
 				return string.Empty;
 			}

@@ -55,14 +55,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="Native\7z64.dll" Pack="true" PackagePath="runtimes/win-x64/native/7z64.dll" TargetPath="7z64.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest">
-			<CopyToOutputDirectory Condition="'$(Platform)' != 'x64'">Never</CopyToOutputDirectory>
-			<CopyToPublishDirectory Condition="'$(Platform)' != 'x64'">Never</CopyToPublishDirectory>
-		</None>
-		<None Update="Native\7zArm64.dll" Pack="true" PackagePath="runtimes/win-arm64/native/7zArm64.dll" TargetPath="7zArm64.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest">
-			<CopyToOutputDirectory Condition="'$(Platform)' != 'arm64'">Never</CopyToOutputDirectory>
-			<CopyToPublishDirectory Condition="'$(Platform)' != 'arm64'">Never</CopyToPublishDirectory>
-		</None>
 		<None Update="Native\7zip-LICENSE.txt" Pack="true" PackagePath="contentFiles/any/any/7zip-LICENSE.txt" PackageCopyToOutput="true" TargetPath="7zip-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<None Update="Native\7zip-LGPL.txt" Pack="true" PackagePath="contentFiles/any/any/7zip-LGPL.txt" PackageCopyToOutput="true" TargetPath="7zip-LGPL.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<None Update="Native\SevenZipSharp-LICENSE.txt" Pack="true" PackagePath="contentFiles/any/any/SevenZipSharp-LICENSE.txt" PackageCopyToOutput="true" TargetPath="SevenZipSharp-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

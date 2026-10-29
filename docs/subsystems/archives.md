@@ -60,9 +60,7 @@ The SevenZip reader extracts a selected record to a temporary file and checks co
 
 ## Shipped dependencies
 
-The local feed contains `SevenZipSharp.1.0.3-desktop.1.nupkg`, built from the unmodified Files Community fork at [`9725bda`](https://github.com/files-community/SevenZipSharp/tree/9725bda53e1ee018b39a51c268a90c4905915926), using its `Desktop` configuration. That configuration loads an absolute native library path without requiring package identity. Rebuild it with `build/Build-SevenZipSharp.ps1`; the ordinary 1.0.3 package uses `LoadPackagedLibrary` and cannot serve unpackaged execution.
-
-`Files.Core/Native` contains the unchanged x64 and ARM64 7-Zip 26.00 binaries from upstream Files commit `77d95dde8`. The project copies the matching binary and dependency notices into build/publish output and packs both runtime assets. Native sources and license information are linked in `7zip-LICENSE.txt`; wrapper source and LGPLv3/GPLv3 notices are distributed alongside the binaries.
+The local feed contains `SevenZipSharp.1.0.4.nupkg`, which supplies the managed wrapper and native 7-Zip runtime assets. NuGet selects the matching native assets for build and publish; `Files.Core/Native` retains the dependency notices distributed with the application.
 
 ## Deliberate limits
 

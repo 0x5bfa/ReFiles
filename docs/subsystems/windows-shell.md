@@ -45,10 +45,6 @@ The exact pool sizes are implementation details. The architectural requirements 
 
 Assume a Shell COM object may be apartment-bound unless its contract/agility proves otherwise. Prefer carrying stable identifiers/data across async boundaries and reacquiring the COM object on a valid scheduler lane rather than retaining raw COM objects indefinitely.
 
-Context menus use a short-lived `WindowsShellContextMenuSession` wrapper. Every access to its retained `IContextMenu`, native menu, and Explorer-command objects returns to the same ordered operation STA. Only handle-free entry descriptions cross into presentation. Accepted invocation and icon work finish before native teardown; the session must be disposed before its storage source.
-
-`Storage/Windows/ContextMenus` owns popup construction, with AppExtension catalogs as internal inputs. `Storage/Windows/PropertySheets` owns property-page retrieval independently. See [context-menu construction](../explorer/context-menus/construction.md) for the recovered Explorer flow and the rendering boundary.
-
 ## Enumeration
 
 Windows enumeration should expose items progressively and keep expensive identity/metadata work bounded. Do not turn every enumerated item into a UI dispatch or perform all property/thumbnail work before publishing basic rows.

@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Globalization;
-using System.IO;
-using System.Runtime.InteropServices;
 using global::SevenZip;
 
 namespace Files.Core.Storage.Archives.SevenZip;
@@ -13,7 +11,6 @@ public sealed class SevenZipArchiveBackend : IArchiveBackend
 {
 	/// <summary>Gets the reader identifier.</summary>
 	public const string DefaultBackendId = "sevenzip";
-	private static readonly Lazy<bool> _library = new(InitializeLibrary);
 
 	/// <inheritdoc />
 	public string Id => DefaultBackendId;
@@ -44,7 +41,6 @@ public sealed class SevenZipArchiveBackend : IArchiveBackend
 		SevenZipExtractor? extractor = null;
 		try
 		{
-			_ = _library.Value;
 			extractor = request.Credential is null ? new SevenZipExtractor(request.Input, leaveOpen: true) : new SevenZipExtractor(request.Input, request.Credential.Password, leaveOpen: true);
 			var records = extractor.ArchiveFileData;
 			cancellationToken.ThrowIfCancellationRequested();
@@ -88,18 +84,5 @@ public sealed class SevenZipArchiveBackend : IArchiveBackend
 	private static ArchiveOpenResult RequiredCredential(ArchiveOpenRequest request)
 	{
 		return new ArchiveOpenResult.CredentialRequired(new ArchiveCredentialChallenge(request.Archive, request.Name, request.CredentialAttempt + 1, request.CredentialAttempt != 0));
-	}
-
-	private static bool InitializeLibrary()
-	{
-		var fileName = RuntimeInformation.ProcessArchitecture switch
-		{
-			Architecture.X64 => "7z64.dll",
-			Architecture.Arm64 => "7zArm64.dll",
-			_ => throw new PlatformNotSupportedException("The archive reader supports x64 and ARM64 processes."),
-		};
-		SevenZipBase.SetLibraryPath(Path.Combine(AppContext.BaseDirectory, fileName));
-
-		return true;
 	}
 }
