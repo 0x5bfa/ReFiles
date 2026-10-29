@@ -12,6 +12,7 @@ using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Windows;
+using Microsoft.Extensions.Logging;
 
 namespace Files.Core;
 
@@ -39,7 +40,7 @@ public sealed partial class FilesCoreBuilder
 			EnsureLocalStorageOperations();
 		}
 
-		var windowsSource = source ?? new WindowsStorageSource();
+		var windowsSource = source ?? new WindowsStorageSource(loggerFactory: LoggerFactory);
 
 		try
 		{
@@ -71,8 +72,8 @@ public sealed partial class FilesCoreBuilder
 				.Add<IReadableContent>(contentFactory, origin: "Windows content")
 				.Add<IWritableContent>(contentFactory, origin: "Windows content")
 				.Add<IFolderBrowseMetadata>(new DelegateCapabilityFactory<IFolderBrowseMetadata>(static context => context.CoreModel is WindowsFolder folder ? new WindowsFolderBrowseMetadata(folder) : null))
-				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend()), priority: 100, origin: "Windows Shell")
-				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), priority: 100, origin: "Windows Shell")
+				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend(), LoggerFactory), priority: 100, origin: "Windows Shell")
+				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader(LoggerFactory.CreateLogger<WindowsPropertyReader>())), priority: 100, origin: "Windows Shell")
 				.Add<IFolderChangeSource>(new FolderChangeSourceFactory(), priority: 100, origin: "Windows Shell");
 		}
 
@@ -100,7 +101,7 @@ public sealed partial class FilesCoreBuilder
 		var loader = new WindowsShellPreviewLoader(handlerResolver, policy);
 		Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
 
-		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1);
+		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1, logger: LoggerFactory.CreateLogger<WindowsShellScheduler>());
 		Own(previewScheduler);
 		SetWindowsShellPreviewSessionFactory(workspace => new WindowsShellPreviewSessionFactory(workspace, previewScheduler, policy));
 	}

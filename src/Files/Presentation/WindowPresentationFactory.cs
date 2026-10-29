@@ -17,6 +17,7 @@ using Files.Controls;
 using Files.Localization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.Extensions.Logging;
 
 namespace Files.Presentation;
 
@@ -32,6 +33,7 @@ internal sealed class WindowPresentationFactory
 	private readonly IItemActivationService _itemActivationService;
 	private readonly IItemPropertiesService? _itemPropertiesService;
 	private readonly nint _ownerWindowHandle;
+	private readonly ILoggerFactory _loggerFactory;
 
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
@@ -40,6 +42,8 @@ internal sealed class WindowPresentationFactory
 	internal IItemActivationService ItemActivationService => _itemActivationService;
 
 	internal IItemPropertiesService? ItemPropertiesService => _itemPropertiesService;
+
+	internal ILoggerFactory LoggerFactory => _loggerFactory;
 
 	internal WindowPresentationFactory(
 		IStorageWorkspace workspace,
@@ -50,7 +54,8 @@ internal sealed class WindowPresentationFactory
 		CommandRegistry commandRegistry,
 		IItemActivationService? itemActivationService = null,
 		IItemPropertiesService? itemPropertiesService = null,
-		nint ownerWindowHandle = 0)
+		nint ownerWindowHandle = 0,
+		ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 
@@ -73,6 +78,7 @@ internal sealed class WindowPresentationFactory
 		_itemActivationService = itemActivationService ?? Files.Activation.ItemActivationService.CreateStorageOnly();
 		_itemPropertiesService = itemPropertiesService;
 		_ownerWindowHandle = ownerWindowHandle;
+		_loggerFactory = loggerFactory ?? Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
 		RegisterPaneContent<BrowsePaneSession>((content, commands) =>
 		{
 			var browser = CreateFolderBrowser(content, commands);
@@ -86,7 +92,7 @@ internal sealed class WindowPresentationFactory
 	{
 		ArgumentNullException.ThrowIfNull(window);
 
-		return new RootViewModel(window, this);
+		return new RootViewModel(window, this, _loggerFactory.CreateLogger<RootViewModel>());
 	}
 
 	internal WindowCommandManager CreateCommandManager(RootViewModel root)
@@ -96,7 +102,7 @@ internal sealed class WindowPresentationFactory
 
 	internal NavigationItemLoader CreateNavigationItemLoader()
 	{
-		return new NavigationItemLoader(_workspace);
+		return new NavigationItemLoader(_workspace, _loggerFactory.CreateLogger<NavigationItemLoader>());
 	}
 
 	internal StatusCenterViewModel CreateStatusCenterViewModel()
@@ -134,10 +140,11 @@ internal sealed class WindowPresentationFactory
 
 	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
 	{
-		var adapter = new BrowsePresentationAdapter(pane, _dispatcher, ownerWindowHandle: _ownerWindowHandle);
-		var interaction = new WindowsBrowseInteraction(pane, adapter, _workspace, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle);
+		var adapter = new BrowsePresentationAdapter(pane, _dispatcher, ownerWindowHandle: _ownerWindowHandle, loggerFactory: _loggerFactory);
+		var interaction = new WindowsBrowseInteraction(pane, adapter, _workspace, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle,
+			_loggerFactory.CreateLogger<WindowsBrowseInteraction>());
 
-		return new FolderBrowserViewModel(pane, adapter, interaction, _appSettings, _dispatcher, commandManager, _ownerWindowHandle);
+		return new FolderBrowserViewModel(pane, adapter, interaction, _appSettings, _dispatcher, commandManager, _ownerWindowHandle, _loggerFactory);
 	}
 
 	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)

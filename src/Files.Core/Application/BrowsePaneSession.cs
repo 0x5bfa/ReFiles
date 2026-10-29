@@ -3,6 +3,7 @@
 
 using Files.Core.Browsing;
 using Files.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace Files.Core.Sessions;
 
@@ -80,7 +81,9 @@ public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittable
 	/// <param name="historyCapacity">The maximum navigation history length.</param>
 	/// <param name="services">The optional borrowed application services.</param>
 	/// <param name="splitFactory">The factory for independently owned browse content.</param>
-	public BrowsePaneSession(IBrowseSession browseSession, IBrowsePreviewModel preview, int historyCapacity = 50, BrowseApplicationServices? services = null, Func<BrowsePaneSession>? splitFactory = null)
+	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
+	public BrowsePaneSession(IBrowseSession browseSession, IBrowsePreviewModel preview, int historyCapacity = 50, BrowseApplicationServices? services = null, Func<BrowsePaneSession>? splitFactory = null,
+		ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(browseSession);
 
@@ -89,7 +92,7 @@ public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittable
 		_services = services;
 		_splitFactory = splitFactory;
 		BrowseSession = browseSession;
-		Navigation = services is null ? null : new BrowseNavigationModel(browseSession, services.Workspace);
+		Navigation = services is null ? null : new BrowseNavigationModel(browseSession, services.Workspace, loggerFactory?.CreateLogger<BrowseNavigationModel>());
 		Preview = preview;
 		History = new BrowseNavigationHistory(historyCapacity);
 

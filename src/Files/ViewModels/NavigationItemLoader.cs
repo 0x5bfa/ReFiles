@@ -15,6 +15,8 @@ using Files.Localization;
 using Files.Core.Storage.Windows;
 using Windows.Storage.Provider;
 using Windows.Win32;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.ViewModels;
 
@@ -35,22 +37,30 @@ internal sealed class NavigationItemLoader
 	private static readonly string _myComputerParsingName = $"shell:::{CLSID.CLSID_MyComputer:B}";
 
 	private readonly IStorageWorkspace _workspace;
+	private readonly ILogger<NavigationItemLoader> _logger;
 
-	public NavigationItemLoader(IStorageWorkspace workspace)
+	public NavigationItemLoader(IStorageWorkspace workspace, ILogger<NavigationItemLoader>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		_workspace = workspace;
+		_logger = logger ?? NullLogger<NavigationItemLoader>.Instance;
 	}
 
 	public async IAsyncEnumerable<NavigationSectionData> LoadSectionsAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("NavigationItemLoader", "LoadSections START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", "LoadSections START");
+		}
 		var windowsSource = _workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
 		if (windowsSource is null)
 		{
-			UIDiagnosticLog.Write("NavigationItemLoader", "LoadSections END no Windows source");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", "LoadSections END no Windows source");
+			}
 
 			yield break;
 		}
@@ -70,20 +80,31 @@ internal sealed class NavigationItemLoader
 
 			if (await completed.ConfigureAwait(false) is { } section)
 			{
-				UIDiagnosticLog.Write(
-					"NavigationItemLoader",
-					$"LoadSections yielded order={section.Order} name={section.Name} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"NavigationItemLoader",
+						$"LoadSections yielded order={section.Order} name={section.Name} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 				yield return section;
 			}
 		}
 
-		UIDiagnosticLog.Write("NavigationItemLoader", $"LoadSections END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"LoadSections END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		}
 	}
 
 	public async ValueTask<ThumbnailResult?> LoadThumbnailAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail START id={reference.ItemId}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"LoadThumbnail START id={reference.ItemId}");
+		}
 		var model = await _workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 		try
 		{
@@ -93,9 +114,14 @@ internal sealed class NavigationItemLoader
 			}
 
 			var result = await source.GetThumbnailAsync(new ThumbnailRequest(ThumbnailSize, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
-			UIDiagnosticLog.Write(
-				"NavigationItemLoader",
-				$"LoadThumbnail END id={reference.ItemId} bytes={result?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"NavigationItemLoader",
+					$"LoadThumbnail END id={reference.ItemId} bytes={result?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			return result;
 		}
@@ -105,7 +131,10 @@ internal sealed class NavigationItemLoader
 		}
 		catch (Exception)
 		{
-			UIDiagnosticLog.Write("NavigationItemLoader", $"LoadThumbnail ERROR id={reference.ItemId} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"LoadThumbnail ERROR id={reference.ItemId} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			}
 
 			return null;
 		}
@@ -125,14 +154,20 @@ internal sealed class NavigationItemLoader
 		CancellationToken cancellationToken)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("NavigationItemLoader", $"Section START order={order} name={name} parsingName={parsingName}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"Section START order={order} name={name} parsingName={parsingName}");
+		}
 		try
 		{
 			var model = await _workspace.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
 			if (model is not IFolderModel folder)
 			{
 				await model.DisposeAsync().ConfigureAwait(false);
-				UIDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} notFolder elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"Section END order={order} notFolder elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				}
 
 				return null;
 			}
@@ -176,7 +211,10 @@ internal sealed class NavigationItemLoader
 					pendingItems.Clear();
 				}
 
-				UIDiagnosticLog.Write("NavigationItemLoader", $"Section END order={order} items={children.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"Section END order={order} items={children.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				}
 
 				return new NavigationSectionData(order, sectionType, name, folder.Reference, children);
 			}
@@ -203,9 +241,14 @@ internal sealed class NavigationItemLoader
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write(
-				"NavigationItemLoader",
-				$"Section ERROR order={order} type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"NavigationItemLoader",
+					$"Section ERROR order={order} type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			return null;
 		}
@@ -262,7 +305,10 @@ internal sealed class NavigationItemLoader
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("NavigationItemLoader", $"Cloud roots ERROR type={exception.GetType().Name} message={exception.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"Cloud roots ERROR type={exception.GetType().Name} message={exception.Message}");
+			}
 
 			return null;
 		}

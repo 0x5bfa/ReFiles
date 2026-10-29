@@ -9,6 +9,8 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.DataTransfer.DragDrop;
 using Windows.Win32;
 using Windows.Win32.System.Com;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Infrastructure;
 
@@ -16,6 +18,7 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 {
 	private readonly Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> _prepareDropTargetAsync;
 	private readonly nint _ownerWindowHandle;
+	private readonly ILogger<WinUIShellDropTargetController> _logger;
 
 	private CancellationTokenSource? _transitionCancellation;
 	private Task? _transitionTask;
@@ -27,12 +30,14 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 	private long _transitionGeneration;
 	private bool _isDisposed;
 
-	internal WinUIShellDropTargetController(Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> prepareDropTargetAsync, nint ownerWindowHandle)
+	internal WinUIShellDropTargetController(Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> prepareDropTargetAsync, nint ownerWindowHandle,
+		ILogger<WinUIShellDropTargetController>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(prepareDropTargetAsync);
 
 		_prepareDropTargetAsync = prepareDropTargetAsync;
 		_ownerWindowHandle = ownerWindowHandle;
+		_logger = logger ?? NullLogger<WinUIShellDropTargetController>.Instance;
 	}
 
 	internal Task DragEnterAsync(DragEventArgs args, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback = null)
@@ -74,7 +79,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			}
 
 			var effect = _session.Drop(dragState.Modifiers, dragState.ScreenPoint, dragState.AllowedEffects);
-			UIDiagnosticLog.Write("ShellDropTarget", $"Drop allowed={dragState.AllowedEffects} effect={effect}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Drop allowed={dragState.AllowedEffects} effect={effect}");
+			}
 			if (generation == _eventGeneration)
 			{
 				args.AcceptedOperation = WinUIDataObjectBridge.ToDataPackageOperation(effect);
@@ -85,7 +93,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("ShellDropTarget", $"Drop failed: {exception.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Drop failed: {exception.Message}");
+			}
 		}
 		finally
 		{
@@ -158,7 +169,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			}
 			else
 			{
-				UIDiagnosticLog.Write("ShellDropTarget", $"DragEnter allowed={dragState.AllowedEffects} effect={effect}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"DragEnter allowed={dragState.AllowedEffects} effect={effect}");
+				}
 			}
 
 			if (generation == _eventGeneration)
@@ -171,7 +185,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("ShellDropTarget", $"Drag feedback failed: {exception.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Drag feedback failed: {exception.Message}");
+			}
 			ResetTransferState();
 		}
 		finally
@@ -207,7 +224,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			}
 			catch (Exception exception)
 			{
-				UIDiagnosticLog.Write("ShellDropTarget", $"Native data object unavailable: {exception.Message}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Native data object unavailable: {exception.Message}");
+				}
 
 				return false;
 			}
@@ -276,7 +296,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("ShellDropTarget", $"Target preparation failed: {exception.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Target preparation failed: {exception.Message}");
+			}
 
 			return null;
 		}
@@ -306,7 +329,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		catch (Exception exception)
 		{
 			session?.Dispose();
-			UIDiagnosticLog.Write("ShellDropTarget", $"Target entry failed: {exception.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Target entry failed: {exception.Message}");
+			}
 
 			return null;
 		}

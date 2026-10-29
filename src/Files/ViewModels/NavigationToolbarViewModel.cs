@@ -6,12 +6,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Files.Commands;
 using Files.Core.Browsing;
 using Files.Infrastructure;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.ViewModels;
 
 public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisposable
 {
 	private FolderBrowserViewModel? _activeFolderBrowser;
+	private readonly ILogger<NavigationToolbarViewModel> _logger;
 
 	private CancellationTokenSource? _breadcrumbCancellation;
 
@@ -58,7 +61,8 @@ public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisp
 		CommandBindingViewModel navigatePathCommand,
 		CommandBindingViewModel searchCommand,
 		CommandBindingViewModel refreshCommand,
-		StatusCenterViewModel statusCenter)
+		StatusCenterViewModel statusCenter,
+		ILogger<NavigationToolbarViewModel>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(toggleSidebarCommand);
 
@@ -87,6 +91,7 @@ public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisp
 		SearchCommand = searchCommand;
 		RefreshCommand = refreshCommand;
 		StatusCenter = statusCenter;
+		_logger = logger ?? NullLogger<NavigationToolbarViewModel>.Instance;
 	}
 
 	public void Dispose()
@@ -139,7 +144,10 @@ public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisp
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("NavigationToolbar", $"Search command failed: {error.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Search command failed: {error.Message}");
+			}
 
 			return CommandExecutionResult.Failed(error);
 		}
@@ -227,7 +235,10 @@ public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisp
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb refresh failed: {error.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Breadcrumb refresh failed: {error.Message}");
+			}
 			if (ReferenceEquals(_activeFolderBrowser, browser))
 			{
 				BreadcrumbItems.Clear();

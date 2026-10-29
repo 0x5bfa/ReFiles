@@ -4,6 +4,8 @@
 using System.IO;
 using System.Runtime.CompilerServices;
 using Files.Core.Storage;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Windows.Win32;
 using Windows.Win32.UI.Shell;
 
@@ -77,16 +79,19 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 	/// <param name="displayName">The source display name.</param>
 	/// <param name="rootFolderIds">The known folder identifiers to expose.</param>
 	/// <param name="scheduler">The optional Shell scheduler.</param>
-	public WindowsStorageSource(StorageSourceId? sourceId = null, string displayName = "Windows", IEnumerable<Guid>? rootFolderIds = null, IWindowsShellScheduler? scheduler = null)
+	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
+	public WindowsStorageSource(StorageSourceId? sourceId = null, string displayName = "Windows", IEnumerable<Guid>? rootFolderIds = null, IWindowsShellScheduler? scheduler = null,
+		ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
 		SourceId = sourceId ?? new StorageSourceId(DefaultSourceType);
 		DisplayName = displayName;
 		_rootFolderIds = Array.AsReadOnly((rootFolderIds ?? [FOLDERID.FOLDERID_ComputerFolder]).ToArray());
-		Scheduler = scheduler ?? new WindowsShellScheduler();
+		var resolvedLoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+		Scheduler = scheduler ?? new WindowsShellScheduler(logger: resolvedLoggerFactory.CreateLogger<WindowsShellScheduler>());
 		_ownsScheduler = scheduler is null;
-		_storableFactory = new WindowsStorableFactory(Scheduler);
+		_storableFactory = new WindowsStorableFactory(Scheduler, logger: resolvedLoggerFactory.CreateLogger<WindowsStorableFactory>());
 		_changeWatcher = new WindowsShellChangeWatcher(Scheduler);
 		Clipboard = new WindowsShellClipboardService(this);
 		DragDrop = new WindowsShellDragDropService(this);

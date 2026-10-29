@@ -25,6 +25,8 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
 
 using Files.Presentation;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.ViewModels;
 
@@ -46,6 +48,8 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 	private readonly BrowsePaneSession _pane;
 	private readonly IBrowseInteraction _interaction;
 	private readonly AppSettingsService _appSettings;
+	private readonly ILoggerFactory _loggerFactory;
+	private readonly ILogger<FolderBrowserViewModel> _logger;
 	private readonly nint _ownerWindowHandle;
 
 	private readonly IUIDispatcher _dispatcher;
@@ -78,6 +82,8 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	internal nint OwnerWindowHandle => _ownerWindowHandle;
+
+	internal ILoggerFactory LoggerFactory => _loggerFactory;
 
 	internal bool CanShowShellContextMenu => _interaction.CanShowShellContextMenu;
 
@@ -177,7 +183,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	internal FolderBrowserViewModel(BrowsePaneSession pane, BrowsePresentationAdapter adapter, IBrowseInteraction interaction,
-		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0)
+		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 
@@ -192,6 +198,8 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		ArgumentNullException.ThrowIfNull(dispatcher);
 
 		CommandManager = commandManager;
+		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+		_logger = _loggerFactory.CreateLogger<FolderBrowserViewModel>();
 		_pane = pane;
 		_interaction = interaction;
 		_appSettings = appSettings;
@@ -620,14 +628,25 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 			if (args.Flags.HasFlag(BrowseUpdateFlags.Items) && args.ItemChanges.Count is not 0)
 			{
 				var shouldReplaceItems = ShouldReplaceItems(args.ItemChanges, wasLoading, _browseAdapter.IsLoading);
-				UIDiagnosticLog.Write(
-					"FolderBrowserViewModel",
-					$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"FolderBrowserViewModel",
+						$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}"
+					);
+				}
 				if (shouldReplaceItems)
 				{
 					var replaceStartTimestamp = Stopwatch.GetTimestamp();
 					Items.ReplaceAll(_browseAdapter.Items);
-					UIDiagnosticLog.Write("FolderBrowserViewModel", $"ReplaceAll completed items={Items.Count} elapsedMs={Stopwatch.GetElapsedTime(replaceStartTimestamp).TotalMilliseconds:F1}");
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug(
+							"{Component}: {Message}",
+							"FolderBrowserViewModel",
+							$"ReplaceAll completed items={Items.Count} elapsedMs={Stopwatch.GetElapsedTime(replaceStartTimestamp).TotalMilliseconds:F1}");
+					}
 				}
 				else if (CanApplyItemChanges(args.ItemChanges))
 				{
@@ -727,9 +746,14 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		finally
 		{
 			_isApplyingUpdate = false;
-			UIDiagnosticLog.Write(
-				"FolderBrowserViewModel",
-				$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"FolderBrowserViewModel",
+					$"Updated completed changes={args.ItemChanges.Count} items={Items.Count} loading={_browseAdapter.IsLoading} elapsedMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 		}
 
 		var invalidation = CommandStateInvalidation.None;
@@ -810,7 +834,10 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("FolderBrowserViewModel", $"Location icon ERROR type={exception.GetType().Name}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "FolderBrowserViewModel", $"Location icon ERROR type={exception.GetType().Name}");
+			}
 		}
 		finally
 		{
@@ -1016,7 +1043,14 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 						Items.InsertRange(firstAdded.Index, addedItems);
 					}
 
-					UIDiagnosticLog.Write("FolderBrowserViewModel", $"Applied range index={firstAdded.Index} count={addedItems.Count} append={firstAdded.Index == Items.Count - addedItems.Count}");
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug(
+							"{Component}: {Message}",
+							"FolderBrowserViewModel",
+							$"Applied range index={firstAdded.Index} count={addedItems.Count} append={firstAdded.Index == Items.Count - addedItems.Count}"
+						);
+					}
 					changeIndex = nextChangeIndex;
 
 					continue;

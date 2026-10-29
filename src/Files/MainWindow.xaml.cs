@@ -19,6 +19,7 @@ using Microsoft.UI.Xaml;
 using System.Diagnostics;
 using WinRT.Interop;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.Extensions.Logging;
 
 namespace Files;
 
@@ -51,7 +52,8 @@ public sealed partial class MainWindow : Window
 		Action activateSession,
 		Action<nint> activateServerWindow,
 		Func<Task> closeAsync,
-		Func<Task> createWindowAsync)
+		Func<Task> createWindowAsync,
+		ILoggerFactory loggerFactory)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
 
@@ -72,6 +74,7 @@ public sealed partial class MainWindow : Window
 		ArgumentNullException.ThrowIfNull(closeAsync);
 
 		ArgumentNullException.ThrowIfNull(createWindowAsync);
+		ArgumentNullException.ThrowIfNull(loggerFactory);
 
 		InitializeComponent();
 		_activateSession = activateSession;
@@ -91,8 +94,9 @@ public sealed partial class MainWindow : Window
 			commandRegistry,
 			itemActivationService,
 			_itemPropertiesService,
-			_windowHandle);
-		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions);
+			_windowHandle,
+			loggerFactory);
+		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions, loggerFactory);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;
 		_rootView.AttachWindow(this);

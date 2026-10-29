@@ -4,12 +4,15 @@
 using System.Runtime.InteropServices;
 using Files.Core.Storage;
 using Files.Infrastructure;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.StorageOperations;
 
 internal sealed partial class StorageOperationTracker : IDisposable
 {
 	private readonly Lock _syncRoot = new();
+	private readonly ILogger<StorageOperationTracker> _logger;
 	private IOperationStatusSource? _server;
 	private readonly Dictionary<Guid, StorageOperationProgressDisplay> _progress = [];
 	private StorageOperationStatus[] _operations = [];
@@ -17,8 +20,10 @@ internal sealed partial class StorageOperationTracker : IDisposable
 
 	public event EventHandler? Changed;
 
-	internal StorageOperationTracker(IOperationStatusSource? server = null)
+	internal StorageOperationTracker(IOperationStatusSource? server = null, ILogger<StorageOperationTracker>? logger = null)
 	{
+		_logger = logger ?? NullLogger<StorageOperationTracker>.Instance;
+
 		if (server is not null)
 		{
 			Attach(server);
@@ -127,7 +132,10 @@ internal sealed partial class StorageOperationTracker : IDisposable
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("Operations", $"Status observer failed: {error}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "Operations", $"Status observer failed: {error}");
+			}
 		}
 	}
 

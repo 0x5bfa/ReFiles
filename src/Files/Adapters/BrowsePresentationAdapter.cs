@@ -14,6 +14,8 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Microsoft.UI.Dispatching;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Adapters;
 
@@ -29,6 +31,8 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private static readonly TimeSpan UIDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly BrowsePaneSession _pane;
+	private readonly ILoggerFactory _loggerFactory;
+	private readonly ILogger<BrowsePresentationAdapter> _logger;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly IBrowsePrefetchCoordinator _prefetch;
 	private readonly BrowsePresentationText _text;
@@ -77,16 +81,19 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private int _isApplyingItemBatch;
 	private int _isDisposed;
 
-	public BrowsePresentationAdapter(BrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null, nint ownerWindowHandle = 0)
+	public BrowsePresentationAdapter(BrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
+		nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 
 		ArgumentNullException.ThrowIfNull(dispatcher);
 
 		_pane = pane;
+		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+		_logger = _loggerFactory.CreateLogger<BrowsePresentationAdapter>();
 		_columns = new BrowseColumnPresentation(pane, QueueColumns);
 		_dispatcher = dispatcher;
-		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession);
+		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession, logger: _loggerFactory.CreateLogger<BrowsePrefetchCoordinator>());
 		_text = text ?? BrowsePresentationText.CreateLocalized();
 		_ownerWindowHandle = ownerWindowHandle;
 		_viewSettings = _pane.BrowseSession.ViewSettings;
@@ -103,7 +110,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			BrowseSession_ItemPresentationChanged;
 		_pane.BrowseSession.SelectionChanged += BrowseSession_SelectionChanged;
 		QueueInitialSnapshot();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", $"created items={_items.Count} loading={IsLoading}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"created items={_items.Count} loading={IsLoading}");
+		}
 	}
 
 	public IReadOnlyList<StorableKey> SelectedKeys { get; private set; }
@@ -173,7 +183,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		EnsureActive();
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", "Initialize START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "Initialize START");
+		}
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -181,7 +194,14 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowsePresentationAdapter",
+					$"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}"
+				);
+			}
 		}
 	}
 
@@ -233,7 +253,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		ArgumentNullException.ThrowIfNull(reference);
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToReference START id={reference.ItemId}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"NavigateToReference START id={reference.ItemId}");
+		}
 
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
@@ -242,7 +265,14 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"NavigateToReference END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowsePresentationAdapter",
+					$"NavigateToReference END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count} loading={IsLoading}"
+				);
+			}
 		}
 	}
 
@@ -251,7 +281,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		EnsureActive();
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", "GoBack START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "GoBack START");
+		}
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -259,7 +292,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"GoBack END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"GoBack END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			}
 		}
 	}
 
@@ -268,7 +304,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		EnsureActive();
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", "GoForward START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "GoForward START");
+		}
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -276,7 +315,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"GoForward END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"GoForward END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			}
 		}
 	}
 
@@ -285,7 +327,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		EnsureActive();
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", "GoUp START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "GoUp START");
+		}
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -293,7 +338,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"GoUp END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"GoUp END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			}
 		}
 	}
 
@@ -302,7 +350,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		EnsureActive();
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", "Refresh START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "Refresh START");
+		}
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -310,7 +361,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"Refresh END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"Refresh END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1} items={_items.Count}");
+			}
 		}
 	}
 
@@ -332,7 +386,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			settings = _prefetchViewSettings;
 		}
 
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", $"UpdateViewport first={viewport.FirstVisibleIndex} visible={viewport.VisibleCount} lookAhead={viewport.LookAheadCount}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"UpdateViewport first={viewport.FirstVisibleIndex} visible={viewport.VisibleCount} lookAhead={viewport.LookAheadCount}");
+		}
 		_prefetch.UpdateViewport(viewport, settings, generation);
 	}
 
@@ -607,11 +664,16 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 
 		Updated = null;
-		UIDiagnosticLog.Write(
-			"BrowsePresentationAdapter",
-			$"disposed itemViewModels={_diagnosticItemViewModelCount} dispatcherEnqueues={_diagnosticDispatcherEnqueueCount} " +
-			$"propertyNotifications={_diagnosticPropertyChangeCount} thumbnailsDisplayed={_diagnosticThumbnailDisplayCount} " +
-			$"longestUIMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowsePresentationAdapter",
+				$"disposed itemViewModels={_diagnosticItemViewModelCount} dispatcherEnqueues={_diagnosticDispatcherEnqueueCount} " +
+				$"propertyNotifications={_diagnosticPropertyChangeCount} thumbnailsDisplayed={_diagnosticThumbnailDisplayCount} " +
+				$"longestUIMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}"
+			);
+		}
 		if (prefetchError is not null)
 		{
 			throw prefetchError;
@@ -639,10 +701,15 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		var generation = _pane.BrowseSession.Generation;
 		var projectionStartTimestamp = Stopwatch.GetTimestamp();
 		var changes = ProjectChanges(args.Changes);
-		UIDiagnosticLog.Write(
-			"BrowsePresentationAdapter",
-			$"ItemsChanged version={args.Version} previous={args.PreviousVersion} changes={args.Changes.Count} projected={changes.Count} " +
-			$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.ItemCount}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowsePresentationAdapter",
+				$"ItemsChanged version={args.Version} previous={args.PreviousVersion} changes={args.Changes.Count} projected={changes.Count} " +
+				$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.ItemCount}"
+			);
+		}
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.AddLast(new PendingItemBatch(generation, args.PreviousVersion, args.Version, changes));
@@ -664,10 +731,15 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 
 	private void BrowseSession_ItemPresentationChanged(object? sender, BrowseItemPresentationChangedEventArgs args)
 	{
-		UIDiagnosticLog.Write(
-			"BrowsePresentationAdapter",
-			$"ItemPresentationChanged key={args.Key} changes={args.Changed} hasProperties={args.Presentation.Properties.Count is not 0} " +
-			$"hasThumbnail={args.Presentation.Thumbnail is not null}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowsePresentationAdapter",
+				$"ItemPresentationChanged key={args.Key} changes={args.Changed} hasProperties={args.Presentation.Properties.Count is not 0} " +
+				$"hasThumbnail={args.Presentation.Thumbnail is not null}"
+			);
+		}
 		lock (_pendingLock)
 		{
 			if (args.Presentation.Properties.Count is not 0 && (!_pendingProperties.TryGetValue(args.Key, out var pendingProperties) || pendingProperties.Version <= args.Presentation.Version))
@@ -689,7 +761,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	{
 		var session = _pane.BrowseSession;
 		var resetChanges = ProjectReset(session.Items);
-		UIDiagnosticLog.Write("BrowsePresentationAdapter", $"QueueInitialSnapshot items={session.Items.Count} version={session.ItemsVersion}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"QueueInitialSnapshot items={session.Items.Count} version={session.ItemsVersion}");
+		}
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.AddLast(new PendingItemBatch(session.Generation, -1, session.ItemsVersion, resetChanges));
@@ -747,7 +822,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		else
 		{
 			var enqueueCount = Interlocked.Increment(ref _diagnosticDispatcherEnqueueCount);
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"Drain queued enqueueCount={enqueueCount} pendingBatches={pendingBatchCount} pendingThumbnails={pendingThumbnailCount}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"Drain queued enqueueCount={enqueueCount} pendingBatches={pendingBatchCount} pendingThumbnails={pendingThumbnailCount}");
+			}
 		}
 	}
 
@@ -848,9 +926,14 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			hasPendingItemBatches = _pendingItemBatches.Count is not 0;
 		}
 
-		UIDiagnosticLog.Write(
-			"BrowsePresentationAdapter",
-			$"Drain START sequence={drainSequence} items={drainedItemCount} thumbnails={thumbnails.Length} hasPending={hasPendingItemBatches}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowsePresentationAdapter",
+				$"Drain START sequence={drainSequence} items={drainedItemCount} thumbnails={thumbnails.Length} hasPending={hasPendingItemBatches}"
+			);
+		}
 
 		foreach (var property in properties)
 		{
@@ -974,10 +1057,15 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			var updateStartTimestamp = Stopwatch.GetTimestamp();
 			Updated?.Invoke(this, new CoreBrowseUpdatedEventArgs(appliedChanges, flags));
-			UIDiagnosticLog.Write(
-				"BrowsePresentationAdapter",
-				$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} flags={flags} " +
-				$"callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowsePresentationAdapter",
+					$"Updated callback sequence={drainSequence} changes={appliedChanges.Count} flags={flags} " +
+					$"callbackMs={Stopwatch.GetElapsedTime(updateStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 		}
 
 		foreach (var thumbnail in thumbnails)
@@ -992,10 +1080,15 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 
 		var drainElapsed = Stopwatch.GetElapsedTime(drainStartTimestamp);
 		UpdateMaximum(ref _diagnosticLongestDrainTicks, drainElapsed.Ticks);
-		UIDiagnosticLog.Write(
-			"BrowsePresentationAdapter",
-			$"Drain END sequence={drainSequence} adapterItems={_items.Count} loading={IsLoading} elapsedMs={drainElapsed.TotalMilliseconds:F1} " +
-			$"longestUIMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowsePresentationAdapter",
+				$"Drain END sequence={drainSequence} adapterItems={_items.Count} loading={IsLoading} elapsedMs={drainElapsed.TotalMilliseconds:F1} " +
+				$"longestUIMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}"
+			);
+		}
 	}
 
 	private PendingItemBatch? TakeNextPendingItemBatchLocked(int maximumItemCount, long currentGeneration, out bool hasPendingItemBatches)
@@ -1358,7 +1451,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 					var displayCount = Interlocked.Increment(ref _diagnosticThumbnailDisplayCount);
 					if (displayCount is 1)
 					{
-						UIDiagnosticLog.Write("BrowsePresentationAdapter", $"First thumbnail displayed key={key}");
+						if (_logger.IsEnabled(LogLevel.Debug))
+						{
+							_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"First thumbnail displayed key={key}");
+						}
 					}
 				}
 
@@ -1881,7 +1977,10 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		var itemViewModelCount = Interlocked.Increment(ref _diagnosticItemViewModelCount);
 		if (itemViewModelCount is 1)
 		{
-			UIDiagnosticLog.Write("BrowsePresentationAdapter", $"First item view model created key={item.Reference.GetKey()}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"First item view model created key={item.Reference.GetKey()}");
+			}
 		}
 		ApplyPresentation(viewModel, item.Reference.GetKey());
 

@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml.Media;
 using System.Runtime.CompilerServices;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Microsoft.Extensions.Logging;
 using Windows.System;
 using Windows.Win32;
 
@@ -185,6 +186,7 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 	private readonly FrameworkElement _element;
 	private readonly IList<object> _selectedItems;
 	private readonly FolderBrowserViewModel _viewModel;
+	private readonly ILogger<FolderViewInteractionSession> _logger;
 	private readonly KeyboardAccelerator _propertiesAccelerator = new() { Key = VirtualKey.Enter, Modifiers = VirtualKeyModifiers.Menu };
 	private readonly KeyboardAccelerator _selectAllAccelerator = new() { Key = VirtualKey.A, Modifiers = VirtualKeyModifiers.Control };
 	private readonly Dictionary<UIElement, (bool CanDrag, bool RightButtonDragEnabled)> _dragSources = new(ReferenceEqualityComparer.Instance);
@@ -218,7 +220,11 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		_element = listView;
 		_selectedItems = listView.SelectedItems;
 		_viewModel = viewModel;
-		UIDiagnosticLog.Write("FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
+		_logger = viewModel.LoggerFactory.CreateLogger<FolderViewInteractionSession>();
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"created control={listView.GetType().Name} items={viewModel.Items.Count}");
+		}
 
 		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
@@ -249,7 +255,11 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		_itemsControl = rowsHost.Element as ListViewBase;
 		_selectedItems = selectionHost.SelectedItems;
 		_viewModel = viewModel;
-		UIDiagnosticLog.Write("FolderViewInteraction", $"created control={rowsHost.Element.GetType().Name} items={viewModel.Items.Count}");
+		_logger = viewModel.LoggerFactory.CreateLogger<FolderViewInteractionSession>();
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"created control={rowsHost.Element.GetType().Name} items={viewModel.Items.Count}");
+		}
 
 		_propertiesAccelerator.Invoked += PropertiesAccelerator_Invoked;
 		_element.KeyboardAccelerators.Add(_propertiesAccelerator);
@@ -311,7 +321,10 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		_selectAllAccelerator.Invoked -= SelectAllAccelerator_Invoked;
 		_element.KeyboardAccelerators.Remove(_selectAllAccelerator);
 		_realizedIndices.Clear();
-		UIDiagnosticLog.Write("FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"disposed containers={_containerContentChangeCount} viewportUpdates={_viewportUpdateCount}");
+		}
 	}
 
 	[WinRT.DynamicWindowsRuntimeCast(typeof(SelectorItem))]
@@ -324,7 +337,8 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		_element.DragOver += Element_DragOver;
 		_element.DragLeave += Element_DragLeave;
 		_element.Drop += Element_Drop;
-		_dropTargetController = new WinUIShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.OwnerWindowHandle);
+		_dropTargetController = new WinUIShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.OwnerWindowHandle,
+			_viewModel.LoggerFactory.CreateLogger<WinUIShellDropTargetController>());
 
 		if (_itemsControl is null)
 		{
@@ -443,7 +457,8 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 				return;
 			}
 
-			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.Data, _viewModel.OwnerWindowHandle);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.Data, _viewModel.OwnerWindowHandle,
+				logger: _viewModel.LoggerFactory.CreateLogger("Files.Infrastructure.WinUIDataObjectBridge"));
 			args.AllowedOperations = allowedOperations;
 			args.Cancel = allowedOperations is DataPackageOperation.None;
 		}
@@ -718,13 +733,19 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		var eventCount = Interlocked.Increment(ref _containerContentChangeCount);
 		if (eventCount <= 10 || eventCount % 100 is 0)
 		{
-			UIDiagnosticLog.Write("FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={index} recycled={inRecycleQueue} realizedBefore={_realizedIndices.Count}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"ContainerContentChanging count={eventCount} index={index} recycled={inRecycleQueue} realizedBefore={_realizedIndices.Count}");
+			}
 		}
 
 		if (!_firstContainerLogged && !inRecycleQueue)
 		{
 			_firstContainerLogged = true;
-			UIDiagnosticLog.Write("FolderViewInteraction", $"First container realized index={index}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"First container realized index={index}");
+			}
 		}
 
 		if (inRecycleQueue)
@@ -762,7 +783,10 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		}
 
 		var updateCount = Interlocked.Increment(ref _viewportUpdateCount);
-		UIDiagnosticLog.Write("FolderViewInteraction", $"UpdateViewport count={updateCount} realized={_realizedIndices.Count} items={_viewModel.Items.Count}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"UpdateViewport count={updateCount} realized={_realizedIndices.Count} items={_viewModel.Items.Count}");
+		}
 
 		if (_realizedIndices.Count is 0)
 		{
@@ -777,7 +801,10 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		if (!_firstViewportLogged && _viewModel.Items.Count is not 0)
 		{
 			_firstViewportLogged = true;
-			UIDiagnosticLog.Write("FolderViewInteraction", $"First viewport populated first={firstIndex} count={lastIndex - firstIndex + 1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "FolderViewInteraction", $"First viewport populated first={firstIndex} count={lastIndex - firstIndex + 1}");
+			}
 		}
 	}
 

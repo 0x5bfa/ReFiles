@@ -12,6 +12,8 @@ using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
 using Files.Core.Storage.Windows;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core;
 
@@ -36,6 +38,10 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 
 	private readonly IThumbnailCache _thumbnailCache;
 
+	private readonly ILoggerFactory _loggerFactory;
+
+	internal ILoggerFactory LoggerFactory => _loggerFactory;
+
 	private readonly Lock _disposalLock = new();
 
 	private Task? _disposeTask;
@@ -50,10 +56,12 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 	/// <summary>Initializes an empty Files.Core builder.</summary>
 	/// <param name="viewSettingsStore">The optional view settings store.</param>
 	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
-	public FilesCoreBuilder(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
+	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
+	public FilesCoreBuilder(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, ILoggerFactory? loggerFactory = null)
 	{
 		_viewSettingsStore = viewSettingsStore ?? new InMemoryViewSettingsStore();
 		_thumbnailCache = thumbnailCache ?? new MemoryThumbnailCache();
+		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
 
 		Capabilities = new CapabilityBuilder().SetCombiner<IThumbnailSource>(new ThumbnailSourceCombiner()).SetCombiner<IPropertySource>(new PropertySourceCombiner())
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner()).AddWrapper<IThumbnailSource>(new ThumbnailCacheWrapper(_thumbnailCache));
@@ -154,7 +162,7 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 			var storageOperations = _storageOperations ?? new StorageOperationService(_operationHandlers.Concat(_operationHandlerFactories.Select(factory => factory(workspace))));
 			var search = new BrowseSearchService(handlers.OfType<IBrowseSearchProvider>());
 			var services = new BrowseApplicationServices(workspace, storageOperations, search);
-			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache, services: services);
+			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache, services: services, loggerFactory: _loggerFactory);
 			shellSession = new FilesApplicationSession(paneFactory);
 			IWindowsShellPreviewSessionFactory? previewSessions = null;
 			if (_windowsShellPreviewSessionFactory is not null)

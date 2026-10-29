@@ -4,6 +4,8 @@
 using Files.Core.Browsing;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.ViewSettings;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core.Sessions;
 
@@ -24,6 +26,7 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 	private readonly Func<IBrowseSession, IBrowsePreviewModel> _previewFactory;
 	private readonly int _historyCapacity;
 	private readonly BrowseApplicationServices? _services;
+	private readonly ILoggerFactory _loggerFactory;
 
 	/// <summary>Initializes a factory from browse services.</summary>
 	/// <param name="locationResolver">The resolver used to open browse locations.</param>
@@ -31,9 +34,15 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
 	/// <param name="historyCapacity">The maximum navigation history length.</param>
 	/// <param name="services">The optional borrowed application services.</param>
+	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
 	public BrowsePaneSessionFactory(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, int historyCapacity = 50,
-		BrowseApplicationServices? services = null)
-		: this(() => new BrowseSession(locationResolver, viewSettingsStore, thumbnailCache), static session => new BrowsePreviewModel(session), historyCapacity, services)
+		BrowseApplicationServices? services = null, ILoggerFactory? loggerFactory = null)
+		: this(
+			() => new BrowseSession(locationResolver, viewSettingsStore, thumbnailCache, loggerFactory?.CreateLogger<BrowseSession>()),
+			static session => new BrowsePreviewModel(session),
+			historyCapacity,
+			services,
+			loggerFactory)
 	{
 		ArgumentNullException.ThrowIfNull(locationResolver);
 
@@ -44,7 +53,9 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 	/// <param name="previewFactory">The preview model factory.</param>
 	/// <param name="historyCapacity">The maximum navigation history length.</param>
 	/// <param name="services">The optional borrowed application services.</param>
-	public BrowsePaneSessionFactory(Func<IBrowseSession> sessionFactory, Func<IBrowseSession, IBrowsePreviewModel> previewFactory, int historyCapacity = 50, BrowseApplicationServices? services = null)
+	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
+	public BrowsePaneSessionFactory(Func<IBrowseSession> sessionFactory, Func<IBrowseSession, IBrowsePreviewModel> previewFactory, int historyCapacity = 50, BrowseApplicationServices? services = null,
+		ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(sessionFactory);
 
@@ -56,6 +67,7 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 		_previewFactory = previewFactory;
 		_historyCapacity = historyCapacity;
 		_services = services;
+		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
 	}
 
 	/// <inheritdoc />
@@ -74,7 +86,7 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 		try
 		{
 			preview = _previewFactory(session) ?? throw new InvalidOperationException("The browse preview factory returned null.");
-			content = new BrowsePaneSession(session, preview, _historyCapacity, _services, CreateContent);
+			content = new BrowsePaneSession(session, preview, _historyCapacity, _services, CreateContent, _loggerFactory);
 			session = null!;
 			preview = null;
 

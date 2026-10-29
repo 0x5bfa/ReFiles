@@ -16,6 +16,8 @@ using Files.Presentation;
 using Files.ItemProperties;
 using Files.Settings;
 using System.Collections.Specialized;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.ViewModels;
 
@@ -24,6 +26,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	internal const double MinimumPreviewPaneWidth = 180;
 
 	private readonly AppSettingsService _appSettings;
+	private readonly ILogger<RootViewModel> _logger;
 	private readonly WindowSession _window;
 
 	private readonly WindowPresentationFactory _presentationFactory;
@@ -194,13 +197,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	internal bool CanReopenTab => _window.CanReopenTab;
 
-	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory)
+	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory, ILogger<RootViewModel>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(window);
 
 		ArgumentNullException.ThrowIfNull(presentationFactory);
 
 		_window = window;
+		_logger = logger ?? NullLogger<RootViewModel>.Instance;
 		_presentationFactory = presentationFactory;
 		_appSettings = presentationFactory.AppSettings;
 		_dispatcher = presentationFactory.Dispatcher;
@@ -233,7 +237,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			NavigatePathCommand,
 			SearchCommand,
 			RefreshCommand,
-			presentationFactory.CreateStatusCenterViewModel());
+			presentationFactory.CreateStatusCenterViewModel(),
+			presentationFactory.LoggerFactory.CreateLogger<NavigationToolbarViewModel>());
 		Toolbar = new(
 			CopyCommand,
 			CutCommand,
@@ -271,7 +276,10 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		EnsureActive();
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("RootViewModel", "Initialize START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "RootViewModel", "Initialize START");
+		}
 
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -288,12 +296,18 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			{
 				var folderStartTimestamp = Stopwatch.GetTimestamp();
 				await browser.InitializeAsync(linkedCancellation.Token).ConfigureAwait(false);
-				UIDiagnosticLog.Write("RootViewModel", $"Folder initialization END elapsedMs={Stopwatch.GetElapsedTime(folderStartTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "RootViewModel", $"Folder initialization END elapsedMs={Stopwatch.GetElapsedTime(folderStartTimestamp).TotalMilliseconds:F1}");
+				}
 			}
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("RootViewModel", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "RootViewModel", $"Initialize END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			}
 		}
 	}
 
@@ -602,16 +616,29 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	private async Task<bool> LoadNavigationItemsAsync(CancellationToken cancellationToken)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("RootViewModel", "LoadNavigationItems START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "RootViewModel", "LoadNavigationItems START");
+		}
 		try
 		{
 			await foreach (var section in _navigationItemLoader.LoadSectionsAsync(cancellationToken).ConfigureAwait(false))
 			{
 				await ApplyNavigationSectionOnUIAsync(section).ConfigureAwait(false);
-				UIDiagnosticLog.Write("RootViewModel", $"Navigation section applied order={section.Order} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"RootViewModel",
+						$"Navigation section applied order={section.Order} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 			}
 
-			UIDiagnosticLog.Write("RootViewModel", $"LoadNavigationItems END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "RootViewModel", $"LoadNavigationItems END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			}
 
 			return true;
 		}
@@ -622,9 +649,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write(
-				"RootViewModel",
-				$"LoadNavigationItems ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"RootViewModel",
+					$"LoadNavigationItems ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 			ReportNavigationLoadError(exception);
 
 			return false;
@@ -714,13 +746,19 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 		NavigationItems.Insert(insertIndex, sectionViewModel);
 		_navigationSectionViewModels.Add(section.Order, sectionViewModel);
-		UIDiagnosticLog.Write("RootViewModel", $"ApplyNavigationSection order={section.Order} items={section.Items.Count} navigationItems={NavigationItems.Count}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "RootViewModel", $"ApplyNavigationSection order={section.Order} items={section.Items.Count} navigationItems={NavigationItems.Count}");
+		}
 	}
 
 	private async Task LoadNavigationThumbnailAsync(NavigationItemData item, NavigationItemViewModel viewModel, CancellationToken cancellationToken)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail START name={item.Name}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "RootViewModel", $"Navigation thumbnail START name={item.Name}");
+		}
 		try
 		{
 			await _navigationThumbnailGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -734,7 +772,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 				}
 
 				await SetNavigationThumbnailOnUIAsync(viewModel, thumbnail).ConfigureAwait(false);
-				UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail END name={item.Name} bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"RootViewModel",
+						$"Navigation thumbnail END name={item.Name} bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 			}
 			finally
 			{
@@ -746,7 +791,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail ERROR name={item.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"RootViewModel",
+					$"Navigation thumbnail ERROR name={item.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 			// Shell thumbnail loading is best effort.
 		}
 	}
@@ -779,11 +831,18 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		return completion.Task;
 	}
 
-	private static async Task SetNavigationThumbnailAsync(NavigationItemViewModel viewModel, ThumbnailResult thumbnail)
+	private async Task SetNavigationThumbnailAsync(NavigationItemViewModel viewModel, ThumbnailResult thumbnail)
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
 		viewModel.SetThumbnail(await ThumbnailImageFactory.CreateAsync(thumbnail).ConfigureAwait(true));
-		UIDiagnosticLog.Write("RootViewModel", $"Navigation thumbnail decode END bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"RootViewModel",
+				$"Navigation thumbnail decode END bytes={thumbnail.Content.Length} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+			);
+		}
 	}
 
 	private void ReportNavigationLoadError(Exception exception)

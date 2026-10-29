@@ -10,12 +10,15 @@ using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.ItemProperties;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.StorageOperations;
 
 internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IStorageJobService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
 {
 	private readonly Lock _syncRoot = new();
+	private readonly ILogger<WinRTStorageOperationService> _logger;
 	private readonly HashSet<string> _ftpSources = [];
 	private readonly CancellationTokenSource _shutdown = new();
 	private readonly MemoryThumbnailCache _fallbackThumbnailCache = new();
@@ -34,8 +37,9 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 
 	public IStorageJobService Jobs => this;
 
-	internal WinRTStorageOperationService()
+	internal WinRTStorageOperationService(ILogger<WinRTStorageOperationService>? logger = null)
 	{
+		_logger = logger ?? NullLogger<WinRTStorageOperationService>.Instance;
 		_observer = Task.Run(ObserveAsync);
 	}
 
@@ -425,7 +429,10 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 			}
 			catch (Exception error)
 			{
-				UIDiagnosticLog.Write("Operations", $"Server connection failed: {error}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "Operations", $"Server connection failed: {error}");
+				}
 				lock (_syncRoot)
 				{
 					_connectionError = error;
@@ -442,7 +449,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 			{
 				if (connection?.IsCompletedSuccessfully is true)
 				{
-					TryDisconnect(connection.Result);
+					TryDisconnect(connection.Result, _logger);
 				}
 			}
 
@@ -570,7 +577,10 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("Operations", $"Operation control failed: {error}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "Operations", $"Operation control failed: {error}");
+			}
 		}
 	}
 
@@ -610,7 +620,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		});
 	}
 
-	private static void TryDisconnect(BackgroundServer.AppService server)
+	private static void TryDisconnect(BackgroundServer.AppService server, ILogger<WinRTStorageOperationService> logger)
 	{
 		try
 		{
@@ -618,7 +628,10 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("Operations", $"Client disconnect failed: {error.GetType().Name}");
+			if (logger.IsEnabled(LogLevel.Debug))
+			{
+				logger.LogDebug("{Component}: {Message}", "Operations", $"Client disconnect failed: {error.GetType().Name}");
+			}
 		}
 	}
 

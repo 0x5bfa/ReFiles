@@ -11,6 +11,8 @@ using System.Runtime.Versioning;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core.Storage.Windows;
 
@@ -31,6 +33,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 	private static MessagePumpedStaScheduler? _activeScheduler;
 
 	private readonly Lock _syncRoot = new();
+	private readonly ILogger<WindowsShellScheduler> _logger;
 	private readonly MessagePumpedStaScheduler _orderedScheduler;
 	private readonly MessagePumpedStaScheduler _concurrentScheduler;
 	private readonly MessagePumpedStaScheduler _searchScheduler;
@@ -39,17 +42,22 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 	/// <summary>Initializes Windows Shell scheduler lanes.</summary>
 	/// <param name="concurrentWorkerCount">The number of concurrent workers.</param>
-	public WindowsShellScheduler(int? concurrentWorkerCount = null)
+	/// <param name="logger">The optional logger.</param>
+	public WindowsShellScheduler(int? concurrentWorkerCount = null, ILogger<WindowsShellScheduler>? logger = null)
 	{
+		_logger = logger ?? NullLogger<WindowsShellScheduler>.Instance;
 		var workerCount = concurrentWorkerCount
 			?? Math.Min(Math.Max(Environment.ProcessorCount, 2), 4);
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workerCount);
 
-		_orderedScheduler = new MessagePumpedStaScheduler("Files Windows Shell STA", workerCount: 1);
-		_concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount);
-		_searchScheduler = new MessagePumpedStaScheduler("Files Windows Shell search STA", workerCount: 1);
-		_operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1);
-		Logger.Write("WindowsShellScheduler", $"created concurrentWorkers={workerCount}");
+		_orderedScheduler = new MessagePumpedStaScheduler("Files Windows Shell STA", workerCount: 1, _logger);
+		_concurrentScheduler = new MessagePumpedStaScheduler("Files Windows Shell concurrent STA", workerCount, _logger);
+		_searchScheduler = new MessagePumpedStaScheduler("Files Windows Shell search STA", workerCount: 1, _logger);
+		_operationScheduler = new MessagePumpedStaScheduler("Files Windows Shell operation STA", workerCount: 1, _logger);
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"created concurrentWorkers={workerCount}");
+		}
 	}
 
 	/// <summary>Invokes a delegate on the ordered Shell lane.</summary>
@@ -122,6 +130,13 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 	private abstract class WorkItem
 	{
+		protected readonly ILogger<WindowsShellScheduler> _logger;
+
+		protected WorkItem(ILogger<WindowsShellScheduler> logger)
+		{
+			_logger = logger;
+		}
+
 		public abstract void Execute();
 
 		public abstract void SetException(Exception exception);
@@ -132,6 +147,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		private const int MaxMessagesPerIteration = 64;
 
 		private readonly string _threadName;
+		private readonly ILogger<WindowsShellScheduler> _logger;
 		private readonly Lock _stateLock = new();
 		private readonly ConcurrentQueue<WorkItem> _workItems = [];
 		private readonly Semaphore _workAvailable = new(0, int.MaxValue);
@@ -143,15 +159,19 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		private Exception? _terminalException;
 		private Task? _disposeTask;
 
-		public MessagePumpedStaScheduler(string threadName, int workerCount)
+		public MessagePumpedStaScheduler(string threadName, int workerCount, ILogger<WindowsShellScheduler> logger)
 		{
 			ArgumentException.ThrowIfNullOrWhiteSpace(threadName);
 			ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workerCount);
 
 			_threadName = threadName;
+			_logger = logger;
 			_workerCount = workerCount;
 			_remainingWorkers = workerCount;
-			Logger.Write("WindowsShellScheduler", $"lane created name={_threadName} workers={_workerCount}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"lane created name={_threadName} workers={_workerCount}");
+			}
 
 			for (var index = 0; index < workerCount; index++)
 			{
@@ -182,7 +202,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			// Inline work accepted under the lock may finish during disposal.
 			if (ReferenceEquals(_activeScheduler, this))
 			{
-				Logger.Write("WindowsShellScheduler", $"invoke inline lane={_threadName} action={action.Method.Name}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"invoke inline lane={_threadName} action={action.Method.Name}");
+				}
 
 				return InvokeInline(action, cancellationToken);
 			}
@@ -199,7 +222,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			{
 				if (_disposeTask is null)
 				{
-					Logger.Write("WindowsShellScheduler", $"dispose lane={_threadName}");
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"dispose lane={_threadName}");
+					}
 					stopException = new ObjectDisposedException(nameof(WindowsShellScheduler));
 					pendingWork = StopLocked(stopException);
 					_disposeTask = CompleteDisposalAsync();
@@ -222,23 +248,40 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				cancellationToken.ThrowIfCancellationRequested();
 
 				var result = action();
-				Logger.Write("WindowsShellScheduler", $"invoke inline END lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"WindowsShellScheduler",
+						$"invoke inline END lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 
 				return Task.FromResult(result);
 			}
 			catch (OperationCanceledException exception)
 				when (exception.CancellationToken.IsCancellationRequested)
 			{
-				Logger.Write(
-					"WindowsShellScheduler",
-					$"invoke inline CANCELLED lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"WindowsShellScheduler",
+						$"invoke inline CANCELLED lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 				return Task.FromCanceled<T>(exception.CancellationToken);
 			}
 			catch (Exception exception)
 			{
-				Logger.Write(
-					"WindowsShellScheduler",
-					$"invoke inline ERROR lane={_threadName} action={action.Method.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"WindowsShellScheduler",
+						$"invoke inline ERROR lane={_threadName} action={action.Method.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 				return Task.FromException<T>(exception);
 			}
 		}
@@ -257,7 +300,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 					return Task.FromException<T>(_terminalException);
 				}
 
-				workItem = new WorkItem<T>(_threadName, Interlocked.Increment(ref _nextWorkItemId), action, cancellationToken);
+				workItem = new WorkItem<T>(_threadName, Interlocked.Increment(ref _nextWorkItemId), action, cancellationToken, _logger);
 
 				if (!workItem.TryPrepareForQueue())
 				{
@@ -272,7 +315,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				queueLength = _workItems.Count;
 			}
 
-			Logger.Write("WindowsShellScheduler", $"queued lane={_threadName} id={workItem.Id} action={workItem.ActionName} queue={queueLength}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"queued lane={_threadName} id={workItem.Id} action={workItem.ActionName} queue={queueLength}");
+			}
 
 			return workItem.Task;
 		}
@@ -281,7 +327,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		private unsafe void Run()
 		{
 			var oleInitialized = false;
-			Logger.Write("WindowsShellScheduler", $"STA thread START lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"STA thread START lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+			}
 
 			try
 			{
@@ -296,7 +345,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 				oleInitialized = true;
 				_activeScheduler = this;
-				Logger.Write("WindowsShellScheduler", $"STA thread READY lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"STA thread READY lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+				}
 
 				PInvoke.PeekMessage(out _, default, 0, 0, PEEK_MESSAGE_REMOVE_TYPE.PM_NOREMOVE);
 
@@ -333,7 +385,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 					_stopped.TrySetResult(true);
 				}
 
-				Logger.Write("WindowsShellScheduler", $"STA thread END lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"STA thread END lane={_threadName} thread={Environment.CurrentManagedThreadId}");
+				}
 			}
 		}
 
@@ -447,7 +502,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		private void Fault(Exception exception)
 		{
-			Logger.Write("WindowsShellScheduler", $"FAULT lane={_threadName} type={exception.GetType().Name} message={exception.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"FAULT lane={_threadName} type={exception.GetType().Name} message={exception.Message}");
+			}
 			List<WorkItem> pendingWork;
 
 			lock (_stateLock)
@@ -486,7 +544,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				}
 			}
 
-			Logger.Write("WindowsShellScheduler", $"STOP lane={_threadName} pending={pendingWork.Count}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"STOP lane={_threadName} pending={pendingWork.Count}");
+			}
 
 			return pendingWork;
 		}
@@ -539,7 +600,8 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 		public Task<T> Task => _completion.Task;
 
-		public WorkItem(string laneName, long id, Func<T> action, CancellationToken cancellationToken)
+		public WorkItem(string laneName, long id, Func<T> action, CancellationToken cancellationToken, ILogger<WindowsShellScheduler> logger)
+			: base(logger)
 		{
 			_laneName = laneName;
 			_id = id;
@@ -580,7 +642,14 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			if (_cancellationToken.IsCancellationRequested)
 			{
-				Logger.Write("WindowsShellScheduler", $"cancelled before start lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"WindowsShellScheduler",
+						$"cancelled before start lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 				CancelIfPending();
 				DisposeCancellationRegistration();
 
@@ -596,9 +665,14 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 
 			var startTimestamp = Stopwatch.GetTimestamp();
 			var outcome = "completed";
-			Logger.Write(
-				"WindowsShellScheduler",
-				$"work START lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1} thread={Environment.CurrentManagedThreadId}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"WindowsShellScheduler",
+					$"work START lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1} thread={Environment.CurrentManagedThreadId}"
+				);
+			}
 
 			try
 			{
@@ -619,9 +693,14 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			{
 				Volatile.Write(ref _state, Completed);
 				DisposeCancellationRegistration();
-				Logger.Write(
-					"WindowsShellScheduler",
-					$"work END lane={_laneName} id={_id} action={_actionName} outcome={outcome} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"WindowsShellScheduler",
+						$"work END lane={_laneName} id={_id} action={_actionName} outcome={outcome} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 			}
 		}
 
@@ -629,7 +708,10 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			if (Interlocked.CompareExchange(ref _state, Completed, Pending) == Pending)
 			{
-				Logger.Write("WindowsShellScheduler", $"work STOPPED lane={_laneName} id={_id} action={_actionName} type={exception.GetType().Name}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"work STOPPED lane={_laneName} id={_id} action={_actionName} type={exception.GetType().Name}");
+				}
 				_completion.TrySetException(exception);
 			}
 
@@ -645,7 +727,14 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		{
 			if (Interlocked.CompareExchange(ref _state, Completed, Pending) == Pending)
 			{
-				Logger.Write("WindowsShellScheduler", $"work CANCELLED lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug(
+						"{Component}: {Message}",
+						"WindowsShellScheduler",
+						$"work CANCELLED lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}"
+					);
+				}
 				_completion.TrySetCanceled(_cancellationToken);
 			}
 		}

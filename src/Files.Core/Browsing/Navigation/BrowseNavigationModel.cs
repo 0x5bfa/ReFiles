@@ -7,6 +7,8 @@ using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Archives;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core.Browsing;
 
@@ -16,11 +18,13 @@ public sealed class BrowseNavigationModel
 	private const int NavigationThumbnailSize = 16;
 	private readonly IBrowseSession _session;
 	private readonly IStorageWorkspace _workspace;
+	private readonly ILogger<BrowseNavigationModel> _logger;
 
 	/// <summary>Initializes navigation over borrowed application state.</summary>
 	/// <param name="session">The borrowed browse state.</param>
 	/// <param name="workspace">The borrowed storage workspace.</param>
-	public BrowseNavigationModel(IBrowseSession session, IStorageWorkspace workspace)
+	/// <param name="logger">The optional logger.</param>
+	public BrowseNavigationModel(IBrowseSession session, IStorageWorkspace workspace, ILogger<BrowseNavigationModel>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(session);
 
@@ -28,6 +32,7 @@ public sealed class BrowseNavigationModel
 
 		_session = session;
 		_workspace = workspace;
+		_logger = logger ?? NullLogger<BrowseNavigationModel>.Instance;
 	}
 
 	/// <summary>Gets the hierarchy of the current location.</summary>
@@ -154,7 +159,7 @@ public sealed class BrowseNavigationModel
 						continue;
 					}
 
-					var thumbnail = await LoadBreadcrumbThumbnailAsync(root, cancellationToken).ConfigureAwait(false);
+					var thumbnail = await LoadBreadcrumbThumbnailAsync(root, cancellationToken, _logger).ConfigureAwait(false);
 					items.Add(new BrowseNavigationEntry(root.Name, new FolderLocation(root.Reference), false, thumbnail));
 				}
 				finally
@@ -185,7 +190,7 @@ public sealed class BrowseNavigationModel
 					continue;
 				}
 
-				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
+				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken, _logger).ConfigureAwait(false);
 				items.Add(new BrowseNavigationEntry(child.Name, new FolderLocation(child.Reference), false, thumbnail));
 			}
 			finally
@@ -215,7 +220,7 @@ public sealed class BrowseNavigationModel
 				}
 
 				var entryPath = ArchiveEntryPath.Combine(location.EntryPath, child.Name);
-				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken).ConfigureAwait(false);
+				var thumbnail = await LoadBreadcrumbThumbnailAsync(child, cancellationToken, _logger).ConfigureAwait(false);
 				items.Add(new BrowseNavigationEntry(child.Name, new ArchiveLocation(location.Locator, entryPath), false, thumbnail));
 			}
 			finally
@@ -227,7 +232,7 @@ public sealed class BrowseNavigationModel
 		return items;
 	}
 
-	private static async Task<ThumbnailResult?> LoadBreadcrumbThumbnailAsync(IStorableModel model, CancellationToken cancellationToken)
+	private static async Task<ThumbnailResult?> LoadBreadcrumbThumbnailAsync(IStorableModel model, CancellationToken cancellationToken, ILogger<BrowseNavigationModel> logger)
 	{
 		if (model.Get<IThumbnailSource>() is not { } source)
 		{
@@ -244,7 +249,10 @@ public sealed class BrowseNavigationModel
 		}
 		catch (Exception error)
 		{
-			Logger.Write("NavigationToolbar", $"Breadcrumb thumbnail failed for '{model.Reference.ItemId}': {error.GetType().Name}");
+			if (logger.IsEnabled(LogLevel.Debug))
+			{
+				logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Breadcrumb thumbnail failed for '{model.Reference.ItemId}': {error.GetType().Name}");
+			}
 
 			return null;
 		}

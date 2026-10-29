@@ -17,6 +17,8 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.Ole;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Presentation;
 
@@ -29,6 +31,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	private readonly WindowsShellContextualCommandService? _shellContextualCommandService;
 	private readonly IWindowsShellOperationService? _shellOperations;
 	private readonly IUIDispatcher _dispatcher;
+	private readonly ILogger<WindowsBrowseInteraction> _logger;
 	private readonly nint _ownerWindowHandle;
 	private readonly CancellationTokenSource _lifetime = new();
 	private readonly HashSet<string> _pendingContextualCommandIds = new(StringComparer.OrdinalIgnoreCase);
@@ -49,11 +52,12 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	public bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsSource is not null;
 
 	internal WindowsBrowseInteraction(BrowsePaneSession pane, BrowsePresentationAdapter adapter, IStorageWorkspace workspace, IStorageOperationService operations,
-		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle)
+		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle, ILogger<WindowsBrowseInteraction>? logger = null)
 	{
 		_pane = pane;
 		_browseAdapter = adapter;
 		_dispatcher = dispatcher;
+		_logger = logger ?? NullLogger<WindowsBrowseInteraction>.Instance;
 		CommandManager = commandManager;
 		_ownerWindowHandle = ownerWindowHandle;
 		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
@@ -170,7 +174,10 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 			return;
 		}
 
-		UIDiagnosticLog.Write("WindowsBrowseInteraction", "Paste falling back to native Shell paste.");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", "Paste falling back to native Shell paste.");
+		}
 		if (!await _windowsSource.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
 			return;
@@ -391,7 +398,10 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		}
 		catch (Exception exception)
 		{
-			UIDiagnosticLog.Write("WindowsBrowseInteraction", $"Contextual commands ERROR type={exception.GetType().Name}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", $"Contextual commands ERROR type={exception.GetType().Name}");
+			}
 			await CompleteContextualCommandRefreshAsync(cancellation).ConfigureAwait(false);
 		}
 		finally
@@ -631,7 +641,10 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		}
 
 		var move = data?.RequestedOperation.HasFlag(DataPackageOperation.Move) is true;
-		UIDiagnosticLog.Write("WindowsBrowseInteraction", $"Paste server kind={(move ? "Move" : "Copy")} items={paths.Count}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", $"Paste server kind={(move ? "Move" : "Copy")} items={paths.Count}");
+		}
 		var addresses = paths.Select(static path => new StorageAddress(WindowsStorageSource.FileAddressScheme, path)).ToArray();
 		var result = await _pane.TransferAddressesAsync(addresses, destinationFolder, move, cancellationToken).ConfigureAwait(false);
 		if (!result.Succeeded)

@@ -14,6 +14,8 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com.StructuredStorage;
 using Windows.Win32.UI.Shell;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core.Storage.Windows;
 
@@ -23,6 +25,8 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsPropertyReader : IPropertyReader
 {
+	private readonly ILogger<WindowsPropertyReader> _logger;
+
 	private const double MinimumOaDate = -657435d;
 	private const double MaximumOaDate = 2958466d;
 	private const string ItemTypeText = "System.ItemTypeText";
@@ -41,6 +45,13 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		fmtid = new Guid(0x30C8EEF4u, 0xA832, 0x41E2, 0xAB, 0x32, 0xE3, 0xC3, 0xCA, 0x28, 0xFD, 0x29),
 		pid = 4,
 	};
+
+	/// <summary>Initializes a Windows Shell property reader.</summary>
+	/// <param name="logger">The optional logger.</param>
+	public WindowsPropertyReader(ILogger<WindowsPropertyReader>? logger = null)
+	{
+		_logger = logger ?? NullLogger<WindowsPropertyReader>.Instance;
+	}
 
 	/// <summary>Determines whether this reader can read the item context.</summary>
 	/// <param name="context">The item context.</param>
@@ -67,13 +78,19 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		ArgumentNullException.ThrowIfNull(contexts);
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		Logger.Write("WindowsPropertyReader", $"GetProperties START propertyCount={request.PropertyIds.Count} contextCount={contexts.Count}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "WindowsPropertyReader", $"GetProperties START propertyCount={request.PropertyIds.Count} contextCount={contexts.Count}");
+		}
 
 		var readableContexts = contexts.Where(CanRead).ToArray();
 
 		if (readableContexts.Length is 0)
 		{
-			Logger.Write("WindowsPropertyReader", $"GetProperties END readableContexts=0 elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "WindowsPropertyReader", $"GetProperties END readableContexts=0 elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			}
 
 			return EmptyResults.Instance;
 		}
@@ -107,10 +124,15 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var entries = (await Task.WhenAll(tasks).ConfigureAwait(false)).SelectMany(static group => group).ToArray();
 
 		var results = entries.ToDictionary(static entry => entry.Reference, static entry => entry.Properties);
-		Logger.Write(
-			"WindowsPropertyReader",
-			$"GetProperties END readableContexts={readableContexts.Length} parentGroups={parentGroups.Count} resultCount={results.Count} " +
-			$"elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"WindowsPropertyReader",
+				$"GetProperties END readableContexts={readableContexts.Length} parentGroups={parentGroups.Count} resultCount={results.Count} " +
+				$"elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+			);
+		}
 
 		return new ReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>(results);
 	}
@@ -152,7 +174,9 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			cancellationToken.ThrowIfCancellationRequested();
 			var context = contexts[index];
 			var item = (WindowsStorable)context.CoreModel;
-			var shellItem = HasAllProperties(details[index], request) ? null : item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
+			var shellItem = HasAllProperties(details[index], request)
+				? null
+				: item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
 			entries[index] = new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, details[index], cancellationToken));
 		}
 

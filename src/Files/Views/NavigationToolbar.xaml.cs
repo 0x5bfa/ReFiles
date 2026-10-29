@@ -16,6 +16,8 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.ApplicationModel.DataTransfer;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Views;
 
@@ -30,6 +32,8 @@ public sealed partial class NavigationToolbar : UserControl
 
 	private CancellationTokenSource? _breadcrumbFlyoutCancellation;
 	private readonly SearchTextDebouncer _searchTextDebouncer;
+	private ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
+	private ILogger<NavigationToolbar> _logger = NullLogger<NavigationToolbar>.Instance;
 	private CancellationTokenSource? _dragSourceCancellation;
 	private WinUIShellDropTargetController? _dropController;
 	private FolderBrowserViewModel? _dropBrowser;
@@ -44,6 +48,14 @@ public sealed partial class NavigationToolbar : UserControl
 
 	internal event EventHandler? FolderViewFocusRequested;
 	internal event EventHandler? FolderViewKeyboardFocusRequested;
+
+	internal void ConfigureLogging(ILoggerFactory loggerFactory)
+	{
+		ArgumentNullException.ThrowIfNull(loggerFactory);
+
+		_loggerFactory = loggerFactory;
+		_logger = loggerFactory.CreateLogger<NavigationToolbar>();
+	}
 
 	public NavigationToolbar()
 	{
@@ -205,7 +217,10 @@ public sealed partial class NavigationToolbar : UserControl
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb child enumeration failed: {error.Message}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Breadcrumb child enumeration failed: {error.Message}");
+			}
 			if (ReferenceEquals(_breadcrumbFlyoutCancellation, cancellation))
 			{
 				args.Flyout.Items.Clear();
@@ -247,7 +262,8 @@ public sealed partial class NavigationToolbar : UserControl
 				return;
 			}
 
-			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.Data, browser.OwnerWindowHandle, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.Data, browser.OwnerWindowHandle, WindowsShellDropEffects.Link,
+				deriveMoveFromDelete: false, logger: _loggerFactory.CreateLogger("Files.Infrastructure.WinUIDataObjectBridge"));
 			args.AllowedOperations = allowedOperations;
 			args.Cancel = allowedOperations is DataPackageOperation.None;
 		}
@@ -398,7 +414,7 @@ public sealed partial class NavigationToolbar : UserControl
 
 		ResetDropController();
 		_dropBrowser = browser;
-		_dropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle);
+		_dropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle, _loggerFactory.CreateLogger<WinUIShellDropTargetController>());
 
 		return _dropController;
 	}
@@ -424,7 +440,7 @@ public sealed partial class NavigationToolbar : UserControl
 		return false;
 	}
 
-	private static async Task<IconElement> CreateBreadcrumbChildIconAsync(NavigationToolbarBreadcrumbItem item)
+	private async Task<IconElement> CreateBreadcrumbChildIconAsync(NavigationToolbarBreadcrumbItem item)
 	{
 		if (item.Thumbnail is not { } thumbnail)
 		{
@@ -437,7 +453,10 @@ public sealed partial class NavigationToolbar : UserControl
 		}
 		catch (Exception error)
 		{
-			UIDiagnosticLog.Write("NavigationToolbar", $"Breadcrumb thumbnail decode failed: {error.GetType().Name}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Breadcrumb thumbnail decode failed: {error.GetType().Name}");
+			}
 
 			return new FontIcon { Glyph = FolderIconGlyph };
 		}

@@ -7,11 +7,15 @@ using Files.StorageOperations;
 using System.Diagnostics;
 using System.IO;
 using System.Numerics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.UITests;
 
 internal sealed class TestStorageOperationController : IOperationStatusSource, IDisposable
 {
+	private static readonly ILogger<TestStorageOperationController> _logger = NullLogger<TestStorageOperationController>.Instance;
+
 	private readonly Lock _syncRoot = new();
 	private readonly Dictionary<Guid, TestStorageOperationState> _operations = [];
 	private readonly List<Guid> _operationOrder = [];
@@ -462,7 +466,7 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 			}
 			catch (Exception error)
 			{
-				UIDiagnosticLog.Write("TestStorageOperationController", $"Status observer failed: {error.GetType().Name}");
+				_logger.LogDebug("Status observer failed: {ExceptionType}", error.GetType().Name);
 			}
 		}
 	}

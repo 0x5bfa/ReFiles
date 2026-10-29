@@ -7,6 +7,8 @@ using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Diagnostics;
 
 namespace Files.Core.Browsing;
@@ -23,6 +25,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	private readonly IBrowseLocationResolver _locationResolver;
 	private readonly IViewSettingsStore? _viewSettingsStore;
 	private readonly IThumbnailCache? _thumbnailCache;
+	private readonly ILogger<BrowseSession> _logger;
 	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _sessionViewSettings = [];
 	private BrowseItemProjection _itemProjection;
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
@@ -111,13 +114,15 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	/// <param name="locationResolver">The resolver used to open browse locations.</param>
 	/// <param name="viewSettingsStore">The optional persistent view settings store.</param>
 	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
-	public BrowseSession(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null)
+	/// <param name="logger">The optional logger.</param>
+	public BrowseSession(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, ILogger<BrowseSession>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(locationResolver);
 
 		_locationResolver = locationResolver;
 		_viewSettingsStore = viewSettingsStore;
 		_thumbnailCache = thumbnailCache;
+		_logger = logger ?? NullLogger<BrowseSession>.Instance;
 		_changeCoordinator = new BrowseChangeCoordinator(ProcessPendingChangesAsync);
 		_itemProjection = new BrowseItemProjection(BrowseViewSettings.Default, _presentationStore.GetSortPropertyValue);
 		ViewSettings = BrowseViewSettings.Default;
@@ -171,7 +176,10 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 		var navigationStartTimestamp = Stopwatch.GetTimestamp();
 		Volatile.Write(ref _diagnosticNavigationStartTimestamp, navigationStartTimestamp);
-		Logger.Write("BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
+		}
 		IsLoading = true;
 		Error = null;
 		OnStateChanged();
@@ -189,7 +197,10 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			nextLocationContext = await _locationResolver.OpenAsync(location, cancellationToken).ConfigureAwait(false);
 			ArgumentNullException.ThrowIfNull(nextLocationContext);
 
-			Logger.Write("BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			}
 
 			var changes = nextLocationContext.ChangeSource ?? nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
 			var generation = Interlocked.Increment(ref _generationCounter);
@@ -208,7 +219,10 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			var targetBatchSize = location is SearchLocation or HomeLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
 			var pendingBatch = new List<IStorableModel>(targetBatchSize);
 			var firstItemReturned = false;
-			Logger.Write("BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			}
 			var nextItemSequence = ownerWindowHandle is not 0 && nextLocationContext is IInteractiveBrowseLocationContext interactiveContext
 				? interactiveContext.GetItemsAsync(ownerWindowHandle, cancellationToken)
 				: nextLocationContext.GetItemsAsync(cancellationToken);
@@ -227,8 +241,14 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 				{
 					firstItemReturned = true;
 					var firstItemElapsedMilliseconds = Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds;
-					Logger.Write("BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
-					Logger.Write("BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					}
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					}
 				}
 
 				if (pendingBatch.Count < targetBatchSize)
@@ -249,7 +269,14 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 				};
 				await Task.Yield();
 			}
-			Logger.Write("BrowseSession", $"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowseSession",
+					$"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			if (pendingBatch.Count is not 0)
 			{
@@ -266,10 +293,15 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 			var sortStartTimestamp = Stopwatch.GetTimestamp();
 			var finalSortChanges = await SortProjectionAsync(nextLocationContext, nextProjection, nextViewSettings, cancellationToken).ConfigureAwait(false);
 			PublishItemsChanged(finalSortChanges);
-			Logger.Write(
-				"BrowseSession",
-				$"Initial sort completed generation={generation} changed={!finalSortChanges.IsEmpty} " +
-				$"elapsedMs={Stopwatch.GetElapsedTime(sortStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowseSession",
+					$"Initial sort completed generation={generation} changed={!finalSortChanges.IsEmpty} " +
+					$"elapsedMs={Stopwatch.GetElapsedTime(sortStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			var nextSelection = Equals(previousState!.Location, location)
 				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection)
@@ -334,10 +366,15 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 			IsLoading = false;
 			OnStateChanged();
-			Logger.Write(
-				"BrowseSession",
-				$"Navigate END location={location.GetType().Name} items={ItemCount} loading={IsLoading} error={Error is not null} " +
-				$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowseSession",
+					$"Navigate END location={location.GetType().Name} items={ItemCount} loading={IsLoading} error={Error is not null} " +
+					$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 		}
 	}
 
@@ -353,10 +390,15 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	{
 		var changes = projection.AddRange(batch, preserveInputOrder: true);
 		var navigationStartTimestamp = Volatile.Read(ref _diagnosticNavigationStartTimestamp);
-		Logger.Write(
-			"BrowseSession",
-			$"PublishEnumerationBatch activated={activated} batchItems={batch.Count} changes={changes.Changes.Count} projectedItems={projection.Count} " +
-			$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowseSession",
+				$"PublishEnumerationBatch activated={activated} batchItems={batch.Count} changes={changes.Changes.Count} projectedItems={projection.Count} " +
+				$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
+			);
+		}
 		if (!activated)
 		{
 			previousState ??= CaptureNavigationState();
@@ -778,7 +820,10 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		{
 			if (previousCancellation is not null)
 			{
-				Logger.Write("BrowseSession", "Previous navigation cancelled");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "BrowseSession", "Previous navigation cancelled");
+				}
 			}
 
 			previousCancellation?.Cancel();
@@ -902,9 +947,15 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		var previousVersion = Interlocked.Read(ref _itemsVersion);
 		var version = Interlocked.Increment(ref _itemsVersion);
 		var eventStartTimestamp = Stopwatch.GetTimestamp();
-		Logger.Write("BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} items={Items.Count}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} items={Items.Count}");
+		}
 		RaiseEvent(ItemsChanged, new BrowseItemsChangedEventArgs(previousVersion, version, changeSet.Changes));
-		Logger.Write("BrowseSession", $"ItemsChanged END version={version} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"ItemsChanged END version={version} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
+		}
 	}
 
 	private void SetSelectionState(BrowseSelectionState nextSelection)
@@ -1072,7 +1123,10 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	{
 		var eventStartTimestamp = Stopwatch.GetTimestamp();
 		RaiseEvent(StateChanged);
-		Logger.Write("BrowseSession", $"StateChanged loading={IsLoading} items={Items.Count} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"StateChanged loading={IsLoading} items={Items.Count} callbackMs={Stopwatch.GetElapsedTime(eventStartTimestamp).TotalMilliseconds:F1}");
+		}
 	}
 
 	private NavigationOperation BeginNavigation(CancellationToken cancellationToken)

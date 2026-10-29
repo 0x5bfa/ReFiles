@@ -6,6 +6,8 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Files.Core.Capabilities.Thumbnails;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core.Storage.Windows;
 
@@ -15,8 +17,10 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 	private readonly WindowsShellItemResolver _resolver;
 	private readonly WindowsShellThumbnailBackend _backend;
 	private readonly WindowsItemLocator _locator;
+	private readonly ILogger<WindowsShellThumbnailSource> _logger;
 
-	public WindowsShellThumbnailSource(WindowsShellItemResolver resolver, WindowsShellThumbnailBackend backend, WindowsItemLocator locator)
+	public WindowsShellThumbnailSource(WindowsShellItemResolver resolver, WindowsShellThumbnailBackend backend, WindowsItemLocator locator,
+		ILogger<WindowsShellThumbnailSource>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(resolver);
 		ArgumentNullException.ThrowIfNull(backend);
@@ -25,6 +29,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		_resolver = resolver;
 		_backend = backend;
 		_locator = locator;
+		_logger = logger ?? NullLogger<WindowsShellThumbnailSource>.Instance;
 	}
 
 	public async ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
@@ -32,14 +37,22 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		ArgumentNullException.ThrowIfNull(request);
 
 		var startTimestamp = Stopwatch.GetTimestamp();
-		Logger.Write("WindowsShellThumbnailSource", $"GetThumbnail START size={request.RequestedPixelSize} mode={request.Mode} parsingName={_locator.ParsingName}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "WindowsShellThumbnailSource", $"GetThumbnail START size={request.RequestedPixelSize} mode={request.Mode} parsingName={_locator.ParsingName}");
+		}
 
 		try
 		{
 			var payload = await _resolver.InvokeConcurrentAsync(_locator, shellItem => _backend.GetThumbnail(shellItem, _locator, request, cancellationToken), cancellationToken).ConfigureAwait(false);
-			Logger.Write(
-				"WindowsShellThumbnailSource",
-				$"GetThumbnail END hasResult={payload is not null} bytes={payload?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"WindowsShellThumbnailSource",
+					$"GetThumbnail END hasResult={payload is not null} bytes={payload?.Content.Length ?? 0} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			return payload is null
 				? null
@@ -47,9 +60,14 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		}
 		catch (Exception exception)
 		{
-			Logger.Write(
-				"WindowsShellThumbnailSource",
-				$"GetThumbnail ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"WindowsShellThumbnailSource",
+					$"GetThumbnail ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			throw;
 		}

@@ -10,12 +10,16 @@ using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Views;
 
 public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposable
 {
 	private readonly RootViewModel _viewModel;
+	private readonly ILoggerFactory _loggerFactory;
+	private readonly ILogger<RootView> _logger;
 	private readonly Queue<string> _pendingErrorMessages = [];
 
 	private CancellationTokenSource? _sidebarDragSourceCancellation;
@@ -32,12 +36,15 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 	public event EventHandler? NewWindowRequested;
 
-	public RootView(RootViewModel viewModel, IWindowsShellPreviewSessionFactory? previewSessionFactory)
+	public RootView(RootViewModel viewModel, IWindowsShellPreviewSessionFactory? previewSessionFactory, ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(viewModel);
 
 		InitializeComponent();
 		_viewModel = viewModel;
+		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+		_logger = _loggerFactory.CreateLogger<RootView>();
+		NavigationToolbarView.ConfigureLogging(_loggerFactory);
 		_viewModel.PropertyChanged += ViewModel_PropertyChanged;
 		_viewModel.OperationErrorReported += ViewModel_OperationErrorReported;
 		PreviewPaneView.SessionFactory = previewSessionFactory;
@@ -164,7 +171,10 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 			}
 			catch (Exception exception)
 			{
-				UIDiagnosticLog.Write("RootView", $"Error dialog failed type={exception.GetType().Name}");
+				if (_logger.IsEnabled(LogLevel.Debug))
+				{
+					_logger.LogDebug("{Component}: {Message}", "RootView", $"Error dialog failed type={exception.GetType().Name}");
+				}
 
 				return;
 			}
@@ -216,7 +226,10 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		StartShowingErrorDialogs();
 		UpdateActiveTabPresentation();
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("RootView", "Loaded START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "RootView", "Loaded START");
+		}
 		Sidebar.SelectedItem ??= ViewModel.HomeNavigationItem;
 
 		try
@@ -232,7 +245,10 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		}
 		finally
 		{
-			UIDiagnosticLog.Write("RootView", $"Loaded END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "RootView", $"Loaded END elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+			}
 		}
 	}
 
@@ -287,7 +303,8 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 				return;
 			}
 
-			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.RawEvent.Data, browser.OwnerWindowHandle);
+			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, args.RawEvent.Data, browser.OwnerWindowHandle,
+				logger: _loggerFactory.CreateLogger("Files.Infrastructure.WinUIDataObjectBridge"));
 			args.RawEvent.AllowedOperations = allowedOperations;
 			args.RawEvent.Cancel = allowedOperations is DataPackageOperation.None;
 		}
@@ -369,7 +386,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		ResetSidebarDropController();
 		_sidebarDropBrowser = browser;
-		_sidebarDropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle);
+		_sidebarDropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle, _loggerFactory.CreateLogger<WinUIShellDropTargetController>());
 
 		return _sidebarDropController;
 	}

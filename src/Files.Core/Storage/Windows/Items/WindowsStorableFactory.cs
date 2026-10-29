@@ -14,6 +14,8 @@ using Windows.Win32.System.Com;
 using Windows.Win32.System.SystemServices;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.Core.Storage.Windows;
 
@@ -37,16 +39,18 @@ internal sealed class WindowsStorableFactory
 	private readonly IWindowsItemIdReader _itemIdReader;
 
 	private readonly WindowsShellItemResolver _resolver;
+	private readonly ILogger<WindowsStorableFactory> _logger;
 
 	internal WindowsShellItemResolver Resolver => _resolver;
 
-	public WindowsStorableFactory(IWindowsShellScheduler scheduler, IWindowsItemIdReader? itemIdReader = null)
+	public WindowsStorableFactory(IWindowsShellScheduler scheduler, IWindowsItemIdReader? itemIdReader = null, ILogger<WindowsStorableFactory>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 
 		_scheduler = scheduler;
 		_itemIdReader = itemIdReader ?? new WindowsItemIdReader();
 		_resolver = new WindowsShellItemResolver(scheduler);
+		_logger = logger ?? NullLogger<WindowsStorableFactory>.Instance;
 	}
 
 	public Task<WindowsStorable> CreateAsync(string parsingName, CancellationToken cancellationToken = default)
@@ -176,7 +180,10 @@ internal sealed class WindowsStorableFactory
 		var batchCount = 0;
 		var itemCount = 0;
 		var identityDuration = TimeSpan.Zero;
-		Logger.Write("WindowsStorableFactory", $"Enumerate START name={descriptor.Metadata.Name} parsingName={descriptor.Locator.ParsingName}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "WindowsStorableFactory", $"Enumerate START name={descriptor.Metadata.Name} parsingName={descriptor.Locator.ParsingName}");
+		}
 
 		var batches = Channel.CreateBounded<IReadOnlyList<WindowsStorableDescriptorData>>(new BoundedChannelOptions(EnumerationBufferSize)
 		{
@@ -190,7 +197,7 @@ internal sealed class WindowsStorableFactory
 		try
 		{
 			Func<IShellItem, bool> enumerateChildren = shellItem =>
-				EnumerateChildrenOnCurrentSta(shellItem, parentFolder, descriptor.IsSearchFolder, ownerWindow, batches.Writer, enumerationCancellation.Token);
+				EnumerateChildrenOnCurrentSta(shellItem, parentFolder, descriptor.IsSearchFolder, ownerWindow, batches.Writer, enumerationCancellation.Token, _logger);
 			var scheduledProducer = descriptor.IsSearchFolder
 				? _resolver.InvokeSearchAsync(descriptor.Locator, enumerateChildren, enumerationCancellation.Token)
 				: _resolver.InvokeConcurrentAsync(descriptor.Locator, enumerateChildren, enumerationCancellation.Token);
@@ -231,10 +238,15 @@ internal sealed class WindowsStorableFactory
 				}
 			}
 
-			Logger.Write(
-				"WindowsStorableFactory",
-				$"Enumerate END name={descriptor.Metadata.Name} batches={batchCount} items={itemCount} " +
-				$"identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"WindowsStorableFactory",
+					$"Enumerate END name={descriptor.Metadata.Name} batches={batchCount} items={itemCount} " +
+					$"identityMs={identityDuration.TotalMilliseconds:F1} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 		}
 	}
 
@@ -423,7 +435,8 @@ internal sealed class WindowsStorableFactory
 		bool isSearchFolder,
 		HWND ownerWindow,
 		ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer,
-		CancellationToken cancellationToken)
+		CancellationToken cancellationToken,
+		ILogger<WindowsStorableFactory> logger)
 	{
 		var enumerationStartTimestamp = Stopwatch.GetTimestamp();
 		var batchCount = 0;
@@ -432,7 +445,10 @@ internal sealed class WindowsStorableFactory
 		var nextDuration = TimeSpan.Zero;
 		var descriptorDuration = TimeSpan.Zero;
 		var channelWriteDuration = TimeSpan.Zero;
-		Logger.Write("WindowsStorableFactory", "EnumerateOnSTA START");
+		if (logger.IsEnabled(LogLevel.Debug))
+		{
+			logger.LogDebug("{Component}: {Message}", "WindowsStorableFactory", "EnumerateOnSTA START");
+		}
 		using var cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>>)state!).TryComplete(), writer);
 		try
 		{
@@ -467,9 +483,14 @@ internal sealed class WindowsStorableFactory
 			{
 				if (cancellationToken.IsCancellationRequested)
 				{
-					Logger.Write(
-						"WindowsStorableFactory",
-						$"EnumerateOnSTA CANCELLED batches={batchCount} items={itemCount} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+					if (logger.IsEnabled(LogLevel.Debug))
+					{
+						logger.LogDebug(
+							"{Component}: {Message}",
+							"WindowsStorableFactory",
+							$"EnumerateOnSTA CANCELLED batches={batchCount} items={itemCount} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}"
+						);
+					}
 
 					return false;
 				}
@@ -563,19 +584,29 @@ internal sealed class WindowsStorableFactory
 			}
 
 			writer.TryComplete();
-			Logger.Write(
-				"WindowsStorableFactory",
-				$"EnumerateOnSTA END batches={batchCount} items={itemCount} nextCalls={nextCallCount} nextMs={nextDuration.TotalMilliseconds:F1} " +
-				$"descriptorMs={descriptorDuration.TotalMilliseconds:F1} channelWriteMs={channelWriteDuration.TotalMilliseconds:F1} " +
-				$"elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+			if (logger.IsEnabled(LogLevel.Debug))
+			{
+				logger.LogDebug(
+					"{Component}: {Message}",
+					"WindowsStorableFactory",
+					$"EnumerateOnSTA END batches={batchCount} items={itemCount} nextCalls={nextCallCount} nextMs={nextDuration.TotalMilliseconds:F1} " +
+					$"descriptorMs={descriptorDuration.TotalMilliseconds:F1} channelWriteMs={channelWriteDuration.TotalMilliseconds:F1} " +
+					$"elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 
 			return true;
 		}
 		catch (Exception exception)
 		{
-			Logger.Write(
-				"WindowsStorableFactory",
-				$"EnumerateOnSTA ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}");
+			if (logger.IsEnabled(LogLevel.Debug))
+			{
+				logger.LogDebug(
+					"{Component}: {Message}",
+					"WindowsStorableFactory",
+					$"EnumerateOnSTA ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
 			writer.TryComplete(exception);
 			throw;
 		}

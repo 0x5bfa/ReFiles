@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage.Windows;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Win32;
 using Windows.Win32.System.Com;
@@ -14,14 +16,18 @@ namespace Files.Infrastructure;
 internal static class WinUIDataObjectBridge
 {
 	internal static DataPackageOperation Attach(WindowsShellDragSource dragSource, DataPackage dataPackage, nint ownerWindowHandle,
-		WindowsShellDropEffects preferredEffect = WindowsShellDropEffects.None, bool deriveMoveFromDelete = true)
+		WindowsShellDropEffects preferredEffect = WindowsShellDropEffects.None, bool deriveMoveFromDelete = true, ILogger? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(dragSource);
 
 		ArgumentNullException.ThrowIfNull(dataPackage);
 
 		var effects = dragSource.Attach(GetProvider(dataPackage), ownerWindowHandle, preferredEffect, deriveMoveFromDelete);
-		UIDiagnosticLog.Write("ShellDragSource", $"Attach allowed={effects} preferred={preferredEffect}");
+		var resolvedLogger = logger ?? NullLogger.Instance;
+		if (resolvedLogger.IsEnabled(LogLevel.Debug))
+		{
+			resolvedLogger.LogDebug("{Component}: {Message}", "ShellDragSource", $"Attach allowed={effects} preferred={preferredEffect}");
+		}
 
 		return ToDataPackageOperation(effects);
 	}

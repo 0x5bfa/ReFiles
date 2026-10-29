@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml;
 using System.Diagnostics;
 using System.Threading;
 using Files.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Files;
 
@@ -23,6 +24,8 @@ public partial class App : Application
 	private readonly WindowsStorageSource _windowsStorageSource;
 	private readonly JsonViewSettingsStore _viewSettingsStore;
 	private readonly AppSettingsService _settings;
+	private readonly ILoggerFactory _loggerFactory;
+	private readonly ILogger<App> _logger;
 	private readonly WinRTStorageOperationService _storageOperations;
 	private readonly StorageOperationTracker _storageOperationTracker;
 	private readonly Lock _windowsLock = new();
@@ -34,9 +37,16 @@ public partial class App : Application
 
 	public App()
 	{
-		_windowsStorageSource = new WindowsStorageSource();
-		_storageOperations = new WinRTStorageOperationService();
-		_storageOperationTracker = new StorageOperationTracker(_storageOperations);
+		var diagnosticLoggingEnabled = string.Equals(Environment.GetEnvironmentVariable("FILES_DIAGNOSTIC_LOG"), "1", StringComparison.Ordinal);
+		_loggerFactory = LoggerFactory.Create(builder =>
+		{
+			builder.AddDebug();
+			builder.SetMinimumLevel(diagnosticLoggingEnabled ? LogLevel.Debug : LogLevel.Warning);
+		});
+		_logger = _loggerFactory.CreateLogger<App>();
+		_windowsStorageSource = new WindowsStorageSource(loggerFactory: _loggerFactory);
+		_storageOperations = new WinRTStorageOperationService(_loggerFactory.CreateLogger<WinRTStorageOperationService>());
+		_storageOperationTracker = new StorageOperationTracker(_storageOperations, _loggerFactory.CreateLogger<StorageOperationTracker>());
 		_viewSettingsStore = new JsonViewSettingsStore(_windowsStorageSource, AppSettingsService.GetDefaultLocalFolderPath());
 		_settings = new AppSettingsService(_windowsStorageSource);
 		_settings.ApplyLanguage();
@@ -63,7 +73,7 @@ public partial class App : Application
 		}
 		catch (Exception exception)
 		{
-			Debug.WriteLine($"Files failed to start: {exception}");
+			_logger.LogError(exception, "Files failed to start.");
 			await ShutdownAsync().ConfigureAwait(true);
 			Exit();
 		}
@@ -72,21 +82,33 @@ public partial class App : Application
 	private async Task LaunchAsync()
 	{
 		var startTimestamp = Stopwatch.GetTimestamp();
-		UIDiagnosticLog.Write("App", "Launch START");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "App", "Launch START");
+		}
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
-		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore, _storageOperations).UseStorageOperations(_storageOperations).AddWindowsStorage(_windowsStorageSource, enableOperations: false).Build();
+		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore, _storageOperations, _loggerFactory)
+			.UseStorageOperations(_storageOperations)
+			.AddWindowsStorage(_windowsStorageSource, enableOperations: false)
+			.Build();
 		_runtime = currentRuntime;
-		UIDiagnosticLog.Write("App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		}
 
 		await CreateWindowAsync(persistPlacement: true).ConfigureAwait(true);
-		UIDiagnosticLog.Write("App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
+		}
 		try
 		{
 			await _storageOperations.ConnectAsync().ConfigureAwait(true);
 		}
 		catch (Exception exception)
 		{
-			Debug.WriteLine($"Files.BackgroundServer server failed to start: {exception}");
+			_logger.LogError(exception, "Files.BackgroundServer server failed to start.");
 		}
 	}
 
@@ -98,7 +120,10 @@ public partial class App : Application
 		}
 
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync().ConfigureAwait(true);
-		UIDiagnosticLog.Write("App", "Core window created");
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "App", "Core window created");
+		}
 		if (coreWindow.ActiveTab?.ActivePane is null)
 		{
 			await runtime.ShellSession.CloseWindowAsync(coreWindow.Id).ConfigureAwait(true);
@@ -121,7 +146,8 @@ public partial class App : Application
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),
 				windowHandle => _storageOperations.SetActiveWindow(windowHandle),
 				() => CloseWindowAsync(coreWindow.Id, mainWindow),
-				() => CreateWindowAsync(persistPlacement: false));
+				() => CreateWindowAsync(persistPlacement: false),
+				_loggerFactory);
 			mainWindow.ApplyTheme(_settings.ThemeMode);
 			lock (_windowsLock)
 			{
@@ -135,7 +161,7 @@ public partial class App : Application
 			}
 			catch (Exception exception)
 			{
-				Debug.WriteLine($"Files.BackgroundServer could not register a window: {exception}");
+				_logger.LogError(exception, "Files.BackgroundServer could not register a window.");
 			}
 		}
 		catch
@@ -156,7 +182,7 @@ public partial class App : Application
 			}
 			catch (Exception exception)
 			{
-				Debug.WriteLine($"Files.BackgroundServer could not unregister a window: {exception}");
+				_logger.LogError(exception, "Files.BackgroundServer could not unregister a window.");
 			}
 		}
 
@@ -233,6 +259,7 @@ public partial class App : Application
 			_settings.PropertyChanged -= Settings_PropertyChanged;
 			_storageOperationTracker.Dispose();
 			_storageOperations.Dispose();
+			_loggerFactory.Dispose();
 		}
 	}
 }
