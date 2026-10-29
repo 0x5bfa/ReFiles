@@ -17,16 +17,16 @@ internal partial interface IInspectable
 {
 	/// <summary>Gets the interface identifiers implemented by the object.</summary>
 	/// <param name="iidCount">Receives the number of identifiers.</param>
-	/// <param name="iids">Receives the allocated identifier array.</param>
+	/// <param name="iids">Receives ownership of the identifier array allocated with CoTaskMemAlloc.</param>
 	/// <returns>The HRESULT returned by the object.</returns>
 	[PreserveSig]
-	HRESULT GetIids(out uint iidCount, out global::Windows.Win32.ComHeapPtr<Guid> iids);
+	HRESULT GetIids(out uint iidCount, out CoTaskMemFreeSafeHandle iids);
 
 	/// <summary>Gets the runtime class name.</summary>
 	/// <param name="className">Receives the runtime class name.</param>
 	/// <returns>The HRESULT returned by the object.</returns>
 	[PreserveSig]
-	HRESULT GetRuntimeClassName([MarshalUsing(typeof(global::Windows.Win32.HStringStringMarshaller))] out string? className);
+	HRESULT GetRuntimeClassName([MarshalUsing(typeof(HStringStringMarshaller))] out string? className);
 
 	/// <summary>Gets the runtime trust level.</summary>
 	/// <param name="trustLevel">Receives the trust level.</param>

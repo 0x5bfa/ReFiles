@@ -54,19 +54,19 @@ jobs:
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         dotnet --info
 
-    - name: Build application with restore
+    - name: Build app
       shell: pwsh
       run: |
         msbuild $env:APP_PROJECT_PATH `
           -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=false -p:CsWinRTAotWarningLevel=3 -v:quiet
 
-    - name: Build operation server with restore
+    - name: Build operations server
       shell: pwsh
       run: |
         msbuild $env:OPERATIONS_PROJECT_PATH `
           -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -v:quiet -clp:ErrorsOnly
 
-    - name: Build tests with restore
+    - name: Build tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh
       run: |
