@@ -14,7 +14,7 @@ namespace Files.BackgroundServer;
 
 internal sealed partial class SystemTrayIconWindow : IDisposable
 {
-	private readonly ManagedWNDPROC _windowProcedure;
+	private readonly ManagedWNDPROC _windowProc;
 	private readonly string _className = $"Files.BackgroundServer.Tray.{Guid.NewGuid():N}";
 	private SystemTrayIcon? _trayIcon;
 	private HWND _windowHandle;
@@ -23,14 +23,14 @@ internal sealed partial class SystemTrayIconWindow : IDisposable
 
 	internal unsafe SystemTrayIconWindow(SystemTrayIcon trayIcon)
 	{
-		_windowProcedure = WindowProc;
+		_windowProc = WindowProc;
 		_trayIcon = trayIcon;
 		fixed (char* className = _className)
 		{
-			var callback = Marshal.GetFunctionPointerForDelegate(_windowProcedure);
+			var callback = Marshal.GetFunctionPointerForDelegate(_windowProc);
 			var windowProcedure = (delegate* unmanaged[Stdcall]<HWND, uint, WPARAM, LPARAM, LRESULT>)callback;
 			var classData = default(WNDCLASSEXW);
-			classData.cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>();
+			classData.cbSize = (uint)sizeof(WNDCLASSEXW);
 			classData.style = WNDCLASS_STYLES.CS_DBLCLKS;
 			classData.lpfnWndProc = windowProcedure;
 			classData.hInstance = PInvoke.GetModuleHandle(default(PCWSTR));

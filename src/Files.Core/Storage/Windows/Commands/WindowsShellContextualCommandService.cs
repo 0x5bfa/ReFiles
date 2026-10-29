@@ -346,10 +346,16 @@ public sealed class WindowsShellContextualCommandService
 
 	private async Task<bool> HasRecycleBinItemsAsync(CancellationToken cancellationToken)
 	{
+		uint infoSize;
+		unsafe
+		{
+			infoSize = (uint)sizeof(SHQUERYRBINFO);
+		}
+
 		return await _source.Scheduler.InvokeConcurrentAsync(
 			() =>
 			{
-				var info = new SHQUERYRBINFO { cbSize = (uint)Marshal.SizeOf<SHQUERYRBINFO>() };
+				var info = new SHQUERYRBINFO { cbSize = infoSize };
 
 				return PInvoke.SHQueryRecycleBin(null, ref info).Succeeded && info.i64NumItems > 0;
 			}, cancellationToken).ConfigureAwait(false);

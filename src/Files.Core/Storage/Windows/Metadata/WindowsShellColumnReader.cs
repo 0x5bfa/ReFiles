@@ -122,7 +122,7 @@ internal static unsafe class WindowsShellColumnReader
 		return shellColumnSet;
 	}
 
-	private static bool TryReadViewColumns(
+	private static unsafe bool TryReadViewColumns(
 		IShellFolder folder,
 		WindowsShellColumnSet shellColumnSet,
 		IReadOnlyDictionary<string, int> defaultColumnWidths,
@@ -204,7 +204,7 @@ internal static unsafe class WindowsShellColumnReader
 
 			var entry = orderedEntries[index];
 			CM_COLUMNINFO columnInfo = default;
-			columnInfo.cbSize = checked((uint)Marshal.SizeOf<CM_COLUMNINFO>());
+			columnInfo.cbSize = checked((uint)sizeof(CM_COLUMNINFO));
 			columnInfo.dwMask = (uint)(CM_MASK.CM_MASK_WIDTH | CM_MASK.CM_MASK_DEFAULTWIDTH | CM_MASK.CM_MASK_IDEALWIDTH | CM_MASK.CM_MASK_NAME | CM_MASK.CM_MASK_STATE);
 			hr = columnManager.GetColumnInfo(in entry.Key, ref columnInfo);
 			cancellationToken.ThrowIfCancellationRequested();

@@ -8,8 +8,13 @@
 		<Platforms>x64;arm64</Platforms>
 		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
+	</PropertyGroup>
+
+	<PropertyGroup>
 		<Deterministic>true</Deterministic>
 		<ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -19,12 +24,10 @@
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<!-- The COM source generator emits CS1591 for inherited members; source files still use the .editorconfig error rule. -->
-		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 		<PackageId>ReFiles.Core</PackageId>
 		<Title>ReFiles.Core</Title>
-		<Authors>Files Community</Authors>
-		<Version>0.1.0-alpha</Version>
+		<Authors>0x5bfa</Authors>
+		<Version>0.1.0</Version>
 		<Description>UI-independent storage, browsing, capability, and Windows Shell foundation for ReFiles.</Description>
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
 		<PackageReadmeFile>PACKAGE.md</PackageReadmeFile>

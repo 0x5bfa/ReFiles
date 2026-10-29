@@ -537,7 +537,7 @@ internal sealed class WindowsStorableFactory
 						}
 
 						var descriptorStartTimestamp = Stopwatch.GetTimestamp();
-						batch.Add(ShellItemHelpers.CreateDescriptorData(child, parentFolder, absolutePidl, relativePidl, itemStoreReference));
+						batch.Add(ShellItemHelpers.CreateDescriptorData(child!, parentFolder, absolutePidl, relativePidl, itemStoreReference));
 						descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
 
 						itemCount++;

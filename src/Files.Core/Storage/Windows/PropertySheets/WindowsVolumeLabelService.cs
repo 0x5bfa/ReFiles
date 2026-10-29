@@ -22,7 +22,6 @@ public static unsafe class WindowsVolumeLabelService
 {
 	private const int ContinueButtonId = 1;
 	private const int ErrorAccessDenied = 5;
-	private const int HResultCanceled = unchecked((int)0x800704C7);
 	private const uint TaskDialogCreatedNotification = 0;
 	private const uint TaskDialogSetButtonElevationRequiredState = 0x473;
 	private const ushort AccessDeniedTitleResourceId = 50178;
@@ -109,24 +108,24 @@ public static unsafe class WindowsVolumeLabelService
 		return (char*)resourceId;
 	}
 
-	private static void SetLabelElevated(HWND owner, string root, string label)
+	private static unsafe void SetLabelElevated(HWND owner, string root, string label)
 	{
-		var classId = typeof(CMountPointRename).GUID;
-		var interfaceId = typeof(IMountPointRename).GUID;
 		BIND_OPTS3 bindOptions = default;
-		bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+		bindOptions.Base.Base.cbStruct = checked((uint)sizeof(BIND_OPTS3));
 		bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
 		bindOptions.hwnd = owner;
-		var hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object instanceObject);
-		var instance = instanceObject as IMountPointRename;
-		ThrowOnFailureOrCancellation(hr);
-		if (instance is null)
-		{
-			throw new COMException("The elevated mount-point rename service did not return an interface.", HRESULT.E_NOINTERFACE);
-		}
+		var hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{typeof(CMountPointRename).GUID:B}", in bindOptions, typeof(IMountPointRename).GUID, out var instanceObject);
+		_ = hr.Value == HRESULT.FromWin32Error(WIN32_ERROR.ERROR_CANCELLED)
+			? throw new OperationCanceledException("The volume-label change was canceled.")
+			: hr.ThrowOnFailure();
+
+		var instance = instanceObject as IMountPointRename
+			?? throw new COMException("The elevated mount-point rename service did not return an interface.", HRESULT.E_NOINTERFACE);
 
 		hr = instance.Rename(root, label);
-		ThrowOnFailureOrCancellation(hr);
+		_ = hr.Value == HRESULT.FromWin32Error(WIN32_ERROR.ERROR_CANCELLED)
+			? throw new OperationCanceledException("The volume-label change was canceled.")
+			: hr.ThrowOnFailure();
 	}
 
 	private static bool ShowElevationDialog(HWND owner)
@@ -171,15 +170,5 @@ public static unsafe class WindowsVolumeLabelService
 		}
 
 		return HRESULT.S_OK;
-	}
-
-	private static void ThrowOnFailureOrCancellation(HRESULT hr)
-	{
-		if (hr.Value is HResultCanceled)
-		{
-			throw new OperationCanceledException("The volume-label change was canceled.");
-		}
-
-		hr.ThrowOnFailure();
 	}
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Files Community
+// Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
 #pragma warning disable IDE0130 // Native declarations preserve Windows SDK namespaces.
@@ -12,19 +12,21 @@ namespace Windows.Win32.Foundation
 	public readonly partial struct HRESULT
 	{
 		/// <summary>
-		/// Throws an exception if the <see cref="HRESULT"/> indicates a failure in debug mode. Otherwise, it returns the original <see cref="HRESULT"/>.
+		/// Converts a <see cref="WIN32_ERROR"/> value to <see cref="HRESULT"/>.
 		/// </summary>
-		/// <returns>Returns the original <see cref="HRESULT"/> value regardless of the operation's success.</returns>
-		public readonly HRESULT ThrowIfFailedOnDebug()
+		/// <param name="error">The Win32 error value to convert.</param>
+		/// <returns>The result of the <c>HRESULT_FROM_WIN32</c> conversion.</returns>
+		public static HRESULT FromWin32Error(WIN32_ERROR error)
 		{
-#if DEBUG
-			if (Failed)
-			{
-				Marshal.ThrowExceptionForHR(Value);
-			}
-#endif
-
-			return this;
+			/*
+				#define HRESULT_FROM_WIN32(x) \
+				((HRESULT)(x) <= 0 ? (HRESULT)(x) : \
+				(HRESULT)(((x) & 0xFFFF) | (7 << 16) | 0x80000000))
+			*/
+			var value = unchecked((int)error);
+			return value <= 0
+				? (HRESULT)value
+				: (HRESULT)unchecked((int)(0x80070000u | ((uint)error & 0xFFFFu)));
 		}
 	}
 }

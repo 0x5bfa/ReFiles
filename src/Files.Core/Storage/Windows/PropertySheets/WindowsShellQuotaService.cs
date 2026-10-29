@@ -23,7 +23,7 @@ public static class WindowsShellQuotaService
 	/// <param name="rootPath">The volume root path.</param>
 	/// <param name="displayName">The Shell display name for the volume.</param>
 	/// <returns>The HRESULT returned by the quota UI helper.</returns>
-	public static HRESULT ShowSettings(HWND owner, string rootPath, string displayName)
+	public static unsafe HRESULT ShowSettings(HWND owner, string rootPath, string displayName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
 
@@ -32,10 +32,10 @@ public static class WindowsShellQuotaService
 		var classId = typeof(CQuotaUIHelper).GUID;
 		var interfaceId = typeof(IElevatedDiskQuotaUI).GUID;
 		BIND_OPTS3 bindOptions = default;
-		bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+		bindOptions.Base.Base.cbStruct = checked((uint)sizeof(BIND_OPTS3));
 		bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
 		bindOptions.hwnd = owner;
-		var hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object helperObject);
+		var hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out var helperObject);
 		var helper = helperObject as IElevatedDiskQuotaUI;
 		if (hr.Failed || helper is null)
 		{

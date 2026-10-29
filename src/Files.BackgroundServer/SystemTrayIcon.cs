@@ -166,10 +166,10 @@ internal sealed partial class SystemTrayIcon : IDisposable
 		PInvoke.Shell_NotifyIcon(NOTIFY_ICON_MESSAGE.NIM_DELETE, in data);
 	}
 
-	private NOTIFYICONDATAW CreateNotifyIconData()
+	private unsafe NOTIFYICONDATAW CreateNotifyIconData()
 	{
 		var data = default(NOTIFYICONDATAW);
-		data.cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATAW>();
+		data.cbSize = (uint)sizeof(NOTIFYICONDATAW);
 		data.hWnd = _iconWindow.WindowHandle;
 		data.uCallbackMessage = CallbackMessage;
 		data.hIcon = _icon;

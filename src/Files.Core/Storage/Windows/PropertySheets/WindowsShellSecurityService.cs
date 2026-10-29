@@ -73,7 +73,7 @@ public static class WindowsShellSecurityService
 		return !handle.IsInvalid;
 	}
 
-	private static HRESULT ShowEditor(HWND owner, string path, uint page, bool elevate)
+	private static unsafe HRESULT ShowEditor(HWND owner, string path, uint page, bool elevate)
 	{
 		var classId = typeof(CNtfsSecurityExtension).GUID;
 		IElevatedNtfsSecurity? editor;
@@ -82,10 +82,10 @@ public static class WindowsShellSecurityService
 		{
 			var interfaceId = typeof(IElevatedNtfsSecurity).GUID;
 			BIND_OPTS3 bindOptions = default;
-			bindOptions.Base.Base.cbStruct = checked((uint)Marshal.SizeOf<BIND_OPTS3>());
+			bindOptions.Base.Base.cbStruct = checked((uint)sizeof(BIND_OPTS3));
 			bindOptions.Base.dwClassContext = (uint)CLSCTX.CLSCTX_LOCAL_SERVER;
 			bindOptions.hwnd = owner;
-			hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out object editorObject);
+			hr = PInvoke.CoGetObject($"Elevation:Administrator!new:{classId:B}", in bindOptions, in interfaceId, out var editorObject);
 			editor = editorObject as IElevatedNtfsSecurity;
 		}
 		else
