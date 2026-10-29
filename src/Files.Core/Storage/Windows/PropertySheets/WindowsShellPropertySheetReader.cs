@@ -246,7 +246,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 		var displayName = ReadVolumeDisplayName(root);
 		try
 		{
-			var hr = PInvoke.CoCreateInstance(typeof(CDiskQuotaControl).GUID, null, CLSCTX.CLSCTX_INPROC_SERVER, out IDiskQuotaControl? quotaControl);
+			var hr = PInvoke.CoCreateInstance(CLSID.CLSID_DiskQuotaControl, null, CLSCTX.CLSCTX_INPROC_SERVER, out IDiskQuotaControl? quotaControl);
 			if (hr.Failed || quotaControl is null)
 			{
 				return null;

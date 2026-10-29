@@ -3,14 +3,15 @@
 
 #pragma warning disable IDE0130 // Native declarations preserve Windows SDK namespaces.
 
+using Microsoft.Win32.SafeHandles;
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
-using Microsoft.Win32.SafeHandles;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
-using Windows.Win32.System.Com.Urlmon;
 using Windows.Win32.System.Com.StructuredStorage;
+using Windows.Win32.System.Com.Urlmon;
 using Windows.Win32.System.IO;
 using Windows.Win32.System.Search.Common;
 using Windows.Win32.UI.Shell;
@@ -103,6 +104,61 @@ namespace Windows.Win32
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static partial NTSTATUS NtFsControlFile(SafeFileHandle fileHandle, SafeFileHandle eventHandle, nint apcRoutine, nint apcContext, ref IO_STATUS_BLOCK ioStatusBlock, uint controlCode,
 			nint inputBuffer, uint inputBufferLength, ref byte outputBuffer, uint outputBufferLength);
+	}
+}
+
+namespace Windows.Win32
+{
+	/// <summary>Contains manually declared COM CLSIDs used by Files.</summary>
+	public static partial class CLSID
+	{
+		/// <summary>The My Computer Shell CLSID.</summary>
+		public static Guid CLSID_MyComputer { get; } = new(0x20D04FE0u, 0x3AEA, 0x1069, 0xA2, 0xD8, 0x08, 0x00, 0x2B, 0x30, 0x30, 0x9D);
+		/// <summary>The Pin to Frequent Execute CLSID.</summary>
+		public static Guid CLSID_PinToFrequentExecute { get; } = new(0xB455F46Eu, 0xE4AF, 0x4035, 0xB0, 0xA4, 0xCF, 0x18, 0xD2, 0xF6, 0xF2, 0x8E);
+		/// <summary>The Unpin from Frequent Execute CLSID.</summary>
+		public static Guid CLSID_UnPinFromFrequentExecute { get; } = new(0xEE20EEBAu, 0xDF64, 0x4A4E, 0xB7, 0xBB, 0x2D, 0x1C, 0x6B, 0x2D, 0xFC, 0xC1);
+		/// <summary>The New menu CLSID.</summary>
+		public static Guid CLSID_NewMenu { get; } = new(0xD969A300u, 0xE7FF, 0x11D0, 0xA9, 0x3B, 0x00, 0xA0, 0xC9, 0x0F, 0x27, 0x19);
+		/// <summary>The Open With menu CLSID.</summary>
+		public static Guid CLSID_OpenWithMenu { get; } = new(0x09799AFBu, 0xAD67, 0x11D1, 0xAB, 0xCD, 0x00, 0xC0, 0x4F, 0xC3, 0x09, 0x36);
+		/// <summary>The NTFS disk-quota controller CLSID.</summary>
+		public static Guid CLSID_DiskQuotaControl { get; } = new(0x7988B571u, 0xEC89, 0x11CF, 0x9C, 0x00, 0x00, 0xAA, 0x00, 0xA1, 0x4F, 0x56);
+	}
+
+	/// <summary>Contains manually declared Shell FOLDERIDs used by Files.</summary>
+	public static partial class FOLDERID
+	{
+		/// <summary>The Recycle Bin FOLDERID.</summary>
+		public static Guid FOLDERID_RecycleBinFolder { get; } = new(0xB7534046u, 0x3ECB, 0x4C18, 0xBE, 0x4E, 0x64, 0xCD, 0x4C, 0xB7, 0xD6, 0xAC);
+		/// <summary>The Computer FOLDERID.</summary>
+		public static Guid FOLDERID_ComputerFolder { get; } = new(0x0AC0837Cu, 0xBBF8, 0x452A, 0x85, 0x0D, 0x79, 0xD0, 0x8E, 0x66, 0x7C, 0xA7);
+	}
+}
+
+namespace Windows.Win32.Foundation
+{
+	[DebuggerDisplay("{" + nameof(Value) + ",h}")]
+	public readonly partial struct HRESULT
+	{
+		/// <summary>
+		/// Converts a <see cref="WIN32_ERROR"/> value to <see cref="HRESULT"/>.
+		/// </summary>
+		/// <param name="error">The Win32 error value to convert.</param>
+		/// <returns>The result of the <c>HRESULT_FROM_WIN32</c> conversion.</returns>
+		public static HRESULT FromWin32Error(WIN32_ERROR error)
+		{
+			/*
+				#define HRESULT_FROM_WIN32(x) \
+					((HRESULT)(x) <= 0 ? (HRESULT)(x) : \
+					(HRESULT)(((x) & 0xFFFF) | (7 << 16) | 0x80000000))
+			*/
+
+			var value = unchecked((int)error);
+			return value <= 0
+				? (HRESULT)value
+				: (HRESULT)unchecked((int)(0x80070000u | ((uint)error & 0xFFFFu)));
+		}
 	}
 }
 
