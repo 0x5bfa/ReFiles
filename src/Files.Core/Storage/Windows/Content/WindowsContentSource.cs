@@ -56,7 +56,7 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 
 		return _scheduler.InvokeAsync<Stream>(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(_descriptor.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(_descriptor.Locator);
 			if (shellItem is null)
 			{
 				return null!;

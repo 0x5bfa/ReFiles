@@ -18,14 +18,9 @@ namespace Files.Core.Storage.Windows;
 /// <summary>Enumerates Shell children on their STA lane and builds apartment-neutral descriptors.</summary>
 internal sealed class WindowsFolderEnumerator
 {
-	private const int CanceledHResultValue = unchecked((int)0x800704C7);
-
 	private const int EnumerationBatchSize = 32;
-
 	private const int EnumerationBufferSize = 4;
-
 	private const int IdentityWorkerCount = 4;
-
 	private const int SearchEnumerationBatchSize = 1;
 
 	private readonly IWindowsShellScheduler _scheduler;
@@ -35,7 +30,6 @@ internal sealed class WindowsFolderEnumerator
 	internal WindowsFolderEnumerator(IWindowsShellScheduler scheduler, IWindowsItemIdReader itemIdReader, ILogger<WindowsFolderEnumerator>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
-
 		ArgumentNullException.ThrowIfNull(itemIdReader);
 
 		_scheduler = scheduler;
@@ -43,7 +37,9 @@ internal sealed class WindowsFolderEnumerator
 		_logger = logger ?? NullLogger<WindowsFolderEnumerator>.Instance;
 	}
 
-	internal async IAsyncEnumerable<WindowsStorableDescriptor> EnumerateChildrenAsync(WindowsStorableDescriptor descriptor, HWND ownerWindow,
+	internal async IAsyncEnumerable<WindowsStorableDescriptor> EnumerateChildrenAsync(
+		WindowsStorableDescriptor descriptor,
+		HWND ownerWindow,
 		[EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
@@ -64,21 +60,42 @@ internal sealed class WindowsFolderEnumerator
 			SingleWriter = true,
 			FullMode = BoundedChannelFullMode.Wait,
 		});
+
 		using var enumerationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
 		Task? producer = null;
+
 		try
 		{
 			Func<bool> enumerateChildren = () =>
 			{
-				var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(descriptor.Locator);
+				var shellItem = WindowShellHelpers.TryResolveItem(descriptor.Locator);
 
-				return shellItem is not null && EnumerateChildrenOnCurrentSta(shellItem, parentFolder, descriptor.IsSearchFolder, ownerWindow, batches.Writer, enumerationCancellation.Token, _logger);
+				return shellItem is not null && EnumerateChildrenOnCurrentSta(shellItem, parentFolder, descriptor.IsSearchFolder, ownerWindow, batches.Writer, _logger, enumerationCancellation.Token);
 			};
+
 			var scheduledProducer = descriptor.IsSearchFolder
 				? _scheduler.InvokeSearchAsync(enumerateChildren, enumerationCancellation.Token)
 				: _scheduler.InvokeConcurrentAsync(enumerateChildren, enumerationCancellation.Token);
-			producer = CompleteChannelWhenFinishedAsync(scheduledProducer, batches.Writer);
+			producer = scheduledProducer.ContinueWith(
+				static (task, state) =>
+				{
+					var writer = (ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>>)state!;
+					try
+					{
+						task.GetAwaiter().GetResult();
+						writer.TryComplete();
+					}
+					catch (Exception exception)
+					{
+						writer.TryComplete(exception);
+						throw;
+					}
+				},
+				batches.Writer,
+				CancellationToken.None,
+				TaskContinuationOptions.ExecuteSynchronously,
+				TaskScheduler.Default);
 
 			await foreach (var batch in batches.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
 			{
@@ -135,7 +152,8 @@ internal sealed class WindowsFolderEnumerator
 			MaxDegreeOfParallelism = IdentityWorkerCount,
 			TaskScheduler = TaskScheduler.Default,
 		};
-		Parallel.For(0, items.Count, parallelOptions, index => descriptors[index] = ShellItemHelpers.CreateDescriptor(items[index], _itemIdReader));
+
+		Parallel.For(0, items.Count, parallelOptions, index => descriptors[index] = WindowShellHelpers.CreateDescriptor(items[index], _itemIdReader));
 
 		return descriptors;
 	}
@@ -160,8 +178,8 @@ internal sealed class WindowsFolderEnumerator
 		bool isSearchFolder,
 		HWND ownerWindow,
 		ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer,
-		CancellationToken cancellationToken,
-		ILogger<WindowsFolderEnumerator> logger)
+		ILogger<WindowsFolderEnumerator> logger,
+		CancellationToken cancellationToken)
 	{
 		var enumerationStartTimestamp = Stopwatch.GetTimestamp();
 		var batchCount = 0;
@@ -174,15 +192,13 @@ internal sealed class WindowsFolderEnumerator
 		{
 			logger.LogDebug("{Component}: {Message}", "WindowsFolderEnumerator", "EnumerateOnSTA START");
 		}
+
 		using var cancellationRegistration = cancellationToken.UnsafeRegister(static state => ((ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>>)state!).TryComplete(), writer);
+
 		try
 		{
-			var folder = WindowsShellColumnReader.TryGetFolder(shellItem, parentFolder.ParsingName, cancellationToken);
-			if (folder is null)
-			{
-				throw new InvalidOperationException("The Shell item returned no folder interface.");
-			}
-
+			var folder = WindowsShellColumnReader.TryGetFolder(shellItem, parentFolder.ParsingName, cancellationToken)
+				?? throw new InvalidOperationException("The Shell item returned no folder interface.");
 			var enumerationFlags = _SHCONTF.SHCONTF_FOLDERS | _SHCONTF.SHCONTF_NONFOLDERS | _SHCONTF.SHCONTF_INCLUDEHIDDEN;
 			var hr = folder.EnumObjects(ownerWindow, (uint)enumerationFlags, out IEnumIDList? enumerator);
 			if (hr == HRESULT.S_FALSE)
@@ -192,7 +208,12 @@ internal sealed class WindowsFolderEnumerator
 				return true;
 			}
 
-			ThrowIfEnumerationFailed(hr);
+			if (hr.Value == HRESULT.FromWin32Error(WIN32_ERROR.ERROR_CANCELLED))
+			{
+				throw new OperationCanceledException("The Windows Shell canceled folder enumeration.");
+			}
+
+			hr.ThrowOnFailure();
 
 			if (enumerator is null)
 			{
@@ -231,7 +252,12 @@ internal sealed class WindowsFolderEnumerator
 					break;
 				}
 
-				ThrowIfEnumerationFailed(hr);
+				if (hr.Value == HRESULT.FromWin32Error(WIN32_ERROR.ERROR_CANCELLED))
+				{
+					throw new OperationCanceledException("The Windows Shell canceled folder enumeration.");
+				}
+
+				hr.ThrowOnFailure();
 				if (fetched is 0)
 				{
 					break;
@@ -249,7 +275,7 @@ internal sealed class WindowsFolderEnumerator
 							continue;
 						}
 
-						var relativePidl = ShellItemHelpers.CopyPidl(childPidl);
+						var relativePidl = WindowShellHelpers.CopyPidl(childPidl);
 						var absolutePidl = CombinePidls(parentFolder.AbsolutePidl, relativePidl);
 						var itemStoreReference = itemStore?.TryInsert(folder, in *childPidl);
 						var child = itemStoreReference?.TryGetItem(folder);
@@ -263,7 +289,7 @@ internal sealed class WindowsFolderEnumerator
 						}
 
 						var descriptorStartTimestamp = Stopwatch.GetTimestamp();
-						batch.Add(ShellItemHelpers.CreateDescriptorData(child!, parentFolder, absolutePidl, relativePidl, itemStoreReference));
+						batch.Add(WindowShellHelpers.CreateDescriptorData(child!, parentFolder, absolutePidl, relativePidl, itemStoreReference));
 						descriptorDuration += Stopwatch.GetElapsedTime(descriptorStartTimestamp);
 
 						itemCount++;
@@ -333,7 +359,9 @@ internal sealed class WindowsFolderEnumerator
 					$"EnumerateOnSTA ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(enumerationStartTimestamp).TotalMilliseconds:F1}"
 				);
 			}
+
 			writer.TryComplete(exception);
+
 			throw;
 		}
 	}
@@ -347,37 +375,13 @@ internal sealed class WindowsFolderEnumerator
 				return false;
 			}
 
-			if (!writer.WaitToWriteAsync().AsTask().GetAwaiter().GetResult())
+			if (!writer.WaitToWriteAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
 			{
 				return false;
 			}
 		}
 
 		return true;
-	}
-
-	private static async Task CompleteChannelWhenFinishedAsync(Task<bool> producer, ChannelWriter<IReadOnlyList<WindowsStorableDescriptorData>> writer)
-	{
-		try
-		{
-			await producer.ConfigureAwait(false);
-			writer.TryComplete();
-		}
-		catch (Exception exception)
-		{
-			writer.TryComplete(exception);
-			throw;
-		}
-	}
-
-	private static void ThrowIfEnumerationFailed(HRESULT hr)
-	{
-		if (hr.Value is CanceledHResultValue)
-		{
-			throw new OperationCanceledException("The Windows Shell canceled folder enumeration.");
-		}
-
-		hr.ThrowOnFailure();
 	}
 
 }

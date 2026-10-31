@@ -104,7 +104,7 @@ public sealed class WindowsShellPropertiesService
 
 		return await _source.Scheduler.InvokeConcurrentAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(locator);
 
 			return shellItem is null ? default : ReadGeneralProperties(shellItem, locator, cancellationToken);
 		}, cancellationToken).ConfigureAwait(false);
@@ -128,7 +128,7 @@ public sealed class WindowsShellPropertiesService
 
 	private static bool ShowShellPropertiesOnCurrentSta(WindowsShellResolvedSelection selection)
 	{
-		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
 		var bindResult = shellItemArray.BindToHandler<IDataObject>(null, PInvoke.BHID_DataObject, out var dataObject);
 
 		return bindResult.Succeeded && dataObject is not null && PInvoke.SHMultiFileProperties(dataObject, 0).Succeeded;
@@ -139,7 +139,7 @@ public sealed class WindowsShellPropertiesService
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
 		if (shellItemArray.GetItemAt(0, out var primaryItem).Failed || primaryItem is null)
 		{
 			return WindowsShellPropertySheetReader.CreateEmpty(pages);

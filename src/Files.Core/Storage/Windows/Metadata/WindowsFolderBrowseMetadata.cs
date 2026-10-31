@@ -17,7 +17,7 @@ internal sealed class WindowsFolderBrowseMetadata(WindowsFolder folder, IWindows
 	{
 		var columns = await _scheduler.InvokeAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(_folder.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(_folder.Locator);
 
 			return shellItem is null ? null : WindowsShellColumnReader.Read(shellItem, _folder.ParsingName, cancellationToken);
 		}, cancellationToken).ConfigureAwait(false);

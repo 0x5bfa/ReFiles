@@ -78,9 +78,16 @@ public sealed partial class FilesCoreBuilder
 				.Add<IFolderChangeSource>(new FolderChangeSourceFactory(), priority: 100, origin: "Windows Shell");
 		}
 
-		if (enablePreviews)
+		if (enablePreviews && TryAddModule(WindowsShellPreviewsModule))
 		{
-			AddWindowsShellPreviews(shellPreviewPolicy ?? new WindowsPreviewAccessPolicy());
+			var policy = shellPreviewPolicy ?? new WindowsPreviewAccessPolicy();
+			var handlerResolver = new WindowsPreviewHandlerResolver();
+			var loader = new WindowsShellPreviewLoader(handlerResolver, policy);
+			Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
+
+			var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1, logger: LoggerFactory.CreateLogger<WindowsShellScheduler>());
+			Own(previewScheduler);
+			_windowsShellPreviewSessionFactory = workspace => new WindowsShellPreviewSessionFactory(workspace, previewScheduler, policy);
 		}
 
 		if (enableArchives)
@@ -91,32 +98,4 @@ public sealed partial class FilesCoreBuilder
 		return this;
 	}
 
-	private void AddWindowsShellPreviews(IWindowsShellPreviewPolicy policy)
-	{
-		if (!TryAddModule(WindowsShellPreviewsModule))
-		{
-			return;
-		}
-
-		var handlerResolver = new WindowsPreviewHandlerResolver();
-		var loader = new WindowsShellPreviewLoader(handlerResolver, policy);
-		Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100, origin: "Windows Shell preview handler");
-
-		var previewScheduler = new WindowsShellScheduler(concurrentWorkerCount: 1, logger: LoggerFactory.CreateLogger<WindowsShellScheduler>());
-		Own(previewScheduler);
-		SetWindowsShellPreviewSessionFactory(workspace => new WindowsShellPreviewSessionFactory(workspace, previewScheduler, policy));
-	}
-
-	private void SetWindowsShellPreviewSessionFactory(Func<IStorageWorkspace, IWindowsShellPreviewSessionFactory> factory)
-	{
-		EnsureMutable();
-		ArgumentNullException.ThrowIfNull(factory);
-
-		if (_windowsShellPreviewSessionFactory is not null)
-		{
-			throw new InvalidOperationException("A Windows Shell preview session factory is already configured.");
-		}
-
-		_windowsShellPreviewSessionFactory = factory;
-	}
 }

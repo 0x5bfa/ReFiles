@@ -46,7 +46,7 @@ public sealed class WindowsThumbnailTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var coreModel = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 			var windowsModel = Assert.IsInstanceOfType<WindowsStorable>(coreModel);
-			Assert.IsTrue(await scheduler.InvokeConcurrentAsync(() => WindowsShellItemResolver.TryResolveOnCurrentSta(windowsModel.Locator) is IShellItem2));
+			Assert.IsTrue(await scheduler.InvokeConcurrentAsync(() => WindowShellHelpers.TryResolveItem(windowsModel.Locator) is IShellItem2));
 
 			var cache = new MemoryThumbnailCache();
 			var capabilityRegistry = new CapabilityBuilder()

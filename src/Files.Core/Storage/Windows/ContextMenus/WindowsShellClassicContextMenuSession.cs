@@ -46,7 +46,7 @@ public sealed class WindowsShellClassicContextMenuSession
 			return false;
 		}
 
-		var selection = WindowsShellItemArrayFactory.Create(target.AbsolutePidls);
+		var selection = WindowShellHelpers.CreateShellItemArray(target.AbsolutePidls);
 		selection.BindToHandler<IContextMenu>(null, PInvoke.BHID_SFUIObject, out var contextMenu).ThrowOnFailure();
 		using var menu = PInvoke.CreatePopupMenu_SafeHandle();
 		if (menu.IsInvalid)

@@ -34,7 +34,7 @@ public sealed class WindowsShellColumnTests
 			var folder = (WindowsFolder)await source.ResolveAsync(address);
 
 			var columnSet = await source.Scheduler.InvokeAsync(() =>
-				WindowsShellColumnReader.Read(WindowsShellItemResolver.TryResolveOnCurrentSta(folder.Locator)!, folder.ParsingName));
+				WindowsShellColumnReader.Read(WindowShellHelpers.TryResolveItem(folder.Locator)!, folder.ParsingName));
 
 			Assert.IsTrue(columnSet.All.Count > 0);
 			Assert.IsTrue(columnSet.DefaultVisible.Count > 0);

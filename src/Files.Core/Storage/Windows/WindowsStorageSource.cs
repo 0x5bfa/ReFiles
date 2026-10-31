@@ -222,7 +222,6 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 	public async ValueTask<bool> IsShellDesktopAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
-
 		ArgumentNullException.ThrowIfNull(reference);
 
 		if (reference.SourceId != SourceId)

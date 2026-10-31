@@ -165,7 +165,7 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 	{
 		foreach (var registration in _registrations)
 		{
-			if (registration.Recursive == recursive && WindowsShellItemResolver.AreSamePidlOnCurrentSta(folderPidl, registration.FolderPidl))
+			if (registration.Recursive == recursive && WindowShellHelpers.AreSamePidl(folderPidl, registration.FolderPidl))
 			{
 				return registration;
 			}
@@ -292,9 +292,9 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 		}
 
 		return MatchesPidl(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
-			|| WindowsShellItemResolver.IsInFolderOnCurrentSta(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
+			|| WindowShellHelpers.IsInFolder(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
 			|| MatchesPidl(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive)
-			|| WindowsShellItemResolver.IsInFolderOnCurrentSta(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive);
+			|| WindowShellHelpers.IsInFolder(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive);
 	}
 
 	private static bool MatchesPidl(ReadOnlyMemory<byte> itemPidl, ReadOnlyMemory<byte> folderPidl, bool recursive)

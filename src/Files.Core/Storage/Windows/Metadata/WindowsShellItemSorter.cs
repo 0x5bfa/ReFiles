@@ -43,7 +43,7 @@ internal static unsafe class WindowsShellItemSorter
 
 		return scheduler.InvokeConcurrentAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(descriptor.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(descriptor.Locator);
 
 			return shellItem is null ? null : SortOnCurrentSta(shellItem, descriptor.Locator.ParsingName, items, propertyId, direction, cancellationToken);
 		}, cancellationToken);

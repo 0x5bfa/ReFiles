@@ -81,7 +81,7 @@ public sealed class WindowsShellDragDropService
 
 		return await _source.Scheduler.InvokeOperationAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locators[0]);
+			var shellItem = WindowShellHelpers.TryResolveItem(locators[0]);
 
 			return shellItem is not null && TryInvokePaste(shellItem, (HWND)ownerWindowHandle);
 		}, cancellationToken).ConfigureAwait(false);

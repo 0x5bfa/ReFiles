@@ -82,7 +82,7 @@ public sealed class WindowsShellDragSource
 
 	private WindowsShellDropEffects GetAllowedEffects(bool deriveMoveFromDelete)
 	{
-		var shellItems = WindowsShellItemArrayFactory.Create(_locators);
+		var shellItems = WindowShellHelpers.CreateShellItemArray(_locators);
 		var requestedAttributes = GetRequestedAttributes(deriveMoveFromDelete);
 		var hr = shellItems.GetAttributes(SIATTRIBFLAGS.SIATTRIBFLAGS_AND, requestedAttributes, out var attributes);
 		if (hr.Failed)

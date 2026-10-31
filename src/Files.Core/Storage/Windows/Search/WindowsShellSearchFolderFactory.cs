@@ -28,7 +28,7 @@ internal static class WindowsShellSearchFolderFactory
 		HRESULT hr;
 		if (scopeLocators is not null)
 		{
-			var scope = WindowsShellItemArrayFactory.Create(scopeLocators);
+			var scope = WindowShellHelpers.CreateShellItemArray(scopeLocators);
 			hr = factory.SetScope(scope);
 			hr.ThrowOnFailure();
 		}

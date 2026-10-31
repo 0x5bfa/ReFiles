@@ -51,7 +51,7 @@ public sealed class WindowsShellDefaultCommandInvoker
 
 		return await _source.Scheduler.InvokeOperationAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(windowsStorable.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(windowsStorable.Locator);
 
 			return shellItem is null ? null : GetDefaultCommandOnSta(shellItem);
 		}, cancellationToken).ConfigureAwait(false);
@@ -77,7 +77,7 @@ public sealed class WindowsShellDefaultCommandInvoker
 
 		return await _source.Scheduler.InvokeOperationAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(windowsStorable.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(windowsStorable.Locator);
 
 			return shellItem is not null && InvokeDefaultCommandOnSta(shellItem, context);
 		}, cancellationToken).ConfigureAwait(false);

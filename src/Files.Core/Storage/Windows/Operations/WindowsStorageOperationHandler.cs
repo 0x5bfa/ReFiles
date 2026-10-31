@@ -131,7 +131,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		if (!hasSamePathSpelling)
 		{
 			var outcome = await _source.Scheduler.InvokeOperationAsync(
-				() => ExecuteRename(WindowsShellItemResolver.ResolveOnCurrentSta(item.ParsingName), item.Id, request.NewName), cancellationToken).ConfigureAwait(false);
+				() => ExecuteRename(WindowShellHelpers.ResolveItem(item.ParsingName), item.Id, request.NewName), cancellationToken).ConfigureAwait(false);
 			if (!outcome.Succeeded)
 			{
 				return Failed(outcome.Error!);
@@ -154,7 +154,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var destinationPath = Path.Combine(parentPath, destinationName);
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
-		var outcome = await _source.Scheduler.InvokeOperationAsync(() => ExecuteCreate(WindowsShellItemResolver.ResolveOnCurrentSta(parent.ParsingName), destinationName, request.Kind), cancellationToken)
+		var outcome = await _source.Scheduler.InvokeOperationAsync(() => ExecuteCreate(WindowShellHelpers.ResolveItem(parent.ParsingName), destinationName, request.Kind), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
@@ -251,8 +251,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		{
 			var outcome = await _source.Scheduler.InvokeOperationAsync(() =>
 			{
-				var sourceItem = WindowsShellItemResolver.ResolveOnCurrentSta(item.ParsingName);
-				var destinationItem = WindowsShellItemResolver.ResolveOnCurrentSta(destinationFolder.ParsingName);
+				var sourceItem = WindowShellHelpers.ResolveItem(item.ParsingName);
+				var destinationItem = WindowShellHelpers.ResolveItem(destinationFolder.ParsingName);
 
 				return ExecuteTransfer(sourceItem, destinationItem, destinationName, destinationPath, move, requireElevation, progress, itemReference, totalBytes, cancellationToken, operationControl);
 			}, cancellationToken).ConfigureAwait(false);
@@ -322,7 +322,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		while (true)
 		{
 			var outcome = await _source.Scheduler.InvokeOperationAsync(() =>
-				ExecuteDelete(WindowsShellItemResolver.ResolveOnCurrentSta(item.ParsingName), request.Permanently, requireElevation, progress, request.Item, cancellationToken, operationControl),
+				ExecuteDelete(WindowShellHelpers.ResolveItem(item.ParsingName), request.Permanently, requireElevation, progress, request.Item, cancellationToken, operationControl),
 				cancellationToken).ConfigureAwait(false);
 			if (outcome.Succeeded)
 			{
@@ -468,7 +468,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 	[SupportedOSPlatform("windows6.0.6000")]
 	private static ShellOperationOutcome ExecuteRename(IShellItem shellItem, string expectedItemId, string newName)
 	{
-		var currentDescriptor = ShellItemHelpers.CreateDescriptor(shellItem, new WindowsItemIdReader());
+		var currentDescriptor = WindowShellHelpers.CreateDescriptor(shellItem, new WindowsItemIdReader());
 		if (!StringComparer.Ordinal.Equals(currentDescriptor.ItemId, expectedItemId))
 		{
 			return new ShellOperationOutcome(false, new IOException("The Windows Shell rename target no longer identifies the requested item."));

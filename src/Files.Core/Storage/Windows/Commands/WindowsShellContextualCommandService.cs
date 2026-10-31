@@ -71,7 +71,7 @@ public sealed class WindowsShellContextualCommandService
 			if (await ResolveLocatorsAsync(selection, cancellationToken).ConfigureAwait(false) is { } selectionLocators)
 			{
 				var contextMenuCommands = await _source.Scheduler.InvokeOperationAsync(
-					() => GetContextMenuCommands(WindowsShellItemArrayFactory.Create(selectionLocators), WindowsShellContextMenuTargetKind.Selection), cancellationToken).ConfigureAwait(false);
+					() => GetContextMenuCommands(WindowShellHelpers.CreateShellItemArray(selectionLocators), WindowsShellContextMenuTargetKind.Selection), cancellationToken).ConfigureAwait(false);
 				AppendCommands(contextMenuCommands, commands);
 			}
 		}
@@ -80,7 +80,7 @@ public sealed class WindowsShellContextualCommandService
 		{
 			isRecycleBin = await _source.Scheduler.InvokeOperationAsync(() =>
 			{
-				var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locationLocator);
+				var shellItem = WindowShellHelpers.TryResolveItem(locationLocator);
 
 				return shellItem is not null && IsRecycleBin(shellItem);
 			}, cancellationToken).ConfigureAwait(false);
@@ -89,7 +89,7 @@ public sealed class WindowsShellContextualCommandService
 				var registeredCommands = await GetRegisteredCommandsAsync([location], _locationRegisteredCommands.Value, cancellationToken).ConfigureAwait(false);
 				AppendAppExtensionCommands(registeredCommands, WindowsShellContextualCommandScope.All, commands);
 				var locationCommands = await _source.Scheduler.InvokeOperationAsync(
-					() => GetContextMenuCommands(WindowsShellItemArrayFactory.Create([locationLocator]), WindowsShellContextMenuTargetKind.LocationItem), cancellationToken).ConfigureAwait(false);
+					() => GetContextMenuCommands(WindowShellHelpers.CreateShellItemArray([locationLocator]), WindowsShellContextMenuTargetKind.LocationItem), cancellationToken).ConfigureAwait(false);
 				AppendCommands(locationCommands, commands);
 			}
 
@@ -103,7 +103,7 @@ public sealed class WindowsShellContextualCommandService
 					new WindowsShellCommandStoreContextualCommandToken(RestoreAllRecycleBinBackendId));
 				var backgroundCommands = await _source.Scheduler.InvokeOperationAsync(() =>
 				{
-					var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locationLocator);
+					var shellItem = WindowShellHelpers.TryResolveItem(locationLocator);
 
 					return shellItem is null ? default! : GetFolderBackgroundCommands(shellItem, ownerWindowHandle);
 				}, cancellationToken).ConfigureAwait(false);
@@ -381,7 +381,8 @@ public sealed class WindowsShellContextualCommandService
 			}
 
 			return await _source.Scheduler.InvokeOperationAsync(
-				() => InvokeContextMenuCommand(WindowsShellContextMenuCommandHelper.Create(WindowsShellItemArrayFactory.Create(selectionLocators)), commandId, context), cancellationToken).ConfigureAwait(false);
+				() => InvokeContextMenuCommand(WindowsShellContextMenuCommandHelper.Create(WindowShellHelpers.CreateShellItemArray(selectionLocators)), commandId, context), cancellationToken)
+				.ConfigureAwait(false);
 		}
 
 		if (location is null || await ResolveLocatorAsync(location, cancellationToken).ConfigureAwait(false) is not { } locationLocator)
@@ -391,7 +392,7 @@ public sealed class WindowsShellContextualCommandService
 
 		return await _source.Scheduler.InvokeOperationAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locationLocator);
+			var shellItem = WindowShellHelpers.TryResolveItem(locationLocator);
 			if (shellItem is null)
 			{
 				return false;
@@ -434,7 +435,7 @@ public sealed class WindowsShellContextualCommandService
 			}
 		}
 
-		var shellItems = WindowsShellItemArrayFactory.Create([location]);
+		var shellItems = WindowShellHelpers.CreateShellItemArray([location]);
 		if (objectWithSelection.SetSelection(shellItems).Failed)
 		{
 			return false;

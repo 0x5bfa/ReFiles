@@ -144,7 +144,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 
 		return source.Scheduler.InvokeConcurrentAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(item.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(item.Locator);
 
 			return shellItem is null ? default! : new[] { new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)) };
 		}, cancellationToken);
@@ -156,7 +156,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 
 		return source.Scheduler.InvokeConcurrentAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(parentFolder);
+			var shellItem = WindowShellHelpers.TryResolveItem(parentFolder);
 
 			return shellItem is null ? default! : ReadGroupOnCurrentSta(shellItem, request, contexts, cancellationToken);
 		}, cancellationToken);
@@ -180,7 +180,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			var item = (WindowsStorable)context.CoreModel;
 			var shellItem = HasAllProperties(details[index], request)
 				? null
-				: item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowsShellItemResolver.TryResolveOnCurrentSta(item.Locator.AbsolutePidl);
+				: item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowShellHelpers.TryResolveItem(item.Locator.AbsolutePidl);
 			entries[index] = new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, details[index], cancellationToken));
 		}
 
@@ -190,7 +190,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	private static PropertyEntry ReadOneOnCurrentSta(PropertyRequest request, ItemContext context, CancellationToken cancellationToken)
 	{
 		var item = (WindowsStorable)context.CoreModel;
-		var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(item.Locator.AbsolutePidl);
+		var shellItem = WindowShellHelpers.TryResolveItem(item.Locator.AbsolutePidl);
 
 		return new PropertyEntry(context.Reference, shellItem is null ? EmptyProperties.Instance : ReadPropertiesCore(shellItem, request, cancellationToken));
 	}

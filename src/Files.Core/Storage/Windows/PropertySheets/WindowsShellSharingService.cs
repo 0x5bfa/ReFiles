@@ -175,7 +175,7 @@ public static unsafe class WindowsShellSharingService
 	{
 		if (PInvoke.SHCreateItemFromParsingName(path, null, out IShellItem shellItem).Succeeded)
 		{
-			var shellName = ShellItemHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_PARENTRELATIVEFORUI) ?? ShellItemHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_NORMALDISPLAY);
+			var shellName = WindowShellHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_PARENTRELATIVEFORUI) ?? WindowShellHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_NORMALDISPLAY);
 			if (!string.IsNullOrWhiteSpace(shellName))
 			{
 				return shellName;

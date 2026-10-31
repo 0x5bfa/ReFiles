@@ -14,15 +14,10 @@ namespace Files.Core.Storage.Windows;
 internal sealed unsafe class ShellReadStream : Stream
 {
 	private readonly IWindowsShellScheduler _scheduler;
-
 	private IStream? _shellStream;
-
 	private readonly bool _canRead;
-
 	private readonly bool _canWrite;
-
 	private long _length;
-
 	private int _isDisposed;
 
 	public override bool CanRead => _canRead && Volatile.Read(ref _isDisposed) == 0;
@@ -61,6 +56,7 @@ internal sealed unsafe class ShellReadStream : Stream
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 		ArgumentNullException.ThrowIfNull(shellStream);
+
 		if (accessMode is not (FileAccess.Read or FileAccess.Write or FileAccess.ReadWrite))
 		{
 			throw new ArgumentOutOfRangeException(nameof(accessMode));

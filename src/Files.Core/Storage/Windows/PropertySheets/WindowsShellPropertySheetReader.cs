@@ -296,7 +296,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 	{
 		if (PInvoke.SHCreateItemFromParsingName(root, null, out IShellItem shellItem).Succeeded)
 		{
-			var displayName = ShellItemHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_NORMALDISPLAY);
+			var displayName = WindowShellHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_NORMALDISPLAY);
 			if (!string.IsNullOrWhiteSpace(displayName))
 			{
 				return displayName;

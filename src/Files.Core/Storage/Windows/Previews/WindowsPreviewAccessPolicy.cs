@@ -288,7 +288,7 @@ internal sealed class WindowsPreviewUrlTrustResolver : IWindowsPreviewTrustResol
 				return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
 			}
 
-			var url = ShellItemHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_URL);
+			var url = WindowShellHelpers.TryGetDisplayName(shellItem, SIGDN.SIGDN_URL);
 
 			return url is null ? new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate) : EvaluateUrlPolicy(url, item.FileSystemPath);
 		}

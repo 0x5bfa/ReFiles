@@ -185,7 +185,7 @@ public sealed class WindowsShellContextMenuSession : IAsyncDisposable
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		_selection = WindowsShellItemArrayFactory.Create(resolved.Locators);
+		_selection = WindowShellHelpers.CreateShellItemArray(resolved.Locators);
 		_site = _invocationContext is null ? null : new WindowsShellContextMenuSite((HWND)_invocationContext.OwnerWindowHandle);
 		_contextMenu = WindowsShellContextMenuCommandHelper.Create(_selection);
 		if (_site is not null && _contextMenu is IObjectWithSite objectWithSite)

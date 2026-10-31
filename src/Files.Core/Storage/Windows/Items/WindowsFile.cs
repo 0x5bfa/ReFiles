@@ -3,8 +3,6 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-using Files.Core.Storage;
-
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Represents a file exposed by the Windows Shell.</summary>

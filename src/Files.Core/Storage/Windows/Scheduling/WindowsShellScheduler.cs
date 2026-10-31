@@ -128,14 +128,9 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		GC.SuppressFinalize(this);
 	}
 
-	private abstract class WorkItem
+	private abstract class WorkItem(ILogger<WindowsShellScheduler> logger)
 	{
-		protected readonly ILogger<WindowsShellScheduler> _logger;
-
-		protected WorkItem(ILogger<WindowsShellScheduler> logger)
-		{
-			_logger = logger;
-		}
+		protected readonly ILogger<WindowsShellScheduler> _logger = logger;
 
 		public abstract void Execute();
 
@@ -572,44 +567,26 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 		}
 	}
 
-	private sealed class WorkItem<T> : WorkItem, IDisposable
+	private sealed class WorkItem<T>(string laneName, long id, Func<T> action, CancellationToken cancellationToken, ILogger<WindowsShellScheduler> logger)
+		: WorkItem(logger), IDisposable
 	{
 		private const int Pending = 0;
-
 		private const int Started = 1;
-
 		private const int Completed = 2;
 
-		private readonly Func<T> _action;
-		private readonly string _actionName;
-		private readonly long _id;
-		private readonly string _laneName;
-		private readonly long _queuedTimestamp;
-
-		private readonly CancellationToken _cancellationToken;
-
+		private readonly Func<T> _action = action;
+		private readonly string _actionName = $"{action.Method.DeclaringType?.Name}.{action.Method.Name}";
+		private readonly long _id = id;
+		private readonly string _laneName = laneName;
+		private readonly long _queuedTimestamp = Stopwatch.GetTimestamp();
+		private readonly CancellationToken _cancellationToken = cancellationToken;
 		private readonly TaskCompletionSource<T> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
 		private CancellationTokenRegistration _cancellationRegistration;
-
 		private int _state;
 
 		public long Id => _id;
-
 		public string ActionName => _actionName;
-
 		public Task<T> Task => _completion.Task;
-
-		public WorkItem(string laneName, long id, Func<T> action, CancellationToken cancellationToken, ILogger<WindowsShellScheduler> logger)
-			: base(logger)
-		{
-			_laneName = laneName;
-			_id = id;
-			_action = action;
-			_actionName = $"{action.Method.DeclaringType?.Name}.{action.Method.Name}";
-			_cancellationToken = cancellationToken;
-			_queuedTimestamp = Stopwatch.GetTimestamp();
-		}
 
 		public bool TryPrepareForQueue()
 		{

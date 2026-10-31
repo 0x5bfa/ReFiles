@@ -28,7 +28,7 @@ internal static class WindowsShellDataObjectFactory
 			return dataObject;
 		}
 
-		var shellItemArray = WindowsShellItemArrayFactory.Create(locators);
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(locators);
 		shellItemArray.BindToHandler<IDataObject>(null, PInvoke.BHID_DataObject, out dataObject).ThrowOnFailure();
 
 		return dataObject ?? throw new InvalidOperationException("The Windows Shell selection did not provide a data object.");
@@ -50,7 +50,7 @@ internal static class WindowsShellDataObjectFactory
 			}
 		}
 
-		var parentItem = WindowsShellItemResolver.TryResolveOnCurrentSta(parentLocator.AbsolutePidl);
+		var parentItem = WindowShellHelpers.TryResolveItem(parentLocator.AbsolutePidl);
 		if (parentItem is null || parentItem.BindToHandler<IShellFolder>(null, PInvoke.BHID_SFObject, out var parentFolder).Failed || parentFolder is null)
 		{
 			return null;

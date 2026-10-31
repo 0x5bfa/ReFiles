@@ -48,7 +48,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		{
 			var payload = await _scheduler.InvokeConcurrentAsync(() =>
 			{
-				var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(_locator);
+				var shellItem = WindowShellHelpers.TryResolveItem(_locator);
 
 				return shellItem is null ? null : _backend.GetThumbnail(shellItem, _locator, request, cancellationToken);
 			}, cancellationToken).ConfigureAwait(false);

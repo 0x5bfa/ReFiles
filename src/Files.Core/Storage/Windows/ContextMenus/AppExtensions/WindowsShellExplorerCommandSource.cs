@@ -61,7 +61,7 @@ internal sealed class WindowsShellExplorerCommandSource
 	private static IReadOnlyList<WindowsShellExplorerCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection,
 		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
 	{
-		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
 		var commands = new List<WindowsShellExplorerCommand>(registrations.Count);
 		foreach (var registration in registrations)
 		{
@@ -99,7 +99,7 @@ internal sealed class WindowsShellExplorerCommandSource
 			}
 		}
 
-		var shellItemArray = WindowsShellItemArrayFactory.Create(selection.Locators);
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
 		var invokeResult = command.Invoke(shellItemArray, null!);
 		if (invokeResult != HRESULT.E_NOTIMPL)
 		{

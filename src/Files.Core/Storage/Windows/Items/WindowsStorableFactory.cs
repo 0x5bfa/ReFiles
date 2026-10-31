@@ -41,7 +41,7 @@ internal sealed class WindowsStorableFactory
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
-		return _scheduler.InvokeAsync(() => Create(ShellItemHelpers.CreateDescriptor(WindowsShellItemResolver.ResolveOnCurrentSta(parsingName), _itemIdReader)), cancellationToken);
+		return _scheduler.InvokeAsync(() => Create(WindowShellHelpers.CreateDescriptor(WindowShellHelpers.ResolveItem(parsingName), _itemIdReader)), cancellationToken);
 	}
 
 	public Task<WindowsStorable> CreateAsync(Guid knownFolderId, CancellationToken cancellationToken = default)
@@ -52,7 +52,7 @@ internal sealed class WindowsStorableFactory
 				var hr = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
 				hr.ThrowOnFailure();
 
-				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
+				return Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
 			},
 			cancellationToken);
 	}
@@ -66,7 +66,7 @@ internal sealed class WindowsStorableFactory
 				var hr = PInvoke.SHCreateItemFromIDList(in desktopPidl, out IShellItem shellItem);
 				hr.ThrowOnFailure();
 
-				return Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
+				return Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
 			},
 			cancellationToken);
 	}
@@ -84,7 +84,7 @@ internal sealed class WindowsStorableFactory
 			() =>
 			{
 				var shellItem = WindowsShellSearchFolderFactory.Create(query, scopeLocators);
-				var descriptor = ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader) with { IsSearchFolder = true };
+				var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader) with { IsSearchFolder = true };
 				var storable = Create(descriptor);
 
 				return storable as WindowsFolder ?? throw new InvalidOperationException("The Windows Shell search factory did not return a folder.");
@@ -101,9 +101,9 @@ internal sealed class WindowsStorableFactory
 
 		return _scheduler.InvokeConcurrentAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(parsingName);
+			var shellItem = WindowShellHelpers.TryResolveItem(parsingName);
 
-			return shellItem is null ? null : Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
+			return shellItem is null ? null : Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
 		}, cancellationToken);
 	}
 
@@ -116,9 +116,9 @@ internal sealed class WindowsStorableFactory
 
 		return _scheduler.InvokeAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(absolutePidl);
+			var shellItem = WindowShellHelpers.TryResolveItem(absolutePidl);
 
-			return shellItem is null ? null : Create(ShellItemHelpers.CreateDescriptor(shellItem, _itemIdReader));
+			return shellItem is null ? null : Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
 		}, cancellationToken);
 	}
 
@@ -140,7 +140,7 @@ internal sealed class WindowsStorableFactory
 
 		return _scheduler.InvokeAsync(() =>
 		{
-			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(descriptor.Locator);
+			var shellItem = WindowShellHelpers.TryResolveItem(descriptor.Locator);
 			if (shellItem is null)
 			{
 				return null;
@@ -153,7 +153,7 @@ internal sealed class WindowsStorableFactory
 				return null;
 			}
 
-			return Create(ShellItemHelpers.CreateDescriptor(parent, _itemIdReader)) as WindowsFolder;
+			return Create(WindowShellHelpers.CreateDescriptor(parent, _itemIdReader)) as WindowsFolder;
 		},
 		cancellationToken);
 	}
