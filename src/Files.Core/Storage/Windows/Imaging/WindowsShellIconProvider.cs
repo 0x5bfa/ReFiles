@@ -36,7 +36,7 @@ internal static unsafe class WindowsShellIconProvider
 				return ReadOnlyMemory<byte>.Empty;
 			}
 
-			return WindowsThumbnailRenderer.EncodeHIcon(largeIcon, size, cancellationToken) ?? [];
+			return WindowsIconRenderer.EncodeHIcon(largeIcon, size, cancellationToken) ?? [];
 		}
 	}
 
@@ -65,7 +65,7 @@ internal static unsafe class WindowsShellIconProvider
 
 		using var icon = new DestroyIconSafeHandle((nint)info.hIcon.Value);
 
-		return WindowsThumbnailRenderer.EncodeHIcon(icon, size, cancellationToken) ?? [];
+		return WindowsIconRenderer.EncodeHIcon(icon, size, cancellationToken) ?? [];
 	}
 
 	private static ReadOnlyMemory<byte> TryGetAppExtensionIcon(string path, int index, int size, CancellationToken cancellationToken, string? packageFullName)

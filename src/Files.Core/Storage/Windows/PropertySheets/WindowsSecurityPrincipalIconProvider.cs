@@ -20,7 +20,7 @@ internal static unsafe class WindowsSecurityPrincipalIconProvider
 	{
 		var index = GetIconIndex(sid, type);
 
-		return WindowsThumbnailRenderer.TryCropEncodedImage(_imageStrip.Value, index * 16, 0, 16, 16, out var icon, CancellationToken.None)
+		return WindowsIconRenderer.TryCropEncodedImage(_imageStrip.Value, index * 16, 0, 16, 16, out var icon, CancellationToken.None)
 			? (icon, 0)
 			: (ReadOnlyMemory<byte>.Empty, 0);
 	}

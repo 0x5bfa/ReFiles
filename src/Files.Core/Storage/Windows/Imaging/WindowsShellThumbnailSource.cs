@@ -325,7 +325,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 				return null;
 			}
 
-			var bitmap = WindowsThumbnailRenderer.RenderHBitmap(sharedBitmapHandle, cancellationToken, alphaType is WTS_ALPHATYPE.WTSAT_RGB);
+			var bitmap = WindowsIconRenderer.RenderHBitmap(sharedBitmapHandle, cancellationToken, alphaType is WTS_ALPHATYPE.WTSAT_RGB);
 
 			return bitmap is null ? null : CreateBgraPayload(bitmap, isFallback: false);
 		}
@@ -366,12 +366,12 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 
 			if (!isFallback)
 			{
-				var rendered = WindowsThumbnailRenderer.RenderHBitmap(bitmap, cancellationToken);
+				var rendered = WindowsIconRenderer.RenderHBitmap(bitmap, cancellationToken);
 
 				return rendered is null ? null : CreateBgraPayload(rendered, isFallback: false);
 			}
 
-			var content = WindowsThumbnailRenderer.EncodeHBitmap(bitmap, cancellationToken);
+			var content = WindowsIconRenderer.EncodeHBitmap(bitmap, cancellationToken);
 
 			return content is null ? null : new WindowsThumbnailPayload(content, "image/png", isFallback);
 		}
@@ -406,7 +406,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 				return null;
 			}
 
-			var encodedIcon = WindowsThumbnailRenderer.EncodeHIcon(icon, requestedSize, cancellationToken);
+			var encodedIcon = WindowsIconRenderer.EncodeHIcon(icon, requestedSize, cancellationToken);
 			if (encodedIcon is null)
 			{
 				return null;
@@ -500,7 +500,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 					return null;
 				}
 
-				var rendered = WindowsThumbnailRenderer.RenderHBitmap(bitmap, cancellationToken);
+				var rendered = WindowsIconRenderer.RenderHBitmap(bitmap, cancellationToken);
 
 				return rendered is null ? null : CreateBgraPayload(rendered, isFallback: false);
 			}
@@ -555,7 +555,7 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 					return null;
 				}
 
-				var content = WindowsThumbnailRenderer.EncodeHIcon(icon, requestedSize, cancellationToken);
+				var content = WindowsIconRenderer.EncodeHIcon(icon, requestedSize, cancellationToken);
 
 				return content is null ? null : new WindowsThumbnailPayload(content, "image/png", IsFallback: true);
 			}
@@ -579,10 +579,10 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 			{
 				var bitmap = new WindowsBitmapData(payload.Content, payload.PixelWidth, payload.PixelHeight);
 
-				return WindowsThumbnailRenderer.TryCompositeOverlay(bitmap, overlayIcon, out var compositedBitmap, cancellationToken) ? payload with { Content = compositedBitmap.Pixels } : payload;
+				return WindowsIconRenderer.TryCompositeOverlay(bitmap, overlayIcon, out var compositedBitmap, cancellationToken) ? payload with { Content = compositedBitmap.Pixels } : payload;
 			}
 
-			return WindowsThumbnailRenderer.TryCompositeOverlay(payload.Content, overlayIcon, out var compositedContent, cancellationToken) ? payload with { Content = compositedContent } : payload;
+			return WindowsIconRenderer.TryCompositeOverlay(payload.Content, overlayIcon, out var compositedContent, cancellationToken) ? payload with { Content = compositedContent } : payload;
 		}
 	}
 

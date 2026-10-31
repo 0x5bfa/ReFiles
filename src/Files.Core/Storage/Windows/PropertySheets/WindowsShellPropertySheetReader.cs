@@ -188,7 +188,7 @@ internal static unsafe class WindowsShellPropertySheetReader
 			{
 				using (icon)
 				{
-					iconData = WindowsThumbnailRenderer.EncodeHIcon(icon, 32, cancellationToken) ?? [];
+					iconData = WindowsIconRenderer.EncodeHIcon(icon, 32, cancellationToken) ?? [];
 				}
 			}
 

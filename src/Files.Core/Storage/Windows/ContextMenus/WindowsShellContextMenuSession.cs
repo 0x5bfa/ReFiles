@@ -355,7 +355,7 @@ public sealed class WindowsShellContextMenuSession : IAsyncDisposable
 
 		if (_nativeIcons.TryGetValue(entry, out var bitmap))
 		{
-			return WindowsThumbnailRenderer.EncodeHBitmap(bitmap, CancellationToken.None) ?? [];
+			return WindowsIconRenderer.EncodeHBitmap(bitmap, CancellationToken.None) ?? [];
 		}
 
 		if (entry.Icon is not { } icon)

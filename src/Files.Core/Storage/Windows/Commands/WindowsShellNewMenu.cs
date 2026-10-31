@@ -116,7 +116,7 @@ public sealed class WindowsShellNewMenu
 						continue;
 					}
 
-					var iconData = WindowsThumbnailRenderer.EncodeHBitmap(menuItem.hbmpItem, cancellationToken) ?? [];
+					var iconData = WindowsIconRenderer.EncodeHBitmap(menuItem.hbmpItem, cancellationToken) ?? [];
 					items.Add(new WindowsShellNewItem(menuItem.wID - FirstCommandId, name, iconData, !menuItem.fState.HasFlag(MENU_ITEM_STATE.MFS_DISABLED)));
 				}
 				finally

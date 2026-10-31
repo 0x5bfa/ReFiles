@@ -18,7 +18,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Converts Shell-owned bitmap and icon handles into independent PNG bytes.
 /// </summary>
-internal static unsafe class WindowsThumbnailRenderer
+internal static unsafe class WindowsIconRenderer
 {
 	private const uint BitmapInfoCompressionRgb = 0;
 	private const byte SentinelBlue = 0x37;
