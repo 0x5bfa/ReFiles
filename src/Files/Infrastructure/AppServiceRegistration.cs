@@ -8,6 +8,7 @@ using Files.StorageOperations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Files.ItemProperties;
 using System.IO;
 
 namespace Files.Infrastructure;
@@ -19,7 +20,7 @@ internal static class AppServiceRegistration
 		var services = new ServiceCollection();
 		services.AddSingleton<ILoggerFactory>(_ => CreateLoggerFactory());
 		services.AddLogging();
-		services.AddSingleton<IWindowsShellIconResources, WindowsShellIconResources>();
+		services.AddSingleton<ItemPropertiesIconResources>();
 		services.AddSingleton(provider => new WinRTStorageOperationService(provider.GetRequiredService<ILogger<WinRTStorageOperationService>>()));
 		services.AddSingleton(provider => new StorageOperationTracker(provider.GetRequiredService<WinRTStorageOperationService>(), provider.GetRequiredService<ILogger<StorageOperationTracker>>()));
 		services.AddSingleton(_ => AppCommandRegistration.Build());

@@ -15,13 +15,13 @@ namespace Files.ItemProperties;
 public sealed partial class PreviousVersionsPropertyView : UserControl
 {
 	private readonly Action<string, string?> _launchSystemTool;
-	private readonly IWindowsShellIconResources _iconResources;
+	private readonly ItemPropertiesIconResources _iconResources;
 
 	internal ObservableCollection<PreviousVersionViewModel> Versions { get; }
 
 	internal Visibility EmptyVisibility => Versions.Count is 0 ? Visibility.Visible : Visibility.Collapsed;
 
-	internal PreviousVersionsPropertyView(IReadOnlyList<WindowsShellPreviousVersion> versions, Action<string, string?> launchSystemTool, IWindowsShellIconResources iconResources)
+	internal PreviousVersionsPropertyView(IReadOnlyList<WindowsShellPreviousVersion> versions, Action<string, string?> launchSystemTool, ItemPropertiesIconResources iconResources)
 	{
 		Versions = new(versions.Select(static version => new PreviousVersionViewModel(version)));
 		_launchSystemTool = launchSystemTool;

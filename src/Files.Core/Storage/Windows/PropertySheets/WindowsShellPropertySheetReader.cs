@@ -195,7 +195,13 @@ internal static unsafe class WindowsShellPropertySheetReader
 			if (iconData.IsEmpty)
 			{
 				var stockIcon = classId == PInvoke.GUID_DEVCLASS_CDROM ? SHSTOCKICONID.SIID_DRIVECD : classId == PInvoke.GUID_DEVCLASS_FLOPPYDISK ? SHSTOCKICONID.SIID_DRIVEREMOVE : SHSTOCKICONID.SIID_DRIVEFIXED;
-				iconData = WindowsShellIconProvider.GetStockIcon(stockIcon, 32, cancellationToken);
+				SHSTOCKICONINFO info = default;
+				info.cbSize = (uint)sizeof(SHSTOCKICONINFO);
+				if (PInvoke.SHGetStockIconInfo(stockIcon, SHGSI_FLAGS.SHGSI_ICON | SHGSI_FLAGS.SHGSI_LARGEICON, ref info).Succeeded && !info.hIcon.IsNull)
+				{
+					using var stockIconHandle = new DestroyIconSafeHandle((nint)info.hIcon.Value);
+					iconData = WindowsIconRenderer.EncodeHIcon(stockIconHandle, 32, cancellationToken) ?? [];
+				}
 			}
 
 			devices.Add(new(iconData, string.IsNullOrEmpty(name) ? instanceId : name, type, manufacturer, location, locationNumber, locationNumberFormat, (uint)status, (uint)problemCode, instanceId));

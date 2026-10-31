@@ -1,6 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.ItemProperties;
 using Files.Views;
 using Files.Commands;
 using Files.Infrastructure;
@@ -146,7 +147,7 @@ public partial class App : Application
 				() => CloseWindowAsync(coreWindow.Id, mainWindow),
 				() => CreateWindowAsync(persistPlacement: false),
 				_loggerFactory,
-				_services.GetRequiredService<IWindowsShellIconResources>());
+				_services.GetRequiredService<ItemPropertiesIconResources>());
 			mainWindow.ApplyTheme(_settings.ThemeMode);
 			lock (_windowsLock)
 			{

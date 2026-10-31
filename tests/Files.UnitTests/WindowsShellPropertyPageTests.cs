@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.Buffers.Binary;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Models;
@@ -49,34 +48,6 @@ public sealed class WindowsShellPropertyPageTests
 		{
 			Directory.Delete(directoryPath, recursive: true);
 		}
-	}
-
-	/// <summary>
-	/// Verifies that Shell property-page stock icons can be converted to independent PNG data.
-	/// </summary>
-	/// <returns>The asynchronous test.</returns>
-	[TestMethod]
-	public async Task PropertyPageStockIconsCanBeLoaded()
-	{
-		IWindowsShellIconResources resources = new WindowsShellIconResources();
-		Assert.IsFalse((await resources.GetElevationShieldIconAsync()).IsEmpty);
-		Assert.IsFalse((await resources.GetFolderIconAsync()).IsEmpty);
-	}
-
-	/// <summary>
-	/// Verifies that Shell resource icons retain the requested physical pixel size.
-	/// </summary>
-	/// <returns>The asynchronous test.</returns>
-	[TestMethod]
-	public async Task ShellResourceIconUsesRequestedPixelSize()
-	{
-		const int requestedSize = 24;
-		var shellLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "shell32.dll");
-		IWindowsShellIconResources resources = new WindowsShellIconResources();
-		var icon = await resources.GetResourceIconAsync(shellLibrary, 0, requestedSize);
-		Assert.IsTrue(icon.Length >= 24);
-		Assert.AreEqual(requestedSize, BinaryPrimitives.ReadInt32BigEndian(icon.Span.Slice(16, sizeof(int))));
-		Assert.AreEqual(requestedSize, BinaryPrimitives.ReadInt32BigEndian(icon.Span.Slice(20, sizeof(int))));
 	}
 
 	/// <summary>

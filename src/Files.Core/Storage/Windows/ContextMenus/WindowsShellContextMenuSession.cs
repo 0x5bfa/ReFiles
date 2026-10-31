@@ -361,10 +361,10 @@ public sealed class WindowsShellContextMenuSession : IAsyncDisposable
 		if (entry.Icon is not { } icon)
 		{
 			return _nativeCommands.ContainsKey(entry) && _selection is not null
-				? WindowsShellCommandStoreIconSource.Read(entry.Id, _selection, _site, pixelSize) : ReadOnlyMemory<byte>.Empty;
+				? WindowsShellContextMenuIconSource.ReadCommandIcon(entry.Id, _selection, _site, pixelSize) : ReadOnlyMemory<byte>.Empty;
 		}
 
-		return WindowsShellIconProvider.GetAppExtensionIcon(icon.Path, icon.Index, pixelSize, CancellationToken.None,
+		return WindowsShellContextMenuIconSource.ReadIcon(icon.Path, icon.Index, pixelSize, CancellationToken.None,
 			icon.PackageFullName, icon.FallbackPath, icon.FallbackIndex, icon.FallbackPackageFullName);
 	}
 

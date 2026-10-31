@@ -21,7 +21,7 @@ namespace Files.ItemProperties;
 public sealed partial class ItemPropertiesWindow : Window
 {
 	private readonly CancellationTokenSource _lifetime = new();
-	private readonly IWindowsShellIconResources _iconResources;
+	private readonly ItemPropertiesIconResources _iconResources;
 	private readonly Func<int, CancellationToken, Task<ThumbnailResult?>>? _getIcon;
 	private readonly Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? _getPropertyPages;
 	private readonly Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? _getPropertyPageData;
@@ -42,7 +42,7 @@ public sealed partial class ItemPropertiesWindow : Window
 		IReadOnlyList<BrowseItemViewModel> items,
 		IStorageOperationService storageOperations,
 		IItemPropertiesFileSystem fileSystem,
-		IWindowsShellIconResources iconResources,
+		ItemPropertiesIconResources iconResources,
 		Func<int, CancellationToken, Task<ThumbnailResult?>>? getIcon = null,
 		Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? getPropertyPages = null,
 		Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? getPropertyPageData = null,

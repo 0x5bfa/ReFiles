@@ -54,7 +54,7 @@ public sealed partial class MainWindow : Window
 		Func<Task> closeAsync,
 		Func<Task> createWindowAsync,
 		ILoggerFactory loggerFactory,
-		IWindowsShellIconResources iconResources)
+		ItemPropertiesIconResources iconResources)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
 

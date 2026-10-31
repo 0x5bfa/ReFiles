@@ -19,14 +19,14 @@ internal sealed partial class ItemPropertiesService : IItemPropertiesService, ID
 {
 	private readonly nint _owner;
 	private readonly IStorageWorkspace _workspace;
-	private readonly IWindowsShellIconResources _iconResources;
+	private readonly ItemPropertiesIconResources _iconResources;
 	private readonly IItemPropertiesFileSystem _fileSystem;
 	private readonly WindowsShellPropertiesService? _shellProperties;
 	private readonly IStorageOperationService _storageOperations;
 	private readonly HashSet<ItemPropertiesWindow> _windows = [];
 	private bool _isDisposed;
 
-	internal ItemPropertiesService(nint owner, IStorageWorkspace workspace, IStorageOperationService storageOperations, IWindowsShellIconResources iconResources,
+	internal ItemPropertiesService(nint owner, IStorageWorkspace workspace, IStorageOperationService storageOperations, ItemPropertiesIconResources iconResources,
 		WindowsShellPropertiesService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);

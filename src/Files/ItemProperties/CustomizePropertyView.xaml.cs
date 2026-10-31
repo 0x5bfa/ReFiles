@@ -19,7 +19,7 @@ public sealed partial class CustomizePropertyView : UserControl
 	private readonly ItemPropertiesViewModel _ownerViewModel;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
-	private readonly IWindowsShellIconResources _iconResources;
+	private readonly ItemPropertiesIconResources _iconResources;
 	private readonly ImageSource? _itemIcon;
 	private readonly CancellationToken _cancellationToken;
 	private string _appliedFolderKind;
@@ -43,7 +43,7 @@ public sealed partial class CustomizePropertyView : UserControl
 		|| !StringComparer.OrdinalIgnoreCase.Equals(_iconPath, _appliedIconPath) || _iconIndex != _appliedIconIndex;
 
 	internal CustomizePropertyView(WindowsShellFolderCustomizationProperties customization, ItemPropertiesViewModel ownerViewModel, HWND owner, Action<string> showError,
-		IWindowsShellIconResources iconResources, ImageSource? itemIcon, CancellationToken cancellationToken)
+		ItemPropertiesIconResources iconResources, ImageSource? itemIcon, CancellationToken cancellationToken)
 	{
 		Customization = customization;
 		_ownerViewModel = ownerViewModel;
