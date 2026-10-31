@@ -15,22 +15,24 @@ namespace Files.ItemProperties;
 public sealed partial class PreviousVersionsPropertyView : UserControl
 {
 	private readonly Action<string, string?> _launchSystemTool;
+	private readonly IWindowsShellIconResources _iconResources;
 
 	internal ObservableCollection<PreviousVersionViewModel> Versions { get; }
 
 	internal Visibility EmptyVisibility => Versions.Count is 0 ? Visibility.Visible : Visibility.Collapsed;
 
-	internal PreviousVersionsPropertyView(IReadOnlyList<WindowsShellPreviousVersion> versions, Action<string, string?> launchSystemTool)
+	internal PreviousVersionsPropertyView(IReadOnlyList<WindowsShellPreviousVersion> versions, Action<string, string?> launchSystemTool, IWindowsShellIconResources iconResources)
 	{
 		Versions = new(versions.Select(static version => new PreviousVersionViewModel(version)));
 		_launchSystemTool = launchSystemTool;
+		_iconResources = iconResources;
 		InitializeComponent();
 		_ = LoadFolderIconsAsync();
 	}
 
 	private async Task LoadFolderIconsAsync()
 	{
-		var iconData = WindowsShellIconProvider.GetFolderIcon();
+		var iconData = await _iconResources.GetFolderIconAsync();
 		if (iconData.IsEmpty)
 		{
 			return;

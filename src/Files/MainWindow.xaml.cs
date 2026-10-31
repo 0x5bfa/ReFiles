@@ -53,7 +53,8 @@ public sealed partial class MainWindow : Window
 		Action<nint> activateServerWindow,
 		Func<Task> closeAsync,
 		Func<Task> createWindowAsync,
-		ILoggerFactory loggerFactory)
+		ILoggerFactory loggerFactory,
+		IWindowsShellIconResources iconResources)
 	{
 		ArgumentNullException.ThrowIfNull(coreWindow);
 
@@ -76,6 +77,8 @@ public sealed partial class MainWindow : Window
 		ArgumentNullException.ThrowIfNull(createWindowAsync);
 		ArgumentNullException.ThrowIfNull(loggerFactory);
 
+		ArgumentNullException.ThrowIfNull(iconResources);
+
 		InitializeComponent();
 		_activateSession = activateSession;
 		_activateServerWindow = activateServerWindow;
@@ -84,7 +87,8 @@ public sealed partial class MainWindow : Window
 		_windowHandle = WindowNative.GetWindowHandle(this);
 		var itemActivationService = new ItemActivationService(workspace, _windowHandle);
 		var windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
-		_itemPropertiesService = new ItemPropertiesService(_windowHandle, storageOperations, windowsSource is null ? null : new WindowsShellPropertiesService(windowsSource));
+		_itemPropertiesService = new ItemPropertiesService(_windowHandle, workspace, storageOperations, iconResources,
+			windowsSource is null ? null : new WindowsShellPropertiesService(windowsSource));
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,

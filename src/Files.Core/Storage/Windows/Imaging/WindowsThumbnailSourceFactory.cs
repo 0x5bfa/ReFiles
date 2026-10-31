@@ -3,6 +3,7 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
+using System.Collections.Concurrent;
 using System.Runtime.Versioning;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Thumbnails;
@@ -17,7 +18,7 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsThumbnailSourceFactory : ICapabilityFactory<IThumbnailSource>
 {
-	private readonly WindowsShellThumbnailBackend _backend = new();
+	private readonly ConcurrentDictionary<WindowsShellThumbnailSource.SystemIconCacheKey, byte[]> _systemIconCache = new();
 	private readonly ILoggerFactory _loggerFactory;
 
 	/// <summary>Initializes a Windows thumbnail source factory.</summary>
@@ -39,6 +40,6 @@ public sealed class WindowsThumbnailSourceFactory : ICapabilityFactory<IThumbnai
 			return null;
 		}
 
-		return new WindowsShellThumbnailSource(source.Scheduler, _backend, storable.Locator, _loggerFactory.CreateLogger<WindowsShellThumbnailSource>());
+		return new WindowsShellThumbnailSource(source.Scheduler, storable.Locator, _systemIconCache, _loggerFactory.CreateLogger<WindowsShellThumbnailSource>());
 	}
 }

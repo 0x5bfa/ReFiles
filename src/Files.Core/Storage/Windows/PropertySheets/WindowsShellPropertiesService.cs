@@ -5,7 +5,9 @@
 
 using System.Diagnostics;
 using System.IO;
+using Files.Core.Capabilities;
 using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Models;
 using Files.Core.Storage;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -19,7 +21,6 @@ namespace Files.Core.Storage.Windows;
 public sealed class WindowsShellPropertiesService
 {
 	private readonly WindowsStorageSource _source;
-	private readonly WindowsShellThumbnailBackend _thumbnailBackend = new();
 
 	/// <summary>Initializes the property service for a Windows storage source.</summary>
 	/// <param name="source">The source used to resolve the selected items.</param>
@@ -88,26 +89,30 @@ public sealed class WindowsShellPropertiesService
 	}
 
 	/// <summary>Gets the Shell description and icon shown on the General property page for a single item.</summary>
-	/// <param name="selection">The selected Windows Shell item references.</param>
+	/// <param name="item">The borrowed item model whose composed thumbnail capability supplies the icon.</param>
 	/// <param name="cancellationToken">The token used to cancel selection resolution and icon extraction.</param>
-	/// <returns>The description and icon, or empty values when the selection cannot be resolved to one item.</returns>
-	public async Task<(string? Description, ThumbnailResult? Icon)> GetGeneralPropertiesAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken = default)
+	/// <returns>The description and optional icon, or empty values when the item cannot be resolved.</returns>
+	public async Task<(string? Description, ThumbnailResult? Icon)> GetGeneralPropertiesAsync(IStorableModel item, CancellationToken cancellationToken = default)
 	{
-		ArgumentNullException.ThrowIfNull(selection);
+		ArgumentNullException.ThrowIfNull(item);
 
-		if (selection.Count is not 1 || await ResolveSelectionAsync(selection, cancellationToken).ConfigureAwait(false) is not { } resolvedSelection)
+		if (await ResolveSelectionAsync([item.Reference], cancellationToken).ConfigureAwait(false) is not { } resolvedSelection)
 		{
 			return (null, null);
 		}
 
 		var locator = resolvedSelection.Locators[0];
 
-		return await _source.Scheduler.InvokeConcurrentAsync(() =>
+		var description = await _source.Scheduler.InvokeConcurrentAsync(() =>
 		{
 			var shellItem = WindowShellHelpers.TryResolveItem(locator);
 
-			return shellItem is null ? default : ReadGeneralProperties(shellItem, locator, cancellationToken);
+			return shellItem is null ? null : ReadDescription(shellItem, cancellationToken);
 		}, cancellationToken).ConfigureAwait(false);
+		var thumbnails = item.Get<IThumbnailSource>();
+		var icon = thumbnails is null ? null : await thumbnails.GetThumbnailAsync(new ThumbnailRequest(48, ThumbnailMode.Icon), cancellationToken).ConfigureAwait(false);
+
+		return (description, icon);
 	}
 
 	/// <summary>Opens the Shell property sheet for a selection without constructing an <c>IContextMenu</c>.</summary>
@@ -148,7 +153,7 @@ public sealed class WindowsShellPropertiesService
 		return WindowsShellPropertySheetReader.Read(primaryItem, selection, pages, cancellationToken);
 	}
 
-	private (string? Description, ThumbnailResult? Icon) ReadGeneralProperties(IShellItem shellItem, WindowsItemLocator locator, CancellationToken cancellationToken)
+	private static string? ReadDescription(IShellItem shellItem, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
@@ -163,10 +168,7 @@ public sealed class WindowsShellPropertiesService
 			description = ReadShellString(shellItem, "System.Comment");
 		}
 
-		var payload = _thumbnailBackend.GetThumbnail(shellItem, locator, new ThumbnailRequest(48, ThumbnailMode.Icon), cancellationToken);
-		var icon = payload is null ? null : new ThumbnailResult(payload.Content, payload.ContentType, payload.IsFallback, payload.Format, payload.PixelWidth, payload.PixelHeight);
-
-		return (description, icon);
+		return description;
 	}
 
 	private static string? ReadFileDescription(string path)

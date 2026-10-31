@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Buffers.Binary;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 
@@ -14,25 +17,63 @@ namespace Files.UnitTests;
 [DoNotParallelize]
 public sealed class WindowsShellPropertyPageTests
 {
+	/// <summary>General-page icons honor composed capabilities and remain absent when no thumbnail capability is registered.</summary>
+	/// <returns>The asynchronous test.</returns>
+	[TestMethod]
+	public async Task GeneralPropertiesUseTheComposedThumbnailCapability()
+	{
+		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.PropertyIconTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directoryPath);
+		try
+		{
+			await using var source = new WindowsStorageSource();
+			var item = await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+			var expected = new ThumbnailResult(new byte[] { 0, 0, 0, 255 }, "application/octet-stream", false, ThumbnailContentFormat.Bgra8, 1, 1);
+			var composed = new TestThumbnailSource { Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(expected) };
+			var registry = new CapabilityBuilder().Add<IThumbnailSource>(new WindowsThumbnailSourceFactory())
+				.AddWrapper<IThumbnailSource>(new DelegateCapabilityWrapper<IThumbnailSource>((_, _) => composed)).Build();
+			await using var model = new StorableModelFactory(registry).Create(source, item);
+			var service = new WindowsShellPropertiesService(source);
+			var result = await service.GetGeneralPropertiesAsync(model);
+			Assert.AreSame(expected, result.Icon);
+			Assert.AreEqual(1, composed.CallCount);
+			Assert.AreEqual(ThumbnailMode.Icon, composed.Requests[0].Mode);
+			Assert.AreEqual(48, composed.Requests[0].RequestedPixelSize);
+
+			await using var withoutThumbnails = new StorableModelFactory(CapabilityRegistry.Empty).Create(source, item);
+			var unsupported = await service.GetGeneralPropertiesAsync(withoutThumbnails);
+			Assert.IsNull(unsupported.Icon);
+			Assert.AreEqual(1, composed.CallCount);
+		}
+		finally
+		{
+			Directory.Delete(directoryPath, recursive: true);
+		}
+	}
+
 	/// <summary>
 	/// Verifies that Shell property-page stock icons can be converted to independent PNG data.
 	/// </summary>
+	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
-	public void PropertyPageStockIconsCanBeLoaded()
+	public async Task PropertyPageStockIconsCanBeLoaded()
 	{
-		Assert.IsFalse(WindowsShellIconProvider.GetElevationShieldIcon().IsEmpty);
-		Assert.IsFalse(WindowsShellIconProvider.GetFolderIcon().IsEmpty);
+		IWindowsShellIconResources resources = new WindowsShellIconResources();
+		Assert.IsFalse((await resources.GetElevationShieldIconAsync()).IsEmpty);
+		Assert.IsFalse((await resources.GetFolderIconAsync()).IsEmpty);
 	}
 
 	/// <summary>
 	/// Verifies that Shell resource icons retain the requested physical pixel size.
 	/// </summary>
+	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
-	public void ShellResourceIconUsesRequestedPixelSize()
+	public async Task ShellResourceIconUsesRequestedPixelSize()
 	{
 		const int requestedSize = 24;
 		var shellLibrary = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "shell32.dll");
-		var icon = WindowsShellIconProvider.GetResourceIcon(shellLibrary, 0, requestedSize);
+		IWindowsShellIconResources resources = new WindowsShellIconResources();
+		var icon = await resources.GetResourceIconAsync(shellLibrary, 0, requestedSize);
 		Assert.IsTrue(icon.Length >= 24);
 		Assert.AreEqual(requestedSize, BinaryPrimitives.ReadInt32BigEndian(icon.Span.Slice(16, sizeof(int))));
 		Assert.AreEqual(requestedSize, BinaryPrimitives.ReadInt32BigEndian(icon.Span.Slice(20, sizeof(int))));

@@ -7,6 +7,7 @@ using Files.Localization;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Windows.Storage.Pickers;
 using Windows.Win32.Foundation;
 
@@ -18,6 +19,9 @@ public sealed partial class CustomizePropertyView : UserControl
 	private readonly ItemPropertiesViewModel _ownerViewModel;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
+	private readonly IWindowsShellIconResources _iconResources;
+	private readonly ImageSource? _itemIcon;
+	private readonly CancellationToken _cancellationToken;
 	private string _appliedFolderKind;
 	private string _appliedPicturePath;
 	private string _appliedIconPath;
@@ -28,6 +32,7 @@ public sealed partial class CustomizePropertyView : UserControl
 	private int _iconIndex;
 	private bool _applyToSubfolders;
 	private bool _isInitializing;
+	private int _iconPreviewVersion;
 
 	internal WindowsShellFolderCustomizationProperties Customization { get; }
 
@@ -37,12 +42,16 @@ public sealed partial class CustomizePropertyView : UserControl
 		|| !StringComparer.OrdinalIgnoreCase.Equals(_picturePath, _appliedPicturePath)
 		|| !StringComparer.OrdinalIgnoreCase.Equals(_iconPath, _appliedIconPath) || _iconIndex != _appliedIconIndex;
 
-	internal CustomizePropertyView(WindowsShellFolderCustomizationProperties customization, ItemPropertiesViewModel ownerViewModel, HWND owner, Action<string> showError)
+	internal CustomizePropertyView(WindowsShellFolderCustomizationProperties customization, ItemPropertiesViewModel ownerViewModel, HWND owner, Action<string> showError,
+		IWindowsShellIconResources iconResources, ImageSource? itemIcon, CancellationToken cancellationToken)
 	{
 		Customization = customization;
 		_ownerViewModel = ownerViewModel;
 		_owner = owner;
 		_showError = showError;
+		_iconResources = iconResources;
+		_itemIcon = itemIcon;
+		_cancellationToken = cancellationToken;
 		_appliedFolderKind = NormalizeFolderKind(customization.FolderKind);
 		_appliedPicturePath = customization.PicturePath;
 		_appliedIconPath = customization.IconPath;
@@ -103,7 +112,17 @@ public sealed partial class CustomizePropertyView : UserControl
 
 	private async void UserControl_Loaded(object sender, RoutedEventArgs e)
 	{
-		await UpdateIconPreviewAsync();
+		try
+		{
+			await UpdateIconPreviewAsync();
+		}
+		catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			_showError(exception.Message);
+		}
 	}
 
 	private void FolderKindComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -174,6 +193,9 @@ public sealed partial class CustomizePropertyView : UserControl
 			SetHasChanges();
 			await UpdateIconPreviewAsync();
 		}
+		catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)
+		{
+		}
 		catch (Exception exception)
 		{
 			_showError(exception.Message);
@@ -192,15 +214,26 @@ public sealed partial class CustomizePropertyView : UserControl
 
 	private async Task UpdateIconPreviewAsync()
 	{
-		var iconData = string.IsNullOrWhiteSpace(_iconPath)
-			? WindowsShellIconProvider.GetFileSystemIcon(Customization.ObjectPath, 48)
-			: WindowsShellIconProvider.GetResourceIcon(_iconPath, _iconIndex);
-		if (iconData.IsEmpty)
+		var version = ++_iconPreviewVersion;
+		var image = _itemIcon;
+		if (!string.IsNullOrWhiteSpace(_iconPath))
 		{
-			iconData = WindowsShellIconProvider.GetFolderIcon(48);
+			var iconData = await _iconResources.GetResourceIconAsync(_iconPath, _iconIndex, 48, _cancellationToken);
+			image = iconData.IsEmpty ? null : await ThumbnailImageFactory.CreateAsync(iconData);
 		}
 
-		FolderIconImage.Source = await ThumbnailImageFactory.CreateAsync(iconData);
+		if (image is null)
+		{
+			var iconData = await _iconResources.GetFolderIconAsync(48, _cancellationToken);
+			image = iconData.IsEmpty ? null : await ThumbnailImageFactory.CreateAsync(iconData);
+		}
+
+		_cancellationToken.ThrowIfCancellationRequested();
+
+		if (version == _iconPreviewVersion)
+		{
+			FolderIconImage.Source = image;
+		}
 	}
 }
 

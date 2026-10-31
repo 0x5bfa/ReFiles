@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.Runtime.InteropServices;
-using Files.Adapters;
 using Files.Localization;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Media;
 using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
@@ -31,13 +31,14 @@ public sealed partial class SharingPropertyView : UserControl
 
 	internal string SharingState => Sharing.IsShared ? Strings.Shared.GetLocalized() : Strings.NotShared.GetLocalized();
 
-	internal SharingPropertyView(WindowsShellSharingProperties sharing, HWND owner, Action<string> showError)
+	internal SharingPropertyView(WindowsShellSharingProperties sharing, HWND owner, Action<string> showError, ImageSource? itemIcon, ImageSource? elevationShield)
 	{
 		Sharing = sharing;
 		_owner = owner;
 		_showError = showError;
 		InitializeComponent();
-		_ = LoadFolderIconAsync();
+		FolderIconImage.Source = itemIcon;
+		ElevationShield.Source = elevationShield;
 	}
 
 	private void AdvancedSharingButton_Click(object sender, RoutedEventArgs e)
@@ -48,15 +49,6 @@ public sealed partial class SharingPropertyView : UserControl
 	private void NetworkAndSharingCenterLink_Click(Hyperlink sender, RoutedEventArgs args)
 	{
 		RunSharingAction(WindowsShellSharingService.OpenNetworkAndSharingCenter);
-	}
-
-	private async Task LoadFolderIconAsync()
-	{
-		var iconData = WindowsShellIconProvider.GetFileSystemIcon(Sharing.ObjectPath);
-		if (!iconData.IsEmpty)
-		{
-			FolderIconImage.Source = await ThumbnailImageFactory.CreateAsync(iconData);
-		}
 	}
 
 	private void RunSharingAction(Func<HRESULT> action)

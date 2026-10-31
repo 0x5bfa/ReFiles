@@ -11,7 +11,7 @@
 				<TextBlock Text="{localization:Localized ResourceKey=QuotaElevationDescription}" TextWrapping="Wrap" />
 				<Button HorizontalAlignment="Left" Click="ShowQuotaSettings_Click">
 					<StackPanel Orientation="Horizontal" Spacing="6">
-						<local:ElevationShieldIcon />
+						<local:ElevationShieldIcon x:Name="ElevationShield" />
 						<TextBlock Text="{localization:Localized ResourceKey=ShowQuotaSettings}" />
 					</StackPanel>
 				</Button>

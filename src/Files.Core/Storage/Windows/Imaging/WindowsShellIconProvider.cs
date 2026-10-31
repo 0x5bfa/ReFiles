@@ -10,57 +10,10 @@ using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
 
-/// <summary>
-/// Loads the system icons used by Windows Shell property pages.
-/// </summary>
-public static unsafe class WindowsShellIconProvider
+/// <summary>Extracts icon resources for internal Windows Shell integrations.</summary>
+internal static unsafe class WindowsShellIconProvider
 {
 	private const int ErrorInsufficientBuffer = 122;
-
-	/// <summary>
-	/// Loads the stock UAC elevation shield.
-	/// </summary>
-	/// <param name="size">The square PNG size in pixels.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>The encoded PNG, or an empty value when the icon cannot be loaded.</returns>
-	public static ReadOnlyMemory<byte> GetElevationShieldIcon(int size = 16, CancellationToken cancellationToken = default)
-	{
-		return GetStockIcon(SHSTOCKICONID.SIID_SHIELD, size, cancellationToken);
-	}
-
-	/// <summary>
-	/// Loads the stock closed-folder icon.
-	/// </summary>
-	/// <param name="size">The square PNG size in pixels.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>The encoded PNG, or an empty value when the icon cannot be loaded.</returns>
-	public static ReadOnlyMemory<byte> GetFolderIcon(int size = 20, CancellationToken cancellationToken = default)
-	{
-		return GetStockIcon(SHSTOCKICONID.SIID_FOLDER, size, cancellationToken);
-	}
-
-	/// <summary>
-	/// Loads the Shell icon for a file-system object, including registered overlays.
-	/// </summary>
-	/// <param name="path">The file-system path.</param>
-	/// <param name="size">The square PNG size in pixels.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>The encoded PNG, or an empty value when the icon cannot be loaded.</returns>
-	public static ReadOnlyMemory<byte> GetFileSystemIcon(string path, int size = 32, CancellationToken cancellationToken = default)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-		var info = new SHFILEINFOW();
-		var flags = SHGFI_FLAGS.SHGFI_ICON | SHGFI_FLAGS.SHGFI_ADDOVERLAYS | SHGFI_FLAGS.SHGFI_LARGEICON;
-		if (PInvoke.SHGetFileInfo(path, 0, ref info, flags) is 0 || info.hIcon.IsNull)
-		{
-			return ReadOnlyMemory<byte>.Empty;
-		}
-
-		using var icon = new DestroyIconSafeHandle((nint)info.hIcon.Value);
-
-		return WindowsThumbnailRenderer.EncodeHIcon(icon, size, cancellationToken) ?? [];
-	}
 
 	/// <summary>
 	/// Loads an icon from a Shell icon resource.
@@ -70,7 +23,7 @@ public static unsafe class WindowsShellIconProvider
 	/// <param name="size">The square PNG size in pixels.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The encoded PNG, or an empty value when the icon cannot be loaded.</returns>
-	public static ReadOnlyMemory<byte> GetResourceIcon(string path, int index, int size = 48, CancellationToken cancellationToken = default)
+	internal static ReadOnlyMemory<byte> GetResourceIcon(string path, int index, int size = 48, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 

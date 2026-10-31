@@ -60,7 +60,7 @@
 					<TextBlock Text="{localization:Localized ResourceKey=AdvancedSharingDescription}" TextWrapping="Wrap" />
 					<Button HorizontalAlignment="Left" Click="AdvancedSharingButton_Click">
 						<StackPanel Orientation="Horizontal" Spacing="6">
-							<local:ElevationShieldIcon />
+							<local:ElevationShieldIcon x:Name="ElevationShield" />
 							<TextBlock Text="{localization:Localized ResourceKey=AdvancedSharing}" />
 						</StackPanel>
 					</Button>

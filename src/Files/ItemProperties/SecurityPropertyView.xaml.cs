@@ -10,6 +10,7 @@ using Files.Localization;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Win32.Foundation;
 
@@ -27,13 +28,14 @@ public sealed partial class SecurityPropertyView : UserControl
 
 	internal Visibility EditShieldVisibility => WindowsShellSecurityService.RequiresElevation(Security.ObjectPath) ? Visibility.Visible : Visibility.Collapsed;
 
-	internal SecurityPropertyView(WindowsShellSecurityProperties security, HWND owner, Action<string> showError)
+	internal SecurityPropertyView(WindowsShellSecurityProperties security, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
 		Security = security;
 		_owner = owner;
 		_showError = showError;
 		Principals = new(security.Principals.Select(static principal => new SecurityPrincipalViewModel(principal)));
 		InitializeComponent();
+		ElevationShield.Source = elevationShield;
 		if (Principals.Count is not 0)
 		{
 			PrincipalList.SelectedIndex = 0;

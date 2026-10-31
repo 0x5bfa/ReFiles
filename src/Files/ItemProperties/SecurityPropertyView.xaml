@@ -56,7 +56,7 @@
 				<TextBlock Text="{localization:Localized ResourceKey=SecurityEditDescription}" TextWrapping="Wrap" />
 				<Button Grid.Column="1" Click="Edit_Click">
 					<StackPanel Orientation="Horizontal" Spacing="6">
-						<local:ElevationShieldIcon Visibility="{x:Bind EditShieldVisibility}" />
+						<local:ElevationShieldIcon x:Name="ElevationShield" Visibility="{x:Bind EditShieldVisibility}" />
 						<TextBlock Text="{localization:Localized ResourceKey=Edit}" />
 					</StackPanel>
 				</Button>

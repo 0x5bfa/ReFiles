@@ -23,7 +23,7 @@
 						Click="CheckButton_Click"
 						IsEnabled="{x:Bind Drive.SupportsErrorChecking}">
 						<StackPanel Orientation="Horizontal" Spacing="6">
-							<local:ElevationShieldIcon />
+						<local:ElevationShieldIcon x:Name="ElevationShield" />
 							<TextBlock Text="{localization:Localized ResourceKey=Check}" />
 						</StackPanel>
 					</Button>

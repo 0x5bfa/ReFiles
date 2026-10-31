@@ -4,6 +4,7 @@
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
@@ -15,12 +16,13 @@ public sealed partial class ToolsPropertyView : UserControl
 
 	internal WindowsShellDriveProperties Drive { get; }
 
-	internal ToolsPropertyView(WindowsShellDriveProperties drive, HWND owner, Action<string> showError)
+	internal ToolsPropertyView(WindowsShellDriveProperties drive, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
 		Drive = drive;
 		_owner = owner;
 		_showError = showError;
 		InitializeComponent();
+		ElevationShield.Source = elevationShield;
 	}
 
 	private void CheckButton_Click(object sender, RoutedEventArgs e)

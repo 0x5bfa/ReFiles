@@ -12,6 +12,7 @@ using Files.Core.Storage.Windows;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.Win32.Foundation;
 
@@ -20,6 +21,8 @@ namespace Files.ItemProperties;
 public sealed partial class ItemPropertiesWindow : Window
 {
 	private readonly CancellationTokenSource _lifetime = new();
+	private readonly IWindowsShellIconResources _iconResources;
+	private readonly Func<int, CancellationToken, Task<ThumbnailResult?>>? _getIcon;
 	private readonly Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? _getPropertyPages;
 	private readonly Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? _getPropertyPageData;
 	private readonly Func<CancellationToken, Task<(string? Description, ThumbnailResult? Icon)>>? _getGeneralProperties;
@@ -30,6 +33,7 @@ public sealed partial class ItemPropertiesWindow : Window
 	private readonly List<UserControl> _propertyViews = [];
 	private readonly GeneralPropertyView _generalView;
 	private readonly DetailsPropertyView _detailsView;
+	private ImageSource? _elevationShield;
 	private bool _isInitialized;
 
 	internal ItemPropertiesViewModel ViewModel { get; }
@@ -38,11 +42,17 @@ public sealed partial class ItemPropertiesWindow : Window
 		IReadOnlyList<BrowseItemViewModel> items,
 		IStorageOperationService storageOperations,
 		IItemPropertiesFileSystem fileSystem,
+		IWindowsShellIconResources iconResources,
+		Func<int, CancellationToken, Task<ThumbnailResult?>>? getIcon = null,
 		Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? getPropertyPages = null,
 		Func<WindowsShellPropertyPageKind, CancellationToken, Task<WindowsShellPropertySheetData?>>? getPropertyPageData = null,
 		Func<CancellationToken, Task<(string? Description, ThumbnailResult? Icon)>>? getGeneralProperties = null)
 	{
+		ArgumentNullException.ThrowIfNull(iconResources);
+
 		ViewModel = new(items, storageOperations, fileSystem);
+		_iconResources = iconResources;
+		_getIcon = getIcon;
 		_getPropertyPages = getPropertyPages;
 		_getPropertyPageData = getPropertyPageData;
 		_getGeneralProperties = getGeneralProperties;
@@ -68,6 +78,12 @@ public sealed partial class ItemPropertiesWindow : Window
 		_isInitialized = true;
 		try
 		{
+			var shield = await _iconResources.GetElevationShieldIconAsync(cancellationToken: _lifetime.Token);
+			if (!shield.IsEmpty)
+			{
+				_elevationShield = await ThumbnailImageFactory.CreateAsync(shield);
+			}
+
 			await Task.WhenAll(ViewModel.InitializeAsync(_lifetime.Token), PopulatePropertyViewsAsync(_lifetime.Token), PopulateGeneralPropertiesAsync(_lifetime.Token));
 		}
 		catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -188,7 +204,7 @@ public sealed partial class ItemPropertiesWindow : Window
 		}
 
 		var properties = await _getGeneralProperties(cancellationToken);
-		var icon = properties.Icon is null ? null : await ThumbnailImageFactory.CreateAsync(properties.Icon.Content);
+		var icon = properties.Icon is null ? null : await ThumbnailImageFactory.CreateAsync(properties.Icon);
 		ViewModel.SetGeneralShellProperties(properties.Description, icon);
 	}
 
@@ -247,7 +263,19 @@ public sealed partial class ItemPropertiesWindow : Window
 				ViewModel.SetShellDetails(data.Details);
 			}
 
-			var view = CreatePropertyView(kind, data);
+			ImageSource? itemIcon = null;
+			if (_getIcon is not null && kind is WindowsShellPropertyPageKind.Sharing or WindowsShellPropertyPageKind.Customize)
+			{
+				var thumbnail = await _getIcon(kind is WindowsShellPropertyPageKind.Sharing ? 32 : 48, cancellationToken);
+				if (thumbnail is not null)
+				{
+					itemIcon = await ThumbnailImageFactory.CreateAsync(thumbnail);
+				}
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+
+			var view = CreatePropertyView(kind, data, itemIcon);
 			ReplacePropertyView(kind, view);
 			_loadedPropertyPages.Add(kind);
 		}
@@ -288,21 +316,23 @@ public sealed partial class ItemPropertiesWindow : Window
 		_propertyViewCache[kind] = view;
 	}
 
-	private UserControl CreatePropertyView(WindowsShellPropertyPageKind kind, WindowsShellPropertySheetData data)
+	private UserControl CreatePropertyView(WindowsShellPropertyPageKind kind, WindowsShellPropertySheetData data, ImageSource? itemIcon)
 	{
+		var owner = new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this));
+
 		return kind switch
 		{
 			WindowsShellPropertyPageKind.General => _generalView,
-			WindowsShellPropertyPageKind.Tools when data.Drive is not null => new ToolsPropertyView(data.Drive, new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this)), ShowError),
-			WindowsShellPropertyPageKind.Hardware => new HardwarePropertyView(data.HardwareDevices, new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this)), ShowError),
+			WindowsShellPropertyPageKind.Tools when data.Drive is not null => new ToolsPropertyView(data.Drive, owner, ShowError, _elevationShield),
+			WindowsShellPropertyPageKind.Hardware => new HardwarePropertyView(data.HardwareDevices, owner, ShowError),
 			WindowsShellPropertyPageKind.Shortcut when data.Shortcut is not null => new ShortcutPropertyView(data.Shortcut),
 			WindowsShellPropertyPageKind.Compatibility when data.Compatibility is not null => new CompatibilityPropertyView(data.Compatibility, LaunchSystemTool),
-			WindowsShellPropertyPageKind.Sharing when data.Sharing is not null => new SharingPropertyView(data.Sharing, new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this)), ShowError),
-			WindowsShellPropertyPageKind.Security when data.Security is not null => new SecurityPropertyView(data.Security, new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this)), ShowError),
-			WindowsShellPropertyPageKind.PreviousVersions => new PreviousVersionsPropertyView(data.PreviousVersions, LaunchSystemTool),
-			WindowsShellPropertyPageKind.Quota when data.Quota is not null => new QuotaPropertyView(data.Quota, new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this)), ShowError),
+			WindowsShellPropertyPageKind.Sharing when data.Sharing is not null => new SharingPropertyView(data.Sharing, owner, ShowError, itemIcon, _elevationShield),
+			WindowsShellPropertyPageKind.Security when data.Security is not null => new SecurityPropertyView(data.Security, owner, ShowError, _elevationShield),
+			WindowsShellPropertyPageKind.PreviousVersions => new PreviousVersionsPropertyView(data.PreviousVersions, LaunchSystemTool, _iconResources),
+			WindowsShellPropertyPageKind.Quota when data.Quota is not null => new QuotaPropertyView(data.Quota, owner, ShowError, _elevationShield),
 			WindowsShellPropertyPageKind.Customize when data.Customization is not null => new CustomizePropertyView(
-				data.Customization, ViewModel, new HWND(WinRT.Interop.WindowNative.GetWindowHandle(this)), ShowError),
+				data.Customization, ViewModel, owner, ShowError, _iconResources, itemIcon, _lifetime.Token),
 			WindowsShellPropertyPageKind.DigitalSignatures => new DigitalSignaturesPropertyView(data.EmbeddedSignatures, data.CatalogSignatures),
 			WindowsShellPropertyPageKind.Details => _detailsView,
 			_ => new MessagePropertyView(Strings.Unspecified.GetLocalized()),

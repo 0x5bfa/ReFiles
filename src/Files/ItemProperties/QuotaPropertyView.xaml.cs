@@ -6,6 +6,7 @@ using Files.Localization;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
@@ -25,12 +26,13 @@ public sealed partial class QuotaPropertyView : UserControl
 
 	internal Visibility SettingsVisibility => Quota.RequiresElevation ? Visibility.Collapsed : Visibility.Visible;
 
-	internal QuotaPropertyView(WindowsShellQuotaProperties quota, HWND owner, Action<string> showError)
+	internal QuotaPropertyView(WindowsShellQuotaProperties quota, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
 		Quota = quota;
 		_owner = owner;
 		_showError = showError;
 		InitializeComponent();
+		ElevationShield.Source = elevationShield;
 	}
 
 	private static string FormatQuotaBytes(long value)

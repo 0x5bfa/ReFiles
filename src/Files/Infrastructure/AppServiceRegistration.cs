@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Commands;
+using Files.Core.Storage.Windows;
 using Files.Settings;
 using Files.StorageOperations;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,7 @@ internal static class AppServiceRegistration
 		var services = new ServiceCollection();
 		services.AddSingleton<ILoggerFactory>(_ => CreateLoggerFactory());
 		services.AddLogging();
+		services.AddSingleton<IWindowsShellIconResources, WindowsShellIconResources>();
 		services.AddSingleton(provider => new WinRTStorageOperationService(provider.GetRequiredService<ILogger<WinRTStorageOperationService>>()));
 		services.AddSingleton(provider => new StorageOperationTracker(provider.GetRequiredService<WinRTStorageOperationService>(), provider.GetRequiredService<ILogger<StorageOperationTracker>>()));
 		services.AddSingleton(_ => AppCommandRegistration.Build());

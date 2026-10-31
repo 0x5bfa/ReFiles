@@ -145,7 +145,8 @@ public partial class App : Application
 				windowHandle => _storageOperations.SetActiveWindow(windowHandle),
 				() => CloseWindowAsync(coreWindow.Id, mainWindow),
 				() => CreateWindowAsync(persistPlacement: false),
-				_loggerFactory);
+				_loggerFactory,
+				_services.GetRequiredService<IWindowsShellIconResources>());
 			mainWindow.ApplyTheme(_settings.ThemeMode);
 			lock (_windowsLock)
 			{
