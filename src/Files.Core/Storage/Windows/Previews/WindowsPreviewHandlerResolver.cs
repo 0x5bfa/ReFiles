@@ -99,10 +99,22 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		}
 	}
 
+	internal static string? GetNormalizedExtension(ItemContext context)
+	{
+		ArgumentNullException.ThrowIfNull(context);
+
+		if (context.CoreModel is not IWindowsStorable windowsItem || context.CoreModel is not IFile file)
+		{
+			return null;
+		}
+
+		return NormalizeExtension(Path.GetExtension(windowsItem.FileSystemPath ?? file.Name)) ?? NormalizeExtension(Path.GetExtension(file.Name));
+	}
+
 	/// <summary>Normalizes a file extension for Shell association lookup.</summary>
 	/// <param name="extension">The extension to normalize.</param>
 	/// <returns>The normalized extension, or <see langword="null"/> when invalid.</returns>
-	public static string? NormalizeExtension(string? extension)
+	private static string? NormalizeExtension(string? extension)
 	{
 		if (string.IsNullOrWhiteSpace(extension)
 			|| extension.Length < 2
@@ -116,18 +128,6 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 		}
 
 		return extension.ToUpperInvariant();
-	}
-
-	internal static string? GetNormalizedExtension(ItemContext context)
-	{
-		ArgumentNullException.ThrowIfNull(context);
-
-		if (context.CoreModel is not IWindowsStorable windowsItem || context.CoreModel is not IFile file)
-		{
-			return null;
-		}
-
-		return NormalizeExtension(Path.GetExtension(windowsItem.FileSystemPath ?? file.Name)) ?? NormalizeExtension(Path.GetExtension(file.Name));
 	}
 
 	private sealed record CacheEntry(Guid? Clsid);

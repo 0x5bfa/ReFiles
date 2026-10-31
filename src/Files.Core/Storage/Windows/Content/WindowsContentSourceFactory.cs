@@ -4,7 +4,6 @@
 using System.IO;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Content;
-using Files.Core.Storage.Archives;
 
 namespace Files.Core.Storage.Windows;
 
@@ -18,7 +17,8 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
-		return context.CoreModel is WindowsStorable item && (item.IsStream || item is WindowsFile { IsFileSystem: true }) ? new ReadableContent(item) : null;
+		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsStorable item && (item.IsStream || item is WindowsFile { IsFileSystem: true })
+			? new WindowsContentSource(item.Descriptor, source.Scheduler, source.ItemIdReader) : null;
 	}
 
 	/// <summary>Creates write access for existing file-system files without inferring write support for virtual Shell streams.</summary>
@@ -28,27 +28,15 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
-		return context.CoreModel is WindowsFile { IsFileSystem: true } file ? new WritableContent(file) : null;
+		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsFile { IsFileSystem: true } file
+			? new WritableContent(new WindowsContentSource(file.Descriptor, source.Scheduler, source.ItemIdReader)) : null;
 	}
 
-	private sealed record ReadableContent(WindowsStorable Item) : IReadableContent, IArchiveInput
-	{
-		public Task<Stream> OpenReadAsync(CancellationToken cancellationToken = default)
-		{
-			return Item.Factory.OpenStreamAsync(Item.Descriptor, FileAccess.Read, cancellationToken);
-		}
-
-		Task<Stream> IArchiveInput.OpenReadAsync(CancellationToken cancellationToken)
-		{
-			return Item.FileSystemPath is null ? ArchiveStreamResolver.MaterializeAsync(this, cancellationToken) : Item.Factory.OpenArchiveInputAsync(Item.Descriptor, cancellationToken);
-		}
-	}
-
-	private sealed record WritableContent(WindowsFile Item) : IWritableContent
+	private sealed record WritableContent(WindowsContentSource Content) : IWritableContent
 	{
 		public Task<Stream> OpenWriteAsync(CancellationToken cancellationToken = default)
 		{
-			return Item.OpenWriteAsync(cancellationToken);
+			return Content.OpenWriteAsync(cancellationToken);
 		}
 	}
 }

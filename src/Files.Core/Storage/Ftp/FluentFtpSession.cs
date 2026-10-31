@@ -10,7 +10,7 @@ namespace Files.Core.Storage.Ftp;
 /// <summary>
 /// Adapts one FluentFTP control connection to the Core transport contract.
 /// </summary>
-public sealed class FluentFtpSession : IFtpSession
+internal sealed class FluentFtpSession : IFtpSession
 {
 	private readonly AsyncFtpClient _client;
 	private readonly StringComparer _pathComparer;

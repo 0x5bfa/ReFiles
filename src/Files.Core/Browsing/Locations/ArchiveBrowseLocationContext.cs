@@ -68,7 +68,7 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 	/// <param name="type">The item kinds to include.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>Owned child models borrowing this context's archive lifetime.</returns>
-	public async IAsyncEnumerable<IStorableModel> GetItemsAsync(ArchiveLocation location, StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	internal async IAsyncEnumerable<IStorableModel> GetItemsAsync(ArchiveLocation location, StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
 

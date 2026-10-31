@@ -4,8 +4,6 @@
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
 using System.Runtime.CompilerServices;
-using Files.Core.ViewSettings;
-using Files.Core.Storage;
 using Windows.Win32.Foundation;
 
 namespace Files.Core.Storage.Windows;
@@ -13,19 +11,14 @@ namespace Files.Core.Storage.Windows;
 /// <summary>Represents a folder exposed by the Windows Shell.</summary>
 public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 {
-	internal WindowsFolder(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
+	private readonly WindowsFolderEnumerator _enumerator;
+
+	internal WindowsFolder(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory, WindowsFolderEnumerator enumerator)
 		: base(descriptor, factory)
 	{
-	}
+		ArgumentNullException.ThrowIfNull(enumerator);
 
-	/// <summary>
-	/// Gets the column metadata exposed by this Shell folder.
-	/// </summary>
-	/// <param name="cancellationToken">The token used to cancel the Shell operation.</param>
-	/// <returns>The Shell columns and the columns enabled by default.</returns>
-	public Task<WindowsShellColumnSet> GetColumnsAsync(CancellationToken cancellationToken = default)
-	{
-		return Factory.GetColumnsAsync(Descriptor, cancellationToken);
+		_enumerator = enumerator;
 	}
 
 	/// <summary>Enumerates the items in the Windows Shell folder.</summary>
@@ -50,7 +43,7 @@ public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 			yield break;
 		}
 
-		await foreach (var descriptor in Factory.EnumerateChildrenAsync(Descriptor, new HWND(ownerWindowHandle), cancellationToken).ConfigureAwait(false))
+		await foreach (var descriptor in _enumerator.EnumerateChildrenAsync(Descriptor, new HWND(ownerWindowHandle), cancellationToken).ConfigureAwait(false))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
@@ -63,10 +56,5 @@ public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 				yield return Factory.Create(descriptor);
 			}
 		}
-	}
-
-	internal Task<IReadOnlyList<WindowsStorable>?> SortChildrenAsync(IReadOnlyList<WindowsStorable> items, string? propertyId, ViewSortDirection direction, CancellationToken cancellationToken)
-	{
-		return WindowsShellItemSorter.SortAsync(Factory.Resolver, Descriptor, items, propertyId, direction, cancellationToken);
 	}
 }

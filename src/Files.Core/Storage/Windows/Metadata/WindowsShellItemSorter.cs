@@ -14,15 +14,17 @@ namespace Files.Core.Storage.Windows;
 internal static unsafe class WindowsShellItemSorter
 {
 	internal static Task<IReadOnlyList<WindowsStorable>?> SortAsync(
-		WindowsShellItemResolver resolver,
+		IWindowsShellScheduler scheduler,
 		WindowsStorableDescriptor descriptor,
 		IReadOnlyList<WindowsStorable> items,
 		string? propertyId,
 		ViewSortDirection direction,
 		CancellationToken cancellationToken)
 	{
-		ArgumentNullException.ThrowIfNull(resolver);
+		ArgumentNullException.ThrowIfNull(scheduler);
+
 		ArgumentNullException.ThrowIfNull(descriptor);
+
 		ArgumentNullException.ThrowIfNull(items);
 
 		if (items.Count < 2)
@@ -39,10 +41,12 @@ internal static unsafe class WindowsShellItemSorter
 			}
 		}
 
-		return resolver.InvokeConcurrentAsync<IReadOnlyList<WindowsStorable>?>(
-			descriptor.Locator,
-			shellItem => SortOnCurrentSta(shellItem, descriptor.Locator.ParsingName, items, propertyId, direction, cancellationToken),
-			cancellationToken);
+		return scheduler.InvokeConcurrentAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(descriptor.Locator);
+
+			return shellItem is null ? null : SortOnCurrentSta(shellItem, descriptor.Locator.ParsingName, items, propertyId, direction, cancellationToken);
+		}, cancellationToken);
 	}
 
 	private static IReadOnlyList<WindowsStorable>? SortOnCurrentSta(

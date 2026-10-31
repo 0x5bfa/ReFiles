@@ -78,7 +78,12 @@ public sealed class WindowsShellContextualCommandService
 
 		if (location is not null && await ResolveLocatorAsync(location, cancellationToken).ConfigureAwait(false) is { } locationLocator)
 		{
-			isRecycleBin = await _source.ShellItemResolver.InvokeOperationAsync(locationLocator, IsRecycleBin, cancellationToken).ConfigureAwait(false);
+			isRecycleBin = await _source.Scheduler.InvokeOperationAsync(() =>
+			{
+				var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locationLocator);
+
+				return shellItem is not null && IsRecycleBin(shellItem);
+			}, cancellationToken).ConfigureAwait(false);
 			if (selection.Count is 0)
 			{
 				var registeredCommands = await GetRegisteredCommandsAsync([location], _locationRegisteredCommands.Value, cancellationToken).ConfigureAwait(false);
@@ -96,8 +101,12 @@ public sealed class WindowsShellContextualCommandService
 				commands[WindowsShellContextualCommandIds.RestoreAllRecycleBinItems] = new(
 					WindowsShellContextualCommandIds.RestoreAllRecycleBinItems, hasItems, WindowsShellContextualCommandScope.Location,
 					new WindowsShellCommandStoreContextualCommandToken(RestoreAllRecycleBinBackendId));
-				var backgroundCommands = await _source.ShellItemResolver.InvokeOperationAsync(
-					locationLocator, shellItem => GetFolderBackgroundCommands(shellItem, ownerWindowHandle), cancellationToken).ConfigureAwait(false);
+				var backgroundCommands = await _source.Scheduler.InvokeOperationAsync(() =>
+				{
+					var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locationLocator);
+
+					return shellItem is null ? default! : GetFolderBackgroundCommands(shellItem, ownerWindowHandle);
+				}, cancellationToken).ConfigureAwait(false);
 				AppendCommands(backgroundCommands, commands);
 			}
 		}
@@ -380,11 +389,18 @@ public sealed class WindowsShellContextualCommandService
 			return false;
 		}
 
-		return await _source.ShellItemResolver.InvokeOperationAsync(
-			locationLocator,
-			shellItem => targetKind is WindowsShellContextMenuTargetKind.LocationBackground
+		return await _source.Scheduler.InvokeOperationAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locationLocator);
+			if (shellItem is null)
+			{
+				return false;
+			}
+
+			return targetKind is WindowsShellContextMenuTargetKind.LocationBackground
 				? InvokeFolderBackgroundCommand(shellItem, commandId, context)
-				: InvokeContextMenuCommand(WindowsShellContextMenuCommandHelper.Create(shellItem), commandId, context), cancellationToken).ConfigureAwait(false);
+				: InvokeContextMenuCommand(WindowsShellContextMenuCommandHelper.Create(shellItem), commandId, context);
+		}, cancellationToken).ConfigureAwait(false);
 	}
 
 	private async Task<bool> InvokeCommandStoreCommandAsync(StorableReference? location, string backendId, WindowsShellInvocationContext context, CancellationToken cancellationToken)

@@ -8,7 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Describes the display type suggested by a Windows Shell column.
 /// </summary>
-public enum WindowsShellColumnType
+internal enum WindowsShellColumnType
 {
 	/// <summary>The Shell did not specify a display type.</summary>
 	Default,

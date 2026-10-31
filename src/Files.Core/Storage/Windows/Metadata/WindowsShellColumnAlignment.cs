@@ -8,7 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Describes the alignment used by a Windows Shell details column.
 /// </summary>
-public enum WindowsShellColumnAlignment
+internal enum WindowsShellColumnAlignment
 {
 	/// <summary>Aligns values to the left.</summary>
 	Left,

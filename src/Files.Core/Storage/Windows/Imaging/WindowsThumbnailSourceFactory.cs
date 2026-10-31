@@ -17,17 +17,13 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsThumbnailSourceFactory : ICapabilityFactory<IThumbnailSource>
 {
-	private readonly WindowsShellThumbnailBackend _backend;
+	private readonly WindowsShellThumbnailBackend _backend = new();
 	private readonly ILoggerFactory _loggerFactory;
 
 	/// <summary>Initializes a Windows thumbnail source factory.</summary>
-	/// <param name="backend">The Windows thumbnail backend.</param>
 	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
-	public WindowsThumbnailSourceFactory(WindowsShellThumbnailBackend backend, ILoggerFactory? loggerFactory = null)
+	public WindowsThumbnailSourceFactory(ILoggerFactory? loggerFactory = null)
 	{
-		ArgumentNullException.ThrowIfNull(backend);
-
-		_backend = backend;
 		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
 	}
 
@@ -43,6 +39,6 @@ public sealed class WindowsThumbnailSourceFactory : ICapabilityFactory<IThumbnai
 			return null;
 		}
 
-		return new WindowsShellThumbnailSource(source.ShellItemResolver, _backend, storable.Locator, _loggerFactory.CreateLogger<WindowsShellThumbnailSource>());
+		return new WindowsShellThumbnailSource(source.Scheduler, _backend, storable.Locator, _loggerFactory.CreateLogger<WindowsShellThumbnailSource>());
 	}
 }

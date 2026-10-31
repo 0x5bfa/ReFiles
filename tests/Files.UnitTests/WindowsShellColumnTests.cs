@@ -1,6 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core;
+using Files.Core.Browsing;
+using Files.Core.Capabilities;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 
@@ -25,11 +28,13 @@ public sealed class WindowsShellColumnTests
 
 		try
 		{
-			await using var scheduler = new WindowsShellScheduler();
-			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var folder = (WindowsFolder)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
+			await using var runtime = new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false, enableArchives: false, enableOperations: false).Build();
+			var source = (WindowsStorageSource)runtime.Workspace.Sources.Single();
+			var address = new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath);
+			var folder = (WindowsFolder)await source.ResolveAsync(address);
 
-			var columnSet = await folder.GetColumnsAsync();
+			var columnSet = await source.Scheduler.InvokeAsync(() =>
+				WindowsShellColumnReader.Read(WindowsShellItemResolver.TryResolveOnCurrentSta(folder.Locator)!, folder.ParsingName));
 
 			Assert.IsTrue(columnSet.All.Count > 0);
 			Assert.IsTrue(columnSet.DefaultVisible.Count > 0);
@@ -41,6 +46,13 @@ public sealed class WindowsShellColumnTests
 			CollectionAssert.AreEqual(
 				columnSet.All.Where(static column => column.IsVisibleByDefault && !column.IsHidden).Select(static column => column.PropertyId).ToArray(),
 				columnSet.DefaultVisible.Select(static column => column.PropertyId).ToArray());
+			await using var model = await runtime.Workspace.ResolveAsync(address);
+			var metadata = model.Get<IFolderBrowseMetadata>();
+			Assert.IsNotNull(metadata);
+			var columns = await metadata.GetColumnsAsync();
+			Assert.IsNotNull(columns);
+			Assert.IsTrue(columns.All.Any(static column => column.PropertyId == "System.ItemNameDisplay"));
+			Assert.IsTrue(columns.DefaultVisible.Count > 0);
 		}
 		finally
 		{

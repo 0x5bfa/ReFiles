@@ -55,7 +55,7 @@ public sealed class WindowsShellDropTarget
 
 	private IDropTarget? CreateBackgroundDropTarget(HWND ownerWindow)
 	{
-		var shellItem = WindowsShellItemResolver.TryCreateFromPidl(_locator.AbsolutePidl);
+		var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(_locator.AbsolutePidl);
 		if (shellItem is null || shellItem.BindToHandler<IShellFolder>(null, PInvoke.BHID_SFObject, out var folder).Failed || folder is null)
 		{
 			return null;
@@ -70,7 +70,7 @@ public sealed class WindowsShellDropTarget
 	{
 		if (_locator.ParentFolder is { } parentLocator && !_locator.RelativePidl.IsEmpty)
 		{
-			var parentItem = WindowsShellItemResolver.TryCreateFromPidl(parentLocator.AbsolutePidl);
+			var parentItem = WindowsShellItemResolver.TryResolveOnCurrentSta(parentLocator.AbsolutePidl);
 			if (parentItem is not null && parentItem.BindToHandler<IShellFolder>(null, PInvoke.BHID_SFObject, out var parentFolder).Succeeded && parentFolder is not null)
 			{
 				using var childHandle = _locator.RelativePidl.Pin();
@@ -84,7 +84,7 @@ public sealed class WindowsShellDropTarget
 			}
 		}
 
-		var shellItem = WindowsShellItemResolver.TryCreateFromPidl(_locator.AbsolutePidl);
+		var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(_locator.AbsolutePidl);
 		if (shellItem is null)
 		{
 			return null;

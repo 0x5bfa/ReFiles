@@ -142,20 +142,24 @@ public sealed class WindowsPropertyReader : IPropertyReader
 		var source = (WindowsStorageSource)context.Source;
 		var item = (WindowsStorable)context.CoreModel;
 
-		return source.ShellItemResolver.InvokeConcurrentAsync(
-			item.Locator,
-			shellItem => new[] { new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)) },
-			cancellationToken);
+		return source.Scheduler.InvokeConcurrentAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(item.Locator);
+
+			return shellItem is null ? default! : new[] { new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, cancellationToken)) };
+		}, cancellationToken);
 	}
 
 	private static Task<PropertyEntry[]> ReadGroupAsync(PropertyRequest request, WindowsItemLocator parentFolder, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken)
 	{
 		var source = (WindowsStorageSource)contexts[0].Source;
 
-		return source.ShellItemResolver.InvokeConcurrentAsync(
-			parentFolder,
-			shellItem => ReadGroupOnCurrentSta(shellItem, request, contexts, cancellationToken),
-			cancellationToken);
+		return source.Scheduler.InvokeConcurrentAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(parentFolder);
+
+			return shellItem is null ? default! : ReadGroupOnCurrentSta(shellItem, request, contexts, cancellationToken);
+		}, cancellationToken);
 	}
 
 	private static PropertyEntry[] ReadGroupOnCurrentSta(IShellItem parentShellItem, PropertyRequest request, IReadOnlyList<ItemContext> contexts, CancellationToken cancellationToken)
@@ -176,7 +180,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 			var item = (WindowsStorable)context.CoreModel;
 			var shellItem = HasAllProperties(details[index], request)
 				? null
-				: item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
+				: item.Locator.ItemStoreReference?.TryGetItem(parentFolder) ?? WindowsShellItemResolver.TryResolveOnCurrentSta(item.Locator.AbsolutePidl);
 			entries[index] = new PropertyEntry(context.Reference, ReadPropertiesCore(shellItem, request, details[index], cancellationToken));
 		}
 
@@ -186,7 +190,7 @@ public sealed class WindowsPropertyReader : IPropertyReader
 	private static PropertyEntry ReadOneOnCurrentSta(PropertyRequest request, ItemContext context, CancellationToken cancellationToken)
 	{
 		var item = (WindowsStorable)context.CoreModel;
-		var shellItem = WindowsShellItemResolver.TryCreateFromPidl(item.Locator.AbsolutePidl);
+		var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(item.Locator.AbsolutePidl);
 
 		return new PropertyEntry(context.Reference, shellItem is null ? EmptyProperties.Instance : ReadPropertiesCore(shellItem, request, cancellationToken));
 	}

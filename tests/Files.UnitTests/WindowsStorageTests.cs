@@ -4,6 +4,9 @@
 using System.Diagnostics;
 using Files.Core.Browsing;
 using Files.Core;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
+using Files.Core.Models;
 using Files.Core.Sessions;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
@@ -234,8 +237,11 @@ public sealed class WindowsStorageTests
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var storable = await source.ResolveAsync(new Files.Core.Storage.StorageAddress("file", filePath));
-			var file = (WindowsFile)storable;
-			using var stream = await file.OpenReadAsync();
+			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Build();
+			await using var model = new StorableModelFactory(registry).Create(source, storable);
+			var content = model.Get<IReadableContent>();
+			Assert.IsNotNull(content);
+			using var stream = await content.OpenReadAsync();
 			Assert.AreEqual(expected.Length, stream.Length);
 			stream.Seek(32, SeekOrigin.Begin);
 			var buffer = new byte[16];
@@ -276,11 +282,12 @@ public sealed class WindowsStorageTests
 		await using var scheduler = new WindowsShellScheduler();
 		await using var source = new WindowsStorageSource(scheduler: scheduler);
 		var folder = (WindowsFolder)await source.ResolveAsync(new Files.Core.Storage.StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
-		var requests = new List<(CancellationTokenSource Cancellation, Task<WindowsShellColumnSet> Task)>();
+		IFolderBrowseMetadata metadata = new WindowsFolderBrowseMetadata(folder, source.Scheduler);
+		var requests = new List<(CancellationTokenSource Cancellation, Task<BrowseColumnSet?> Task)>();
 		for (var iteration = 0; iteration < 250; iteration++)
 		{
 			var cancellation = new CancellationTokenSource();
-			requests.Add((cancellation, folder.GetColumnsAsync(cancellation.Token)));
+			requests.Add((cancellation, metadata.GetColumnsAsync(cancellation.Token).AsTask()));
 			cancellation.Cancel();
 		}
 
@@ -299,8 +306,9 @@ public sealed class WindowsStorageTests
 			}
 		}
 
-		var columns = await folder.GetColumnsAsync().WaitAsync(TimeSpan.FromSeconds(30));
+		var columns = await metadata.GetColumnsAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30));
 
+		Assert.IsNotNull(columns);
 		Assert.IsTrue(columns.All.Count > 0);
 	}
 

@@ -14,19 +14,21 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 {
-	private readonly WindowsShellItemResolver _resolver;
+	private readonly IWindowsShellScheduler _scheduler;
 	private readonly WindowsShellThumbnailBackend _backend;
 	private readonly WindowsItemLocator _locator;
 	private readonly ILogger<WindowsShellThumbnailSource> _logger;
 
-	public WindowsShellThumbnailSource(WindowsShellItemResolver resolver, WindowsShellThumbnailBackend backend, WindowsItemLocator locator,
+	public WindowsShellThumbnailSource(IWindowsShellScheduler scheduler, WindowsShellThumbnailBackend backend, WindowsItemLocator locator,
 		ILogger<WindowsShellThumbnailSource>? logger = null)
 	{
-		ArgumentNullException.ThrowIfNull(resolver);
+		ArgumentNullException.ThrowIfNull(scheduler);
+
 		ArgumentNullException.ThrowIfNull(backend);
+
 		ArgumentNullException.ThrowIfNull(locator);
 
-		_resolver = resolver;
+		_scheduler = scheduler;
 		_backend = backend;
 		_locator = locator;
 		_logger = logger ?? NullLogger<WindowsShellThumbnailSource>.Instance;
@@ -44,7 +46,12 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 
 		try
 		{
-			var payload = await _resolver.InvokeConcurrentAsync(_locator, shellItem => _backend.GetThumbnail(shellItem, _locator, request, cancellationToken), cancellationToken).ConfigureAwait(false);
+			var payload = await _scheduler.InvokeConcurrentAsync(() =>
+			{
+				var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(_locator);
+
+				return shellItem is null ? null : _backend.GetThumbnail(shellItem, _locator, request, cancellationToken);
+			}, cancellationToken).ConfigureAwait(false);
 			if (_logger.IsEnabled(LogLevel.Debug))
 			{
 				_logger.LogDebug(

@@ -8,6 +8,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Files.Core.Browsing;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
@@ -23,6 +25,8 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 	private const string SettingsFileName = "view-state.json";
 	private const int DefaultSaveDelayMilliseconds = 250;
 	private static readonly TimeSpan SaveRetryDelay = TimeSpan.FromSeconds(5);
+	private static readonly StorableModelFactory _contentModels = new(new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory())
+		.Add<IWritableContent>(new WindowsContentSourceFactory()).Build());
 
 	private readonly Lock _syncRoot = new();
 	private readonly Lock _initializationLock = new();
@@ -162,7 +166,9 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		{
 			try
 			{
-				using var stream = await settingsFile.OpenReadAsync(CancellationToken.None).ConfigureAwait(false);
+				await using var model = _contentModels.Create(_windowsSource, settingsFile);
+				var content = model.Get<IReadableContent>() ?? throw new NotSupportedException("The view settings file does not support reading.");
+				using var stream = await content.OpenReadAsync(CancellationToken.None).ConfigureAwait(false);
 				using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), detectEncodingFromByteOrderMarks: true);
 				var json = await reader.ReadToEndAsync().ConfigureAwait(false);
 				if (!string.IsNullOrWhiteSpace(json))
@@ -431,9 +437,11 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		return new StorableReference(_windowsSource.SourceId, item.Id, item.Address);
 	}
 
-	private static async Task WriteTextAsync(WindowsFile file, string json, CancellationToken cancellationToken)
+	private async Task WriteTextAsync(WindowsFile file, string json, CancellationToken cancellationToken)
 	{
-		await using var stream = await file.OpenWriteAsync(cancellationToken).ConfigureAwait(false);
+		await using var model = _contentModels.Create(_windowsSource, file);
+		var content = model.Get<IWritableContent>() ?? throw new NotSupportedException("The view settings file does not support writing.");
+		await using var stream = await content.OpenWriteAsync(cancellationToken).ConfigureAwait(false);
 		await using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: false);
 		await writer.WriteAsync(json).ConfigureAwait(false);
 		await writer.FlushAsync(cancellationToken).ConfigureAwait(false);

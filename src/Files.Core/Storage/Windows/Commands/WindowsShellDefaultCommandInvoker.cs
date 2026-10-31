@@ -49,7 +49,12 @@ public sealed class WindowsShellDefaultCommandInvoker
 			throw new InvalidOperationException("The resolved item is not backed by the Windows Shell.");
 		}
 
-		return await _source.ShellItemResolver.InvokeOperationAsync(windowsStorable.Locator, GetDefaultCommandOnSta, cancellationToken).ConfigureAwait(false);
+		return await _source.Scheduler.InvokeOperationAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(windowsStorable.Locator);
+
+			return shellItem is null ? null : GetDefaultCommandOnSta(shellItem);
+		}, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>
@@ -70,7 +75,12 @@ public sealed class WindowsShellDefaultCommandInvoker
 			throw new InvalidOperationException("The resolved item is not backed by the Windows Shell.");
 		}
 
-		return await _source.ShellItemResolver.InvokeOperationAsync(windowsStorable.Locator, shellItem => InvokeDefaultCommandOnSta(shellItem, context), cancellationToken).ConfigureAwait(false);
+		return await _source.Scheduler.InvokeOperationAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(windowsStorable.Locator);
+
+			return shellItem is not null && InvokeDefaultCommandOnSta(shellItem, context);
+		}, cancellationToken).ConfigureAwait(false);
 	}
 
 	private static WindowsShellDefaultCommand? GetDefaultCommandOnSta(IShellItem shellItem)

@@ -79,7 +79,12 @@ public sealed class WindowsShellDragDropService
 
 		var locators = await WindowsShellSelectionResolver.ResolveAsync(_source, [destinationFolder], cancellationToken).ConfigureAwait(false);
 
-		return await _source.ShellItemResolver.InvokeOperationAsync(locators[0], shellItem => TryInvokePaste(shellItem, (HWND)ownerWindowHandle), cancellationToken).ConfigureAwait(false);
+		return await _source.Scheduler.InvokeOperationAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locators[0]);
+
+			return shellItem is not null && TryInvokePaste(shellItem, (HWND)ownerWindowHandle);
+		}, cancellationToken).ConfigureAwait(false);
 	}
 
 	private static bool TryInvokePaste(IShellItem shellItem, HWND ownerWindow)

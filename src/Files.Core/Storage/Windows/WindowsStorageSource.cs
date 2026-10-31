@@ -59,7 +59,7 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 	/// <summary>Gets the Windows Shell drag-and-drop service.</summary>
 	public WindowsShellDragDropService DragDrop { get; }
 
-	internal WindowsShellItemResolver ShellItemResolver => _storableFactory.Resolver;
+	internal IWindowsItemIdReader ItemIdReader { get; }
 
 	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
 
@@ -91,7 +91,9 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 		var resolvedLoggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
 		Scheduler = scheduler ?? new WindowsShellScheduler(logger: resolvedLoggerFactory.CreateLogger<WindowsShellScheduler>());
 		_ownsScheduler = scheduler is null;
-		_storableFactory = new WindowsStorableFactory(Scheduler, logger: resolvedLoggerFactory.CreateLogger<WindowsStorableFactory>());
+		ItemIdReader = new WindowsItemIdReader();
+		var enumerator = new WindowsFolderEnumerator(Scheduler, ItemIdReader, resolvedLoggerFactory.CreateLogger<WindowsFolderEnumerator>());
+		_storableFactory = new WindowsStorableFactory(Scheduler, ItemIdReader, enumerator);
 		_changeWatcher = new WindowsShellChangeWatcher(Scheduler);
 		Clipboard = new WindowsShellClipboardService(this);
 		DragDrop = new WindowsShellDragDropService(this);

@@ -8,7 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Contains all column metadata returned by one Windows Shell folder.
 /// </summary>
-public sealed class WindowsShellColumnSet
+internal sealed class WindowsShellColumnSet
 {
 	/// <summary>Gets all columns exposed by the folder in Shell column order.</summary>
 	public IReadOnlyList<WindowsShellColumn> All { get; }

@@ -71,8 +71,9 @@ public sealed partial class FilesCoreBuilder
 			Capabilities
 				.Add<IReadableContent>(contentFactory, origin: "Windows content")
 				.Add<IWritableContent>(contentFactory, origin: "Windows content")
-				.Add<IFolderBrowseMetadata>(new DelegateCapabilityFactory<IFolderBrowseMetadata>(static context => context.CoreModel is WindowsFolder folder ? new WindowsFolderBrowseMetadata(folder) : null))
-				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(new WindowsShellThumbnailBackend(), LoggerFactory), priority: 100, origin: "Windows Shell")
+				.Add<IFolderBrowseMetadata>(new DelegateCapabilityFactory<IFolderBrowseMetadata>(static context =>
+					context.Source is WindowsStorageSource source && context.CoreModel is WindowsFolder folder ? new WindowsFolderBrowseMetadata(folder, source.Scheduler) : null))
+				.Add<IThumbnailSource>(new WindowsThumbnailSourceFactory(LoggerFactory), priority: 100, origin: "Windows Shell")
 				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader(LoggerFactory.CreateLogger<WindowsPropertyReader>())), priority: 100, origin: "Windows Shell")
 				.Add<IFolderChangeSource>(new FolderChangeSourceFactory(), priority: 100, origin: "Windows Shell");
 		}

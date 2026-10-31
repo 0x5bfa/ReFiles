@@ -8,7 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Describes one column exposed by a Windows Shell folder.
 /// </summary>
-public sealed record WindowsShellColumn
+internal sealed record WindowsShellColumn
 {
 	/// <summary>Gets the zero-based column index used by the Shell folder.</summary>
 	public int Index { get; }

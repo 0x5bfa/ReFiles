@@ -130,7 +130,8 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		progress?.Report(new StorageOperationProgress(0, 1, request.Item));
 		if (!hasSamePathSpelling)
 		{
-			var outcome = await _source.ShellItemResolver.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteRename(shellItem, item.Id, request.NewName), cancellationToken).ConfigureAwait(false);
+			var outcome = await _source.Scheduler.InvokeOperationAsync(
+				() => ExecuteRename(WindowsShellItemResolver.ResolveOnCurrentSta(item.ParsingName), item.Id, request.NewName), cancellationToken).ConfigureAwait(false);
 			if (!outcome.Succeeded)
 			{
 				return Failed(outcome.Error!);
@@ -153,7 +154,7 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var destinationPath = Path.Combine(parentPath, destinationName);
 
 		progress?.Report(new StorageOperationProgress(0, 1, request.Parent));
-		var outcome = await _source.ShellItemResolver.InvokeOperationAsync(parent.ParsingName, destinationFolder => ExecuteCreate(destinationFolder, destinationName, request.Kind), cancellationToken)
+		var outcome = await _source.Scheduler.InvokeOperationAsync(() => ExecuteCreate(WindowsShellItemResolver.ResolveOnCurrentSta(parent.ParsingName), destinationName, request.Kind), cancellationToken)
 			.ConfigureAwait(false);
 		if (!outcome.Succeeded)
 		{
@@ -248,11 +249,13 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var requireElevation = false;
 		while (true)
 		{
-			var outcome = await _source.ShellItemResolver
-				.InvokeOperationAsync(item.ParsingName, destinationFolder.ParsingName,
-					(sourceItem, destinationItem) => ExecuteTransfer(sourceItem, destinationItem, destinationName, destinationPath, move, requireElevation, progress, itemReference, totalBytes,
-						cancellationToken, operationControl), cancellationToken)
-				.ConfigureAwait(false);
+			var outcome = await _source.Scheduler.InvokeOperationAsync(() =>
+			{
+				var sourceItem = WindowsShellItemResolver.ResolveOnCurrentSta(item.ParsingName);
+				var destinationItem = WindowsShellItemResolver.ResolveOnCurrentSta(destinationFolder.ParsingName);
+
+				return ExecuteTransfer(sourceItem, destinationItem, destinationName, destinationPath, move, requireElevation, progress, itemReference, totalBytes, cancellationToken, operationControl);
+			}, cancellationToken).ConfigureAwait(false);
 			if (outcome.Succeeded)
 			{
 				break;
@@ -318,10 +321,9 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		var requireElevation = false;
 		while (true)
 		{
-			var outcome = await _source.ShellItemResolver
-				.InvokeOperationAsync(item.ParsingName, shellItem => ExecuteDelete(shellItem, request.Permanently, requireElevation, progress, request.Item, cancellationToken, operationControl),
-					cancellationToken)
-				.ConfigureAwait(false);
+			var outcome = await _source.Scheduler.InvokeOperationAsync(() =>
+				ExecuteDelete(WindowsShellItemResolver.ResolveOnCurrentSta(item.ParsingName), request.Permanently, requireElevation, progress, request.Item, cancellationToken, operationControl),
+				cancellationToken).ConfigureAwait(false);
 			if (outcome.Succeeded)
 			{
 				break;

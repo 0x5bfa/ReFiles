@@ -102,7 +102,12 @@ public sealed class WindowsShellPropertiesService
 
 		var locator = resolvedSelection.Locators[0];
 
-		return await _source.ShellItemResolver.InvokeConcurrentAsync(locator, shellItem => ReadGeneralProperties(shellItem, locator, cancellationToken), cancellationToken).ConfigureAwait(false);
+		return await _source.Scheduler.InvokeConcurrentAsync(() =>
+		{
+			var shellItem = WindowsShellItemResolver.TryResolveOnCurrentSta(locator);
+
+			return shellItem is null ? default : ReadGeneralProperties(shellItem, locator, cancellationToken);
+		}, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Opens the Shell property sheet for a selection without constructing an <c>IContextMenu</c>.</summary>

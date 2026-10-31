@@ -8,6 +8,9 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Files.Controls;
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
+using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Windows.ApplicationModel;
@@ -23,6 +26,8 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 	private const string SettingsFileName = "settings.json";
 	private static readonly TimeSpan _defaultSaveDelay = TimeSpan.FromMilliseconds(250);
 	private static readonly TimeSpan _saveRetryDelay = TimeSpan.FromSeconds(5);
+	private static readonly StorableModelFactory _contentModels = new(new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory())
+		.Add<IWritableContent>(new WindowsContentSourceFactory()).Build());
 
 	private readonly Lock _syncRoot = new();
 	private readonly WindowsStorageSource? _windowsSource;
@@ -163,7 +168,9 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 		try
 		{
-			using var stream = settingsFile.OpenReadAsync().GetAwaiter().GetResult();
+			using var model = _contentModels.Create(_windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured."), settingsFile);
+			var content = model.Get<IReadableContent>() ?? throw new NotSupportedException("The settings file does not support reading.");
+			using var stream = content.OpenReadAsync().GetAwaiter().GetResult();
 			using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), detectEncodingFromByteOrderMarks: true);
 			var json = reader.ReadToEnd();
 			if (string.IsNullOrWhiteSpace(json))
@@ -406,9 +413,11 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		return null;
 	}
 
-	private static void WriteText(WindowsFile file, string json)
+	private void WriteText(WindowsFile file, string json)
 	{
-		using var stream = file.OpenWriteAsync().GetAwaiter().GetResult();
+		using var model = _contentModels.Create(_windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured."), file);
+		var content = model.Get<IWritableContent>() ?? throw new NotSupportedException("The settings file does not support writing.");
+		using var stream = content.OpenWriteAsync().GetAwaiter().GetResult();
 		using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: false);
 		writer.Write(json);
 		writer.Flush();

@@ -50,7 +50,7 @@ internal static class WindowsShellDataObjectFactory
 			}
 		}
 
-		var parentItem = WindowsShellItemResolver.TryCreateFromPidl(parentLocator.AbsolutePidl);
+		var parentItem = WindowsShellItemResolver.TryResolveOnCurrentSta(parentLocator.AbsolutePidl);
 		if (parentItem is null || parentItem.BindToHandler<IShellFolder>(null, PInvoke.BHID_SFObject, out var parentFolder).Failed || parentFolder is null)
 		{
 			return null;

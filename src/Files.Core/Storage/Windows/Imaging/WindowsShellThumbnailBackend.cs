@@ -21,7 +21,7 @@ namespace Files.Core.Storage.Windows;
 /// Retrieves Windows Shell thumbnails and materializes them as PNG bytes.
 /// </summary>
 [SupportedOSPlatform("windows6.0.6000")]
-public sealed class WindowsShellThumbnailBackend
+internal sealed class WindowsShellThumbnailBackend
 {
 	private const SIIGBF ThumbnailFlags =
 		SIIGBF.SIIGBF_THUMBNAILONLY | SIIGBF.SIIGBF_BIGGERSIZEOK;

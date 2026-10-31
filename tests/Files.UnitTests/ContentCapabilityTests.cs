@@ -202,6 +202,69 @@ public sealed class ContentCapabilityTests
 		}
 	}
 
+	/// <summary>Shell content remains readable and seekable from another thread after the STA open call completes.</summary>
+	/// <returns>The asynchronous test.</returns>
+	[TestMethod]
+	public async Task ShellContentStreamRemainsUsableAfterItsOpenCallCompletes()
+	{
+		var directory = Path.Combine(Path.GetTempPath(), $"Files.ContentCapabilityTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directory);
+		var path = Path.Combine(directory, "content.txt");
+		await File.WriteAllTextAsync(path, "abc");
+		try
+		{
+			await using var source = new WindowsStorageSource();
+			var item = (WindowsStorable)await source.ResolveAsync(new StorageAddress("file", path));
+			var descriptor = item.Descriptor with { Metadata = item.Metadata with { FileSystemPath = null, IsStream = true } };
+			var shellItem = item.Factory.Create(descriptor);
+			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Build();
+			await using var model = new StorableModelFactory(registry).Create(source, shellItem);
+			var content = model.Get<IReadableContent>();
+			Assert.IsNotNull(content);
+			await using var stream = await content.OpenReadAsync();
+			Assert.IsInstanceOfType<ShellReadStream>(stream);
+			await Task.Run(async () =>
+			{
+				var buffer = new byte[3];
+				Assert.AreEqual(3, await stream.ReadAsync(buffer));
+				Assert.AreEqual("abc", Encoding.UTF8.GetString(buffer));
+				Assert.AreEqual(1, stream.Seek(1, SeekOrigin.Begin));
+				Assert.AreEqual((int)'b', stream.ReadByte());
+			});
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	/// <summary>Pinned archive input rejects a different file that has replaced the resolved directory entry.</summary>
+	/// <returns>The asynchronous test.</returns>
+	[TestMethod]
+	public async Task PinnedArchiveInputRejectsAReplacedFile()
+	{
+		var directory = Path.Combine(Path.GetTempPath(), $"Files.ContentCapabilityTests-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directory);
+		var path = Path.Combine(directory, "archive.zip");
+		await File.WriteAllTextAsync(path, "original");
+		try
+		{
+			await using var source = new WindowsStorageSource();
+			var item = await source.ResolveAsync(new StorageAddress("file", path));
+			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Build();
+			await using var model = new StorableModelFactory(registry).Create(source, item);
+			var input = Assert.IsInstanceOfType<IArchiveInput>(model.Get<IReadableContent>());
+			File.Move(path, path + ".old");
+			await File.WriteAllTextAsync(path, "replacement");
+
+			await Assert.ThrowsAsync<FileNotFoundException>(() => input.OpenReadAsync(CancellationToken.None));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
 	private static StreamPreviewLoader CreatePreviewLoader()
 	{
 		return new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>(".txt", "text/plain")]), AllowPreviewStreamAccessPolicy.Instance);
