@@ -216,7 +216,7 @@ public sealed class ContentCapabilityTests
 			await using var source = new WindowsStorageSource();
 			var item = (WindowsStorable)await source.ResolveAsync(new StorageAddress("file", path));
 			var descriptor = item.Descriptor with { Metadata = item.Metadata with { FileSystemPath = null, IsStream = true } };
-			var shellItem = item.Factory.Create(descriptor);
+			var shellItem = new WindowsFile(descriptor, item.Factory);
 			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Build();
 			await using var model = new StorableModelFactory(registry).Create(source, shellItem);
 			var content = model.Get<IReadableContent>();

@@ -81,9 +81,8 @@ internal static unsafe class WindowShellHelpers
 
 	public static string? TryGetDisplayName(IShellItem shellItem, SIGDN format)
 	{
-		var result = shellItem.GetDisplayName(format, out var displayName);
-
-		if (result.Failed)
+		var hr = shellItem.GetDisplayName(format, out var displayName);
+		if (hr.Failed)
 		{
 			return null;
 		}
@@ -96,7 +95,7 @@ internal static unsafe class WindowShellHelpers
 		}
 		finally
 		{
-			PInvoke.CoTaskMemFree(displayName.Value);
+			PInvoke.CoTaskMemFree(displayName);
 		}
 	}
 
@@ -119,6 +118,7 @@ internal static unsafe class WindowShellHelpers
 		var handles = new MemoryHandle[absolutePidls.Count];
 		var itemIdLists = new nint[absolutePidls.Count];
 		var pinnedCount = 0;
+
 		try
 		{
 			for (var index = 0; index < absolutePidls.Count; index++)

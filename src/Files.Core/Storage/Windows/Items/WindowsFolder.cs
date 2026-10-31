@@ -53,7 +53,9 @@ public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 
 			if (include)
 			{
-				yield return Factory.Create(descriptor);
+				yield return descriptor.Metadata.IsFolder
+					? new WindowsFolder(descriptor, Factory, _enumerator)
+					: new WindowsFile(descriptor, Factory);
 			}
 		}
 	}

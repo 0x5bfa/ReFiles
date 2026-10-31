@@ -69,11 +69,6 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 		return reference.SourceId == SourceId;
 	}
 
-	internal bool IsFileSystemIdentity(string itemId)
-	{
-		return _storableFactory.IsFileSystemIdentity(itemId);
-	}
-
 	/// <summary>Initializes a Windows Shell storage source.</summary>
 	/// <param name="sourceId">The optional source identifier.</param>
 	/// <param name="displayName">The source display name.</param>
@@ -186,7 +181,6 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 	public async ValueTask<IStorable> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
-
 		ArgumentNullException.ThrowIfNull(reference);
 
 		if (reference.SourceId != SourceId)

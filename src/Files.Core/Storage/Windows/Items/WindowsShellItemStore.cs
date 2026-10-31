@@ -12,8 +12,6 @@ namespace Files.Core.Storage.Windows;
 
 internal sealed class WindowsShellItemStore
 {
-	private static readonly Guid _interfaceId = typeof(IDefViewItemStore).GUID;
-
 	private readonly IDefViewItemStore _itemStore;
 
 	private WindowsShellItemStore(IDefViewItemStore itemStore)
@@ -30,9 +28,10 @@ internal sealed class WindowsShellItemStore
 
 		IDefViewItemStore? itemStore;
 		HRESULT hr;
+
 		try
 		{
-			hr = PInvoke.CItemStoreCreateInstance(null, in _interfaceId, out itemStore);
+			hr = PInvoke.CItemStoreCreateInstance(null, typeof(IDefViewItemStore).GUID, out itemStore);
 			if (hr.Failed || itemStore is null)
 			{
 				return null;
@@ -78,8 +77,7 @@ internal sealed class WindowsShellItemStore
 	{
 		ArgumentNullException.ThrowIfNull(parentFolder);
 
-		var interfaceId = typeof(IShellItem).GUID;
-		var hr = _itemStore.GetItem(in itemKey, parentFolder, null, in interfaceId, out var item);
+		var hr = _itemStore.GetItem(in itemKey, parentFolder, null, typeof(IShellItem).GUID, out var item);
 
 		return hr.Succeeded ? item as IShellItem : null;
 	}

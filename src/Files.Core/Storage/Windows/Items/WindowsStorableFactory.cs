@@ -4,10 +4,7 @@
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
 using System.IO;
-using Files.Core.Storage;
 using Windows.Win32;
-using Windows.Win32.Foundation;
-using Windows.Win32.System.SystemServices;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.Shell.Common;
 
@@ -27,9 +24,7 @@ internal sealed class WindowsStorableFactory
 	internal WindowsStorableFactory(IWindowsShellScheduler scheduler, IWindowsItemIdReader itemIdReader, WindowsFolderEnumerator enumerator)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
-
 		ArgumentNullException.ThrowIfNull(itemIdReader);
-
 		ArgumentNullException.ThrowIfNull(enumerator);
 
 		_scheduler = scheduler;
@@ -41,34 +36,37 @@ internal sealed class WindowsStorableFactory
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
-		return _scheduler.InvokeAsync(() => Create(WindowShellHelpers.CreateDescriptor(WindowShellHelpers.ResolveItem(parsingName), _itemIdReader)), cancellationToken);
+		return _scheduler.InvokeAsync<WindowsStorable>(() =>
+		{
+			var descriptor = WindowShellHelpers.CreateDescriptor(WindowShellHelpers.ResolveItem(parsingName), _itemIdReader);
+
+			return descriptor.Metadata.IsFolder ? new WindowsFolder(descriptor, this, _enumerator) : new WindowsFile(descriptor, this);
+		}, cancellationToken);
 	}
 
 	public Task<WindowsStorable> CreateAsync(Guid knownFolderId, CancellationToken cancellationToken = default)
 	{
-		return _scheduler.InvokeAsync(
-			() =>
-			{
-				var hr = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
-				hr.ThrowOnFailure();
+		return _scheduler.InvokeAsync<WindowsStorable>(() =>
+		{
+			var hr = PInvoke.SHGetKnownFolderItem(knownFolderId, KNOWN_FOLDER_FLAG.KF_FLAG_DEFAULT, null, out IShellItem shellItem);
+			hr.ThrowOnFailure();
+			var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader);
 
-				return Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
-			},
-			cancellationToken);
+			return descriptor.Metadata.IsFolder ? new WindowsFolder(descriptor, this, _enumerator) : new WindowsFile(descriptor, this);
+		}, cancellationToken);
 	}
 
 	internal Task<WindowsStorable> CreateDesktopAsync(CancellationToken cancellationToken = default)
 	{
-		return _scheduler.InvokeAsync(
-			() =>
-			{
-				ITEMIDLIST desktopPidl = default;
-				var hr = PInvoke.SHCreateItemFromIDList(in desktopPidl, out IShellItem shellItem);
-				hr.ThrowOnFailure();
+		return _scheduler.InvokeAsync<WindowsStorable>(() =>
+		{
+			ITEMIDLIST desktopPidl = default;
+			var hr = PInvoke.SHCreateItemFromIDList(in desktopPidl, out IShellItem shellItem);
+			hr.ThrowOnFailure();
+			var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader);
 
-				return Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
-			},
-			cancellationToken);
+			return descriptor.Metadata.IsFolder ? new WindowsFolder(descriptor, this, _enumerator) : new WindowsFile(descriptor, this);
+		}, cancellationToken);
 	}
 
 	internal Task<WindowsFolder> CreateSearchFolderAsync(string query, IReadOnlyList<WindowsItemLocator>? scopeLocators, CancellationToken cancellationToken = default)
@@ -80,16 +78,17 @@ internal sealed class WindowsStorableFactory
 			throw new ArgumentException("A supplied Windows Shell search scope cannot be empty.", nameof(scopeLocators));
 		}
 
-		return _scheduler.InvokeAsync(
-			() =>
+		return _scheduler.InvokeAsync(() =>
+		{
+			var shellItem = WindowsShellSearchFolderFactory.Create(query, scopeLocators);
+			var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader) with { IsSearchFolder = true };
+			if (!descriptor.Metadata.IsFolder)
 			{
-				var shellItem = WindowsShellSearchFolderFactory.Create(query, scopeLocators);
-				var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader) with { IsSearchFolder = true };
-				var storable = Create(descriptor);
+				throw new InvalidOperationException("The Windows Shell search factory did not return a folder.");
+			}
 
-				return storable as WindowsFolder ?? throw new InvalidOperationException("The Windows Shell search factory did not return a folder.");
-			},
-			cancellationToken);
+			return new WindowsFolder(descriptor, this, _enumerator);
+		}, cancellationToken);
 	}
 
 	public Task<WindowsStorable?> TryCreateAsync(string parsingName, CancellationToken cancellationToken = default)
@@ -99,11 +98,17 @@ internal sealed class WindowsStorableFactory
 			return Task.FromResult<WindowsStorable?>(null);
 		}
 
-		return _scheduler.InvokeConcurrentAsync(() =>
+		return _scheduler.InvokeConcurrentAsync<WindowsStorable?>(() =>
 		{
 			var shellItem = WindowShellHelpers.TryResolveItem(parsingName);
+			if (shellItem is null)
+			{
+				return null;
+			}
 
-			return shellItem is null ? null : Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
+			var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader);
+
+			return descriptor.Metadata.IsFolder ? new WindowsFolder(descriptor, this, _enumerator) : new WindowsFile(descriptor, this);
 		}, cancellationToken);
 	}
 
@@ -114,61 +119,24 @@ internal sealed class WindowsStorableFactory
 			return Task.FromResult<WindowsStorable?>(null);
 		}
 
-		return _scheduler.InvokeAsync(() =>
+		return _scheduler.InvokeAsync<WindowsStorable?>(() =>
 		{
 			var shellItem = WindowShellHelpers.TryResolveItem(absolutePidl);
-
-			return shellItem is null ? null : Create(WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader));
-		}, cancellationToken);
-	}
-
-	internal bool IsFileSystemIdentity(string itemId)
-	{
-		return _itemIdReader.IsFileSystemIdentity(itemId);
-	}
-
-	public Task<WindowsStorable?> TryCreateFromItemIdAsync(string itemId, StorageAddress? lastKnownAddress = null, CancellationToken cancellationToken = default)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
-
-		return TryCreateFromItemIdCoreAsync(itemId, lastKnownAddress, cancellationToken);
-	}
-
-	public Task<WindowsFolder?> GetParentAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(descriptor);
-
-		return _scheduler.InvokeAsync(() =>
-		{
-			var shellItem = WindowShellHelpers.TryResolveItem(descriptor.Locator);
 			if (shellItem is null)
 			{
 				return null;
 			}
 
-			var hr = shellItem.GetParent(out var parent);
+			var descriptor = WindowShellHelpers.CreateDescriptor(shellItem, _itemIdReader);
 
-			if (hr.Failed)
-			{
-				return null;
-			}
-
-			return Create(WindowShellHelpers.CreateDescriptor(parent, _itemIdReader)) as WindowsFolder;
-		},
-		cancellationToken);
+			return descriptor.Metadata.IsFolder ? new WindowsFolder(descriptor, this, _enumerator) : new WindowsFile(descriptor, this);
+		}, cancellationToken);
 	}
 
-	internal WindowsStorable Create(WindowsStorableDescriptor descriptor)
+	public async Task<WindowsStorable?> TryCreateFromItemIdAsync(string itemId, StorageAddress? lastKnownAddress = null, CancellationToken cancellationToken = default)
 	{
-		ArgumentNullException.ThrowIfNull(descriptor);
+		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
 
-		return descriptor.Metadata.IsFolder
-			? new WindowsFolder(descriptor, this, _enumerator)
-			: new WindowsFile(descriptor, this);
-	}
-
-	private async Task<WindowsStorable?> TryCreateFromItemIdCoreAsync(string itemId, StorageAddress? lastKnownAddress, CancellationToken cancellationToken)
-	{
 		if (_itemIdReader.TryGetParsingName(itemId, out var parsingName))
 		{
 			var addressCandidate = await TryCreateAsync(parsingName, cancellationToken).ConfigureAwait(false);
@@ -222,6 +190,31 @@ internal sealed class WindowsStorableFactory
 		}
 
 		return null;
+	}
+
+	public Task<WindowsFolder?> GetParentAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(descriptor);
+
+		return _scheduler.InvokeAsync(() =>
+		{
+			var shellItem = WindowShellHelpers.TryResolveItem(descriptor.Locator);
+			if (shellItem is null)
+			{
+				return null;
+			}
+
+			var hr = shellItem.GetParent(out var parent);
+
+			if (hr.Failed)
+			{
+				return null;
+			}
+
+			var parentDescriptor = WindowShellHelpers.CreateDescriptor(parent, _itemIdReader);
+
+			return parentDescriptor.Metadata.IsFolder ? new WindowsFolder(parentDescriptor, this, _enumerator) : null;
+		}, cancellationToken);
 	}
 
 	private static bool IsMatchingItem(WindowsStorable? storable, string itemId)

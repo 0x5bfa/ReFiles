@@ -119,7 +119,7 @@ public sealed class WindowsPropertyTests
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var resolved = Assert.IsInstanceOfType<WindowsStorable>(await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath)));
 			var descriptor = resolved.Descriptor with { Locator = new WindowsItemLocator(resolved.Locator.AbsolutePidl, @"Z:\missing\properties.bin") };
-			var coreModel = resolved.Factory.Create(descriptor);
+			var coreModel = new WindowsFile(descriptor, resolved.Factory);
 			var capabilityRegistry = new CapabilityBuilder()
 				.Add<IPropertySource>(new PropertySourceFactory(new WindowsPropertyReader()), origin: "Windows Property System")
 				.SetCombiner<IPropertySource>(new PropertySourceCombiner())
