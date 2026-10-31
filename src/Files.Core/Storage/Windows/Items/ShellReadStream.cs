@@ -47,12 +47,12 @@ internal sealed unsafe class ShellReadStream : Stream
 		get => _shellStream ?? throw new ObjectDisposedException(nameof(ShellReadStream));
 	}
 
-	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream)
+	internal ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream)
 		: this(scheduler, shellStream, FileAccess.Read)
 	{
 	}
 
-	public ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream, FileAccess accessMode)
+	internal ShellReadStream(IWindowsShellScheduler scheduler, IStream shellStream, FileAccess accessMode)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 		ArgumentNullException.ThrowIfNull(shellStream);

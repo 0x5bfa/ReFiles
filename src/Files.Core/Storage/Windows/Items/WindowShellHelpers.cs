@@ -16,7 +16,7 @@ namespace Files.Core.Storage.Windows;
 
 internal static unsafe class WindowShellHelpers
 {
-	public static WindowsStorableDescriptor CreateDescriptor(IShellItem shellItem, IWindowsItemIdReader itemIdReader)
+	internal static WindowsStorableDescriptor CreateDescriptor(IShellItem shellItem, IWindowsItemIdReader itemIdReader)
 	{
 		ArgumentNullException.ThrowIfNull(shellItem);
 		ArgumentNullException.ThrowIfNull(itemIdReader);
@@ -24,7 +24,7 @@ internal static unsafe class WindowShellHelpers
 		return CreateDescriptor(CreateDescriptorData(shellItem), itemIdReader);
 	}
 
-	public static WindowsStorableDescriptorData CreateDescriptorData(
+	internal static WindowsStorableDescriptorData CreateDescriptorData(
 		IShellItem shellItem,
 		WindowsItemLocator? parentFolder = null,
 		ReadOnlyMemory<byte> absolutePidl = default,
@@ -63,7 +63,7 @@ internal static unsafe class WindowShellHelpers
 		return new WindowsStorableDescriptorData(address, new WindowsItemLocator(absolutePidl, parsingName, relativePidl.IsEmpty ? null : parentFolder, relativePidl, itemStoreReference), metadata);
 	}
 
-	public static WindowsStorableDescriptor CreateDescriptor(WindowsStorableDescriptorData data, IWindowsItemIdReader itemIdReader)
+	internal static WindowsStorableDescriptor CreateDescriptor(WindowsStorableDescriptorData data, IWindowsItemIdReader itemIdReader)
 	{
 		ArgumentNullException.ThrowIfNull(data);
 		ArgumentNullException.ThrowIfNull(itemIdReader);
@@ -73,13 +73,13 @@ internal static unsafe class WindowShellHelpers
 		return new WindowsStorableDescriptor(itemId, data.Address, data.Locator, data.Metadata);
 	}
 
-	public static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)
+	internal static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)
 	{
 		return TryGetDisplayName(shellItem, format)
 			?? throw new InvalidOperationException($"The Shell item does not expose a '{format}' display name.");
 	}
 
-	public static string? TryGetDisplayName(IShellItem shellItem, SIGDN format)
+	internal static string? TryGetDisplayName(IShellItem shellItem, SIGDN format)
 	{
 		var hr = shellItem.GetDisplayName(format, out var displayName);
 		if (hr.Failed)
@@ -279,6 +279,46 @@ internal static unsafe class WindowShellHelpers
 		}
 
 		return false;
+	}
+
+	internal static bool MatchesPidl(ReadOnlyMemory<byte> itemPidl, ReadOnlyMemory<byte> folderPidl, bool recursive)
+	{
+		if (itemPidl.IsEmpty || folderPidl.IsEmpty)
+		{
+			return false;
+		}
+
+		var item = itemPidl.Span;
+		var folder = folderPidl.Span;
+
+		if (item.SequenceEqual(folder))
+		{
+			return true;
+		}
+
+		if (folder.Length < sizeof(ushort) || item.Length <= folder.Length || !item[..^sizeof(ushort)].StartsWith(folder[..^sizeof(ushort)]))
+		{
+			return false;
+		}
+
+		if (recursive)
+		{
+			return true;
+		}
+
+		var childOffset = folder.Length - sizeof(ushort);
+		var childSize = BitConverter.ToUInt16(item[childOffset..]);
+
+		return childSize >= sizeof(ushort) && childSize + sizeof(ushort) == item.Length - childOffset;
+	}
+
+	/// <summary>Copies a PIDL into CoTaskMem memory that the caller must free.</summary>
+	internal static ITEMIDLIST* AllocatePidl(ReadOnlySpan<byte> source)
+	{
+		var nativePidl = (ITEMIDLIST*)Marshal.AllocCoTaskMem(source.Length);
+		source.CopyTo(new Span<byte>((byte*)nativePidl, source.Length));
+
+		return nativePidl;
 	}
 
 	internal static unsafe ReadOnlyMemory<byte> CopyPidl(ITEMIDLIST* pidl)

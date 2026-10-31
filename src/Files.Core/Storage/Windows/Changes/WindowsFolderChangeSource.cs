@@ -5,7 +5,6 @@
 
 using System.Diagnostics;
 using Files.Core.Capabilities.Changes;
-using Files.Core.Storage;
 using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
@@ -13,30 +12,20 @@ namespace Files.Core.Storage.Windows;
 internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 {
 	private readonly WindowsStorageSource _source;
-
 	private readonly WindowsItemLocator _folderLocator;
-
 	private readonly CancellationTokenSource _lifetime = new();
-
 	private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
-
 	private readonly Lock _disposeSync = new();
-
 	private WindowsShellChangeWatcher.WindowsShellChangeSubscription? _subscription;
-
 	private Task? _pumpTask;
-
 	private Task? _disposeTask;
-
 	private int _isStarted;
-
 	private int _isDisposed;
 
 	public event EventHandler<FolderChangeEventArgs>? Changed;
-
 	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
-	public WindowsFolderChangeSource(WindowsStorageSource source, WindowsItemLocator folderLocator)
+	internal WindowsFolderChangeSource(WindowsStorageSource source, WindowsItemLocator folderLocator)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(folderLocator);
@@ -158,7 +147,11 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 			? CreateReference(first)
 			: null;
 
-		return new FolderChange(kind, currentItem, previousItem, kind is FolderChangeKind.DirectoryUpdated || (kind is FolderChangeKind.Renamed ? first is null || second is null : first is null));
+		return new FolderChange(
+			kind,
+			currentItem,
+			previousItem,
+			kind is FolderChangeKind.DirectoryUpdated || (kind is FolderChangeKind.Renamed ? first is null || second is null : first is null));
 	}
 
 	private void Publish(FolderChange change)
@@ -170,7 +163,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		}
 
 		var args = new FolderChangeEventArgs(change);
-		foreach (EventHandler<FolderChangeEventArgs> handler in handlers.GetInvocationList())
+		foreach (var handler in handlers.GetInvocationList().Cast<EventHandler<FolderChangeEventArgs>>())
 		{
 			try
 			{
@@ -194,7 +187,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		}
 
 		var args = new FolderChangeErrorEventArgs(error);
-		foreach (EventHandler<FolderChangeErrorEventArgs> handler in handlers.GetInvocationList())
+		foreach (var handler in handlers.GetInvocationList().Cast<EventHandler<FolderChangeErrorEventArgs>>())
 		{
 			try
 			{
@@ -246,6 +239,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource
 		var errors = new List<Exception>();
 
 		await _lifecycleGate.WaitAsync().ConfigureAwait(false);
+
 		try
 		{
 			currentSubscription = _subscription;

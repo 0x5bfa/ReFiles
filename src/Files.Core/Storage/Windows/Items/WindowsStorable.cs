@@ -8,7 +8,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Represents a Windows Shell item using apartment-neutral metadata.
 /// </summary>
-public abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStorable>
+internal abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsStorable>
 {
 	private readonly WindowsStorableDescriptor _descriptor;
 

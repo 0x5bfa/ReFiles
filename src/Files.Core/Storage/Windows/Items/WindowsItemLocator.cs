@@ -10,17 +10,18 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal sealed record WindowsItemLocator
 {
-	public ReadOnlyMemory<byte> AbsolutePidl { get; }
+	internal ReadOnlyMemory<byte> AbsolutePidl { get; }
 
-	public WindowsItemLocator? ParentFolder { get; }
+	internal WindowsItemLocator? ParentFolder { get; }
 
-	public string ParsingName { get; }
+	internal string ParsingName { get; }
 
-	public ReadOnlyMemory<byte> RelativePidl { get; }
+	internal ReadOnlyMemory<byte> RelativePidl { get; }
 
 	internal WindowsShellItemStoreReference? ItemStoreReference { get; }
 
-	public WindowsItemLocator(ReadOnlyMemory<byte> absolutePidl, string parsingName, WindowsItemLocator? parentFolder = null, ReadOnlyMemory<byte> relativePidl = default, WindowsShellItemStoreReference? itemStoreReference = null)
+	internal WindowsItemLocator(ReadOnlyMemory<byte> absolutePidl, string parsingName, WindowsItemLocator? parentFolder = null, ReadOnlyMemory<byte> relativePidl = default,
+		WindowsShellItemStoreReference? itemStoreReference = null)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 

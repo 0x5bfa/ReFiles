@@ -1,7 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.IO;
+#pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
+
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Content;
 
@@ -18,7 +19,8 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 		ArgumentNullException.ThrowIfNull(context);
 
 		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsStorable item && (item.IsStream || item is WindowsFile { IsFileSystem: true })
-			? new WindowsContentSource(item.Descriptor, source.Scheduler, source.ItemIdReader) : null;
+			? new WindowsContentSource(item.Descriptor, source.Scheduler, source.ItemIdReader)
+			: null;
 	}
 
 	/// <summary>Creates write access for existing file-system files without inferring write support for virtual Shell streams.</summary>
@@ -29,14 +31,7 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 		ArgumentNullException.ThrowIfNull(context);
 
 		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsFile { IsFileSystem: true } file
-			? new WritableContent(new WindowsContentSource(file.Descriptor, source.Scheduler, source.ItemIdReader)) : null;
-	}
-
-	private sealed record WritableContent(WindowsContentSource Content) : IWritableContent
-	{
-		public Task<Stream> OpenWriteAsync(CancellationToken cancellationToken = default)
-		{
-			return Content.OpenWriteAsync(cancellationToken);
-		}
+			? new WindowsContentSource(file.Descriptor, source.Scheduler, source.ItemIdReader)
+			: null;
 	}
 }

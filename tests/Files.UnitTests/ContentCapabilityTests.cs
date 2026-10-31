@@ -202,7 +202,7 @@ public sealed class ContentCapabilityTests
 		}
 	}
 
-	/// <summary>Shell content remains readable and seekable from another thread after the STA open call completes.</summary>
+	/// <summary>Virtual Shell content remains readable across threads without exposing supported write access.</summary>
 	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
 	public async Task ShellContentStreamRemainsUsableAfterItsOpenCallCompletes()
@@ -217,10 +217,15 @@ public sealed class ContentCapabilityTests
 			var item = (WindowsStorable)await source.ResolveAsync(new StorageAddress("file", path));
 			var descriptor = item.Descriptor with { Metadata = item.Metadata with { FileSystemPath = null, IsStream = true } };
 			var shellItem = new WindowsFile(descriptor, item.Factory);
-			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Build();
+			var contentFactory = new WindowsContentSourceFactory();
+			var registry = new CapabilityBuilder().Add<IReadableContent>(contentFactory).Add<IWritableContent>(contentFactory).Build();
 			await using var model = new StorableModelFactory(registry).Create(source, shellItem);
 			var content = model.Get<IReadableContent>();
 			Assert.IsNotNull(content);
+			Assert.IsNull(model.Get<IWritableContent>());
+			var writer = Assert.IsInstanceOfType<IWritableContent>(content);
+			await Assert.ThrowsAsync<NotSupportedException>(() => writer.OpenWriteAsync());
+
 			await using var stream = await content.OpenReadAsync();
 			Assert.IsInstanceOfType<ShellReadStream>(stream);
 			await Task.Run(async () =>

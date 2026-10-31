@@ -107,7 +107,7 @@ public sealed class WindowsFolderChangeTests
 	}
 
 	/// <summary>
-	/// Test case: shared registration does not duplicate changes.
+	/// Shared subscriptions deliver once, survive another subscriber's disposal, and restart after the last subscription closes.
 	/// </summary>
 	/// <returns>A task that represents the asynchronous test.</returns>
 	[TestMethod]
@@ -155,6 +155,22 @@ public sealed class WindowsFolderChangeTests
 			await Task.Delay(1000);
 			Assert.AreEqual(1, Volatile.Read(ref firstCount));
 			Assert.AreEqual(1, Volatile.Read(ref secondCount));
+
+			await firstChanges.DisposeAsync();
+			var renamedTask = WaitForChangeAsync(secondChanges, static change => change.Kind is FolderChangeKind.Renamed);
+			File.Move(filePath, Path.Combine(directoryPath, "renamed.txt"));
+			await renamedTask.WaitAsync(TimeSpan.FromSeconds(10));
+			await secondChanges.DisposeAsync();
+
+			await using var restartedChanges = CreateChangeSource(source, folder);
+			var restartedTask = WaitForChangeAsync(restartedChanges, static change => change.Kind is FolderChangeKind.Created);
+			await restartedChanges.StartAsync();
+			await Task.Delay(100);
+			var restartedPath = Path.Combine(directoryPath, "restarted.txt");
+			File.WriteAllText(restartedPath, "restarted");
+			var restarted = await restartedTask.WaitAsync(TimeSpan.FromSeconds(10));
+			Assert.IsNotNull(restarted.CurrentItem);
+			StringAssert.Contains(restarted.CurrentItem.LastKnownAddress!.Value, restartedPath);
 		}
 		finally
 		{

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage.Windows;
+using Windows.Win32;
 
 namespace Files.UnitTests;
 
@@ -9,6 +10,42 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class WindowShellHelpersTests
 {
+	/// <summary>PIDL matching distinguishes the folder itself, direct children, descendants, and unrelated items without Shell resolution.</summary>
+	[TestMethod]
+	public void PidlMatchingRespectsFolderDepth()
+	{
+		ReadOnlyMemory<byte> folder = new byte[] { 4, 0, 1, 0, 0, 0 };
+		ReadOnlyMemory<byte> child = new byte[] { 4, 0, 1, 0, 4, 0, 2, 0, 0, 0 };
+		ReadOnlyMemory<byte> descendant = new byte[] { 4, 0, 1, 0, 4, 0, 2, 0, 4, 0, 3, 0, 0, 0 };
+		ReadOnlyMemory<byte> unrelated = new byte[] { 4, 0, 9, 0, 0, 0 };
+		Assert.IsTrue(WindowShellHelpers.MatchesPidl(folder, folder, recursive: false));
+		Assert.IsTrue(WindowShellHelpers.MatchesPidl(child, folder, recursive: false));
+		Assert.IsFalse(WindowShellHelpers.MatchesPidl(descendant, folder, recursive: false));
+		Assert.IsTrue(WindowShellHelpers.MatchesPidl(descendant, folder, recursive: true));
+		Assert.IsFalse(WindowShellHelpers.MatchesPidl(unrelated, folder, recursive: true));
+		Assert.IsFalse(WindowShellHelpers.MatchesPidl(ReadOnlyMemory<byte>.Empty, folder, recursive: true));
+		Assert.IsFalse(WindowShellHelpers.MatchesPidl(child, ReadOnlyMemory<byte>.Empty, recursive: true));
+	}
+
+	/// <summary>Allocated PIDLs retain independent storage and round-trip through the managed copy helper.</summary>
+	[TestMethod]
+	public unsafe void PidlCopiesOwnTheirStorage()
+	{
+		var source = new byte[] { 4, 0, 1, 0, 0, 0 };
+		var expected = source.ToArray();
+		var nativePidl = WindowShellHelpers.AllocatePidl(source);
+		try
+		{
+			source[2] = 9;
+			CollectionAssert.AreEqual(expected, WindowShellHelpers.CopyPidl(nativePidl).ToArray());
+			Assert.IsTrue(WindowShellHelpers.CopyPidl(null).IsEmpty);
+		}
+		finally
+		{
+			PInvoke.CoTaskMemFree(nativePidl);
+		}
+	}
+
 	/// <summary>STA-only helpers reject MTA callers, including empty-input and identity fast paths.</summary>
 	/// <returns>The asynchronous test.</returns>
 	[TestMethod]

@@ -9,7 +9,7 @@ using Windows.Win32.Foundation;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Represents a folder exposed by the Windows Shell.</summary>
-public sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
+internal sealed class WindowsFolder : WindowsStorable, IFolder, IInteractiveFolder
 {
 	private readonly WindowsFolderEnumerator _enumerator;
 

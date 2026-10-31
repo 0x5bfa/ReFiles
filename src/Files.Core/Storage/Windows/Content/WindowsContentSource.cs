@@ -1,8 +1,9 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+#pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
+
 using System.IO;
-using System.Runtime.CompilerServices;
 using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
 using Windows.Win32;
@@ -11,7 +12,7 @@ using Windows.Win32.System.Com;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Opens Windows content while keeping virtual streams on their owning STA lane.</summary>
-internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
+internal sealed class WindowsContentSource : IReadableContent, IWritableContent, IArchiveInput
 {
 	private readonly WindowsStorableDescriptor _descriptor;
 	private readonly IWindowsShellScheduler _scheduler;
@@ -20,9 +21,7 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 	internal WindowsContentSource(WindowsStorableDescriptor descriptor, IWindowsShellScheduler scheduler, IWindowsItemIdReader itemIdReader)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
-
 		ArgumentNullException.ThrowIfNull(scheduler);
-
 		ArgumentNullException.ThrowIfNull(itemIdReader);
 
 		_descriptor = descriptor;
@@ -35,8 +34,15 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 		return OpenStreamAsync(FileAccess.Read, cancellationToken);
 	}
 
-	internal Task<Stream> OpenWriteAsync(CancellationToken cancellationToken = default)
+	Task<Stream> IWritableContent.OpenWriteAsync(CancellationToken cancellationToken)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		if (_descriptor.Metadata.FileSystemPath is null || _descriptor.Metadata.IsFolder)
+		{
+			throw new NotSupportedException("Write access requires a file-system file.");
+		}
+
 		return OpenStreamAsync(FileAccess.Write, cancellationToken);
 	}
 
@@ -62,16 +68,14 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 				return null!;
 			}
 
-			var hr = PInvoke.CreateBindCtx(0, out IBindCtx? bindContext);
-			hr.ThrowOnFailure();
-
+			var hr = PInvoke.CreateBindCtx(0, out var bindContext).ThrowOnFailure();
 			if (bindContext is null)
 			{
 				throw new IOException("Could not create a Shell bind context.");
 			}
 
 			BIND_OPTS bindOptions = default;
-			bindOptions.cbStruct = (uint)Unsafe.SizeOf<BIND_OPTS>();
+			bindOptions.cbStruct = (uint)sizeof(BIND_OPTS);
 			bindOptions.grfMode = accessMode switch
 			{
 				FileAccess.Read => (uint)(STGM.STGM_READ | STGM.STGM_SHARE_DENY_NONE),
@@ -79,20 +83,16 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 				FileAccess.ReadWrite => (uint)(STGM.STGM_READWRITE | STGM.STGM_SHARE_DENY_WRITE),
 				_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),
 			};
-			hr = bindContext.SetBindOptions(in bindOptions);
-			hr.ThrowOnFailure();
 
-			hr = shellItem.BindToHandler(bindContext, PInvoke.BHID_Stream, out IStream? shellStream);
-			hr.ThrowOnFailure();
-
+			hr = bindContext.SetBindOptions(in bindOptions).ThrowOnFailure();
+			hr = shellItem.BindToHandler<IStream>(bindContext, PInvoke.BHID_Stream, out var shellStream).ThrowOnFailure();
 			if (shellStream is null)
 			{
 				throw new IOException("The Shell item returned no stream.");
 			}
 
 			return new ShellReadStream(_scheduler, shellStream, accessMode);
-		},
-		cancellationToken);
+		}, cancellationToken);
 	}
 
 	private Task<Stream> OpenArchiveInputAsync(CancellationToken cancellationToken)
@@ -101,6 +101,7 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 
 		var path = _descriptor.Metadata.FileSystemPath ?? throw new NotSupportedException("Pinned archive input requires a file-system item.");
 		var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.Asynchronous | FileOptions.RandomAccess);
+
 		try
 		{
 			if (_itemIdReader.GetItemId(_descriptor.Locator.ParsingName, path) != _descriptor.ItemId)
@@ -124,12 +125,14 @@ internal sealed class WindowsContentSource : IReadableContent, IArchiveInput
 			throw new ArgumentOutOfRangeException(nameof(accessMode));
 		}
 
-		return new FileStream(fileSystemPath, new FileStreamOptions
-		{
-			Access = accessMode,
-			Mode = FileMode.Open,
-			Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
-			Share = FileShare.ReadWrite | FileShare.Delete,
-		});
+		return new FileStream(
+			fileSystemPath,
+			new FileStreamOptions
+			{
+				Access = accessMode,
+				Mode = FileMode.Open,
+				Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+				Share = FileShare.ReadWrite | FileShare.Delete,
+			});
 	}
 }

@@ -36,8 +36,8 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 	private readonly TimeSpan _saveDelay;
 	private readonly SemaphoreSlim _saveGate = new(1, 1);
 	private readonly Dictionary<string, BrowseViewSettings> _values = new(StringComparer.Ordinal);
-	private WindowsFolder? _localFolder;
-	private WindowsFolder? _settingsFolder;
+	private IFolder? _localFolder;
+	private IFolder? _settingsFolder;
 	private Task? _initializationTask;
 	private Timer? _saveTimer;
 	private long _changeVersion;
@@ -160,9 +160,9 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 	private async Task LoadAsync()
 	{
 		var localFolder = await ResolveFolderAsync(_localFolderPath, CancellationToken.None).ConfigureAwait(false);
-		var settingsFolder = await FindChildByNameAsync(localFolder, StorableType.Folder, SettingsDirectoryName, CancellationToken.None).ConfigureAwait(false) as WindowsFolder;
+		var settingsFolder = await FindChildByNameAsync(localFolder, StorableType.Folder, SettingsDirectoryName, CancellationToken.None).ConfigureAwait(false) as IFolder;
 		var values = new Dictionary<string, BrowseViewSettings>(StringComparer.Ordinal);
-		if (settingsFolder is not null && await FindChildByNameAsync(settingsFolder, StorableType.File, SettingsFileName, CancellationToken.None).ConfigureAwait(false) is WindowsFile settingsFile)
+		if (settingsFolder is not null && await FindChildByNameAsync(settingsFolder, StorableType.File, SettingsFileName, CancellationToken.None).ConfigureAwait(false) is IFile settingsFile)
 		{
 			try
 			{
@@ -303,9 +303,9 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		}
 	}
 
-	private async Task<WindowsFolder> EnsureSettingsFolderAsync(CancellationToken cancellationToken)
+	private async Task<IFolder> EnsureSettingsFolderAsync(CancellationToken cancellationToken)
 	{
-		WindowsFolder? settingsFolder;
+		IFolder? settingsFolder;
 		lock (_syncRoot)
 		{
 			settingsFolder = _settingsFolder;
@@ -317,7 +317,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		}
 
 		var localFolder = _localFolder ?? throw new InvalidOperationException("The Windows local folder is not initialized.");
-		settingsFolder = await FindChildByNameAsync(localFolder, StorableType.Folder, SettingsDirectoryName, cancellationToken).ConfigureAwait(false) as WindowsFolder;
+		settingsFolder = await FindChildByNameAsync(localFolder, StorableType.Folder, SettingsDirectoryName, cancellationToken).ConfigureAwait(false) as IFolder;
 		if (settingsFolder is null)
 		{
 			var result = await _windowsOperations.ExecuteAsync(new CreateItemOperationRequest(CreateReference(localFolder), SettingsDirectoryName, StorageItemKind.Folder), cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -326,7 +326,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 				throw result.Error ?? new IOException("The Windows Shell could not create the view settings folder.");
 			}
 
-			if (await _windowsSource.ResolveAsync(result.ResultItem, cancellationToken).ConfigureAwait(false) is not WindowsFolder createdFolder)
+			if (await _windowsSource.ResolveAsync(result.ResultItem, cancellationToken).ConfigureAwait(false) is not IFolder createdFolder)
 			{
 				throw new IOException("The Windows Shell did not return the view settings folder.");
 			}
@@ -342,10 +342,10 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		}
 	}
 
-	private async Task<WindowsFile> CreateTemporaryFileAsync(WindowsFolder parent, string name, CancellationToken cancellationToken)
+	private async Task<IWindowsStorable> CreateTemporaryFileAsync(IFolder parent, string name, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		var parentPath = parent.FileSystemPath ?? throw new IOException("The view settings folder does not have a file-system path.");
+		var parentPath = (parent as IWindowsStorable)?.FileSystemPath ?? throw new IOException("The view settings folder does not have a file-system path.");
 		var path = Path.Combine(parentPath, name);
 		using var handle = PInvoke.CreateFile(path, (uint)FILE_ACCESS_RIGHTS.FILE_GENERIC_WRITE,
 			FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE | FILE_SHARE_MODE.FILE_SHARE_DELETE, null,
@@ -359,9 +359,9 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		return await ResolveFileAsync(path, cancellationToken).ConfigureAwait(false);
 	}
 
-	private async Task CommitTemporaryFileAsync(WindowsFolder settingsFolder, WindowsFile temporaryFile, CancellationToken cancellationToken)
+	private async Task CommitTemporaryFileAsync(IFolder settingsFolder, IWindowsStorable temporaryFile, CancellationToken cancellationToken)
 	{
-		if (await FindChildByNameAsync(settingsFolder, StorableType.File, SettingsFileName, cancellationToken).ConfigureAwait(false) is WindowsFile destinationFile)
+		if (await FindChildByNameAsync(settingsFolder, StorableType.File, SettingsFileName, cancellationToken).ConfigureAwait(false) is { } destinationFile && destinationFile is IFile)
 		{
 			if (temporaryFile.FileSystemPath is not { } temporaryPath || destinationFile.FileSystemPath is not { } destinationPath)
 			{
@@ -383,7 +383,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		}
 	}
 
-	private async Task TryDeleteAsync(WindowsFile file)
+	private async Task TryDeleteAsync(IWindowsStorable file)
 	{
 		try
 		{
@@ -399,9 +399,9 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		}
 	}
 
-	private async Task<WindowsFolder> ResolveFolderAsync(string path, CancellationToken cancellationToken)
+	private async Task<IFolder> ResolveFolderAsync(string path, CancellationToken cancellationToken)
 	{
-		if (await _windowsSource.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false) is not WindowsFolder folder)
+		if (await _windowsSource.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false) is not IFolder folder)
 		{
 			throw new InvalidOperationException($"The Windows Shell path '{path}' is not a folder.");
 		}
@@ -409,9 +409,10 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		return folder;
 	}
 
-	private async Task<WindowsFile> ResolveFileAsync(string path, CancellationToken cancellationToken)
+	private async Task<IWindowsStorable> ResolveFileAsync(string path, CancellationToken cancellationToken)
 	{
-		if (await _windowsSource.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false) is not WindowsFile file)
+		var item = await _windowsSource.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path), cancellationToken).ConfigureAwait(false);
+		if (item is not IFile || item is not IWindowsStorable file)
 		{
 			throw new IOException("The Windows Shell did not return the temporary view settings file.");
 		}
@@ -419,11 +420,11 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		return file;
 	}
 
-	private static async Task<WindowsStorable?> FindChildByNameAsync(WindowsFolder folder, StorableType type, string name, CancellationToken cancellationToken)
+	private static async Task<IWindowsStorable?> FindChildByNameAsync(IFolder folder, StorableType type, string name, CancellationToken cancellationToken)
 	{
 		await foreach (var child in folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
 		{
-			if (child is WindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(item.FileSystemPath), name))
+			if (child is IWindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(item.FileSystemPath), name))
 			{
 				return item;
 			}
@@ -432,12 +433,12 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		return null;
 	}
 
-	private StorableReference CreateReference(WindowsStorable item)
+	private StorableReference CreateReference(IStorable item)
 	{
-		return new StorableReference(_windowsSource.SourceId, item.Id, item.Address);
+		return new StorableReference(_windowsSource.SourceId, item.Id, (item as IStorageAddressSource)?.Address);
 	}
 
-	private async Task WriteTextAsync(WindowsFile file, string json, CancellationToken cancellationToken)
+	private async Task WriteTextAsync(IWindowsStorable file, string json, CancellationToken cancellationToken)
 	{
 		await using var model = _contentModels.Create(_windowsSource, file);
 		var content = model.Get<IWritableContent>() ?? throw new NotSupportedException("The view settings file does not support writing.");

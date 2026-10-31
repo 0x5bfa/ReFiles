@@ -35,7 +35,7 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 
 	private readonly IWindowsShellScheduler _scheduler;
 	private readonly string _windowClassName = $"{WindowClassPrefix}_{Guid.NewGuid():N}";
-	private readonly List<Registration> _registrations = [];
+	private readonly List<WindowsShellFolderChangeRegistration> _registrations = [];
 	private readonly Lock _disposalLock = new();
 	private WNDPROC? _wndProc;
 	private HWND _window;
@@ -43,63 +43,93 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 	private Task? _disposeTask;
 	private int _isDisposed;
 
-	public WindowsShellChangeWatcher(IWindowsShellScheduler scheduler)
+	internal WindowsShellChangeWatcher(IWindowsShellScheduler scheduler)
 	{
 		ArgumentNullException.ThrowIfNull(scheduler);
 
 		_scheduler = scheduler;
 	}
 
-	public Task<WindowsShellChangeSubscription> SubscribeAsync(WindowsItemLocator folderLocator, bool recursive, CancellationToken cancellationToken = default)
+	internal unsafe Task<WindowsShellChangeSubscription> SubscribeAsync(WindowsItemLocator folderLocator, bool recursive, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(folderLocator);
 
-		return _scheduler.InvokeAsync(() => SubscribeCore(folderLocator, recursive), cancellationToken);
-	}
-
-	public ValueTask DisposeAsync()
-	{
-		lock (_disposalLock)
+		return _scheduler.InvokeAsync(() =>
 		{
-			_disposeTask ??= DisposeWatcherAsync();
+			ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-			return new ValueTask(_disposeTask);
-		}
-	}
-
-	private async Task DisposeWatcherAsync()
-	{
-		Interlocked.Exchange(ref _isDisposed, 1);
-
-		try
-		{
-			await _scheduler.InvokeAsync(() => {DisposeCore(); return true;}).ConfigureAwait(false);
-		}
-		catch (Exception error)
-		{
-			foreach (var registration in _registrations)
+			if (folderLocator.AbsolutePidl.IsEmpty)
 			{
-				foreach (var subscription in registration.Subscriptions)
+				throw new InvalidOperationException("The folder does not have an absolute PIDL.");
+			}
+
+			var folderPidl = folderLocator.AbsolutePidl.ToArray();
+			var existingRegistration = FindRegistration(folderPidl, recursive);
+			if (existingRegistration is not null)
+			{
+				return existingRegistration.CreateSubscription(this);
+			}
+
+			if (_window.IsNull)
+			{
+				fixed (char* className = _windowClassName)
 				{
-					subscription.Changes.Writer.TryComplete(error);
+					_wndProc ??= new(WindowProc);
+
+					WNDCLASSEXW windowClass = default;
+					windowClass.cbSize = (uint)sizeof(WNDCLASSEXW);
+					windowClass.hInstance = PInvoke.GetModuleHandle(default(PCWSTR));
+					windowClass.lpszClassName = className;
+					windowClass.lpfnWndProc = (delegate* unmanaged[Stdcall]<HWND, uint, WPARAM, LPARAM, LRESULT>)Marshal.GetFunctionPointerForDelegate(_wndProc);
+
+					if (PInvoke.RegisterClassEx(&windowClass) == 0)
+					{
+						throw new InvalidOperationException("RegisterClassEx failed.");
+					}
+
+					_notificationMessage = PInvoke.RegisterWindowMessage(_windowClassName);
+					if (_notificationMessage == 0)
+					{
+						PInvoke.UnregisterClass(className, windowClass.hInstance);
+						throw new InvalidOperationException("RegisterWindowMessage failed.");
+					}
+
+					_window = PInvoke.CreateWindowEx(WINDOW_EX_STYLE.WS_EX_LEFT, className, default, WINDOW_STYLE.WS_OVERLAPPED, 0, 0, 1, 1, HWND.Null, HMENU.Null, HINSTANCE.Null, null);
+
+					if (_window.IsNull)
+					{
+						PInvoke.UnregisterClass(className, windowClass.hInstance);
+						throw new InvalidOperationException("CreateWindowEx failed.");
+					}
 				}
 			}
 
-			throw;
-		}
-		finally
-		{
-			foreach (var registration in _registrations)
+			var nativePidl = WindowShellHelpers.AllocatePidl(folderPidl);
+			SHChangeNotifyEntry entry = default;
+			entry.pidl = nativePidl;
+			entry.fRecursive = recursive;
+			var registrationId = PInvoke.SHChangeNotifyRegister(_window, SHCNRF_SOURCE.SHCNRF_ShellLevel | SHCNRF_SOURCE.SHCNRF_InterruptLevel | SHCNRF_SOURCE.SHCNRF_NewDelivery,
+				(int)ChangeMask, _notificationMessage, 1, in entry);
+
+			if (registrationId == 0)
 			{
-				foreach (var subscription in registration.Subscriptions)
+				PInvoke.CoTaskMemFree(nativePidl);
+				if (_registrations.Count is 0)
 				{
-					subscription.Changes.Writer.TryComplete();
+					DestroyNotificationWindow();
 				}
+
+				throw new InvalidOperationException("SHChangeNotifyRegister failed.");
 			}
-		}
+
+			var registration = new WindowsShellFolderChangeRegistration(folderPidl, nativePidl, registrationId, recursive);
+			_registrations.Add(registration);
+
+			return registration.CreateSubscription(this);
+		}, cancellationToken);
 	}
 
-	private async Task UnsubscribeAsync(Registration registration, WindowsShellChangeSubscription subscription)
+	private async Task UnsubscribeAsync(WindowsShellFolderChangeRegistration registration, WindowsShellChangeSubscription subscription)
 	{
 		subscription.Changes.Writer.TryComplete();
 
@@ -110,58 +140,42 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 
 		try
 		{
-			await _scheduler.InvokeAsync(() => {RemoveCore(registration, subscription); return true;}).ConfigureAwait(false);
+			await _scheduler.InvokeAsync(() =>
+			{
+				if (!registration.Subscriptions.Remove(subscription))
+				{
+					return true;
+				}
+
+				if (registration.Subscriptions.Count is not 0 || !_registrations.Remove(registration))
+				{
+					return true;
+				}
+
+				if (registration.RegistrationId != 0)
+				{
+					PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
+				}
+
+				unsafe
+				{
+					PInvoke.CoTaskMemFree(registration.NativePidl);
+				}
+
+				if (_registrations.Count is 0)
+				{
+					DestroyNotificationWindow();
+				}
+
+				return true;
+			}).ConfigureAwait(false);
 		}
 		catch (ObjectDisposedException)
 		{
 		}
 	}
 
-	private unsafe WindowsShellChangeSubscription SubscribeCore(WindowsItemLocator folderLocator, bool recursive)
-	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
-
-		if (folderLocator.AbsolutePidl.IsEmpty)
-		{
-			throw new InvalidOperationException("The folder does not have an absolute PIDL.");
-		}
-
-		var folderPidl = folderLocator.AbsolutePidl.ToArray();
-		var existingRegistration = FindRegistration(folderPidl, recursive);
-		if (existingRegistration is not null)
-		{
-			return existingRegistration.CreateSubscription(this);
-		}
-
-		CreateNotificationWindow();
-
-		var nativePidl = CopyRegistrationPidl(folderPidl);
-		var entry = new SHChangeNotifyEntry
-		{
-			pidl = nativePidl,
-			fRecursive = recursive,
-		};
-
-		var registrationId = PInvoke.SHChangeNotifyRegister(_window, SHCNRF_SOURCE.SHCNRF_ShellLevel | SHCNRF_SOURCE.SHCNRF_InterruptLevel | SHCNRF_SOURCE.SHCNRF_NewDelivery, (int)ChangeMask, _notificationMessage, 1, in entry);
-
-		if (registrationId == 0)
-		{
-			PInvoke.CoTaskMemFree(nativePidl);
-			if (_registrations.Count is 0)
-			{
-				DestroyNotificationWindow();
-			}
-
-			throw new InvalidOperationException("SHChangeNotifyRegister failed.");
-		}
-
-		var registration = new Registration(folderPidl, nativePidl, registrationId, recursive);
-		_registrations.Add(registration);
-
-		return registration.CreateSubscription(this);
-	}
-
-	private Registration? FindRegistration(ReadOnlyMemory<byte> folderPidl, bool recursive)
+	private WindowsShellFolderChangeRegistration? FindRegistration(ReadOnlyMemory<byte> folderPidl, bool recursive)
 	{
 		foreach (var registration in _registrations)
 		{
@@ -174,254 +188,82 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 		return null;
 	}
 
-	private unsafe void CreateNotificationWindow()
-	{
-		if (!_window.IsNull)
-		{
-			return;
-		}
-
-		fixed (char* className = _windowClassName)
-		{
-			_wndProc ??= new(WindowProc);
-
-			var windowClass = new WNDCLASSEXW
-			{
-				cbSize = (uint)sizeof(WNDCLASSEXW),
-				hInstance = PInvoke.GetModuleHandle(default(PCWSTR)),
-				lpszClassName = className,
-				lpfnWndProc =
-					(delegate* unmanaged[Stdcall]< HWND, uint, WPARAM, LPARAM, LRESULT>)Marshal.GetFunctionPointerForDelegate(_wndProc),
-			};
-
-			if (PInvoke.RegisterClassEx(&windowClass) == 0)
-			{
-				throw new InvalidOperationException("RegisterClassEx failed.");
-			}
-
-			_notificationMessage = PInvoke.RegisterWindowMessage(_windowClassName);
-			if (_notificationMessage == 0)
-			{
-				PInvoke.UnregisterClass(className, windowClass.hInstance);
-				throw new InvalidOperationException("RegisterWindowMessage failed.");
-			}
-
-			_window = PInvoke.CreateWindowEx(WINDOW_EX_STYLE.WS_EX_LEFT, className, default, WINDOW_STYLE.WS_OVERLAPPED, 0, 0, 1, 1, HWND.Null, HMENU.Null, HINSTANCE.Null, null);
-
-			if (_window.IsNull)
-			{
-				PInvoke.UnregisterClass(className, windowClass.hInstance);
-				throw new InvalidOperationException("CreateWindowEx failed.");
-			}
-		}
-	}
-
-	private LRESULT WindowProc(HWND hWnd, uint message, WPARAM wParam, LPARAM lParam)
+	private unsafe LRESULT WindowProc(HWND hWnd, uint message, WPARAM wParam, LPARAM lParam)
 	{
 		if (message == _notificationMessage)
 		{
 			try
 			{
-				ProcessNotification(wParam, lParam);
+				ITEMIDLIST** pidls = null;
+				var eventId = 0;
+				HANDLE notificationHandle = (HANDLE)(nint)wParam.Value;
+				var lockHandle = PInvoke.SHChangeNotification_Lock(notificationHandle, unchecked((uint)lParam.Value), &pidls, &eventId);
+
+				if (lockHandle.IsNull)
+				{
+					var refresh = new WindowsShellChange(SHCNE_ID.SHCNE_UPDATEDIR, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
+					foreach (var registration in _registrations)
+					{
+						foreach (var subscription in registration.Subscriptions)
+						{
+							subscription.Publish(refresh);
+						}
+					}
+
+					return default;
+				}
+
+				WindowsShellChange change;
+				try
+				{
+					var firstPidl = pidls is null ? ReadOnlyMemory<byte>.Empty : WindowShellHelpers.CopyPidl(pidls[0]);
+					var secondPidl = pidls is null ? ReadOnlyMemory<byte>.Empty : WindowShellHelpers.CopyPidl(pidls[1]);
+					change = new WindowsShellChange((SHCNE_ID)eventId, firstPidl, secondPidl);
+				}
+				finally
+				{
+					PInvoke.SHChangeNotification_Unlock(lockHandle);
+				}
+
+				foreach (var registration in _registrations)
+				{
+					if ((change.FirstAbsolutePidl.IsEmpty && change.SecondAbsolutePidl.IsEmpty)
+						|| WindowShellHelpers.MatchesPidl(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
+						|| WindowShellHelpers.IsInFolder(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
+						|| WindowShellHelpers.MatchesPidl(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive)
+						|| WindowShellHelpers.IsInFolder(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive))
+					{
+						foreach (var subscription in registration.Subscriptions)
+						{
+							subscription.Publish(change);
+						}
+					}
+				}
 			}
 			catch (Exception error)
 			{
-				FailCore(error);
+				foreach (var registration in _registrations)
+				{
+					if (registration.RegistrationId != 0)
+					{
+						PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
+					}
+
+					PInvoke.CoTaskMemFree(registration.NativePidl);
+					foreach (var subscription in registration.Subscriptions)
+					{
+						subscription.Changes.Writer.TryComplete(error);
+					}
+				}
+
+				_registrations.Clear();
+				DestroyNotificationWindow();
 			}
 
 			return default;
 		}
 
 		return PInvoke.DefWindowProc(hWnd, message, wParam, lParam);
-	}
-
-	private unsafe void ProcessNotification(WPARAM wParam, LPARAM lParam)
-	{
-		ITEMIDLIST** pidls = null;
-		var eventId = 0;
-		var lockHandle = PInvoke.SHChangeNotification_Lock(new HANDLE((nint)wParam.Value), unchecked((uint)lParam.Value), &pidls, &eventId);
-
-		if (lockHandle.IsNull)
-		{
-			PublishDirectoryRefresh();
-
-			return;
-		}
-
-		WindowsShellChange change;
-
-		try
-		{
-			change = new WindowsShellChange((SHCNE_ID)eventId, pidls is null ? ReadOnlyMemory<byte>.Empty : CopyPidl(pidls[0]), pidls is null ? ReadOnlyMemory<byte>.Empty : CopyPidl(pidls[1]));
-		}
-		finally
-		{
-			PInvoke.SHChangeNotification_Unlock(lockHandle);
-		}
-
-		foreach (var registration in _registrations)
-		{
-			if (MatchesRegistration(change, registration))
-			{
-				foreach (var subscription in registration.Subscriptions)
-				{
-					subscription.Publish(change);
-				}
-			}
-		}
-	}
-
-	private void PublishDirectoryRefresh()
-	{
-		var refresh = new WindowsShellChange(SHCNE_ID.SHCNE_UPDATEDIR, ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
-
-		foreach (var registration in _registrations)
-		{
-			foreach (var subscription in registration.Subscriptions)
-			{
-				subscription.Publish(refresh);
-			}
-		}
-	}
-
-	private bool MatchesRegistration(WindowsShellChange change, Registration registration)
-	{
-		if (change.FirstAbsolutePidl.IsEmpty && change.SecondAbsolutePidl.IsEmpty)
-		{
-			return true;
-		}
-
-		return MatchesPidl(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
-			|| WindowShellHelpers.IsInFolder(change.FirstAbsolutePidl, registration.FolderPidl, registration.Recursive)
-			|| MatchesPidl(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive)
-			|| WindowShellHelpers.IsInFolder(change.SecondAbsolutePidl, registration.FolderPidl, registration.Recursive);
-	}
-
-	private static bool MatchesPidl(ReadOnlyMemory<byte> itemPidl, ReadOnlyMemory<byte> folderPidl, bool recursive)
-	{
-		if (itemPidl.IsEmpty || folderPidl.IsEmpty)
-		{
-			return false;
-		}
-
-		var item = itemPidl.Span;
-		var folder = folderPidl.Span;
-
-		if (item.SequenceEqual(folder))
-		{
-			return true;
-		}
-
-		if (folder.Length < sizeof(ushort) || item.Length <= folder.Length || !item[..^sizeof(ushort)].StartsWith(folder[..^sizeof(ushort)]))
-		{
-			return false;
-		}
-
-		if (recursive)
-		{
-			return true;
-		}
-
-		var childOffset = folder.Length - sizeof(ushort);
-		var childSize = BitConverter.ToUInt16(item[childOffset..]);
-
-		return childSize >= sizeof(ushort)
-			&& childSize + sizeof(ushort) == item.Length - childOffset;
-	}
-
-	private static unsafe ITEMIDLIST* CopyRegistrationPidl(ReadOnlySpan<byte> source)
-	{
-		var nativePidl = (ITEMIDLIST*)Marshal.AllocCoTaskMem(source.Length);
-		source.CopyTo(new Span<byte>((byte*)nativePidl, source.Length));
-
-		return nativePidl;
-	}
-
-	private static unsafe ReadOnlyMemory<byte> CopyPidl(ITEMIDLIST* pidl)
-	{
-		if (pidl is null)
-		{
-			return ReadOnlyMemory<byte>.Empty;
-		}
-
-		var size = GetPidlSize(pidl);
-		if (size is 0)
-		{
-			return ReadOnlyMemory<byte>.Empty;
-		}
-
-		var bytes = GC.AllocateUninitializedArray<byte>(size);
-		Marshal.Copy((nint)pidl, bytes, 0, size);
-
-		return bytes;
-	}
-
-	private static unsafe int GetPidlSize(ITEMIDLIST* pidl)
-	{
-		var offset = 0;
-
-		while (offset <= int.MaxValue - sizeof(ushort))
-		{
-			var itemSize = *(ushort*)((byte*)pidl + offset);
-			if (itemSize is 0)
-			{
-				return offset + sizeof(ushort);
-			}
-
-			if (itemSize < sizeof(ushort) || offset > int.MaxValue - itemSize)
-			{
-				return 0;
-			}
-
-			offset += itemSize;
-		}
-
-		return 0;
-	}
-
-	private unsafe void RemoveCore(Registration registration, WindowsShellChangeSubscription subscription)
-	{
-		if (!registration.Subscriptions.Remove(subscription))
-		{
-			return;
-		}
-
-		if (registration.Subscriptions.Count is not 0 || !_registrations.Remove(registration))
-		{
-			return;
-		}
-
-		if (registration.RegistrationId != 0)
-		{
-			PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
-		}
-
-		PInvoke.CoTaskMemFree(registration.NativePidl);
-
-		if (_registrations.Count is 0)
-		{
-			DestroyNotificationWindow();
-		}
-	}
-
-	private unsafe void DisposeCore()
-	{
-		foreach (var registration in _registrations)
-		{
-			if (registration.RegistrationId != 0)
-			{
-				PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
-			}
-
-			PInvoke.CoTaskMemFree(registration.NativePidl);
-			foreach (var subscription in registration.Subscriptions)
-			{
-				subscription.Changes.Writer.TryComplete();
-			}
-		}
-
-		_registrations.Clear();
-		DestroyNotificationWindow();
 	}
 
 	private unsafe void DestroyNotificationWindow()
@@ -434,48 +276,89 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 		PInvoke.DestroyWindow(_window);
 		_window = HWND.Null;
 
-		fixed (char* className = _windowClassName)
-		{
-			PInvoke.UnregisterClass(className, PInvoke.GetModuleHandle(default(PCWSTR)));
-		}
-
+		PInvoke.UnregisterClass(_windowClassName, PInvoke.GetModuleHandle(string.Empty));
 		_wndProc = null;
 		_notificationMessage = 0;
 	}
 
-	private unsafe void FailCore(Exception error)
+	public ValueTask DisposeAsync()
 	{
-		foreach (var registration in _registrations)
+		lock (_disposalLock)
 		{
-			if (registration.RegistrationId != 0)
-			{
-				PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
-			}
+			_disposeTask ??= DisposeWatcherAsync();
 
-			PInvoke.CoTaskMemFree(registration.NativePidl);
-			foreach (var subscription in registration.Subscriptions)
-			{
-				subscription.Changes.Writer.TryComplete(error);
-			}
+			return new ValueTask(_disposeTask);
 		}
 
-		_registrations.Clear();
-		DestroyNotificationWindow();
+		async Task DisposeWatcherAsync()
+		{
+			Interlocked.Exchange(ref _isDisposed, 1);
+
+			try
+			{
+				await _scheduler.InvokeAsync(() =>
+				{
+					unsafe
+					{
+						foreach (var registration in _registrations)
+						{
+							if (registration.RegistrationId != 0)
+							{
+								PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
+							}
+
+							PInvoke.CoTaskMemFree(registration.NativePidl);
+							foreach (var subscription in registration.Subscriptions)
+							{
+								subscription.Changes.Writer.TryComplete();
+							}
+						}
+					}
+
+					_registrations.Clear();
+					DestroyNotificationWindow();
+
+					return true;
+				}).ConfigureAwait(false);
+			}
+			catch (Exception error)
+			{
+				foreach (var registration in _registrations)
+				{
+					foreach (var subscription in registration.Subscriptions)
+					{
+						subscription.Changes.Writer.TryComplete(error);
+					}
+				}
+
+				throw;
+			}
+			finally
+			{
+				foreach (var registration in _registrations)
+				{
+					foreach (var subscription in registration.Subscriptions)
+					{
+						subscription.Changes.Writer.TryComplete();
+					}
+				}
+			}
+		}
 	}
 
-	internal sealed unsafe class Registration
+	private sealed unsafe class WindowsShellFolderChangeRegistration
 	{
-		public ReadOnlyMemory<byte> FolderPidl { get; }
+		internal ReadOnlyMemory<byte> FolderPidl { get; }
 
-		public ITEMIDLIST* NativePidl { get; }
+		internal ITEMIDLIST* NativePidl { get; }
 
-		public uint RegistrationId { get; }
+		internal uint RegistrationId { get; }
 
-		public bool Recursive { get; }
+		internal bool Recursive { get; }
 
-		public List<WindowsShellChangeSubscription> Subscriptions { get; } = [];
+		internal List<WindowsShellChangeSubscription> Subscriptions { get; } = [];
 
-		public Registration(ReadOnlyMemory<byte> folderPidl, ITEMIDLIST* nativePidl, uint registrationId, bool recursive)
+		internal WindowsShellFolderChangeRegistration(ReadOnlyMemory<byte> folderPidl, ITEMIDLIST* nativePidl, uint registrationId, bool recursive)
 		{
 			FolderPidl = folderPidl;
 			NativePidl = nativePidl;
@@ -483,9 +366,9 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 			Recursive = recursive;
 		}
 
-		public WindowsShellChangeSubscription CreateSubscription(WindowsShellChangeWatcher watcher)
+		internal WindowsShellChangeSubscription CreateSubscription(WindowsShellChangeWatcher watcher)
 		{
-			var subscription = new WindowsShellChangeSubscription(watcher, this);
+			var subscription = new WindowsShellChangeSubscription(FolderPidl, current => watcher.UnsubscribeAsync(this, current));
 			Subscriptions.Add(subscription);
 
 			return subscription;
@@ -494,22 +377,26 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 
 	internal sealed class WindowsShellChangeSubscription : IAsyncDisposable
 	{
-		private readonly WindowsShellChangeWatcher _watcher;
-
-		private readonly Registration _registration;
-
+		private readonly ReadOnlyMemory<byte> _folderPidl;
+		private readonly Func<WindowsShellChangeSubscription, Task> _unsubscribeAsync;
 		private int _isDisposed;
 
-		public Channel<WindowsShellChange> Changes { get; } =
-			Channel.CreateBounded<WindowsShellChange>(new BoundedChannelOptions(SubscriptionCapacity) { FullMode = BoundedChannelFullMode.Wait, SingleReader = false, SingleWriter = true, AllowSynchronousContinuations = false, });
+		internal Channel<WindowsShellChange> Changes { get; } = Channel.CreateBounded<WindowsShellChange>(
+			new BoundedChannelOptions(SubscriptionCapacity)
+			{
+				FullMode = BoundedChannelFullMode.Wait,
+				SingleReader = false,
+				SingleWriter = true,
+				AllowSynchronousContinuations = false
+			});
 
-		internal WindowsShellChangeSubscription(WindowsShellChangeWatcher watcher, Registration registration)
+		internal WindowsShellChangeSubscription(ReadOnlyMemory<byte> folderPidl, Func<WindowsShellChangeSubscription, Task> unsubscribeAsync)
 		{
-			_watcher = watcher;
-			_registration = registration;
+			_folderPidl = folderPidl;
+			_unsubscribeAsync = unsubscribeAsync;
 		}
 
-		public void Publish(WindowsShellChange change)
+		internal void Publish(WindowsShellChange change)
 		{
 			if (Changes.Writer.TryWrite(change))
 			{
@@ -520,24 +407,25 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 			{
 			}
 
-			Changes.Writer.TryWrite(new WindowsShellChange(SHCNE_ID.SHCNE_UPDATEDIR, _registration.FolderPidl, ReadOnlyMemory<byte>.Empty));
+			Changes.Writer.TryWrite(new WindowsShellChange(SHCNE_ID.SHCNE_UPDATEDIR, _folderPidl, ReadOnlyMemory<byte>.Empty));
 		}
 
-		public ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
+		internal ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
 		{
 			return Changes.Reader.WaitToReadAsync(cancellationToken);
 		}
 
-		public bool TryRead(out WindowsShellChange change)
+		internal bool TryRead(out WindowsShellChange change)
 		{
 			return Changes.Reader.TryRead(out change!);
 		}
 
+		/// <inheritdoc/>
 		public async ValueTask DisposeAsync()
 		{
 			if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
 			{
-				await _watcher.UnsubscribeAsync(_registration, this).ConfigureAwait(false);
+				await _unsubscribeAsync(this).ConfigureAwait(false);
 			}
 		}
 	}

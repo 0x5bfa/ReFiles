@@ -32,7 +32,7 @@ internal sealed class WindowsStorableFactory
 		_enumerator = enumerator;
 	}
 
-	public Task<WindowsStorable> CreateAsync(string parsingName, CancellationToken cancellationToken = default)
+	internal Task<WindowsStorable> CreateAsync(string parsingName, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
@@ -44,7 +44,7 @@ internal sealed class WindowsStorableFactory
 		}, cancellationToken);
 	}
 
-	public Task<WindowsStorable> CreateAsync(Guid knownFolderId, CancellationToken cancellationToken = default)
+	internal Task<WindowsStorable> CreateAsync(Guid knownFolderId, CancellationToken cancellationToken = default)
 	{
 		return _scheduler.InvokeAsync<WindowsStorable>(() =>
 		{
@@ -91,7 +91,7 @@ internal sealed class WindowsStorableFactory
 		}, cancellationToken);
 	}
 
-	public Task<WindowsStorable?> TryCreateAsync(string parsingName, CancellationToken cancellationToken = default)
+	internal Task<WindowsStorable?> TryCreateAsync(string parsingName, CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(parsingName))
 		{
@@ -133,7 +133,7 @@ internal sealed class WindowsStorableFactory
 		}, cancellationToken);
 	}
 
-	public async Task<WindowsStorable?> TryCreateFromItemIdAsync(string itemId, StorageAddress? lastKnownAddress = null, CancellationToken cancellationToken = default)
+	internal async Task<WindowsStorable?> TryCreateFromItemIdAsync(string itemId, StorageAddress? lastKnownAddress = null, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(itemId);
 
@@ -192,7 +192,7 @@ internal sealed class WindowsStorableFactory
 		return null;
 	}
 
-	public Task<WindowsFolder?> GetParentAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
+	internal Task<WindowsFolder?> GetParentAsync(WindowsStorableDescriptor descriptor, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(descriptor);
 
