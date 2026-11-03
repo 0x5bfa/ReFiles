@@ -228,6 +228,26 @@ Enforce the proposed compiler-reference allowlist, consumer API closure and pack
 
 Add checks for resolved references, public API closure/baselines, invalid capability types, raw-result casts, source administration and ownership. Use negative compilation tests for inaccessible implementation APIs and runtime tests for resolution/casting behavior. Namespace-name bans and API-name heuristics alone are insufficient. If Providers remain inside Core, separately enforce permitted interop callers within that assembly.
 
+#### Public API generation and change tracking
+
+Use `Microsoft.CodeAnalysis.PublicApiAnalyzers` for the proposed Contracts and Hosting projects. It compares source symbols against checked-in signature lists during compilation:
+
+| File | Purpose |
+| --- | --- |
+| `PublicAPI.Shipped.txt` | Released API signatures. |
+| `PublicAPI.Unshipped.txt` | API additions and changes for the next release, including explicit removal entries where applicable. |
+
+`RS0016` reports public APIs missing from the lists; `RS0017` reports listed APIs missing from the source. The analyzer's code fix can generate/update the lists across a project or solution. Compilation checks the lists rather than silently rewriting them, so intentional updates appear in the Git diff for review. Configure both diagnostics as errors:
+
+```ini
+dotnet_diagnostic.RS0016.severity = error
+dotnet_diagnostic.RS0017.severity = error
+```
+
+For example, adding `public Stream OpenFileDirectly()` would fail validation until its signature is recorded. Updating the list makes that check pass; the analyzer does not determine whether an API bypasses capabilities. Protect list changes through owner review and retain the dependency/type-boundary checks above. See the [official PublicApiAnalyzers guide](https://github.com/dotnet/roslyn/blob/main/src/RoslynAnalyzers/PublicApiAnalyzers/PublicApiAnalyzers.Help.md).
+
+Use [Microsoft.DotNet.ApiCompat.Tool](https://learn.microsoft.com/en-us/dotnet/fundamentals/apicompat/global-tool) separately to compare built assemblies or NuGet packages against a baseline for API compatibility. Compatibility validation complements source API tracking; it does not establish that an added API belongs in the architecture.
+
 ### 15. Validation and access rules can themselves be changed
 
 Developers can edit project references, visibility, analyzer severity/suppressions, API baselines, test exclusions, friend-assembly grants and CI. Core currently grants internal access to unit tests and benchmarks; do not add Files as a friend to simplify migration. A Hosting friend grant, if chosen, is deliberate implementation authority and must be reviewed accordingly.
