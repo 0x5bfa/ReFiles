@@ -1,0 +1,252 @@
+# Capability boundaries: issues and proposed dependencies
+
+Status: design review, not an implemented migration. This document describes the inspected source tree and a proposed boundary for reuse in Files. Existing architecture documents describe the current implementation.
+
+The goal is to prevent application consumers from bypassing composed item capabilities through ordinary statically typed code, and to make changes to that boundary explicit and reviewable. Capability discovery currently describes optional functionality; it is not an authorization or process-isolation mechanism.
+
+## Current solution
+
+Arrows indicate compile-time dependencies unless labeled otherwise. Build/package edges do not grant normal C# access to the referenced executable. External framework and logging dependencies are omitted.
+
+```mermaid
+flowchart TD
+    Files[Files: WinUI and presentation]
+    Core[Files.Core: contracts, runtime, providers, interop]
+    Controls[Files.Controls]
+    Generators[Files.SourceGenerators]
+    Server[Files.BackgroundServer]
+    Launcher[FilesLauncher]
+    Native[CsWin32 generated declarations]
+    FTP[FluentFTP]
+    Archives[SevenZipSharp and native reader]
+
+    Files --> Core
+    Files --> Controls
+    Files -. analyzer .-> Generators
+    Files -. build and package .-> Server
+    Files -. build and package .-> Launcher
+    Files -. generated WinRT projection and IPC .-> Server
+    Server --> Core
+    Core --> Native
+    Core --> FTP
+    Core --> Archives
+    Launcher --> Native
+```
+
+| Project | Current responsibility and contents |
+| --- | --- |
+| `Files` | App startup, DI, XAML, ViewModels, presentation adapters, settings, Windows UI integration, and the WinRT operation client. `App` constructs `WindowsStorageSource` and `FilesCoreBuilder`. Some adapters also perform direct filesystem/native access. |
+| `Files.Core` | Consumer and provider contracts; application/window/tab/pane sessions; browsing; AppModels; workspace; capability registry, factories, combiners, wrappers and caches; operation routing/transfers; Windows, FTP and archive providers; CsWin32 inputs and custom interop. |
+| `Files.BackgroundServer` | Out-of-process operation acceptance/execution, progress/control, WinRT transport DTOs, and process-specific composition. It references Core to execute provider operations. |
+| `Files.Controls` | Reusable WinUI controls and their visual contracts. It has no Core project reference. |
+| `Files.SourceGenerators` | Compile-time generation, referenced by Files as an analyzer rather than a runtime library. |
+| `FilesLauncher` | Separate Native AOT launcher/integration executable with its own CsWin32 inputs. Files builds/packages it without referencing its output assembly. |
+| Test and benchmark projects | Consumer behavior, provider integration, presentation, controls, accessibility, and performance. Core currently grants internal access to unit tests and benchmarks. |
+
+The same Core assembly currently exposes both consumer models and the mechanisms that construct or bypass them. Folder boundaries express intent but do not restrict access.
+
+## Proposed minimum boundary
+
+Keep presentation in `Files`. Keep Windows, FTP, archives, and the generic runtime together in the existing `Files.Core` implementation assembly initially. Add consumer contracts and a narrow hosting facade; do not add one project per provider or a ProviderContracts project for this configuration.
+
+```mermaid
+flowchart TD
+    Files[Files: startup, views, ViewModels, adapters]
+    Contracts[Files.Core.Contracts: consumer API]
+    Hosting[Files.Hosting: fixed startup facade]
+    Core[Files.Core: internal runtime and all providers]
+    Controls[Files.Controls: reusable UI]
+    Generators[Files.SourceGenerators]
+    Server[Files.BackgroundServer: operation host]
+    HostNative[Server-owned host interop]
+    Launcher[FilesLauncher: independent launcher]
+    Native[CsWin32: internal provider interop]
+    FTP[FluentFTP]
+    Archives[SevenZipSharp and native reader]
+
+    Files --> Contracts
+    Files --> Hosting
+    Files --> Controls
+    Files -. analyzer .-> Generators
+    Hosting --> Contracts
+    Hosting --> Core
+    Core --> Contracts
+    Core --> Native
+    Core --> FTP
+    Core --> Archives
+    Server --> Contracts
+    Server --> Hosting
+    Server --> HostNative
+    Files -. WinRT projection and IPC .-> Server
+    Files -. build and package .-> Server
+    Files -. build and package .-> Launcher
+    Launcher --> Native
+```
+
+Provider and launcher interop use independently generated declarations; the graph does not propose a shared public interop assembly. The server also needs private host-only declarations for activation/window/tray integration once Core's public declarations disappear. Restrict these declarations to process hosting rather than storage APIs. Native reader deployment is a packaging concern, not permission for Files to reference its managed API.
+
+| Project | Proposed contents and public surface | Benefit |
+| --- | --- | --- |
+| `Files.Core.Contracts` | Consumer AppModel interfaces; capability interfaces and a discovery-only reader; storage identity/value types; source descriptors; application/session/browse interfaces and immutable snapshots; operation requests/monitoring; view-settings/cache abstractions genuinely needed by consumers; narrow Windows interaction contracts without generated native types. | Files cannot name raw providers or model construction APIs through this assembly. A changed implementation does not automatically enlarge the consumer API. |
+| `Files.Core` | Existing generic runtime plus all provider implementations. Keep raw items, sources, `ItemContext`, model factories, capability registration/composition, operation handlers, backend selectors, native declarations, and reader/session implementations internal where possible. | Preserves implementation reuse and existing internal collaboration without requiring an external provider SDK. Files has no compiler reference to this assembly. |
+| `Files.Hosting` | Small, allowlisted startup/shutdown facade. Create UI-process and operation-host runtimes from typed options and borrowed consumer services; return consumer interfaces only. Do not expose builders, registries, raw sources, backend selection, service locators, or arbitrary registration callbacks. | Files retains startup ownership without acquiring provider implementation access. Hosting can use a small public Core bootstrap entry or a narrowly reviewed friend-assembly grant. |
+| `Files` | Existing presentation, UI-specific DI, localization, visual resources, WinRT client/projection and gestures. `App` invokes Hosting and retains a consumer runtime interface. Supply credentials, UI callbacks and supported configuration through explicit contracts. | No separate `Files.Presentation` assembly is required to hide Core. All code in Files sees only the intentionally small facade and consumer API. |
+| `Files.BackgroundServer` | Existing WinRT API, transport conversion, accepted-job ownership, progress and cancellation. Obtain execution services through a server-specific Hosting entry rather than constructing raw providers. | Preserves process ownership and execution semantics while reducing raw implementation references. |
+| Controls, generators, launcher | Retain their current responsibilities and deployment relationships. | Avoids changes unrelated to the storage boundary. |
+
+The names of new interfaces, options and entry points remain to be designed. Existing concrete sessions cannot simply be copied into Contracts: introduce consumer interfaces or intentionally shared value types instead. Consumer contracts must not refer back to Core, Hosting, FluentFTP, SevenZipSharp, or generated Win32 types, including through generic arguments, base interfaces, events, callbacks and exceptions intended for consumer handling.
+
+### Why Files.Presentation is unnecessary here
+
+Separating presentation was necessary in the earlier proposal only because the executable itself referenced implementation assemblies to compose providers. Hosting removes that requirement. Files can contain both startup and presentation when its only storage-facing references are Contracts and Hosting.
+
+Every class in Files can still call the Hosting facade. Keep that API limited to reviewed runtime construction and disposal, not general provider creation. If even startup calls must be inaccessible to ViewModels by the C# type system, a separate assembly would be required; namespace/folder rules or an analyzer are weaker alternatives. This stricter restriction is separate from preventing direct provider access.
+
+Contracts-only *business consumption* still needs a startup entry somewhere. A separate executable/bootstrapper that injects the runtime would be necessary if Files were forbidden from referencing even Hosting. Reflection-based discovery is unnecessary for the proposed facade.
+
+### Provider projects are optional
+
+One project per Windows/FTP/archive provider does not strengthen the Files boundary once Files cannot reference any implementation assembly. Keep them together unless independent deployment, platform targeting, package weight, external provider authorship, or restrictions within Core justify a split.
+
+This minimum design does **not** make CsWin32 inaccessible to generic code inside Core. Internal access is assembly-wide. Keep interop in provider-owned folders and check its permitted callers; do not describe this convention as compiler isolation.
+
+If generic Core must be unable to call native/provider code, extract a single `Files.Providers` assembly first. Add `Files.Core.ProviderContracts` for raw item/source and registration contracts shared by Core and Providers. Both depend on consumer Contracts; Hosting references both implementations. Core must not reference Providers, and Providers must not depend on concrete Core runtime classes. Address current factory/context dependencies through that provider contract rather than introducing a cycle. Individual provider assemblies can follow later if needed.
+
+```mermaid
+flowchart TD
+    Hosting[Files.Hosting]
+    Core[Files.Core: generic runtime]
+    Providers[Files.Providers: Windows, FTP, archives]
+    ProviderContracts[Files.Core.ProviderContracts]
+    Contracts[Files.Core.Contracts]
+    Native[CsWin32, FluentFTP, SevenZipSharp]
+
+    Hosting --> Core
+    Hosting --> Providers
+    Hosting --> Contracts
+    Core --> ProviderContracts
+    Core --> Contracts
+    Providers --> ProviderContracts
+    Providers --> Contracts
+    ProviderContracts --> Contracts
+    Providers --> Native
+```
+
+In this stricter variant, ProviderContracts holds the provider-facing raw model/source contracts, capability factory/context and registration abstractions, and the model-adaptation hooks needed by provider modules. Core implements orchestration and adaptation; Providers implements storage, native operations and backend integration. Keeping these contracts separate prevents Files from gaining raw access merely by referencing consumer Contracts. The cost is two additional projects and more explicit cross-assembly collaboration. Files' references remain unchanged.
+
+### Compile references and deployment
+
+Disable implicit transitive project references for Files and validate the resolved compiler reference set, not just literal `ProjectReference` entries. Explicitly permit Contracts, Hosting and Controls; reject Core/provider assemblies and their implementation package APIs. Apply equivalent compile-asset rules and checks when distributing NuGet packages: the project-reference switch alone does not control package compile assets.
+
+Core and its native/runtime dependencies must still be copied or published with the application and server. Verify Debug build, packaged publish, Native AOT/trimming where applicable, and each supported architecture before accepting reference-hiding settings. `PrivateAssets` and `ReferenceOutputAssembly` are dependency/build controls, not runtime security boundaries; do not hide a dependency by accidentally dropping its runtime assets.
+
+## Confirmed issues and escape paths
+
+Paths below are relative to `src/Files.Core` unless another project is named. These are architectural exposures, not a claim that each path bypasses an existing authorization policy.
+
+### 1. Arbitrary capability types resolve to raw CoreModels
+
+`Capabilities/ICapabilities.cs`, `Capabilities/CapabilityRegistry.cs`, and `Capabilities/CapabilityBuilder.cs` constrain type arguments only to `class`. Registry automatically adds `context.CoreModel` when it implements the requested type. Consequently `Get<object>()`, `Get<IStorable>()`, and compatible concrete-type requests can expose the original CoreModel without its composed wrappers.
+
+Remove automatic CoreModel adoption, explicitly register capabilities, and validate discovery/registration/combiner/wrapper types consistently. A marker interface alone permits marker-bearing concrete classes; interface checks alone still permit arbitrary provider interfaces. Define which capability contracts are admissible, and reject the marker itself. Validate before cache lookup as well as during registration; an analyzer can report statically known misuse, but runtime resolution must enforce the same contract.
+
+### 2. A capability result can expose other functionality through casts
+
+`Storage/Ftp/FtpFile.cs` implements both `IReadableContent` and `IWritableContent`. If returned directly for reading, the same object can be cast to writing without resolving the composed write capability. Making the concrete class internal does not prevent casts to public interfaces.
+
+Return dedicated adapters rather than raw CoreModels. Check all interfaces implemented by returned objects, including base interfaces and disposal/administrative interfaces. Keep lazy construction and per-item caching. A read stream should also satisfy its read-only contract; hiding the model alone does not constrain the resources returned by a capability.
+
+### 3. Workspace exposes raw sources and source administration
+
+`Storage/Workspace/IStorageWorkspace.cs` exposes `Sources` as `IStorageSource` instances, whose resolve methods return raw items. `SourceRegistry` additionally exposes `IStorageSourceRegistry.AddSource(IStorageSource)`. `StorageWorkspace` implements both interfaces, so deleting only the property leaves an interface-cast path if both contracts remain public to consumers.
+
+Expose source descriptors and AppModel resolution. Keep raw registration behind Hosting/internal ownership, and provide typed connection-management operations for dynamic FTP or future sources. Do not return an object implementing a hidden administrative role through a consumer interface when that role remains publicly accessible elsewhere.
+
+### 4. Provider composition and contexts are public
+
+`FilesCoreBuilder.Capabilities`, `AddStorageSource`, provider registration methods, public factories/wrappers/combiners, `CapabilityRegistry.CreateCapabilities`, and `ItemContext` are accessible to Files. `ItemContext` carries `Source` and `CoreModel`; its `GetCapability<T>()` falls back to a raw cast when unbound.
+
+These are implementation/composition facilities, not consumer APIs. Keep them behind Core and Hosting. Eliminate the unbound fallback from any consumer-visible resolution path. Hosting must not re-expose these facilities as callbacks, options or an `IServiceProvider` escape hatch.
+
+### 5. Consumers can construct models outside the configured runtime
+
+`StorableModel`, `FileModel`, `FolderModel`, and `StorableModelFactory` expose construction APIs accepting raw items/sources or independently chosen capability registries. `StorableModel` is extensible. Consumers can construct a different model graph without the runtime's configured composition and ownership.
+
+Keep production implementations and construction internal, seal them where extension is unnecessary, and return consumer interfaces. Tests can use explicit test doubles; do not expose raw production construction solely for testing. Public consumer interfaces still permit custom implementations and do not prove that an arbitrary object came from a trusted runtime.
+
+### 6. Borrowed capability access includes destruction authority
+
+`ICapabilities` inherits `IDisposable` and `IAsyncDisposable` despite returning borrowed capabilities. Consumers can dispose a model's collection independently. Removing disposal from the exposed interface is insufficient if its implementation still implements public disposal interfaces and is returned directly.
+
+Expose a reader facade without destruction interfaces, and retain the owning collection internally. Audit capability implementations for equivalent lifetime casts. Keep explicit ownership of returned streams and independently opened models; caller-owned resource disposal is legitimate and must remain available.
+
+### 7. Runtime and capability contracts expose concrete implementations
+
+`FilesCoreRuntime` exposes concrete `FilesApplicationSession` and Windows-specific preview services. `IArchiveSource.OpenAsync` returns concrete `ArchiveModel`; that class also has a public static `OpenAsync` accepting a raw source, model factory and backend selector. Moving only interface files would retain a Contracts-to-implementation dependency or force unwanted implementation APIs into Contracts.
+
+Introduce consumer runtime/session/archive interfaces and retain constructors/static raw factories internally. Review recursively reachable API types, not just top-level class visibility. Windows-specific behavior may have narrow Windows contracts; being platform-specific alone is not a capability violation.
+
+### 8. Public Windows providers expose native service entry points
+
+`Storage/Windows/WindowsStorageSource.cs` publicly exposes its scheduler, clipboard and drag/drop services. Files constructs the provider in `App.xaml.cs` and consumes concrete Shell services throughout presentation, activation, property pages and settings.
+
+Expose item functionality through capabilities and contextual UI integration through narrow session/service contracts. Menus, clipboard and drop sessions can involve multiple items or a window and need not be forced into an item capability. Keep scheduling, raw source access, native object ownership and provider construction internal.
+
+### 9. CsWin32 declarations escape through Core
+
+`NativeMethods.json` sets `public` to `true`. The generated declarations are part of Core, even though its generator package uses `PrivateAssets="all"`. Files currently imports `Windows.Win32` in settings, property pages, context menus and OLE bridges. BackgroundServer also consumes them in its activation entry points, window validation and tray implementation.
+
+Generate internal declarations and keep custom ABI/COM declarations provider-owned. Move native operations behind explicit adapters. Give BackgroundServer independently generated, internal host-only declarations for activation/window/tray work, or isolate that host integration behind a platform implementation; do not retain Core's public storage interop for this purpose. Preserve typed native handles, SafeHandle semantics, COM ABI and allocator ownership inside each boundary; do not replace typed native arguments with arbitrary pointers merely to remove a project reference. FilesLauncher's independent interop is not a Core leak.
+
+### 10. UI/native bridges require a real migration
+
+`Files/Infrastructure/WinUIDataObjectBridge.cs` currently converts `DataPackage` objects to generated `IDataObject`/`IDataObjectProvider`. `Files/Presentation/IBrowseInteraction.cs` exchanges concrete Windows drag/drop/menu session types. Changing CsWin32 visibility alone will break these paths.
+
+Keep WinUI visual ownership in Files and native work in provider/platform adapters. Design the data-transfer, window-context and session contracts before moving code. A platform-specific integration assembly is optional if the bridge genuinely requires WinUI dependencies; do not introduce a WinUI dependency into Core or export raw COM pointers as a shortcut. Validate OLE apartment, message-pump, callback, handle and session lifetimes.
+
+### 11. Direct storage I/O remains in Files
+
+`Files/ItemProperties/ItemPropertiesFileSystem.cs` disables RS0030 and performs `File`/`Directory` operations. Settings adapters also use native filesystem APIs. These are existing exceptions to a strict storage boundary, even when locally isolated behind an adapter.
+
+Move item storage semantics into capabilities/application operations and native persistence mechanisms into explicit infrastructure services. Distinguish application-owned settings/log output from user-item access; a blanket ban on every I/O use would incorrectly prohibit legitimate infrastructure. Document and constrain remaining exceptions by responsibility.
+
+### 12. Provider-specific knowledge reaches generic Core code
+
+`Capabilities/Archives/ArchiveSourceFactory.cs` inspects Windows provider types, including the Shell folder/stream distinction. `Application/BrowsePaneSession.Commands.cs` and `Browsing/Locations/ArchiveBrowseLocationHandler.cs` use the internal raw-model access path for archive navigation. `Capabilities/Previews/PreviewRequest.cs` contains internal Windows-specific trust-target matching.
+
+These internal uses are not themselves public raw-model leaks, but they show that provider separation is not a mechanical file move. Represent archive candidates, parent/container navigation and trust matching through the appropriate internal contracts before requiring a provider-independent runtime. Preserve Shell stream behavior and trust checks; do not weaken semantics to simplify dependencies.
+
+### 13. Project references and package dependencies can reopen the boundary
+
+Files directly references Core today; SDK transitivity can also expose implementation assemblies through an intermediate facade. Core currently owns FluentFTP, SevenZipSharp and System.Management dependencies. A facade whose public signatures mention implementation types also requires those dependencies at compile time.
+
+Enforce the proposed compiler-reference allowlist, consumer API closure and package compile/runtime separation. Reject new direct references as well as transitive ones. Verify native 7z deployment independently. A provider becoming public inside an unreferenced implementation assembly must not automatically make it callable from Files.
+
+### 14. Existing checks do not enforce the complete boundary
+
+`Directory.Build.props` applies BannedSymbols to selected projects, while Core must legitimately perform I/O. Existing RS0030 suppressions demonstrate that a local edit can bypass that check. `tests/Files.UITests/PresentationTests/ArchitectureBoundaryTests.cs` tests presentation behavior rather than the complete compiler-reference/public-API boundary. The inspected configuration does not define a public API baseline or dedicated capability-boundary analyzer.
+
+Add checks for resolved references, public API closure/baselines, invalid capability types, raw-result casts, source administration and ownership. Use negative compilation tests for inaccessible implementation APIs and runtime tests for resolution/casting behavior. Namespace-name bans and API-name heuristics alone are insufficient. If Providers remain inside Core, separately enforce permitted interop callers within that assembly.
+
+### 15. Validation and access rules can themselves be changed
+
+Developers can edit project references, visibility, analyzer severity/suppressions, API baselines, test exclusions, friend-assembly grants and CI. Core currently grants internal access to unit tests and benchmarks; do not add Files as a friend to simplify migration. A Hosting friend grant, if chosen, is deliberate implementation authority and must be reviewed accordingly.
+
+Protect contracts, Hosting's API, project/build/package configuration, analyzer/suppression policy, API baselines, friend grants and CI through required independent validation and owner review. No CODEOWNERS file was found in the inspected checkout; remote repository rules and administrator bypass permissions were not inspected. Local files alone cannot establish who can merge changes.
+
+### 16. Capability access is not authorization or provenance
+
+Same-process managed code can implement public contracts, create substitute objects, use reflection, add native calls, or access paths learned from metadata. Markers and allowlists do not make provider code trustworthy, and wrappers are effective only when all relevant entry points use them.
+
+Use this design to enforce normal dependencies and detect architectural erosion. If a policy must survive hostile executable code, enforce it at the OS/process/server boundary with validated requests and permissions. A downstream fork can remove local checks; maintaining control over an upstream package does not prevent downstream replacement. No new process split is required solely for this architectural review.
+
+## Validation and migration order
+
+1. Fix capability type admission, direct CoreModel adoption, result-cast escapes and ownership exposure with focused resolution/lifetime tests.
+2. Define consumer API closure, including runtime/session/archive and Windows UI interaction contracts. Replace raw workspace sources/registration with descriptors and typed operations.
+3. Extract Contracts and add Hosting while leaving providers together. Move App's raw composition behind Hosting and keep presentation in Files.
+4. Internalize CsWin32 and raw implementation APIs after replacing Files' native bridges and direct item I/O. Preserve callback/apartment and resource ownership semantics.
+5. Enforce compiler references, public API baselines and approved exceptions. Test the actual NuGet/package/publish graph, native dependencies, server projection/IPC, and x64/arm64 deployment.
+6. Split Providers from generic Core only if compiler isolation inside the implementation becomes a requirement. Do not claim provider isolation from a folder reorganization.
+
+Acceptance requires ordinary Files code to fail compilation when naming raw sources, contexts, Core model constructors, generated Win32 APIs or reader implementations. Runtime tests must also reject invalid capability types and demonstrate that returned objects cannot expose raw or separately composed functionality through casts. Existing lazy composition, caching, source/model lifetimes, archive nesting, read/write behavior and operation-host ownership must remain correct.
