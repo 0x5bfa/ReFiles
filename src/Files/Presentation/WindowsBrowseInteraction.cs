@@ -23,7 +23,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 {
 	private readonly IBrowsePaneSession _pane;
 	private readonly BrowsePresentationAdapter _browseAdapter;
-	private readonly IWindowsShellUiServices? _windowsServices;
+	private readonly IWindowsShellUIServices? _windowsServices;
 	private readonly IWindowsShellPropertiesService? _shellProperties;
 	private readonly IWindowsShellContextualCommandService? _shellContextualCommandService;
 	private readonly IWindowsShellOperationService? _shellOperations;
@@ -49,7 +49,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	public bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsServices is not null;
 
 	internal WindowsBrowseInteraction(IBrowsePaneSession pane, BrowsePresentationAdapter adapter, IStorageOperationService operations,
-		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle, ILogger<WindowsBrowseInteraction>? logger = null, IWindowsShellUiServices? windowsServices = null)
+		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle, ILogger<WindowsBrowseInteraction>? logger = null, IWindowsShellUIServices? windowsServices = null)
 	{
 		_pane = pane;
 		_browseAdapter = adapter;

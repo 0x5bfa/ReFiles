@@ -36,9 +36,9 @@ public sealed class ConsumerContractBoundaryTests
 	/// <summary>A UI host exposes descriptors and consumer sessions without source administration or operation-host authority.</summary>
 	/// <returns>The asynchronous regression test.</returns>
 	[TestMethod]
-	public async Task UiRuntimeExposesConsumerViewsAndRetainsOwnership()
+	public async Task UIRuntimeExposesConsumerViewsAndRetainsOwnership()
 	{
-		await using var runtime = FilesHost.CreateUiRuntime(operations: new StorageOperationService([]));
+		await using var runtime = FilesHost.CreateUIRuntime(operations: new StorageOperationService([]));
 		Assert.IsFalse(runtime is IOperationHostRuntime);
 		Assert.IsFalse((object)runtime is FilesCoreRuntime);
 		Assert.IsFalse(runtime is IProviderRuntimeServices);

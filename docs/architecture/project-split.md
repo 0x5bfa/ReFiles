@@ -18,7 +18,7 @@ NuGet users that explicitly reference Core retain `FilesCoreBuilder` and capabil
 
 `IProviderRuntimeBuilder` lets modules register sources, readers/loaders, handlers and provider-service factories without naming concrete Core classes. Core owns the registry, generic adapters and workspace construction. Provider-service factories return borrowed integrations; modules register their resource owners through `Own` before runtime construction. `IStorableModelFactory.OpenArchiveAsync` bridges archive model creation; `IArchiveRootSource` identifies the outer source of a mount. Preview authorization uses a captured `IPreviewTrustIdentity`, with Windows path matching implemented by the Windows provider. Shared archive-input buffering preserves the existing seekable-stream and disposal contract.
 
-`IProviderRuntimeServices` is a provider-SDK integration role, not part of `IFilesCoreRuntime`. Explicit provider-SDK consumers can retrieve Windows preview session factories through `GetWindowsShellPreviewSessions()`. Files instead uses `IUiFilesRuntime.Windows.Previews`. Hosting's consumer facade does not implement the provider-SDK role or expose arbitrary registration callbacks. The resolved-reference checks reject Providers and backend packages from Core, and reject Core from Providers and ProviderContracts.
+`IProviderRuntimeServices` is a provider-SDK integration role, not part of `IFilesCoreRuntime`. Explicit provider-SDK consumers can retrieve Windows preview session factories through `GetWindowsShellPreviewSessions()`. Files instead uses `IUIFilesRuntime.Windows.Previews`. Hosting's consumer facade does not implement the provider-SDK role or expose arbitrary registration callbacks. The resolved-reference checks reject Providers and backend packages from Core, and reject Core from Providers and ProviderContracts.
 
 ## Consumer ownership
 
@@ -44,7 +44,7 @@ Managed preview, menu, clipboard, drag/drop and property-sheet contracts live in
 
 ## Files consumer migration
 
-`FilesHost.CreateUiRuntime` returns `IUiFilesRuntime`. Its borrowed Windows services provide previews, clipboard access, native data-transfer capture, menus, contextual/default commands, property data and registered synchronization roots. Files consumes session interfaces and `IStorageReader`; pane presenters select the registered interface while retaining exact custom-content registrations. Windows property editors and filesystem inspection are obtained through typed Hosting factories. Attribute edits continue through the configured operation server.
+`FilesHost.CreateUIRuntime` returns `IUIFilesRuntime`. Its borrowed Windows services provide previews, clipboard access, native data-transfer capture, menus, contextual/default commands, property data and registered synchronization roots. Files consumes session interfaces and `IStorageReader`; pane presenters select the registered interface while retaining exact custom-content registrations. Windows property editors and filesystem inspection are obtained through typed Hosting factories. Attribute edits continue through the configured operation server.
 
 Files generates only its own UI/window/composition interop. Native clipboard extraction, filesystem metadata and settings file operations reside in Providers. `DisableTransitiveProjectReferences` plus `EnforceConsumerReferenceBoundary` prevent direct and transitive Core, Providers, ProviderContracts and backend package compiler references. UI tests explicitly reference implementations only to construct fixtures, then pass consumer readers to the product.
 

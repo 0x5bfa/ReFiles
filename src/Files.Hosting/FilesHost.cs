@@ -19,10 +19,10 @@ public static class FilesHost
 	/// <param name="operations">The optional external operation executor.</param>
 	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
 	/// <returns>The owned runtime exposing consumer contracts.</returns>
-	public static IUiFilesRuntime CreateUiRuntime(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null,
+	public static IUIFilesRuntime CreateUIRuntime(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null,
 		Files.Core.Storage.IStorageOperationService? operations = null, ILoggerFactory? loggerFactory = null)
 	{
-		return new UiRuntimeView(CreateRuntime(false, viewSettingsStore, thumbnailCache, operations, loggerFactory));
+		return new UIRuntimeView(CreateRuntime(false, viewSettingsStore, thumbnailCache, operations, loggerFactory));
 	}
 
 	/// <summary>Creates a runtime for independently owned operation execution.</summary>
@@ -140,13 +140,13 @@ public static class FilesHost
 		}
 	}
 
-	private sealed class UiRuntimeView : RuntimeView, IUiFilesRuntime
+	private sealed class UIRuntimeView : RuntimeView, IUIFilesRuntime
 	{
-		public IWindowsShellUiServices Windows { get; }
+		public IWindowsShellUIServices Windows { get; }
 
-		public UiRuntimeView(FilesCoreRuntime runtime) : base(runtime)
+		public UIRuntimeView(FilesCoreRuntime runtime) : base(runtime)
 		{
-			Windows = new WindowsShellUiServices(runtime.Workspace.Sources.OfType<WindowsStorageSource>().Single(), runtime.GetWindowsShellPreviewSessions());
+			Windows = new WindowsShellUIServices(runtime.Workspace.Sources.OfType<WindowsStorageSource>().Single(), runtime.GetWindowsShellPreviewSessions());
 		}
 	}
 

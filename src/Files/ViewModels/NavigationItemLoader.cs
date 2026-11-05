@@ -35,10 +35,10 @@ internal sealed class NavigationItemLoader
 	private static readonly string _myComputerParsingName = WindowsStorageIdentity.ComputerParsingName;
 
 	private readonly IStorageReader _workspace;
-	private readonly IWindowsShellUiServices? _windowsServices;
+	private readonly IWindowsShellUIServices? _windowsServices;
 	private readonly ILogger<NavigationItemLoader> _logger;
 
-	public NavigationItemLoader(IStorageReader workspace, ILogger<NavigationItemLoader>? logger = null, IWindowsShellUiServices? windowsServices = null)
+	public NavigationItemLoader(IStorageReader workspace, ILogger<NavigationItemLoader>? logger = null, IWindowsShellUIServices? windowsServices = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 

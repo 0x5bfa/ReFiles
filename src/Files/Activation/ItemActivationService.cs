@@ -35,7 +35,7 @@ internal sealed class ItemActivationService : IItemActivationService
 	private readonly nint _ownerWindowHandle;
 	private readonly IWindowsShellDefaultCommandService? _windowsShell;
 
-	internal ItemActivationService(IWindowsShellUiServices windowsServices, nint ownerWindowHandle)
+	internal ItemActivationService(IWindowsShellUIServices windowsServices, nint ownerWindowHandle)
 	{
 		ArgumentNullException.ThrowIfNull(windowsServices);
 

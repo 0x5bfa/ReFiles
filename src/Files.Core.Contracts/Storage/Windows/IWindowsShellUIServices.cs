@@ -8,7 +8,7 @@ using System.Drawing;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Provides the borrowed Windows integrations configured for one UI runtime.</summary>
-public interface IWindowsShellUiServices
+public interface IWindowsShellUIServices
 {
 	/// <summary>Gets the Windows source identity without exposing its implementation.</summary>
 	StorageSourceId SourceId { get; }

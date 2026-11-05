@@ -20,7 +20,7 @@ namespace Files;
 
 public partial class App : Application
 {
-	private IUiFilesRuntime? _runtime;
+	private IUIFilesRuntime? _runtime;
 	private readonly ServiceProvider _services;
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
@@ -84,7 +84,7 @@ public partial class App : Application
 			_logger.LogDebug("{Component}: {Message}", "App", "Launch START");
 		}
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
-		var currentRuntime = Files.Hosting.FilesHost.CreateUiRuntime(_viewSettingsStore, _storageOperations, _storageOperations, _loggerFactory);
+		var currentRuntime = Files.Hosting.FilesHost.CreateUIRuntime(_viewSettingsStore, _storageOperations, _storageOperations, _loggerFactory);
 		_runtime = currentRuntime;
 		if (_logger.IsEnabled(LogLevel.Debug))
 		{

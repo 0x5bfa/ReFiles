@@ -1,5 +1,26 @@
 # Core Files Architecture (WIP)
 
+```mermaid
+flowchart TB
+    Files --> Contracts["Files.Core.Contracts"]
+    Files --> Hosting["Files.Hosting"]
+    Files -.->|build / package・WinRT IPC| Server["Files.BackgroundServer"]
+
+    Server --> Contracts
+    Server --> Hosting
+
+    Hosting --> Contracts
+    Hosting --> Core["Files.Core"]
+    Hosting --> Providers["Files.Providers"]
+    Hosting --> ProviderContracts["Files.Core.ProviderContracts"]
+
+    Core --> Contracts
+    Core --> ProviderContracts
+    Providers --> Contracts
+    Providers --> ProviderContracts
+    ProviderContracts --> Contracts
+```
+
 ## Consuming the package
 
 `ReFiles.Core` provides UI-independent storage, browsing, and optional item capabilities for .NET 10 on Windows. Reference `ReFiles.Providers` alongside `ReFiles.Core` to use Windows Shell, FTP, and archive providers. The API is evolving; pin your package version.

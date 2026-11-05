@@ -6,8 +6,8 @@ using Files.Core.Storage.Windows;
 namespace Files.Core;
 
 /// <summary>Owns a UI runtime and exposes its borrowed Windows integrations.</summary>
-public interface IUiFilesRuntime : IFilesCoreRuntime
+public interface IUIFilesRuntime : IFilesCoreRuntime
 {
 	/// <summary>Gets the Windows integrations owned by this runtime.</summary>
-	IWindowsShellUiServices Windows { get; }
+	IWindowsShellUIServices Windows { get; }
 }

@@ -37,7 +37,7 @@ public sealed class WindowsShellDragDropTests
 		try
 		{
 			await using var scheduler = new WindowsShellScheduler();
-			await using var runtime = Files.Hosting.FilesHost.CreateUiRuntime();
+			await using var runtime = Files.Hosting.FilesHost.CreateUIRuntime();
 			await using var sourceItem = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageIdentity.FileAddressScheme, sourcePath));
 			await using var destinationItem = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageIdentity.FileAddressScheme, destinationPath));
 			var dragSource = await runtime.Windows.DragDrop.PrepareDragSourceAsync([sourceItem.Reference]);

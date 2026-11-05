@@ -26,7 +26,7 @@ internal sealed class WindowPresentationFactory
 {
 	private readonly Dictionary<Type, Func<IPaneContentSession, WindowCommandManager, PaneContentPresentation>> _contentPresenters = [];
 	private readonly IStorageReader _workspace;
-	private readonly IWindowsShellUiServices? _windowsServices;
+	private readonly IWindowsShellUIServices? _windowsServices;
 	private readonly IStorageOperationService _storageOperations;
 	private readonly StorageOperationTracker _operationTracker;
 	private readonly AppSettingsService _appSettings;
@@ -57,7 +57,7 @@ internal sealed class WindowPresentationFactory
 		IItemActivationService? itemActivationService = null,
 		IItemPropertiesService? itemPropertiesService = null,
 		nint ownerWindowHandle = 0,
-		ILoggerFactory? loggerFactory = null, IWindowsShellUiServices? windowsServices = null)
+		ILoggerFactory? loggerFactory = null, IWindowsShellUIServices? windowsServices = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 

@@ -43,7 +43,7 @@ public sealed partial class MainWindow : Window
 	internal MainWindow(
 		IWindowSession coreWindow,
 		IStorageReader workspace,
-		IWindowsShellUiServices windowsServices,
+		IWindowsShellUIServices windowsServices,
 		IStorageOperationService storageOperations,
 		StorageOperationTracker operationTracker,
 		AppSettingsService appSettings,

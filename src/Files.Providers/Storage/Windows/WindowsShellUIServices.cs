@@ -6,7 +6,7 @@ using System.Drawing;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Adapts a configured Windows source to borrowed consumer UI services.</summary>
-public sealed class WindowsShellUiServices : IWindowsShellUiServices
+public sealed class WindowsShellUIServices : IWindowsShellUIServices
 {
 	private readonly WindowsStorageSource _source;
 	/// <inheritdoc />
@@ -27,7 +27,7 @@ public sealed class WindowsShellUiServices : IWindowsShellUiServices
 	/// <summary>Creates the borrowed services for an existing source.</summary>
 	/// <param name="source">The runtime-owned source.</param>
 	/// <param name="previews">The runtime-owned preview factory.</param>
-	public WindowsShellUiServices(WindowsStorageSource source, IWindowsShellPreviewSessionFactory? previews)
+	public WindowsShellUIServices(WindowsStorageSource source, IWindowsShellPreviewSessionFactory? previews)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 
