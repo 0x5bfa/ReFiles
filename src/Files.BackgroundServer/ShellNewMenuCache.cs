@@ -62,8 +62,7 @@ internal sealed class ShellNewMenuCache(StorageOperationExecutor executor)
 
 	private async Task<IReadOnlyList<ShellNewItemData>> LoadAsync(string folderPath)
 	{
-		var menu = new WindowsShellNewMenu(executor.Source.Scheduler);
-		var items = await menu.GetItemsAsync(folderPath).ConfigureAwait(false);
+		var items = await executor.GetNewItemsAsync(folderPath).ConfigureAwait(false);
 
 		return items.Select(static item => new ShellNewItemData
 		{

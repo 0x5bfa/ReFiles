@@ -8,7 +8,7 @@ namespace Files.Core.Sessions;
 /// <summary>
 /// Owns the UI-independent window sessions in one Files process.
 /// </summary>
-public sealed class FilesApplicationSession : IAsyncDisposable
+public sealed partial class FilesApplicationSession : IFilesApplicationSession
 {
 	private readonly IBrowsePaneSessionFactory _paneFactory;
 

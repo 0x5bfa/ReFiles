@@ -18,7 +18,7 @@ public sealed partial class AppService : IDisposable
 	private readonly ServerLifetime _lifetime;
 	private readonly OperationHost _operations;
 	private readonly StorageOperationExecutor _storage;
-	private readonly MemoryThumbnailCache _thumbnails;
+	private readonly IThumbnailCache _thumbnails;
 	private readonly ShellNewMenuCache _shellNewItems;
 	private readonly CancellationTokenSource _disconnected = new();
 	private readonly CancellationToken _sessionToken;
@@ -33,7 +33,7 @@ public sealed partial class AppService : IDisposable
 	{
 	}
 
-	internal AppService(int processId, ServerLifetime lifetime, OperationHost operations, StorageOperationExecutor storage, MemoryThumbnailCache thumbnails, ShellNewMenuCache shellNewItems)
+	internal AppService(int processId, ServerLifetime lifetime, OperationHost operations, StorageOperationExecutor storage, IThumbnailCache thumbnails, ShellNewMenuCache shellNewItems)
 	{
 		_lifetime = lifetime;
 		_operations = operations;

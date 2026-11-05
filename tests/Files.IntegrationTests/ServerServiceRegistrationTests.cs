@@ -21,15 +21,15 @@ public sealed class ServerServiceRegistrationTests
 		var secondLifetime = second.GetRequiredService<ServerLifetime>();
 		var firstStorage = first.GetRequiredService<StorageOperationExecutor>();
 		var secondStorage = second.GetRequiredService<StorageOperationExecutor>();
-		var firstSource = firstStorage.Source;
-		Assert.AreNotSame(firstSource, secondStorage.Source);
+		var firstSource = firstStorage.Workspace;
+		Assert.AreNotSame(firstSource, secondStorage.Workspace);
 		await first.DisposeAsync();
 		Assert.Throws<ObjectDisposedException>(() => firstLifetime.Acquire());
 		await Assert.ThrowsAsync<ObjectDisposedException>(() => firstSource.ResolveAsync(new StorageAddress("file", Environment.CurrentDirectory)).AsTask());
 		Assert.IsTrue(firstLifetime.ExitTask.IsCompleted);
 		Assert.IsFalse(secondLifetime.ExitTask.IsCompleted);
 		using var lease = secondLifetime.Acquire(isClient: true);
-		var item = await secondStorage.Source.ResolveAsync(new StorageAddress("file", Environment.CurrentDirectory));
+		await using var item = await secondStorage.Workspace.ResolveAsync(new StorageAddress("file", Environment.CurrentDirectory));
 		Assert.IsNotNull(item);
 		Assert.IsTrue(secondLifetime.HasClients);
 	}

@@ -5,23 +5,10 @@ using Files.Core.Browsing;
 
 namespace Files.Core.Sessions;
 
-/// <summary>Specifies the split layout of a tab.</summary>
-public enum PaneSplitOrientation
-{
-	/// <summary>The tab contains one pane.</summary>
-	None,
-
-	/// <summary>The panes are arranged side by side.</summary>
-	Vertical,
-
-	/// <summary>The panes are arranged one above the other.</summary>
-	Horizontal,
-}
-
 /// <summary>
 /// Owns one or two panes and the active-pane state for a tab.
 /// </summary>
-public sealed partial class TabSession : IAsyncDisposable
+public sealed partial class TabSession : ITabSession
 {
 	private readonly IBrowsePaneSessionFactory _paneFactory;
 

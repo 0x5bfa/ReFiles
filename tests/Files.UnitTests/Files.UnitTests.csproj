@@ -20,12 +20,14 @@
 	<ItemGroup>
 		<PackageReference Include="MSTest.TestAdapter" />
 		<PackageReference Include="MSTest.TestFramework" />
+		<PackageReference Include="SevenZipSharp" />
 		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
 		<PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\..\src\Files.Hosting\Files.Hosting.csproj" />
 	</ItemGroup>
 
 </Project>

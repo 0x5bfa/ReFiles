@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Linq;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
+using Files.Hosting;
+using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Storage.Ftp;
 using System.Collections.Generic;
 using Files.Core;
@@ -15,15 +17,33 @@ namespace Files.BackgroundServer;
 
 internal sealed class StorageOperationExecutor : IAsyncDisposable
 {
-	private readonly FilesCoreRuntime _runtime;
+	private readonly IOperationHostRuntime _runtime;
 	private readonly Lock _configurationLock = new();
 	private readonly Dictionary<string, (FtpConnectionProfile Profile, ServerFtpCredentialResolver Resolver)> _ftpConnections = [];
 
-	internal WindowsStorageSource Source => _runtime.Workspace.Sources.OfType<WindowsStorageSource>().First();
+	internal IThumbnailCache ThumbnailCache => _runtime.ThumbnailCache;
 
-	internal StorageOperationExecutor(FilesCoreRuntime? runtime = null)
+	internal Files.Core.Data.IStorageReader Workspace => _runtime.Workspace;
+
+	internal Task<IReadOnlyList<WindowsShellNewItem>> GetNewItemsAsync(string folderPath, CancellationToken cancellationToken = default)
 	{
-		_runtime = runtime ?? new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false).AddStorageTransfers().Build();
+		return _runtime.GetNewItemsAsync(folderPath, cancellationToken);
+	}
+
+	internal Task<bool> InvokeNewItemAsync(string folderPath, uint commandOffset, CancellationToken cancellationToken = default)
+	{
+		return _runtime.InvokeNewItemAsync(folderPath, commandOffset, cancellationToken);
+	}
+
+	internal void ApplyFileAttributes(IReadOnlyList<string> paths, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents,
+		CancellationToken cancellationToken)
+	{
+		_runtime.ApplyFileAttributes(paths, readOnly, hidden, archive, indexed, compressed, encrypted, applyToContents, cancellationToken);
+	}
+
+	internal StorageOperationExecutor(IOperationHostRuntime? runtime = null)
+	{
+		_runtime = runtime ?? FilesHost.CreateOperationRuntime();
 	}
 
 	public ValueTask DisposeAsync()
@@ -66,11 +86,10 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 			}
 
 			var resolver = new ServerFtpCredentialResolver(credential);
-			var source = new FtpStorageSource(profile, resolver);
-			_runtime.Workspace.SourceRegistry!.AddSource(source);
+			var sourceId = _runtime.RegisterFtpConnection(profile, resolver);
 			_ftpConnections.Add(profile.ConnectionId, (profile, resolver));
 
-			return source.SourceId.Value;
+			return sourceId.Value;
 		}
 	}
 

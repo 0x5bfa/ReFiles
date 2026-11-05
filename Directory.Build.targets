@@ -1,0 +1,9 @@
+<!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
+<Project>
+	<Target Name="ValidateConsumerAssemblyReferences" BeforeTargets="CoreCompile" Condition="'$(EnforceConsumerReferenceBoundary)' == 'true'">
+		<ItemGroup>
+			<_ForbiddenConsumerReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Files.Core' Or '%(Filename)' == 'FluentFTP' Or '%(Filename)' == 'SevenZipSharp' Or '%(Filename)' == 'System.Management'" />
+		</ItemGroup>
+		<Error Condition="'@(_ForbiddenConsumerReference)' != ''" Text="Consumer compiler references must not include implementation assemblies: @(_ForbiddenConsumerReference->'%(Filename)', ', ')." />
+	</Target>
+</Project>

@@ -101,9 +101,9 @@ public sealed class ArchiveSourceFactory
 	private sealed record ArchiveSource(StorableReference Archive, ArchiveLocator Locator, IStorageSource RootSource, IStorableModelFactory Models, ArchiveBackendSelector Readers,
 		IArchiveCredentialResolver? Credentials) : IArchiveSource
 	{
-		public ValueTask<ArchiveModel> OpenAsync(CancellationToken cancellationToken = default)
+		public async ValueTask<IArchiveModel> OpenAsync(CancellationToken cancellationToken = default)
 		{
-			return ArchiveModel.OpenAsync(RootSource, Locator, Models, Readers, Credentials, cancellationToken);
+			return await ArchiveModel.OpenAsync(RootSource, Locator, Models, Readers, Credentials, cancellationToken).ConfigureAwait(false);
 		}
 	}
 }

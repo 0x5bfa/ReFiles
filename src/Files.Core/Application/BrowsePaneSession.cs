@@ -7,26 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Files.Core.Sessions;
 
-/// <summary>Specifies how navigation updates pane history.</summary>
-public enum PaneNavigationMode
-{
-	/// <summary>Adds the target after the current history entry.</summary>
-	Push,
-
-	/// <summary>Replaces the current history entry.</summary>
-	Replace,
-
-	/// <summary>Adds the search target unless the current committed entry is another search, which it replaces.</summary>
-	UpdateSearch,
-
-	/// <summary>Moves back to a matching search origin when possible; otherwise replaces the current entry.</summary>
-	ExitSearch,
-}
-
 /// <summary>
 /// Owns browsing, history, and preview state for browse pane content.
 /// </summary>
-public sealed partial class BrowsePaneSession : IPaneContentSession, ISplittablePaneContent, IRestorablePaneContent
+public sealed partial class BrowsePaneSession : IBrowsePaneSession
 {
 	private readonly BrowseApplicationServices? _services;
 	private readonly Func<BrowsePaneSession>? _splitFactory;

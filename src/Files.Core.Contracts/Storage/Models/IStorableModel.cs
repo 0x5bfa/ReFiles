@@ -21,6 +21,9 @@ public interface IStorableModel : IHasCapabilities, IDisposable, IAsyncDisposabl
 	/// </summary>
 	string Name { get; }
 
+	/// <summary>Gets a reopenable locator without retaining this model.</summary>
+	StorageItemLocator Locator => new ConfiguredItemLocator(Reference);
+
 	/// <summary>
 	/// Gets a value indicating whether the storage item is marked as hidden.
 	/// </summary>

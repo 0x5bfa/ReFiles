@@ -57,7 +57,7 @@ internal sealed class FileAttributeOperation : IServerOperation
 		for (var index = 0; index < _paths.Length; index++)
 		{
 			context.Report(new OperationProgress(index, ItemCount, CurrentItemName: _paths[index]));
-			WindowsFileAttributeService.ApplyChanges(new[] { _paths[index] }, ToNullable(_changes.ReadOnly), ToNullable(_changes.Hidden), ToNullable(_changes.Archive), ToNullable(_changes.Indexed),
+			_executor.ApplyFileAttributes(new[] { _paths[index] }, ToNullable(_changes.ReadOnly), ToNullable(_changes.Hidden), ToNullable(_changes.Archive), ToNullable(_changes.Indexed),
 				ToNullable(_changes.Compressed), ToNullable(_changes.Encrypted), _changes.ApplyToContents, cancellationToken);
 			context.Report(new OperationProgress(index + 1, ItemCount, CurrentItemName: _paths[index]));
 		}

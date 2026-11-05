@@ -30,6 +30,11 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	/// </summary>
 	public string Name { get; }
 
+	/// <summary>Gets a reopenable locator for this item, including archive record provenance.</summary>
+	public StorageItemLocator Locator => _coreModel is Files.Core.Storage.Archives.IArchiveEntry entry
+		? this is IFolderModel ? new ArchiveFolderLocator(entry.Locator, entry.EntryPath) : new ArchiveRecordLocator(entry.Locator, entry.EntryId, entry.EntryPath)
+		: new ConfiguredItemLocator(Reference);
+
 	/// <summary>
 	/// Gets a value indicating whether the storage item is marked as hidden.
 	/// </summary>

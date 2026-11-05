@@ -58,7 +58,7 @@ public sealed class StorageTransferJobTests
 				Root = new StorageReferenceData { SourceId = registered, ItemId = reference.ItemId, HasAddress = true, AddressScheme = address.Scheme, AddressValue = address.Value } };
 			var lifetime = services.GetRequiredService<ServerLifetime>();
 			var host = services.GetRequiredService<OperationHost>();
-			using var connection = new AppService(Environment.ProcessId, lifetime, host, executor, services.GetRequiredService<MemoryThumbnailCache>(), services.GetRequiredService<ShellNewMenuCache>());
+			using var connection = new AppService(Environment.ProcessId, lifetime, host, executor, services.GetRequiredService<IThumbnailCache>(), services.GetRequiredService<ShellNewMenuCache>());
 			var id = connection.SubmitStorageTransfers(Guid.NewGuid(), [item], []);
 			connection.Dispose();
 			Assert.IsFalse(lifetime.HasClients);

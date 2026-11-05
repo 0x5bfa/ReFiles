@@ -20,15 +20,14 @@ internal sealed class ShellNewItemOperation(Guid id, string folderPath, uint com
 
 	public async Task ExecuteAsync(OperationExecutionContext context, CancellationToken cancellationToken)
 	{
-		var menu = new WindowsShellNewMenu(executor.Source.Scheduler);
-		var items = await menu.GetItemsAsync(folderPath, cancellationToken).ConfigureAwait(false);
+		var items = await executor.GetNewItemsAsync(folderPath, cancellationToken).ConfigureAwait(false);
 		if (!items.Any(item => item.CommandOffset == commandOffset && item.Name == name && item.IsEnabled))
 		{
 			throw new IOException("The requested Shell New menu item changed or is no longer available.");
 		}
 
 		context.Report(new OperationProgress(0, 1, CurrentItemName: name));
-		if (!await menu.InvokeAsync(folderPath, commandOffset, cancellationToken).ConfigureAwait(false))
+		if (!await executor.InvokeNewItemAsync(folderPath, commandOffset, cancellationToken).ConfigureAwait(false))
 		{
 			throw new IOException("The Windows Shell could not invoke the New menu item.");
 		}

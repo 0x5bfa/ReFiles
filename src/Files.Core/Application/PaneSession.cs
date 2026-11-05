@@ -6,7 +6,7 @@ namespace Files.Core.Sessions;
 /// <summary>
 /// Owns the identity and typed content of one pane.
 /// </summary>
-public sealed class PaneSession : IAsyncDisposable
+public sealed partial class PaneSession : IPaneSession
 {
 	private readonly Lock _disposalLock = new();
 	private Task? _disposeTask;

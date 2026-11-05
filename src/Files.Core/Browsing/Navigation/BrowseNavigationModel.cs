@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Files.Core.Browsing;
 
 /// <summary>Provides scoped hierarchy and child navigation independently of a view.</summary>
-public sealed class BrowseNavigationModel
+public sealed partial class BrowseNavigationModel : IBrowseNavigationModel
 {
 	private const int NavigationThumbnailSize = 16;
 	private readonly IBrowseSession _session;

@@ -21,5 +21,5 @@ public interface IArchiveSource : ICapability
 	/// <summary>Opens an independently owned archive view using current container content.</summary>
 	/// <param name="cancellationToken">The cancellation token.</param>
 	/// <returns>The archive model owned by the caller. The capability itself remains borrowed.</returns>
-	ValueTask<ArchiveModel> OpenAsync(CancellationToken cancellationToken = default);
+	ValueTask<IArchiveModel> OpenAsync(CancellationToken cancellationToken = default);
 }

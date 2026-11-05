@@ -15,7 +15,7 @@ internal static class ServerServiceRegistration
 		services.AddSingleton(_ => new ServerLifetime(TimeSpan.FromSeconds(30)));
 		services.AddSingleton(provider => new OperationHost(provider.GetRequiredService<ServerLifetime>()));
 		services.AddSingleton(_ => new StorageOperationExecutor());
-		services.AddSingleton(_ => new MemoryThumbnailCache());
+		services.AddSingleton<IThumbnailCache>(provider => provider.GetRequiredService<StorageOperationExecutor>().ThumbnailCache);
 		services.AddSingleton(provider => new ShellNewMenuCache(provider.GetRequiredService<StorageOperationExecutor>()));
 
 		return services;

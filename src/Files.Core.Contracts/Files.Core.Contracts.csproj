@@ -1,0 +1,21 @@
+<!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x64;arm64</Platforms>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>ReFiles.Core.Contracts</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>0x5bfa</Authors>
+		<Description>Consumer contracts for ReFiles storage, browsing, and capabilities.</Description>
+		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
+		<InternalsVisibleTo Include="Files.Core" />
+		<InternalsVisibleTo Include="Files.UnitTests" />
+	</ItemGroup>
+</Project>

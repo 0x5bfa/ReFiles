@@ -92,7 +92,7 @@ internal static class BorrowedCapability
 		public StorableReference Archive => inner.Archive;
 		public ArchiveLocator Locator => inner.Locator;
 
-		public ValueTask<ArchiveModel> OpenAsync(CancellationToken cancellationToken = default)
+		public ValueTask<IArchiveModel> OpenAsync(CancellationToken cancellationToken = default)
 		{
 			return inner.OpenAsync(cancellationToken);
 		}

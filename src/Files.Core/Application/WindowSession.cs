@@ -8,7 +8,7 @@ namespace Files.Core.Sessions;
 /// <summary>
 /// Owns the tab collection and active-tab state for one application window.
 /// </summary>
-public sealed class WindowSession : IAsyncDisposable
+public sealed partial class WindowSession : IWindowSession
 {
 	private readonly IBrowsePaneSessionFactory _paneFactory;
 

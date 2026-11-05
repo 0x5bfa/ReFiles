@@ -15,9 +15,10 @@ namespace Files.Core;
 /// <summary>
 /// Owns the UI-independent storage workspace, shell session, and shared services for one process.
 /// </summary>
-public sealed class FilesCoreRuntime : IAsyncDisposable
+public sealed class FilesCoreRuntime : IFilesCoreRuntime
 {
 	private readonly IReadOnlyList<IAsyncDisposable> _ownedServices;
+	private readonly IStorageReader _reader;
 
 	private readonly Lock _disposalLock = new();
 
@@ -66,6 +67,10 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 	/// </summary>
 	public IWindowsShellPreviewSessionFactory? WindowsShellPreviewSessions { get; }
 
+	IStorageReader IFilesCoreRuntime.Workspace => _reader;
+
+	IFilesApplicationSession IFilesCoreRuntime.ShellSession => ShellSession;
+
 	internal FilesCoreRuntime(
 		IStorageWorkspace workspace,
 		IBrowseLocationResolver locationResolver,
@@ -78,6 +83,7 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 		IReadOnlyList<IAsyncDisposable> ownedServices)
 	{
 		Workspace = workspace;
+		_reader = new StorageReader(workspace);
 		LocationResolver = locationResolver;
 		PaneSessionFactory = paneSessionFactory;
 		ShellSession = shellSession;
@@ -100,6 +106,20 @@ public sealed class FilesCoreRuntime : IAsyncDisposable
 
 			return new ValueTask(_disposeTask);
 		}
+	}
+
+	/// <summary>Creates an independently owned browse pane using this runtime.</summary>
+	/// <returns>The new pane.</returns>
+	public IPaneSession CreateBrowsePane()
+	{
+		return PaneSessionFactory.Create();
+	}
+
+	/// <summary>Creates an independently owned settings pane.</summary>
+	/// <returns>The new pane.</returns>
+	public IPaneSession CreateSettingsPane()
+	{
+		return new PaneSession(new SettingsPaneSession());
 	}
 
 	private async Task DisposeCoreAsync()

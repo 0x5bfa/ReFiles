@@ -18,7 +18,7 @@ class Program
 	internal static ServerLifetime Lifetime { get; private set; } = null!;
 	internal static OperationHost Operations { get; private set; } = null!;
 	internal static StorageOperationExecutor Storage { get; private set; } = null!;
-	internal static MemoryThumbnailCache Thumbnails { get; private set; } = null!;
+	internal static IThumbnailCache Thumbnails { get; private set; } = null!;
 	internal static ShellNewMenuCache ShellNewItems { get; private set; } = null!;
 
 	static void Main()
@@ -35,7 +35,7 @@ class Program
 			using (Lifetime.Acquire())
 			{
 				Storage = services.GetRequiredService<StorageOperationExecutor>();
-				Thumbnails = services.GetRequiredService<MemoryThumbnailCache>();
+				Thumbnails = services.GetRequiredService<IThumbnailCache>();
 				ShellNewItems = services.GetRequiredService<ShellNewMenuCache>();
 				BackgroundServerHost.Initialize();
 			}

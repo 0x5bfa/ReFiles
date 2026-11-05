@@ -19,8 +19,6 @@ public abstract record StorageItemLocator
 	{
 		ArgumentNullException.ThrowIfNull(item);
 
-		return item.GetCoreModel() is IArchiveEntry entry
-			? item is IFolderModel ? new ArchiveFolderLocator(entry.Locator, entry.EntryPath) : new ArchiveRecordLocator(entry.Locator, entry.EntryId, entry.EntryPath)
-			: new ConfiguredItemLocator(item.Reference);
+		return item.Locator;
 	}
 }

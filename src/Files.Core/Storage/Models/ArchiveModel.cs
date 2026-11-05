@@ -8,7 +8,7 @@ using Files.Core.Storage.Archives;
 namespace Files.Core.Models;
 
 /// <summary>Owns one independent archive view and exposes ordinary file and folder application models.</summary>
-public sealed class ArchiveModel : IAsyncDisposable
+public sealed partial class ArchiveModel : IArchiveModel
 {
 	private readonly ArchiveStorageSource _source;
 	private readonly IStorableModelFactory _models;

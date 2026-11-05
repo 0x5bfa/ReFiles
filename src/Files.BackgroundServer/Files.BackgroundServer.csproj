@@ -10,6 +10,9 @@
 		<RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
 		<RuntimeIdentifier>win-$(Platform)</RuntimeIdentifier>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+		<EnforceConsumerReferenceBoundary>true</EnforceConsumerReferenceBoundary>
+		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<SelfContained>true</SelfContained>
 		<CsWinRTComponent>true</CsWinRTComponent>
@@ -24,10 +27,12 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Windows.CsWinRT" />
+		<PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\Files.Core.Contracts\Files.Core.Contracts.csproj" />
+		<ProjectReference Include="..\Files.Hosting\Files.Hosting.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

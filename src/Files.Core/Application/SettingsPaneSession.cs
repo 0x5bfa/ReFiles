@@ -4,7 +4,7 @@
 namespace Files.Core.Sessions;
 
 /// <summary>Identifies independently owned application settings content.</summary>
-public sealed class SettingsPaneSession : IPaneContentSession, IRestorablePaneContent
+public sealed partial class SettingsPaneSession : ISettingsPaneSession
 {
 	/// <inheritdoc />
 	public Func<IPaneContentSession> CaptureRestoreFactory()
