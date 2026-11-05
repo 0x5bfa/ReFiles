@@ -27,7 +27,7 @@ public sealed class StorableModelFactory : IStorableModelFactory
 		ArgumentNullException.ThrowIfNull(source);
 		ArgumentNullException.ThrowIfNull(coreModel);
 
-		ICapabilities? capabilities = null;
+		IOwnedCapabilities? capabilities = null;
 
 		try
 		{

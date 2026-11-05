@@ -6,9 +6,9 @@ using System.Diagnostics.CodeAnalysis;
 namespace Files.Core.Capabilities;
 
 /// <summary>
-/// Lazily resolves and owns the optional capabilities attached to one item model.
+/// Discovers borrowed capabilities without granting ownership of their collection.
 /// </summary>
-public interface ICapabilities : IDisposable, IAsyncDisposable
+public interface ICapabilities
 {
 	/// <summary>Gets an optional capability of the requested type.</summary>
 	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>

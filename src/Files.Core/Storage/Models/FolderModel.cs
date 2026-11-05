@@ -24,7 +24,7 @@ public sealed class FolderModel : StorableModel, IInteractiveFolderModel
 	/// <param name="modelFactory">The factory used to adapt child items.</param>
 	/// <param name="reference">The stable Files item reference.</param>
 	/// <param name="capabilities">The owned composed item capabilities.</param>
-	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, ICapabilities capabilities)
+	public FolderModel(IStorageSource source, IFolder folder, IStorableModelFactory modelFactory, StorableReference reference, IOwnedCapabilities capabilities)
 		: base(folder, reference, capabilities)
 	{
 		ArgumentNullException.ThrowIfNull(source);

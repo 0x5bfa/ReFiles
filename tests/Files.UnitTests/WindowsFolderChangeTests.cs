@@ -32,8 +32,7 @@ public sealed class WindowsFolderChangeTests
 			await using var scheduler = new WindowsShellScheduler();
 			await using var source = new WindowsStorageSource(scheduler: scheduler);
 			var folder = (WindowsFolder)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, directoryPath));
-			var reference = new StorableReference(source.SourceId, folder.Id, folder.Address);
-			await using var changeSource = new FolderChangeSourceFactory().Create(new ItemContext(source, folder, reference));
+			await using var changeSource = CreateChangeSource(source, folder);
 
 			Assert.IsNotNull(changeSource);
 			var createdTask = WaitForChangeAsync(changeSource!, static change => change.Kind is FolderChangeKind.Created);
@@ -178,14 +177,14 @@ public sealed class WindowsFolderChangeTests
 		}
 	}
 
-	private static IFolderChangeSource CreateChangeSource(WindowsStorageSource source, WindowsFolder folder)
+	private static WindowsFolderChangeSource CreateChangeSource(WindowsStorageSource source, WindowsFolder folder)
 	{
 		var reference = new StorableReference(source.SourceId, folder.Id, folder.Address);
 		var changeSource = new FolderChangeSourceFactory().Create(new ItemContext(source, folder, reference));
 
 		Assert.IsNotNull(changeSource);
 
-		return changeSource!;
+		return Assert.IsInstanceOfType<WindowsFolderChangeSource>(changeSource);
 	}
 
 	private static Task<FolderChange> WaitForChangeAsync(IFolderChangeSource changeSource, Func<FolderChange, bool> predicate)

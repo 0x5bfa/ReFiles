@@ -17,7 +17,7 @@ public class CapabilityResolutionBenchmarks
 
 	private ItemContext context = null!;
 
-	private ICapabilities cachedCapabilities = null!;
+	private IOwnedCapabilities _cachedCapabilities = null!;
 
 	/// <summary>
 	/// Gets or sets the number of capability factories registered for the benchmark.
@@ -46,8 +46,8 @@ public class CapabilityResolutionBenchmarks
 		registry = builder
 			.SetCombiner<IBenchmarkCapability>(new PriorityCapabilityCombiner<IBenchmarkCapability>())
 			.Build();
-		cachedCapabilities = registry.CreateCapabilities(context);
-		_ = cachedCapabilities.Get<IBenchmarkCapability>();
+		_cachedCapabilities = registry.CreateCapabilities(context);
+		_ = _cachedCapabilities.Get<IBenchmarkCapability>();
 	}
 
 	/// <summary>
@@ -56,7 +56,7 @@ public class CapabilityResolutionBenchmarks
 	[GlobalCleanup]
 	public void Cleanup()
 	{
-		cachedCapabilities.Dispose();
+		_cachedCapabilities.Dispose();
 	}
 
 	/// <summary>
@@ -78,7 +78,7 @@ public class CapabilityResolutionBenchmarks
 	[Benchmark]
 	public string CachedResolution()
 	{
-		return cachedCapabilities.Get<IBenchmarkCapability>()!.Value;
+		return _cachedCapabilities.Get<IBenchmarkCapability>()!.Value;
 	}
 }
 

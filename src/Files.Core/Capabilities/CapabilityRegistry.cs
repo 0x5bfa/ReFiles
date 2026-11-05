@@ -31,7 +31,7 @@ public sealed class CapabilityRegistry
 	/// <summary>Creates the capability collection for an item context.</summary>
 	/// <param name="context">The item context.</param>
 	/// <returns>The capability collection.</returns>
-	public ICapabilities CreateCapabilities(ItemContext context)
+	public IOwnedCapabilities CreateCapabilities(ItemContext context)
 	{
 		ArgumentNullException.ThrowIfNull(context);
 
@@ -96,7 +96,7 @@ public sealed class CapabilityRegistry
 				}
 			}
 
-			return new CapabilityResolution<TCapability>(capabilityResult, ownedInstances);
+			return new CapabilityResolution<TCapability>(BorrowedCapability.Create(capabilityResult), ownedInstances);
 		}
 		catch (Exception resolutionError)
 		{

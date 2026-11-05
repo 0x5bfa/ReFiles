@@ -34,7 +34,13 @@ Discovery and registration accept only interfaces derived from `ICapability`. Ge
 
 Implementing a capability on a CoreModel does not register it. Providers explicitly register factories through `CapabilityBuilder`; the registry combines their results and then applies wrappers. FTP and archive modules register their content factories once per builder. The transfer module also registers FTP content so operation hosts can resolve sources added after runtime construction. An unbound `ItemContext.GetCapability<T>()` returns null instead of casting its CoreModel. Provider code that needs composed dependencies must use the context supplied during resolution.
 
-Custom capability interfaces must derive from `ICapability`, and registrations/queries must use the interface rather than its implementation type. This is an API compatibility change. The marker identifies a capability contract; it does not authorize provider code or prevent casts between interfaces implemented by a returned object. That remaining boundary is tracked in [`../architecture/issues.md`](../architecture/issues.md).
+Custom capability interfaces must derive from `ICapability`, and registrations/queries must use the interface rather than its implementation type. This is an API compatibility change. The marker identifies a capability contract; it does not authorize provider code. Built-in results are projected through dedicated borrowed adapters after all composition, so a read result cannot be cast to writing, raw storage or disposal interfaces. Internal property batching and pinned/nested archive input remain available to Core. Custom interfaces require their own narrow borrowed implementations; arbitrary custom interfaces are not automatically projected.
+
+## Ownership and borrowed access
+
+`IHasCapabilities.Capabilities` exposes an `ICapabilities` facade without disposal or owning-collection interfaces. `IOwnedCapabilities` is the owned composition result transferred into model construction; the model retains it privately and disposes it before its storage item. Borrowed built-in capabilities similarly hide implementation disposal interfaces. `IFolderChangeSource` has no disposal members, and event senders refer to its borrowed facade.
+
+Streams, preview results and independently opened archive models remain caller-owned. Read capabilities wrap writable streams to enforce read-only access while preserving reads, seeking, cancellation and underlying stream disposal. Capability projection stays lazy and cached per item; it does not replace the registry's ownership tracking of factory, combiner and wrapper instances.
 
 ## Lazy resolution
 

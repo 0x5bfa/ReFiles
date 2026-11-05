@@ -32,7 +32,12 @@ public sealed class ArchiveLifetimeTests
 		var children = await ArchiveBrowsingTests.CollectAsync(archive.Root);
 		try
 		{
-			var read = children[0].Get<IReadableContent>()!.OpenReadAsync();
+			var content = children[0].Get<IReadableContent>()!;
+			Assert.IsFalse(content is Files.Core.Storage.IStorable);
+			Assert.IsFalse(content is IWritableContent);
+			Assert.IsFalse(content is IDisposable);
+			Assert.IsFalse(content is IAsyncDisposable);
+			var read = content.OpenReadAsync();
 			var disposal = archive.DisposeAsync().AsTask();
 			Assert.IsFalse(disposal.IsCompleted);
 			Assert.AreEqual(0, session.DisposeCount);

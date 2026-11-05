@@ -56,8 +56,17 @@ public sealed class FtpCompositionTests
 			await using var model = await runtime.Workspace.ResolveAsync(reference);
 			var reader = model.Get<IReadableContent>();
 			Assert.IsNotNull(reader);
-			Assert.IsNotNull(model.Get<IWritableContent>());
+			Assert.IsFalse(reader is IWritableContent);
+			Assert.IsFalse(reader is IStorable);
+			Assert.IsFalse(reader is IDisposable);
+			Assert.IsFalse(reader is IAsyncDisposable);
+			Assert.AreSame(reader, model.Get<IReadableContent>());
+			var writer = model.Get<IWritableContent>();
+			Assert.IsNotNull(writer);
+			Assert.IsFalse(writer is IReadableContent);
+			Assert.IsFalse(writer is IStorable);
 			await using var stream = await reader.OpenReadAsync();
+			Assert.IsFalse(stream.CanWrite);
 			using var output = new MemoryStream();
 			await stream.CopyToAsync(output);
 			CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, output.ToArray());

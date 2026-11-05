@@ -17,7 +17,7 @@ public sealed class FileModel : StorableModel, IFileModel
 	/// <param name="file">The owned Files file.</param>
 	/// <param name="reference">The stable Files item reference.</param>
 	/// <param name="capabilities">The owned composed item capabilities.</param>
-	public FileModel(IFile file, StorableReference reference, ICapabilities capabilities)
+	public FileModel(IFile file, StorableReference reference, IOwnedCapabilities capabilities)
 		: base(file, reference, capabilities)
 	{
 	}

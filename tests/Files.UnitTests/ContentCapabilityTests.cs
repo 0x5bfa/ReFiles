@@ -192,7 +192,12 @@ public sealed class ContentCapabilityTests
 
 			var reader = file.Get<IReadableContent>();
 			Assert.IsNotNull(reader);
+			Assert.IsFalse(reader is IWritableContent);
+			Assert.IsFalse(reader is IDisposable);
+			Assert.IsFalse(reader is IAsyncDisposable);
+			Assert.IsFalse(writer is IReadableContent);
 			await using var input = await reader.OpenReadAsync();
+			Assert.IsFalse(input.CanWrite);
 			using var text = new StreamReader(input);
 			Assert.AreEqual("xbc", await text.ReadToEndAsync());
 		}
@@ -223,8 +228,9 @@ public sealed class ContentCapabilityTests
 			var content = model.Get<IReadableContent>();
 			Assert.IsNotNull(content);
 			Assert.IsNull(model.Get<IWritableContent>());
-			var writer = Assert.IsInstanceOfType<IWritableContent>(content);
-			await Assert.ThrowsAsync<NotSupportedException>(() => writer.OpenWriteAsync());
+			Assert.IsFalse(content is IWritableContent);
+			Assert.IsFalse(content is IDisposable);
+			Assert.IsFalse(content is IAsyncDisposable);
 
 			await using var stream = await content.OpenReadAsync();
 			Assert.IsInstanceOfType<ShellReadStream>(stream);

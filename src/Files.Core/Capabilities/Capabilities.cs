@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Files.Core.Capabilities;
 
-internal sealed class Capabilities : ICapabilities
+internal sealed class Capabilities : IOwnedCapabilities
 {
 	private static readonly object _missingCapability = new();
 

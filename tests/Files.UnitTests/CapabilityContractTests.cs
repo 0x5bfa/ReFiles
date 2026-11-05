@@ -72,8 +72,12 @@ public sealed class CapabilityContractTests
 			})).Build();
 		using var model = new StorableModelFactory(registry).Create(new TestStorageSource(), coreModel);
 
-		Assert.AreSame(wrapper, model.Get<IReadableContent>());
-		Assert.AreSame(wrapper, model.Get<IReadableContent>());
+		var reader = model.Get<IReadableContent>();
+		Assert.IsNotNull(reader);
+		Assert.AreNotSame(wrapper, reader);
+		Assert.AreSame(reader, model.Get<IReadableContent>());
+		Assert.IsFalse(reader is IWritableContent);
+		Assert.IsFalse(reader is IStorable);
 		Assert.AreEqual(1, wrapperCalls);
 		Assert.IsNull(model.Get<IWritableContent>());
 	}

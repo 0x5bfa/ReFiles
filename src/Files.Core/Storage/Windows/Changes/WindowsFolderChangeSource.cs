@@ -9,7 +9,7 @@ using Windows.Win32.UI.Shell;
 
 namespace Files.Core.Storage.Windows;
 
-internal sealed class WindowsFolderChangeSource : IFolderChangeSource
+internal sealed class WindowsFolderChangeSource : IFolderChangeSource, IDisposable, IAsyncDisposable
 {
 	private readonly WindowsStorageSource _source;
 	private readonly WindowsItemLocator _folderLocator;

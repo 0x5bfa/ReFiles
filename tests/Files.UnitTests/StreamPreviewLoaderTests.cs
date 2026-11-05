@@ -110,7 +110,7 @@ public sealed class StreamPreviewLoaderTests
 		var withinResult = await loader.GetPreviewAsync(new PreviewRequest(maximumBytes: 3), CreateContext(source, withinFile));
 
 		var streamResult = (StreamPreviewResult)withinResult!;
-		Assert.AreSame(withinLimit, streamResult.Content);
+		Assert.IsFalse(streamResult.Content.CanWrite);
 		Assert.AreEqual(3, streamResult.ContentLength);
 		Assert.AreEqual(0, withinLimit.DisposeCount);
 		await streamResult.DisposeAsync();

@@ -5,11 +5,9 @@ namespace Files.Core.Capabilities.Changes;
 
 /// <summary>
 /// Watches changes for the folder bound to an item capability.
-/// The synchronous disposal member is retained so the item capability lifetime
-/// can release the source; callers with an async lifetime
-/// should prefer <see cref="IAsyncDisposable.DisposeAsync"/>.
+/// The item model owns the subscription; callers borrow the capability.
 /// </summary>
-public interface IFolderChangeSource : ICapability, IDisposable, IAsyncDisposable
+public interface IFolderChangeSource : ICapability
 {
 	/// <summary>
 	/// Raised after a Shell change has been converted to a managed folder change.

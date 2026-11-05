@@ -221,7 +221,7 @@ public sealed class ArchitectureBoundaryTests
 		}
 	}
 
-	private sealed class Changes : IFolderChangeSource
+	private sealed class Changes : IFolderChangeSource, IDisposable, IAsyncDisposable
 	{
 		public event EventHandler<FolderChangeEventArgs>? Changed;
 		public event EventHandler<FolderChangeErrorEventArgs>? Faulted { add { } remove { } }

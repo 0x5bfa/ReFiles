@@ -12,6 +12,7 @@ namespace Files.Core.Models;
 public class StorableModel : IStorableModel, IStorableModelInternal
 {
 	private readonly IStorable _coreModel;
+	private readonly IOwnedCapabilities _ownedCapabilities;
 
 	private readonly Lock _disposalLock = new();
 
@@ -45,7 +46,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 	/// <param name="coreModel">The owned Files storage item.</param>
 	/// <param name="reference">The stable Files item reference.</param>
 	/// <param name="capabilities">The owned composed item capabilities.</param>
-	public StorableModel(IStorable coreModel, StorableReference reference, ICapabilities capabilities)
+	public StorableModel(IStorable coreModel, StorableReference reference, IOwnedCapabilities capabilities)
 	{
 		ArgumentNullException.ThrowIfNull(coreModel);
 
@@ -56,7 +57,8 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 		_coreModel = coreModel;
 		Reference = reference;
 		Name = coreModel.Name;
-		Capabilities = capabilities;
+		_ownedCapabilities = capabilities;
+		Capabilities = new CapabilityReader(capabilities);
 	}
 
 	/// <summary>
@@ -104,7 +106,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 
 		try
 		{
-			await Capabilities.DisposeAsync().ConfigureAwait(false);
+			await _ownedCapabilities.DisposeAsync().ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{

@@ -404,7 +404,7 @@ internal sealed class TestBrowseLocationContext :
 	}
 }
 
-internal sealed class TestFolderChangeSource : IFolderChangeSource
+internal sealed class TestFolderChangeSource : IFolderChangeSource, IDisposable, IAsyncDisposable
 {
 	private int isDisposed;
 

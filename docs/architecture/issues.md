@@ -152,9 +152,9 @@ Previously, `ICapabilities`, Registry and Builder accepted any class type, and R
 
 ### 2. A capability result can expose other functionality through casts
 
-`Storage/Ftp/FtpFile.cs` implements both `IReadableContent` and `IWritableContent`. If returned directly for reading, the same object can be cast to writing without resolving the composed write capability. Making the concrete class internal does not prevent casts to public interfaces.
+Implemented for built-in capabilities: Registry projects the final composed result through a dedicated borrowed adapter before caching it. FTP and archive content no longer expose raw storage interfaces, and Windows read access cannot be cast to write access. Projection happens after factories, combiners and wrappers; the original implementations remain tracked for owner-controlled disposal. Internal archive-input and property-batching contracts are preserved without exposing public administrative roles. Writable streams returned by read capabilities are wrapped as caller-owned read-only streams.
 
-Return dedicated adapters rather than raw CoreModels. Check all interfaces implemented by returned objects, including base interfaces and disposal/administrative interfaces. Keep lazy construction and per-item caching. A read stream should also satisfy its read-only contract; hiding the model alone does not constrain the resources returned by a capability.
+Custom capability contracts remain an explicit composition extension: their implementations must provide equally narrow borrowed adapters. The built-in projection does not synthesize adapters for arbitrary custom interfaces. Raw registration/composition access is tracked in issue 4; this change does not establish a security boundary against provider code.
 
 ### 3. Workspace exposes raw sources and source administration
 
@@ -176,9 +176,9 @@ Keep production implementations and construction internal, seal them where exten
 
 ### 6. Borrowed capability access includes destruction authority
 
-`ICapabilities` inherits `IDisposable` and `IAsyncDisposable` despite returning borrowed capabilities. Consumers can dispose a model's collection independently. Removing disposal from the exposed interface is insufficient if its implementation still implements public disposal interfaces and is returned directly.
+Implemented: item models expose `ICapabilities` through a separate facade that implements neither the owning `IOwnedCapabilities` interface nor disposal interfaces. The owning collection remains private to the model and is disposed before the raw storage item. `IOwnedCapabilities` remains the explicitly owned composition result for builders/model construction, which is separately tracked in issues 4 and 5.
 
-Expose a reader facade without destruction interfaces, and retain the owning collection internally. Audit capability implementations for equivalent lifetime casts. Keep explicit ownership of returned streams and independently opened models; caller-owned resource disposal is legitimate and must remain available.
+Built-in capability adapters hide implementation disposal interfaces. `IFolderChangeSource` is now borrowed; its Windows implementation retains disposal for collection ownership. Change-event senders are the borrowed facade rather than the owned implementation. Returned streams, preview results and independently opened models retain their legitimate caller-owned disposal. Custom capability implementations must follow the same borrowed-result contract described in issue 2.
 
 ### 7. Runtime and capability contracts expose concrete implementations
 
