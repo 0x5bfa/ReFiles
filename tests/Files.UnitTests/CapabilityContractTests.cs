@@ -102,6 +102,7 @@ public sealed class CapabilityContractTests
 		Assert.Throws<ArgumentException>(() => builder.Add<TCapability>(new DelegateCapabilityFactory<TCapability>(_ => null)));
 		Assert.Throws<ArgumentException>(() => builder.SetCombiner<TCapability>(new PriorityCapabilityCombiner<TCapability>()));
 		Assert.Throws<ArgumentException>(() => builder.AddWrapper<TCapability>(new DelegateCapabilityWrapper<TCapability>((_, capability) => capability)));
+		Assert.Throws<ArgumentException>(() => builder.SetBorrowedView<TCapability>(capability => capability));
 	}
 
 	private sealed class ReadableStorable : IStorable, IReadableContent, IWritableContent

@@ -19,23 +19,16 @@ namespace Files.Core.Capabilities;
 
 internal static class BorrowedCapability
 {
-	public static TCapability Create<TCapability>(TCapability capability) where TCapability : class, ICapability
+	public static void RegisterDefaults(CapabilityBuilder builder)
 	{
-		// Project after composition so wrappers cannot restore extra public roles or disposal authority.
-		object borrowed = capability switch
-		{
-			IReadableContent readable when typeof(TCapability) == typeof(IReadableContent) => readable is IArchiveInput input ? new ArchiveContent(readable, input) : new ReadableContent(readable),
-			IWritableContent writable when typeof(TCapability) == typeof(IWritableContent) => new WritableContent(writable),
-			IPropertySource properties when typeof(TCapability) == typeof(IPropertySource) => properties is IBatchedPropertySource batch ? new BatchedProperties(properties, batch) : new Properties(properties),
-			IPreviewSource preview when typeof(TCapability) == typeof(IPreviewSource) => new Preview(preview),
-			IThumbnailSource thumbnail when typeof(TCapability) == typeof(IThumbnailSource) => new Thumbnail(thumbnail),
-			IArchiveSource archive when typeof(TCapability) == typeof(IArchiveSource) => new ArchiveSource(archive),
-			IFolderChangeSource changes when typeof(TCapability) == typeof(IFolderChangeSource) => new FolderChanges(changes),
-			IFolderBrowseMetadata metadata when typeof(TCapability) == typeof(IFolderBrowseMetadata) => new FolderMetadata(metadata),
-			_ => capability,
-		};
-
-		return (TCapability)borrowed;
+		builder.SetBorrowedView<IReadableContent>(static readable => readable is IArchiveInput input ? new ArchiveContent(readable, input) : new ReadableContent(readable));
+		builder.SetBorrowedView<IWritableContent>(static writable => new WritableContent(writable));
+		builder.SetBorrowedView<IPropertySource>(static properties => properties is IBatchedPropertySource batch ? new BatchedProperties(properties, batch) : new Properties(properties));
+		builder.SetBorrowedView<IPreviewSource>(static preview => new Preview(preview));
+		builder.SetBorrowedView<IThumbnailSource>(static thumbnail => new Thumbnail(thumbnail));
+		builder.SetBorrowedView<IArchiveSource>(static archive => new ArchiveSource(archive));
+		builder.SetBorrowedView<IFolderChangeSource>(static changes => new FolderChanges(changes));
+		builder.SetBorrowedView<IFolderBrowseMetadata>(static metadata => new FolderMetadata(metadata));
 	}
 
 	private class ReadableContent(IReadableContent inner) : IReadableContent

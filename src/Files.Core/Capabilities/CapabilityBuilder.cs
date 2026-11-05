@@ -4,13 +4,20 @@
 namespace Files.Core.Capabilities;
 
 /// <summary>
-/// Registers factories, combiners, and wrappers for optional item capabilities.
+/// Registers factories, combiners, wrappers, and borrowed views for optional item capabilities.
 /// </summary>
 public sealed class CapabilityBuilder
 {
 	private readonly Dictionary<Type, List<object>> _factories = [];
 	private readonly Dictionary<Type, object> _combiners = [];
 	private readonly Dictionary<Type, List<object>> _wrappers = [];
+	private readonly Dictionary<Type, object> _borrowedViews = [];
+
+	/// <summary>Initializes capability registration with the built-in borrowed views.</summary>
+	public CapabilityBuilder()
+	{
+		BorrowedCapability.RegisterDefaults(this);
+	}
 
 	/// <summary>Registers a capability factory.</summary>
 	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
@@ -69,11 +76,28 @@ public sealed class CapabilityBuilder
 		return this;
 	}
 
+	/// <summary>Sets or replaces the borrowed view factory applied after all composition for a capability type.</summary>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
+	/// <param name="createView">Creates a non-owning view of the final composed implementation without exposing other public roles or disposal interfaces.</param>
+	/// <returns>This builder.</returns>
+	/// <remarks>Implementation lifetime rules remain unchanged. The view must borrow its resources and must not dispose the implementation.</remarks>
+	/// <exception cref="ArgumentNullException">The view factory is null.</exception>
+	/// <exception cref="ArgumentException">The requested type is not a derived capability interface.</exception>
+	public CapabilityBuilder SetBorrowedView<TCapability>(Func<TCapability, TCapability> createView) where TCapability : class, ICapability
+	{
+		ArgumentNullException.ThrowIfNull(createView);
+
+		CapabilityContract<TCapability>.Validate();
+		_borrowedViews[typeof(TCapability)] = createView;
+
+		return this;
+	}
+
 	/// <summary>Builds an immutable capability registry from the registrations.</summary>
 	/// <returns>The capability registry.</returns>
 	public CapabilityRegistry Build()
 	{
-		return new CapabilityRegistry(CloneLists(_factories), new Dictionary<Type, object>(_combiners), CloneLists(_wrappers));
+		return new CapabilityRegistry(CloneLists(_factories), new Dictionary<Type, object>(_combiners), CloneLists(_wrappers), new Dictionary<Type, object>(_borrowedViews));
 	}
 
 	private static List<object> GetOrCreateList(Dictionary<Type, List<object>> registrations, Type capabilityType)

@@ -17,15 +17,18 @@ public sealed class CapabilityRegistry
 
 	private readonly IReadOnlyDictionary<Type, IReadOnlyList<object>> _wrappers;
 	private readonly ConcurrentDictionary<Type, object> _typedWrappers = [];
+	private readonly IReadOnlyDictionary<Type, object> _borrowedViews;
 
 	/// <summary>Gets an empty capability registry.</summary>
 	public static CapabilityRegistry Empty { get; } = new CapabilityBuilder().Build();
 
-	internal CapabilityRegistry(IReadOnlyDictionary<Type, IReadOnlyList<object>> factories, IReadOnlyDictionary<Type, object> combiners, IReadOnlyDictionary<Type, IReadOnlyList<object>> wrappers)
+	internal CapabilityRegistry(IReadOnlyDictionary<Type, IReadOnlyList<object>> factories, IReadOnlyDictionary<Type, object> combiners,
+		IReadOnlyDictionary<Type, IReadOnlyList<object>> wrappers, IReadOnlyDictionary<Type, object> borrowedViews)
 	{
 		_factories = factories;
 		_combiners = combiners;
 		_wrappers = wrappers;
+		_borrowedViews = borrowedViews;
 	}
 
 	/// <summary>Creates the capability collection for an item context.</summary>
@@ -96,7 +99,24 @@ public sealed class CapabilityRegistry
 				}
 			}
 
-			return new CapabilityResolution<TCapability>(BorrowedCapability.Create(capabilityResult), ownedInstances);
+			var borrowed = capabilityResult;
+			if (_borrowedViews.TryGetValue(capabilityType, out var createView))
+			{
+				borrowed = ((Func<TCapability, TCapability>)createView)(capabilityResult)
+					?? throw new InvalidOperationException($"A borrowed view factory returned null for item capability '{capabilityType.FullName}'.");
+
+				if (borrowed is IDisposable or IAsyncDisposable)
+				{
+					if (!ReferenceEquals(borrowed, capabilityResult))
+					{
+						TrackOwned(context, borrowed, ownedInstances);
+					}
+
+					throw new InvalidOperationException($"A borrowed view must not expose disposal interfaces for item capability '{capabilityType.FullName}'.");
+				}
+			}
+
+			return new CapabilityResolution<TCapability>(borrowed, ownedInstances);
 		}
 		catch (Exception resolutionError)
 		{

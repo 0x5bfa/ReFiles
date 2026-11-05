@@ -34,7 +34,21 @@ Discovery and registration accept only interfaces derived from `ICapability`. Ge
 
 Implementing a capability on a CoreModel does not register it. Providers explicitly register factories through `CapabilityBuilder`; the registry combines their results and then applies wrappers. FTP and archive modules register their content factories once per builder. The transfer module also registers FTP content so operation hosts can resolve sources added after runtime construction. An unbound `ItemContext.GetCapability<T>()` returns null instead of casting its CoreModel. Provider code that needs composed dependencies must use the context supplied during resolution.
 
-Custom capability interfaces must derive from `ICapability`, and registrations/queries must use the interface rather than its implementation type. This is an API compatibility change. The marker identifies a capability contract; it does not authorize provider code. Built-in results are projected through dedicated borrowed adapters after all composition, so a read result cannot be cast to writing, raw storage or disposal interfaces. Internal property batching and pinned/nested archive input remain available to Core. Custom interfaces require their own narrow borrowed implementations; arbitrary custom interfaces are not automatically projected.
+Custom capability interfaces must derive from `ICapability`, and registrations/queries must use the interface rather than its implementation type. This is an API compatibility change. The marker identifies a capability contract; it does not authorize provider code. Built-in results are projected through dedicated borrowed adapters after all composition, so a read result cannot be cast to writing, raw storage or disposal interfaces. Internal property batching and pinned/nested archive input remain available to Core. Custom interfaces can register their own borrowed view factories through `SetBorrowedView<TCapability>`; Core does not need to know their types.
+
+## Extending from another assembly or NuGet consumer
+
+Register a factory for the custom capability and a borrowed view of its final composed implementation:
+
+```csharp
+builder.Capabilities
+    .Add<IChecksumSource>(new ChecksumSourceFactory())
+    .SetBorrowedView<IChecksumSource>(static inner => new ChecksumSourceView(inner));
+```
+
+`IChecksumSource` must be an interface derived from `ICapability`. `ChecksumSourceView` implements only the intended borrowed contract and forwards calls to `inner`; it must not dispose `inner`, own independently disposable resources, or expose extra public roles. The view factory receives the result after the combiner and every wrapper, and runs once for each successfully resolved capability per item. Null or disposable views are rejected; failed creation releases unpublished item-owned implementations and is not cached. A missing capability does not invoke the view factory.
+
+Built-in views use the same registration mechanism. `SetBorrowedView` replaces an earlier registration, including a built-in default, so the replacement must preserve the contract's resource and access semantics. `Build()` snapshots the registrations. Without a view registration, a custom capability is returned unchanged and its factories/combiners/wrappers must already return a suitable borrowed object. Additional interface roles, callback senders and resources exposed by custom views remain the extension author's responsibility; the API does not infer or synthesize arbitrary interfaces.
 
 ## Ownership and borrowed access
 
