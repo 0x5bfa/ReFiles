@@ -1,5 +1,6 @@
 <!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
 <Project Sdk="Microsoft.NET.Sdk">
+
 	<PropertyGroup>
 		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
@@ -13,6 +14,7 @@
 		<Description>Consumer contracts for ReFiles storage, browsing, and capabilities.</Description>
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
 	</PropertyGroup>
+
 	<ItemGroup>
 		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
 		<InternalsVisibleTo Include="Files.Core" />
@@ -20,4 +22,5 @@
 		<InternalsVisibleTo Include="Files.Providers" />
 		<InternalsVisibleTo Include="Files.UnitTests" />
 	</ItemGroup>
+
 </Project>

@@ -1,5 +1,6 @@
 <!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
 <Project Sdk="Microsoft.NET.Sdk">
+
 	<PropertyGroup>
 		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
 		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
@@ -14,6 +15,7 @@
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
+
 	<ItemGroup>
 		<ProjectReference Include="../Files.Core.Contracts/Files.Core.Contracts.csproj" />
 		<ProjectReference Include="../Files.Core/Files.Core.csproj" PrivateAssets="compile" />
@@ -22,4 +24,5 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
 	</ItemGroup>
+
 </Project>
