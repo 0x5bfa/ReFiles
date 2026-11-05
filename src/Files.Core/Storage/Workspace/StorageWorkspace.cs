@@ -30,7 +30,8 @@ public sealed class StorageWorkspace : IStorageWorkspace, IStorageSourceRegistry
 	/// <inheritdoc />
 	public event EventHandler? SourcesChanged;
 
-	internal IStorableModelFactory ModelFactory { get; }
+	/// <summary>Gets the runtime adapter for raw source items.</summary>
+	public IStorableModelFactory ModelFactory { get; }
 
 	/// <summary>Initializes a storage workspace and takes ownership of its sources.</summary>
 	/// <param name="sources">The configured storage sources.</param>

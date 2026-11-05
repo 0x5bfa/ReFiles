@@ -16,11 +16,11 @@ This C#/.NET WinUI 3 desktop app is an alternative to File Explorer.
 
 ## Win32, COM, Shell, and CsWin32
 
-- Prefer `src/Files.Core/NativeMethods.txt` and existing wrappers in `src/Files.Core/Storage/Windows/Interop` for Win32, COM, Shell, clipboard, hotkey, and file-operation interop. Avoid ad hoc P/Invokes when CsWin32 or an existing wrapper covers the API.
-- Do not edit generated CsWin32 output. Update `src/Files.Core/NativeMethods.txt`, `NativeMethods.json`, or a wrapper instead. Output is under `src/Files.Core/obj/<platform>/<configuration>/<target-framework>/Generated/CsWin32`; inspect only targeted declarations, and treat the large `Windows.Win32.NativeMethods.g.cs` file and manifest as disposable.
+- Prefer `src/Files.Providers/NativeMethods.txt` and existing wrappers in `src/Files.Providers/Storage/Windows/Interop` for Win32, COM, Shell, clipboard, hotkey, and file-operation interop. Avoid ad hoc P/Invokes when CsWin32 or an existing wrapper covers the API.
+- Do not edit generated CsWin32 output. Update `src/Files.Providers/NativeMethods.txt`, `NativeMethods.json`, or a wrapper instead. Output is under `src/Files.Providers/obj/<platform>/<configuration>/<target-framework>/Generated/CsWin32`; inspect only targeted declarations, and treat the large `Windows.Win32.NativeMethods.g.cs` file and manifest as disposable.
 - `NativeMethods.txt` and `NativeMethods.json` are generator inputs. The current JSON enables public output, source-generated COM interop, and `preserveSig` for all COM methods.
 - Native entry points are emitted as `Windows.Win32.PInvoke` partial methods using `LibraryImport`, `DefaultDllImportSearchPaths(System32)`, Unicode `W` entry points where applicable, and `SupportedOSPlatform` annotations. Do not add duplicate `DllImport` declarations for listed APIs.
-- `Files.Core` enables `DisableRuntimeMarshalling` and `AllowUnsafeBlocks`. Keep unsafe code at the interop boundary and use source-generated marshalling rather than runtime-marshalling assumptions.
+- `Files.Providers` enables `DisableRuntimeMarshalling` and `AllowUnsafeBlocks`. Keep unsafe code at the interop boundary and use source-generated marshalling rather than runtime-marshalling assumptions.
 - Prefer generated managed overloads (`string`, `Span`/`ReadOnlySpan`, nullable structs, `SafeHandle`, or generic COM outputs) when they express the contract. Use raw pointer overloads only when the pointer, buffer, or ownership contract requires them.
 - Keep generated native types (`HANDLE`, `HWND`, `PCWSTR`, `PWSTR`, `HSTRING`, `BOOL`, `HRESULT`, and typed enums) at the interop boundary; do not replace them with `IntPtr`, `string`, or untyped integers.
 - Use generated `SafeHandle` overloads; they encode ownership and invalid-handle values and protect inputs with `DangerousAddRef`/`DangerousRelease`. Preserve these semantics; do not close borrowed handles or call `DangerousGetHandle` except at an unavoidable raw-pointer boundary.
@@ -32,7 +32,7 @@ This C#/.NET WinUI 3 desktop app is an alternative to File Explorer.
 - Use generated COM interface types for known parameters and results. For deliberately untyped values, use `[MarshalAs(UnmanagedType.Interface)] object`; do not add raw COM pointers, placeholder `IUnknown` interfaces, or custom marshallers just to control lifetime.
 - Source-generated COM wrappers own native references and release them when collected. Do not call `Marshal.ReleaseComObject`, `ComObject.FinalRelease`, or equivalent; request unique wrappers only when a verified native ownership contract requires deterministic release.
 - Use `PInvoke.CoCreateInstance<T>` and `PInvoke.RoGetActivationFactory<T>` for activation, normal managed casts, and `as` for optional `QueryInterface` checks. Do not add activation, query, or release helpers.
-- Put custom declarations missing from Win32 metadata, or whose generated signature cannot safely express the ABI, in `Windows.Win32.PInvoke` in `src/Files.Core/Storage/Windows/Interop/Extras.cs`. Keep them as declarations; do not add per-API forwarding helpers.
+- Put custom declarations missing from Win32 metadata, or whose generated signature cannot safely express the ABI, in `Windows.Win32.PInvoke` in `src/Files.Providers/Storage/Windows/Interop/Extras.cs`. Keep them as declarations; do not add per-API forwarding helpers.
 - For CLSIDs missing from CsWin32, define a documented `[Guid]` coclass marker and use `typeof(CoclassType).GUID`; do not duplicate the GUID in a field.
 - Prefer `in`, `ref`, and `out` for fixed-size native values when the signature allows. Use raw pointers only for variable buffers, callbacks, unrepresentable optional pointers, or other unavoidable ABI boundaries.
 - Reuse a local named `hr` for sequential HRESULT calls when practical.

@@ -9,7 +9,7 @@ namespace Files.Core.Models;
 /// <summary>
 /// Adapts a Files storage item to the Files item AppModel contract.
 /// </summary>
-public class StorableModel : IStorableModel, IStorableModelInternal
+public class StorableModel : IStorableModel, IStorageModelAccess
 {
 	private readonly IStorable _coreModel;
 	private readonly IOwnedCapabilities _ownedCapabilities;
@@ -147,7 +147,7 @@ public class StorableModel : IStorableModel, IStorableModelInternal
 		}
 	}
 
-	IStorable IStorableModelInternal.GetCoreModel()
+	IStorable IStorageModelAccess.GetCoreModel()
 	{
 		ThrowIfDisposed();
 

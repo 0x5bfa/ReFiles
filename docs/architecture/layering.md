@@ -13,14 +13,26 @@ flowchart TD
 
     Files --> Controls
     Files --> Core
-    Operations --> Core
+    Contracts[Files.Core.Contracts]
+    ProviderContracts[Files.Core.ProviderContracts]
+    Providers[Files.Providers]
+    Hosting[Files.Hosting]
+    Files --> Providers
+    Operations --> Hosting
+    Operations --> Contracts
+    Hosting --> Core
+    Hosting --> Providers
+    Core --> ProviderContracts
+    Providers --> ProviderContracts
+    ProviderContracts --> Contracts
 ```
 
 `Files` separately consumes `Files.BackgroundServer.winmd` through generated C#/WinRT projection code. Runtime calls cross that boundary; they do not make Core reference the server. No separate client project is needed.
 
 These architectural rules remain:
 
-- presentation may depend on Core;
+- Files still references Core and Providers during its Windows UI migration; the target consumer boundary is Contracts plus Hosting;
+- Core and Providers must not reference each other; provider collaboration uses ProviderContracts;
 - Core must not depend on presentation;
 - provider implementations must not depend on ViewModels;
 - reusable controls must not acquire application/storage ownership;
@@ -30,11 +42,12 @@ These architectural rules remain:
 
 | Concern | Preferred owner |
 |---|---|
-| Storage abstractions and identity | `Files.Core` |
-| Provider contracts and implementations | `Files.Core` provider/platform areas |
+| Consumer storage identity and value types | `Files.Core.Contracts` |
+| Provider contracts | `Files.Core.ProviderContracts` |
+| Windows/FTP/7-Zip implementations and interop | `Files.Providers` |
 | Browse/navigation state | `Files.Core` |
-| Capability contracts | `Files.Core` |
-| Property/thumbnail/preview retrieval contracts | `Files.Core` |
+| Consumer capability contracts | `Files.Core.Contracts` |
+| Property/thumbnail/preview retrieval contracts | Consumer Contracts; provider readers/loaders in ProviderContracts |
 | Provider-specific retrieval | provider implementation |
 | WinUI image creation/decoding | `Files` |
 | ViewModels and presentation adapters | `Files` |
@@ -42,16 +55,16 @@ These architectural rules remain:
 | Viewport/focus/visual selection | presentation/UI boundary |
 | Generic reusable WinUI controls | `Files.Controls` |
 | App-specific control behavior | `Files` |
-| Domain I/O execution and accepted background operations | `Files.BackgroundServer`, using Core providers |
+| Domain I/O execution and accepted background operations | `Files.BackgroundServer`, using Hosting and typed operation-host contracts |
 | WinRT projection, conversion, and reconnection | adapter inside `Files` |
 | Authoritative operation progress and cancellation | `Files.BackgroundServer` |
 | Status Center formatting and graphs | `Files` |
 
-## Core source layout
+## Runtime and contract source layout
 
-Folders group code by responsibility. `FilesCoreBuilder` and `FilesCoreRuntime` are public entry points in the `Files.Core` namespace. Other existing public namespaces are retained independently of folder organization.
+Consumer declarations are in Contracts, raw module contracts in ProviderContracts, and platform implementations in Providers. The table below describes responsibilities across those projects; moved folders retain their namespaces. Folders group code by responsibility. `FilesCoreBuilder` and `FilesCoreRuntime` are public entry points in the `Files.Core` namespace. Other existing public namespaces are retained independently of folder organization.
 
-| Folder under `src/Files.Core` | Responsibility |
+| Responsibility folder | Responsibility |
 |---|---|
 | `Application` | Application/window/tab/pane ownership, content sessions, navigation history, and user intent. The existing namespace is `Files.Core.Sessions`. |
 | `Browsing` | One pane's browse engine and its locations, navigation, selection, projection, prefetch, preview, search, changes, and view settings. |
@@ -60,7 +73,7 @@ Folders group code by responsibility. `FilesCoreBuilder` and `FilesCoreRuntime` 
 | `Storage/Models` | Item models that compose storage items with optional capabilities. The existing namespace is `Files.Core.Models`. |
 | `Storage/Workspace` | Source registration, item resolution, and source lifetime ownership. The existing namespace is `Files.Core.Data`. |
 | `Storage/Operations` | Operation routing and execution contracts, with `Requests`, `Jobs`, and `Transfers` subfolders. |
-| `Storage/Windows`, `Storage/Ftp`, `Storage/Archives` | Provider implementations and their implementation-specific contracts. |
+| Providers: `Storage/Windows`, `Storage/Ftp`, `Storage/Archives/SevenZip` | Platform implementations and their implementation-specific contracts. Generic archive mounts remain in Core. |
 | `Capabilities` | Optional item behavior, grouped by feature. |
 | `FilesCoreBuilder*.cs`, `FilesCoreRuntime.cs` | Runtime construction and shared service composition at the Core root. |
 
@@ -68,7 +81,7 @@ Folders group code by responsibility. `FilesCoreBuilder` and `FilesCoreRuntime` 
 
 Related interfaces and implementations stay together in their feature folder. Operation requests and Windows preview contracts use individual files named after their types. Keep partial declarations such as `BrowseSession.cs` and `BrowseSession.Changes.cs` together.
 
-`FilesCoreBuilder.Windows.cs`, `.Ftp.cs`, `.Archives.cs`, and `.Transfers.cs` contain feature registration as partial declarations of the same builder. `AddWindowsStorage` is an instance method alongside `AddFtpStorage`, `AddArchiveBrowsing`, and `AddStorageTransfers`. Registration helpers remain private to the builder; the feature files preserve source ownership, capability ordering, and cleanup behavior.
+`FilesProviderExtensions.Windows.cs`, `.Ftp.cs`, `.Archives.cs`, and `.Transfers.cs` live in Providers. Their registration extensions target `IProviderRuntimeBuilder`, implemented by Core's builder. Provider modules do not construct concrete Core runtime, workspace or model classes. Existing namespaces and fluent call syntax are retained when the Providers package is referenced. Core's root builder handles generic composition and adaptation; Hosting references both implementations for process startup.
 
 ## Example: a new storage provider
 

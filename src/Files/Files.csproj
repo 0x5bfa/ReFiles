@@ -54,6 +54,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Files.BackgroundServer\Files.BackgroundServer.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" />
 		<ProjectReference Include="..\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\Files.Providers\Files.Providers.csproj" />
 		<ProjectReference Include="..\Files.Controls\Files.Controls.csproj" />
 		<ProjectReference Include="..\Files.SourceGenerators\Files.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<ProjectReference Include="..\FilesLauncher\FilesLauncher.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" />

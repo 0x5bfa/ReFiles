@@ -139,7 +139,7 @@ public partial class App : Application
 				runtime.StorageOperations,
 				_storageOperationTracker,
 				_settings,
-				runtime.WindowsShellPreviewSessions,
+				runtime.GetWindowsShellPreviewSessions(),
 				_commandRegistry,
 				persistPlacement,
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),

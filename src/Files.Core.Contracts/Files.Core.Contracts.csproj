@@ -16,6 +16,8 @@
 	<ItemGroup>
 		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
 		<InternalsVisibleTo Include="Files.Core" />
+		<InternalsVisibleTo Include="Files.Core.ProviderContracts" />
+		<InternalsVisibleTo Include="Files.Providers" />
 		<InternalsVisibleTo Include="Files.UnitTests" />
 	</ItemGroup>
 </Project>

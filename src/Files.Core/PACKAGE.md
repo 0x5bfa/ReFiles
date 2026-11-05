@@ -1,11 +1,12 @@
 # ReFiles.Core
 
-ReFiles.Core is the UI-independent application, browsing, storage, and capability foundation used by ReFiles. It includes Windows Shell integration and optional FTP and archive providers without depending on WinUI.
+ReFiles.Core is the UI-independent application, browsing, storage, and capability foundation used by ReFiles. The separate `ReFiles.Providers` package supplies Windows Shell, FTP, and 7-Zip integration; neither package depends on WinUI.
 
 The package is currently prerelease. Pin an exact version while its public API evolves:
 
 ```xml
-<PackageReference Include="ReFiles.Core" Version="0.1.0-alpha" />
+<PackageReference Include="ReFiles.Core" Version="0.1.0" />
+<PackageReference Include="ReFiles.Providers" Version="0.1.0" />
 ```
 
 ## Platform requirements
@@ -20,6 +21,6 @@ Documentation and source are available in the [ReFiles repository](https://githu
 
 ## Consumer and hosting packages
 
-`ReFiles.Core.Contracts` contains consumer interfaces and value types. `ReFiles.Hosting` provides fixed process startup through `FilesHost`, returning `IFilesCoreRuntime` or `IOperationHostRuntime` without exposing Core compile assets. Reference `ReFiles.Core` explicitly when implementing custom providers or capability composition; its public extension API remains available.
+`ReFiles.Core.Contracts` contains consumer interfaces and value types. `ReFiles.Hosting` provides fixed process startup through `FilesHost`, returning `IFilesCoreRuntime` or `IOperationHostRuntime` without exposing Core compile assets. Reference `ReFiles.Core` explicitly for runtime composition and `ReFiles.Core.ProviderContracts` for provider-facing models, factories, and registration interfaces. Standard provider registration extensions are supplied by `ReFiles.Providers`. Core and Providers do not reference each other.
 
 See [project split status](https://github.com/0x5bfa/ReFiles/blob/main/docs/architecture/project-split.md) for migration progress and compatibility details.

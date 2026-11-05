@@ -26,7 +26,7 @@
 		<WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.BackgroundServer'">
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Providers' Or '$(MSBuildProjectName)' == 'Files.BackgroundServer'">
 		<EnforceWinRTStorageBoundaries>true</EnforceWinRTStorageBoundaries>
 	</PropertyGroup>
 

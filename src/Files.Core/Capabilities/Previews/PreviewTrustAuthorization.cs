@@ -3,7 +3,6 @@
 
 using Files.Core.Models;
 using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 
 namespace Files.Core.Capabilities.Previews;
 
@@ -11,7 +10,7 @@ internal sealed class PreviewTrustAuthorization : PreviewAuthorization
 {
 	private readonly StorableReference _reference;
 	private readonly IStorable _coreModel;
-	private readonly string? _fileSystemPath;
+	private readonly IPreviewTrustIdentity? _trustIdentity;
 
 	internal PreviewTrustAuthorization(IStorableModel target)
 	{
@@ -19,7 +18,7 @@ internal sealed class PreviewTrustAuthorization : PreviewAuthorization
 
 		_reference = target.Reference;
 		_coreModel = target.GetCoreModel();
-		_fileSystemPath = (_coreModel as IWindowsStorable)?.FileSystemPath;
+		_trustIdentity = (_coreModel as IPreviewTrustTarget)?.CaptureTrustIdentity();
 	}
 
 	internal PreviewTrustAuthorization(ItemContext context)
@@ -28,31 +27,21 @@ internal sealed class PreviewTrustAuthorization : PreviewAuthorization
 
 		_reference = context.Reference;
 		_coreModel = context.CoreModel;
-		_fileSystemPath = (context.CoreModel as IWindowsStorable)?.FileSystemPath;
+		_trustIdentity = (context.CoreModel as IPreviewTrustTarget)?.CaptureTrustIdentity();
 	}
 
-	internal bool AppliesTo(ItemContext context)
+	internal override bool AppliesTo(StorableReference reference, object storageItem)
 	{
-		ArgumentNullException.ThrowIfNull(context);
-
-		if (!context.Reference.Equals(_reference))
+		if (!reference.Equals(_reference))
 		{
 			return false;
 		}
 
-		if (ReferenceEquals(context.CoreModel, _coreModel))
+		if (ReferenceEquals(storageItem, _coreModel))
 		{
 			return true;
 		}
 
-		return _fileSystemPath is not null && context.CoreModel is IWindowsStorable windowsItem && StringComparer.OrdinalIgnoreCase.Equals(_fileSystemPath, windowsItem.FileSystemPath);
-	}
-}
-
-internal static class PreviewAuthorizationExtensions
-{
-	internal static bool AppliesTo(this PreviewAuthorization authorization, ItemContext context)
-	{
-		return authorization is PreviewTrustAuthorization target && target.AppliesTo(context);
+		return storageItem is IStorable item && _trustIdentity?.Matches(item) is true;
 	}
 }

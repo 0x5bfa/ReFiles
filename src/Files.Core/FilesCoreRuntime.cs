@@ -8,17 +8,17 @@ using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Storage.Windows;
 
 namespace Files.Core;
 
 /// <summary>
 /// Owns the UI-independent storage workspace, shell session, and shared services for one process.
 /// </summary>
-public sealed class FilesCoreRuntime : IFilesCoreRuntime
+public sealed class FilesCoreRuntime : IFilesCoreRuntime, IProviderRuntimeServices
 {
 	private readonly IReadOnlyList<IAsyncDisposable> _ownedServices;
 	private readonly IStorageReader _reader;
+	private readonly IReadOnlyDictionary<Type, object> _providerServices;
 
 	private readonly Lock _disposalLock = new();
 
@@ -62,11 +62,6 @@ public sealed class FilesCoreRuntime : IFilesCoreRuntime
 	/// </summary>
 	public IThumbnailCache ThumbnailCache { get; }
 
-	/// <summary>
-	/// Gets the optional factory for Windows Shell preview sessions.
-	/// </summary>
-	public IWindowsShellPreviewSessionFactory? WindowsShellPreviewSessions { get; }
-
 	IStorageReader IFilesCoreRuntime.Workspace => _reader;
 
 	IFilesApplicationSession IFilesCoreRuntime.ShellSession => ShellSession;
@@ -79,7 +74,7 @@ public sealed class FilesCoreRuntime : IFilesCoreRuntime
 		IStorageOperationService storageOperations,
 		IViewSettingsStore viewSettingsStore,
 		IThumbnailCache thumbnailCache,
-		IWindowsShellPreviewSessionFactory? windowsShellPreviewSessions,
+		IReadOnlyDictionary<Type, object> providerServices,
 		IReadOnlyList<IAsyncDisposable> ownedServices)
 	{
 		Workspace = workspace;
@@ -90,7 +85,7 @@ public sealed class FilesCoreRuntime : IFilesCoreRuntime
 		StorageOperations = storageOperations;
 		ViewSettingsStore = viewSettingsStore;
 		ThumbnailCache = thumbnailCache;
-		WindowsShellPreviewSessions = windowsShellPreviewSessions;
+		_providerServices = providerServices;
 		_ownedServices = ownedServices;
 	}
 
@@ -120,6 +115,11 @@ public sealed class FilesCoreRuntime : IFilesCoreRuntime
 	public IPaneSession CreateSettingsPane()
 	{
 		return new PaneSession(new SettingsPaneSession());
+	}
+
+	TService? IProviderRuntimeServices.GetProviderService<TService>() where TService : class
+	{
+		return _providerServices.TryGetValue(typeof(TService), out var service) ? (TService)service : null;
 	}
 
 	private async Task DisposeCoreAsync()

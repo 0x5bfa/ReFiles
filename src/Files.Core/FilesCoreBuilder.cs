@@ -11,7 +11,8 @@ using Files.Core.Data;
 using Files.Core.Models;
 using Files.Core.Storage;
 using Files.Core.ViewSettings;
-using Files.Core.Storage.Windows;
+using Files.Core.Storage.Archives;
+using Files.Core.Storage.Transfers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -20,7 +21,7 @@ namespace Files.Core;
 /// <summary>
 /// Configures storage sources, item capabilities, workspace services, and shell sessions.
 /// </summary>
-public sealed partial class FilesCoreBuilder : IAsyncDisposable
+public sealed partial class FilesCoreBuilder : IAsyncDisposable, IProviderRuntimeBuilder
 {
 	private readonly List<IStorageSource> _sources = [];
 
@@ -31,6 +32,7 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 	private readonly List<Func<StorageWorkspace, IBrowseLocationHandler>> _locationHandlerFactories = [];
 
 	private readonly List<IAsyncDisposable> _ownedServices = [];
+	private readonly Dictionary<Type, Func<IStorageWorkspace, object>> _providerServiceFactories = [];
 
 	private readonly HashSet<string> _configuredModules = new(StringComparer.Ordinal);
 
@@ -39,8 +41,6 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 	private readonly IThumbnailCache _thumbnailCache;
 
 	private readonly ILoggerFactory _loggerFactory;
-
-	internal ILoggerFactory LoggerFactory => _loggerFactory;
 
 	private readonly Lock _disposalLock = new();
 
@@ -52,6 +52,10 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 
 	/// <summary>Gets the item capability composition builder.</summary>
 	public CapabilityBuilder Capabilities { get; }
+
+	ILoggerFactory IProviderRuntimeBuilder.LoggerFactory => _loggerFactory;
+
+	ICapabilityBuilder IProviderRuntimeBuilder.Capabilities => Capabilities;
 
 	/// <summary>Initializes an empty Files.Core builder.</summary>
 	/// <param name="viewSettingsStore">The optional view settings store.</param>
@@ -164,11 +168,10 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 			var services = new BrowseApplicationServices(workspace, storageOperations, search);
 			var paneFactory = new BrowsePaneSessionFactory(locationResolver, _viewSettingsStore, _thumbnailCache, services: services, loggerFactory: _loggerFactory);
 			shellSession = new FilesApplicationSession(paneFactory);
-			IWindowsShellPreviewSessionFactory? previewSessions = null;
-			if (_windowsShellPreviewSessionFactory is not null)
+			var providerServices = new Dictionary<Type, object>();
+			foreach (var (serviceType, factory) in _providerServiceFactories)
 			{
-				previewSessions = _windowsShellPreviewSessionFactory(workspace)
-					?? throw new InvalidOperationException("The Windows Shell preview session factory returned null.");
+				providerServices.Add(serviceType, factory(workspace) ?? throw new InvalidOperationException("A provider service factory returned null."));
 			}
 
 			var runtime = new FilesCoreRuntime(
@@ -179,7 +182,7 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 				storageOperations,
 				_viewSettingsStore,
 				_thumbnailCache,
-				previewSessions,
+				providerServices,
 				Array.AsReadOnly(_ownedServices.ToArray()));
 			workspace = null;
 			shellSession = null;
@@ -230,6 +233,67 @@ public sealed partial class FilesCoreBuilder : IAsyncDisposable
 
 			return new ValueTask(_disposeTask);
 		}
+	}
+
+	void IProviderRuntimeBuilder.AddStorageSource(IStorageSource source)
+	{
+		AddStorageSource(source);
+	}
+
+	void IProviderRuntimeBuilder.AddStorageOperationHandler(IStorageOperationHandler handler)
+	{
+		AddStorageOperationHandler(handler);
+	}
+
+	void IProviderRuntimeBuilder.AddBrowseLocationHandler(Func<IStorageWorkspace, IBrowseLocationHandler> factory)
+	{
+		AddBrowseLocationHandler(factory);
+	}
+
+	void IProviderRuntimeBuilder.AddPropertyReader(IPropertyReader reader, int priority, string origin)
+	{
+		EnsureMutable();
+		Capabilities.Add<IPropertySource>(new PropertySourceFactory(reader), priority: priority, origin: origin);
+	}
+
+	void IProviderRuntimeBuilder.AddPreviewLoader(IPreviewLoader loader, int priority, string origin)
+	{
+		EnsureMutable();
+		Capabilities.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: priority, origin: origin);
+	}
+
+	void IProviderRuntimeBuilder.SetProviderServiceFactory<TService>(Func<IStorageWorkspace, TService> factory)
+	{
+		EnsureMutable();
+		ArgumentNullException.ThrowIfNull(factory);
+
+		_providerServiceFactories[typeof(TService)] = workspace => factory(workspace);
+	}
+
+	void IProviderRuntimeBuilder.ConfigureArchiveBrowsing(ArchiveBackendSelector readers, IArchiveCredentialResolver? credentials)
+	{
+		AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, readers, credentials));
+	}
+
+	void IProviderRuntimeBuilder.ConfigureStorageTransfers(ArchiveBackendSelector readers, IArchiveCredentialResolver? credentials,
+		Func<IStorageWorkspace, IReadOnlyList<IStorageImportProvider>> imports)
+	{
+		AddStorageOperationHandlerFactory(workspace => new StorageTransferHandler(workspace, readers, credentials, imports(workspace)));
+	}
+
+	void IProviderRuntimeBuilder.Own(IAsyncDisposable service)
+	{
+		Own(service);
+	}
+
+	void IProviderRuntimeBuilder.EnsureLocalStorageOperations()
+	{
+		EnsureLocalStorageOperations();
+	}
+
+	bool IProviderRuntimeBuilder.TryAddModule(string moduleId)
+	{
+		return TryAddModule(moduleId);
 	}
 
 	private void EnsureLocalStorageOperations()

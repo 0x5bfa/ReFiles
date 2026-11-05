@@ -258,7 +258,7 @@ public sealed class ShellPreviewHandlerIntegrationTests
 
 		TestContext.WriteLine($"Testing {extension} preview handler {handlerClsid:B} with {filePath}.");
 		await using var runtime = new FilesCoreBuilder().AddWindowsStorage(enableArchives: false).Build();
-		Assert.IsNotNull(runtime.WindowsShellPreviewSessions);
+		Assert.IsNotNull(runtime.GetWindowsShellPreviewSessions());
 		await using var model = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, filePath));
 		var result = new WindowsShellPreviewResult(model.Reference, handlerClsid);
 		var preview = new TestPreviewModel();
@@ -267,7 +267,7 @@ public sealed class ShellPreviewHandlerIntegrationTests
 		{
 			Width = 640,
 			Height = 420,
-			SessionFactory = runtime.WindowsShellPreviewSessions,
+			SessionFactory = runtime.GetWindowsShellPreviewSessions(),
 			ViewModel = viewModel,
 		};
 		var window = new Window { Content = pane };

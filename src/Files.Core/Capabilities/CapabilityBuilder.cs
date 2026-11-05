@@ -6,7 +6,7 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Registers factories, combiners, wrappers, and borrowed views for optional item capabilities.
 /// </summary>
-public sealed class CapabilityBuilder
+public sealed class CapabilityBuilder : ICapabilityBuilder
 {
 	private readonly Dictionary<Type, List<object>> _factories = [];
 	private readonly Dictionary<Type, object> _combiners = [];
@@ -98,6 +98,26 @@ public sealed class CapabilityBuilder
 	public CapabilityRegistry Build()
 	{
 		return new CapabilityRegistry(CloneLists(_factories), new Dictionary<Type, object>(_combiners), CloneLists(_wrappers), new Dictionary<Type, object>(_borrowedViews));
+	}
+
+	ICapabilityBuilder ICapabilityBuilder.Add<TCapability>(ICapabilityFactory<TCapability> factory, int priority, CapabilityLifetime lifetime, string? origin)
+	{
+		return Add(factory, priority, lifetime, origin);
+	}
+
+	ICapabilityBuilder ICapabilityBuilder.SetCombiner<TCapability>(ICapabilityCombiner<TCapability> combiner)
+	{
+		return SetCombiner(combiner);
+	}
+
+	ICapabilityBuilder ICapabilityBuilder.AddWrapper<TCapability>(ICapabilityWrapper<TCapability> wrapper)
+	{
+		return AddWrapper(wrapper);
+	}
+
+	ICapabilityBuilder ICapabilityBuilder.SetBorrowedView<TCapability>(Func<TCapability, TCapability> createView)
+	{
+		return SetBorrowedView(createView);
 	}
 
 	private static List<object> GetOrCreateList(Dictionary<Type, List<object>> registrations, Type capabilityType)

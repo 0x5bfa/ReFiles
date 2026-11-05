@@ -28,7 +28,7 @@ public sealed class WindowsFilesCoreBuilderTests
 		var reference = new StorableReference(source.SourceId, "winfs:v1:00000000:0000000000000000", new StorageAddress(WindowsStorageSource.FileAddressScheme, @"C:\missing.txt"));
 
 		Assert.AreEqual(WindowsStorageSource.DefaultSourceType, source.SourceType);
-		Assert.IsNotNull(runtime.WindowsShellPreviewSessions);
+		Assert.IsNotNull(runtime.GetWindowsShellPreviewSessions());
 		Assert.IsTrue(runtime.StorageOperations.CanHandle(new RenameOperationRequest(reference, "renamed.txt")));
 
 		await runtime.DisposeAsync();

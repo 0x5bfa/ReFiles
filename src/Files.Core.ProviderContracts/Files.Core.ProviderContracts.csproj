@@ -1,0 +1,27 @@
+<!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(WindowsTargetFramework)</TargetFramework>
+		<TargetPlatformMinVersion>$(MinimalWindowsVersion)</TargetPlatformMinVersion>
+		<Configurations>Debug;Release</Configurations>
+		<Platforms>x64;arm64</Platforms>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>ReFiles.Core.ProviderContracts</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>0x5bfa</Authors>
+		<Description>Provider-facing storage, capability and runtime registration contracts.</Description>
+		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="../Files.Core.Contracts/Files.Core.Contracts.csproj" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+		<InternalsVisibleTo Include="Files.UnitTests" />
+		<InternalsVisibleTo Include="Files.Benchmarks" />
+		<InternalsVisibleTo Include="Files.Core" />
+		<InternalsVisibleTo Include="Files.Providers" />
+		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
+	</ItemGroup>
+</Project>

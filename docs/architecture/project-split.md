@@ -1,37 +1,43 @@
 # Project split status
 
-The split is implemented incrementally. The Contracts/Hosting boundary and operation-host migration are in place; the Files UI migration is still pending. Adding projects alone does not establish a boundary for Files while it retains its Core reference.
+The split is implemented incrementally. The Contracts/Hosting boundary, operation-host migration and Core/Providers isolation are in place; the Files UI migration is still pending. Adding projects alone does not establish a boundary for Files while it retains its Core reference.
 
 ## Assemblies and packages
 
 | Assembly | NuGet package | Responsibility |
 | --- | --- | --- |
 | `Files.Core.Contracts` | `ReFiles.Core.Contracts` | Consumer capabilities, item models, identifiers, browse snapshots, operation requests, session interfaces, and runtime contracts. No implementation or generated Win32 references. |
-| `Files.Core` | `ReFiles.Core` | Runtime and provider implementations plus the explicit composition/provider SDK for extension authors. References Contracts. |
-| `Files.Hosting` | `ReFiles.Hosting` | Fixed UI-process and operation-host startup. Public signatures use Contracts and borrowed logging/services; Core is a runtime dependency with its compile assets hidden from downstream consumers. |
+| `Files.Core.ProviderContracts` | `ReFiles.Core.ProviderContracts` | Raw item/source and backend contracts, capability factories/contexts, runtime registration and model-adaptation interfaces, and provider-neutral contract helpers. References consumer Contracts, not either implementation. |
+| `Files.Core` | `ReFiles.Core` | Generic runtime, model adaptation, capability composition, archive mounts, browsing and transfer orchestration. References Contracts and ProviderContracts. |
+| `Files.Providers` | `ReFiles.Providers` | Windows Shell, FTP and SevenZip implementations, native declarations, and built-in registration extensions. References Contracts and ProviderContracts, never Core. |
+| `Files.Hosting` | `ReFiles.Hosting` | Fixed UI-process and operation-host startup. Public signatures use Contracts and borrowed logging/services; Core and Providers are runtime dependencies with their compile assets hidden from downstream consumers. |
 
-Existing namespaces are retained. Core forwards moved public types to Contracts. This preserves moved type identity, but changed signatures such as `IArchiveSource.OpenAsync` returning `IArchiveModel` still require consumers to rebuild; this is not a promise of complete binary compatibility.
+Existing namespaces are retained. Core forwards moved public types to consumer Contracts or ProviderContracts. Provider implementations and their generated native types are not forwarded from Core, because doing so would restore the forbidden implementation reference. This preserves moved type identity, but changed signatures such as `IArchiveSource.OpenAsync` returning `IArchiveModel` still require consumers to rebuild; this is not a promise of complete binary compatibility.
 
-NuGet users that explicitly reference Core retain `FilesCoreBuilder`, custom factories, combiners, wrappers, and `SetBorrowedView<T>()`. Consumers of Hosting alone cannot compile against that implementation API. Core's FluentFTP, SevenZipSharp and System.Management dependencies retain runtime assets while hiding downstream compile assets.
+NuGet users that explicitly reference Core retain `FilesCoreBuilder` and capability composition. ProviderContracts supplies custom factories, combiners and wrappers, and Providers supplies `AddWindowsStorage`, `AddFtpStorage`, `AddArchiveBrowsing` and `AddStorageTransfers` as extensions over `IProviderRuntimeBuilder`. Existing method-call syntax is retained when Providers is referenced. FluentFTP, SevenZipSharp and System.Management now belong only to Providers; their runtime assets are retained while downstream compile assets are hidden.
+
+`IProviderRuntimeBuilder` lets modules register sources, readers/loaders, handlers and provider-service factories without naming concrete Core classes. Core owns the registry, generic adapters and workspace construction. Provider-service factories return borrowed integrations; modules register their resource owners through `Own` before runtime construction. `IStorableModelFactory.OpenArchiveAsync` bridges archive model creation; `IArchiveRootSource` identifies the outer source of a mount. Preview authorization uses a captured `IPreviewTrustIdentity`, with Windows path matching implemented by the Windows provider. Shared archive-input buffering preserves the existing seekable-stream and disposal contract.
+
+`IProviderRuntimeServices` is a provider-SDK integration role, not part of `IFilesCoreRuntime`. Windows preview session factories are retrieved through `GetWindowsShellPreviewSessions()`. Hosting's consumer facade does not implement this role or expose arbitrary registration callbacks. The resolved-reference checks reject Providers and backend packages from Core, and reject Core from Providers and ProviderContracts.
 
 ## Consumer ownership
 
-`IFilesCoreRuntime` exposes session interfaces and an `IStorageReader`. The reader is a distinct borrowed facade: it returns `StorageSourceDescriptor` values and application models, and cannot be cast to raw source registration or disposal roles. The provider-facing `IStorageWorkspace` remains in the Core SDK.
+`IFilesCoreRuntime` exposes session interfaces and an `IStorageReader`. The reader is a distinct borrowed facade: it returns `StorageSourceDescriptor` values and application models, and cannot be cast to raw source registration or disposal roles. The provider-facing `IStorageWorkspace` lives in ProviderContracts.
 
-`IStorableModel.Locator` carries immutable transfer provenance. Capturing a locator no longer requires a consumer-side raw-model cast. Preview trust tokens live in Contracts internally; target identity and Windows path matching remain in Core.
+`IStorableModel.Locator` carries immutable transfer provenance. Capturing a locator no longer requires a consumer-side raw-model cast. Preview trust tokens live in Contracts internally; generic target authorization remains in Core, while Windows path matching is supplied by Providers.
 
 ## Operation host
 
 BackgroundServer obtains `IOperationHostRuntime` from Hosting. FTP registration, Shell New menu operations, filesystem attribute changes, source resolution, operations, and thumbnails pass through typed contracts. Request acceptance, credential-update checks, progress, cancellation, and job ownership remain in the server.
 
-BackgroundServer generates private CsWin32 declarations for process activation, window validation and tray hosting. `DisableTransitiveProjectReferences` and the resolved-reference check in `Directory.Build.targets` reject Core and implementation package compiler references. Their runtime assets are still copied for execution.
+BackgroundServer generates private CsWin32 declarations for process activation, window validation and tray hosting. `DisableTransitiveProjectReferences` and the resolved-reference check in `Directory.Build.targets` reject Core, Providers, ProviderContracts and backend package compiler references. Their runtime assets are still copied for execution.
 
 ## Remaining Files migration
 
 1. Replace Files' concrete session/runtime consumers with the new interfaces.
 2. Define and migrate Windows UI contracts for previews, menus, clipboard and drag/drop, preserving COM apartments, callbacks and resource ownership.
 3. Move direct item I/O and settings persistence behind explicit services, including startup settings access before runtime construction.
-4. Switch App to Hosting; remove Files' Core reference and enable its resolved-reference check. Internalize provider interop after its remaining callers are migrated.
+4. Switch App to Hosting; remove Files' Core and Providers references and enable its resolved-reference check. Internalize provider interop after its remaining callers are migrated.
 5. Add reviewed public API baselines and negative compilation checks to CI. Validate packaged deployment and supported architectures, including native 7-Zip assets and the server WinRT projection.
 
 Public API closure tests cover Contracts and Hosting. A real Hosting NuGet consumer has also been checked to reject raw Core construction, while an explicit Core package reference retains custom capability composition. The full acceptance criteria in [issues.md](issues.md) remain applicable.

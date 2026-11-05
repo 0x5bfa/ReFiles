@@ -52,7 +52,10 @@ public sealed record PreviewRequest
 	}
 }
 
-internal abstract class PreviewAuthorization;
+internal abstract class PreviewAuthorization
+{
+	internal abstract bool AppliesTo(Files.Core.Storage.StorableReference reference, object storageItem);
+}
 
 internal enum PreviewTrustPolicy
 {

@@ -3,6 +3,7 @@
 
 using Files.Core.Capabilities;
 using Files.Core.Storage;
+using Files.Core.Storage.Archives;
 
 namespace Files.Core.Models;
 
@@ -59,6 +60,13 @@ public sealed class StorableModelFactory : IStorableModelFactory
 			cleanupErrors.Insert(0, creationError);
 			throw new AggregateException("Storable model construction and cleanup failed.", cleanupErrors);
 		}
+	}
+
+	/// <inheritdoc />
+	public async ValueTask<IArchiveModel> OpenArchiveAsync(IStorageSource source, ArchiveLocator locator, ArchiveBackendSelector readers, IArchiveCredentialResolver? credentials = null,
+		CancellationToken cancellationToken = default)
+	{
+		return await ArchiveModel.OpenAsync(source, locator, this, readers, credentials, cancellationToken).ConfigureAwait(false);
 	}
 
 	private static void TryDisposeSynchronously(object instance, ICollection<Exception> errors)

@@ -36,6 +36,14 @@
       <Deploy Solution="*|x64" />
     </Project>
     <Project Path="src/Files.SourceGenerators/Files.SourceGenerators.csproj" />
+    <Project Path="src/Files.Core.ProviderContracts/Files.Core.ProviderContracts.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+    </Project>
+    <Project Path="src/Files.Providers/Files.Providers.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+    </Project>
     <Project Path="src/Files.Hosting/Files.Hosting.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />

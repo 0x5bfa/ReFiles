@@ -1,10 +1,10 @@
 # Capability boundaries: issues and proposed dependencies
 
-Status: migration in progress. Consumer contracts have moved to `Files.Core.Contracts`, and `Files.Hosting` now provides typed runtime startup. BackgroundServer references Contracts and Hosting, generates its own internal host interop, and rejects implementation compiler references. Files still references Core for Windows UI integration and persistence; its full consumer boundary is not implemented yet. See [project split status](project-split.md) for the implemented boundary and remaining work.
+Status: migration in progress. Consumer contracts have moved to `Files.Core.Contracts`, provider contracts to `Files.Core.ProviderContracts`, and Windows/FTP/7-Zip implementations to `Files.Providers`. Core and Providers have no implementation references to one another; `Files.Hosting` composes both through typed startup. BackgroundServer references Contracts and Hosting, generates its own internal host interop, and rejects implementation compiler references. Files still references Core and Providers for Windows UI integration and persistence; its full consumer boundary is not implemented yet. See [project split status](project-split.md) for the implemented boundary and remaining work.
 
 The goal is to prevent application consumers from bypassing composed item capabilities through ordinary statically typed code, and to make changes to that boundary explicit and reviewable. Capability discovery currently describes optional functionality; it is not an authorization or process-isolation mechanism.
 
-## Current solution
+## Original reviewed solution
 
 Arrows indicate compile-time dependencies unless labeled otherwise. Build/package edges do not grant normal C# access to the referenced executable. External framework and logging dependencies are omitted.
 
@@ -104,11 +104,11 @@ Every class in Files can still call the Hosting facade. Keep that API limited to
 
 Contracts-only *business consumption* still needs a startup entry somewhere. A separate executable/bootstrapper that injects the runtime would be necessary if Files were forbidden from referencing even Hosting. Reflection-based discovery is unnecessary for the proposed facade.
 
-### Provider projects are optional
+### Provider projects and the implemented stricter boundary
 
-One project per Windows/FTP/archive provider does not strengthen the Files boundary once Files cannot reference any implementation assembly. Keep them together unless independent deployment, platform targeting, package weight, external provider authorship, or restrictions within Core justify a split.
+The checkout now uses the stricter `Files.Providers` plus `Files.Core.ProviderContracts` variant shown below. One project per Windows/FTP/archive provider does not strengthen the Files boundary once Files cannot reference any implementation assembly. Keep them together unless independent deployment, platform targeting, package weight, external provider authorship, or restrictions within Core justify a split.
 
-This minimum design does **not** make CsWin32 inaccessible to generic code inside Core. Internal access is assembly-wide. Keep interop in provider-owned folders and check its permitted callers; do not describe this convention as compiler isolation.
+The earlier minimum design did **not** make CsWin32 inaccessible to generic code inside Core; the implemented provider split now removes Core's CsWin32 and backend references. Internal access is assembly-wide. Keep interop in provider-owned folders and check its permitted callers; do not describe this convention as compiler isolation.
 
 If generic Core must be unable to call native/provider code, extract a single `Files.Providers` assembly first. Add `Files.Core.ProviderContracts` for raw item/source and registration contracts shared by Core and Providers. Both depend on consumer Contracts; Hosting references both implementations. Core must not reference Providers, and Providers must not depend on concrete Core runtime classes. Address current factory/context dependencies through that provider contract rather than introducing a cycle. Individual provider assemblies can follow later if needed.
 
@@ -142,7 +142,7 @@ Core and its native/runtime dependencies must still be copied or published with 
 
 ## Confirmed issues and escape paths
 
-Paths below are relative to `src/Files.Core` unless another project is named. These are architectural exposures, not a claim that each path bypasses an existing authorization policy.
+Paths below describe the original reviewed responsibility layout: consumer declarations now live under `src/Files.Core.Contracts`, provider-facing contracts under `src/Files.Core.ProviderContracts`, and Windows/FTP/7-Zip implementations under `src/Files.Providers`. Generic runtime code remains in `src/Files.Core`. These are architectural exposures, not a claim that each path bypasses an existing authorization policy.
 
 ### 1. Arbitrary capability types resolve to raw CoreModels
 

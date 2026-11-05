@@ -27,6 +27,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\..\src\Files.Providers\Files.Providers.csproj" />
 		<ProjectReference Include="..\..\src\Files.Hosting\Files.Hosting.csproj" />
 	</ItemGroup>
 

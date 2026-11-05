@@ -7,7 +7,7 @@ using Files.Core.Capabilities.Content;
 
 namespace Files.Core.Storage.Archives;
 
-internal sealed class ArchiveStorageSource : IStorageSource
+internal sealed class ArchiveStorageSource : IStorageSource, IArchiveRootSource
 {
 	private readonly Stream _input;
 	private readonly IArchiveBackend _backend;
@@ -19,6 +19,7 @@ internal sealed class ArchiveStorageSource : IStorageSource
 	private Task? _disposeTask;
 	private volatile bool _isDisposed;
 
+	/// <inheritdoc />
 	public IStorageSource RootSource { get; }
 	public ArchiveLocator Locator { get; }
 	public StorableReference Archive { get; }

@@ -41,6 +41,7 @@ public sealed class ConsumerContractBoundaryTests
 		await using var runtime = FilesHost.CreateUiRuntime(operations: new StorageOperationService([]));
 		Assert.IsFalse(runtime is IOperationHostRuntime);
 		Assert.IsFalse(runtime is FilesCoreRuntime);
+		Assert.IsFalse(runtime is IProviderRuntimeServices);
 		Assert.IsFalse(runtime.Workspace is IStorageSourceRegistry);
 		Assert.IsFalse(runtime.Workspace is IStorageWorkspace);
 		Assert.IsFalse(runtime.Workspace is IDisposable);
@@ -51,6 +52,23 @@ public sealed class ConsumerContractBoundaryTests
 		Assert.IsInstanceOfType<IBrowsePaneSession>(pane.Content);
 		await using var settings = runtime.CreateSettingsPane();
 		Assert.IsInstanceOfType<ISettingsPaneSession>(settings.Content);
+	}
+
+	/// <summary>The runtime, providers and provider contracts cannot reference each other's concrete implementations.</summary>
+	[TestMethod]
+	public void RuntimeAndProvidersHaveIndependentImplementationReferences()
+	{
+		var core = typeof(FilesCoreBuilder).Assembly;
+		var providers = typeof(Files.Core.Storage.Windows.WindowsStorageSource).Assembly;
+		var providerContracts = typeof(IStorageSource).Assembly;
+		Assert.AreEqual("Files.Core", core.GetName().Name);
+		Assert.AreEqual("Files.Providers", providers.GetName().Name);
+		Assert.AreEqual("Files.Core.ProviderContracts", providerContracts.GetName().Name);
+		Assert.IsFalse(core.GetReferencedAssemblies().Any(static reference => reference.Name is "Files.Providers" or "FluentFTP" or "SevenZipSharp" or "System.Management"));
+		Assert.IsFalse(providers.GetReferencedAssemblies().Any(static reference => reference.Name == "Files.Core"));
+		Assert.IsFalse(providerContracts.GetReferencedAssemblies().Any(static reference => reference.Name is "Files.Core" or "Files.Providers"));
+		Assert.IsNull(core.GetType("Windows.Win32.PInvoke"));
+		Assert.IsNull(providerContracts.GetType("Windows.Win32.PInvoke"));
 	}
 
 	private static void AssertPublicSurface(Assembly assembly)
@@ -109,6 +127,6 @@ public sealed class ConsumerContractBoundaryTests
 
 	private static bool IsImplementation(string assemblyName)
 	{
-		return assemblyName is "Files.Core" or "FluentFTP" or "SevenZipSharp" or "System.Management";
+		return assemblyName is "Files.Core" or "Files.Providers" or "Files.Core.ProviderContracts" or "FluentFTP" or "SevenZipSharp" or "System.Management";
 	}
 }

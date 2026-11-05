@@ -17,6 +17,8 @@
 	<ItemGroup>
 		<ProjectReference Include="../Files.Core.Contracts/Files.Core.Contracts.csproj" />
 		<ProjectReference Include="../Files.Core/Files.Core.csproj" PrivateAssets="compile" />
+		<ProjectReference Include="../Files.Core.ProviderContracts/Files.Core.ProviderContracts.csproj" PrivateAssets="compile" />
+		<ProjectReference Include="../Files.Providers/Files.Providers.csproj" PrivateAssets="compile" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
 	</ItemGroup>

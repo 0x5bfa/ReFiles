@@ -26,6 +26,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\..\src\Files.Providers\Files.Providers.csproj" />
 		<ProjectReference Include="..\..\src\Files.BackgroundServer\Files.BackgroundServer.csproj"
 			AdditionalProperties="SelfContained=false;OutputPath=bin\IntegrationReference\$(Platform)\$(Configuration)\;IntermediateOutputPath=obj\IntegrationReference\$(Platform)\$(Configuration)\" />
 	</ItemGroup>
