@@ -44,6 +44,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Files\Files.csproj" AdditionalProperties="$(FilesReferenceBuildProperties)" />
+		<ProjectReference Include="..\..\src\Files.Core\Files.Core.csproj" />
+		<ProjectReference Include="..\..\src\Files.Providers\Files.Providers.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

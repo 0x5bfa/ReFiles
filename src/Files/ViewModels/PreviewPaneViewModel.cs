@@ -43,7 +43,7 @@ public sealed partial class PreviewPaneViewModel : ObservableObject, IDisposable
 		_ => string.Empty,
 	};
 
-	public PreviewPaneViewModel(BrowsePaneSession pane, IUIDispatcher dispatcher)
+	public PreviewPaneViewModel(IBrowsePaneSession pane, IUIDispatcher dispatcher)
 		: this(GetPreviewModel(pane), dispatcher)
 	{
 	}
@@ -129,7 +129,7 @@ public sealed partial class PreviewPaneViewModel : ObservableObject, IDisposable
 		OnPropertyChanged(nameof(StatusText));
 	}
 
-	private static IBrowsePreviewModel GetPreviewModel(BrowsePaneSession pane)
+	private static IBrowsePreviewModel GetPreviewModel(IBrowsePaneSession pane)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 

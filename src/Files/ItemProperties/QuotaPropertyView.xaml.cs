@@ -13,6 +13,7 @@ namespace Files.ItemProperties;
 
 public sealed partial class QuotaPropertyView : UserControl
 {
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -49,7 +50,7 @@ public sealed partial class QuotaPropertyView : UserControl
 
 	private void ShowQuotaSettings_Click(object sender, RoutedEventArgs e)
 	{
-		var result = WindowsShellQuotaService.ShowSettings(_owner, Quota.RootPath, Quota.DisplayName);
+		var result = _propertyActions.ShowSettings(_owner, Quota.RootPath, Quota.DisplayName);
 		if (result.Failed)
 		{
 			_showError(new System.Runtime.InteropServices.COMException(null, result.HResult).Message);

@@ -1,6 +1,6 @@
 # Project split status
 
-The split is implemented incrementally. The Contracts/Hosting boundary, operation-host migration and Core/Providers isolation are in place; the Files UI migration is still pending. Adding projects alone does not establish a boundary for Files while it retains its Core reference.
+The application consumer migration is implemented. Files and BackgroundServer compile against consumer Contracts and Hosting, while Core and Providers remain independent implementations. Resolved-reference checks reject implementation and backend compiler references in both executables. Their runtime assets are retained for deployment.
 
 ## Assemblies and packages
 
@@ -18,7 +18,7 @@ NuGet users that explicitly reference Core retain `FilesCoreBuilder` and capabil
 
 `IProviderRuntimeBuilder` lets modules register sources, readers/loaders, handlers and provider-service factories without naming concrete Core classes. Core owns the registry, generic adapters and workspace construction. Provider-service factories return borrowed integrations; modules register their resource owners through `Own` before runtime construction. `IStorableModelFactory.OpenArchiveAsync` bridges archive model creation; `IArchiveRootSource` identifies the outer source of a mount. Preview authorization uses a captured `IPreviewTrustIdentity`, with Windows path matching implemented by the Windows provider. Shared archive-input buffering preserves the existing seekable-stream and disposal contract.
 
-`IProviderRuntimeServices` is a provider-SDK integration role, not part of `IFilesCoreRuntime`. Windows preview session factories are retrieved through `GetWindowsShellPreviewSessions()`. Hosting's consumer facade does not implement this role or expose arbitrary registration callbacks. The resolved-reference checks reject Providers and backend packages from Core, and reject Core from Providers and ProviderContracts.
+`IProviderRuntimeServices` is a provider-SDK integration role, not part of `IFilesCoreRuntime`. Explicit provider-SDK consumers can retrieve Windows preview session factories through `GetWindowsShellPreviewSessions()`. Files instead uses `IUiFilesRuntime.Windows.Previews`. Hosting's consumer facade does not implement the provider-SDK role or expose arbitrary registration callbacks. The resolved-reference checks reject Providers and backend packages from Core, and reject Core from Providers and ProviderContracts.
 
 ## Consumer ownership
 
@@ -40,14 +40,20 @@ Preview hosts and focus results use borrowed `nint` window handles; Providers ne
 
 Drag sources accept WinRT `DataPackage` values. `WindowsShellDataTransfer` retains the incoming data object's generated COM wrapper without exposing its interface; create and use it on the originating STA. Drop sessions retain their existing same-thread disposal requirement. Native wrappers retain COM references and release them when collected. Shell property editors return `WindowsShellOperationResult`, preserving HRESULT success, cancellation and failure statuses.
 
-The preview/menu/transfer integrations still reside in Providers' public SDK. Hiding native declarations is complete; moving these managed Windows contracts into the consumer boundary remains part of the Files migration. Reflection tests reject exported native types and public/protected native signatures.
+Managed preview, menu, clipboard, drag/drop and property-sheet contracts live in consumer Contracts. Providers retains the implementations and its explicit extension SDK. Opaque transfer/menu targets expose no COM interfaces or PIDL buffers through consumer contracts. Reflection tests reject exported native types and public/protected native signatures.
 
-## Remaining Files migration
+## Files consumer migration
 
-1. Replace Files' concrete session/runtime consumers with the new interfaces.
-2. Define and migrate Windows UI contracts for previews, menus, clipboard and drag/drop, preserving COM apartments, callbacks and resource ownership.
-3. Move direct item I/O and settings persistence behind explicit services, including startup settings access before runtime construction.
-4. Switch App to Hosting; remove Files' Core and Providers references and enable its resolved-reference check.
-5. Add reviewed public API baselines and negative compilation checks to CI. Validate packaged deployment and supported architectures, including native 7-Zip assets and the server WinRT projection.
+`FilesHost.CreateUiRuntime` returns `IUiFilesRuntime`. Its borrowed Windows services provide previews, clipboard access, native data-transfer capture, menus, contextual/default commands, property data and registered synchronization roots. Files consumes session interfaces and `IStorageReader`; pane presenters select the registered interface while retaining exact custom-content registrations. Windows property editors and filesystem inspection are obtained through typed Hosting factories. Attribute edits continue through the configured operation server.
 
-Public API closure tests cover Contracts and Hosting. A real Hosting NuGet consumer has also been checked to reject raw Core construction, while an explicit Core package reference retains custom capability composition. The full acceptance criteria in [issues.md](issues.md) remain applicable.
+Files generates only its own UI/window/composition interop. Native clipboard extraction, filesystem metadata and settings file operations reside in Providers. `DisableTransitiveProjectReferences` plus `EnforceConsumerReferenceBoundary` prevent direct and transitive Core, Providers, ProviderContracts and backend package compiler references. UI tests explicitly reference implementations only to construct fixtures, then pass consumer readers to the product.
+
+## Settings before runtime startup
+
+`FilesHost.OpenSettingsStorage` configures an `ISettingsStorage` confined to the application's `Settings` directory. App settings can load before XAML initialization and runtime construction. JSON schemas, generated settings properties, save timers, retry policy and change notifications remain in Files. Providers owns UTF-8 I/O, temporary-file cleanup and atomic commit; failed or cancelled writes preserve the previous document. Native replacement retains destination metadata.
+
+The browse-settings production source is also exercised by the headless unit runner. Tests cover reload, initial creation, replacement, a locked destination, retry after failure, cancellation and rejection of path components.
+
+## Remaining validation
+
+Reviewed public API baselines and broader negative-compilation checks can still be added to CI. Packaged deployment and supported architectures require separate validation, including native 7-Zip assets and the server WinRT projection. Public API closure tests cover Contracts and Hosting, and the executable compiler-reference checks enforce their consumer boundary. The original review and acceptance criteria remain recorded in [issues.md](issues.md).

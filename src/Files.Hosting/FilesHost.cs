@@ -19,10 +19,10 @@ public static class FilesHost
 	/// <param name="operations">The optional external operation executor.</param>
 	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
 	/// <returns>The owned runtime exposing consumer contracts.</returns>
-	public static IFilesCoreRuntime CreateUiRuntime(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null,
+	public static IUiFilesRuntime CreateUiRuntime(IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null,
 		Files.Core.Storage.IStorageOperationService? operations = null, ILoggerFactory? loggerFactory = null)
 	{
-		return new RuntimeView(CreateRuntime(false, viewSettingsStore, thumbnailCache, operations, loggerFactory));
+		return new UiRuntimeView(CreateRuntime(false, viewSettingsStore, thumbnailCache, operations, loggerFactory));
 	}
 
 	/// <summary>Creates a runtime for independently owned operation execution.</summary>
@@ -31,6 +31,52 @@ public static class FilesHost
 	public static IOperationHostRuntime CreateOperationRuntime(ILoggerFactory? loggerFactory = null)
 	{
 		return new OperationRuntimeView(CreateRuntime(true, null, null, null, loggerFactory));
+	}
+
+	/// <summary>Creates a presenter-owned prefetch coordinator.</summary>
+	/// <param name="session">The borrowed browse session.</param>
+	/// <param name="loggerFactory">The optional borrowed logger factory.</param>
+	/// <returns>The coordinator to dispose before the session.</returns>
+	public static Files.Core.Browsing.IBrowsePrefetchCoordinator CreateBrowsePrefetch(Files.Core.Browsing.IBrowseSession session, ILoggerFactory? loggerFactory = null)
+	{
+		return new Files.Core.Browsing.BrowsePrefetchCoordinator(session, logger: loggerFactory?.CreateLogger<Files.Core.Browsing.BrowsePrefetchCoordinator>());
+	}
+
+	/// <summary>Creates an independent materialized thumbnail cache.</summary>
+	/// <returns>The cache.</returns>
+	public static IThumbnailCache CreateThumbnailCache()
+	{
+		return new MemoryThumbnailCache();
+	}
+
+	/// <summary>Creates independently owned settings pane content.</summary>
+	/// <returns>The new settings content.</returns>
+	public static Files.Core.Sessions.ISettingsPaneSession CreateSettingsContent()
+	{
+		return new Files.Core.Sessions.SettingsPaneSession();
+	}
+
+	/// <summary>Creates the stateless Windows property editor service.</summary>
+	/// <returns>The property action service.</returns>
+	public static IWindowsShellPropertyActions CreateWindowsPropertyActions()
+	{
+		return new WindowsShellPropertyActions();
+	}
+
+	/// <summary>Opens application settings persistence without constructing the storage runtime.</summary>
+	/// <param name="localFolderPath">The application's local-state directory.</param>
+	/// <returns>A settings-only service confined to that directory.</returns>
+	public static Files.Core.Settings.ISettingsStorage OpenSettingsStorage(string localFolderPath)
+	{
+		return new WindowsSettingsStorage(localFolderPath);
+	}
+
+	/// <summary>Creates a filesystem property inspector with the application's operation executor.</summary>
+	/// <param name="operations">The optional borrowed attribute operation executor.</param>
+	/// <returns>The property inspector.</returns>
+	public static IItemPropertiesFileSystem CreateItemPropertiesFileSystem(IFileAttributeOperationService? operations = null)
+	{
+		return new WindowsItemPropertiesFileSystem(operations);
 	}
 
 	private static FilesCoreRuntime CreateRuntime(bool operationHost, IViewSettingsStore? settings, IThumbnailCache? cache,
@@ -91,6 +137,16 @@ public static class FilesHost
 		public ValueTask DisposeAsync()
 		{
 			return Runtime.DisposeAsync();
+		}
+	}
+
+	private sealed class UiRuntimeView : RuntimeView, IUiFilesRuntime
+	{
+		public IWindowsShellUiServices Windows { get; }
+
+		public UiRuntimeView(FilesCoreRuntime runtime) : base(runtime)
+		{
+			Windows = new WindowsShellUiServices(runtime.Workspace.Sources.OfType<WindowsStorageSource>().Single(), runtime.GetWindowsShellPreviewSessions());
 		}
 	}
 

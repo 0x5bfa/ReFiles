@@ -20,11 +20,10 @@ namespace Files;
 
 public partial class App : Application
 {
-	private FilesCoreRuntime? _runtime;
+	private IUiFilesRuntime? _runtime;
 	private readonly ServiceProvider _services;
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
-	private readonly WindowsStorageSource _windowsStorageSource;
 	private readonly JsonViewSettingsStore _viewSettingsStore;
 	private readonly AppSettingsService _settings;
 	private readonly ILoggerFactory _loggerFactory;
@@ -45,9 +44,8 @@ public partial class App : Application
 		_logger = _services.GetRequiredService<ILogger<App>>();
 		_storageOperations = _services.GetRequiredService<WinRTStorageOperationService>();
 		_storageOperationTracker = _services.GetRequiredService<StorageOperationTracker>();
-		_windowsStorageSource = new WindowsStorageSource(loggerFactory: _loggerFactory);
-		_viewSettingsStore = new JsonViewSettingsStore(_windowsStorageSource, AppSettingsService.GetDefaultLocalFolderPath());
-		_settings = new AppSettingsService(_windowsStorageSource);
+		_viewSettingsStore = new JsonViewSettingsStore(AppSettingsService.GetDefaultLocalFolderPath());
+		_settings = new AppSettingsService();
 		_settings.ApplyLanguage();
 		InitializeComponent();
 		_commandRegistry = _services.GetRequiredService<CommandRegistry>();
@@ -86,10 +84,7 @@ public partial class App : Application
 			_logger.LogDebug("{Component}: {Message}", "App", "Launch START");
 		}
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
-		var currentRuntime = new FilesCoreBuilder(_viewSettingsStore, _storageOperations, _loggerFactory)
-			.UseStorageOperations(_storageOperations)
-			.AddWindowsStorage(_windowsStorageSource, enableOperations: false)
-			.Build();
+		var currentRuntime = Files.Hosting.FilesHost.CreateUiRuntime(_viewSettingsStore, _storageOperations, _storageOperations, _loggerFactory);
 		_runtime = currentRuntime;
 		if (_logger.IsEnabled(LogLevel.Debug))
 		{
@@ -136,10 +131,11 @@ public partial class App : Application
 			mainWindow = new MainWindow(
 				coreWindow,
 				runtime.Workspace,
+				runtime.Windows,
 				runtime.StorageOperations,
 				_storageOperationTracker,
 				_settings,
-				runtime.GetWindowsShellPreviewSessions(),
+				runtime.Windows.Previews,
 				_commandRegistry,
 				persistPlacement,
 				() => runtime.ShellSession.SetActiveWindow(coreWindow.Id),

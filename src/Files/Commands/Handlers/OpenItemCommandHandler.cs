@@ -66,7 +66,7 @@ internal sealed class OpenItemCommandHandler : ICommandHandler
 
 	private static string? GetWorkingDirectory(BrowseLocation? location)
 	{
-		if (location is FolderLocation { Folder.LastKnownAddress: { } address } && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase))
+		if (location is FolderLocation { Folder.LastKnownAddress: { } address } && address.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase))
 		{
 			return address.Value;
 		}

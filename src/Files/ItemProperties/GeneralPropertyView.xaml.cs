@@ -10,6 +10,7 @@ namespace Files.ItemProperties;
 
 public sealed partial class GeneralPropertyView : UserControl
 {
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly Action<string> _showError;
 
 	internal ItemPropertiesViewModel ViewModel { get; }
@@ -28,7 +29,7 @@ public sealed partial class GeneralPropertyView : UserControl
 			return;
 		}
 
-		var result = WindowsShellStorageSettingsService.OpenDriveUsage(rootPath);
+		var result = _propertyActions.OpenDriveUsage(rootPath);
 		if (result.Failed)
 		{
 			_showError(new COMException(null, result.HResult).Message);

@@ -3,12 +3,11 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-using Windows.Win32;
-using Windows.Win32.Foundation;
 
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Identifies the native window that hosts a preview handler.</summary>
+/// <remarks>The provider validates window liveness immediately before creating a session.</remarks>
 public sealed record WindowsPreviewHost
 {
 	/// <summary>Gets the borrowed native host window handle; the caller retains ownership.</summary>
@@ -34,11 +33,6 @@ public sealed record WindowsPreviewHost
 		if (windowHandle == 0)
 		{
 			throw new ArgumentException("A preview host window handle is required.", nameof(windowHandle));
-		}
-
-		if (!PInvoke.IsWindow((HWND)windowHandle))
-		{
-			throw new ArgumentException("The preview host window handle is not valid.", nameof(windowHandle));
 		}
 
 		WindowHandle = windowHandle;

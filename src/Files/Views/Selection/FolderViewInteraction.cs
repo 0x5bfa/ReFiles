@@ -337,7 +337,7 @@ internal sealed partial class FolderViewInteractionSession : IDisposable
 		_element.DragOver += Element_DragOver;
 		_element.DragLeave += Element_DragLeave;
 		_element.Drop += Element_Drop;
-		_dropTargetController = new WinUIShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.OwnerWindowHandle,
+		_dropTargetController = new WinUIShellDropTargetController(_viewModel.PrepareShellDropTargetAsync, _viewModel.CaptureDataTransfer, _viewModel.OwnerWindowHandle,
 			_viewModel.LoggerFactory.CreateLogger<WinUIShellDropTargetController>());
 
 		if (_itemsControl is null)

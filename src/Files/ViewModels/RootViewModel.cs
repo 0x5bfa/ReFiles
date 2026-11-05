@@ -27,7 +27,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	private readonly AppSettingsService _appSettings;
 	private readonly ILogger<RootViewModel> _logger;
-	private readonly WindowSession _window;
+	private readonly IWindowSession _window;
 
 	private readonly WindowPresentationFactory _presentationFactory;
 
@@ -197,7 +197,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	internal bool CanReopenTab => _window.CanReopenTab;
 
-	internal RootViewModel(WindowSession window, WindowPresentationFactory presentationFactory, ILogger<RootViewModel>? logger = null)
+	internal RootViewModel(IWindowSession window, WindowPresentationFactory presentationFactory, ILogger<RootViewModel>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(window);
 
@@ -364,7 +364,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		EnsureActive();
 
-		await _window.OpenContentTabAsync(static () => new SettingsPaneSession(), cancellationToken).ConfigureAwait(false);
+		await _window.OpenContentTabAsync(static () => Files.Hosting.FilesHost.CreateSettingsContent(), cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task CloseTabAsync(Guid tabId, CancellationToken cancellationToken = default)

@@ -19,6 +19,7 @@ namespace Files.ItemProperties;
 public sealed partial class SecurityPropertyView : UserControl
 {
 	private const string CheckGlyph = "\uE73E";
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -26,7 +27,7 @@ public sealed partial class SecurityPropertyView : UserControl
 
 	internal WindowsShellSecurityProperties Security { get; }
 
-	internal Visibility EditShieldVisibility => WindowsShellSecurityService.RequiresElevation(Security.ObjectPath) ? Visibility.Visible : Visibility.Collapsed;
+	internal Visibility EditShieldVisibility => _propertyActions.RequiresElevation(Security.ObjectPath) ? Visibility.Visible : Visibility.Collapsed;
 
 	internal SecurityPropertyView(WindowsShellSecurityProperties security, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
@@ -46,12 +47,12 @@ public sealed partial class SecurityPropertyView : UserControl
 
 	private void Advanced_Click(object sender, RoutedEventArgs e)
 	{
-		ShowResult(WindowsShellSecurityService.ShowAdvancedEditor(_owner, Security.ObjectPath));
+		ShowResult(_propertyActions.ShowAdvancedEditor(_owner, Security.ObjectPath));
 	}
 
 	private void Edit_Click(object sender, RoutedEventArgs e)
 	{
-		ShowResult(WindowsShellSecurityService.ShowPermissionsEditor(_owner, Security.ObjectPath));
+		ShowResult(_propertyActions.ShowPermissionsEditor(_owner, Security.ObjectPath));
 	}
 
 	private async Task LoadPrincipalIconsAsync()

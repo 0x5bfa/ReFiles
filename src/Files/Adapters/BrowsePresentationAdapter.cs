@@ -30,7 +30,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private static readonly PropertyRequest StatusBarSizePropertyRequest = new((string[])[SizePropertyId]);
 	private static readonly TimeSpan UIDrainBudget = TimeSpan.FromMilliseconds(4);
 
-	private readonly BrowsePaneSession _pane;
+	private readonly IBrowsePaneSession _pane;
 	private readonly ILoggerFactory _loggerFactory;
 	private readonly ILogger<BrowsePresentationAdapter> _logger;
 	private readonly IUIDispatcher _dispatcher;
@@ -81,7 +81,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private int _isApplyingItemBatch;
 	private int _isDisposed;
 
-	public BrowsePresentationAdapter(BrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
+	public BrowsePresentationAdapter(IBrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
 		nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
@@ -93,7 +93,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		_logger = _loggerFactory.CreateLogger<BrowsePresentationAdapter>();
 		_columns = new BrowseColumnPresentation(pane, QueueColumns);
 		_dispatcher = dispatcher;
-		_prefetch = prefetch ?? new BrowsePrefetchCoordinator(_pane.BrowseSession, logger: _loggerFactory.CreateLogger<BrowsePrefetchCoordinator>());
+		_prefetch = prefetch ?? Files.Hosting.FilesHost.CreateBrowsePrefetch(_pane.BrowseSession, _loggerFactory);
 		_text = text ?? BrowsePresentationText.CreateLocalized();
 		_ownerWindowHandle = ownerWindowHandle;
 		_viewSettings = _pane.BrowseSession.ViewSettings;

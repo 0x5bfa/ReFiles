@@ -31,4 +31,12 @@
 		<ProjectReference Include="..\..\src\Files.Hosting\Files.Hosting.csproj" />
 	</ItemGroup>
 
+	<!-- Exercise the production settings facades without loading WinUI. -->
+	<ItemGroup>
+		<Compile Include="../../src/Files/Settings/JsonViewSettingsStore.cs" Link="Settings/JsonViewSettingsStore.cs" />
+		<Compile Include="../../src/Files/Settings/StoredBrowseViewState.cs" Link="Settings/StoredBrowseViewState.cs" />
+		<Compile Include="../../src/Files/Settings/ViewSettingsJsonContext.cs" Link="Settings/ViewSettingsJsonContext.cs" />
+		<Compile Include="../Files.UITests/PresentationTests/JsonViewSettingsStoreTests.cs" Link="Settings/JsonViewSettingsStoreTests.cs" />
+	</ItemGroup>
+
 </Project>

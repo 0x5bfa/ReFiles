@@ -1,6 +1,8 @@
 # Capability boundaries: issues and proposed dependencies
 
-Status: migration in progress. Consumer contracts have moved to `Files.Core.Contracts`, provider contracts to `Files.Core.ProviderContracts`, and Windows/FTP/7-Zip implementations to `Files.Providers`. Core and Providers have no implementation references to one another; `Files.Hosting` composes both through typed startup. BackgroundServer references Contracts and Hosting, generates its own internal host interop, and rejects implementation compiler references. Providers, Files, BackgroundServer and Launcher now generate internal native declarations independently; provider APIs use borrowed window handles and managed messages/results. Files still references Core and Providers for Windows UI integration and persistence; its full consumer boundary is not implemented yet. See [project split status](project-split.md) for the implemented boundary and remaining work.
+Status: the application consumer boundary is implemented. Files and BackgroundServer reference consumer Contracts and Hosting, use session/service interfaces, and reject Core, Providers, ProviderContracts and backend compiler references. Windows UI contracts and settings persistence have migrated; window ownership and composition remain in Files. Core and Providers remain independently extensible through ProviderContracts, and each executable/provider owns internal native declarations. See [project split status](project-split.md) for the current implementation and remaining deployment/CI validation.
+
+The review below records the original architecture and its proposed remedies; its present-tense descriptions are historical unless explicitly marked with an implementation update.
 
 The goal is to prevent application consumers from bypassing composed item capabilities through ordinary statically typed code, and to make changes to that boundary explicit and reviewable. Capability discovery currently describes optional functionality; it is not an authorization or process-isolation mechanism.
 
@@ -202,13 +204,15 @@ Implemented: Providers, Files, BackgroundServer and Launcher independently gener
 
 ### 10. UI/native bridges require a real migration
 
-The native bridge migration is implemented: Providers converts WinRT data packages to its private COM interfaces on the originating STA. Files retains its own window/composition declarations and preview rendering. `Files/Presentation/IBrowseInteraction.cs` still exchanges concrete Windows drag/drop/menu session types, so migration to consumer-only managed contracts remains pending.
+The UI bridge migration is implemented: Providers converts WinRT data packages to its private COM interfaces on the originating STA. Files retains its own window/composition declarations and preview rendering. `Files/Presentation/IBrowseInteraction.cs` exchanges consumer drag/drop/menu interfaces; implementation assembly references have been removed from Files.
 
 Keep WinUI visual ownership in Files and native work in provider/platform adapters. Design the data-transfer, window-context and session contracts before moving code. A platform-specific integration assembly is optional if the bridge genuinely requires WinUI dependencies; do not introduce a WinUI dependency into Core or export raw COM pointers as a shortcut. Validate OLE apartment, message-pump, callback, handle and session lifetimes.
 
-### 11. Direct storage I/O remains in Files
+### 11. Direct storage I/O remains in Files (migrated)
 
 `Files/ItemProperties/ItemPropertiesFileSystem.cs` disables RS0030 and performs `File`/`Directory` operations. Settings adapters also use native filesystem APIs. These are existing exceptions to a strict storage boundary, even when locally isolated behind an adapter.
+
+Implemented: filesystem property inspection and settings persistence now use explicit consumer services implemented by Providers. Settings schemas and presentation remain in Files; attribute changes continue through the operation server.
 
 Move item storage semantics into capabilities/application operations and native persistence mechanisms into explicit infrastructure services. Distinguish application-owned settings/log output from user-item access; a blanket ban on every I/O use would incorrectly prohibit legitimate infrastructure. Document and constrain remaining exceptions by responsibility.
 

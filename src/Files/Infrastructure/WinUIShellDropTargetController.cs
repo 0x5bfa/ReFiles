@@ -15,26 +15,30 @@ namespace Files.Infrastructure;
 
 internal sealed partial class WinUIShellDropTargetController : IDisposable
 {
-	private readonly Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> _prepareDropTargetAsync;
+	private readonly Func<StorableReference, bool, CancellationToken, Task<IWindowsShellDropTarget?>> _prepareDropTargetAsync;
 	private readonly nint _ownerWindowHandle;
+	private readonly Func<DataPackageView, IWindowsShellDataTransfer> _captureDataTransfer;
 	private readonly ILogger<WinUIShellDropTargetController> _logger;
 
 	private CancellationTokenSource? _transitionCancellation;
 	private Task? _transitionTask;
 	private WinUIShellDropTargetLocation? _target;
 	private WinUIShellDropTargetLocation? _fallback;
-	private WindowsShellDropSession? _session;
+	private IWindowsShellDropSession? _session;
 	private WindowsShellDropEffects _acceptedEffect;
 	private long _eventGeneration;
 	private long _transitionGeneration;
 	private bool _isDisposed;
 
-	internal WinUIShellDropTargetController(Func<StorableReference, bool, CancellationToken, Task<WindowsShellDropTarget?>> prepareDropTargetAsync, nint ownerWindowHandle,
-		ILogger<WinUIShellDropTargetController>? logger = null)
+	internal WinUIShellDropTargetController(Func<StorableReference, bool, CancellationToken, Task<IWindowsShellDropTarget?>> prepareDropTargetAsync,
+		Func<DataPackageView, IWindowsShellDataTransfer> captureDataTransfer, nint ownerWindowHandle, ILogger<WinUIShellDropTargetController>? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(prepareDropTargetAsync);
 
+		ArgumentNullException.ThrowIfNull(captureDataTransfer);
+
 		_prepareDropTargetAsync = prepareDropTargetAsync;
+		_captureDataTransfer = captureDataTransfer;
 		_ownerWindowHandle = ownerWindowHandle;
 		_logger = logger ?? NullLogger<WinUIShellDropTargetController>.Instance;
 	}
@@ -216,10 +220,10 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		else
 		{
 			ResetTransferState();
-			WindowsShellDataTransfer dataObject;
+			IWindowsShellDataTransfer dataObject;
 			try
 			{
-				dataObject = WinUIDataObjectBridge.GetDataObject(dataView);
+				dataObject = _captureDataTransfer(dataView);
 			}
 			catch (Exception exception)
 			{
@@ -284,7 +288,7 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 
 	private async Task<WinUIShellDropSession?> TryCreateEnteredSessionAsync(WinUIShellDropTargetLocation location, WinUIShellDropTransition context)
 	{
-		WindowsShellDropTarget? dropTarget;
+		IWindowsShellDropTarget? dropTarget;
 		try
 		{
 			dropTarget = await _prepareDropTargetAsync(location.Reference, location.Background, context.CancellationToken);
@@ -308,7 +312,7 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			return null;
 		}
 
-		WindowsShellDropSession? session = null;
+		IWindowsShellDropSession? session = null;
 		try
 		{
 			if (!dropTarget.TryCreateSession(context.DataObject, _ownerWindowHandle, out session) || session is null)

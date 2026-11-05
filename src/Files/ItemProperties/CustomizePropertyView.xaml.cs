@@ -16,6 +16,7 @@ namespace Files.ItemProperties;
 public sealed partial class CustomizePropertyView : UserControl
 {
 	private const string GenericFolderKind = "Generic";
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly ItemPropertiesViewModel _ownerViewModel;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
@@ -76,7 +77,7 @@ public sealed partial class CustomizePropertyView : UserControl
 			return;
 		}
 
-		WindowsShellFolderCustomizationService.Apply(
+		_propertyActions.Apply(
 			Customization.ObjectPath, _selectedFolderKind, !StringComparer.OrdinalIgnoreCase.Equals(_selectedFolderKind, _appliedFolderKind), _applyToSubfolders,
 			_picturePath, !StringComparer.OrdinalIgnoreCase.Equals(_picturePath, _appliedPicturePath), _iconPath, _iconIndex,
 			!StringComparer.OrdinalIgnoreCase.Equals(_iconPath, _appliedIconPath) || _iconIndex != _appliedIconIndex);
@@ -181,7 +182,7 @@ public sealed partial class CustomizePropertyView : UserControl
 		{
 			var initialPath = string.IsNullOrWhiteSpace(_iconPath) ? Path.Combine(Environment.SystemDirectory, "shell32.dll") : _iconPath;
 			var initialIndex = string.IsNullOrWhiteSpace(_iconPath) ? 3 : _iconIndex;
-			if (!WindowsShellFolderCustomizationService.TryPickIcon(_owner, initialPath, initialIndex, out var selectedPath, out var selectedIndex))
+			if (!_propertyActions.TryPickIcon(_owner, initialPath, initialIndex, out var selectedPath, out var selectedIndex))
 			{
 				return;
 			}

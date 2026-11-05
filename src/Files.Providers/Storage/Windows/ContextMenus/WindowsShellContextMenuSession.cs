@@ -16,7 +16,7 @@ namespace Files.Core.Storage.Windows;
 
 /// <summary>Owns the native commands, final menu entries, and asynchronous work for one selection popup.</summary>
 /// <remarks>Native state is accessed exclusively through the storage source's ordered operation STA. Dispose the session before its storage source.</remarks>
-public sealed class WindowsShellContextMenuSession : IAsyncDisposable
+public sealed class WindowsShellContextMenuSession : IWindowsShellContextMenuSession
 {
 	private readonly Lock _lifetimeLock = new();
 	private readonly WindowsStorageSource _source;

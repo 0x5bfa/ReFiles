@@ -12,7 +12,8 @@ public static class WindowsShellContextMenuBuilder
 	/// <param name="applicationEntries">The application-owned menu entries.</param>
 	/// <param name="expandedMenuEntry">The optional entry for the expanded native menu.</param>
 	/// <returns>The completed application menu with normalized separators.</returns>
-	public static IReadOnlyList<WindowsShellContextMenuEntry> BuildApplicationMenu(IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries, WindowsShellContextMenuEntry? expandedMenuEntry = null)
+	public static IReadOnlyList<WindowsShellContextMenuEntry> BuildApplicationMenu(IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries,
+		WindowsShellContextMenuEntry? expandedMenuEntry = null)
 	{
 		ArgumentNullException.ThrowIfNull(applicationEntries);
 

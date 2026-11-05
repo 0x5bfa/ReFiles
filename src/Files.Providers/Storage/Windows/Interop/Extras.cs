@@ -112,8 +112,6 @@ namespace Windows.Win32
 	/// <summary>Contains manually declared COM CLSIDs used by Files.</summary>
 	internal static partial class CLSID
 	{
-		/// <summary>The My Computer Shell CLSID.</summary>
-		public static Guid CLSID_MyComputer { get; } = new(0x20D04FE0u, 0x3AEA, 0x1069, 0xA2, 0xD8, 0x08, 0x00, 0x2B, 0x30, 0x30, 0x9D);
 		/// <summary>The Pin to Frequent Execute CLSID.</summary>
 		public static Guid CLSID_PinToFrequentExecute { get; } = new(0xB455F46Eu, 0xE4AF, 0x4035, 0xB0, 0xA4, 0xCF, 0x18, 0xD2, 0xF6, 0xF2, 0x8E);
 		/// <summary>The Unpin from Frequent Execute CLSID.</summary>

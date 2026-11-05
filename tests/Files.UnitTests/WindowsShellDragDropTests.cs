@@ -37,11 +37,11 @@ public sealed class WindowsShellDragDropTests
 		try
 		{
 			await using var scheduler = new WindowsShellScheduler();
-			await using var source = new WindowsStorageSource(scheduler: scheduler);
-			var sourceItem = await ResolveAsync(source, sourcePath);
-			var destinationItem = await ResolveAsync(source, destinationPath);
-			var dragSource = await source.DragDrop.PrepareDragSourceAsync((StorableReference[])[CreateReference(source, sourceItem)]);
-			var dropTarget = await source.DragDrop.PrepareDropTargetAsync(CreateReference(source, destinationItem), background: true);
+			await using var runtime = Files.Hosting.FilesHost.CreateUiRuntime();
+			await using var sourceItem = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageIdentity.FileAddressScheme, sourcePath));
+			await using var destinationItem = await runtime.Workspace.ResolveAsync(new StorageAddress(WindowsStorageIdentity.FileAddressScheme, destinationPath));
+			var dragSource = await runtime.Windows.DragDrop.PrepareDragSourceAsync([sourceItem.Reference]);
+			var dropTarget = await runtime.Windows.DragDrop.PrepareDropTargetAsync(destinationItem.Reference, background: true);
 			await scheduler.InvokeAsync(() =>
 			{
 				Assert.AreEqual(ApartmentState.STA, Thread.CurrentThread.GetApartmentState());
@@ -49,8 +49,8 @@ public sealed class WindowsShellDragDropTests
 				var effects = dragSource.Attach(package, 0, WindowsShellDropEffects.Copy);
 				Assert.IsTrue(effects.HasFlag(WindowsShellDropEffects.Copy));
 				Assert.AreEqual(DataPackageOperation.Copy, package.RequestedOperation);
-				var dataTransfer = WindowsShellDataTransfer.FromDataPackageView(package.GetView());
-				Assert.IsTrue(WindowsShellDataObjectFormat.TryGetDword(dataTransfer.DataObject, WindowsShellDataObjectFormat.PreferredDropEffect, out var preferredEffect));
+				var dataTransfer = runtime.Windows.DragDrop.CaptureDataTransfer(package.GetView());
+				Assert.IsTrue(WindowsShellDataObjectFormat.TryGetDword(((WindowsShellDataTransfer)dataTransfer).DataObject, WindowsShellDataObjectFormat.PreferredDropEffect, out var preferredEffect));
 				Assert.AreEqual((uint)WindowsShellDropEffects.Copy, preferredEffect);
 				Assert.IsTrue(dropTarget.TryCreateSession(dataTransfer, 0, out var session));
 				Assert.IsNotNull(session);

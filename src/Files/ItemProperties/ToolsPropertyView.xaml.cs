@@ -11,6 +11,7 @@ namespace Files.ItemProperties;
 
 public sealed partial class ToolsPropertyView : UserControl
 {
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -27,12 +28,12 @@ public sealed partial class ToolsPropertyView : UserControl
 
 	private void CheckButton_Click(object sender, RoutedEventArgs e)
 	{
-		ShowResult(WindowsShellDriveToolsService.ShowErrorChecking(_owner, Drive.RootPath));
+		ShowResult(_propertyActions.ShowErrorChecking(_owner, Drive.RootPath));
 	}
 
 	private void OptimizeButton_Click(object sender, RoutedEventArgs e)
 	{
-		ShowResult(WindowsShellDriveToolsService.ShowOptimization(_owner, Drive.RootPath));
+		ShowResult(_propertyActions.ShowOptimization(_owner, Drive.RootPath));
 	}
 
 	private void ShowResult(WindowsShellOperationResult result)

@@ -12,12 +12,12 @@ flowchart TD
     Operations[Files.BackgroundServer]
 
     Files --> Controls
-    Files --> Core
+    Files --> Hosting
+    Files --> Contracts
     Contracts[Files.Core.Contracts]
     ProviderContracts[Files.Core.ProviderContracts]
     Providers[Files.Providers]
     Hosting[Files.Hosting]
-    Files --> Providers
     Operations --> Hosting
     Operations --> Contracts
     Hosting --> Core
@@ -31,7 +31,7 @@ flowchart TD
 
 These architectural rules remain:
 
-- Files still references Core and Providers during its Windows UI migration; the target consumer boundary is Contracts plus Hosting;
+- Files references consumer Contracts and Hosting; resolved-reference checks reject implementation and backend compiler references;
 - Core and Providers must not reference each other; provider collaboration uses ProviderContracts;
 - Core must not depend on presentation;
 - provider implementations must not depend on ViewModels;

@@ -17,7 +17,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Prepares Windows Shell data transfer objects without reducing Shell items to physical paths.
 /// </summary>
-public sealed class WindowsShellDragDropService
+public sealed class WindowsShellDragDropService : IWindowsShellDragDropService
 {
 	private const uint ContextMenuQueryFlags = 0x00000100 | 0x00000800;
 	private const string PasteVerb = "paste";
@@ -29,6 +29,22 @@ public sealed class WindowsShellDragDropService
 		ArgumentNullException.ThrowIfNull(source);
 
 		_source = source;
+	}
+
+	/// <inheritdoc />
+	public IWindowsShellDataTransfer CaptureDataTransfer(global::Windows.ApplicationModel.DataTransfer.DataPackageView view)
+	{
+		return WindowsShellDataTransfer.FromDataPackageView(view);
+	}
+
+	async Task<IWindowsShellDragSource> IWindowsShellDragDropService.PrepareDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
+	{
+		return await PrepareDragSourceAsync(selection, cancellationToken).ConfigureAwait(false);
+	}
+
+	async Task<IWindowsShellDropTarget> IWindowsShellDragDropService.PrepareDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
+	{
+		return await PrepareDropTargetAsync(destination, background, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Prepares a Windows Shell selection for a WinUI drag surface.</summary>

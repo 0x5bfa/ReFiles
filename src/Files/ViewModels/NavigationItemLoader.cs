@@ -13,7 +13,6 @@ using Files.Core.Storage;
 using Files.Infrastructure;
 using Files.Localization;
 using Files.Core.Storage.Windows;
-using Windows.Storage.Provider;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -33,16 +32,18 @@ internal sealed class NavigationItemLoader
 
 	private const int ThumbnailSize = 16;
 
-	private static readonly string _myComputerParsingName = WindowsStorageSource.ComputerParsingName;
+	private static readonly string _myComputerParsingName = WindowsStorageIdentity.ComputerParsingName;
 
-	private readonly IStorageWorkspace _workspace;
+	private readonly IStorageReader _workspace;
+	private readonly IWindowsShellUiServices? _windowsServices;
 	private readonly ILogger<NavigationItemLoader> _logger;
 
-	public NavigationItemLoader(IStorageWorkspace workspace, ILogger<NavigationItemLoader>? logger = null)
+	public NavigationItemLoader(IStorageReader workspace, ILogger<NavigationItemLoader>? logger = null, IWindowsShellUiServices? windowsServices = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 
 		_workspace = workspace;
+		_windowsServices = windowsServices;
 		_logger = logger ?? NullLogger<NavigationItemLoader>.Instance;
 	}
 
@@ -53,7 +54,7 @@ internal sealed class NavigationItemLoader
 		{
 			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", "LoadSections START");
 		}
-		var windowsSource = _workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
+		var windowsSource = _workspace.Sources.FirstOrDefault(static source => source.SourceType == WindowsStorageIdentity.DefaultSourceType);
 		if (windowsSource is null)
 		{
 			if (_logger.IsEnabled(LogLevel.Debug))
@@ -146,7 +147,7 @@ internal sealed class NavigationItemLoader
 	private async Task<NavigationSectionData?> TryLoadAddressSectionAsync(
 		int order,
 		SidebarSectionType sectionType,
-		WindowsStorageSource source,
+		StorageSourceDescriptor source,
 		string name,
 		string parsingName,
 		Func<IStorableModel, CancellationToken, ValueTask<bool>> include,
@@ -159,7 +160,7 @@ internal sealed class NavigationItemLoader
 		}
 		try
 		{
-			var model = await _workspace.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageSource.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
+			var model = await _workspace.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageIdentity.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);
 			if (model is not IFolderModel folder)
 			{
 				await model.DisposeAsync().ConfigureAwait(false);
@@ -290,17 +291,12 @@ internal sealed class NavigationItemLoader
 		}
 	}
 
-#pragma warning disable RS0030 // The Windows Storage Provider is required to inspect registered sync roots.
-	private async Task<NavigationSectionData?> TryLoadCloudDrivesSectionAsync(int order, WindowsStorageSource source, CancellationToken cancellationToken)
+	private async Task<NavigationSectionData?> TryLoadCloudDrivesSectionAsync(int order, StorageSourceDescriptor source, CancellationToken cancellationToken)
 	{
 		HashSet<string> syncRootPaths;
 		try
 		{
-			syncRootPaths = StorageProviderSyncRootManager.GetCurrentSyncRoots()
-				.Select(static root => root.Path?.Path)
-				.Where(static path => !string.IsNullOrWhiteSpace(path))
-				.Select(static path => Path.TrimEndingDirectorySeparator(path!))
-				.ToHashSet(StringComparer.OrdinalIgnoreCase);
+			syncRootPaths = (_windowsServices?.GetSyncRootPaths() ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
 		}
 		catch (Exception exception)
 		{
@@ -328,12 +324,11 @@ internal sealed class NavigationItemLoader
 
 		return section is { Items.Count: > 0 } ? section : null;
 	}
-#pragma warning restore RS0030
 
 	private static bool IsCloudDrive(IStorableModel item, IReadOnlySet<string> syncRootPaths)
 	{
 		var address = item.Reference.LastKnownAddress;
-		if (address is null || !address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase))
+		if (address is null || !address.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase))
 		{
 			return false;
 		}

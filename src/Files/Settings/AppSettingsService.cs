@@ -5,35 +5,21 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.Json;
 using Files.Controls;
-using Files.Core.Capabilities;
-using Files.Core.Capabilities.Content;
-using Files.Core.Models;
-using Files.Core.Storage;
-using Files.Core.Storage.Windows;
 using Windows.ApplicationModel;
 using Windows.Globalization;
-using Windows.Win32;
-using Windows.Win32.Storage.FileSystem;
 
 namespace Files.Settings;
 
 internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisposable
 {
-	private const string SettingsDirectoryName = "Settings";
 	private const string SettingsFileName = "settings.json";
 	private static readonly TimeSpan _defaultSaveDelay = TimeSpan.FromMilliseconds(250);
 	private static readonly TimeSpan _saveRetryDelay = TimeSpan.FromSeconds(5);
-	private static readonly StorableModelFactory _contentModels = new(new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory())
-		.Add<IWritableContent>(new WindowsContentSourceFactory()).Build());
 
+	private readonly Files.Core.Settings.ISettingsStorage? _storage;
 	private readonly Lock _syncRoot = new();
-	private readonly WindowsStorageSource? _windowsSource;
-	private readonly WindowsStorageOperationHandler? _windowsOperations;
-	private readonly IFolder? _localFolder;
-	private readonly bool _ownsWindowsSource;
 	private readonly TimeSpan _saveDelay;
 	private AppSettingsData _settings;
 	private Timer? _saveTimer;
@@ -63,19 +49,26 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 	public event PropertyChangedEventHandler? PropertyChanged;
 
-	public AppSettingsService()
-		: this(new WindowsStorageSource(), GetDefaultLocalFolderPath(), ownsWindowsSource: true, saveDelay: null)
+	public AppSettingsService() : this(GetDefaultLocalFolderPath())
 	{
 	}
 
-	internal AppSettingsService(WindowsStorageSource source, TimeSpan? saveDelay = null)
-		: this(source, GetDefaultLocalFolderPath(), ownsWindowsSource: false, saveDelay: saveDelay)
+	internal AppSettingsService(string localFolderPath, TimeSpan? saveDelay = null) : this(Files.Hosting.FilesHost.OpenSettingsStorage(localFolderPath), saveDelay)
 	{
 	}
 
-	internal AppSettingsService(string localFolderPath, TimeSpan? saveDelay = null)
-		: this(new WindowsStorageSource(), localFolderPath, ownsWindowsSource: true, saveDelay: saveDelay)
+	internal AppSettingsService(Files.Core.Settings.ISettingsStorage storage, TimeSpan? saveDelay = null)
 	{
+		ArgumentNullException.ThrowIfNull(storage);
+		if (saveDelay is { } delay && delay < TimeSpan.Zero)
+		{
+			throw new ArgumentOutOfRangeException(nameof(saveDelay));
+		}
+
+		_storage = storage;
+		_saveDelay = saveDelay ?? _defaultSaveDelay;
+		_settings = new AppSettingsData();
+		Load();
 	}
 
 	internal AppSettingsService(AppSettingsData settings)
@@ -85,25 +78,6 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		NormalizeSettings(settings);
 		_settings = settings;
 		_saveDelay = _defaultSaveDelay;
-	}
-
-	private AppSettingsService(WindowsStorageSource source, string localFolderPath, bool ownsWindowsSource, TimeSpan? saveDelay)
-	{
-		ArgumentNullException.ThrowIfNull(source);
-		ArgumentException.ThrowIfNullOrWhiteSpace(localFolderPath);
-
-		if (saveDelay is { } delay && delay < TimeSpan.Zero)
-		{
-			throw new ArgumentOutOfRangeException(nameof(saveDelay));
-		}
-
-		_windowsSource = source;
-		_windowsOperations = new WindowsStorageOperationHandler(source);
-		_localFolder = ResolveFolder(source, Path.GetFullPath(localFolderPath));
-		_ownsWindowsSource = ownsWindowsSource;
-		_saveDelay = saveDelay ?? _defaultSaveDelay;
-		_settings = new AppSettingsData();
-		Load();
 	}
 
 	public void ApplyLanguage()
@@ -141,18 +115,6 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 			_isDisposed = true;
 			_saveTimer?.Dispose();
 			_saveTimer = null;
-
-			if (_ownsWindowsSource && _windowsSource is { } source)
-			{
-				try
-				{
-					source.DisposeAsync().AsTask().GetAwaiter().GetResult();
-				}
-				catch (Exception exception)
-				{
-					Debug.WriteLine($"Failed to dispose application settings storage: {exception}");
-				}
-			}
 		}
 
 		GC.SuppressFinalize(this);
@@ -160,19 +122,9 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 	private void Load()
 	{
-		var settingsFile = TryGetSettingsFile();
-		if (settingsFile is null)
-		{
-			return;
-		}
-
 		try
 		{
-			using var model = _contentModels.Create(_windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured."), settingsFile);
-			var content = model.Get<IReadableContent>() ?? throw new NotSupportedException("The settings file does not support reading.");
-			using var stream = content.OpenReadAsync().GetAwaiter().GetResult();
-			using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), detectEncodingFromByteOrderMarks: true);
-			var json = reader.ReadToEnd();
+			var json = _storage?.ReadTextAsync(SettingsFileName).GetAwaiter().GetResult();
 			if (string.IsNullOrWhiteSpace(json))
 			{
 				return;
@@ -213,7 +165,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 	private void QueueSave_NoLock(TimeSpan? delay = null)
 	{
-		if (_windowsSource is null)
+		if (_storage is null)
 		{
 			return;
 		}
@@ -248,230 +200,14 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 
 	private void SaveCore_NoLock()
 	{
-		if (!_isDirty || _windowsSource is null || _windowsOperations is null || _localFolder is null)
+		if (!_isDirty || _storage is null)
 		{
 			return;
 		}
 
-		var settingsFolder = EnsureSettingsFolder();
 		var json = JsonSerializer.Serialize(_settings, AppSettingsJsonContext.Default.AppSettingsData);
-		var temporaryName = $"{SettingsFileName}.{Guid.NewGuid():N}.tmp";
-		var temporaryFile = CreateTemporaryFile(settingsFolder, temporaryName);
-
-		var committed = false;
-		try
-		{
-			WriteText(temporaryFile, json);
-			CommitTemporaryFile(settingsFolder, temporaryFile);
-			_isDirty = false;
-			committed = true;
-		}
-		finally
-		{
-			if (!committed)
-			{
-				TryDelete(temporaryFile);
-			}
-		}
-	}
-
-	private IFolder EnsureSettingsFolder()
-	{
-		var localFolder = _localFolder ?? throw new InvalidOperationException("The Windows local folder is not configured.");
-		if (TryGetSettingsFolder() is { } existingFolder)
-		{
-			return existingFolder;
-		}
-
-		try
-		{
-			var created = CreateItem(localFolder, SettingsDirectoryName, StorageItemKind.Folder);
-			if (created is IFolder folder)
-			{
-				return folder;
-			}
-
-			throw new IOException("The Windows Shell did not return the settings folder.");
-		}
-		catch (Exception) when (TryGetSettingsFolder() is { } raceFolder)
-		{
-			return raceFolder;
-		}
-	}
-
-	private IWindowsStorable CreateItem(IFolder parent, string name, StorageItemKind kind)
-	{
-		var source = _windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured.");
-		var operations = _windowsOperations ?? throw new InvalidOperationException("Windows settings operations are not configured.");
-		var request = new CreateItemOperationRequest(CreateReference(parent), name, kind);
-		var result = operations.ExecuteAsync(request, cancellationToken: CancellationToken.None).AsTask().GetAwaiter().GetResult();
-		if (!result.Succeeded)
-		{
-			throw result.Error ?? new IOException($"The Windows Shell could not create '{name}'.");
-		}
-
-		if (result.ResultItem is null)
-		{
-			throw new IOException($"The Windows Shell did not return the created item '{name}'.");
-		}
-
-		var item = source.ResolveAsync(result.ResultItem).GetAwaiter().GetResult();
-		if (item is not IWindowsStorable windowsItem)
-		{
-			throw new IOException($"The Windows Shell returned an invalid item for '{name}'.");
-		}
-
-		return windowsItem;
-	}
-
-	private IWindowsStorable CreateTemporaryFile(IFolder parent, string name)
-	{
-		var source = _windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured.");
-		var parentPath = (parent as IWindowsStorable)?.FileSystemPath ?? throw new IOException("The settings folder does not have a file-system path.");
-		var path = Path.Combine(parentPath, name);
-		using var handle = PInvoke.CreateFile(path, (uint)FILE_ACCESS_RIGHTS.FILE_GENERIC_WRITE,
-			FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE | FILE_SHARE_MODE.FILE_SHARE_DELETE, null,
-			FILE_CREATION_DISPOSITION.CREATE_NEW, FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_NORMAL, null);
-		var lastError = Marshal.GetLastPInvokeError();
-		if (handle.IsInvalid)
-		{
-			throw new Win32Exception(lastError, $"The Windows Shell could not create '{name}'.");
-		}
-
-		var item = source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path)).GetAwaiter().GetResult();
-		if (item is not IFile || item is not IWindowsStorable file)
-		{
-			throw new IOException("The Windows Shell did not return the temporary settings file.");
-		}
-
-		return file;
-	}
-
-	private IWindowsStorable? TryGetSettingsFile()
-	{
-		try
-		{
-			if (TryGetSettingsFolder() is not { } settingsFolder)
-			{
-				return null;
-			}
-
-			var item = FindChildByName(settingsFolder, StorableType.File, SettingsFileName);
-
-			return item is IFile ? item : null;
-		}
-		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException or COMException)
-		{
-			Debug.WriteLine($"Failed to resolve application settings: {exception}");
-
-			return null;
-		}
-	}
-
-	private IFolder? TryGetSettingsFolder()
-	{
-		var localFolder = _localFolder;
-		if (localFolder is null)
-		{
-			return null;
-		}
-
-		return FindChildByName(localFolder, StorableType.Folder, SettingsDirectoryName) as IFolder;
-	}
-
-	private StorableReference CreateReference(IStorable item)
-	{
-		var source = _windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured.");
-
-		return new StorableReference(source.SourceId, item.Id, (item as IStorageAddressSource)?.Address);
-	}
-
-	private static IFolder ResolveFolder(WindowsStorageSource source, string path)
-	{
-		var item = source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path)).GetAwaiter().GetResult();
-		if (item is not IFolder folder)
-		{
-			throw new InvalidOperationException($"The Windows Shell path '{path}' is not a folder.");
-		}
-
-		return folder;
-	}
-
-	private static IWindowsStorable? FindChildByName(IFolder folder, StorableType type, string name)
-	{
-		return FindChildByNameAsync(folder, type, name).GetAwaiter().GetResult();
-	}
-
-	private static async Task<IWindowsStorable?> FindChildByNameAsync(IFolder folder, StorableType type, string name)
-	{
-		await foreach (var child in folder.GetItemsAsync(type, CancellationToken.None).ConfigureAwait(false))
-		{
-			if (child is IWindowsStorable item && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(item.FileSystemPath), name))
-			{
-				return item;
-			}
-		}
-
-		return null;
-	}
-
-	private void WriteText(IWindowsStorable file, string json)
-	{
-		using var model = _contentModels.Create(_windowsSource ?? throw new InvalidOperationException("Windows settings storage is not configured."), file);
-		var content = model.Get<IWritableContent>() ?? throw new NotSupportedException("The settings file does not support writing.");
-		using var stream = content.OpenWriteAsync().GetAwaiter().GetResult();
-		using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: false);
-		writer.Write(json);
-		writer.Flush();
-	}
-
-	private void CommitTemporaryFile(IFolder settingsFolder, IWindowsStorable temporaryFile)
-	{
-		if (FindChildByName(settingsFolder, StorableType.File, SettingsFileName) is { } destinationFile && destinationFile is IFile)
-		{
-			if (temporaryFile.FileSystemPath is not { } temporaryPath || destinationFile.FileSystemPath is not { } destinationPath)
-			{
-				throw new IOException("The Windows Shell did not return file-system paths for the settings files.");
-			}
-
-			var result = PInvoke.ReplaceFile(destinationPath, temporaryPath, null, REPLACE_FILE_FLAGS.REPLACEFILE_WRITE_THROUGH);
-			if (!result)
-			{
-				throw new Win32Exception(Marshal.GetLastPInvokeError(), "The Windows Shell could not replace the settings file.");
-			}
-
-			return;
-		}
-
-		var operations = _windowsOperations ?? throw new InvalidOperationException("Windows settings operations are not configured.");
-		var request = new RenameOperationRequest(CreateReference(temporaryFile), SettingsFileName);
-		var operationResult = operations.ExecuteAsync(request, cancellationToken: CancellationToken.None).AsTask().GetAwaiter().GetResult();
-		if (!operationResult.Succeeded)
-		{
-			throw operationResult.Error ?? new IOException("The Windows Shell could not commit the settings file.");
-		}
-	}
-
-	private void TryDelete(IWindowsStorable file)
-	{
-		try
-		{
-			var operations = _windowsOperations;
-			if (operations is null)
-			{
-				return;
-			}
-
-			var result = operations.ExecuteAsync(new DeleteOperationRequest(CreateReference(file), permanently: true), cancellationToken: CancellationToken.None).AsTask().GetAwaiter().GetResult();
-			if (!result.Succeeded)
-			{
-				Debug.WriteLine($"Failed to delete temporary application settings file: {result.Error}");
-			}
-		}
-		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or COMException)
-		{
-			Debug.WriteLine($"Failed to delete temporary application settings file: {exception}");
-		}
+		_storage.WriteTextAsync(SettingsFileName, json).GetAwaiter().GetResult();
+		_isDirty = false;
 	}
 
 	internal static string GetDefaultLocalFolderPath()

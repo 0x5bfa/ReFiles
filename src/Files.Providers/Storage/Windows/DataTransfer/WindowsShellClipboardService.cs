@@ -4,6 +4,8 @@
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
 using Files.Core.Storage;
+using global::Windows.ApplicationModel.DataTransfer;
+using System.Runtime.InteropServices;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
@@ -15,7 +17,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Places Windows Shell selections on the OLE clipboard without converting them to physical paths.
 /// </summary>
-public sealed class WindowsShellClipboardService
+public sealed class WindowsShellClipboardService : IWindowsShellClipboardService
 {
 	private readonly WindowsStorageSource _source;
 
@@ -52,10 +54,192 @@ public sealed class WindowsShellClipboardService
 		await _source.Scheduler.InvokeAsync(() => SetItemsOnCurrentSta(locators, move, (HWND)ownerWindowHandle, generation), cancellationToken).ConfigureAwait(false);
 	}
 
+	/// <inheritdoc />
+	public bool HasStorageItems()
+	{
+		try
+		{
+			if (Clipboard.GetContent().Contains(StandardDataFormats.StorageItems))
+			{
+				return true;
+			}
+		}
+		catch
+		{
+		}
+
+		try
+		{
+			return TryGetNativeClipboardFilePaths(out _);
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
+	/// <inheritdoc />
+#pragma warning disable RS0030 // WinRT storage projection is required for native clipboard interoperability.
+	public async Task<WindowsShellClipboardSnapshot?> ReadFileSystemItemsAsync(CancellationToken cancellationToken = default)
+	{
+		DataPackageView? data = null;
+		var paths = new List<string>();
+		try
+		{
+			data = Clipboard.GetContent();
+			if (data.Contains(StandardDataFormats.StorageItems))
+			{
+				IReadOnlyList<global::Windows.Storage.IStorageItem> storageItems;
+				try
+				{
+					storageItems = await data.GetStorageItemsAsync();
+				}
+				catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+				{
+					throw;
+				}
+				catch
+				{
+					storageItems = [];
+				}
+
+				foreach (var storageItem in storageItems)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					try
+					{
+						if (!string.IsNullOrWhiteSpace(storageItem.Path))
+						{
+							paths.Add(storageItem.Path);
+						}
+					}
+					catch
+					{
+					}
+				}
+			}
+		}
+		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+		{
+			throw;
+		}
+		catch
+		{
+			data = null;
+		}
+
+		IReadOnlyList<string> nativePaths = [];
+		var hasNativePaths = paths.Count is not 0 || TryGetNativeClipboardFilePaths(out nativePaths);
+		if (!hasNativePaths)
+		{
+			return null;
+		}
+
+		if (paths.Count is 0)
+		{
+			paths.AddRange(nativePaths);
+		}
+
+		if (paths.Count is 0)
+		{
+			return null;
+		}
+
+		var move = data?.RequestedOperation.HasFlag(DataPackageOperation.Move) is true;
+
+		return new WindowsShellClipboardSnapshot(Array.AsReadOnly(paths.ToArray()), move);
+	}
+
+#pragma warning restore RS0030
+
 	internal Task FlushAsync()
 	{
 		return _source.Scheduler.InvokeAsync(FlushOnCurrentSta);
 	}
+
+	private static unsafe bool TryGetNativeClipboardFilePaths(out IReadOnlyList<string> paths)
+	{
+		paths = [];
+		if (PInvoke.OleGetClipboard(out var dataObject).Failed || dataObject is null)
+		{
+			return false;
+		}
+
+		var format = default(FORMATETC);
+		format.cfFormat = 15;
+		format.dwAspect = (uint)DVASPECT.DVASPECT_CONTENT;
+		format.lindex = -1;
+		format.tymed = (uint)TYMED.TYMED_HGLOBAL;
+		if (dataObject.GetData(in format, out var medium).Failed)
+		{
+			return false;
+		}
+
+		try
+		{
+			if (medium.tymed is not TYMED.TYMED_HGLOBAL || medium.u.hGlobal.IsNull)
+			{
+				return false;
+			}
+
+			var size = PInvoke.GlobalSize(medium.u.hGlobal);
+			if (size < 20)
+			{
+				return false;
+			}
+
+			var buffer = PInvoke.GlobalLock(medium.u.hGlobal);
+			if (buffer is null)
+			{
+				return false;
+			}
+
+			try
+			{
+				var offset = Marshal.ReadInt32((nint)buffer);
+				var isWide = Marshal.ReadInt32((nint)buffer, 16) is not 0;
+				if (offset < 20 || (nuint)offset >= size || !isWide)
+				{
+					return false;
+				}
+
+				var remaining = checked((int)size - offset);
+				var current = (nint)buffer + offset;
+				var result = new List<string>();
+				while (remaining >= sizeof(char))
+				{
+					var length = 0;
+					while ((length + 1) * sizeof(char) <= remaining && Marshal.ReadInt16(current, length * sizeof(char)) is not 0)
+					{
+						length++;
+					}
+
+					if (length is 0)
+					{
+						break;
+					}
+
+					result.Add(Marshal.PtrToStringUni(current, length));
+					var advance = checked((length + 1) * sizeof(char));
+					current += advance;
+					remaining -= advance;
+				}
+
+				paths = result;
+
+				return result.Count is not 0;
+			}
+			finally
+			{
+				_ = PInvoke.GlobalUnlock(medium.u.hGlobal);
+			}
+		}
+		finally
+		{
+			PInvoke.ReleaseStgMedium(ref medium);
+		}
+	}
+
 
 	private bool SetItemsOnCurrentSta(IReadOnlyList<WindowsItemLocator> locators, bool move, HWND ownerWindow, long generation)
 	{

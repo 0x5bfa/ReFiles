@@ -17,13 +17,13 @@ namespace Files.Core.Storage.Windows;
 public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolicy
 {
 	/// <summary>Gets the default Windows Shell source type.</summary>
-	public const string DefaultSourceType = "windows-shell";
+	public const string DefaultSourceType = WindowsStorageIdentity.DefaultSourceType;
 
 	/// <summary>Gets the file-system address scheme.</summary>
-	public const string FileAddressScheme = "file";
+	public const string FileAddressScheme = WindowsStorageIdentity.FileAddressScheme;
 
 	/// <summary>Gets the Shell address scheme.</summary>
-	public const string ShellAddressScheme = "shell";
+	public const string ShellAddressScheme = WindowsStorageIdentity.ShellAddressScheme;
 
 	private readonly IReadOnlyList<Guid> _rootFolderIds;
 
@@ -40,7 +40,7 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 	private volatile bool _isDisposed;
 
 	/// <summary>Gets the Shell parsing name of the Computer namespace root.</summary>
-	public static string ComputerParsingName { get; } = $"shell:::{CLSID.CLSID_MyComputer:B}";
+	public static string ComputerParsingName { get; } = WindowsStorageIdentity.ComputerParsingName;
 
 	/// <summary>Gets the stable source identifier.</summary>
 	public StorageSourceId SourceId { get; }

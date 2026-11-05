@@ -652,7 +652,7 @@ public sealed class BrowsePresentationPipelineTests
 		var commandRegistry = CreateCountingCommandRegistry(stateCalls);
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
-		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, operationTracker, appSettings, dispatcher, commandRegistry);
+		var presentationFactory = new WindowPresentationFactory(workspace.AsConsumerReader(), storageOperations, operationTracker, appSettings, dispatcher, commandRegistry);
 		RootViewModel root;
 		try
 		{
@@ -738,7 +738,8 @@ public sealed class BrowsePresentationPipelineTests
 		var dispatcher = new ManualDispatcher();
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
-		var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, AppCommandRegistration.Build());
+		var presentationFactory = new WindowPresentationFactory(workspace.AsConsumerReader(), new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher,
+			AppCommandRegistration.Build());
 		RootViewModel root;
 		try
 		{
@@ -782,7 +783,8 @@ public sealed class BrowsePresentationPipelineTests
 		var dispatcher = new ManualDispatcher();
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
-		var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, AppCommandRegistration.Build());
+		var presentationFactory = new WindowPresentationFactory(workspace.AsConsumerReader(), new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher,
+			AppCommandRegistration.Build());
 		RootViewModel root;
 		try
 		{
@@ -861,7 +863,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var workspace = new PresentationStorageWorkspace();
 		using var settings = new AppSettingsService(new AppSettingsData());
 		using var tracker = new StorageOperationTracker();
-		var factory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), tracker, settings, dispatcher, CreateSerializingCommandRegistry(handler));
+		var factory = new WindowPresentationFactory(workspace.AsConsumerReader(), new NoOpStorageOperationService(), tracker, settings, dispatcher, CreateSerializingCommandRegistry(handler));
 		await using var root = factory.Create(window);
 		using var manager = new WindowCommandManager(root, CreateSerializingCommandRegistry(handler), dispatcher);
 		await window.OpenTabAsync(HomeLocation.Instance);
@@ -908,7 +910,7 @@ public sealed class BrowsePresentationPipelineTests
 		await using var workspace = new PresentationStorageWorkspace();
 		using var settings = new AppSettingsService(new AppSettingsData());
 		using var tracker = new StorageOperationTracker();
-		var factory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), tracker, settings, dispatcher, CreateSerializingCommandRegistry(handler));
+		var factory = new WindowPresentationFactory(workspace.AsConsumerReader(), new NoOpStorageOperationService(), tracker, settings, dispatcher, CreateSerializingCommandRegistry(handler));
 		await using var root = factory.Create(window);
 		using var manager = new WindowCommandManager(root, CreateSerializingCommandRegistry(handler), dispatcher);
 		await window.OpenTabAsync(HomeLocation.Instance);
@@ -1259,8 +1261,10 @@ public sealed class BrowsePresentationPipelineTests
 			var context = location switch
 			{
 				HomeLocation => new PresentationBrowseLocationContext(location, 64, _source, static (_, _) => ValueTask.CompletedTask, null, "home", "Home"),
-				FolderLocation { Folder.ItemId: "interrupted" } => new PresentationBrowseLocationContext(location, 512, _source, PauseInterruptedNavigationAsync, null, "interrupted-item", "Interrupted"),
-				FolderLocation { Folder.ItemId: "destination" } => new PresentationBrowseLocationContext(location, 300, _source, static (_, _) => ValueTask.CompletedTask, null, "destination-item", "Destination"),
+				FolderLocation { Folder.ItemId: "interrupted" } => new PresentationBrowseLocationContext(location, 512, _source, PauseInterruptedNavigationAsync, null,
+					"interrupted-item", "Interrupted"),
+				FolderLocation { Folder.ItemId: "destination" } => new PresentationBrowseLocationContext(location, 300, _source, static (_, _) => ValueTask.CompletedTask, null,
+					"destination-item", "Destination"),
 				_ => throw new InvalidOperationException("Unexpected presentation test location."),
 			};
 

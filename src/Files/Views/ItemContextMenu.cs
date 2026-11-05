@@ -32,7 +32,7 @@ internal sealed class ItemContextMenu
 	private readonly Dictionary<string, (CommandBindingViewModel Binding, object? Parameter, string Glyph)> _applicationCommands = [];
 	private readonly object? _location;
 	private WindowsShellContextMenuEntry? _expandedMenuEntry;
-	private WindowsShellContextMenuSession? _session;
+	private IWindowsShellContextMenuSession? _session;
 	private FrameworkElement? _target;
 	private Task _invocationTask = Task.CompletedTask;
 	private Point _classicMenuPosition;

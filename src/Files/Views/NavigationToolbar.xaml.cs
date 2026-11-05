@@ -414,7 +414,7 @@ public sealed partial class NavigationToolbar : UserControl
 
 		ResetDropController();
 		_dropBrowser = browser;
-		_dropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle, _loggerFactory.CreateLogger<WinUIShellDropTargetController>());
+		_dropController = new(browser.PrepareShellDropTargetAsync, browser.CaptureDataTransfer, browser.OwnerWindowHandle, _loggerFactory.CreateLogger<WinUIShellDropTargetController>());
 
 		return _dropController;
 	}

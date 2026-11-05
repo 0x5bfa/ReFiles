@@ -386,7 +386,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 		ResetSidebarDropController();
 		_sidebarDropBrowser = browser;
-		_sidebarDropController = new(browser.PrepareShellDropTargetAsync, browser.OwnerWindowHandle, _loggerFactory.CreateLogger<WinUIShellDropTargetController>());
+		_sidebarDropController = new(browser.PrepareShellDropTargetAsync, browser.CaptureDataTransfer, browser.OwnerWindowHandle, _loggerFactory.CreateLogger<WinUIShellDropTargetController>());
 
 		return _sidebarDropController;
 	}

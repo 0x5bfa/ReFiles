@@ -6,4 +6,4 @@ using System.Drawing;
 
 namespace Files.Infrastructure;
 
-internal sealed record WinUIShellDropSession(WindowsShellDropSession Session, WindowsShellDropEffects AcceptedEffect);
+internal sealed record WinUIShellDropSession(IWindowsShellDropSession Session, WindowsShellDropEffects AcceptedEffect);

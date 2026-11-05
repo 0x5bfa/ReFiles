@@ -16,7 +16,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Contains an apartment-neutral Windows Shell destination prepared for a WinUI drop surface.
 /// </summary>
-public sealed class WindowsShellDropTarget
+public sealed class WindowsShellDropTarget : IWindowsShellDropTarget
 {
 	private readonly WindowsItemLocator _locator;
 	private readonly bool _isBackground;
@@ -27,6 +27,19 @@ public sealed class WindowsShellDropTarget
 
 		_locator = locator;
 		_isBackground = isBackground;
+	}
+
+	bool IWindowsShellDropTarget.TryCreateSession(IWindowsShellDataTransfer dataTransfer, nint ownerWindowHandle, out IWindowsShellDropSession? session)
+	{
+		if (dataTransfer is not WindowsShellDataTransfer nativeTransfer)
+		{
+			throw new ArgumentException("The data object was not captured by the Windows transfer service.", nameof(dataTransfer));
+		}
+
+		var created = TryCreateSession(nativeTransfer, ownerWindowHandle, out var nativeSession);
+		session = nativeSession;
+
+		return created;
 	}
 
 	/// <summary>Tries to create a drop session on the data object's originating STA.</summary>

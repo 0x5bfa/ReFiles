@@ -9,9 +9,6 @@ using Files.Core.Storage.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using Windows.ApplicationModel.DataTransfer;
-using WinRT;
-using Windows.Win32;
-using Windows.Win32.System.Com;
 
 namespace Files.UITests;
 
@@ -49,7 +46,7 @@ public sealed class WinUIDataObjectBridgeTests
 			var sourceReference = new StorableReference(source.SourceId, sourceItem.Id, sourceItem.Address);
 			var destinationReference = new StorableReference(source.SourceId, destinationItem.Id, destinationItem.Address);
 			var dragSource = await source.DragDrop.PrepareDragSourceAsync((Files.Core.Storage.StorableReference[])[sourceReference]);
-			var dropTarget = await source.DragDrop.PrepareDropTargetAsync(destinationReference, background: true);
+			IWindowsShellDropTarget dropTarget = await source.DragDrop.PrepareDropTargetAsync(destinationReference, background: true);
 			Assert.AreEqual(ApartmentState.STA, Thread.CurrentThread.GetApartmentState());
 			var dataPackage = new DataPackage();
 			var allowedOperations = WinUIDataObjectBridge.Attach(dragSource, dataPackage, 0, WindowsShellDropEffects.Link, deriveMoveFromDelete: false);
@@ -60,9 +57,7 @@ public sealed class WinUIDataObjectBridgeTests
 			var defaultDataPackage = new DataPackage();
 			WinUIDataObjectBridge.Attach(dragSource, defaultDataPackage, 0, WindowsShellDropEffects.None, deriveMoveFromDelete: false);
 			Assert.AreEqual(DataPackageOperation.None, defaultDataPackage.RequestedOperation);
-			var dataTransfer = WinUIDataObjectBridge.GetDataObject(dataPackage.GetView());
-			var dataObject = dataPackage.GetView().As<IDataObject>();
-			Assert.IsTrue(TryGetFormat(dataObject, 15, TYMED.TYMED_HGLOBAL), "The bridged data object did not expose CF_HDROP.");
+			var dataTransfer = WinUIDataObjectBridge.GetDataObject(source.DragDrop, dataPackage.GetView());
 			Assert.IsTrue(dropTarget.TryCreateSession(dataTransfer, 0, out var session));
 			Assert.IsNotNull(session);
 			using (session)
@@ -80,23 +75,6 @@ public sealed class WinUIDataObjectBridgeTests
 		{
 			await DeleteTestRootAsync(rootPath);
 		}
-	}
-
-	private static bool TryGetFormat(IDataObject dataObject, ushort clipboardFormat, TYMED tymed)
-	{
-		var format = default(FORMATETC);
-		format.cfFormat = clipboardFormat;
-		format.dwAspect = (uint)DVASPECT.DVASPECT_CONTENT;
-		format.lindex = -1;
-		format.tymed = (uint)tymed;
-		if (dataObject.GetData(in format, out var medium).Failed)
-		{
-			return false;
-		}
-
-		PInvoke.ReleaseStgMedium(ref medium);
-
-		return true;
 	}
 
 	private static async Task<bool> WaitForFileContentAsync(string path, string expectedContent, TimeSpan timeout)

@@ -17,6 +17,7 @@ namespace Files.ItemProperties;
 
 public sealed partial class HardwarePropertyView : UserControl
 {
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 	private WindowsShellHardwareDevice? _selectedDevice;
@@ -57,7 +58,7 @@ public sealed partial class HardwarePropertyView : UserControl
 			return;
 		}
 
-		var result = WindowsShellHardwareService.ShowProperties((nint)_owner, _selectedDevice.InstanceId);
+		var result = _propertyActions.ShowProperties((nint)_owner, _selectedDevice.InstanceId);
 		if (result is not 0)
 		{
 			_showError(new System.ComponentModel.Win32Exception(result).Message);

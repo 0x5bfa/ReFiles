@@ -241,7 +241,7 @@ public sealed class BrowsePerformanceTests
 		var storageOperations = new NoOpStorageOperationService();
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
-		var presentationFactory = new WindowPresentationFactory(workspace, storageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
+		var presentationFactory = new WindowPresentationFactory(workspace.AsConsumerReader(), storageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
 		await coreWindow.OpenTabAsync();
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
 		var folder = root.ActiveFolderBrowser;
@@ -310,7 +310,8 @@ public sealed class BrowsePerformanceTests
 		var coreWindow = await runtime.ShellSession.CreateWindowAsync();
 		var appSettings = new AppSettingsService(new AppSettingsData());
 		using var operationTracker = new StorageOperationTracker();
-		var presentationFactory = new WindowPresentationFactory(runtime.Workspace, runtime.StorageOperations, operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
+		var presentationFactory = new WindowPresentationFactory(runtime.Workspace.AsConsumerReader(), runtime.StorageOperations, operationTracker, appSettings, dispatcher,
+			CreateNoOpCommandRegistry());
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
 		await root.InitializeAsync().WaitAsync(NavigationTimeout);
 
@@ -595,7 +596,8 @@ public sealed class BrowsePerformanceTests
 				await window.OpenTabAsync(HomeLocation.Instance);
 				var dispatcher = new MeasuringUIDispatcher(UnitTestApp.TestDispatcherQueue);
 				var appSettings = new AppSettingsService(new AppSettingsData());
-				var presentationFactory = new WindowPresentationFactory(workspace, new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher, CreateNoOpCommandRegistry());
+				var presentationFactory = new WindowPresentationFactory(workspace.AsConsumerReader(), new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher,
+					CreateNoOpCommandRegistry());
 				root = new RootViewModel(window, presentationFactory);
 				await root.InitializeAsync().WaitAsync(NavigationTimeout);
 				var folder = root.ActiveFolderBrowser ?? throw new InvalidOperationException("The stress window does not have an active folder browser.");

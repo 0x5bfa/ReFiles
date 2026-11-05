@@ -7,6 +7,7 @@ using Files.Activation;
 using Files.Core.Data;
 using Files.Core.Sessions;
 using Files.Core.Storage;
+using Files.Core.Storage.Windows;
 using Files.Infrastructure;
 using Files.ItemProperties;
 using Files.Settings;
@@ -24,7 +25,8 @@ namespace Files.Presentation;
 internal sealed class WindowPresentationFactory
 {
 	private readonly Dictionary<Type, Func<IPaneContentSession, WindowCommandManager, PaneContentPresentation>> _contentPresenters = [];
-	private readonly IStorageWorkspace _workspace;
+	private readonly IStorageReader _workspace;
+	private readonly IWindowsShellUiServices? _windowsServices;
 	private readonly IStorageOperationService _storageOperations;
 	private readonly StorageOperationTracker _operationTracker;
 	private readonly AppSettingsService _appSettings;
@@ -46,7 +48,7 @@ internal sealed class WindowPresentationFactory
 	internal ILoggerFactory LoggerFactory => _loggerFactory;
 
 	internal WindowPresentationFactory(
-		IStorageWorkspace workspace,
+		IStorageReader workspace,
 		IStorageOperationService storageOperations,
 		StorageOperationTracker operationTracker,
 		AppSettingsService appSettings,
@@ -55,7 +57,7 @@ internal sealed class WindowPresentationFactory
 		IItemActivationService? itemActivationService = null,
 		IItemPropertiesService? itemPropertiesService = null,
 		nint ownerWindowHandle = 0,
-		ILoggerFactory? loggerFactory = null)
+		ILoggerFactory? loggerFactory = null, IWindowsShellUiServices? windowsServices = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 
@@ -70,6 +72,7 @@ internal sealed class WindowPresentationFactory
 		ArgumentNullException.ThrowIfNull(commandRegistry);
 
 		_workspace = workspace;
+		_windowsServices = windowsServices;
 		_storageOperations = storageOperations;
 		_operationTracker = operationTracker;
 		_appSettings = appSettings;
@@ -79,16 +82,16 @@ internal sealed class WindowPresentationFactory
 		_itemPropertiesService = itemPropertiesService;
 		_ownerWindowHandle = ownerWindowHandle;
 		_loggerFactory = loggerFactory ?? Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-		RegisterPaneContent<BrowsePaneSession>((content, commands) =>
+		RegisterPaneContent<IBrowsePaneSession>((content, commands) =>
 		{
 			var browser = CreateFolderBrowser(content, commands);
 
 			return new PaneContentPresentation(browser, () => new FolderBrowser { ViewModel = browser }, folderBrowser: browser, preview: CreatePreviewPane(content));
 		});
-		RegisterPaneContent<SettingsPaneSession>((content, _) => new PaneContentPresentation(content, () => new SettingsView(_appSettings), Strings.Settings.GetLocalized(), CreateSettingsIcon()));
+		RegisterPaneContent<ISettingsPaneSession>((content, _) => new PaneContentPresentation(content, () => new SettingsView(_appSettings), Strings.Settings.GetLocalized(), CreateSettingsIcon()));
 	}
 
-	internal RootViewModel Create(WindowSession window)
+	internal RootViewModel Create(IWindowSession window)
 	{
 		ArgumentNullException.ThrowIfNull(window);
 
@@ -102,7 +105,7 @@ internal sealed class WindowPresentationFactory
 
 	internal NavigationItemLoader CreateNavigationItemLoader()
 	{
-		return new NavigationItemLoader(_workspace, _loggerFactory.CreateLogger<NavigationItemLoader>());
+		return new NavigationItemLoader(_workspace, _loggerFactory.CreateLogger<NavigationItemLoader>(), _windowsServices);
 	}
 
 	internal StatusCenterViewModel CreateStatusCenterViewModel()
@@ -110,12 +113,12 @@ internal sealed class WindowPresentationFactory
 		return new StatusCenterViewModel(_operationTracker, _dispatcher);
 	}
 
-	internal TabViewModel CreateTab(TabSession tab, WindowCommandManager commandManager)
+	internal TabViewModel CreateTab(ITabSession tab, WindowCommandManager commandManager)
 	{
 		return new TabViewModel(tab, this, commandManager);
 	}
 
-	internal PaneViewModel CreatePane(PaneSession pane, WindowCommandManager commandManager)
+	internal PaneViewModel CreatePane(IPaneSession pane, WindowCommandManager commandManager)
 	{
 		return new PaneViewModel(pane, this, commandManager);
 	}
@@ -131,23 +134,27 @@ internal sealed class WindowPresentationFactory
 	{
 		if (!_contentPresenters.TryGetValue(content.GetType(), out var factory))
 		{
-			throw new NotSupportedException($"Pane content '{content.GetType().Name}' has no registered presentation.");
+			factory = _contentPresenters.FirstOrDefault(pair => pair.Key.IsInstanceOfType(content)).Value;
+			if (factory is null)
+			{
+				throw new NotSupportedException($"Pane content '{content.GetType().Name}' has no registered presentation.");
+			}
 		}
 
 		return factory(content, commands);
 	}
 
 
-	internal FolderBrowserViewModel CreateFolderBrowser(BrowsePaneSession pane, WindowCommandManager commandManager)
+	internal FolderBrowserViewModel CreateFolderBrowser(IBrowsePaneSession pane, WindowCommandManager commandManager)
 	{
 		var adapter = new BrowsePresentationAdapter(pane, _dispatcher, ownerWindowHandle: _ownerWindowHandle, loggerFactory: _loggerFactory);
-		var interaction = new WindowsBrowseInteraction(pane, adapter, _workspace, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle,
-			_loggerFactory.CreateLogger<WindowsBrowseInteraction>());
+		var interaction = new WindowsBrowseInteraction(pane, adapter, _storageOperations, _dispatcher, commandManager, _ownerWindowHandle,
+			_loggerFactory.CreateLogger<WindowsBrowseInteraction>(), _windowsServices);
 
 		return new FolderBrowserViewModel(pane, adapter, interaction, _appSettings, _dispatcher, commandManager, _ownerWindowHandle, _loggerFactory);
 	}
 
-	internal PreviewPaneViewModel CreatePreviewPane(BrowsePaneSession pane)
+	internal PreviewPaneViewModel CreatePreviewPane(IBrowsePaneSession pane)
 	{
 		return new PreviewPaneViewModel(pane, _dispatcher);
 	}

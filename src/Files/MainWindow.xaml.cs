@@ -41,8 +41,9 @@ public sealed partial class MainWindow : Window
 	internal nint WindowHandle => _windowHandle;
 
 	internal MainWindow(
-		WindowSession coreWindow,
-		IStorageWorkspace workspace,
+		IWindowSession coreWindow,
+		IStorageReader workspace,
+		IWindowsShellUiServices windowsServices,
 		IStorageOperationService storageOperations,
 		StorageOperationTracker operationTracker,
 		AppSettingsService appSettings,
@@ -85,10 +86,9 @@ public sealed partial class MainWindow : Window
 		_closeAsync = closeAsync;
 		_createWindowAsync = createWindowAsync;
 		_windowHandle = WindowNative.GetWindowHandle(this);
-		var itemActivationService = new ItemActivationService(workspace, _windowHandle);
-		var windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
+		var itemActivationService = new ItemActivationService(windowsServices, _windowHandle);
 		_itemPropertiesService = new ItemPropertiesService(_windowHandle, workspace, storageOperations, iconResources,
-			windowsSource is null ? null : new WindowsShellPropertiesService(windowsSource));
+			windowsServices.Properties);
 		var presentationFactory = new WindowPresentationFactory(
 			workspace,
 			storageOperations,
@@ -99,7 +99,7 @@ public sealed partial class MainWindow : Window
 			itemActivationService,
 			_itemPropertiesService,
 			_windowHandle,
-			loggerFactory);
+			loggerFactory, windowsServices);
 		_rootView = new RootView(presentationFactory.Create(coreWindow), windowsShellPreviewSessions, loggerFactory);
 		_rootView.ViewModel.CloseWindowAsync = CloseFromCommandAsync;
 		RootContent.Content = _rootView;

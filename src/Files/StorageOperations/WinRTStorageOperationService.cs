@@ -15,13 +15,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Files.StorageOperations;
 
-internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IStorageJobService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache, IDisposable
+internal sealed partial class WinRTStorageOperationService : IStorageOperationService, IStorageJobService, IWindowsShellOperationService, IOperationStatusSource, IThumbnailCache,
+	IFileAttributeOperationService, IDisposable
 {
 	private readonly Lock _syncRoot = new();
 	private readonly ILogger<WinRTStorageOperationService> _logger;
 	private readonly HashSet<string> _ftpSources = [];
 	private readonly CancellationTokenSource _shutdown = new();
-	private readonly MemoryThumbnailCache _fallbackThumbnailCache = new();
+	private readonly IThumbnailCache _fallbackThumbnailCache = Files.Hosting.FilesHost.CreateThumbnailCache();
 	private readonly Task _observer;
 	private Task<BackgroundServer.AppService>? _connection;
 	private BackgroundServer.OperationSummary[] _operations = [];
@@ -259,8 +260,8 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		var items = paths.Select(path => new BackgroundServer.StorageOperationData
 		{
 			Kind = move ? BackgroundServer.StorageOperationKind.Move : BackgroundServer.StorageOperationKind.Copy,
-			Item = new BackgroundServer.StorageReferenceData { SourceId = WindowsStorageSource.DefaultSourceType, ItemId = string.Empty, HasAddress = true,
-				AddressScheme = WindowsStorageSource.FileAddressScheme, AddressValue = path },
+			Item = new BackgroundServer.StorageReferenceData { SourceId = WindowsStorageIdentity.DefaultSourceType, ItemId = string.Empty, HasAddress = true,
+				AddressScheme = WindowsStorageIdentity.FileAddressScheme, AddressValue = path },
 			Destination = ToData(destination),
 			Name = string.Empty,
 			DisplayName = Path.GetFileName(path.TrimEnd('\\', '/')),
@@ -304,7 +305,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		}
 	}
 
-	internal async Task ApplyAttributesAsync(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
+	public async Task ApplyAttributesAsync(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
 	{
 		var result = await ApplyPropertiesAsync(paths, changes, null, cancellationToken).ConfigureAwait(false);
 		if (!result.Succeeded)
@@ -637,8 +638,8 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 
 	private static bool IsWindowsReference(StorableReference item, bool requireFileSystem)
 	{
-		return item.SourceId.Value == WindowsStorageSource.DefaultSourceType
-			&& (!requireFileSystem || item.LastKnownAddress?.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) is true);
+		return item.SourceId.Value == WindowsStorageIdentity.DefaultSourceType
+			&& (!requireFileSystem || item.LastKnownAddress?.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase) is true);
 	}
 
 	private static bool IsTerminal(BackgroundServer.OperationState state)
@@ -687,7 +688,8 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 	{
 		var data = request switch
 		{
-			DeleteOperationRequest delete => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Delete, Item = ToData(delete.Item), Permanently = delete.Permanently },
+			DeleteOperationRequest delete => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Delete, Item = ToData(delete.Item),
+				Permanently = delete.Permanently },
 			RenameOperationRequest rename => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Rename, Item = ToData(rename.Item), Name = rename.NewName },
 			CreateItemOperationRequest create => new BackgroundServer.StorageOperationData { Kind = create.Kind == StorageItemKind.File
 				? BackgroundServer.StorageOperationKind.CreateFile : BackgroundServer.StorageOperationKind.CreateFolder,

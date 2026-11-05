@@ -17,7 +17,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Contains an apartment-neutral Windows Shell selection prepared for a WinUI drag surface.
 /// </summary>
-public sealed class WindowsShellDragSource
+public sealed class WindowsShellDragSource : IWindowsShellDragSource
 {
 	private const WindowsShellDropEffects TransferEffects = WindowsShellDropEffects.Copy | WindowsShellDropEffects.Move | WindowsShellDropEffects.Link;
 	private const SFGAO_FLAGS TransferAttributes = SFGAO_FLAGS.SFGAO_CANCOPY | SFGAO_FLAGS.SFGAO_CANMOVE | SFGAO_FLAGS.SFGAO_CANLINK;

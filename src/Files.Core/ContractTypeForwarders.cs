@@ -184,3 +184,6 @@ using System.Runtime.CompilerServices;
 [assembly: TypeForwardedTo(typeof(Files.Core.Storage.SimpleStorableItem))]
 [assembly: TypeForwardedTo(typeof(Files.Core.Storage.StorageItemNotFolderException))]
 [assembly: TypeForwardedTo(typeof(Files.Core.Capabilities.CapabilityExtensions))]
+[assembly: TypeForwardedTo(typeof(Files.Core.Browsing.IBrowsePrefetchCoordinator))]
+[assembly: TypeForwardedTo(typeof(Files.Core.Browsing.StorableReferenceExtensions))]
+[assembly: TypeForwardedTo(typeof(Files.Core.Browsing.BrowseSessionExtensions))]

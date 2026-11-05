@@ -18,6 +18,7 @@ namespace Files.ItemProperties;
 internal sealed partial class ItemPropertiesViewModel : ObservableObject
 {
 	private const string FileDescriptionPropertyId = "System.FileDescription";
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly IItemPropertiesFileSystem _itemPropertiesFileSystem;
 	private readonly IReadOnlyList<BrowseItemViewModel> _items;
 	private readonly List<string> _fileSystemPaths;
@@ -370,7 +371,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 
 	public ObservableCollection<ItemPropertyDetail> Details { get; }
 
-	public ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items) : this(items, null, new ItemPropertiesFileSystem())
+	public ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items) : this(items, null, Files.Hosting.FilesHost.CreateItemPropertiesFileSystem())
 	{
 	}
 
@@ -462,7 +463,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 					_originalName = Name;
 				}
 
-				var driveDisplayName = WindowsVolumeLabelService.GetDisplayName(_fileSystemPaths[0]);
+				var driveDisplayName = _propertyActions.GetDisplayName(_fileSystemPaths[0]);
 				WindowTitle = string.Format(CultureInfo.CurrentCulture, Strings.PropertiesTitleFormat.GetLocalized(), driveDisplayName);
 				FileSystem = drive.FileSystem;
 				UsedSpace = FormatSize(drive.UsedSpace);
@@ -517,7 +518,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		var applyToContents = ApplyToContents;
 		if (IsDrive && !StringComparer.Ordinal.Equals(requestedName, _originalName))
 		{
-			WindowsVolumeLabelService.SetLabel(owner, _fileSystemPaths[0], requestedName);
+			_propertyActions.SetLabel(owner, _fileSystemPaths[0], requestedName);
 		}
 
 		var changes = new ItemPropertiesFileSystemChanges(IsDrive, _initialIsDriveCompressed, _initialIsDriveIndexed, IsDriveCompressed, IsDriveIndexed, requestedReadOnly, requestedHidden,
@@ -556,7 +557,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		_initialIsEncrypted = IsEncrypted;
 		_initialIsDriveCompressed = IsDriveCompressed;
 		_initialIsDriveIndexed = IsDriveIndexed;
-		var titleName = IsDrive ? WindowsVolumeLabelService.GetDisplayName(_fileSystemPaths[0]) : Name;
+		var titleName = IsDrive ? _propertyActions.GetDisplayName(_fileSystemPaths[0]) : Name;
 		WindowTitle = string.Format(CultureInfo.CurrentCulture, Strings.PropertiesTitleFormat.GetLocalized(), titleName);
 		OnPropertyChanged(nameof(HasChanges));
 	}
@@ -739,7 +740,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		foreach (var item in items)
 		{
 			var address = item.Reference.LastKnownAddress;
-			if (address is null || !address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) || !Path.IsPathRooted(address.Value))
+			if (address is null || !address.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase) || !Path.IsPathRooted(address.Value))
 			{
 				continue;
 			}
@@ -852,7 +853,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 	{
 		_renameReference = result.ResultItem ?? _renameReference;
 		var resultAddress = result.ResultItem?.LastKnownAddress;
-		if (resultAddress is not null && resultAddress.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(resultAddress.Value))
+		if (resultAddress is not null && resultAddress.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase) && Path.IsPathRooted(resultAddress.Value))
 		{
 			_fileSystemPaths[0] = resultAddress.Value;
 

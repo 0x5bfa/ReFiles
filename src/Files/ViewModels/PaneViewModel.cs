@@ -14,7 +14,7 @@ namespace Files.ViewModels;
 [WinRT.GeneratedBindableCustomProperty]
 public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
-	private readonly PaneSession _pane;
+	private readonly IPaneSession _pane;
 	private readonly PaneContentPresentation _presentation;
 
 	private int _isDisposed;
@@ -56,7 +56,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
-	internal PaneViewModel(PaneSession pane, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
+	internal PaneViewModel(IPaneSession pane, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
 

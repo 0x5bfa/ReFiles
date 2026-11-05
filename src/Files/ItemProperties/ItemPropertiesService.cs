@@ -6,7 +6,6 @@ using Files.Core.Capabilities;
 using Files.Core.Capabilities.Thumbnails;
 using Files.Core.Data;
 using Files.ViewModels;
-using Files.StorageOperations;
 using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Windows.Win32;
@@ -18,16 +17,16 @@ namespace Files.ItemProperties;
 internal sealed partial class ItemPropertiesService : IItemPropertiesService, IDisposable
 {
 	private readonly nint _owner;
-	private readonly IStorageWorkspace _workspace;
+	private readonly IStorageReader _workspace;
 	private readonly ItemPropertiesIconResources _iconResources;
 	private readonly IItemPropertiesFileSystem _fileSystem;
-	private readonly WindowsShellPropertiesService? _shellProperties;
+	private readonly IWindowsShellPropertiesService? _shellProperties;
 	private readonly IStorageOperationService _storageOperations;
 	private readonly HashSet<ItemPropertiesWindow> _windows = [];
 	private bool _isDisposed;
 
-	internal ItemPropertiesService(nint owner, IStorageWorkspace workspace, IStorageOperationService storageOperations, ItemPropertiesIconResources iconResources,
-		WindowsShellPropertiesService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
+	internal ItemPropertiesService(nint owner, IStorageReader workspace, IStorageOperationService storageOperations, ItemPropertiesIconResources iconResources,
+		IWindowsShellPropertiesService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 
@@ -38,7 +37,7 @@ internal sealed partial class ItemPropertiesService : IItemPropertiesService, ID
 		_owner = owner;
 		_workspace = workspace;
 		_iconResources = iconResources;
-		_fileSystem = fileSystem ?? new ItemPropertiesFileSystem(storageOperations as WinRTStorageOperationService);
+		_fileSystem = fileSystem ?? Files.Hosting.FilesHost.CreateItemPropertiesFileSystem(storageOperations as IFileAttributeOperationService);
 		_shellProperties = shellProperties;
 		_storageOperations = storageOperations;
 	}

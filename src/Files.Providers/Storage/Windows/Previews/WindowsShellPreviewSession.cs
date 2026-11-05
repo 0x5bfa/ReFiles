@@ -250,6 +250,12 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 	{
 		ArgumentNullException.ThrowIfNull(result);
 		ArgumentNullException.ThrowIfNull(host);
+
+		if (!global::Windows.Win32.PInvoke.IsWindow((global::Windows.Win32.Foundation.HWND)host.WindowHandle))
+		{
+			throw new ArgumentException("The preview host window handle is not valid.", nameof(host));
+		}
+
 		cancellationToken.ThrowIfCancellationRequested();
 
 		WindowsPreviewTarget? target = null;

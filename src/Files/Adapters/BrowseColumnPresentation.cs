@@ -10,7 +10,7 @@ namespace Files.Adapters;
 
 internal sealed partial class BrowseColumnPresentation : IAsyncDisposable
 {
-	private readonly BrowsePaneSession _pane;
+	private readonly IBrowsePaneSession _pane;
 	private readonly Action<long, IReadOnlyList<DetailsColumnViewModel>> _publish;
 	private readonly Lock _pendingLock = new();
 	private readonly CancellationTokenSource _lifetime = new();
@@ -18,7 +18,7 @@ internal sealed partial class BrowseColumnPresentation : IAsyncDisposable
 	private ColumnCache? _columnCache;
 	private int _isDisposed;
 
-	internal BrowseColumnPresentation(BrowsePaneSession pane, Action<long, IReadOnlyList<DetailsColumnViewModel>> publish)
+	internal BrowseColumnPresentation(IBrowsePaneSession pane, Action<long, IReadOnlyList<DetailsColumnViewModel>> publish)
 	{
 		_pane = pane;
 		_publish = publish;

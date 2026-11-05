@@ -20,7 +20,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Resolves and invokes the fixed contextual commands exposed by the Windows Shell.
 /// </summary>
-public sealed class WindowsShellContextualCommandService
+public sealed class WindowsShellContextualCommandService : IWindowsShellContextualCommandService
 {
 	private const uint ContextMenuQueryFlags = 0x00000100 | 0x00000800;
 	private const string CommandStoreRegistryPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell";

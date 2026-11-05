@@ -18,7 +18,7 @@ using Windows.Win32.UI.Shell.Common;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Reads Windows Shell property pages and invokes the native property sheet.</summary>
-public sealed class WindowsShellPropertiesService
+public sealed class WindowsShellPropertiesService : IWindowsShellPropertiesService
 {
 	private readonly WindowsStorageSource _source;
 

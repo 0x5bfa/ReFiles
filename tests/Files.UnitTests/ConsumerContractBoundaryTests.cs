@@ -40,13 +40,15 @@ public sealed class ConsumerContractBoundaryTests
 	{
 		await using var runtime = FilesHost.CreateUiRuntime(operations: new StorageOperationService([]));
 		Assert.IsFalse(runtime is IOperationHostRuntime);
-		Assert.IsFalse(runtime is FilesCoreRuntime);
+		Assert.IsFalse((object)runtime is FilesCoreRuntime);
 		Assert.IsFalse(runtime is IProviderRuntimeServices);
 		Assert.IsFalse(runtime.Workspace is IStorageSourceRegistry);
 		Assert.IsFalse(runtime.Workspace is IStorageWorkspace);
 		Assert.IsFalse(runtime.Workspace is IDisposable);
 		Assert.IsFalse(runtime.Workspace is IAsyncDisposable);
 		Assert.HasCount(1, runtime.Workspace.Sources);
+		Assert.AreEqual(runtime.Workspace.Sources[0].SourceId, runtime.Windows.SourceId);
+		Assert.IsNotNull(runtime.Windows.Previews);
 		Assert.AreEqual("windows-shell", runtime.Workspace.Sources[0].SourceType);
 		await using var pane = runtime.CreateBrowsePane();
 		Assert.IsInstanceOfType<IBrowsePaneSession>(pane.Content);

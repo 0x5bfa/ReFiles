@@ -1,27 +1,29 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-#pragma warning disable RS0030 // Physical filesystem access is isolated behind this adapter.
 
 using System.IO;
 using System.Runtime.InteropServices;
 using Files.Core.Storage.Windows;
-using Files.StorageOperations;
 using Windows.Win32;
 
-namespace Files.ItemProperties;
+namespace Files.Core.Storage.Windows;
 
-internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
+/// <summary>Implements filesystem property inspection behind consumer contracts.</summary>
+public sealed class WindowsItemPropertiesFileSystem : IItemPropertiesFileSystem
 {
 	private const uint DriveCdRom = 5;
 	private const uint FileReadOnlyVolume = 0x00080000;
-	private readonly WinRTStorageOperationService? _operations;
+	private readonly IFileAttributeOperationService? _operations;
 
-	internal ItemPropertiesFileSystem(WinRTStorageOperationService? operations = null)
+	/// <summary>Creates the inspector with a borrowed attribute operation executor.</summary>
+	/// <param name="operations">The executor, required only when applying changes.</param>
+	public WindowsItemPropertiesFileSystem(IFileAttributeOperationService? operations = null)
 	{
 		_operations = operations;
 	}
 
+	/// <inheritdoc />
 	public ItemPropertiesFileSystemSelection Inspect(IReadOnlyList<ItemPropertiesFileSystemCandidate> candidates)
 	{
 		ArgumentNullException.ThrowIfNull(candidates);
@@ -54,6 +56,7 @@ internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 		return new(paths, hasFolders, isSingleFile, isSingleFolder, isDrive, isReadOnly, isHidden, isArchive, isIndexed, isCompressed, isEncrypted, capabilities);
 	}
 
+	/// <inheritdoc />
 	public ItemPropertiesFileSystemMetadata ReadMetadata(IReadOnlyList<string> paths, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(paths);
@@ -101,6 +104,7 @@ internal sealed class ItemPropertiesFileSystem : IItemPropertiesFileSystem
 		return new(size, sizeOnDisk, fileCount, folderCount, hasDirectory, creationTimes, modifiedTimes, accessedTimes, null);
 	}
 
+	/// <inheritdoc />
 	public void Apply(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(paths);

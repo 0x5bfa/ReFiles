@@ -265,7 +265,7 @@ public sealed class ItemPropertiesViewModelTests
 			var reference = new StorableReference(new StorageSourceId("test"), path, new StorageAddress("file", path));
 			var item = new BrowseItemViewModel(Path.GetFileName(path), false, reference, showFileExtensions: false);
 			var storageOperations = new RecordingStorageOperationService();
-			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[item], storageOperations, new ItemPropertiesFileSystem()) { Name = "after" };
+			var viewModel = new ItemPropertiesViewModel((Files.ViewModels.BrowseItemViewModel[])[item], storageOperations, Files.Hosting.FilesHost.CreateItemPropertiesFileSystem()) { Name = "after" };
 
 			await viewModel.ApplyAsync();
 
@@ -338,7 +338,7 @@ public sealed class ItemPropertiesViewModelTests
 
 	private sealed class RecordingItemPropertiesFileSystem : IItemPropertiesFileSystem
 	{
-		private readonly ItemPropertiesFileSystem _fileSystem = new();
+		private readonly IItemPropertiesFileSystem _fileSystem = Files.Hosting.FilesHost.CreateItemPropertiesFileSystem();
 
 		public string[] Paths { get; private set; } = [];
 		public ItemPropertiesFileSystemChanges? Changes { get; private set; }

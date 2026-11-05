@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Files.Adapters;
 using Files.Commands;
 using Files.Core.Browsing;
+using Files.Core.Data;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Changes;
 using Files.Core;
@@ -37,7 +38,7 @@ public sealed class ArchitectureBoundaryTests
 		using var tracker = new StorageOperationTracker();
 		using var settings = new AppSettingsService(new AppSettingsData());
 		var dispatcher = new DispatcherQueueUIDispatcher(UnitTestApp.TestDispatcherQueue);
-		var factory = new WindowPresentationFactory(runtime.Workspace, runtime.StorageOperations, tracker, settings, dispatcher, AppCommandRegistration.Build());
+		var factory = new WindowPresentationFactory(runtime.Workspace.AsConsumerReader(), runtime.StorageOperations, tracker, settings, dispatcher, AppCommandRegistration.Build());
 		var createdViews = 0;
 		factory.RegisterPaneContent<CustomContent>((content, _) => new PaneContentPresentation(content, () =>
 		{

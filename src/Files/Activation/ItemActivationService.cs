@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using Files.Core.Data;
 using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 
@@ -36,14 +35,13 @@ internal sealed class ItemActivationService : IItemActivationService
 	private readonly nint _ownerWindowHandle;
 	private readonly IWindowsShellDefaultCommandService? _windowsShell;
 
-	internal ItemActivationService(IStorageWorkspace workspace, nint ownerWindowHandle)
+	internal ItemActivationService(IWindowsShellUiServices windowsServices, nint ownerWindowHandle)
 	{
-		ArgumentNullException.ThrowIfNull(workspace);
+		ArgumentNullException.ThrowIfNull(windowsServices);
 
-		var windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
-		_windowsSourceId = windowsSource?.SourceId;
+		_windowsSourceId = windowsServices.SourceId;
 		_ownerWindowHandle = ownerWindowHandle;
-		_windowsShell = windowsSource is null ? null : new WindowsShellDefaultCommandService(new WindowsShellDefaultCommandInvoker(windowsSource));
+		_windowsShell = new WindowsShellDefaultCommandService(windowsServices.DefaultCommands);
 	}
 
 	internal ItemActivationService(StorageSourceId? windowsSourceId, nint ownerWindowHandle, IWindowsShellDefaultCommandService? windowsShell)
@@ -99,15 +97,15 @@ internal sealed class ItemActivationService : IItemActivationService
 
 	private static bool IsFileSystemReference(StorableReference reference)
 	{
-		return reference.LastKnownAddress is { } address && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase);
+		return reference.LastKnownAddress is { } address && address.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase);
 	}
 }
 
 internal sealed class WindowsShellDefaultCommandService : IWindowsShellDefaultCommandService
 {
-	private readonly WindowsShellDefaultCommandInvoker _invoker;
+	private readonly IWindowsShellDefaultCommandInvoker _invoker;
 
-	internal WindowsShellDefaultCommandService(WindowsShellDefaultCommandInvoker invoker)
+	internal WindowsShellDefaultCommandService(IWindowsShellDefaultCommandInvoker invoker)
 	{
 		ArgumentNullException.ThrowIfNull(invoker);
 

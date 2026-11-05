@@ -10,7 +10,7 @@ namespace Files.Infrastructure;
 
 internal static class WinUIDataObjectBridge
 {
-	internal static DataPackageOperation Attach(WindowsShellDragSource dragSource, DataPackage dataPackage, nint ownerWindowHandle,
+	internal static DataPackageOperation Attach(IWindowsShellDragSource dragSource, DataPackage dataPackage, nint ownerWindowHandle,
 		WindowsShellDropEffects preferredEffect = WindowsShellDropEffects.None, bool deriveMoveFromDelete = true, ILogger? logger = null)
 	{
 		ArgumentNullException.ThrowIfNull(dragSource);
@@ -27,9 +27,9 @@ internal static class WinUIDataObjectBridge
 		return ToDataPackageOperation(effects);
 	}
 
-	internal static WindowsShellDataTransfer GetDataObject(DataPackageView dataPackageView)
+	internal static IWindowsShellDataTransfer GetDataObject(IWindowsShellDragDropService service, DataPackageView dataPackageView)
 	{
-		return WindowsShellDataTransfer.FromDataPackageView(dataPackageView);
+		return service.CaptureDataTransfer(dataPackageView);
 	}
 
 	internal static DataPackageOperation ToDataPackageOperation(WindowsShellDropEffects effects)

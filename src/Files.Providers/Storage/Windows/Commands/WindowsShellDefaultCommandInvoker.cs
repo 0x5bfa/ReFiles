@@ -14,7 +14,7 @@ namespace Files.Core.Storage.Windows;
 /// Resolves and invokes the default context-menu command for Windows Shell items.
 /// </summary>
 [SupportedOSPlatform("windows6.0.6000")]
-public sealed class WindowsShellDefaultCommandInvoker
+public sealed class WindowsShellDefaultCommandInvoker : IWindowsShellDefaultCommandInvoker
 {
 	private const uint NoDefaultCommand = uint.MaxValue;
 	// CDefView adds EXPLORE; the Shell invocation helpers add DEFAULTONLY and OPTIMIZEFORINVOKE.

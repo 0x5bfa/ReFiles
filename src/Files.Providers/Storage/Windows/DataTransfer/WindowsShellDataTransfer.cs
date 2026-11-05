@@ -8,7 +8,7 @@ using WinRT;
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Retains a Shell data object obtained on the calling STA without exposing its native interface.</summary>
-public sealed class WindowsShellDataTransfer
+public sealed class WindowsShellDataTransfer : IWindowsShellDataTransfer
 {
 	internal IDataObject DataObject { get; }
 

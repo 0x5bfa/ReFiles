@@ -17,7 +17,7 @@ namespace Files.ViewModels;
 
 public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
-	private readonly TabSession _tab;
+	private readonly ITabSession _tab;
 
 	private readonly IUIDispatcher _dispatcher;
 	private readonly WindowPresentationFactory _presentationFactory;
@@ -42,7 +42,7 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 	public PaneSplitOrientation SplitOrientation => _tab.SplitOrientation;
 
-	public bool IsSettings => _tab.ActivePane?.Content is SettingsPaneSession;
+	public bool IsSettings => _tab.ActivePane?.Content is ISettingsPaneSession;
 
 	public string Title => ActivePane?.Title ?? Strings.NewTab.GetLocalized();
 
@@ -88,7 +88,7 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
-	internal TabViewModel(TabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
+	internal TabViewModel(ITabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
 		ArgumentNullException.ThrowIfNull(tab);
 

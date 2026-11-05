@@ -4,7 +4,6 @@
 using System.IO;
 using Files.Core.Browsing;
 using Files.Core.ViewSettings;
-using Files.Core.Storage.Windows;
 using Files.Settings;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -24,11 +23,9 @@ public sealed class JsonViewSettingsStoreTests
 	{
 		var settingsRoot = Path.Combine(Path.GetTempPath(), $"JsonViewSettingsTests-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(settingsRoot);
-		WindowsStorageSource? source = null;
 		try
 		{
-			source = new WindowsStorageSource();
-			using (var store = new JsonViewSettingsStore(source, settingsRoot, TimeSpan.FromHours(1)))
+			using (var store = new JsonViewSettingsStore(settingsRoot, TimeSpan.FromHours(1)))
 			{
 				await store.InitializeAsync();
 				await store.SetAsync(HomeLocation.Instance, new BrowseViewSettings(ViewLayoutMode.List, itemSize: 2));
@@ -36,9 +33,7 @@ public sealed class JsonViewSettingsStoreTests
 			}
 
 			Assert.IsTrue(File.Exists(Path.Combine(settingsRoot, "Settings", "view-state.json")));
-			await source.DisposeAsync();
-			source = new WindowsStorageSource();
-			using var reloaded = new JsonViewSettingsStore(source, settingsRoot, TimeSpan.FromHours(1));
+			using var reloaded = new JsonViewSettingsStore(settingsRoot, TimeSpan.FromHours(1));
 			await reloaded.InitializeAsync();
 			var settings = await reloaded.GetAsync(HomeLocation.Instance);
 
@@ -48,11 +43,6 @@ public sealed class JsonViewSettingsStoreTests
 		}
 		finally
 		{
-			if (source is not null)
-			{
-				await source.DisposeAsync();
-			}
-
 			if (Directory.Exists(settingsRoot))
 			{
 				Directory.Delete(settingsRoot, recursive: true);

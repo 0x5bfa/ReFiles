@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using System.IO;
-using System.Runtime.InteropServices;
 using Files.Adapters;
 using Files.Commands;
 using Files.Core.Browsing;
@@ -15,8 +14,6 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Win32;
 using Windows.Win32.Foundation;
-using Windows.Win32.System.Com;
-using Windows.Win32.System.Ole;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -24,11 +21,11 @@ namespace Files.Presentation;
 
 internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 {
-	private readonly BrowsePaneSession _pane;
+	private readonly IBrowsePaneSession _pane;
 	private readonly BrowsePresentationAdapter _browseAdapter;
-	private readonly WindowsStorageSource? _windowsSource;
-	private readonly WindowsShellPropertiesService? _shellProperties;
-	private readonly WindowsShellContextualCommandService? _shellContextualCommandService;
+	private readonly IWindowsShellUiServices? _windowsServices;
+	private readonly IWindowsShellPropertiesService? _shellProperties;
+	private readonly IWindowsShellContextualCommandService? _shellContextualCommandService;
 	private readonly IWindowsShellOperationService? _shellOperations;
 	private readonly IUIDispatcher _dispatcher;
 	private readonly ILogger<WindowsBrowseInteraction> _logger;
@@ -47,12 +44,12 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	private bool IsLoading => _browseAdapter.IsLoading;
 	private bool IsBusy => _browseAdapter.IsBusy;
 	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedShellClipboardItems().Count is not 0;
-	public bool CanPaste => !IsLoading && !IsBusy && _windowsSource is not null && TryGetCurrentShellFolder(out _) && HasClipboardStorageItems();
-	public bool CanShowNew => !IsLoading && !IsBusy && _windowsSource is not null && TryGetCurrentFileSystemFolder(out _);
-	public bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsSource is not null;
+	public bool CanPaste => !IsLoading && !IsBusy && _windowsServices is not null && TryGetCurrentShellFolder(out _) && HasClipboardStorageItems();
+	public bool CanShowNew => !IsLoading && !IsBusy && _windowsServices is not null && TryGetCurrentFileSystemFolder(out _);
+	public bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsServices is not null;
 
-	internal WindowsBrowseInteraction(BrowsePaneSession pane, BrowsePresentationAdapter adapter, IStorageWorkspace workspace, IStorageOperationService operations,
-		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle, ILogger<WindowsBrowseInteraction>? logger = null)
+	internal WindowsBrowseInteraction(IBrowsePaneSession pane, BrowsePresentationAdapter adapter, IStorageOperationService operations,
+		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle, ILogger<WindowsBrowseInteraction>? logger = null, IWindowsShellUiServices? windowsServices = null)
 	{
 		_pane = pane;
 		_browseAdapter = adapter;
@@ -60,15 +57,15 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		_logger = logger ?? NullLogger<WindowsBrowseInteraction>.Instance;
 		CommandManager = commandManager;
 		_ownerWindowHandle = ownerWindowHandle;
-		_windowsSource = workspace.Sources.OfType<WindowsStorageSource>().FirstOrDefault();
-		_shellProperties = _windowsSource is { } source ? new WindowsShellPropertiesService(source) : null;
-		_shellContextualCommandService = _windowsSource is { } contextualSource && ownerWindowHandle != 0 ? new WindowsShellContextualCommandService(contextualSource) : null;
+		_windowsServices = windowsServices;
+		_shellProperties = _windowsServices?.Properties;
+		_shellContextualCommandService = ownerWindowHandle != 0 ? _windowsServices?.ContextualCommands : null;
 		_shellOperations = operations as IWindowsShellOperationService;
 	}
 
 	public Task<bool> IsShellDesktopAsync(StorableReference reference, CancellationToken cancellationToken)
 	{
-		return _windowsSource?.IsShellDesktopAsync(reference, cancellationToken).AsTask() ?? Task.FromResult(false);
+		return _windowsServices?.IsShellDesktopAsync(reference, cancellationToken).AsTask() ?? Task.FromResult(false);
 	}
 
 	public void Initialize()
@@ -118,31 +115,31 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	{
 		ArgumentNullException.ThrowIfNull(reference);
 
-		return _windowsSource is not null && reference.SourceId == _windowsSource.SourceId;
+		return _windowsServices is not null && reference.SourceId == _windowsServices.SourceId;
 	}
 
-	public async Task<WindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
+	public async Task<IWindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(selection);
 
-		if (_windowsSource is null || selection.Count is 0 || selection.Any(reference => reference.SourceId != _windowsSource.SourceId))
+		if (_windowsServices is null || selection.Count is 0 || selection.Any(reference => reference.SourceId != _windowsServices.SourceId))
 		{
 			return null;
 		}
 
-		return await _windowsSource.DragDrop.PrepareDragSourceAsync(selection, cancellationToken).ConfigureAwait(false);
+		return await _windowsServices.DragDrop.PrepareDragSourceAsync(selection, cancellationToken).ConfigureAwait(false);
 	}
 
-	public async Task<WindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
+	public async Task<IWindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(destination);
 
-		if (_windowsSource is null || destination.SourceId != _windowsSource.SourceId)
+		if (_windowsServices is null || destination.SourceId != _windowsServices.SourceId)
 		{
 			return null;
 		}
 
-		return await _windowsSource.DragDrop.PrepareDropTargetAsync(destination, background, cancellationToken).ConfigureAwait(false);
+		return await _windowsServices.DragDrop.PrepareDropTargetAsync(destination, background, cancellationToken).ConfigureAwait(false);
 	}
 
 	public Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
@@ -152,17 +149,17 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 	public async Task CopyItemsAsync(IReadOnlyList<StorableReference> selection, bool move, CancellationToken cancellationToken)
 	{
-		if (_windowsSource is null || selection.Count is 0)
+		if (_windowsServices is null || selection.Count is 0)
 		{
 			throw new NotSupportedException("Only Windows Shell items can be copied to the Windows clipboard.");
 		}
 
-		await _windowsSource.Clipboard.SetItemsAsync(selection, move, _ownerWindowHandle, cancellationToken).ConfigureAwait(false);
+		await _windowsServices.Clipboard.SetItemsAsync(selection, move, _ownerWindowHandle, cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task PasteFromClipboardAsync(CancellationToken cancellationToken = default)
 	{
-		if (_windowsSource is null || !TryGetCurrentShellFolder(out var destinationFolder))
+		if (_windowsServices is null || !TryGetCurrentShellFolder(out var destinationFolder))
 		{
 			throw new NotSupportedException("The current location cannot receive Windows Shell clipboard items.");
 		}
@@ -178,7 +175,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		{
 			_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", "Paste falling back to native Shell paste.");
 		}
-		if (!await _windowsSource.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
+		if (!await _windowsServices.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
 			return;
 		}
@@ -188,7 +185,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 	public async Task<IReadOnlyList<WindowsShellNewItem>> GetNewItemsAsync(CancellationToken cancellationToken = default)
 	{
-		if (_windowsSource is null || !TryGetCurrentFileSystemFolder(out var folder))
+		if (_windowsServices is null || !TryGetCurrentFileSystemFolder(out var folder))
 		{
 			return [];
 		}
@@ -202,7 +199,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	{
 		ArgumentNullException.ThrowIfNull(item);
 
-		if (_windowsSource is null || !TryGetCurrentFileSystemFolder(out var folder))
+		if (_windowsServices is null || !TryGetCurrentFileSystemFolder(out var folder))
 		{
 			throw new NotSupportedException("The current location does not expose a Windows Shell New menu.");
 		}
@@ -213,24 +210,24 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		await RefreshAsync(cancellationToken).ConfigureAwait(false);
 	}
 
-	public Task<WindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<StorableReference> selection,
+	public Task<IWindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<StorableReference> selection,
 		IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries, WindowsShellContextMenuEntry? expandedMenuEntry, Point clientPoint,
 		double rasterizationScale, bool extendedVerbs, CancellationToken cancellationToken)
 	{
-		if (_windowsSource is null || _ownerWindowHandle is 0)
+		if (_windowsServices is null || _ownerWindowHandle is 0)
 		{
-			return Task.FromResult<WindowsShellContextMenuSession?>(null);
+			return Task.FromResult<IWindowsShellContextMenuSession?>(null);
 		}
 
 		var point = new System.Drawing.Point(checked((int)Math.Round(clientPoint.X * rasterizationScale)), checked((int)Math.Round(clientPoint.Y * rasterizationScale)));
 		if (PInvoke.ClientToScreen(new HWND(_ownerWindowHandle), ref point).Value is 0)
 		{
-			return Task.FromResult<WindowsShellContextMenuSession?>(null);
+			return Task.FromResult<IWindowsShellContextMenuSession?>(null);
 		}
 
 		var context = new WindowsShellInvocationContext(_ownerWindowHandle, GetContextualCommandWorkingDirectory(), new(point.X, point.Y));
 
-		return WindowsShellContextMenuSession.CreateAsync(_windowsSource, selection.ToArray(), context, applicationEntries, expandedMenuEntry, extendedVerbs, cancellationToken);
+		return _windowsServices.CreateContextMenuAsync( selection.ToArray(), context, applicationEntries, expandedMenuEntry, extendedVerbs, cancellationToken);
 	}
 
 	public CommandState GetContextualCommandState(string commandId, bool hideWhenShellDisabled)
@@ -279,16 +276,16 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		return _shellProperties is null ? Task.FromResult(false) : _shellProperties.ShowShellPropertiesAsync(selection.ToArray(), cancellationToken);
 	}
 
-	public Task<WindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken = default)
+	public Task<IWindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(selection);
 
-		return _windowsSource is null
-			? Task.FromResult<WindowsShellContextMenuTarget?>(null)
-			: WindowsShellContextMenuTarget.CreateAsync(_windowsSource, selection.ToArray(), cancellationToken);
+		return _windowsServices is null
+			? Task.FromResult<IWindowsShellContextMenuTarget?>(null)
+			: _windowsServices.GetContextMenuTargetAsync( selection.ToArray(), cancellationToken);
 	}
 
-	public bool ShowShellContextMenu(WindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
+	public bool ShowShellContextMenu(IWindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
 	{
 		ArgumentNullException.ThrowIfNull(target);
 
@@ -304,7 +301,12 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 			return false;
 		}
 
-		return new WindowsShellClassicContextMenuSession().Show(owner, target, point);
+		return _windowsServices?.ShowContextMenu(owner, target, point) ?? false;
+	}
+
+	public IWindowsShellDataTransfer CaptureDataTransfer(DataPackageView view)
+	{
+		return (_windowsServices ?? throw new NotSupportedException("Windows data transfer is unavailable.")).DragDrop.CaptureDataTransfer(view);
 	}
 
 	private Task RefreshAsync(CancellationToken cancellationToken)
@@ -515,7 +517,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 	private string? GetContextualCommandWorkingDirectory()
 	{
-		return Location is FolderLocation { Folder.LastKnownAddress: { } address } && address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
+		return Location is FolderLocation { Folder.LastKnownAddress: { } address } && address.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
 			? address.Value
 			: null;
 	}
@@ -526,7 +528,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		var selection = new List<StorableReference>(selectedItems.Count);
 		foreach (var item in selectedItems)
 		{
-			if (_windowsSource is null || item.Reference.SourceId != _windowsSource.SourceId)
+			if (_windowsServices is null || item.Reference.SourceId != _windowsServices.SourceId)
 			{
 				return [];
 			}
@@ -539,7 +541,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 	private bool TryGetCurrentShellFolder(out StorableReference folder)
 	{
-		if (_windowsSource is not null && Location is FolderLocation { Folder: var candidate } && candidate.SourceId == _windowsSource.SourceId)
+		if (_windowsServices is not null && Location is FolderLocation { Folder: var candidate } && candidate.SourceId == _windowsServices.SourceId)
 		{
 			folder = candidate;
 
@@ -551,102 +553,26 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		return false;
 	}
 
-	private static bool HasClipboardStorageItems()
+	private bool HasClipboardStorageItems()
 	{
-		try
-		{
-			if (Clipboard.GetContent().Contains(StandardDataFormats.StorageItems))
-			{
-				return true;
-			}
-		}
-		catch
-		{
-		}
-
-		try
-		{
-			return TryGetNativeClipboardFilePaths(out _);
-		}
-		catch
-		{
-			return false;
-		}
+		return _windowsServices?.Clipboard.HasStorageItems() ?? false;
 	}
 
-#pragma warning disable RS0030 // Windows Storage Items are required for clipboard interoperability.
 	private async Task<bool> TryPasteFileSystemClipboardAsync(StorableReference destinationFolder, CancellationToken cancellationToken)
 	{
-		DataPackageView? data = null;
-		var paths = new List<string>();
-		try
-		{
-			data = Clipboard.GetContent();
-			if (data.Contains(StandardDataFormats.StorageItems))
-			{
-				IReadOnlyList<Windows.Storage.IStorageItem> storageItems;
-				try
-				{
-					storageItems = await data.GetStorageItemsAsync();
-				}
-				catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-				{
-					throw;
-				}
-				catch
-				{
-					storageItems = [];
-				}
-
-				foreach (var storageItem in storageItems)
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					try
-					{
-						if (!string.IsNullOrWhiteSpace(storageItem.Path))
-						{
-							paths.Add(storageItem.Path);
-						}
-					}
-					catch
-					{
-					}
-				}
-			}
-		}
-		catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-		{
-			throw;
-		}
-		catch
-		{
-			data = null;
-		}
-
-		IReadOnlyList<string> nativePaths = [];
-		var hasNativePaths = paths.Count is not 0 || TryGetNativeClipboardFilePaths(out nativePaths);
-		if (!hasNativePaths)
+		var snapshot = _windowsServices is null ? null : await _windowsServices.Clipboard.ReadFileSystemItemsAsync(cancellationToken);
+		if (snapshot is null || snapshot.Paths.Count is 0)
 		{
 			return false;
 		}
 
-		if (paths.Count is 0)
-		{
-			paths.AddRange(nativePaths);
-		}
-
-		if (paths.Count is 0)
-		{
-			return false;
-		}
-
-		var move = data?.RequestedOperation.HasFlag(DataPackageOperation.Move) is true;
 		if (_logger.IsEnabled(LogLevel.Debug))
 		{
-			_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", $"Paste server kind={(move ? "Move" : "Copy")} items={paths.Count}");
+			_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", $"Paste server kind={(snapshot.Move ? "Move" : "Copy")} items={snapshot.Paths.Count}");
 		}
-		var addresses = paths.Select(static path => new StorageAddress(WindowsStorageSource.FileAddressScheme, path)).ToArray();
-		var result = await _pane.TransferAddressesAsync(addresses, destinationFolder, move, cancellationToken).ConfigureAwait(false);
+
+		var addresses = snapshot.Paths.Select(static path => new StorageAddress(WindowsStorageIdentity.FileAddressScheme, path)).ToArray();
+		var result = await _pane.TransferAddressesAsync(addresses, destinationFolder, snapshot.Move, cancellationToken).ConfigureAwait(false);
 		if (!result.Succeeded)
 		{
 			throw result.Error!;
@@ -654,95 +580,11 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 		return true;
 	}
-#pragma warning restore RS0030
-
-	private static unsafe bool TryGetNativeClipboardFilePaths(out IReadOnlyList<string> paths)
-	{
-		paths = [];
-		if (PInvoke.OleGetClipboard(out var dataObject).Failed || dataObject is null)
-		{
-			return false;
-		}
-
-		var format = default(FORMATETC);
-		format.cfFormat = 15;
-		format.dwAspect = (uint)DVASPECT.DVASPECT_CONTENT;
-		format.lindex = -1;
-		format.tymed = (uint)TYMED.TYMED_HGLOBAL;
-		if (dataObject.GetData(in format, out var medium).Failed)
-		{
-			return false;
-		}
-
-		try
-		{
-			if (medium.tymed is not TYMED.TYMED_HGLOBAL || medium.u.hGlobal.IsNull)
-			{
-				return false;
-			}
-
-			var size = PInvoke.GlobalSize(medium.u.hGlobal);
-			if (size < 20)
-			{
-				return false;
-			}
-
-			var buffer = PInvoke.GlobalLock(medium.u.hGlobal);
-			if (buffer is null)
-			{
-				return false;
-			}
-
-			try
-			{
-				var offset = Marshal.ReadInt32((nint)buffer);
-				var isWide = Marshal.ReadInt32((nint)buffer, 16) is not 0;
-				if (offset < 20 || (nuint)offset >= size || !isWide)
-				{
-					return false;
-				}
-
-				var remaining = checked((int)size - offset);
-				var current = (nint)buffer + offset;
-				var result = new List<string>();
-				while (remaining >= sizeof(char))
-				{
-					var length = 0;
-					while ((length + 1) * sizeof(char) <= remaining && Marshal.ReadInt16(current, length * sizeof(char)) is not 0)
-					{
-						length++;
-					}
-
-					if (length is 0)
-					{
-						break;
-					}
-
-					result.Add(Marshal.PtrToStringUni(current, length));
-					var advance = checked((length + 1) * sizeof(char));
-					current += advance;
-					remaining -= advance;
-				}
-
-				paths = result;
-
-				return result.Count is not 0;
-			}
-			finally
-			{
-				_ = PInvoke.GlobalUnlock(medium.u.hGlobal);
-			}
-		}
-		finally
-		{
-			PInvoke.ReleaseStgMedium(ref medium);
-		}
-	}
 
 	private bool TryGetCurrentFileSystemFolder(out StorableReference folder)
 	{
 		if (Location is FolderLocation { Folder: { LastKnownAddress: { } address } }
-			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
+			&& address.Scheme.Equals(WindowsStorageIdentity.FileAddressScheme, StringComparison.OrdinalIgnoreCase)
 			&& Path.IsPathRooted(address.Value))
 		{
 			folder = ((FolderLocation)Location).Folder;

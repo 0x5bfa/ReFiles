@@ -5,4 +5,4 @@ using Files.Core.Storage.Windows;
 
 namespace Files.Infrastructure;
 
-internal sealed record WinUIShellDropTransition(WindowsShellDataTransfer DataObject, WinUIShellDragState DragState, long Generation, CancellationToken CancellationToken);
+internal sealed record WinUIShellDropTransition(IWindowsShellDataTransfer DataObject, WinUIShellDragState DragState, long Generation, CancellationToken CancellationToken);

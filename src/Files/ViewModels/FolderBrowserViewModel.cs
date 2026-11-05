@@ -45,7 +45,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 	private const int LocationIconSize = 16;
 
 	private readonly BrowsePresentationAdapter _browseAdapter;
-	private readonly BrowsePaneSession _pane;
+	private readonly IBrowsePaneSession _pane;
 	private readonly IBrowseInteraction _interaction;
 	private readonly AppSettingsService _appSettings;
 	private readonly ILoggerFactory _loggerFactory;
@@ -182,7 +182,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 
 	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
-	internal FolderBrowserViewModel(BrowsePaneSession pane, BrowsePresentationAdapter adapter, IBrowseInteraction interaction,
+	internal FolderBrowserViewModel(IBrowsePaneSession pane, BrowsePresentationAdapter adapter, IBrowseInteraction interaction,
 		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(pane);
@@ -322,12 +322,17 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _interaction.SupportsShellDragDrop(reference);
 	}
 
-	internal Task<WindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
+	internal Task<IWindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
 	{
 		return _interaction.PrepareShellDragSourceAsync(selection, cancellationToken);
 	}
 
-	internal Task<WindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
+	internal IWindowsShellDataTransfer CaptureDataTransfer(global::Windows.ApplicationModel.DataTransfer.DataPackageView view)
+	{
+		return _interaction.CaptureDataTransfer(view);
+	}
+
+	internal Task<IWindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
 	{
 		return _interaction.PrepareShellDropTargetAsync(destination, background, cancellationToken);
 	}
@@ -357,7 +362,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _interaction.InvokeNewItemAsync(item, cancellationToken);
 	}
 
-	internal Task<WindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<BrowseItemViewModel> selection,
+	internal Task<IWindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<BrowseItemViewModel> selection,
 		IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries, WindowsShellContextMenuEntry? expandedMenuEntry, Point clientPoint,
 		double rasterizationScale, bool extendedVerbs, CancellationToken cancellationToken)
 	{
@@ -380,12 +385,12 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _interaction.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
-	internal Task<WindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	internal Task<IWindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
 	{
 		return _interaction.GetShellContextMenuTargetAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
 	}
 
-	internal bool ShowShellContextMenu(WindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
+	internal bool ShowShellContextMenu(IWindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
 	{
 		return _interaction.ShowShellContextMenu(target, clientPoint, rasterizationScale);
 	}

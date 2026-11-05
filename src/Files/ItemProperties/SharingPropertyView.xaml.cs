@@ -16,6 +16,7 @@ public sealed partial class SharingPropertyView : UserControl
 {
 	private const int OperationCancelled = unchecked((int)0x800704C7);
 	private const int OperationTimedOut = unchecked((int)0x800705B4);
+	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -43,12 +44,12 @@ public sealed partial class SharingPropertyView : UserControl
 
 	private void AdvancedSharingButton_Click(object sender, RoutedEventArgs e)
 	{
-		RunSharingAction(() => WindowsShellSharingService.ShowAdvancedSharing(_owner, Sharing.ObjectPath));
+		RunSharingAction(() => _propertyActions.ShowAdvancedSharing(_owner, Sharing.ObjectPath));
 	}
 
 	private void NetworkAndSharingCenterLink_Click(Hyperlink sender, RoutedEventArgs args)
 	{
-		RunSharingAction(WindowsShellSharingService.OpenNetworkAndSharingCenter);
+		RunSharingAction(_propertyActions.OpenNetworkAndSharingCenter);
 	}
 
 	private void RunSharingAction(Func<WindowsShellOperationResult> action)
@@ -64,6 +65,6 @@ public sealed partial class SharingPropertyView : UserControl
 
 	private void ShareButton_Click(object sender, RoutedEventArgs e)
 	{
-		RunSharingAction(() => WindowsShellSharingService.ShowSharingWizard(_owner, Sharing.ObjectPath));
+		RunSharingAction(() => _propertyActions.ShowSharingWizard(_owner, Sharing.ObjectPath));
 	}
 }

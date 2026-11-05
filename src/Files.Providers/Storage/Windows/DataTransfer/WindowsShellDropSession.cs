@@ -15,7 +15,7 @@ namespace Files.Core.Storage.Windows;
 /// <summary>
 /// Forwards one WinUI drag sequence to a native Windows Shell drop target.
 /// </summary>
-public sealed class WindowsShellDropSession : IDisposable
+public sealed class WindowsShellDropSession : IWindowsShellDropSession
 {
 	private const WindowsShellDropEffects TransferEffects = WindowsShellDropEffects.Copy | WindowsShellDropEffects.Move | WindowsShellDropEffects.Link;
 
