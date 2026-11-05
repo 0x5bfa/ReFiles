@@ -53,12 +53,14 @@ public static unsafe class WindowsVolumeLabelService
 	/// <summary>
 	/// Changes or clears a filesystem volume label and notifies the Shell.
 	/// </summary>
-	/// <param name="owner">The window that owns the permission dialog and elevation prompt.</param>
+	/// <param name="ownerWindowHandle">The borrowed window handle that owns the permission dialog and elevation prompt.</param>
 	/// <param name="rootPath">The drive root path.</param>
 	/// <param name="label">The new volume label, or an empty string to clear it.</param>
-	public static void SetLabel(HWND owner, string rootPath, string label)
+	public static void SetLabel(nint ownerWindowHandle, string rootPath, string label)
 	{
 		ArgumentNullException.ThrowIfNull(label);
+
+		var owner = (HWND)ownerWindowHandle;
 
 		var root = GetRootPath(rootPath);
 		if (PInvoke.SetVolumeLabel(root, label))

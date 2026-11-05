@@ -163,7 +163,7 @@ public sealed class WindowsShellPreviewTests
 		var desktop = PInvoke.GetDesktopWindow();
 		var host = new WindowsPreviewHost(desktop, new WindowsPreviewBounds(0, 0, 640, 480));
 
-		Assert.IsFalse(host.WindowHandle.IsNull);
+		Assert.AreNotEqual((nint)0, host.WindowHandle);
 	}
 
 	/// <summary>
@@ -200,7 +200,7 @@ public sealed class WindowsShellPreviewTests
 		var scheduler = new InlineScheduler();
 		var factory = new WindowsShellPreviewSessionFactory(
 			new FakeTargetResolver(target), scheduler, new FakeControllerFactory(controller), AllowWindowsShellPreviewPolicy.Instance, AllowHandlerRegistrationValidator.Instance);
-		WindowsPreviewAcceleratorForwarder acceleratorForwarder = (in MSG _) => true;
+		WindowsPreviewAcceleratorForwarder acceleratorForwarder = (in WindowsPreviewMessage _) => true;
 		var host = CreateHost(acceleratorForwarder);
 
 		await using var session = await factory.CreateAsync(CreateResult(target.Reference), host);
@@ -214,7 +214,7 @@ public sealed class WindowsShellPreviewTests
 		await session.SetBoundsAsync(new WindowsPreviewBounds(1, 2, 3, 4));
 		await session.SetThemeAsync(new WindowsPreviewColor(1, 2, 3), new WindowsPreviewColor(4, 5, 6));
 		await session.SetFocusAsync();
-		Assert.AreEqual((HWND)(nint)123, await session.QueryFocusAsync());
+		Assert.AreEqual((nint)123, await session.QueryFocusAsync());
 
 		await session.DisposeAsync();
 		Assert.AreEqual(WindowsShellPreviewSessionState.Disposed, concreteSession.State);
@@ -267,8 +267,8 @@ public sealed class WindowsShellPreviewTests
 	public unsafe void PreviewHandlerFrameForwardsCompleteAcceleratorMessage()
 	{
 		var hostWindow = PInvoke.GetDesktopWindow();
-		MSG forwarded = default;
-		WindowsPreviewAcceleratorForwarder forwarder = (in MSG message) =>
+		WindowsPreviewMessage forwarded = default;
+		WindowsPreviewAcceleratorForwarder forwarder = (in WindowsPreviewMessage message) =>
 		{
 			forwarded = message;
 
@@ -286,16 +286,16 @@ public sealed class WindowsShellPreviewTests
 		accelerator.pt.Y = 20;
 
 		Assert.AreEqual(HRESULT.S_OK, frame.TranslateAccelerator(&accelerator));
-		Assert.AreEqual(hostWindow, forwarded.hwnd);
-		Assert.AreEqual(accelerator.message, forwarded.message);
-		Assert.AreEqual(accelerator.wParam, forwarded.wParam);
-		Assert.AreEqual(accelerator.lParam, forwarded.lParam);
-		Assert.AreEqual(accelerator.time, forwarded.time);
-		Assert.AreEqual(accelerator.pt.X, forwarded.pt.X);
-		Assert.AreEqual(accelerator.pt.Y, forwarded.pt.Y);
+		Assert.AreEqual((nint)hostWindow, forwarded.WindowHandle);
+		Assert.AreEqual(accelerator.message, forwarded.MessageId);
+		Assert.AreEqual(accelerator.wParam.Value, forwarded.WParam);
+		Assert.AreEqual(accelerator.lParam.Value, forwarded.LParam);
+		Assert.AreEqual(accelerator.time, forwarded.Timestamp);
+		Assert.AreEqual(accelerator.pt.X, forwarded.ScreenX);
+		Assert.AreEqual(accelerator.pt.Y, forwarded.ScreenY);
 		Assert.AreEqual(HRESULT.S_FALSE, new WindowsPreviewHandlerFrame(hostWindow, null).TranslateAccelerator(&accelerator));
-		WindowsPreviewAcceleratorForwarder rejectedForwarder = (in MSG _) => false;
-		WindowsPreviewAcceleratorForwarder failingForwarder = (in MSG _) => throw new InvalidOperationException("forwarding failed");
+		WindowsPreviewAcceleratorForwarder rejectedForwarder = (in WindowsPreviewMessage _) => false;
+		WindowsPreviewAcceleratorForwarder failingForwarder = (in WindowsPreviewMessage _) => throw new InvalidOperationException("forwarding failed");
 		Assert.AreEqual(HRESULT.S_FALSE, new WindowsPreviewHandlerFrame(hostWindow, rejectedForwarder).TranslateAccelerator(&accelerator));
 		Assert.AreEqual(HRESULT.E_FAIL, new WindowsPreviewHandlerFrame(hostWindow, failingForwarder).TranslateAccelerator(&accelerator));
 	}
@@ -706,7 +706,7 @@ public sealed class WindowsShellPreviewTests
 
 		public int DisposeCount { get; private set; }
 
-		public HWND SiteHostWindow { get; private set; }
+		public nint SiteHostWindow { get; private set; }
 
 		public WindowsPreviewAcceleratorForwarder? AcceleratorForwarder { get; private set; }
 
@@ -720,7 +720,7 @@ public sealed class WindowsShellPreviewTests
 			_order.Add("site");
 		}
 
-		public void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+		public void SetSite(nint hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 		{
 			SiteHostWindow = hostWindow;
 			AcceleratorForwarder = acceleratorForwarder;
@@ -748,7 +748,7 @@ public sealed class WindowsShellPreviewTests
 			return FileResult;
 		}
 
-		public void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds)
+		public void SetWindow(nint windowHandle, WindowsPreviewBounds bounds)
 		{
 			_order.Add("window");
 		}
@@ -782,9 +782,9 @@ public sealed class WindowsShellPreviewTests
 			_order.Add("focus");
 		}
 
-		public HWND QueryFocus()
+		public nint QueryFocus()
 		{
-			return (HWND)(nint)123;
+			return (nint)123;
 		}
 
 		public void Dispose()

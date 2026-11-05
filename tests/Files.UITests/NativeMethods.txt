@@ -1,0 +1,4 @@
+CreateSolidBrush
+GetDC
+GetPixel
+ReleaseDC

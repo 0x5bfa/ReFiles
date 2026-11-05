@@ -12,7 +12,7 @@ namespace Windows.Win32.UI.Shell;
 
 /// <summary>Controls Windows network discovery and file-sharing settings.</summary>
 [GeneratedComInterface, Guid("1FDA955C-61FF-11DA-978C-0008744FAAB7"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public partial interface IDetectionAndSharing
+internal partial interface IDetectionAndSharing
 {
 	/// <summary>Gets the status and recommended action for a sharing feature.</summary>
 	/// <param name="type">The feature to inspect.</param>
@@ -56,7 +56,7 @@ public partial interface IDetectionAndSharing
 }
 
 /// <summary>Identifies a network discovery or file-sharing feature.</summary>
-public enum DTSH_TYPE
+internal enum DTSH_TYPE
 {
 	/// <summary>Network discovery.</summary>
 	DTSH_NETWORK_DISCOVERY = 0,
@@ -65,7 +65,7 @@ public enum DTSH_TYPE
 }
 
 /// <summary>Describes whether a sharing feature is enabled.</summary>
-public enum DTSH_STATE
+internal enum DTSH_STATE
 {
 	/// <summary>The feature is disabled.</summary>
 	DTSH_OFF = 0,
@@ -74,7 +74,7 @@ public enum DTSH_STATE
 }
 
 /// <summary>Identifies an action suggested by the sharing service.</summary>
-public enum DTSH_ACTION
+internal enum DTSH_ACTION
 {
 	/// <summary>No action is required.</summary>
 	DTSH_NONE = 0,

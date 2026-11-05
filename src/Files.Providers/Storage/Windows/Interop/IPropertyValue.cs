@@ -13,7 +13,7 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("4BD682DD-7554-40E9-9A9B-82654EDE7E62")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IPropertyValue : IInspectable
+internal unsafe partial interface IPropertyValue : IInspectable
 {
 	/// <summary>Gets the stored property type.</summary>
 	/// <param name="value">Receives the property type.</param>

@@ -3,7 +3,6 @@
 
 using Files.Core.Storage.Windows;
 using System.Drawing;
-using Windows.Win32.System.Com;
 
 namespace Files.Infrastructure;
 

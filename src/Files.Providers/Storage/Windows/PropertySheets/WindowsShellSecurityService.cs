@@ -36,23 +36,33 @@ public static class WindowsShellSecurityService
 	/// <summary>
 	/// Opens the permissions editor, requesting elevation only when the current token cannot read and write the DACL.
 	/// </summary>
-	/// <param name="owner">The window that owns the editor and any elevation prompt.</param>
+	/// <param name="owner">The borrowed window handle that owns the editor and any elevation prompt.</param>
 	/// <param name="path">The file-system path whose permissions will be edited.</param>
 	/// <returns>The HRESULT returned by the Shell security extension.</returns>
-	public static HRESULT ShowPermissionsEditor(HWND owner, string path)
+	public static WindowsShellOperationResult ShowPermissionsEditor(nint owner, string path)
+	{
+		return new WindowsShellOperationResult(ShowPermissionsEditorNative((HWND)owner, path).Value);
+	}
+
+	/// <summary>
+	/// Opens the advanced permissions editor through the normal Shell security provider.
+	/// </summary>
+	/// <param name="owner">The borrowed window handle that owns the editor.</param>
+	/// <param name="path">The file-system path whose permissions will be displayed.</param>
+	/// <returns>The HRESULT returned by the Shell security extension.</returns>
+	public static WindowsShellOperationResult ShowAdvancedEditor(nint owner, string path)
+	{
+		return new WindowsShellOperationResult(ShowAdvancedEditorNative((HWND)owner, path).Value);
+	}
+
+	private static HRESULT ShowPermissionsEditorNative(HWND owner, string path)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
 		return ShowEditor(owner, path, PermissionsPage, RequiresElevation(path));
 	}
 
-	/// <summary>
-	/// Opens the advanced permissions editor through the normal Shell security provider.
-	/// </summary>
-	/// <param name="owner">The window that owns the editor.</param>
-	/// <param name="path">The file-system path whose permissions will be displayed.</param>
-	/// <returns>The HRESULT returned by the Shell security extension.</returns>
-	public static HRESULT ShowAdvancedEditor(HWND owner, string path)
+	private static HRESULT ShowAdvancedEditorNative(HWND owner, string path)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);
 

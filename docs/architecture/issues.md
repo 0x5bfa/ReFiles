@@ -1,6 +1,6 @@
 # Capability boundaries: issues and proposed dependencies
 
-Status: migration in progress. Consumer contracts have moved to `Files.Core.Contracts`, provider contracts to `Files.Core.ProviderContracts`, and Windows/FTP/7-Zip implementations to `Files.Providers`. Core and Providers have no implementation references to one another; `Files.Hosting` composes both through typed startup. BackgroundServer references Contracts and Hosting, generates its own internal host interop, and rejects implementation compiler references. Files still references Core and Providers for Windows UI integration and persistence; its full consumer boundary is not implemented yet. See [project split status](project-split.md) for the implemented boundary and remaining work.
+Status: migration in progress. Consumer contracts have moved to `Files.Core.Contracts`, provider contracts to `Files.Core.ProviderContracts`, and Windows/FTP/7-Zip implementations to `Files.Providers`. Core and Providers have no implementation references to one another; `Files.Hosting` composes both through typed startup. BackgroundServer references Contracts and Hosting, generates its own internal host interop, and rejects implementation compiler references. Providers, Files, BackgroundServer and Launcher now generate internal native declarations independently; provider APIs use borrowed window handles and managed messages/results. Files still references Core and Providers for Windows UI integration and persistence; its full consumer boundary is not implemented yet. See [project split status](project-split.md) for the implemented boundary and remaining work.
 
 The goal is to prevent application consumers from bypassing composed item capabilities through ordinary statically typed code, and to make changes to that boundary explicit and reviewable. Capability discovery currently describes optional functionality; it is not an authorization or process-isolation mechanism.
 
@@ -192,15 +192,17 @@ Introduce consumer runtime/session/archive interfaces and retain constructors/st
 
 Expose item functionality through capabilities and contextual UI integration through narrow session/service contracts. Menus, clipboard and drop sessions can involve multiple items or a window and need not be forced into an item capability. Keep scheduling, raw source access, native object ownership and provider construction internal.
 
-### 9. CsWin32 declarations escape through Core
+### 9. CsWin32 declarations escape through Core (resolved)
 
-`NativeMethods.json` sets `public` to `true`. The generated declarations are part of Core, even though its generator package uses `PrivateAssets="all"`. Files currently imports `Windows.Win32` in settings, property pages, context menus and OLE bridges. BackgroundServer also consumes them in its activation entry points, window validation and tray implementation.
+The reviewed `NativeMethods.json` set `public` to `true`. The generated declarations were part of Core, even though its generator package uses `PrivateAssets="all"`. Files currently imports `Windows.Win32` in settings, property pages, context menus and OLE bridges. BackgroundServer also consumes them in its activation entry points, window validation and tray implementation.
 
 Generate internal declarations and keep custom ABI/COM declarations provider-owned. Move native operations behind explicit adapters. Give BackgroundServer independently generated, internal host-only declarations for activation/window/tray work, or isolate that host integration behind a platform implementation; do not retain Core's public storage interop for this purpose. Preserve typed native handles, SafeHandle semantics, COM ABI and allocator ownership inside each boundary; do not replace typed native arguments with arbitrary pointers merely to remove a project reference. FilesLauncher's independent interop is not a Core leak.
 
+Implemented: Providers, Files, BackgroundServer and Launcher independently generate internal declarations. Public provider signatures expose managed messages/results and borrowed window handles. Core has no native declarations, and reflection tests reject native types in Providers' exported surface.
+
 ### 10. UI/native bridges require a real migration
 
-`Files/Infrastructure/WinUIDataObjectBridge.cs` currently converts `DataPackage` objects to generated `IDataObject`/`IDataObjectProvider`. `Files/Presentation/IBrowseInteraction.cs` exchanges concrete Windows drag/drop/menu session types. Changing CsWin32 visibility alone will break these paths.
+The native bridge migration is implemented: Providers converts WinRT data packages to its private COM interfaces on the originating STA. Files retains its own window/composition declarations and preview rendering. `Files/Presentation/IBrowseInteraction.cs` still exchanges concrete Windows drag/drop/menu session types, so migration to consumer-only managed contracts remains pending.
 
 Keep WinUI visual ownership in Files and native work in provider/platform adapters. Design the data-transfer, window-context and session contracts before moving code. A platform-specific integration assembly is optional if the bridge genuinely requires WinUI dependencies; do not introduce a WinUI dependency into Core or export raw COM pointers as a shortcut. Validate OLE apartment, message-pump, callback, handle and session lifetimes.
 

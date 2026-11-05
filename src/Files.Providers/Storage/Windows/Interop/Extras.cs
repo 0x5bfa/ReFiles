@@ -20,7 +20,7 @@ using Windows.Win32.UI.Shell.PropertiesSystem;
 
 namespace Windows.Win32
 {
-	public static partial class PInvoke
+	internal static partial class PInvoke
 	{
 		/// <summary>Specifies the 32-bit ARGB pixel format used by Windows imaging APIs.</summary>
 		public const int PixelFormat32bppARGB = 2498570;
@@ -110,7 +110,7 @@ namespace Windows.Win32
 namespace Windows.Win32
 {
 	/// <summary>Contains manually declared COM CLSIDs used by Files.</summary>
-	public static partial class CLSID
+	internal static partial class CLSID
 	{
 		/// <summary>The My Computer Shell CLSID.</summary>
 		public static Guid CLSID_MyComputer { get; } = new(0x20D04FE0u, 0x3AEA, 0x1069, 0xA2, 0xD8, 0x08, 0x00, 0x2B, 0x30, 0x30, 0x9D);
@@ -127,7 +127,7 @@ namespace Windows.Win32
 	}
 
 	/// <summary>Contains manually declared Shell FOLDERIDs used by Files.</summary>
-	public static partial class FOLDERID
+	internal static partial class FOLDERID
 	{
 		/// <summary>The Recycle Bin FOLDERID.</summary>
 		public static Guid FOLDERID_RecycleBinFolder { get; } = new(0xB7534046u, 0x3ECB, 0x4C18, 0xBE, 0x4E, 0x64, 0xCD, 0x4C, 0xB7, 0xD6, 0xAC);
@@ -139,7 +139,7 @@ namespace Windows.Win32
 namespace Windows.Win32.Foundation
 {
 	[DebuggerDisplay("{" + nameof(Value) + ",h}")]
-	public readonly partial struct HRESULT
+	internal readonly partial struct HRESULT
 	{
 		/// <summary>
 		/// Converts a <see cref="WIN32_ERROR"/> value to <see cref="HRESULT"/>.

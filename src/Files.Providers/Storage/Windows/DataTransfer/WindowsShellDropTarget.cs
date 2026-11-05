@@ -29,6 +29,18 @@ public sealed class WindowsShellDropTarget
 		_isBackground = isBackground;
 	}
 
+	/// <summary>Tries to create a drop session on the data object's originating STA.</summary>
+	/// <param name="dataTransfer">The retained Shell data object.</param>
+	/// <param name="ownerWindowHandle">The borrowed owner window handle.</param>
+	/// <param name="session">Receives the session, which must be used and disposed on the creating STA.</param>
+	/// <returns>Whether the Shell destination supports dropping.</returns>
+	public bool TryCreateSession(WindowsShellDataTransfer dataTransfer, nint ownerWindowHandle, out WindowsShellDropSession? session)
+	{
+		ArgumentNullException.ThrowIfNull(dataTransfer);
+
+		return TryCreateSession(dataTransfer.DataObject, ownerWindowHandle, out session);
+	}
+
 	/// <summary>
 	/// Tries to create a stateful native drop session on the calling STA.
 	/// </summary>
@@ -36,7 +48,7 @@ public sealed class WindowsShellDropTarget
 	/// <param name="ownerWindowHandle">The window that owns the drop surface.</param>
 	/// <param name="session">Receives a session that must be used and disposed on the creating thread.</param>
 	/// <returns><see langword="true"/> when the Shell destination provided a drop target.</returns>
-	public bool TryCreateSession(IDataObject dataObject, nint ownerWindowHandle, out WindowsShellDropSession? session)
+	internal bool TryCreateSession(IDataObject dataObject, nint ownerWindowHandle, out WindowsShellDropSession? session)
 	{
 		ArgumentNullException.ThrowIfNull(dataObject);
 

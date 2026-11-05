@@ -51,15 +51,15 @@ public sealed partial class SharingPropertyView : UserControl
 		RunSharingAction(WindowsShellSharingService.OpenNetworkAndSharingCenter);
 	}
 
-	private void RunSharingAction(Func<HRESULT> action)
+	private void RunSharingAction(Func<WindowsShellOperationResult> action)
 	{
 		var result = action();
-		if (result.Succeeded || result.Value is OperationCancelled or OperationTimedOut)
+		if (result.Succeeded || result.HResult is OperationCancelled or OperationTimedOut)
 		{
 			return;
 		}
 
-		_showError(Marshal.GetExceptionForHR(result.Value)?.Message ?? result.ToString());
+		_showError(Marshal.GetExceptionForHR(result.HResult)?.Message ?? result.ToString());
 	}
 
 	private void ShareButton_Click(object sender, RoutedEventArgs e)

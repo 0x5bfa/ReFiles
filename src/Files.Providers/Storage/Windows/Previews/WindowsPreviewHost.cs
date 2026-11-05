@@ -11,32 +11,32 @@ namespace Files.Core.Storage.Windows;
 /// <summary>Identifies the native window that hosts a preview handler.</summary>
 public sealed record WindowsPreviewHost
 {
-	/// <summary>Gets the native host window handle.</summary>
-	public HWND WindowHandle { get; }
+	/// <summary>Gets the borrowed native host window handle; the caller retains ownership.</summary>
+	public nint WindowHandle { get; }
 	/// <summary>Gets the host bounds.</summary>
 	public WindowsPreviewBounds Bounds { get; }
 	/// <summary>Gets the callback that asynchronously forwards accelerator messages.</summary>
 	public WindowsPreviewAcceleratorForwarder? AcceleratorForwarder { get; }
 
 	/// <summary>Initializes a preview host.</summary>
-	/// <param name="windowHandle">The native host window handle.</param>
+	/// <param name="windowHandle">The borrowed native host window handle; the caller retains ownership.</param>
 	/// <param name="bounds">The host bounds.</param>
-	public WindowsPreviewHost(HWND windowHandle, WindowsPreviewBounds bounds) : this(windowHandle, bounds, null)
+	public WindowsPreviewHost(nint windowHandle, WindowsPreviewBounds bounds) : this(windowHandle, bounds, null)
 	{
 	}
 
 	/// <summary>Initializes a preview host.</summary>
-	/// <param name="windowHandle">The native host window handle.</param>
+	/// <param name="windowHandle">The borrowed native host window handle; the caller retains ownership.</param>
 	/// <param name="bounds">The host bounds.</param>
 	/// <param name="acceleratorForwarder">The callback that asynchronously forwards accelerator messages.</param>
-	public WindowsPreviewHost(HWND windowHandle, WindowsPreviewBounds bounds, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+	public WindowsPreviewHost(nint windowHandle, WindowsPreviewBounds bounds, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 	{
-		if (windowHandle.IsNull)
+		if (windowHandle == 0)
 		{
 			throw new ArgumentException("A preview host window handle is required.", nameof(windowHandle));
 		}
 
-		if (!PInvoke.IsWindow(windowHandle))
+		if (!PInvoke.IsWindow((HWND)windowHandle))
 		{
 			throw new ArgumentException("The preview host window handle is not valid.", nameof(windowHandle));
 		}

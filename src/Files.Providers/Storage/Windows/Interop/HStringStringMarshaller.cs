@@ -18,7 +18,7 @@ namespace Windows.Win32;
 internal static unsafe class HStringStringMarshaller
 {
 	/// <summary>Provides stateless HSTRING conversion for collection elements.</summary>
-	public static class Stateless
+	internal static class Stateless
 	{
 		/// <summary>Converts a managed string to an owned HSTRING.</summary>
 		/// <param name="managed">The managed string.</param>

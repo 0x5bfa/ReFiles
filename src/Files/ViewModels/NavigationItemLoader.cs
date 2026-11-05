@@ -14,7 +14,6 @@ using Files.Infrastructure;
 using Files.Localization;
 using Files.Core.Storage.Windows;
 using Windows.Storage.Provider;
-using Windows.Win32;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -34,7 +33,7 @@ internal sealed class NavigationItemLoader
 
 	private const int ThumbnailSize = 16;
 
-	private static readonly string _myComputerParsingName = $"shell:::{CLSID.CLSID_MyComputer:B}";
+	private static readonly string _myComputerParsingName = WindowsStorageSource.ComputerParsingName;
 
 	private readonly IStorageWorkspace _workspace;
 	private readonly ILogger<NavigationItemLoader> _logger;

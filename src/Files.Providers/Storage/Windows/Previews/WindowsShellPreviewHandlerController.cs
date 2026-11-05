@@ -54,11 +54,11 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	/// <inheritdoc />
 	public void SetSite()
 	{
-		SetSite(HWND.Null, null);
+		SetSite(0, null);
 	}
 
 	/// <inheritdoc />
-	public void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+	public void SetSite(nint hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 	{
 		EnsureActive();
 		var siteInterface = _handler as IObjectWithSite;
@@ -67,7 +67,7 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 			return;
 		}
 
-		var frame = new WindowsPreviewHandlerFrame(hostWindow, acceleratorForwarder);
+		var frame = new WindowsPreviewHandlerFrame((HWND)hostWindow, acceleratorForwarder);
 		_previewHandlerFrame = frame;
 		try
 		{
@@ -165,11 +165,11 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	}
 
 	/// <inheritdoc />
-	public void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds)
+	public void SetWindow(nint windowHandle, WindowsPreviewBounds bounds)
 	{
 		EnsureActive();
 		var rectangle = ToRect(bounds);
-		_handler.SetWindow(windowHandle, in rectangle).ThrowOnFailure();
+		_handler.SetWindow((HWND)windowHandle, in rectangle).ThrowOnFailure();
 	}
 
 	/// <inheritdoc />
@@ -238,12 +238,12 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 	}
 
 	/// <inheritdoc />
-	public HWND QueryFocus()
+	public nint QueryFocus()
 	{
 		EnsureActive();
 		_handler.QueryFocus(out var focus).ThrowOnFailure();
 
-		return focus;
+		return (nint)focus;
 	}
 
 	/// <inheritdoc />
@@ -471,8 +471,7 @@ internal sealed unsafe partial class WindowsPreviewHandlerFrame : IPreviewHandle
 			return HRESULT.S_FALSE;
 		}
 
-		var messageCopy = *message;
-		messageCopy.hwnd = _hostWindow;
+		var messageCopy = new WindowsPreviewMessage((nint)_hostWindow, message->message, message->wParam.Value, message->lParam.Value, message->time, message->pt.X, message->pt.Y);
 		try
 		{
 			return _acceleratorForwarder(in messageCopy) ? HRESULT.S_OK : HRESULT.S_FALSE;

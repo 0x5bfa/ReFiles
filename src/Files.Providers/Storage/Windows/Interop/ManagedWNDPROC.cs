@@ -15,4 +15,4 @@ namespace Windows.Win32.Extras;
 /// <param name="lParam">The message parameter.</param>
 /// <returns>The result of processing the message.</returns>
 [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-public delegate LRESULT ManagedWNDPROC(HWND hWnd, uint msg, WPARAM wParam, LPARAM lParam);
+internal delegate LRESULT ManagedWNDPROC(HWND hWnd, uint msg, WPARAM wParam, LPARAM lParam);

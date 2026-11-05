@@ -5,11 +5,6 @@ using Files.Core.Storage.Windows;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Win32;
-using Windows.Win32.System.Com;
-using Windows.Win32.System.Ole;
-using Windows.Win32.UI.Shell;
-using WinRT;
 
 namespace Files.Infrastructure;
 
@@ -22,7 +17,7 @@ internal static class WinUIDataObjectBridge
 
 		ArgumentNullException.ThrowIfNull(dataPackage);
 
-		var effects = dragSource.Attach(GetProvider(dataPackage), ownerWindowHandle, preferredEffect, deriveMoveFromDelete);
+		var effects = dragSource.Attach(dataPackage, ownerWindowHandle, preferredEffect, deriveMoveFromDelete);
 		var resolvedLogger = logger ?? NullLogger.Instance;
 		if (resolvedLogger.IsEnabled(LogLevel.Debug))
 		{
@@ -32,18 +27,9 @@ internal static class WinUIDataObjectBridge
 		return ToDataPackageOperation(effects);
 	}
 
-	internal static IDataObjectProvider GetProvider(DataPackage dataPackage)
+	internal static WindowsShellDataTransfer GetDataObject(DataPackageView dataPackageView)
 	{
-		ArgumentNullException.ThrowIfNull(dataPackage);
-
-		return dataPackage.As<IDataObjectProvider>();
-	}
-
-	internal static IDataObject GetDataObject(DataPackageView dataPackageView)
-	{
-		ArgumentNullException.ThrowIfNull(dataPackageView);
-
-		return dataPackageView.As<IDataObject>();
+		return WindowsShellDataTransfer.FromDataPackageView(dataPackageView);
 	}
 
 	internal static DataPackageOperation ToDataPackageOperation(WindowsShellDropEffects effects)
@@ -66,5 +52,4 @@ internal static class WinUIDataObjectBridge
 
 		return operation;
 	}
-
 }

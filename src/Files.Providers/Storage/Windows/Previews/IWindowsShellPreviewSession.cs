@@ -3,8 +3,6 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-using Windows.Win32.Foundation;
-
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Provides asynchronous control over a Windows Shell preview session.</summary>
@@ -24,6 +22,6 @@ public interface IWindowsShellPreviewSession : IAsyncDisposable
 	ValueTask SetFocusAsync(CancellationToken cancellationToken = default);
 	/// <summary>Gets the window that currently has preview focus.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
-	/// <returns>The focused window handle, or zero when no window has focus.</returns>
-	ValueTask<HWND> QueryFocusAsync(CancellationToken cancellationToken = default);
+	/// <returns>The borrowed focused window handle, or zero when no window has focus.</returns>
+	ValueTask<nint> QueryFocusAsync(CancellationToken cancellationToken = default);
 }

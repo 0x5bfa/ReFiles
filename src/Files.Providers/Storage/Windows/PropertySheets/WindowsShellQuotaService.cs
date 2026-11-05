@@ -23,7 +23,12 @@ public static class WindowsShellQuotaService
 	/// <param name="rootPath">The volume root path.</param>
 	/// <param name="displayName">The Shell display name for the volume.</param>
 	/// <returns>The HRESULT returned by the quota UI helper.</returns>
-	public static unsafe HRESULT ShowSettings(HWND owner, string rootPath, string displayName)
+	public static WindowsShellOperationResult ShowSettings(nint owner, string rootPath, string displayName)
+	{
+		return new WindowsShellOperationResult(ShowSettingsNative((HWND)owner, rootPath, displayName).Value);
+	}
+
+	private static unsafe HRESULT ShowSettingsNative(HWND owner, string rootPath, string displayName)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
 

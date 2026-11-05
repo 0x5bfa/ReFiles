@@ -12,6 +12,6 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("8A43ED9F-F4E6-4421-ACF9-1DAB2986820C")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IPropertySet : IInspectable
+internal unsafe partial interface IPropertySet : IInspectable
 {
 }

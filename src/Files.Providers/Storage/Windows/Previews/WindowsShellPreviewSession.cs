@@ -3,7 +3,6 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-using Windows.Win32.Foundation;
 using System.Runtime.Versioning;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Previews;
@@ -84,7 +83,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	/// <summary>Gets the window that currently has preview focus.</summary>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
 	/// <returns>The focused window handle.</returns>
-	public async ValueTask<HWND> QueryFocusAsync(CancellationToken cancellationToken = default)
+	public async ValueTask<nint> QueryFocusAsync(CancellationToken cancellationToken = default)
 	{
 		EnsurePreviewing();
 

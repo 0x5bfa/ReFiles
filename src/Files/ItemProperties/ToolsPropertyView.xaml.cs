@@ -35,11 +35,11 @@ public sealed partial class ToolsPropertyView : UserControl
 		ShowResult(WindowsShellDriveToolsService.ShowOptimization(_owner, Drive.RootPath));
 	}
 
-	private void ShowResult(HRESULT result)
+	private void ShowResult(WindowsShellOperationResult result)
 	{
 		if (result.Failed)
 		{
-			_showError(new System.Runtime.InteropServices.COMException(null, result.Value).Message);
+			_showError(new System.Runtime.InteropServices.COMException(null, result.HResult).Message);
 		}
 	}
 }

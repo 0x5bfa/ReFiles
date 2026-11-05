@@ -13,6 +13,7 @@
 		<EnableMsixTooling>true</EnableMsixTooling>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
 		<EmitCompilerGeneratedFiles>false</EmitCompilerGeneratedFiles>
 		<PublishAot>true</PublishAot>
 		<SelfContained>true</SelfContained>
@@ -46,6 +47,7 @@
 		<PackageReference Include="System.Drawing.Common" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Windows.CsWinRT" />
+		<PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
 		<PackageReference Include="Microsoft.WindowsAppSDK.WinUI" />
 		<PackageReference Include="Microsoft.WindowsAppSDK.Runtime" />

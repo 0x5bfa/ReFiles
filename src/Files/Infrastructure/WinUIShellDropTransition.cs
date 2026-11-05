@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage.Windows;
-using System.Drawing;
-using Windows.Win32.System.Com;
 
 namespace Files.Infrastructure;
 
-internal sealed record WinUIShellDropTransition(IDataObject DataObject, WinUIShellDragState DragState, long Generation, CancellationToken CancellationToken);
+internal sealed record WinUIShellDropTransition(WindowsShellDataTransfer DataObject, WinUIShellDragState DragState, long Generation, CancellationToken CancellationToken);

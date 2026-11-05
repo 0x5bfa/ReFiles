@@ -3,6 +3,8 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
+using Windows.ApplicationModel.DataTransfer;
+using WinRT;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Com;
@@ -29,13 +31,26 @@ public sealed class WindowsShellDragSource
 		_locators = locators;
 	}
 
+	/// <summary>Attaches the Shell selection to a data package on the calling STA.</summary>
+	/// <param name="dataPackage">The destination WinRT data package.</param>
+	/// <param name="ownerWindowHandle">The borrowed owner window handle.</param>
+	/// <param name="preferredEffect">The preferred transfer operation.</param>
+	/// <param name="deriveMoveFromDelete">Whether delete capability should advertise move support.</param>
+	/// <returns>The operations supported by the selection.</returns>
+	public WindowsShellDropEffects Attach(DataPackage dataPackage, nint ownerWindowHandle, WindowsShellDropEffects preferredEffect = WindowsShellDropEffects.None, bool deriveMoveFromDelete = true)
+	{
+		ArgumentNullException.ThrowIfNull(dataPackage);
+
+		return Attach(dataPackage.As<IDataObjectProvider>(), ownerWindowHandle, preferredEffect, deriveMoveFromDelete);
+	}
+
 	/// <summary>
 	/// Attaches the native Shell data object to a WinRT data package on the calling STA.
 	/// </summary>
 	/// <param name="provider">The native data-object provider obtained from the WinRT data package at the UI surface.</param>
 	/// <param name="ownerWindowHandle">The window that owns the drag selection.</param>
 	/// <returns>The operations supported by every item in the selection.</returns>
-	public WindowsShellDropEffects Attach(IDataObjectProvider provider, nint ownerWindowHandle)
+	internal WindowsShellDropEffects Attach(IDataObjectProvider provider, nint ownerWindowHandle)
 	{
 		return Attach(provider, ownerWindowHandle, WindowsShellDropEffects.None, deriveMoveFromDelete: true);
 	}
@@ -48,7 +63,7 @@ public sealed class WindowsShellDragSource
 	/// <param name="preferredEffect">The optional operation preferred by the initiating Shell surface.</param>
 	/// <param name="deriveMoveFromDelete">Whether Shell delete capability should also advertise a move operation.</param>
 	/// <returns>The operations supported by every item in the selection.</returns>
-	public WindowsShellDropEffects Attach(IDataObjectProvider provider, nint ownerWindowHandle, WindowsShellDropEffects preferredEffect, bool deriveMoveFromDelete)
+	internal WindowsShellDropEffects Attach(IDataObjectProvider provider, nint ownerWindowHandle, WindowsShellDropEffects preferredEffect, bool deriveMoveFromDelete)
 	{
 		ArgumentNullException.ThrowIfNull(provider);
 

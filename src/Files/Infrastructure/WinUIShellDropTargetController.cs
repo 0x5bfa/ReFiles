@@ -8,7 +8,6 @@ using System.Drawing;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.ApplicationModel.DataTransfer.DragDrop;
 using Windows.Win32;
-using Windows.Win32.System.Com;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -217,7 +216,7 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		else
 		{
 			ResetTransferState();
-			IDataObject dataObject;
+			WindowsShellDataTransfer dataObject;
 			try
 			{
 				dataObject = WinUIDataObjectBridge.GetDataObject(dataView);

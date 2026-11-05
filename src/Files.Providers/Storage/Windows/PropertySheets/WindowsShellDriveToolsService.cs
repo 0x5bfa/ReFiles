@@ -22,10 +22,26 @@ public static unsafe class WindowsShellDriveToolsService
 	/// <summary>
 	/// Starts an elevated online filesystem check for a volume.
 	/// </summary>
-	/// <param name="owner">The window that owns the elevation prompt.</param>
+	/// <param name="owner">The borrowed window handle that owns the elevation prompt.</param>
 	/// <param name="rootPath">The volume root path.</param>
-	/// <returns>The HRESULT representing the launch result.</returns>
-	public static HRESULT ShowErrorChecking(HWND owner, string rootPath)
+	/// <returns>The status representing the launch result.</returns>
+	public static WindowsShellOperationResult ShowErrorChecking(nint owner, string rootPath)
+	{
+		return new WindowsShellOperationResult(ShowErrorCheckingNative((HWND)owner, rootPath).Value);
+	}
+
+	/// <summary>
+	/// Opens the Windows drive optimization application for a volume.
+	/// </summary>
+	/// <param name="owner">The borrowed window handle that owns any launch UI.</param>
+	/// <param name="rootPath">The volume root path.</param>
+	/// <returns>The status representing the launch result.</returns>
+	public static WindowsShellOperationResult ShowOptimization(nint owner, string rootPath)
+	{
+		return new WindowsShellOperationResult(ShowOptimizationNative((HWND)owner, rootPath).Value);
+	}
+
+	private static HRESULT ShowErrorCheckingNative(HWND owner, string rootPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
 
@@ -34,13 +50,7 @@ public static unsafe class WindowsShellDriveToolsService
 		return Execute(owner, "runas", Path.Combine(Environment.SystemDirectory, "chkdsk.exe"), QuoteArgument(volume));
 	}
 
-	/// <summary>
-	/// Opens the Windows drive optimization application for a volume.
-	/// </summary>
-	/// <param name="owner">The window that owns any launch UI.</param>
-	/// <param name="rootPath">The volume root path.</param>
-	/// <returns>The HRESULT representing the launch result.</returns>
-	public static HRESULT ShowOptimization(HWND owner, string rootPath)
+	private static HRESULT ShowOptimizationNative(HWND owner, string rootPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
 

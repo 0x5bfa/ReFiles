@@ -27,13 +27,13 @@ public static unsafe class WindowsShellFolderCustomizationService
 	/// <summary>
 	/// Shows the Shell icon picker.
 	/// </summary>
-	/// <param name="owner">The owner window.</param>
+	/// <param name="owner">The borrowed owner window handle.</param>
 	/// <param name="initialPath">The initial icon resource path.</param>
 	/// <param name="initialIndex">The initial icon resource index.</param>
 	/// <param name="iconPath">Receives the selected icon resource path.</param>
 	/// <param name="iconIndex">Receives the selected icon resource index.</param>
 	/// <returns><see langword="true"/> when the user selected an icon.</returns>
-	public static bool TryPickIcon(HWND owner, string initialPath, int initialIndex, out string iconPath, out int iconIndex)
+	public static bool TryPickIcon(nint owner, string initialPath, int initialIndex, out string iconPath, out int iconIndex)
 	{
 		ArgumentNullException.ThrowIfNull(initialPath);
 
@@ -41,7 +41,7 @@ public static unsafe class WindowsShellFolderCustomizationService
 		pathBuffer.Clear();
 		initialPath.AsSpan(0, Math.Min(initialPath.Length, pathBuffer.Length - 1)).CopyTo(pathBuffer);
 		var selectedIndex = initialIndex;
-		var selected = PInvoke.PickIconDlg(owner, ref pathBuffer, checked((uint)pathBuffer.Length), ref selectedIndex) is not 0;
+		var selected = PInvoke.PickIconDlg((HWND)owner, ref pathBuffer, checked((uint)pathBuffer.Length), ref selectedIndex) is not 0;
 		var terminatorIndex = pathBuffer.IndexOf('\0');
 		iconPath = selected ? pathBuffer[..(terminatorIndex < 0 ? pathBuffer.Length : terminatorIndex)].ToString() : initialPath;
 		iconIndex = selected ? selectedIndex : initialIndex;

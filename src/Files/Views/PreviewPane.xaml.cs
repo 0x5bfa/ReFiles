@@ -535,7 +535,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		EnsurePreviewHost(layout);
 		SetPreviewHostLayout(layout);
 		var acceleratorSink = new PreviewAcceleratorSink(this, version);
-		var host = new WindowsPreviewHost(_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height), acceleratorSink.TryForward);
+		var host = new WindowsPreviewHost((nint)_previewHost, new WindowsPreviewBounds(0, 0, layout.Width, layout.Height), acceleratorSink.TryForward);
 		var session = await SessionFactory.CreateAsync(result, host, cancellationToken);
 		if (!IsCurrentRender(version, cancellationToken))
 		{
@@ -1067,11 +1067,11 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 
 		HWND focusedWindow;
 		using var timeoutCancellation = new CancellationTokenSource(_previewFocusQueryTimeout);
-		Task<HWND>? focusTask = null;
+		Task<nint>? focusTask = null;
 		try
 		{
 			focusTask = request.Session.QueryFocusAsync(timeoutCancellation.Token).AsTask();
-			focusedWindow = await focusTask.WaitAsync(timeoutCancellation.Token);
+			focusedWindow = (HWND)await focusTask.WaitAsync(timeoutCancellation.Token);
 		}
 		catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested)
 		{
@@ -1125,7 +1125,7 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		}
 	}
 
-	private static async Task ObserveFocusQueryCompletionAsync(Task<HWND> focusTask)
+	private static async Task ObserveFocusQueryCompletionAsync(Task<nint> focusTask)
 	{
 		try
 		{
@@ -1294,9 +1294,18 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			_renderVersion = renderVersion;
 		}
 
-		public bool TryForward(in MSG accelerator)
+		public bool TryForward(in WindowsPreviewMessage accelerator)
 		{
-			return _owner.TryGetTarget(out var owner) && owner.TryQueuePreviewAccelerator(_renderVersion, in accelerator);
+			MSG message = default;
+			message.hwnd = (HWND)accelerator.WindowHandle;
+			message.message = accelerator.MessageId;
+			message.wParam = accelerator.WParam;
+			message.lParam = accelerator.LParam;
+			message.time = accelerator.Timestamp;
+			message.pt.X = accelerator.ScreenX;
+			message.pt.Y = accelerator.ScreenY;
+
+			return _owner.TryGetTarget(out var owner) && owner.TryQueuePreviewAccelerator(_renderVersion, in message);
 		}
 	}
 

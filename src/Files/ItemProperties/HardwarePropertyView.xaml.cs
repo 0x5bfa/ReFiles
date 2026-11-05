@@ -11,7 +11,6 @@ using Files.Core.Storage.Windows;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Win32;
 using Windows.Win32.Foundation;
 
 namespace Files.ItemProperties;
@@ -58,7 +57,7 @@ public sealed partial class HardwarePropertyView : UserControl
 			return;
 		}
 
-		var result = PInvoke.DevicePropertiesEx(_owner, null, _selectedDevice.InstanceId, 0, false);
+		var result = WindowsShellHardwareService.ShowProperties((nint)_owner, _selectedDevice.InstanceId);
 		if (result is not 0)
 		{
 			_showError(new System.ComponentModel.Win32Exception(result).Message);

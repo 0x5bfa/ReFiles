@@ -30,81 +30,32 @@ public static unsafe class WindowsShellSharingService
 	/// <summary>
 	/// Opens the Windows sharing wizard for a folder.
 	/// </summary>
-	/// <param name="owner">The window that owns the wizard.</param>
+	/// <param name="owner">The borrowed window handle that owns the wizard.</param>
 	/// <param name="path">The local folder path to share.</param>
 	/// <returns>The result returned by the Windows sharing provider.</returns>
-	public static HRESULT ShowSharingWizard(HWND owner, string path)
+	public static WindowsShellOperationResult ShowSharingWizard(nint owner, string path)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-		try
-		{
-			return PInvoke.ShowShareFolderUI(owner, path);
-		}
-		catch (DllNotFoundException)
-		{
-			return HRESULT.E_FAIL;
-		}
-		catch (EntryPointNotFoundException)
-		{
-			return HRESULT.E_FAIL;
-		}
+		return new WindowsShellOperationResult(ShowSharingWizardNative((HWND)owner, path).Value);
 	}
 
 	/// <summary>
 	/// Opens the elevated Windows advanced sharing editor for a folder.
 	/// </summary>
-	/// <param name="owner">The window that owns the editor.</param>
+	/// <param name="owner">The borrowed window handle that owns the editor.</param>
 	/// <param name="path">The local folder path to edit.</param>
 	/// <returns>The result returned by the Windows sharing provider.</returns>
-	public static HRESULT ShowAdvancedSharing(HWND owner, string path)
+	public static WindowsShellOperationResult ShowAdvancedSharing(nint owner, string path)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-		var factoryClassId = typeof(CMultiObjectElevationFactory).GUID;
-		var hr = PInvoke.CoCreateInstance(in factoryClassId, null, CLSCTX.CLSCTX_INPROC_SERVER, out IMultiObjectElevationFactory elevationFactory);
-		if (hr.Failed || elevationFactory is null)
-		{
-			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
-		}
-
-		var elevatedFactoryClassId = typeof(CSharingElevatedFactory).GUID;
-		hr = elevationFactory.Initialize(owner, in elevatedFactoryClassId);
-		if (hr.Failed)
-		{
-			return hr;
-		}
-
-		var sharingManagerClassId = typeof(SharingConfigurationManager).GUID;
-		var sharingManagerInterfaceId = typeof(ISharingConfigurationUI).GUID;
-		hr = elevationFactory.CreateElevatedObject(in sharingManagerClassId, in sharingManagerInterfaceId, out var sharingManagerObject);
-		var sharingManager = sharingManagerObject as ISharingConfigurationUI;
-		if (hr.Failed || sharingManager is null)
-		{
-			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
-		}
-
-		hr = sharingManager.ShowAdvancedSharingConfigDialog(owner, path);
-
-		return hr;
+		return new WindowsShellOperationResult(ShowAdvancedSharingNative((HWND)owner, path).Value);
 	}
 
 	/// <summary>
 	/// Opens the Advanced page in Network and Sharing Center.
 	/// </summary>
 	/// <returns>The result returned by the Windows Control Panel host.</returns>
-	public static HRESULT OpenNetworkAndSharingCenter()
+	public static WindowsShellOperationResult OpenNetworkAndSharingCenter()
 	{
-		var classId = typeof(OpenControlPanel).GUID;
-		var hr = PInvoke.CoCreateInstance(in classId, null, CLSCTX.CLSCTX_ALL, out IOpenControlPanel controlPanel);
-		if (hr.Failed || controlPanel is null)
-		{
-			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
-		}
-
-		hr = controlPanel.Open(NetworkAndSharingCenterCanonicalName, NetworkAndSharingCenterPage, null!);
-
-		return hr;
+		return new WindowsShellOperationResult(OpenNetworkAndSharingCenterNative().Value);
 	}
 
 	internal static bool CanShowPropertyPage(string path)
@@ -153,6 +104,70 @@ public static unsafe class WindowsShellSharingService
 		}
 
 		return new(path, displayName, true, bestShareName, networkPath, showPasswordProtection, isPasswordProtectionEnabled);
+	}
+
+	private static HRESULT ShowSharingWizardNative(HWND owner, string path)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+		try
+		{
+			return PInvoke.ShowShareFolderUI(owner, path);
+		}
+		catch (DllNotFoundException)
+		{
+			return HRESULT.E_FAIL;
+		}
+		catch (EntryPointNotFoundException)
+		{
+			return HRESULT.E_FAIL;
+		}
+	}
+
+	private static HRESULT ShowAdvancedSharingNative(HWND owner, string path)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+		var factoryClassId = typeof(CMultiObjectElevationFactory).GUID;
+		var hr = PInvoke.CoCreateInstance(in factoryClassId, null, CLSCTX.CLSCTX_INPROC_SERVER, out IMultiObjectElevationFactory elevationFactory);
+		if (hr.Failed || elevationFactory is null)
+		{
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
+		}
+
+		var elevatedFactoryClassId = typeof(CSharingElevatedFactory).GUID;
+		hr = elevationFactory.Initialize(owner, in elevatedFactoryClassId);
+		if (hr.Failed)
+		{
+			return hr;
+		}
+
+		var sharingManagerClassId = typeof(SharingConfigurationManager).GUID;
+		var sharingManagerInterfaceId = typeof(ISharingConfigurationUI).GUID;
+		hr = elevationFactory.CreateElevatedObject(in sharingManagerClassId, in sharingManagerInterfaceId, out var sharingManagerObject);
+		var sharingManager = sharingManagerObject as ISharingConfigurationUI;
+		if (hr.Failed || sharingManager is null)
+		{
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
+		}
+
+		hr = sharingManager.ShowAdvancedSharingConfigDialog(owner, path);
+
+		return hr;
+	}
+
+	private static HRESULT OpenNetworkAndSharingCenterNative()
+	{
+		var classId = typeof(OpenControlPanel).GUID;
+		var hr = PInvoke.CoCreateInstance(in classId, null, CLSCTX.CLSCTX_ALL, out IOpenControlPanel controlPanel);
+		if (hr.Failed || controlPanel is null)
+		{
+			return hr.Failed ? hr : HRESULT.E_NOINTERFACE;
+		}
+
+		hr = controlPanel.Open(NetworkAndSharingCenterCanonicalName, NetworkAndSharingCenterPage, null!);
+
+		return hr;
 	}
 
 	private static bool CanShareFolder(string path)

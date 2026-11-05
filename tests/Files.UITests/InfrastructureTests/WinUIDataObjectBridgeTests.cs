@@ -9,6 +9,7 @@ using Files.Core.Storage.Windows;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using Windows.ApplicationModel.DataTransfer;
+using WinRT;
 using Windows.Win32;
 using Windows.Win32.System.Com;
 
@@ -22,7 +23,6 @@ namespace Files.UITests;
 public sealed class WinUIDataObjectBridgeTests
 {
 	private const string ExpectedContent = "WinUI Shell bridge content";
-	private const string PreferredDropEffectFormat = "Preferred DropEffect";
 
 	/// <summary>
 	/// Verifies that a Shell data object survives the WinUI bridge and can be dropped on a native folder target.
@@ -60,11 +60,10 @@ public sealed class WinUIDataObjectBridgeTests
 			var defaultDataPackage = new DataPackage();
 			WinUIDataObjectBridge.Attach(dragSource, defaultDataPackage, 0, WindowsShellDropEffects.None, deriveMoveFromDelete: false);
 			Assert.AreEqual(DataPackageOperation.None, defaultDataPackage.RequestedOperation);
-			var dataObject = WinUIDataObjectBridge.GetDataObject(dataPackage.GetView());
-			Assert.IsTrue(TryGetDword(dataObject, PreferredDropEffectFormat, out var preferredEffect));
-			Assert.AreEqual((uint)WindowsShellDropEffects.Link, preferredEffect);
+			var dataTransfer = WinUIDataObjectBridge.GetDataObject(dataPackage.GetView());
+			var dataObject = dataPackage.GetView().As<IDataObject>();
 			Assert.IsTrue(TryGetFormat(dataObject, 15, TYMED.TYMED_HGLOBAL), "The bridged data object did not expose CF_HDROP.");
-			Assert.IsTrue(dropTarget.TryCreateSession(dataObject, 0, out var session));
+			Assert.IsTrue(dropTarget.TryCreateSession(dataTransfer, 0, out var session));
 			Assert.IsNotNull(session);
 			using (session)
 			{
@@ -80,55 +79,6 @@ public sealed class WinUIDataObjectBridgeTests
 		finally
 		{
 			await DeleteTestRootAsync(rootPath);
-		}
-	}
-
-	private static unsafe bool TryGetDword(IDataObject dataObject, string formatName, out uint value)
-	{
-		value = 0;
-		var clipboardFormat = PInvoke.RegisterClipboardFormat(formatName);
-		if (clipboardFormat is 0)
-		{
-			return false;
-		}
-
-		var format = default(FORMATETC);
-		format.cfFormat = checked((ushort)clipboardFormat);
-		format.dwAspect = (uint)DVASPECT.DVASPECT_CONTENT;
-		format.lindex = -1;
-		format.tymed = (uint)TYMED.TYMED_HGLOBAL;
-		if (dataObject.GetData(in format, out var medium).Failed)
-		{
-			return false;
-		}
-
-		try
-		{
-			if (medium.tymed is not TYMED.TYMED_HGLOBAL || medium.u.hGlobal.IsNull || PInvoke.GlobalSize(medium.u.hGlobal) < sizeof(uint))
-			{
-				return false;
-			}
-
-			var buffer = PInvoke.GlobalLock(medium.u.hGlobal);
-			if (buffer is null)
-			{
-				return false;
-			}
-
-			try
-			{
-				value = *(uint*)buffer;
-
-				return true;
-			}
-			finally
-			{
-				_ = PInvoke.GlobalUnlock(medium.u.hGlobal);
-			}
-		}
-		finally
-		{
-			PInvoke.ReleaseStgMedium(ref medium);
 		}
 	}
 

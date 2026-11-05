@@ -13,14 +13,14 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("AF86E2E0-B12D-4C6A-9C5A-D7AA65101E90")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IInspectable
+internal unsafe partial interface IInspectable
 {
 	/// <summary>Gets the interface identifiers implemented by the object.</summary>
 	/// <param name="iidCount">Receives the number of identifiers.</param>
 	/// <param name="iids">Receives ownership of the identifier array allocated with CoTaskMemAlloc.</param>
 	/// <returns>The HRESULT returned by the object.</returns>
 	[PreserveSig]
-	HRESULT GetIids(out uint iidCount, out CoTaskMemFreeSafeHandle iids);
+	HRESULT GetIids(out uint iidCount, out Guid* iids);
 
 	/// <summary>Gets the runtime class name.</summary>
 	/// <param name="className">Receives the runtime class name.</param>

@@ -39,6 +39,9 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 
 	private volatile bool _isDisposed;
 
+	/// <summary>Gets the Shell parsing name of the Computer namespace root.</summary>
+	public static string ComputerParsingName { get; } = $"shell:::{CLSID.CLSID_MyComputer:B}";
+
 	/// <summary>Gets the stable source identifier.</summary>
 	public StorageSourceId SourceId { get; }
 

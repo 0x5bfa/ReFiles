@@ -24,6 +24,53 @@ public sealed class WindowsShellDragDropTests
 	private const string PasteSucceededFormat = "Paste Succeeded";
 	private const string PerformedDropEffectFormat = "Performed DropEffect";
 
+	/// <summary>Copies a Shell selection through the public WinRT bridge without exposing a native COM interface.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task PublicDataPackageBridgeCopiesOnTheOriginatingSta()
+	{
+		var rootPath = CreateTestRoot("PublicBridge");
+		var sourcePath = Path.Combine(rootPath, "source.txt");
+		var destinationPath = Path.Combine(rootPath, "destination");
+		Directory.CreateDirectory(destinationPath);
+		await File.WriteAllTextAsync(sourcePath, "Public Shell bridge content");
+		try
+		{
+			await using var scheduler = new WindowsShellScheduler();
+			await using var source = new WindowsStorageSource(scheduler: scheduler);
+			var sourceItem = await ResolveAsync(source, sourcePath);
+			var destinationItem = await ResolveAsync(source, destinationPath);
+			var dragSource = await source.DragDrop.PrepareDragSourceAsync((StorableReference[])[CreateReference(source, sourceItem)]);
+			var dropTarget = await source.DragDrop.PrepareDropTargetAsync(CreateReference(source, destinationItem), background: true);
+			await scheduler.InvokeAsync(() =>
+			{
+				Assert.AreEqual(ApartmentState.STA, Thread.CurrentThread.GetApartmentState());
+				var package = new DataPackage();
+				var effects = dragSource.Attach(package, 0, WindowsShellDropEffects.Copy);
+				Assert.IsTrue(effects.HasFlag(WindowsShellDropEffects.Copy));
+				Assert.AreEqual(DataPackageOperation.Copy, package.RequestedOperation);
+				var dataTransfer = WindowsShellDataTransfer.FromDataPackageView(package.GetView());
+				Assert.IsTrue(WindowsShellDataObjectFormat.TryGetDword(dataTransfer.DataObject, WindowsShellDataObjectFormat.PreferredDropEffect, out var preferredEffect));
+				Assert.AreEqual((uint)WindowsShellDropEffects.Copy, preferredEffect);
+				Assert.IsTrue(dropTarget.TryCreateSession(dataTransfer, 0, out var session));
+				Assert.IsNotNull(session);
+				using (session)
+				{
+					Assert.IsTrue(session.TryDragEnter(WindowsShellDragDropModifiers.LeftButton, Point.Empty, WindowsShellDropEffects.Copy, out var effect));
+					Assert.AreEqual(WindowsShellDropEffects.Copy, effect);
+					Assert.AreEqual(WindowsShellDropEffects.Copy, session.Drop(WindowsShellDragDropModifiers.LeftButton, Point.Empty, WindowsShellDropEffects.Copy));
+				}
+
+				return true;
+			});
+			Assert.IsTrue(await WaitForFileContentAsync(Path.Combine(destinationPath, "source.txt"), "Public Shell bridge content", TimeSpan.FromSeconds(10)));
+		}
+		finally
+		{
+			await DeleteTestRootAsync(rootPath);
+		}
+	}
+
 	/// <summary>
 	/// Verifies that native source capabilities are masked and interpreted according to the initiating Shell surface.
 	/// </summary>

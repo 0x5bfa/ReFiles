@@ -15,7 +15,7 @@ Windows filesystem/Shell integration is a platform subsystem with COM apartment,
 - execute Shell-dependent operations where appropriate;
 - schedule COM work on suitable STA workers.
 
-The UI-independent mechanisms share the `Files.Core.Storage.Windows` namespace and are grouped physically by responsibility under `Files.Providers/Storage/Windows`. Raw Win32, COM, and Shell ABI declarations remain under `Files.Providers/Storage/Windows/Interop`. The Files UI host owns WinUI gestures, `DataPackage` adaptation, presentation, and window integration around those mechanisms.
+The UI-independent mechanisms share the `Files.Core.Storage.Windows` namespace and are grouped physically by responsibility under `Files.Providers/Storage/Windows`. Raw Win32, COM, and Shell ABI declarations remain under `Files.Providers/Storage/Windows/Interop`. The Files UI host owns WinUI gestures, presentation, window integration and `ContentExternalOutputLink` rendering. Providers adapts WinRT `DataPackage`/`DataPackageView` objects to its private COM declarations on the calling STA. Files independently generates internal UI/window/composition declarations; no generated native type crosses the assembly boundary. Preview HWNDs are borrowed `nint` handles and accelerator callbacks carry managed message snapshots.
 
 ## Concurrency model
 

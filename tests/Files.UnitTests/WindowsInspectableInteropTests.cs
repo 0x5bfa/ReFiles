@@ -11,7 +11,7 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class WindowsInspectableInteropTests
 {
-	/// <summary>Reads a real WinRT factory's IID array through an owning safe handle.</summary>
+	/// <summary>Reads a real WinRT factory's IID array through an owned native buffer.</summary>
 	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
 	public async Task GetIidsReturnsAnOwnedReadableArray()
@@ -33,20 +33,16 @@ public sealed class WindowsInspectableInteropTests
 			hr = PInvoke.RoGetActivationFactory(className, out IInspectable factory);
 			hr.ThrowOnFailure();
 			hr = factory.GetIids(out var count, out var identifiers);
-			using (identifiers)
+			try
 			{
 				hr.ThrowOnFailure();
-				Assert.IsFalse(identifiers.IsInvalid);
-				using var lease = identifiers.Lease();
+				Assert.IsTrue(identifiers != null);
 
-				var result = new Guid[checked((int)count)];
-				fixed (Guid* destination = result)
-				{
-					var byteCount = checked((long)result.Length * sizeof(Guid));
-					Buffer.MemoryCopy(lease.Value, destination, byteCount, byteCount);
-				}
-
-				return result;
+				return new ReadOnlySpan<Guid>(identifiers, checked((int)count)).ToArray();
+			}
+			finally
+			{
+				PInvoke.CoTaskMemFree(identifiers);
 			}
 		}
 	}

@@ -52,7 +52,7 @@ public sealed partial class QuotaPropertyView : UserControl
 		var result = WindowsShellQuotaService.ShowSettings(_owner, Quota.RootPath, Quota.DisplayName);
 		if (result.Failed)
 		{
-			_showError(new System.Runtime.InteropServices.COMException(null, result.Value).Message);
+			_showError(new System.Runtime.InteropServices.COMException(null, result.HResult).Message);
 		}
 	}
 }

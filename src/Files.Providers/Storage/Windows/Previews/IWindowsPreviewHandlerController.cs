@@ -3,8 +3,6 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-using Windows.Win32.Foundation;
-
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Controls the lifetime and rendering surface of a Windows preview handler.</summary>
@@ -15,7 +13,7 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <summary>Sets the preview handler site and accelerator forwarding callback.</summary>
 	/// <param name="hostWindow">The preview host window.</param>
 	/// <param name="acceleratorForwarder">The callback that asynchronously forwards accelerator messages.</param>
-	void SetSite(HWND hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
+	void SetSite(nint hostWindow, WindowsPreviewAcceleratorForwarder? acceleratorForwarder)
 	{
 		SetSite();
 	}
@@ -34,7 +32,7 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <summary>Associates the handler with its host window.</summary>
 	/// <param name="windowHandle">The host window handle.</param>
 	/// <param name="bounds">The preview bounds.</param>
-	void SetWindow(HWND windowHandle, WindowsPreviewBounds bounds);
+	void SetWindow(nint windowHandle, WindowsPreviewBounds bounds);
 	/// <summary>Updates the preview bounds.</summary>
 	/// <param name="bounds">The preview bounds.</param>
 	void SetBounds(WindowsPreviewBounds bounds);
@@ -51,6 +49,6 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	/// <summary>Gives keyboard focus to the preview handler.</summary>
 	void SetFocus();
 	/// <summary>Gets the window that currently has preview focus.</summary>
-	/// <returns>The focused window handle, or zero when no window has focus.</returns>
-	HWND QueryFocus();
+	/// <returns>The borrowed focused window handle, or zero when no window has focus.</returns>
+	nint QueryFocus();
 }

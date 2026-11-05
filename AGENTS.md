@@ -16,9 +16,10 @@ This C#/.NET WinUI 3 desktop app is an alternative to File Explorer.
 
 ## Win32, COM, Shell, and CsWin32
 
+- Files owns UI/window/composition interop through `src/Files/NativeMethods.txt` and `src/Files/Infrastructure/Interop`; keep it internal. Across assemblies, use borrowed `nint` window handles and managed messages/results; retain generated native types inside each interop boundary.
 - Prefer `src/Files.Providers/NativeMethods.txt` and existing wrappers in `src/Files.Providers/Storage/Windows/Interop` for Win32, COM, Shell, clipboard, hotkey, and file-operation interop. Avoid ad hoc P/Invokes when CsWin32 or an existing wrapper covers the API.
 - Do not edit generated CsWin32 output. Update `src/Files.Providers/NativeMethods.txt`, `NativeMethods.json`, or a wrapper instead. Output is under `src/Files.Providers/obj/<platform>/<configuration>/<target-framework>/Generated/CsWin32`; inspect only targeted declarations, and treat the large `Windows.Win32.NativeMethods.g.cs` file and manifest as disposable.
-- `NativeMethods.txt` and `NativeMethods.json` are generator inputs. The current JSON enables public output, source-generated COM interop, and `preserveSig` for all COM methods.
+- `NativeMethods.txt` and `NativeMethods.json` are generator inputs. Each project generates internal declarations. Providers, Files, BackgroundServer and Launcher own separate inputs; do not expose generated types across assembly boundaries. Source-generated COM interop and `preserveSig` for all COM methods remain enabled.
 - Native entry points are emitted as `Windows.Win32.PInvoke` partial methods using `LibraryImport`, `DefaultDllImportSearchPaths(System32)`, Unicode `W` entry points where applicable, and `SupportedOSPlatform` annotations. Do not add duplicate `DllImport` declarations for listed APIs.
 - `Files.Providers` enables `DisableRuntimeMarshalling` and `AllowUnsafeBlocks`. Keep unsafe code at the interop boundary and use source-generated marshalling rather than runtime-marshalling assumptions.
 - Prefer generated managed overloads (`string`, `Span`/`ReadOnlySpan`, nullable structs, `SafeHandle`, or generic COM outputs) when they express the contract. Use raw pointer overloads only when the pointer, buffer, or ownership contract requires them.

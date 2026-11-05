@@ -13,7 +13,7 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("08ED2B5C-6EE2-5C20-B0E1-A1C0C739F17E")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IFileExplorerAppExtensionVectorView : IInspectable
+internal unsafe partial interface IFileExplorerAppExtensionVectorView : IInspectable
 {
 	/// <summary>Gets an extension by index.</summary>
 	/// <param name="index">The zero-based index.</param>

@@ -13,7 +13,7 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("66C23D78-8E71-51EF-A184-ED7B6E6CDC90")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IFileExplorerAppExtension : IInspectable
+internal unsafe partial interface IFileExplorerAppExtension : IInspectable
 {
 	/// <summary>Gets the extension display name.</summary>
 	/// <param name="displayName">Receives the display name.</param>

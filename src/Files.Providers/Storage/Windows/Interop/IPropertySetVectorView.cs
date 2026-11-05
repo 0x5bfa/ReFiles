@@ -13,7 +13,7 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("A79C3578-C5C8-5B61-AFC7-8DA842914434")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IPropertySetVectorView : IInspectable
+internal unsafe partial interface IPropertySetVectorView : IInspectable
 {
 	/// <summary>Gets a property set by index.</summary>
 	/// <param name="index">The zero-based index.</param>

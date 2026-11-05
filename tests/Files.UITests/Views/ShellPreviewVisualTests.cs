@@ -90,7 +90,7 @@ public sealed class ShellPreviewVisualTests
 			return false;
 		}
 
-		var deviceContext = PInvoke.GetDC(HWND.Null);
+		var deviceContext = TestNativeMethods.GetDC(HWND.Null);
 		if (deviceContext.IsNull)
 		{
 			return false;
@@ -98,11 +98,11 @@ public sealed class ShellPreviewVisualTests
 
 		try
 		{
-			return PInvoke.GetPixel(deviceContext, rectangle.left + 20, rectangle.top + 20).Value == PreviewMarkerColor;
+			return TestNativeMethods.GetPixel(deviceContext, rectangle.left + 20, rectangle.top + 20).Value == PreviewMarkerColor;
 		}
 		finally
 		{
-			PInvoke.ReleaseDC(HWND.Null, deviceContext);
+			TestNativeMethods.ReleaseDC(HWND.Null, deviceContext);
 		}
 	}
 
@@ -165,7 +165,7 @@ public sealed class ShellPreviewVisualTests
 
 		public unsafe PaintedChildPreviewSession(WindowsPreviewHost host)
 		{
-			_backgroundBrush = PInvoke.CreateSolidBrush((COLORREF)PreviewMarkerColor);
+			_backgroundBrush = TestNativeMethods.CreateSolidBrush((COLORREF)PreviewMarkerColor);
 			WNDCLASSEXW windowClass = default;
 			windowClass.cbSize = (uint)sizeof(WNDCLASSEXW);
 			windowClass.hInstance = PInvoke.GetModuleHandle(default(PCWSTR));
@@ -176,7 +176,7 @@ public sealed class ShellPreviewVisualTests
 				windowClass.lpszClassName = className;
 				Assert.AreNotEqual((ushort)0, PInvoke.RegisterClassEx(in windowClass));
 				_childWindow = PInvoke.CreateWindowEx(0, className, null, WINDOW_STYLE.WS_CHILD | WINDOW_STYLE.WS_VISIBLE, 0, 0, host.Bounds.Width, host.Bounds.Height,
-					host.WindowHandle, default, windowClass.hInstance, null);
+					(HWND)host.WindowHandle, default, windowClass.hInstance, null);
 			}
 
 			Assert.IsFalse(_childWindow.IsNull);
@@ -211,11 +211,11 @@ public sealed class ShellPreviewVisualTests
 			return ValueTask.CompletedTask;
 		}
 
-		public ValueTask<HWND> QueryFocusAsync(CancellationToken cancellationToken = default)
+		public ValueTask<nint> QueryFocusAsync(CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 
-			return ValueTask.FromResult(_childWindow);
+			return ValueTask.FromResult((nint)_childWindow);
 		}
 
 		public unsafe ValueTask DisposeAsync()

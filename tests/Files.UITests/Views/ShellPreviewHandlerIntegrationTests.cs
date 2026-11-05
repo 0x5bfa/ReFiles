@@ -177,7 +177,7 @@ public sealed class ShellPreviewHandlerIntegrationTests
 			return false;
 		}
 
-		var deviceContext = PInvoke.GetDC(HWND.Null);
+		var deviceContext = TestNativeMethods.GetDC(HWND.Null);
 		if (deviceContext.IsNull)
 		{
 			return false;
@@ -190,7 +190,7 @@ public sealed class ShellPreviewHandlerIntegrationTests
 			{
 				for (var column = 1; column <= 24; column++)
 				{
-					var color = PInvoke.GetPixel(deviceContext, rectangle.left + width * column / 25, rectangle.top + height * row / 21).Value;
+					var color = TestNativeMethods.GetPixel(deviceContext, rectangle.left + width * column / 25, rectangle.top + height * row / 21).Value;
 					if (color != uint.MaxValue)
 					{
 						colors.Add(color);
@@ -204,7 +204,7 @@ public sealed class ShellPreviewHandlerIntegrationTests
 		}
 		finally
 		{
-			PInvoke.ReleaseDC(HWND.Null, deviceContext);
+			TestNativeMethods.ReleaseDC(HWND.Null, deviceContext);
 		}
 	}
 

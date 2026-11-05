@@ -29,20 +29,9 @@ public static class WindowsShellStorageSettingsService
 	/// </summary>
 	/// <param name="rootPath">The drive root to select.</param>
 	/// <returns>The HRESULT returned by application activation.</returns>
-	public static HRESULT OpenDriveUsage(string rootPath)
+	public static WindowsShellOperationResult OpenDriveUsage(string rootPath)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
-
-		try
-		{
-			var activationManager = ApplicationActivationManager.CreateInstance<IApplicationActivationManager>();
-
-			return activationManager.ActivateApplication(SettingsApplicationId, StorageVolumeArguments + rootPath, ACTIVATEOPTIONS.AO_NONE, out _);
-		}
-		catch (COMException exception)
-		{
-			return (HRESULT)exception.HResult;
-		}
+		return new WindowsShellOperationResult(OpenDriveUsageNative(rootPath).Value);
 	}
 
 	/// <summary>
@@ -96,5 +85,21 @@ public static class WindowsShellStorageSettingsService
 		}
 
 		return false;
+	}
+
+	private static HRESULT OpenDriveUsageNative(string rootPath)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
+
+		try
+		{
+			var activationManager = ApplicationActivationManager.CreateInstance<IApplicationActivationManager>();
+
+			return activationManager.ActivateApplication(SettingsApplicationId, StorageVolumeArguments + rootPath, ACTIVATEOPTIONS.AO_NONE, out _);
+		}
+		catch (COMException exception)
+		{
+			return (HRESULT)exception.HResult;
+		}
 	}
 }

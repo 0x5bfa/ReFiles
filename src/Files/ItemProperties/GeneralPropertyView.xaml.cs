@@ -31,7 +31,7 @@ public sealed partial class GeneralPropertyView : UserControl
 		var result = WindowsShellStorageSettingsService.OpenDriveUsage(rootPath);
 		if (result.Failed)
 		{
-			_showError(new COMException(null, result.Value).Message);
+			_showError(new COMException(null, result.HResult).Message);
 		}
 	}
 

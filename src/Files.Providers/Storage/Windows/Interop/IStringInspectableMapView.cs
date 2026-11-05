@@ -13,7 +13,7 @@ namespace Windows.Win32.System.WinRT;
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("BB78502A-F79D-54FA-92C9-90C5039FDF7E")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal partial interface IStringInspectableMapView : IInspectable
+internal unsafe partial interface IStringInspectableMapView : IInspectable
 {
 	/// <summary>Gets a value by key.</summary>
 	/// <param name="key">The lookup key.</param>

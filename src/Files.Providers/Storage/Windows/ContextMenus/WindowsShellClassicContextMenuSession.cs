@@ -33,13 +33,15 @@ public sealed class WindowsShellClassicContextMenuSession
 	private IContextMenu3? _contextMenu3;
 
 	/// <summary>Shows the native popup menu and invokes the selected Shell command.</summary>
-	/// <param name="owner">The owning top-level window.</param>
+	/// <param name="ownerWindowHandle">The borrowed owning top-level window handle.</param>
 	/// <param name="target">The copied Shell item ID lists for the selection.</param>
 	/// <param name="invocationPoint">The screen position, in physical pixels, where the menu should open.</param>
 	/// <returns><see langword="true"/> when a command was selected and invoked; otherwise, <see langword="false"/>.</returns>
-	public unsafe bool Show(HWND owner, WindowsShellContextMenuTarget target, Point invocationPoint)
+	public unsafe bool Show(nint ownerWindowHandle, WindowsShellContextMenuTarget target, Point invocationPoint)
 	{
 		ArgumentNullException.ThrowIfNull(target);
+
+		var owner = (HWND)ownerWindowHandle;
 
 		if (owner.IsNull || target.AbsolutePidls.Count is 0)
 		{
