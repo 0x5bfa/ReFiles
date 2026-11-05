@@ -6,8 +6,9 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Wraps an item capability through a composition-root supplied delegate.
 /// </summary>
+/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 public sealed class DelegateCapabilityWrapper<TCapability> : ICapabilityWrapper<TCapability>
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	private readonly Func<ItemContext, TCapability, TCapability> _wrap;
 

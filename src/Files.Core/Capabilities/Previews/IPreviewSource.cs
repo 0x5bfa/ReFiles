@@ -6,7 +6,7 @@ namespace Files.Core.Capabilities.Previews;
 /// <summary>
 /// Produces UI-neutral preview content for one item.
 /// </summary>
-public interface IPreviewSource
+public interface IPreviewSource : ICapability
 {
 	/// <summary>Gets preview content for the bound item.</summary>
 	/// <param name="request">The preview request.</param>

@@ -11,15 +11,15 @@ namespace Files.Core.Capabilities;
 public interface ICapabilities : IDisposable, IAsyncDisposable
 {
 	/// <summary>Gets an optional capability of the requested type.</summary>
-	/// <typeparam name="TCapability">The capability type.</typeparam>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 	/// <returns>A borrowed capability, or <see langword="null"/> when unavailable. The caller must not dispose the capability.</returns>
-	TCapability? Get<TCapability>()
-		where TCapability : class;
+	/// <exception cref="ArgumentException">The requested type is not a derived capability interface.</exception>
+	TCapability? Get<TCapability>() where TCapability : class, ICapability;
 
 	/// <summary>Attempts to get an optional capability of the requested type.</summary>
-	/// <typeparam name="TCapability">The capability type.</typeparam>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 	/// <param name="capability">Receives a borrowed capability when available. The caller must not dispose it.</param>
 	/// <returns><see langword="true"/> when a capability was found.</returns>
-	bool TryGet<TCapability>([NotNullWhen(true)] out TCapability? capability)
-		where TCapability : class;
+	/// <exception cref="ArgumentException">The requested type is not a derived capability interface.</exception>
+	bool TryGet<TCapability>([NotNullWhen(true)] out TCapability? capability) where TCapability : class, ICapability;
 }

@@ -216,6 +216,7 @@ public sealed class StreamPreviewLoaderTests
 		var policy = new TestPolicy();
 		var loader = CreateLoader(policy);
 		var capabilityRegistry = new CapabilityBuilder()
+			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.CoreModel as IReadableContent), lifetime: CapabilityLifetime.Shared)
 			.Add<IPreviewSource>(new PreviewSourceFactory(loader), priority: 100)
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())
 			.Build();
@@ -252,7 +253,11 @@ public sealed class StreamPreviewLoaderTests
 
 	private static ItemContext CreateContext(TestStorageSource source, IStorable model)
 	{
-		return new ItemContext(source, model, new StorableReference(source.SourceId, model.Id));
+		var context = new ItemContext(source, model, new StorableReference(source.SourceId, model.Id));
+		var registry = new CapabilityBuilder().Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(item => item.CoreModel as IReadableContent),
+			lifetime: CapabilityLifetime.Shared).Build();
+
+		return context with { Capabilities = registry.CreateCapabilities(context) };
 	}
 
 	private static async Task<string> ReadTextAsync(Stream stream)

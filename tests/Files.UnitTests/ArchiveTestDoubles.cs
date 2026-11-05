@@ -102,7 +102,10 @@ internal sealed class ArchiveTestBackend : IArchiveBackend
 	public StorableModelFactory CreateModels(IArchiveCredentialResolver? credentials = null)
 	{
 		var readers = new ArchiveBackendSelector([this]);
-		var capabilities = new CapabilityBuilder().Add<IArchiveSource>(new ArchiveSourceFactory(readers: readers, credentials: credentials)).Build();
+		var capabilities = new CapabilityBuilder().Add<IReadableContent>(new ArchiveContentSourceFactory())
+			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.Source is ArchiveTestSource ? context.CoreModel as IReadableContent : null),
+				lifetime: CapabilityLifetime.Shared)
+			.Add<IArchiveSource>(new ArchiveSourceFactory(readers: readers, credentials: credentials)).Build();
 
 		return new StorableModelFactory(capabilities);
 	}

@@ -6,8 +6,9 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Combines multiple options for one item capability.
 /// </summary>
+/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 public interface ICapabilityCombiner<TCapability>
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	/// <summary>Combines the available capability options.</summary>
 	/// <param name="context">The item context.</param>

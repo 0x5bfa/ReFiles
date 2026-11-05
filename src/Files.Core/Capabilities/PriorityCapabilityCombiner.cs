@@ -6,8 +6,9 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Selects the single highest-priority item capability option.
 /// </summary>
+/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 public sealed class PriorityCapabilityCombiner<TCapability> : ICapabilityCombiner<TCapability>
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	/// <summary>Selects the single capability option with the highest priority.</summary>
 	/// <param name="context">The item context.</param>

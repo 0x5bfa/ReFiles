@@ -13,16 +13,19 @@ public sealed class CapabilityBuilder
 	private readonly Dictionary<Type, List<object>> _wrappers = [];
 
 	/// <summary>Registers a capability factory.</summary>
-	/// <typeparam name="TCapability">The capability type.</typeparam>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 	/// <param name="factory">The factory that creates the capability.</param>
 	/// <param name="priority">The priority used by the capability combiner.</param>
 	/// <param name="lifetime">The lifetime of created capability instances.</param>
 	/// <param name="origin">The registration origin used for diagnostics.</param>
 	/// <returns>This builder.</returns>
+	/// <exception cref="ArgumentException">The requested type is not a derived capability interface.</exception>
 	public CapabilityBuilder Add<TCapability>(ICapabilityFactory<TCapability> factory, int priority = 0, CapabilityLifetime lifetime = CapabilityLifetime.Item, string? origin = null)
-		where TCapability : class
+		where TCapability : class, ICapability
 	{
 		ArgumentNullException.ThrowIfNull(factory);
+
+		CapabilityContract<TCapability>.Validate();
 
 		var registration = new CapabilityRegistration<TCapability>(factory, priority, lifetime, origin ?? factory.GetType().Name);
 
@@ -32,13 +35,15 @@ public sealed class CapabilityBuilder
 	}
 
 	/// <summary>Registers the combiner for a capability type.</summary>
-	/// <typeparam name="TCapability">The capability type.</typeparam>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 	/// <param name="combiner">The combiner to use.</param>
 	/// <returns>This builder.</returns>
-	public CapabilityBuilder SetCombiner<TCapability>(ICapabilityCombiner<TCapability> combiner)
-		where TCapability : class
+	/// <exception cref="ArgumentException">The requested type is not a derived capability interface.</exception>
+	public CapabilityBuilder SetCombiner<TCapability>(ICapabilityCombiner<TCapability> combiner) where TCapability : class, ICapability
 	{
 		ArgumentNullException.ThrowIfNull(combiner);
+
+		CapabilityContract<TCapability>.Validate();
 
 		if (!_combiners.TryAdd(typeof(TCapability), combiner))
 		{
@@ -49,13 +54,15 @@ public sealed class CapabilityBuilder
 	}
 
 	/// <summary>Registers a wrapper for a capability type.</summary>
-	/// <typeparam name="TCapability">The capability type.</typeparam>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 	/// <param name="wrapper">The wrapper to apply.</param>
 	/// <returns>This builder.</returns>
-	public CapabilityBuilder AddWrapper<TCapability>(ICapabilityWrapper<TCapability> wrapper)
-		where TCapability : class
+	/// <exception cref="ArgumentException">The requested type is not a derived capability interface.</exception>
+	public CapabilityBuilder AddWrapper<TCapability>(ICapabilityWrapper<TCapability> wrapper) where TCapability : class, ICapability
 	{
 		ArgumentNullException.ThrowIfNull(wrapper);
+
+		CapabilityContract<TCapability>.Validate();
 
 		GetOrCreateList(_wrappers, typeof(TCapability)).Add(wrapper);
 
@@ -87,4 +94,4 @@ public sealed class CapabilityBuilder
 }
 
 internal sealed record CapabilityRegistration<TCapability>(ICapabilityFactory<TCapability> Factory, int Priority, CapabilityLifetime Lifetime, string Origin)
-	where TCapability : class;
+	where TCapability : class, ICapability;

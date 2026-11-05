@@ -40,14 +40,14 @@ public class CapabilityResolutionBenchmarks
 		for (var index = 0; index < FactoryCount; index++)
 		{
 			var value = index.ToString();
-			builder.Add<BenchmarkCapability>(new DelegateCapabilityFactory<BenchmarkCapability>(_ => new BenchmarkCapability(value)), priority: index);
+			builder.Add<IBenchmarkCapability>(new DelegateCapabilityFactory<IBenchmarkCapability>(_ => new BenchmarkCapability(value)), priority: index);
 		}
 
 		registry = builder
-			.SetCombiner<BenchmarkCapability>(new PriorityCapabilityCombiner<BenchmarkCapability>())
+			.SetCombiner<IBenchmarkCapability>(new PriorityCapabilityCombiner<IBenchmarkCapability>())
 			.Build();
 		cachedCapabilities = registry.CreateCapabilities(context);
-		_ = cachedCapabilities.Get<BenchmarkCapability>();
+		_ = cachedCapabilities.Get<IBenchmarkCapability>();
 	}
 
 	/// <summary>
@@ -68,7 +68,7 @@ public class CapabilityResolutionBenchmarks
 	{
 		using var capabilities = registry.CreateCapabilities(context);
 
-		return capabilities.Get<BenchmarkCapability>()!.Value;
+		return capabilities.Get<IBenchmarkCapability>()!.Value;
 	}
 
 	/// <summary>
@@ -78,11 +78,16 @@ public class CapabilityResolutionBenchmarks
 	[Benchmark]
 	public string CachedResolution()
 	{
-		return cachedCapabilities.Get<BenchmarkCapability>()!.Value;
+		return cachedCapabilities.Get<IBenchmarkCapability>()!.Value;
 	}
 }
 
-internal sealed class BenchmarkCapability
+internal interface IBenchmarkCapability : ICapability
+{
+	string Value { get; }
+}
+
+internal sealed class BenchmarkCapability : IBenchmarkCapability
 {
 	public string Value { get; }
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Properties;
 using Files.Core;
 using Files.Core.Models;
@@ -16,6 +17,57 @@ namespace Files.UnitTests;
 [TestClass]
 public sealed class FtpCompositionTests
 {
+	/// <summary>Operation hosts can resolve content for FTP sources registered after their runtime is built.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task TransferRuntimeSupportsSourcesRegisteredAfterBuild()
+	{
+		var sessions = new InMemoryFtpSessionFactory();
+		sessions.AddFile("/notes.txt", [1, 2, 3]);
+		await using var runtime = new FilesCoreBuilder().AddStorageTransfers().Build();
+		var source = new FtpStorageSource(new("dynamic", "Dynamic", "example.test"), sessionFactory: sessions);
+		runtime.Workspace.SourceRegistry!.AddSource(source);
+		await using var model = await runtime.Workspace.ResolveAsync(source.CreateReference(FtpPath.Parse("/notes.txt")));
+		var reader = model.Get<IReadableContent>();
+		Assert.IsNotNull(reader);
+		Assert.IsNotNull(model.Get<IWritableContent>());
+		await using var stream = await reader.OpenReadAsync();
+		using var output = new MemoryStream();
+		await stream.CopyToAsync(output);
+		CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, output.ToArray());
+	}
+
+	/// <summary>Multiple FTP sources share content registrations without exposing unregistered or unrelated models.</summary>
+	/// <returns>The asynchronous regression test.</returns>
+	[TestMethod]
+	public async Task MultipleSourcesUseExplicitContentRegistrations()
+	{
+		var sessions = new InMemoryFtpSessionFactory();
+		sessions.AddFile("/notes.txt", [1, 2, 3]);
+		await using var runtime = new FilesCoreBuilder()
+			.AddFtpStorage(new("first", "First", "example.test"), sessionFactory: sessions, enableArchives: false)
+			.AddFtpStorage(new("second", "Second", "example.test"), sessionFactory: sessions, enableArchives: false).AddStorageTransfers().Build();
+		var sources = runtime.Workspace.Sources.OfType<FtpStorageSource>().ToArray();
+		Assert.HasCount(2, sources);
+
+		foreach (var source in sources)
+		{
+			var reference = source.CreateReference(FtpPath.Parse("/notes.txt"));
+			await using var model = await runtime.Workspace.ResolveAsync(reference);
+			var reader = model.Get<IReadableContent>();
+			Assert.IsNotNull(reader);
+			Assert.IsNotNull(model.Get<IWritableContent>());
+			await using var stream = await reader.OpenReadAsync();
+			using var output = new MemoryStream();
+			await stream.CopyToAsync(output);
+			CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, output.ToArray());
+
+			await using var rawModel = new StorableModelFactory().Create(source, await source.ResolveAsync(reference));
+			Assert.IsNull(rawModel.Get<IReadableContent>());
+			Assert.IsNull(rawModel.Get<IWritableContent>());
+		}
+	}
+
 	/// <summary>Client-side FTP storage uses the explicitly selected execution boundary in either registration order.</summary>
 	/// <param name="externalFirst">Whether the external service is configured first.</param>
 	/// <returns>The asynchronous regression test.</returns>

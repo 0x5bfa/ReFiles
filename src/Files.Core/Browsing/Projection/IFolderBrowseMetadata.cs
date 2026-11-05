@@ -1,13 +1,14 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Capabilities;
 using Files.Core.Models;
 using Files.Core.ViewSettings;
 
 namespace Files.Core.Browsing;
 
 /// <summary>Provides optional columns and native ordering for a folder.</summary>
-public interface IFolderBrowseMetadata : IBrowseColumnProvider
+public interface IFolderBrowseMetadata : ICapability, IBrowseColumnProvider
 {
 	/// <summary>Orders models using provider semantics.</summary>
 	/// <param name="items">The borrowed models.</param>

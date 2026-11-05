@@ -6,7 +6,7 @@ using System.IO;
 namespace Files.Core.Capabilities.Content;
 
 /// <summary>Provides optional write access independently of read access and storage kind.</summary>
-public interface IWritableContent
+public interface IWritableContent : ICapability
 {
 	/// <summary>Opens an owned stream for writing.</summary>
 	/// <param name="cancellationToken">The token used to cancel opening the stream.</param>

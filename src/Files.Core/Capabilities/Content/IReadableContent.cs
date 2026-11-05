@@ -6,7 +6,7 @@ using System.IO;
 namespace Files.Core.Capabilities.Content;
 
 /// <summary>Provides optional read access to an item's content independently of its storage kind.</summary>
-public interface IReadableContent
+public interface IReadableContent : ICapability
 {
 	/// <summary>Opens an owned stream for reading.</summary>
 	/// <param name="cancellationToken">The token used to cancel opening the stream.</param>

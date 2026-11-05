@@ -38,11 +38,12 @@ public sealed class CapabilityRegistry
 		return new Capabilities(this, context);
 	}
 
-	internal CapabilityResolution<TCapability> Resolve<TCapability>(ItemContext context)
-		where TCapability : class
+	internal CapabilityResolution<TCapability> Resolve<TCapability>(ItemContext context) where TCapability : class, ICapability
 	{
+		CapabilityContract<TCapability>.Validate();
+
 		var capabilityType = typeof(TCapability);
-		if (context.CoreModel is not TCapability && !_factories.ContainsKey(capabilityType) && !_combiners.ContainsKey(capabilityType) && !_wrappers.ContainsKey(capabilityType))
+		if (!_factories.ContainsKey(capabilityType) && !_combiners.ContainsKey(capabilityType) && !_wrappers.ContainsKey(capabilityType))
 		{
 			return CapabilityResolution<TCapability>.Empty;
 		}
@@ -52,11 +53,6 @@ public sealed class CapabilityRegistry
 
 		try
 		{
-			if (context.CoreModel is TCapability directCapability)
-			{
-				options.Add(new CapabilityOption<TCapability>(directCapability, 0, "CoreModel", CapabilityLifetime.Shared));
-			}
-
 			foreach (var registration in GetFactories<TCapability>())
 			{
 				var capability = registration.Factory.Create(context);
@@ -121,8 +117,7 @@ public sealed class CapabilityRegistry
 		}
 	}
 
-	private TCapability? Combine<TCapability>(ItemContext context, IReadOnlyList<CapabilityOption<TCapability>> options)
-		where TCapability : class
+	private TCapability? Combine<TCapability>(ItemContext context, IReadOnlyList<CapabilityOption<TCapability>> options) where TCapability : class, ICapability
 	{
 		if (_combiners.TryGetValue(typeof(TCapability), out var combiner))
 		{
@@ -137,8 +132,7 @@ public sealed class CapabilityRegistry
 		};
 	}
 
-	private IReadOnlyList<CapabilityRegistration<TCapability>> GetFactories<TCapability>()
-		where TCapability : class
+	private IReadOnlyList<CapabilityRegistration<TCapability>> GetFactories<TCapability>() where TCapability : class, ICapability
 	{
 		if (!_factories.TryGetValue(typeof(TCapability), out var registrations))
 		{
@@ -156,8 +150,7 @@ public sealed class CapabilityRegistry
 		return (CapabilityRegistration<TCapability>[])resolvedRegistrations;
 	}
 
-	private IReadOnlyList<ICapabilityWrapper<TCapability>> GetWrappers<TCapability>()
-		where TCapability : class
+	private IReadOnlyList<ICapabilityWrapper<TCapability>> GetWrappers<TCapability>() where TCapability : class, ICapability
 	{
 		if (!_wrappers.TryGetValue(typeof(TCapability), out var registrations))
 		{
@@ -197,7 +190,7 @@ public sealed class CapabilityRegistry
 }
 
 internal sealed record CapabilityResolution<TCapability>(TCapability? Capability, IReadOnlyList<object> OwnedInstances)
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	public static CapabilityResolution<TCapability> Empty { get; } = new(null, []);
 }

@@ -6,8 +6,9 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Wraps an item capability with cross-cutting behavior.
 /// </summary>
+/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 public interface ICapabilityWrapper<TCapability>
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	/// <summary>Wraps a capability for an item context.</summary>
 	/// <param name="context">The item context.</param>

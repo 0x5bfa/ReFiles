@@ -6,7 +6,7 @@ namespace Files.Core.Capabilities.Thumbnails;
 /// <summary>
 /// Supplies thumbnails without also claiming to be a storage item.
 /// </summary>
-public interface IThumbnailSource
+public interface IThumbnailSource : ICapability
 {
 	/// <summary>Gets a thumbnail for an item.</summary>
 	/// <param name="request">The thumbnail request.</param>

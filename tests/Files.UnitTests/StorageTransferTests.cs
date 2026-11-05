@@ -68,8 +68,11 @@ public sealed class StorageTransferTests
 		{
 			var backend = new ArchiveTestBackend(_ => new ArchiveOpenResult.Success(new ArchiveTestSession([new("0", "same.txt", false, 1), new("1", "same.txt", false, 1)])));
 			var source = new ArchiveTestSource();
-			await using var runtime = new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false, enableArchives: false).AddStorageSource(source)
-				.AddStorageTransfers(new ArchiveBackendSelector([backend])).Build();
+			var builder = new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false, enableArchives: false).AddStorageSource(source)
+				.AddStorageTransfers(new ArchiveBackendSelector([backend]));
+			builder.Capabilities.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.Source == source ? context.CoreModel as IReadableContent : null),
+				lifetime: CapabilityLifetime.Shared);
+			await using var runtime = builder.Build();
 			await using var container = await runtime.Workspace.ResolveAsync(source.Reference);
 			var archive = await container.Get<IArchiveSource>()!.OpenAsync();
 			var children = await ArchiveBrowsingTests.CollectAsync(archive.Root);
@@ -151,7 +154,10 @@ public sealed class StorageTransferTests
 		try
 		{
 			var source = new ArchiveTestSource("file.txt", [1, 2, 3]);
-			await using var runtime = new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false).AddStorageSource(source).AddStorageTransfers().Build();
+			var builder = new FilesCoreBuilder().AddWindowsStorage(enablePreviews: false).AddStorageSource(source).AddStorageTransfers();
+			builder.Capabilities.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.Source == source ? context.CoreModel as IReadableContent : null),
+				lifetime: CapabilityLifetime.Shared);
+			await using var runtime = builder.Build();
 			await using var destination = await runtime.Workspace.ResolveAsync(new StorageAddress("file", path));
 			var result = await runtime.StorageOperations.ExecuteAsync(new CopyOperationRequest(source.Reference, destination.Reference), new FailingObserver());
 			Assert.IsFalse(result.Succeeded);

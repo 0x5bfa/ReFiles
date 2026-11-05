@@ -21,6 +21,7 @@ public sealed partial class FilesCoreBuilder
 		EnsureLocalStorageOperations();
 		if (TryAddModule(StorageTransfersModule))
 		{
+			AddFtpContentCapabilities();
 			readers ??= new ArchiveBackendSelector([new SevenZipArchiveBackend()]);
 			AddArchiveBrowsing(readers.Backends, credentials);
 			AddStorageOperationHandlerFactory(workspace => new StorageTransferHandler(workspace, readers, credentials,

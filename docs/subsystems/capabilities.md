@@ -30,6 +30,12 @@ Examples include:
 
 A storage item may obtain capabilities from one or more contributors/providers and compose them according to the subsystem contract. Composition rules must be deterministic: contributors should know which implementation wins or how results combine.
 
+Discovery and registration accept only interfaces derived from `ICapability`. Generic constraints exclude unrelated types such as `object` and `IStorable`; runtime validation additionally rejects implementation classes and the marker itself. Invalid requests throw `ArgumentException` before cached resolution. A valid but unavailable capability returns null.
+
+Implementing a capability on a CoreModel does not register it. Providers explicitly register factories through `CapabilityBuilder`; the registry combines their results and then applies wrappers. FTP and archive modules register their content factories once per builder. The transfer module also registers FTP content so operation hosts can resolve sources added after runtime construction. An unbound `ItemContext.GetCapability<T>()` returns null instead of casting its CoreModel. Provider code that needs composed dependencies must use the context supplied during resolution.
+
+Custom capability interfaces must derive from `ICapability`, and registrations/queries must use the interface rather than its implementation type. This is an API compatibility change. The marker identifies a capability contract; it does not authorize provider code or prevent casts between interfaces implemented by a returned object. That remaining boundary is tracked in [`../architecture/issues.md`](../architecture/issues.md).
+
 ## Lazy resolution
 
 Expensive capability objects should generally be resolved lazily. Browsing tens of thousands of items must not eagerly allocate every possible capability/provider object for every row.

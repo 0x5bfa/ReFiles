@@ -6,8 +6,9 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Creates an optional capability when it applies to the supplied item.
 /// </summary>
+/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 public interface ICapabilityFactory<TCapability>
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	/// <summary>Creates a capability for an item context.</summary>
 	/// <param name="context">The item context.</param>

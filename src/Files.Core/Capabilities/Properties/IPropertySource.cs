@@ -6,7 +6,7 @@ namespace Files.Core.Capabilities.Properties;
 /// <summary>
 /// Reads properties bound to one application model.
 /// </summary>
-public interface IPropertySource
+public interface IPropertySource : ICapability
 {
 	/// <summary>Reads the requested properties for the bound item.</summary>
 	/// <param name="request">The requested properties.</param>

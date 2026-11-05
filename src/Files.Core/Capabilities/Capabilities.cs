@@ -27,9 +27,10 @@ internal sealed class Capabilities : ICapabilities
 		_context = context with { Capabilities = this };
 	}
 
-	public TCapability? Get<TCapability>()
-		where TCapability : class
+	public TCapability? Get<TCapability>() where TCapability : class, ICapability
 	{
+		CapabilityContract<TCapability>.Validate();
+
 		lock (GetSyncRoot())
 		{
 			ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -73,8 +74,7 @@ internal sealed class Capabilities : ICapabilities
 		}
 	}
 
-	public bool TryGet<TCapability>([NotNullWhen(true)] out TCapability? capability)
-		where TCapability : class
+	public bool TryGet<TCapability>([NotNullWhen(true)] out TCapability? capability) where TCapability : class, ICapability
 	{
 		capability = Get<TCapability>();
 

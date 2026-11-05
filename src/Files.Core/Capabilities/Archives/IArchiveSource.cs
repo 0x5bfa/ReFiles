@@ -10,7 +10,7 @@ namespace Files.Core.Capabilities.Archives;
 /// <summary>
 /// Opens archive application models independently of browsing and presentation.
 /// </summary>
-public interface IArchiveSource
+public interface IArchiveSource : ICapability
 {
 	/// <summary>Gets the archive reference represented by the item.</summary>
 	StorableReference Archive { get; }

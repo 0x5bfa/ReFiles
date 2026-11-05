@@ -6,8 +6,9 @@ namespace Files.Core.Capabilities;
 /// <summary>
 /// Combines item capability options through a composition-root supplied delegate.
 /// </summary>
+/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
 public sealed class DelegateCapabilityCombiner<TCapability> : ICapabilityCombiner<TCapability>
-	where TCapability : class
+	where TCapability : class, ICapability
 {
 	private readonly Func<
 		ItemContext,

@@ -146,9 +146,9 @@ Paths below are relative to `src/Files.Core` unless another project is named. Th
 
 ### 1. Arbitrary capability types resolve to raw CoreModels
 
-`Capabilities/ICapabilities.cs`, `Capabilities/CapabilityRegistry.cs`, and `Capabilities/CapabilityBuilder.cs` constrain type arguments only to `class`. Registry automatically adds `context.CoreModel` when it implements the requested type. Consequently `Get<object>()`, `Get<IStorable>()`, and compatible concrete-type requests can expose the original CoreModel without its composed wrappers.
+Implemented: discovery and registration now require `class, ICapability`, and shared runtime validation rejects implementation classes and the marker itself before cache lookup or registration. Registry no longer adopts CoreModel interfaces automatically. FTP and archive modules explicitly register content factories, and an unbound `ItemContext.GetCapability<T>()` no longer casts its CoreModel. Custom capabilities must use derived interfaces and explicit factory registration; see [`../subsystems/capabilities.md`](../subsystems/capabilities.md).
 
-Remove automatic CoreModel adoption, explicitly register capabilities, and validate discovery/registration/combiner/wrapper types consistently. A marker interface alone permits marker-bearing concrete classes; interface checks alone still permit arbitrary provider interfaces. Define which capability contracts are admissible, and reject the marker itself. Validate before cache lookup as well as during registration; an analyzer can report statically known misuse, but runtime resolution must enforce the same contract.
+Previously, `ICapabilities`, Registry and Builder accepted any class type, and Registry automatically returned compatible CoreModels. This allowed `Get<object>()`, `Get<IStorable>()`, and compatible concrete-type requests to expose the original CoreModel outside its composed wrappers. The new contract removes that arbitrary-type path; casts on explicitly registered results remain issue 2, and raw source/composition access remain issues 3 and 4.
 
 ### 2. A capability result can expose other functionality through casts
 
@@ -164,9 +164,9 @@ Expose source descriptors and AppModel resolution. Keep raw registration behind 
 
 ### 4. Provider composition and contexts are public
 
-`FilesCoreBuilder.Capabilities`, `AddStorageSource`, provider registration methods, public factories/wrappers/combiners, `CapabilityRegistry.CreateCapabilities`, and `ItemContext` are accessible to Files. `ItemContext` carries `Source` and `CoreModel`; its `GetCapability<T>()` falls back to a raw cast when unbound.
+`FilesCoreBuilder.Capabilities`, `AddStorageSource`, provider registration methods, public factories/wrappers/combiners, `CapabilityRegistry.CreateCapabilities`, and `ItemContext` are accessible to Files. `ItemContext` still carries public `Source` and `CoreModel` properties. Its former unbound `GetCapability<T>()` raw-cast fallback was removed with issue 1.
 
-These are implementation/composition facilities, not consumer APIs. Keep them behind Core and Hosting. Eliminate the unbound fallback from any consumer-visible resolution path. Hosting must not re-expose these facilities as callbacks, options or an `IServiceProvider` escape hatch.
+These are implementation/composition facilities, not consumer APIs. Keep them behind Core and Hosting. Hosting must not re-expose these facilities as callbacks, options or an `IServiceProvider` escape hatch.
 
 ### 5. Consumers can construct models outside the configured runtime
 

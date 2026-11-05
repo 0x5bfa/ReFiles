@@ -89,9 +89,13 @@ internal sealed class DisposableStorable : TestStorable, IDisposable
 	}
 }
 
-internal sealed class TestCapability : IDisposable
+internal interface ITestCapability : ICapability
 {
-	private readonly IList<string> disposalOrder;
+}
+
+internal sealed class TestCapability : ITestCapability, IDisposable
+{
+	private readonly IList<string> _disposalOrder;
 
 	public string Name { get; }
 
@@ -100,7 +104,7 @@ internal sealed class TestCapability : IDisposable
 	public TestCapability(string name, IList<string> disposalOrder)
 	{
 		Name = name;
-		this.disposalOrder = disposalOrder;
+		_disposalOrder = disposalOrder;
 	}
 
 	public void Dispose()
@@ -111,7 +115,7 @@ internal sealed class TestCapability : IDisposable
 		}
 
 		IsDisposed = true;
-		disposalOrder.Add(Name);
+		_disposalOrder.Add(Name);
 	}
 }
 

@@ -470,6 +470,7 @@ public sealed class WindowsShellPreviewTests
 		var streamLoader = new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", "text/plain"), ]), new AllowPreviewPolicy());
 		var shellLoader = new WindowsShellPreviewLoader(handlerResolver, new FakeShellPolicy());
 		var capabilityRegistry = new CapabilityBuilder()
+			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.CoreModel as IReadableContent), lifetime: CapabilityLifetime.Shared)
 			.Add<IPreviewSource>(new PreviewSourceFactory(streamLoader), priority: 200)
 			.Add<IPreviewSource>(new PreviewSourceFactory(shellLoader), priority: 100)
 			.SetCombiner<IPreviewSource>(new PreviewSourceCombiner())

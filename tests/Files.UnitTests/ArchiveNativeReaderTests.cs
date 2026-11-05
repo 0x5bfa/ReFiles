@@ -141,7 +141,7 @@ public sealed class ArchiveNativeReaderTests
 		try
 		{
 			await using var source = new WindowsStorageSource();
-			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory())
+			var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Add<IReadableContent>(new ArchiveContentSourceFactory(), lifetime: CapabilityLifetime.Shared)
 				.AddWrapper<IReadableContent>(new DelegateCapabilityWrapper<IReadableContent>((_, _) => new DeniedContent())).Add<IArchiveSource>(new ArchiveSourceFactory()).Build();
 			var models = new StorableModelFactory(registry);
 			await using var item = models.Create(source, await source.ResolveAsync(new StorageAddress("file", path)));
@@ -184,7 +184,12 @@ public sealed class ArchiveNativeReaderTests
 
 	private static StorableModelFactory CreateModels(IArchiveCredentialResolver? credentials = null)
 	{
-		return new StorableModelFactory(new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory()).Add<IArchiveSource>(new ArchiveSourceFactory(credentials: credentials)).Build());
+		var registry = new CapabilityBuilder().Add<IReadableContent>(new WindowsContentSourceFactory())
+			.Add<IReadableContent>(new ArchiveContentSourceFactory(), lifetime: CapabilityLifetime.Shared)
+			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.Source is ArchiveTestSource ? context.CoreModel as IReadableContent : null),
+				lifetime: CapabilityLifetime.Shared).Add<IArchiveSource>(new ArchiveSourceFactory(credentials: credentials)).Build();
+
+		return new StorableModelFactory(registry);
 	}
 
 	private sealed class DeniedContent : IReadableContent

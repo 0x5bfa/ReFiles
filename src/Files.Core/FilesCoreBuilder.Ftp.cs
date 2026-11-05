@@ -1,6 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Capabilities;
+using Files.Core.Capabilities.Content;
 using Files.Core.Capabilities.Properties;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Ftp;
@@ -9,6 +11,8 @@ namespace Files.Core;
 
 public sealed partial class FilesCoreBuilder
 {
+	private const string FtpContentModule = "Files.Core.Ftp.Content";
+
 	/// <summary>Adds an FTP source with its property capability, optional local operations, and archive browsing.</summary>
 	/// <param name="profile">The FTP connection profile.</param>
 	/// <param name="credentialResolver">The optional credential resolver.</param>
@@ -77,6 +81,7 @@ public sealed partial class FilesCoreBuilder
 
 	private FilesCoreBuilder AddFtpCapabilities(FtpStorageSource source, bool enableArchives, IArchiveCredentialResolver? archiveCredentialResolver)
 	{
+		AddFtpContentCapabilities();
 		Capabilities.Add<IPropertySource>(new PropertySourceFactory(new FtpPropertyReader(source)), priority: 100, origin: $"FTP:{source.Profile.ConnectionId}");
 
 		if (enableArchives)
@@ -85,5 +90,14 @@ public sealed partial class FilesCoreBuilder
 		}
 
 		return this;
+	}
+
+	private void AddFtpContentCapabilities()
+	{
+		if (TryAddModule(FtpContentModule))
+		{
+			var contentFactory = new FtpContentSourceFactory();
+			Capabilities.Add<IReadableContent>(contentFactory, lifetime: CapabilityLifetime.Shared).Add<IWritableContent>(contentFactory, lifetime: CapabilityLifetime.Shared);
+		}
 	}
 }

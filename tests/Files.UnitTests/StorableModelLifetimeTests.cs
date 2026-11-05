@@ -22,13 +22,13 @@ public sealed class StorableModelLifetimeTests
 	{
 		var order = new List<string>();
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<AsyncOrderCapability>(new DelegateCapabilityFactory<AsyncOrderCapability>(_ => new AsyncOrderCapability(order)))
+			.Add<IAsyncOrderCapability>(new DelegateCapabilityFactory<IAsyncOrderCapability>(_ => new AsyncOrderCapability(order)))
 			.Build();
 		var factory = new StorableModelFactory(capabilityRegistry);
 		var coreModel = new AsyncOrderStorable("item", "Item", order);
 		var model = factory.Create(new TestStorageSource(), coreModel);
 
-		Assert.IsNotNull(model.Get<AsyncOrderCapability>());
+		Assert.IsNotNull(model.Get<IAsyncOrderCapability>());
 		await model.DisposeAsync();
 
 		CollectionAssert.AreEqual(new[] {"capability", "core"}, order);
@@ -84,7 +84,11 @@ public sealed class StorableModelLifetimeTests
 		Assert.IsTrue(coreModel.IsDisposed);
 	}
 
-	private sealed class AsyncOrderCapability : IAsyncDisposable
+	private interface IAsyncOrderCapability : ICapability
+	{
+	}
+
+	private sealed class AsyncOrderCapability : IAsyncOrderCapability, IAsyncDisposable
 	{
 		private readonly IList<string> order;
 

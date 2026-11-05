@@ -4,6 +4,7 @@
 using Files.Core.Browsing;
 using Files.Core.Capabilities;
 using Files.Core.Capabilities.Archives;
+using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Archives.SevenZip;
 
@@ -35,6 +36,7 @@ public sealed partial class FilesCoreBuilder
 		}
 
 		var readers = new ArchiveBackendSelector(backends);
+		Capabilities.Add<IReadableContent>(new ArchiveContentSourceFactory(), lifetime: CapabilityLifetime.Shared);
 		Capabilities.SetCombiner<IArchiveSource>(new PriorityCapabilityCombiner<IArchiveSource>())
 			.Add<IArchiveSource>(new ArchiveSourceFactory(readers: readers, credentials: credentialResolver), priority: 100, origin: "Archive models");
 		AddStorageBrowseLocationHandler(workspace => new ArchiveBrowseLocationHandler(workspace, workspace.ModelFactory, readers, credentialResolver));

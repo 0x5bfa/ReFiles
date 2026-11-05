@@ -25,14 +25,19 @@ public sealed class CapabilityRegistryTests
 		var createCount = 0;
 		var capability = new TestCapability("capability", []);
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => {createCount++; return capability;}))
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ =>
+			{
+				createCount++;
+
+				return capability;
+			}))
 			.Build();
 
 		using var capabilities = capabilityRegistry.CreateCapabilities(context);
 		Assert.AreEqual(0, createCount);
 
-		Assert.AreSame(capability, capabilities.Get<TestCapability>());
-		Assert.AreSame(capability, capabilities.Get<TestCapability>());
+		Assert.AreSame(capability, capabilities.Get<ITestCapability>());
+		Assert.AreSame(capability, capabilities.Get<ITestCapability>());
 		Assert.AreEqual(1, createCount);
 	}
 
@@ -50,13 +55,13 @@ public sealed class CapabilityRegistryTests
 		var innerCapability = new TestCapability("inner", disposalOrder);
 		var wrapper = new TestCapability("wrapper", disposalOrder);
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => innerCapability))
-			.AddWrapper<TestCapability>(new DelegateCapabilityWrapper<TestCapability>((_, _) => wrapper))
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => innerCapability))
+			.AddWrapper<ITestCapability>(new DelegateCapabilityWrapper<ITestCapability>((_, _) => wrapper))
 			.Build();
 
 		using (var capabilities = capabilityRegistry.CreateCapabilities(context))
 		{
-			Assert.AreSame(wrapper, capabilities.Get<TestCapability>());
+			Assert.AreSame(wrapper, capabilities.Get<ITestCapability>());
 		}
 
 		CollectionAssert.AreEqual(new[] { "wrapper", "inner" }, disposalOrder);
@@ -74,12 +79,12 @@ public sealed class CapabilityRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capability = new TestCapability("shared", []);
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => capability), lifetime: CapabilityLifetime.Shared)
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => capability), lifetime: CapabilityLifetime.Shared)
 			.Build();
 
 		using (var capabilities = capabilityRegistry.CreateCapabilities(context))
 		{
-			Assert.AreSame(capability, capabilities.Get<TestCapability>());
+			Assert.AreSame(capability, capabilities.Get<ITestCapability>());
 		}
 
 		Assert.IsFalse(capability.IsDisposed);
@@ -98,11 +103,11 @@ public sealed class CapabilityRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capability = new AsyncTestCapability();
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<AsyncTestCapability>(new DelegateCapabilityFactory<AsyncTestCapability>(_ => capability))
+			.Add<IAsyncTestCapability>(new DelegateCapabilityFactory<IAsyncTestCapability>(_ => capability))
 			.Build();
 		var capabilities = capabilityRegistry.CreateCapabilities(context);
 
-		Assert.AreSame(capability, capabilities.Get<AsyncTestCapability>());
+		Assert.AreSame(capability, capabilities.Get<IAsyncTestCapability>());
 		await capabilities.DisposeAsync();
 
 		Assert.IsTrue(capability.IsDisposed);
@@ -121,12 +126,12 @@ public sealed class CapabilityRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capability = new ThrowingDisposableCapability();
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<ThrowingDisposableCapability>(new DelegateCapabilityFactory<ThrowingDisposableCapability>(_ => capability))
-			.AddWrapper<ThrowingDisposableCapability>(new DelegateCapabilityWrapper<ThrowingDisposableCapability>((_, _) => throw new InvalidOperationException("resolution failed")))
+			.Add<IThrowingDisposableCapability>(new DelegateCapabilityFactory<IThrowingDisposableCapability>(_ => capability))
+			.AddWrapper<IThrowingDisposableCapability>(new DelegateCapabilityWrapper<IThrowingDisposableCapability>((_, _) => throw new InvalidOperationException("resolution failed")))
 			.Build();
 		using var capabilities = capabilityRegistry.CreateCapabilities(context);
 
-		var error = Assert.Throws<AggregateException>(() => capabilities.Get<ThrowingDisposableCapability>());
+		var error = Assert.Throws<AggregateException>(() => capabilities.Get<IThrowingDisposableCapability>());
 
 		Assert.AreEqual(2, error.InnerExceptions.Count);
 		Assert.IsTrue(error.InnerExceptions.Any(static exception => exception.Message == "resolution failed"));
@@ -145,12 +150,12 @@ public sealed class CapabilityRegistryTests
 		var reference = new Files.Core.Storage.StorableReference(factory.Source.SourceId, coreModel.Id);
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => new TestCapability("one", [])))
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => new TestCapability("two", [])))
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("one", [])))
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("two", [])))
 			.Build();
 
 		using var capabilities = capabilityRegistry.CreateCapabilities(context);
-		Assert.Throws<InvalidOperationException>(() => capabilities.Get<TestCapability>());
+		Assert.Throws<InvalidOperationException>(() => capabilities.Get<ITestCapability>());
 	}
 
 	/// <summary>
@@ -164,16 +169,24 @@ public sealed class CapabilityRegistryTests
 		var reference = new Files.Core.Storage.StorableReference(factory.Source.SourceId, coreModel.Id);
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capabilityRegistry = new CapabilityBuilder()
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => new TestCapability("one", [])), priority: 10)
-			.Add<TestCapability>(new DelegateCapabilityFactory<TestCapability>(_ => new TestCapability("two", [])), priority: 10)
-			.SetCombiner<TestCapability>(new PriorityCapabilityCombiner<TestCapability>())
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("one", [])), priority: 10)
+			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("two", [])), priority: 10)
+			.SetCombiner<ITestCapability>(new PriorityCapabilityCombiner<ITestCapability>())
 			.Build();
 
 		using var capabilities = capabilityRegistry.CreateCapabilities(context);
-		Assert.Throws<InvalidOperationException>(() => capabilities.Get<TestCapability>());
+		Assert.Throws<InvalidOperationException>(() => capabilities.Get<ITestCapability>());
 	}
 
-	private sealed class AsyncTestCapability : IAsyncDisposable
+	private interface IAsyncTestCapability : ICapability
+	{
+	}
+
+	private interface IThrowingDisposableCapability : ICapability
+	{
+	}
+
+	private sealed class AsyncTestCapability : IAsyncTestCapability, IAsyncDisposable
 	{
 		public bool IsDisposed { get; private set; }
 
@@ -187,7 +200,7 @@ public sealed class CapabilityRegistryTests
 		}
 	}
 
-	private sealed class ThrowingDisposableCapability : IDisposable
+	private sealed class ThrowingDisposableCapability : IThrowingDisposableCapability, IDisposable
 	{
 		public int DisposeCount { get; private set; }
 

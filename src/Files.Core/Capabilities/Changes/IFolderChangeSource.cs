@@ -9,7 +9,7 @@ namespace Files.Core.Capabilities.Changes;
 /// can release the source; callers with an async lifetime
 /// should prefer <see cref="IAsyncDisposable.DisposeAsync"/>.
 /// </summary>
-public interface IFolderChangeSource : IDisposable, IAsyncDisposable
+public interface IFolderChangeSource : ICapability, IDisposable, IAsyncDisposable
 {
 	/// <summary>
 	/// Raised after a Shell change has been converted to a managed folder change.

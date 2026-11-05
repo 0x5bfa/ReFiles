@@ -122,7 +122,10 @@ public sealed class ArchiveLifetimeTests
 		var backend = new ArchiveTestBackend(request => new ArchiveOpenResult.Success(new ArchiveTestSession(request.Input.ReadByte() == 1
 			? [new("7", @"folder\inner.7z", false, 1)] : [new("2", "docs/readme.txt", false, 1)], (_, _) => Task.FromResult<Stream>(new MemoryStream([2])))));
 		var source = new ArchiveTestSource();
-		await using var runtime = new FilesCoreBuilder().AddStorageSource(source).AddArchiveBrowsing([backend]).Build();
+		var builder = new FilesCoreBuilder().AddStorageSource(source).AddArchiveBrowsing([backend]);
+		builder.Capabilities.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.Source is ArchiveTestSource ? context.CoreModel as IReadableContent : null),
+			lifetime: CapabilityLifetime.Shared);
+		await using var runtime = builder.Build();
 		var window = await runtime.ShellSession.CreateWindowAsync(new ArchiveLocation(source.Reference, "folder"));
 		var pane = (BrowsePaneSession)window.ActiveTab!.ActivePane!.Content;
 		var children = await ArchiveBrowsingTests.CollectAsync((IFolderModel)pane.BrowseSession.Context!.LocationModel!);
