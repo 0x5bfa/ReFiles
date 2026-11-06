@@ -28,14 +28,13 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 	private readonly ConcurrentDictionary<string, uint> _volumeSerialNumbers = new(StringComparer.OrdinalIgnoreCase);
 
-	public string GetItemId(string parsingName, string? fileSystemPath, out string? fileSystemIdentity)
+	public string GetItemId(string parsingName, string? fileSystemPath)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
-		fileSystemIdentity = null;
 		if (fileSystemPath is not null && !IsOpticalDrive(fileSystemPath) && TryGetFileId(fileSystemPath, out var fileId))
 		{
-			fileSystemIdentity = FormatFileIdentity(fileId);
+			var fileSystemIdentity = FormatFileIdentity(fileId);
 			if (fileId.NumberOfLinks <= 1)
 			{
 				return $"{FileIdentityPrefix}{fileSystemIdentity}";
@@ -48,13 +47,6 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		}
 
 		return CreateAddressIdentity(parsingName);
-	}
-
-	public string? GetFileSystemIdentity(SafeFileHandle handle)
-	{
-		ArgumentNullException.ThrowIfNull(handle);
-
-		return TryGetFileIdByHandle(handle, out var fileId) ? FormatFileIdentity(fileId) : null;
 	}
 
 	public bool TryGetParsingName(string itemId, out string parsingName)

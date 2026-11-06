@@ -68,9 +68,9 @@ internal static unsafe class WindowShellHelpers
 		ArgumentNullException.ThrowIfNull(data);
 		ArgumentNullException.ThrowIfNull(itemIdReader);
 
-		var itemId = itemIdReader.GetItemId(data.Locator.ParsingName, data.Metadata.FileSystemPath, out var fileSystemIdentity);
+		var itemId = itemIdReader.GetItemId(data.Locator.ParsingName, data.Metadata.FileSystemPath);
 
-		return new WindowsStorableDescriptor(itemId, fileSystemIdentity, data.Address, data.Locator, data.Metadata);
+		return new WindowsStorableDescriptor(itemId, data.Address, data.Locator, data.Metadata);
 	}
 
 	internal static string GetRequiredDisplayName(IShellItem shellItem, SIGDN format)

@@ -19,7 +19,7 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 		ArgumentNullException.ThrowIfNull(context);
 
 		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsStorable item && (item.IsStream || item is WindowsFile { IsFileSystem: true })
-			? new WindowsContentSource(item.Descriptor, source.Scheduler, source.ItemIdReader)
+			? new WindowsContentSource(item.Descriptor, source.Scheduler)
 			: null;
 	}
 
@@ -31,7 +31,7 @@ public sealed class WindowsContentSourceFactory : ICapabilityFactory<IReadableCo
 		ArgumentNullException.ThrowIfNull(context);
 
 		return context.Source is WindowsStorageSource source && context.CoreModel is WindowsFile { IsFileSystem: true } file
-			? new WindowsContentSource(file.Descriptor, source.Scheduler, source.ItemIdReader)
+			? new WindowsContentSource(file.Descriptor, source.Scheduler)
 			: null;
 	}
 }
