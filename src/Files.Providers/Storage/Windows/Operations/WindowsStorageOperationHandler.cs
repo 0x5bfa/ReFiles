@@ -105,6 +105,23 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		}
 	}
 
+	internal static void ValidateName(string newName)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+
+		if (newName is "." or ".."
+			|| newName.Length > 255
+			|| newName.EndsWith(' ')
+			|| newName.EndsWith('.')
+			|| newName.Contains(Path.DirectorySeparatorChar)
+			|| newName.Contains(Path.AltDirectorySeparatorChar)
+			|| newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+			|| IsReservedDosDeviceName(newName))
+		{
+			throw new ArgumentException("The new name must be a single valid Windows file-system name.", nameof(newName));
+		}
+	}
+
 	private async ValueTask<StorageOperationResult> ExecuteRenameAsync(RenameOperationRequest request, IProgress<StorageOperationProgress>? progress, CancellationToken cancellationToken)
 	{
 		ValidateName(request.NewName);
@@ -795,23 +812,6 @@ public sealed class WindowsStorageOperationHandler : IStorageOperationHandler
 		return IsOwned(reference)
 			&& reference.LastKnownAddress is { } address
 			&& address.Scheme.Equals(WindowsStorageSource.FileAddressScheme, StringComparison.OrdinalIgnoreCase);
-	}
-
-	internal static void ValidateName(string newName)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(newName);
-
-		if (newName is "." or ".."
-			|| newName.Length > 255
-			|| newName.EndsWith(' ')
-			|| newName.EndsWith('.')
-			|| newName.Contains(Path.DirectorySeparatorChar)
-			|| newName.Contains(Path.AltDirectorySeparatorChar)
-			|| newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
-			|| IsReservedDosDeviceName(newName))
-		{
-			throw new ArgumentException("The new name must be a single valid Windows file-system name.", nameof(newName));
-		}
 	}
 
 	private static bool IsReservedDosDeviceName(string newName)

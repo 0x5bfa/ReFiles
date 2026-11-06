@@ -49,9 +49,9 @@ public sealed class BrowsePerformanceTests
 	private const int MaximumStressItemCount = 44_000;
 	private const int FirstPageItemCount = 32;
 	private const int VirtualizationSafetyLimit = 200;
-	private static readonly TimeSpan FirstContentTimeout = TimeSpan.FromSeconds(15);
-	private static readonly TimeSpan NavigationTimeout = TimeSpan.FromSeconds(60);
-	private static readonly TimeSpan StressUITimeout = TimeSpan.FromSeconds(30);
+	private static readonly TimeSpan _firstContentTimeout = TimeSpan.FromSeconds(15);
+	private static readonly TimeSpan _navigationTimeout = TimeSpan.FromSeconds(60);
+	private static readonly TimeSpan _stressUITimeout = TimeSpan.FromSeconds(30);
 
 	public TestContext TestContext { get; set; } = null!;
 
@@ -139,7 +139,7 @@ public sealed class BrowsePerformanceTests
 					await secondaryEnvironment.Folder.SetViewModeAsync(viewMode);
 					await primaryEnvironment.Folder.SetItemSizeAsync(1 + ((iteration + (int)viewMode) % 5));
 					await secondaryEnvironment.Folder.SetItemSizeAsync(1 + ((iteration + (int)viewMode + 2) % 5));
-					await WaitForUIIdleAsync(StressUITimeout);
+					await WaitForUIIdleAsync(_stressUITimeout);
 					var primaryList = await WaitForDescendantAsync<ListViewBase>(primaryBrowser);
 					var secondaryList = await WaitForDescendantAsync<ListViewBase>(secondaryBrowser);
 					var selectionMode = (RectangleSelectionMode)((iteration + (int)viewMode) % 3);
@@ -156,7 +156,7 @@ public sealed class BrowsePerformanceTests
 					secondaryList.ScrollIntoView(secondaryEnvironment.Folder.Items[random.Next(secondaryEnvironment.Folder.Items.Count)]);
 					await primaryEnvironment.Folder.SetSortAsync("System.ItemNameDisplay", iteration % 2 is 0 ? ViewSortDirection.Ascending : ViewSortDirection.Descending);
 					await secondaryEnvironment.Folder.SetGroupingAsync(viewMode is FolderViewMode.Cards ? "System.ItemTypeText" : null, ViewSortDirection.Ascending);
-					await WaitForUIIdleAsync(StressUITimeout);
+					await WaitForUIIdleAsync(_stressUITimeout);
 					WriteStressProgress(iteration, $"completed {viewMode}");
 				}
 
@@ -224,7 +224,7 @@ public sealed class BrowsePerformanceTests
 
 					return ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = (long)index });
 				}
-				: null);
+		: null);
 		var location = new FolderLocation(new StorableReference(new StorageSourceId("performance"), "root", new StorageAddress("performance", "root")));
 		var settingsStore = new InMemoryViewSettingsStore();
 		if (scenario.EnablePropertyEnrichment)
@@ -259,16 +259,16 @@ public sealed class BrowsePerformanceTests
 
 		try
 		{
-			await providerPaused.Task.WaitAsync(FirstContentTimeout);
-			await metrics.FirstCoreBatch.WaitAsync(FirstContentTimeout);
-			await metrics.FirstPresentedItem.WaitAsync(FirstContentTimeout);
-			await metrics.FirstRealizedRow.WaitAsync(FirstContentTimeout);
+			await providerPaused.Task.WaitAsync(_firstContentTimeout);
+			await metrics.FirstCoreBatch.WaitAsync(_firstContentTimeout);
+			await metrics.FirstPresentedItem.WaitAsync(_firstContentTimeout);
+			await metrics.FirstRealizedRow.WaitAsync(_firstContentTimeout);
 			Assert.IsFalse(navigation.IsCompleted, "The first row must be realized while the synthetic provider is still paused after the initial batch.");
 
 			if (scenario.EnablePropertyEnrichment)
 			{
 				folder.UpdateViewport(new BrowseViewport(0, Math.Min(32, scenario.ItemCount)));
-				await propertyObserved.Task.WaitAsync(FirstContentTimeout);
+				await propertyObserved.Task.WaitAsync(_firstContentTimeout);
 			}
 		}
 		finally
@@ -276,7 +276,7 @@ public sealed class BrowsePerformanceTests
 			providerRelease.TrySetResult(true);
 		}
 
-		await navigation.WaitAsync(NavigationTimeout);
+		await navigation.WaitAsync(_navigationTimeout);
 		metrics.MarkEnumerationCompleted();
 		await WaitForPresentedItemsAsync(folder, scenario.ItemCount);
 		await dispatcherProbe.StopAsync();
@@ -313,7 +313,7 @@ public sealed class BrowsePerformanceTests
 		var presentationFactory = new WindowPresentationFactory(runtime.Workspace.AsConsumerReader(), runtime.StorageOperations, operationTracker, appSettings, dispatcher,
 			CreateNoOpCommandRegistry());
 		await using var root = new RootViewModel(coreWindow, presentationFactory);
-		await root.InitializeAsync().WaitAsync(NavigationTimeout);
+		await root.InitializeAsync().WaitAsync(_navigationTimeout);
 
 		var folder = root.ActiveFolderBrowser;
 		Assert.IsNotNull(folder);
@@ -335,13 +335,13 @@ public sealed class BrowsePerformanceTests
 			metrics.Start();
 
 			var navigation = iteration is 0 ? folder.NavigateToPathAsync(folderPath) : folder.RefreshAsync();
-			await navigation.WaitAsync(NavigationTimeout);
+			await navigation.WaitAsync(_navigationTimeout);
 			metrics.MarkEnumerationCompleted();
 			await WaitForPresentedItemsAsync(folder, pane.BrowseSession.Items.Count);
-			await metrics.FirstCoreBatch.WaitAsync(FirstContentTimeout);
-			await metrics.FirstPresentedItem.WaitAsync(FirstContentTimeout);
-			await metrics.FirstRealizedRow.WaitAsync(FirstContentTimeout);
-			await metrics.WaitForInitialPresentationAsync(FirstContentTimeout);
+			await metrics.FirstCoreBatch.WaitAsync(_firstContentTimeout);
+			await metrics.FirstPresentedItem.WaitAsync(_firstContentTimeout);
+			await metrics.FirstRealizedRow.WaitAsync(_firstContentTimeout);
+			await metrics.WaitForInitialPresentationAsync(_firstContentTimeout);
 			await dispatcherProbe.StopAsync();
 			metrics.CaptureFinalState();
 
@@ -481,14 +481,14 @@ public sealed class BrowsePerformanceTests
 	private static async Task<T> WaitForDescendantAsync<T>(DependencyObject root) where T : FrameworkElement
 	{
 		var started = Stopwatch.GetTimestamp();
-		while (Stopwatch.GetElapsedTime(started) < NavigationTimeout)
+		while (Stopwatch.GetElapsedTime(started) < _navigationTimeout)
 		{
 			if (FindDescendant<T>(root) is { IsLoaded: true } descendant)
 			{
 				return descendant;
 			}
 
-			await WaitForUIIdleAsync(StressUITimeout);
+			await WaitForUIIdleAsync(_stressUITimeout);
 		}
 
 		throw new AssertFailedException($"A loaded {typeof(T).Name} descendant was not found before the timeout.");
@@ -498,14 +498,14 @@ public sealed class BrowsePerformanceTests
 	{
 		var expectedKeys = expectedItems.Select(static item => item.Reference.GetKey()).ToHashSet();
 		var started = Stopwatch.GetTimestamp();
-		while (Stopwatch.GetElapsedTime(started) < NavigationTimeout)
+		while (Stopwatch.GetElapsedTime(started) < _navigationTimeout)
 		{
 			if (expectedKeys.SetEquals(folder.SelectedKeys))
 			{
 				return;
 			}
 
-			await WaitForUIIdleAsync(StressUITimeout);
+			await WaitForUIIdleAsync(_stressUITimeout);
 		}
 
 		Assert.Fail($"Expected {expectedKeys.Count} selected browse items, but observed {folder.SelectedKeys.Count}.");
@@ -541,12 +541,12 @@ public sealed class BrowsePerformanceTests
 		var started = Stopwatch.GetTimestamp();
 		while (folder.Items.Count != expectedCount)
 		{
-			if (Stopwatch.GetElapsedTime(started) >= NavigationTimeout)
+			if (Stopwatch.GetElapsedTime(started) >= _navigationTimeout)
 			{
 				Assert.Fail($"Expected {expectedCount} presented items, but observed {folder.Items.Count} before the timeout.");
 			}
 
-			await WaitForUIIdleAsync(StressUITimeout);
+			await WaitForUIIdleAsync(_stressUITimeout);
 		}
 	}
 
@@ -599,7 +599,7 @@ public sealed class BrowsePerformanceTests
 				var presentationFactory = new WindowPresentationFactory(workspace.AsConsumerReader(), new NoOpStorageOperationService(), operationTracker, appSettings, dispatcher,
 					CreateNoOpCommandRegistry());
 				root = new RootViewModel(window, presentationFactory);
-				await root.InitializeAsync().WaitAsync(NavigationTimeout);
+				await root.InitializeAsync().WaitAsync(_navigationTimeout);
 				var folder = root.ActiveFolderBrowser ?? throw new InvalidOperationException("The stress window does not have an active folder browser.");
 				await WaitForPresentedItemsAsync(folder, itemCount);
 
@@ -1058,7 +1058,7 @@ public sealed class BrowsePerformanceTests
 
 	private sealed class DispatcherLatencyProbe : IAsyncDisposable
 	{
-		private static readonly TimeSpan SampleInterval = TimeSpan.FromMilliseconds(16);
+		private static readonly TimeSpan _sampleInterval = TimeSpan.FromMilliseconds(16);
 		private readonly DispatcherQueue _dispatcherQueue;
 		private readonly ConcurrentQueue<TimeSpan> _samples = new();
 		private readonly CancellationTokenSource _cancellation = new();
@@ -1139,7 +1139,7 @@ public sealed class BrowsePerformanceTests
 					return;
 				}
 
-				await Task.Delay(SampleInterval, _cancellation.Token).ConfigureAwait(false);
+				await Task.Delay(_sampleInterval, _cancellation.Token).ConfigureAwait(false);
 			}
 		}
 	}
@@ -1194,7 +1194,7 @@ public sealed class BrowsePerformanceTests
 			_window.Content = null;
 			await unloaded;
 			_window.Close();
-			await WaitForUIIdleAsync(StressUITimeout);
+			await WaitForUIIdleAsync(_stressUITimeout);
 		}
 
 		public void Dispose()

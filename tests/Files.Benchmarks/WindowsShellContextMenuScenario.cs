@@ -35,8 +35,12 @@ internal static class WindowsShellContextMenuScenario
 				var icons = await Task.WhenAll(entries.Select(entry => session.GetIconAsync(entry, 24)));
 				Console.WriteLine(JsonSerializer.Serialize(new
 				{
-					Path = path, Iteration = iteration, ConstructionMilliseconds = constructionMilliseconds, WithIconsMilliseconds = clock.Elapsed.TotalMilliseconds,
-					LoadedIcons = icons.Count(static icon => !icon.IsEmpty), IconResults = entries.Select((entry, index) => new { entry.Id, entry.Title, Bytes = icons[index].Length }).ToArray(),
+					Path = path,
+					Iteration = iteration,
+					ConstructionMilliseconds = constructionMilliseconds,
+					WithIconsMilliseconds = clock.Elapsed.TotalMilliseconds,
+					LoadedIcons = icons.Count(static icon => !icon.IsEmpty),
+					IconResults = entries.Select((entry, index) => new { entry.Id, entry.Title, Bytes = icons[index].Length }).ToArray(),
 					Entries = session.Entries.Select(Describe).ToArray(),
 				}));
 			}

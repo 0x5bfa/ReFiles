@@ -58,6 +58,7 @@ internal static class WindowsShellContextMenuIconSource
 			objectWithSite?.SetSite(null!);
 		}
 	}
+
 	internal static ReadOnlyMemory<byte> ReadIcon(string path, int index, int size, CancellationToken cancellationToken,
 		string? packageFullName = null, string? fallbackPath = null, int fallbackIndex = 0, string? fallbackPackageFullName = null)
 	{

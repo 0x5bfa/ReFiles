@@ -109,6 +109,7 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 			{
 				TryDisposeSynchronously(session, cleanupErrors);
 			}
+
 			if (cleanupErrors.Count is 0)
 			{
 				throw;

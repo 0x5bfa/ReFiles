@@ -129,12 +129,12 @@ internal sealed partial class HardwareDeviceViewModel : INotifyPropertyChanged
 
 	internal WindowsShellHardwareDevice Device { get; }
 
-	public event PropertyChangedEventHandler? PropertyChanged;
-
 	internal HardwareDeviceViewModel(WindowsShellHardwareDevice device)
 	{
 		Device = device;
 	}
+
+	public event PropertyChangedEventHandler? PropertyChanged;
 
 	internal async Task LoadIconAsync()
 	{

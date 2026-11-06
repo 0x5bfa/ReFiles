@@ -62,14 +62,8 @@ public sealed partial class TabSession : ITabSession
 		}
 	}
 
-	/// <summary>Occurs when the pane collection changes.</summary>
-	public event EventHandler? PanesChanged;
-
-	/// <summary>Occurs when the active pane changes.</summary>
-	public event EventHandler? ActivePaneChanged;
-
-	/// <summary>Occurs when the split orientation changes.</summary>
-	public event EventHandler? SplitOrientationChanged;
+	/// <summary>Gets whether the active content can create a split pane.</summary>
+	public bool CanSplit => ActivePane?.Content is ISplittablePaneContent;
 
 	/// <summary>Initializes a tab that owns its primary pane.</summary>
 	/// <param name="paneFactory">The factory used to create split panes.</param>
@@ -93,8 +87,14 @@ public sealed partial class TabSession : ITabSession
 		_activePaneId = primaryPane.Id;
 	}
 
-	/// <summary>Gets whether the active content can create a split pane.</summary>
-	public bool CanSplit => ActivePane?.Content is ISplittablePaneContent;
+	/// <summary>Occurs when the pane collection changes.</summary>
+	public event EventHandler? PanesChanged;
+
+	/// <summary>Occurs when the active pane changes.</summary>
+	public event EventHandler? ActivePaneChanged;
+
+	/// <summary>Occurs when the split orientation changes.</summary>
+	public event EventHandler? SplitOrientationChanged;
 
 	/// <summary>Opens and activates a second pane using the content's split policy.</summary>
 	/// <param name="orientation">The split orientation.</param>

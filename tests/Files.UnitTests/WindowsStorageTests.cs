@@ -137,8 +137,8 @@ public sealed class WindowsStorageTests
 
 			Assert.AreEqual(41, all.Count);
 			Assert.AreEqual(40, files.Count);
-		Assert.AreEqual(40, all.Count(item => item is IFile));
-		Assert.AreEqual(1, all.Count(item => item is IFolder));
+			Assert.AreEqual(40, all.Count(item => item is IFile));
+			Assert.AreEqual(1, all.Count(item => item is IFolder));
 			Assert.AreEqual(41, all.Select(item => item.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 		}
 		finally
@@ -210,7 +210,7 @@ public sealed class WindowsStorageTests
 			}
 
 			Assert.AreEqual(2, items.Count);
-			Assert.AreEqual(2, items.Select(static item => item.Id) .Distinct(StringComparer.Ordinal) .Count());
+			Assert.AreEqual(2, items.Select(static item => item.Id).Distinct(StringComparer.Ordinal).Count());
 			Assert.IsTrue(items.All(static item => item.Id.StartsWith("winshell-address:v1:", StringComparison.Ordinal)));
 		}
 		finally

@@ -10,8 +10,6 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 public sealed class WindowsShellContextualCommand
 {
-	internal WindowsShellContextualCommandToken Token { get; }
-
 	/// <summary>Gets the stable command identifier.</summary>
 	public string Id { get; }
 
@@ -20,6 +18,8 @@ public sealed class WindowsShellContextualCommand
 
 	/// <summary>Gets the context whose changes can affect this command.</summary>
 	public WindowsShellContextualCommandScope Scope { get; }
+
+	internal WindowsShellContextualCommandToken Token { get; }
 
 	internal WindowsShellContextualCommand(string id, bool isEnabled, WindowsShellContextualCommandScope scope, WindowsShellContextualCommandToken token)
 	{

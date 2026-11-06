@@ -36,14 +36,6 @@ namespace Files.Controls
 		private WeakReference<UIElement?> _previouslyFocusedElement = new(null);
 		private int _allowProgrammaticFocusLoss;
 
-		// Events
-
-		public event TypedEventHandler<Omnibar, OmnibarQuerySubmittedEventArgs>? QuerySubmitted;
-		public event TypedEventHandler<Omnibar, OmnibarSuggestionChosenEventArgs>? SuggestionChosen;
-		public event TypedEventHandler<Omnibar, OmnibarTextChangedEventArgs>? TextChanged;
-		public event TypedEventHandler<Omnibar, OmnibarModeChangedEventArgs>? ModeChanged;
-		public event TypedEventHandler<Omnibar, OmnibarIsFocusedChangedEventArgs>? IsFocusedChanged;
-
 		// Constructor
 
 		public Omnibar()
@@ -63,41 +55,13 @@ namespace Files.Controls
 			AutoSuggestBoxPadding = new(0, 0, 0, 0);
 		}
 
-		// Methods
+		// Events
 
-		protected override void OnApplyTemplate()
-		{
-			UnhookTemplateParts();
-			base.OnApplyTemplate();
-
-			_textBox = GetTemplateChild(TemplatePartName_AutoSuggestBox) as TextBox
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_AutoSuggestBox} in the given {nameof(Omnibar)}'s style.");
-			_modesHostGrid = GetTemplateChild(TemplatePartName_ModesHostGrid) as Grid
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_ModesHostGrid} in the given {nameof(Omnibar)}'s style.");
-			_textBoxSuggestionsPopup = GetTemplateChild(TemplatePartName_AutoSuggestBoxSuggestionsPopup) as Popup
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_AutoSuggestBoxSuggestionsPopup} in the given {nameof(Omnibar)}'s style.");
-			_textBoxSuggestionsContainerBorder = GetTemplateChild(TemplatePartName_AutoSuggestBoxSuggestionsContainerBorder) as Border
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_AutoSuggestBoxSuggestionsContainerBorder} in the given {nameof(Omnibar)}'s style.");
-			_textBoxSuggestionsListView = GetTemplateChild(TemplatePartName_SuggestionsListView) as ListView
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_SuggestionsListView} in the given {nameof(Omnibar)}'s style.");
-
-			PopulateModes();
-
-			SizeChanged += Omnibar_SizeChanged;
-			_textBox.GettingFocus += AutoSuggestBox_GettingFocus;
-			_textBox.GotFocus += AutoSuggestBox_GotFocus;
-			_textBox.LosingFocus += AutoSuggestBox_LosingFocus;
-			_textBox.LostFocus += AutoSuggestBox_LostFocus;
-			_textBox.KeyDown += AutoSuggestBox_KeyDown;
-			_textBox.TextChanged += AutoSuggestBox_TextChanged;
-			_textBoxSuggestionsPopup.GettingFocus += AutoSuggestBoxSuggestionsPopup_GettingFocus;
-			_textBoxSuggestionsPopup.Opened += AutoSuggestBoxSuggestionsPopup_Opened;
-			_textBoxSuggestionsListView.ItemClick += AutoSuggestBoxSuggestionsListView_ItemClick;
-			_textBoxSuggestionsListView.SelectionChanged += AutoSuggestBoxSuggestionsListView_SelectionChanged;
-
-			// Set the default width
-			_textBoxSuggestionsContainerBorder.Width = ActualWidth;
-		}
+		public event TypedEventHandler<Omnibar, OmnibarQuerySubmittedEventArgs>? QuerySubmitted;
+		public event TypedEventHandler<Omnibar, OmnibarSuggestionChosenEventArgs>? SuggestionChosen;
+		public event TypedEventHandler<Omnibar, OmnibarTextChangedEventArgs>? TextChanged;
+		public event TypedEventHandler<Omnibar, OmnibarModeChangedEventArgs>? ModeChanged;
+		public event TypedEventHandler<Omnibar, OmnibarIsFocusedChangedEventArgs>? IsFocusedChanged;
 
 		public void PopulateModes()
 		{
@@ -181,6 +145,172 @@ namespace Files.Controls
 			{
 				RestoreCurrentModeTemplateState();
 			}
+		}
+
+		/// <summary>Moves keyboard focus to the text input.</summary>
+		public void FocusTextBox()
+		{
+			if (_textBox is null)
+			{
+				return;
+			}
+
+			_textBox.Focus(FocusState.Keyboard);
+		}
+
+		public void ChooseSuggestionItem(object obj, bool isOriginatedFromArrowKey = false)
+		{
+			if (CurrentSelectedMode is null || _textBox is null)
+			{
+				return;
+			}
+
+			var shouldUpdateText = isOriginatedFromArrowKey ? CurrentSelectedMode.UpdateTextOnArrowKeys : CurrentSelectedMode.UpdateTextOnSelect;
+			if (shouldUpdateText)
+			{
+				_textChangeReason = OmnibarTextChangeReason.SuggestionChosen;
+				ChangeTextBoxText(GetObjectText(obj));
+			}
+
+			SuggestionChosen?.Invoke(this, new(CurrentSelectedMode, obj));
+		}
+
+		internal void PrepareForShutdown()
+		{
+			Volatile.Write(ref _allowProgrammaticFocusLoss, 1);
+		}
+
+		internal void ChangeTextBoxTextFromMode(string text)
+		{
+			if (_textBox is null)
+			{
+				if (CurrentSelectedMode is { } activeMode)
+				{
+					_userInputs[activeMode] = text;
+				}
+
+				return;
+			}
+
+			if (string.Equals(_textBox.Text, text, StringComparison.Ordinal))
+			{
+				return;
+			}
+
+			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
+			if (CurrentSelectedMode is { } currentMode)
+			{
+				_userInputs[currentMode] = text;
+			}
+
+			ChangeTextBoxText(text);
+		}
+
+		internal void UpdateUserInputFromMode(OmnibarMode mode, string text)
+		{
+			_userInputs[mode] = text;
+		}
+
+		internal void UpdatePlaceholderTextFromMode(OmnibarMode mode, string text)
+		{
+			if (_textBox is null || !ReferenceEquals(CurrentSelectedMode, mode))
+			{
+				return;
+			}
+
+			_textBox.PlaceholderText = text;
+		}
+
+		internal void UpdateModeVisualStateFromMode(OmnibarMode mode)
+		{
+			if (_textBox is null || !ReferenceEquals(CurrentSelectedMode, mode))
+			{
+				return;
+			}
+
+			ApplyCurrentModeVisualState(mode, false);
+		}
+
+		internal protected bool TryToggleIsSuggestionsPopupOpen(bool wantToOpen)
+		{
+			if (_textBoxSuggestionsPopup is null)
+			{
+				return false;
+			}
+
+			if (_textBoxSuggestionsListView is null)
+			{
+				return false;
+			}
+
+			if (CurrentSelectedMode is not null)
+			{
+				_textBoxSuggestionsListView.ItemTemplate = CurrentSelectedMode.ItemTemplate;
+				_textBoxSuggestionsListView.ItemsSource = CurrentSelectedMode.ItemsSource;
+			}
+
+			if (wantToOpen && (!IsFocused || CurrentSelectedMode is null || _textBoxSuggestionsListView.Items.Count is 0))
+			{
+				_textBoxSuggestionsPopup.IsOpen = false;
+
+				return false;
+			}
+
+			_textBoxSuggestionsPopup.IsOpen = wantToOpen;
+
+			return _textBoxSuggestionsPopup.IsOpen == wantToOpen;
+		}
+
+		internal protected void ChangeTextBoxText(string text)
+		{
+			if (_textBox is null)
+			{
+				return;
+			}
+
+			_textBox.Text = text;
+
+			// Move the cursor to the end of the TextBox
+			if (_textChangeReason == OmnibarTextChangeReason.SuggestionChosen)
+			{
+				_textBox?.Select(_textBox.Text.Length, 0);
+			}
+		}
+
+		// Methods
+
+		protected override void OnApplyTemplate()
+		{
+			UnhookTemplateParts();
+			base.OnApplyTemplate();
+
+			_textBox = GetTemplateChild(TemplatePartName_AutoSuggestBox) as TextBox
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_AutoSuggestBox} in the given {nameof(Omnibar)}'s style.");
+			_modesHostGrid = GetTemplateChild(TemplatePartName_ModesHostGrid) as Grid
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_ModesHostGrid} in the given {nameof(Omnibar)}'s style.");
+			_textBoxSuggestionsPopup = GetTemplateChild(TemplatePartName_AutoSuggestBoxSuggestionsPopup) as Popup
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_AutoSuggestBoxSuggestionsPopup} in the given {nameof(Omnibar)}'s style.");
+			_textBoxSuggestionsContainerBorder = GetTemplateChild(TemplatePartName_AutoSuggestBoxSuggestionsContainerBorder) as Border
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_AutoSuggestBoxSuggestionsContainerBorder} in the given {nameof(Omnibar)}'s style.");
+			_textBoxSuggestionsListView = GetTemplateChild(TemplatePartName_SuggestionsListView) as ListView
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_SuggestionsListView} in the given {nameof(Omnibar)}'s style.");
+
+			PopulateModes();
+
+			SizeChanged += Omnibar_SizeChanged;
+			_textBox.GettingFocus += AutoSuggestBox_GettingFocus;
+			_textBox.GotFocus += AutoSuggestBox_GotFocus;
+			_textBox.LosingFocus += AutoSuggestBox_LosingFocus;
+			_textBox.LostFocus += AutoSuggestBox_LostFocus;
+			_textBox.KeyDown += AutoSuggestBox_KeyDown;
+			_textBox.TextChanged += AutoSuggestBox_TextChanged;
+			_textBoxSuggestionsPopup.GettingFocus += AutoSuggestBoxSuggestionsPopup_GettingFocus;
+			_textBoxSuggestionsPopup.Opened += AutoSuggestBoxSuggestionsPopup_Opened;
+			_textBoxSuggestionsListView.ItemClick += AutoSuggestBoxSuggestionsListView_ItemClick;
+			_textBoxSuggestionsListView.SelectionChanged += AutoSuggestBoxSuggestionsListView_SelectionChanged;
+
+			// Set the default width
+			_textBoxSuggestionsContainerBorder.Width = ActualWidth;
 		}
 
 		protected void ChangeMode(OmnibarMode? oldMode, OmnibarMode newMode)
@@ -301,136 +431,6 @@ namespace Files.Controls
 
 			TryToggleIsSuggestionsPopupOpen(true);
 
-		}
-
-		/// <summary>Moves keyboard focus to the text input.</summary>
-		public void FocusTextBox()
-		{
-			if (_textBox is null)
-			{
-				return;
-			}
-
-			_textBox.Focus(FocusState.Keyboard);
-		}
-
-		internal void PrepareForShutdown()
-		{
-			Volatile.Write(ref _allowProgrammaticFocusLoss, 1);
-		}
-
-		internal protected bool TryToggleIsSuggestionsPopupOpen(bool wantToOpen)
-		{
-			if (_textBoxSuggestionsPopup is null)
-			{
-				return false;
-			}
-
-			if (_textBoxSuggestionsListView is null)
-			{
-				return false;
-			}
-
-			if (CurrentSelectedMode is not null)
-			{
-				_textBoxSuggestionsListView.ItemTemplate = CurrentSelectedMode.ItemTemplate;
-				_textBoxSuggestionsListView.ItemsSource = CurrentSelectedMode.ItemsSource;
-			}
-
-			if (wantToOpen && (!IsFocused || CurrentSelectedMode is null || _textBoxSuggestionsListView.Items.Count is 0))
-			{
-				_textBoxSuggestionsPopup.IsOpen = false;
-
-				return false;
-			}
-
-			_textBoxSuggestionsPopup.IsOpen = wantToOpen;
-
-			return _textBoxSuggestionsPopup.IsOpen == wantToOpen;
-		}
-
-		public void ChooseSuggestionItem(object obj, bool isOriginatedFromArrowKey = false)
-		{
-			if (CurrentSelectedMode is null || _textBox is null)
-			{
-				return;
-			}
-
-			var shouldUpdateText = isOriginatedFromArrowKey ? CurrentSelectedMode.UpdateTextOnArrowKeys : CurrentSelectedMode.UpdateTextOnSelect;
-			if (shouldUpdateText)
-			{
-				_textChangeReason = OmnibarTextChangeReason.SuggestionChosen;
-				ChangeTextBoxText(GetObjectText(obj));
-			}
-
-			SuggestionChosen?.Invoke(this, new(CurrentSelectedMode, obj));
-		}
-
-		internal protected void ChangeTextBoxText(string text)
-		{
-			if (_textBox is null)
-			{
-				return;
-			}
-
-			_textBox.Text = text;
-
-			// Move the cursor to the end of the TextBox
-			if (_textChangeReason == OmnibarTextChangeReason.SuggestionChosen)
-			{
-				_textBox?.Select(_textBox.Text.Length, 0);
-			}
-		}
-
-		internal void ChangeTextBoxTextFromMode(string text)
-		{
-			if (_textBox is null)
-			{
-				if (CurrentSelectedMode is { } activeMode)
-				{
-					_userInputs[activeMode] = text;
-				}
-
-				return;
-			}
-
-			if (string.Equals(_textBox.Text, text, StringComparison.Ordinal))
-			{
-				return;
-			}
-
-			_textChangeReason = OmnibarTextChangeReason.ProgrammaticChange;
-			if (CurrentSelectedMode is { } currentMode)
-			{
-				_userInputs[currentMode] = text;
-			}
-
-			ChangeTextBoxText(text);
-		}
-
-		internal void UpdateUserInputFromMode(OmnibarMode mode, string text)
-		{
-			_userInputs[mode] = text;
-		}
-
-		internal void UpdatePlaceholderTextFromMode(OmnibarMode mode, string text)
-		{
-			if (_textBox is null || !ReferenceEquals(CurrentSelectedMode, mode))
-			{
-				return;
-			}
-
-			_textBox.PlaceholderText = text;
-		}
-
-		internal void UpdateModeVisualStateFromMode(OmnibarMode mode)
-		{
-			if (_textBox is null || !ReferenceEquals(CurrentSelectedMode, mode))
-			{
-				return;
-			}
-
-			ApplyCurrentModeVisualState(mode, false);
 		}
 
 		private void SubmitQuery(object? item)

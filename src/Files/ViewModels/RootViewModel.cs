@@ -173,6 +173,14 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 
 	public CommandBindingViewModel GroupItemsCommand => _commandManager.GetBinding(CommandIds.GroupItems);
 
+	public TabViewModel? ActiveTab => Tabs.FirstOrDefault(tab => tab.Id == _window.ActiveTab?.Id);
+
+	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;
+
+	public PreviewPaneViewModel? ActivePreview => ActiveTab?.ActivePane?.Preview;
+
+	public string StatusText => ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
+
 	internal IUIDispatcher Dispatcher => _dispatcher;
 
 	internal IItemActivationService ItemActivationService => _presentationFactory.ItemActivationService;
@@ -184,16 +192,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	internal Guid WindowId => _window.Id;
 
 	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
-
-	public TabViewModel? ActiveTab => Tabs.FirstOrDefault(tab => tab.Id == _window.ActiveTab?.Id);
-
-	public FolderBrowserViewModel? ActiveFolderBrowser => ActiveTab?.ActivePane?.FolderBrowser;
-
-	public PreviewPaneViewModel? ActivePreview => ActiveTab?.ActivePane?.Preview;
-
-	public string StatusText => ActiveTab?.StatusText ?? Strings.NoTabs.GetLocalized();
-
-	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	internal bool CanReopenTab => _window.CanReopenTab;
 
@@ -271,6 +269,8 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		window.ActiveTabChanged += Window_StateChanged;
 		RefreshFromCore();
 	}
+
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
@@ -389,6 +389,67 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		await _window.CloseTabAsync(tabId, cancellationToken).ConfigureAwait(false);
 	}
 
+	public bool SetActiveTab(Guid tabId)
+	{
+		EnsureActive();
+
+		return _window.SetActiveTab(tabId);
+	}
+
+	public void SetActiveTabAt(int index)
+	{
+		if (index >= 0 && index < Tabs.Count)
+		{
+			SetActiveTab(Tabs[index].Id);
+		}
+	}
+
+	public void ReportOperationError(Exception exception)
+	{
+		ArgumentNullException.ThrowIfNull(exception);
+
+		OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(exception.Message));
+	}
+
+	public void Dispose()
+	{
+		_ = DisposeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+		{
+			return;
+		}
+
+		_lifetime.Cancel();
+		_appSettings.PropertyChanged -= AppSettings_PropertyChanged;
+		_window.TabsChanged -= Window_StateChanged;
+		_window.ActiveTabChanged -= Window_StateChanged;
+		NavigationToolbar.Dispose();
+		Toolbar.Dispose();
+		_commandManager.Dispose();
+
+		foreach (var tab in _tabViewModels.Values.ToArray())
+		{
+			tab.PropertyChanged -= TabViewModel_PropertyChanged;
+			tab.OperationErrorReported -= TabViewModel_OperationErrorReported;
+			await tab.DisposeAsync();
+		}
+
+		_tabViewModels.Clear();
+		Tabs.Clear();
+		_navigationSectionViewModels.Clear();
+		NavigationItems.CollectionChanged -= NavigationItems_CollectionChanged;
+		UnsubscribeNavigationItems();
+		SidebarItems.Clear();
+		SidebarFooterItems.Clear();
+		NavigationItems.Clear();
+		_navigationThumbnailGate.Dispose();
+		_lifetime.Dispose();
+	}
+
 	internal async Task DuplicateTabAsync(Guid tabId, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
@@ -458,21 +519,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		await _window.ReopenTabAsync(cancellationToken).ConfigureAwait(false);
 	}
 
-	public bool SetActiveTab(Guid tabId)
-	{
-		EnsureActive();
-
-		return _window.SetActiveTab(tabId);
-	}
-
-	public void SetActiveTabAt(int index)
-	{
-		if (index >= 0 && index < Tabs.Count)
-		{
-			SetActiveTab(Tabs[index].Id);
-		}
-	}
-
 	internal int GetTabIndex(Guid tabId)
 	{
 		for (var index = 0; index < Tabs.Count; index++)
@@ -484,52 +530,6 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		return -1;
-	}
-
-	public void ReportOperationError(Exception exception)
-	{
-		ArgumentNullException.ThrowIfNull(exception);
-
-		OperationErrorReported?.Invoke(this, new OperationErrorEventArgs(exception.Message));
-	}
-
-	public void Dispose()
-	{
-		_ = DisposeAsync();
-	}
-
-	public async ValueTask DisposeAsync()
-	{
-		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
-		{
-			return;
-		}
-
-		_lifetime.Cancel();
-		_appSettings.PropertyChanged -= AppSettings_PropertyChanged;
-		_window.TabsChanged -= Window_StateChanged;
-		_window.ActiveTabChanged -= Window_StateChanged;
-		NavigationToolbar.Dispose();
-		Toolbar.Dispose();
-		_commandManager.Dispose();
-
-		foreach (var tab in _tabViewModels.Values.ToArray())
-		{
-			tab.PropertyChanged -= TabViewModel_PropertyChanged;
-			tab.OperationErrorReported -= TabViewModel_OperationErrorReported;
-			await tab.DisposeAsync();
-		}
-
-		_tabViewModels.Clear();
-		Tabs.Clear();
-		_navigationSectionViewModels.Clear();
-		NavigationItems.CollectionChanged -= NavigationItems_CollectionChanged;
-		UnsubscribeNavigationItems();
-		SidebarItems.Clear();
-		SidebarFooterItems.Clear();
-		NavigationItems.Clear();
-		_navigationThumbnailGate.Dispose();
-		_lifetime.Dispose();
 	}
 
 	private void AppSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -620,6 +620,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		{
 			_logger.LogDebug("{Component}: {Message}", "RootViewModel", "LoadNavigationItems START");
 		}
+
 		try
 		{
 			await foreach (var section in _navigationItemLoader.LoadSectionsAsync(cancellationToken).ConfigureAwait(false))
@@ -657,6 +658,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 					$"LoadNavigationItems ERROR type={exception.GetType().Name} message={exception.Message} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
 				);
 			}
+
 			ReportNavigationLoadError(exception);
 
 			return false;
@@ -759,6 +761,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 		{
 			_logger.LogDebug("{Component}: {Message}", "RootViewModel", $"Navigation thumbnail START name={item.Name}");
 		}
+
 		try
 		{
 			await _navigationThumbnailGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -799,6 +802,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 					$"Navigation thumbnail ERROR name={item.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
 				);
 			}
+
 			// Shell thumbnail loading is best effort.
 		}
 	}
@@ -942,7 +946,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 			var coreTabs = _window.Tabs;
 			var coreTabIds = coreTabs.Select(static tab => tab.Id).ToHashSet();
 
-			foreach (var removedId in _tabViewModels.Keys .Where(id => !coreTabIds.Contains(id)) .ToArray())
+			foreach (var removedId in _tabViewModels.Keys.Where(id => !coreTabIds.Contains(id)).ToArray())
 			{
 				var removedTab = _tabViewModels[removedId];
 				removedTab.PropertyChanged -= TabViewModel_PropertyChanged;

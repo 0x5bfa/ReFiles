@@ -63,29 +63,6 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 		}
 	}
 
-	/// <summary>Enumerates an owned set of child models from another folder in the same archive view.</summary>
-	/// <param name="location">The requested location in this archive.</param>
-	/// <param name="type">The item kinds to include.</param>
-	/// <param name="cancellationToken">The cancellation token.</param>
-	/// <returns>Owned child models borrowing this context's archive lifetime.</returns>
-	internal async IAsyncEnumerable<IStorableModel> GetItemsAsync(ArchiveLocation location, StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-	{
-		ObjectDisposedException.ThrowIf(_isDisposed, this);
-
-		ArgumentNullException.ThrowIfNull(location);
-
-		if (location.Locator != _location.Locator)
-		{
-			throw new ArgumentException("The location belongs to another archive.", nameof(location));
-		}
-
-		await using var folder = await _archive.OpenFolderAsync(location.EntryPath, cancellationToken).ConfigureAwait(false);
-		await foreach (var item in folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
-		{
-			yield return item;
-		}
-	}
-
 	/// <inheritdoc />
 	public ValueTask<IStorableModel> ResolveAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
@@ -113,6 +90,29 @@ public sealed class ArchiveBrowseLocationContext : IBrowseLocationContext, IBrow
 			_disposeTask ??= DisposeCoreAsync();
 
 			return new ValueTask(_disposeTask);
+		}
+	}
+
+	/// <summary>Enumerates an owned set of child models from another folder in the same archive view.</summary>
+	/// <param name="location">The requested location in this archive.</param>
+	/// <param name="type">The item kinds to include.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>Owned child models borrowing this context's archive lifetime.</returns>
+	internal async IAsyncEnumerable<IStorableModel> GetItemsAsync(ArchiveLocation location, StorableType type = StorableType.All, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+	{
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+		ArgumentNullException.ThrowIfNull(location);
+
+		if (location.Locator != _location.Locator)
+		{
+			throw new ArgumentException("The location belongs to another archive.", nameof(location));
+		}
+
+		await using var folder = await _archive.OpenFolderAsync(location.EntryPath, cancellationToken).ConfigureAwait(false);
+		await foreach (var item in folder.GetItemsAsync(type, cancellationToken).ConfigureAwait(false))
+		{
+			yield return item;
 		}
 	}
 

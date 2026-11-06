@@ -27,7 +27,7 @@ public interface IWindowsShellPropertiesService
 	/// <param name="kind">The property page to read.</param>
 	/// <param name="cancellationToken">The token used to cancel selection resolution and property retrieval.</param>
 	/// <returns>Apartment-neutral data for the requested page, or <see langword="null"/> when the page does not apply or the selection cannot be resolved.</returns>
-	Task<WindowsShellPropertySheetData?> GetPropertyPageDataAsync( IReadOnlyList<StorableReference> selection, WindowsShellPropertyPageKind kind, CancellationToken cancellationToken = default);
+	Task<WindowsShellPropertySheetData?> GetPropertyPageDataAsync(IReadOnlyList<StorableReference> selection, WindowsShellPropertyPageKind kind, CancellationToken cancellationToken = default);
 
 	/// <summary>Gets the Shell description and icon shown on the General property page for a single item.</summary>
 	/// <param name="item">The borrowed item model whose composed thumbnail capability supplies the icon.</param>

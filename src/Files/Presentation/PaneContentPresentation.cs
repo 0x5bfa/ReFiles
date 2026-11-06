@@ -32,11 +32,6 @@ internal sealed partial class PaneContentPresentation : IAsyncDisposable
 		Preview = preview;
 	}
 
-	internal UIElement CreateView()
-	{
-		return _viewFactory();
-	}
-
 	public async ValueTask DisposeAsync()
 	{
 		Preview?.Dispose();
@@ -44,5 +39,10 @@ internal sealed partial class PaneContentPresentation : IAsyncDisposable
 		{
 			await FolderBrowser.DisposeAsync().ConfigureAwait(false);
 		}
+	}
+
+	internal UIElement CreateView()
+	{
+		return _viewFactory();
 	}
 }

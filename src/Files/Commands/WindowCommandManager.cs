@@ -83,36 +83,6 @@ public sealed partial class WindowCommandManager : IDisposable
 		}
 	}
 
-	internal void RefreshContextualStates(IEnumerable<string> shellCommandIds)
-	{
-		ArgumentNullException.ThrowIfNull(shellCommandIds);
-
-		var commandIds = shellCommandIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
-		if (Volatile.Read(ref _isDisposed) is not 0 || commandIds.Count is 0)
-		{
-			return;
-		}
-
-		if (!_dispatcher.HasThreadAccess)
-		{
-			if (!_dispatcher.TryEnqueue(() => RefreshContextualStates(commandIds)))
-			{
-				throw new InvalidOperationException("The Files UI dispatcher rejected contextual command state updates.");
-			}
-
-			return;
-		}
-
-		var context = new CommandContext(_root);
-		foreach (var pair in _handlers)
-		{
-			if (pair.Value is ContextualShellCommandHandler handler && commandIds.Contains(handler.ShellCommandId))
-			{
-				_bindings[pair.Key].UpdateState(handler.GetState(context));
-			}
-		}
-	}
-
 	public async Task<CommandExecutionResult> ExecuteAsync(CommandId id, object? parameter = null, CancellationToken cancellationToken = default)
 	{
 		EnsureActive();
@@ -225,6 +195,36 @@ public sealed partial class WindowCommandManager : IDisposable
 		_handlers.Clear();
 		Clipboard.ContentChanged -= Clipboard_ContentChanged;
 		_lifetime.Dispose();
+	}
+
+	internal void RefreshContextualStates(IEnumerable<string> shellCommandIds)
+	{
+		ArgumentNullException.ThrowIfNull(shellCommandIds);
+
+		var commandIds = shellCommandIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+		if (Volatile.Read(ref _isDisposed) is not 0 || commandIds.Count is 0)
+		{
+			return;
+		}
+
+		if (!_dispatcher.HasThreadAccess)
+		{
+			if (!_dispatcher.TryEnqueue(() => RefreshContextualStates(commandIds)))
+			{
+				throw new InvalidOperationException("The Files UI dispatcher rejected contextual command state updates.");
+			}
+
+			return;
+		}
+
+		var context = new CommandContext(_root);
+		foreach (var pair in _handlers)
+		{
+			if (pair.Value is ContextualShellCommandHandler handler && commandIds.Contains(handler.ShellCommandId))
+			{
+				_bindings[pair.Key].UpdateState(handler.GetState(context));
+			}
+		}
 	}
 
 	internal bool CanExecute(CommandId id, object? parameter)

@@ -9,12 +9,6 @@ using Windows.Win32.Foundation;
 
 namespace Windows.Win32.UI.Shell;
 
-/// <summary>Identifies the Shell elevated sharing factory coclass.</summary>
-[Guid("72A7994A-3092-4054-B6BE-08FF81AEEFFC")]
-internal sealed class CSharingElevatedFactory
-{
-}
-
 /// <summary>Runs the Shell's sharing commands for a collection of items.</summary>
 [GeneratedComInterface(StringMarshalling = StringMarshalling.Utf16, Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("14AA4AB8-ABE3-4A07-A290-1D5DCCDD2FC2")]
@@ -81,4 +75,10 @@ internal partial interface ISharingConfigurationUI
 	/// <returns>The HRESULT returned by the sharing provider.</returns>
 	[PreserveSig]
 	HRESULT ShowAdvancedSharingConfigDialog(HWND owner, string path);
+}
+
+/// <summary>Identifies the Shell elevated sharing factory coclass.</summary>
+[Guid("72A7994A-3092-4054-B6BE-08FF81AEEFFC")]
+internal sealed class CSharingElevatedFactory
+{
 }

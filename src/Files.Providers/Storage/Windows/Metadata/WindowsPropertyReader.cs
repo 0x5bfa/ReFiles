@@ -25,15 +25,15 @@ namespace Files.Core.Storage.Windows;
 [SupportedOSPlatform("windows6.0.6000")]
 public sealed class WindowsPropertyReader : IPropertyReader
 {
-	private readonly ILogger<WindowsPropertyReader> _logger;
-
 	private const double MinimumOaDate = -657435d;
+
 	private const double MaximumOaDate = 2958466d;
 	private const string ItemTypeText = "System.ItemTypeText";
 	private const string Size = "System.Size";
 	private const string DateModified = "System.DateModified";
 	private const string DateCreated = "System.DateCreated";
 	private const string HomeIsPinned = "System.Home.IsPinned";
+	private readonly ILogger<WindowsPropertyReader> _logger;
 
 	private static readonly ulong _maximumFileTime = checked((ulong)DateTime.MaxValue.ToFileTime());
 	private static readonly PROPERTYKEY _itemTypeTextKey = ResolvePropertyKey(ItemTypeText);

@@ -34,8 +34,6 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 
 	public RootViewModel ViewModel => _viewModel;
 
-	public event EventHandler? NewWindowRequested;
-
 	public RootView(RootViewModel viewModel, IWindowsShellPreviewSessionFactory? previewSessionFactory, ILoggerFactory? loggerFactory = null)
 	{
 		ArgumentNullException.ThrowIfNull(viewModel);
@@ -55,22 +53,14 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		Loaded += RootView_Loaded;
 	}
 
+	public event EventHandler? NewWindowRequested;
+
 	public void AttachWindow(Window window)
 	{
 		ArgumentNullException.ThrowIfNull(window);
 
 		TabStrip.AttachWindow(window);
 		PreviewPaneView.AttachWindow(window);
-	}
-
-	internal bool FocusActiveFolderView(FocusState focusState = FocusState.Pointer)
-	{
-		return PaneHostView.FocusActiveFolderView(focusState);
-	}
-
-	internal void PrepareForShutdown()
-	{
-		NavigationToolbarView.PrepareForShutdown();
 	}
 
 	public void ReportOperationError(Exception exception)
@@ -108,6 +98,16 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		await PreviewPaneView.DisposeAsync();
 		TabStrip.Dispose();
 		await _viewModel.DisposeAsync();
+	}
+
+	internal bool FocusActiveFolderView(FocusState focusState = FocusState.Pointer)
+	{
+		return PaneHostView.FocusActiveFolderView(focusState);
+	}
+
+	internal void PrepareForShutdown()
+	{
+		NavigationToolbarView.PrepareForShutdown();
 	}
 
 	private void TabStrip_NewWindowRequested(object? sender, EventArgs e)
@@ -230,6 +230,7 @@ public sealed partial class RootView : UserControl, IDisposable, IAsyncDisposabl
 		{
 			_logger.LogDebug("{Component}: {Message}", "RootView", "Loaded START");
 		}
+
 		Sidebar.SelectedItem ??= ViewModel.HomeNavigationItem;
 
 		try

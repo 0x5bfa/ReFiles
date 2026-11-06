@@ -26,6 +26,7 @@ namespace Files.Controls
 				return ExpandCollapseState.LeafNode;
 			}
 		}
+
 		public bool IsSelected => Owner.IsSelected;
 		public IRawElementProviderSimple SelectionContainer => ProviderFromPeer(CreatePeerForElement(Owner.Owner));
 
@@ -34,33 +35,6 @@ namespace Files.Controls
 		public SidebarItemAutomationPeer(SidebarItem owner) : base(owner)
 		{
 			Owner = owner;
-		}
-
-		protected override AutomationControlType GetAutomationControlTypeCore()
-		{
-			return AutomationControlType.ListItem;
-		}
-
-		protected override string GetNameCore()
-		{
-			return Owner?.Text ?? string.Empty;
-		}
-
-		protected override object GetPatternCore(PatternInterface patternInterface)
-		{
-			if (patternInterface == PatternInterface.Invoke || patternInterface == PatternInterface.SelectionItem)
-			{
-				return this;
-			}
-			else if (patternInterface == PatternInterface.ExpandCollapse)
-			{
-				if (Owner.CollapseEnabled)
-				{
-					return this;
-				}
-			}
-
-			return base.GetPatternCore(patternInterface);
 		}
 
 		public void Collapse()
@@ -97,6 +71,33 @@ namespace Files.Controls
 		public void Select()
 		{
 			Owner.Select();
+		}
+
+		protected override AutomationControlType GetAutomationControlTypeCore()
+		{
+			return AutomationControlType.ListItem;
+		}
+
+		protected override string GetNameCore()
+		{
+			return Owner?.Text ?? string.Empty;
+		}
+
+		protected override object GetPatternCore(PatternInterface patternInterface)
+		{
+			if (patternInterface == PatternInterface.Invoke || patternInterface == PatternInterface.SelectionItem)
+			{
+				return this;
+			}
+			else if (patternInterface == PatternInterface.ExpandCollapse)
+			{
+				if (Owner.CollapseEnabled)
+				{
+					return this;
+				}
+			}
+
+			return base.GetPatternCore(patternInterface);
 		}
 
 		protected override int GetSizeOfSetCore()

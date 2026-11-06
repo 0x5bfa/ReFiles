@@ -692,6 +692,8 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 		return true;
 	}
 
+	internal readonly record struct SystemIconCacheKey(int ImageListId, int ImageIndex, uint DrawFlags, int RequestedSize);
+
 	private sealed class ThumbnailCacheIdentity
 	{
 		private readonly Lock _syncRoot = new();
@@ -719,8 +721,6 @@ internal sealed class WindowsShellThumbnailSource : IThumbnailSource
 			}
 		}
 	}
-
-	internal readonly record struct SystemIconCacheKey(int ImageListId, int ImageIndex, uint DrawFlags, int RequestedSize);
 
 	private sealed record WindowsThumbnailPayload(byte[] Content, string ContentType, bool IsFallback, ThumbnailContentFormat Format = ThumbnailContentFormat.EncodedImage,
 		int PixelWidth = 0, int PixelHeight = 0, bool IncludesOverlay = false);

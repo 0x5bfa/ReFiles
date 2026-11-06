@@ -23,7 +23,7 @@ public sealed class StreamPreviewLoaderTests
 	[TestMethod]
 	public void ResolverUsesCaseInsensitiveExtensionsAndRejectsUnsupportedItems()
 	{
-		var resolver = new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".TXT", "text/plain"), ]);
+		var resolver = new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>(".TXT", "text/plain"),]);
 		var source = new TestStorageSource();
 		var file = new TestFile("file", "readme.TxT", _ => Task.FromResult<Stream>(new MemoryStream()));
 		var context = CreateContext(source, file);
@@ -45,12 +45,12 @@ public sealed class StreamPreviewLoaderTests
 	[TestMethod]
 	public void ResolverRejectsInvalidAndDuplicateExtensions()
 	{
-		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>("txt", "text/plain"), ]));
+		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>("txt", "text/plain"),]));
 
-		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", "text/plain"), new KeyValuePair<string, string>(".TXT", "text/csv"), ]));
+		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>(".txt", "text/plain"), new KeyValuePair<string, string>(".TXT", "text/csv"),]));
 
-		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", ""), ]));
-}
+		Assert.Throws<ArgumentException>(() => new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>(".txt", ""),]));
+	}
 
 	/// <summary>
 	/// Test case: loader accepts known files and does not open unknown extensions.
@@ -71,7 +71,7 @@ public sealed class StreamPreviewLoaderTests
 
 		Assert.IsNull(result);
 		Assert.AreEqual(0, unknown.OpenCount);
-}
+	}
 
 	/// <summary>
 	/// Test case: policy blocks before opening the file and preserves hydration policy.
@@ -93,7 +93,7 @@ public sealed class StreamPreviewLoaderTests
 		Assert.AreEqual(PreviewHydrationPolicy.AllowHydration, policy.Request!.HydrationPolicy);
 		Assert.AreEqual(0, file.OpenCount);
 		Assert.AreEqual(0, stream.DisposeCount);
-}
+	}
 
 	/// <summary>
 	/// Test case: seekable streams use length and transfer ownership only on success.
@@ -123,7 +123,7 @@ public sealed class StreamPreviewLoaderTests
 
 		Assert.IsInstanceOfType<BlockedPreviewResult>(blocked);
 		Assert.AreEqual(1, overLimit.DisposeCount);
-}
+	}
 
 	/// <summary>
 	/// Test case: non seekable streams are buffered only when a byte limit is required.
@@ -163,7 +163,7 @@ public sealed class StreamPreviewLoaderTests
 
 		Assert.IsInstanceOfType<BlockedPreviewResult>(oversized);
 		Assert.AreEqual(1, oversizedSource.DisposeCount);
-}
+	}
 
 	/// <summary>
 	/// Test case: read failure and cancellation dispose the opened stream.
@@ -199,7 +199,7 @@ public sealed class StreamPreviewLoaderTests
 
 		await Assert.ThrowsAsync<OperationCanceledException>(async () => await loader.GetPreviewAsync(new PreviewRequest(), CreateContext(source, openedThenCancelledFile), cancelledAfterOpen.Token));
 		Assert.AreEqual(1, openedThenCancelledStream.DisposeCount);
-}
+	}
 
 	/// <summary>
 	/// Test case: registry and browse preview hydrate a file through the loader.
@@ -244,11 +244,11 @@ public sealed class StreamPreviewLoaderTests
 
 		await preview.DisposeAsync();
 		Assert.AreEqual(1, openedStream.DisposeCount);
-}
+	}
 
 	private static StreamPreviewLoader CreateLoader(TestPolicy? policy = null)
 	{
-		return new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", "text/plain"), ]), policy ?? new TestPolicy());
+		return new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>(".txt", "text/plain"),]), policy ?? new TestPolicy());
 	}
 
 	private static ItemContext CreateContext(TestStorageSource source, IStorable model)
@@ -327,7 +327,7 @@ public sealed class StreamPreviewLoaderTests
 
 	private sealed class TrackingMemoryStream : MemoryStream
 	{
-		private int disposed;
+		private int _disposed;
 
 		public int DisposeCount { get; private set; }
 
@@ -338,7 +338,7 @@ public sealed class StreamPreviewLoaderTests
 
 		protected override void Dispose(bool disposing)
 		{
-			if (disposing && Interlocked.Exchange(ref disposed, 1) is 0)
+			if (disposing && Interlocked.Exchange(ref _disposed, 1) is 0)
 			{
 				DisposeCount++;
 			}
@@ -349,11 +349,11 @@ public sealed class StreamPreviewLoaderTests
 
 	private sealed class NonSeekableStream : Stream
 	{
-		private readonly byte[] content;
+		private readonly byte[] _content;
 
-		private int position;
+		private int _position;
 
-		private int disposed;
+		private int _disposed;
 
 		public int DisposeCount { get; private set; }
 
@@ -377,7 +377,7 @@ public sealed class StreamPreviewLoaderTests
 
 		public NonSeekableStream(byte[] content)
 		{
-			this.content = content;
+			this._content = content;
 		}
 
 		public override int Read(byte[] buffer, int offset, int count)
@@ -388,9 +388,9 @@ public sealed class StreamPreviewLoaderTests
 				throw ReadException;
 			}
 
-			var available = Math.Min(count, content.Length - position);
-			content.AsSpan(position, available).CopyTo(buffer.AsSpan(offset, available));
-			position += available;
+			var available = Math.Min(count, _content.Length - _position);
+			_content.AsSpan(_position, available).CopyTo(buffer.AsSpan(offset, available));
+			_position += available;
 
 			return available;
 		}
@@ -427,16 +427,6 @@ public sealed class StreamPreviewLoaderTests
 			throw new NotSupportedException();
 		}
 
-		protected override void Dispose(bool disposing)
-		{
-			if (disposing && Interlocked.Exchange(ref disposed, 1) is 0)
-			{
-				DisposeCount++;
-			}
-
-			base.Dispose(disposing);
-		}
-
 		public override int Read(Span<byte> buffer)
 		{
 			if (ReadException is not null)
@@ -444,11 +434,21 @@ public sealed class StreamPreviewLoaderTests
 				throw ReadException;
 			}
 
-			var available = Math.Min(buffer.Length, content.Length - position);
-			content.AsSpan(position, available).CopyTo(buffer[..available]);
-			position += available;
+			var available = Math.Min(buffer.Length, _content.Length - _position);
+			_content.AsSpan(_position, available).CopyTo(buffer[..available]);
+			_position += available;
 
 			return available;
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing && Interlocked.Exchange(ref _disposed, 1) is 0)
+			{
+				DisposeCount++;
+			}
+
+			base.Dispose(disposing);
 		}
 	}
 }

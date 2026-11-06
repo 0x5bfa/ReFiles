@@ -239,6 +239,7 @@ public sealed partial class NavigationToolbarViewModel : ObservableObject, IDisp
 			{
 				_logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Breadcrumb refresh failed: {error.Message}");
 			}
+
 			if (ReferenceEquals(_activeFolderBrowser, browser))
 			{
 				BreadcrumbItems.Clear();

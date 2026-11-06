@@ -43,15 +43,6 @@ public sealed class HomeBrowseLocationContext : IBrowseLocationContext, IBrowseL
 		}
 	}
 
-	/// <summary>Occurs when an individual source's loading state changes.</summary>
-	public event EventHandler? SourceStatesChanged;
-
-	/// <inheritdoc />
-	public event EventHandler<FolderChangeEventArgs>? Changed;
-
-	// Source failures are exposed in Sources rather than as fatal location watcher faults.
-	event EventHandler<FolderChangeErrorEventArgs>? IFolderChangeSource.Faulted { add { } remove { } }
-
 	/// <summary>Initializes an aggregate context over the current visible sources.</summary>
 	/// <param name="location">The home location.</param>
 	/// <param name="workspace">The borrowed storage workspace.</param>
@@ -69,6 +60,15 @@ public sealed class HomeBrowseLocationContext : IBrowseLocationContext, IBrowseL
 			registry.SourcesChanged += OnSourcesChanged;
 		}
 	}
+
+	/// <summary>Occurs when an individual source's loading state changes.</summary>
+	public event EventHandler? SourceStatesChanged;
+
+	/// <inheritdoc />
+	public event EventHandler<FolderChangeEventArgs>? Changed;
+
+	// Source failures are exposed in Sources rather than as fatal location watcher faults.
+	event EventHandler<FolderChangeErrorEventArgs>? IFolderChangeSource.Faulted { add { } remove { } }
 
 	/// <inheritdoc />
 	public ValueTask StartAsync(CancellationToken cancellationToken = default)

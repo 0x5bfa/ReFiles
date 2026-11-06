@@ -47,6 +47,10 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private const uint VirtualKeyF1 = 0x70;
 	private const uint VirtualKeyF6 = 0x75;
 	private const uint VirtualKeyF12 = 0x7B;
+
+	public static readonly DependencyProperty ViewModelProperty =
+		DependencyProperty.Register(nameof(ViewModel), typeof(PreviewPaneViewModel), typeof(PreviewPane), new PropertyMetadata(null, ViewModelChanged));
+
 	private static readonly TimeSpan _previewFocusQueryTimeout = TimeSpan.FromSeconds(5);
 
 	private readonly SemaphoreSlim _renderGate = new(1, 1);
@@ -85,9 +89,6 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 	private bool _isForwardingPreviewAccelerator;
 	private bool _waitingForShellLayout;
 	private bool _isPreviewHostCloaked;
-
-	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(nameof(ViewModel), typeof(PreviewPaneViewModel), typeof(PreviewPane), new PropertyMetadata(null, ViewModelChanged));
 
 	public PreviewPaneViewModel? ViewModel
 	{
@@ -167,6 +168,31 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		}
 
 		SetPreviewHostCloaked(false);
+	}
+
+	internal static bool IsSupportedForwardedPreviewAccelerator(uint message, uint virtualKey, bool isControlDown, bool isAltDown, bool isShiftDown)
+	{
+		if (virtualKey is VirtualKeyTab or VirtualKeyF6)
+		{
+			return message is WindowMessageKeyDown && !isControlDown && !isAltDown;
+		}
+
+		if (virtualKey is >= VirtualKeyF1 and <= VirtualKeyF12)
+		{
+			return message is WindowMessageKeyDown && !isControlDown && !isAltDown && !isShiftDown;
+		}
+
+		if (virtualKey is < VirtualKeyA or > VirtualKeyZ || isShiftDown)
+		{
+			return false;
+		}
+
+		return (message is WindowMessageKeyDown && isControlDown && !isAltDown) || (message is WindowMessageSystemKeyDown && !isControlDown && isAltDown);
+	}
+
+	internal static bool IsPreviewFocusCycler(uint message, uint virtualKey, bool isControlDown)
+	{
+		return message is WindowMessageKeyDown && !isControlDown && virtualKey is VirtualKeyTab or VirtualKeyF6;
 	}
 
 	private static void ViewModelChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
@@ -1150,31 +1176,6 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		}
 	}
 
-	internal static bool IsSupportedForwardedPreviewAccelerator(uint message, uint virtualKey, bool isControlDown, bool isAltDown, bool isShiftDown)
-	{
-		if (virtualKey is VirtualKeyTab or VirtualKeyF6)
-		{
-			return message is WindowMessageKeyDown && !isControlDown && !isAltDown;
-		}
-
-		if (virtualKey is >= VirtualKeyF1 and <= VirtualKeyF12)
-		{
-			return message is WindowMessageKeyDown && !isControlDown && !isAltDown && !isShiftDown;
-		}
-
-		if (virtualKey is < VirtualKeyA or > VirtualKeyZ || isShiftDown)
-		{
-			return false;
-		}
-
-		return (message is WindowMessageKeyDown && isControlDown && !isAltDown) || (message is WindowMessageSystemKeyDown && !isControlDown && isAltDown);
-	}
-
-	internal static bool IsPreviewFocusCycler(uint message, uint virtualKey, bool isControlDown)
-	{
-		return message is WindowMessageKeyDown && !isControlDown && virtualKey is VirtualKeyTab or VirtualKeyF6;
-	}
-
 	private void SetPreviewHostLayout(PreviewHostLayout layout)
 	{
 		if (_previewHost.IsNull)
@@ -1283,6 +1284,10 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 		}
 	}
 
+	private readonly record struct PreviewAcceleratorRequest(long RenderVersion, IWindowsShellPreviewSession Session, HWND HostWindow, bool IsShiftDown);
+
+	private readonly record struct PreviewHostLayout(int X, int Y, int Width, int Height, double Scale);
+
 	private sealed class PreviewAcceleratorSink
 	{
 		private readonly WeakReference<PreviewPane> _owner;
@@ -1308,8 +1313,4 @@ public sealed partial class PreviewPane : UserControl, IDisposable, IAsyncDispos
 			return _owner.TryGetTarget(out var owner) && owner.TryQueuePreviewAccelerator(_renderVersion, in message);
 		}
 	}
-
-	private readonly record struct PreviewAcceleratorRequest(long RenderVersion, IWindowsShellPreviewSession Session, HWND HostWindow, bool IsShiftDown);
-
-	private readonly record struct PreviewHostLayout(int X, int Y, int Width, int Height, double Scale);
 }

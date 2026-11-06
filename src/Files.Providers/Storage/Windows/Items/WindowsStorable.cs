@@ -12,14 +12,6 @@ internal abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsSt
 {
 	private readonly WindowsStorableDescriptor _descriptor;
 
-	internal WindowsStorableFactory Factory { get; }
-
-	internal WindowsStorableDescriptor Descriptor => _descriptor;
-
-	internal WindowsStorableMetadata Metadata => _descriptor.Metadata;
-
-	internal WindowsItemLocator Locator => _descriptor.Locator;
-
 	/// <summary>Gets the source-specific item identifier.</summary>
 	public string Id { get; }
 
@@ -45,6 +37,14 @@ internal abstract class WindowsStorable : IWindowsStorable, IEquatable<WindowsSt
 	/// Gets a value indicating whether the Shell marks the item as hidden.
 	/// </summary>
 	public bool IsHidden => _descriptor.Metadata.IsHidden;
+
+	internal WindowsStorableFactory Factory { get; }
+
+	internal WindowsStorableDescriptor Descriptor => _descriptor;
+
+	internal WindowsStorableMetadata Metadata => _descriptor.Metadata;
+
+	internal WindowsItemLocator Locator => _descriptor.Locator;
 
 	internal WindowsStorable(WindowsStorableDescriptor descriptor, WindowsStorableFactory factory)
 	{

@@ -22,9 +22,6 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource, IDisposab
 	private int _isStarted;
 	private int _isDisposed;
 
-	public event EventHandler<FolderChangeEventArgs>? Changed;
-	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
-
 	internal WindowsFolderChangeSource(WindowsStorageSource source, WindowsItemLocator folderLocator)
 	{
 		ArgumentNullException.ThrowIfNull(source);
@@ -33,6 +30,9 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource, IDisposab
 		_source = source;
 		_folderLocator = folderLocator;
 	}
+
+	public event EventHandler<FolderChangeEventArgs>? Changed;
+	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
 	public async ValueTask StartAsync(CancellationToken cancellationToken = default)
 	{
@@ -106,7 +106,7 @@ internal sealed class WindowsFolderChangeSource : IFolderChangeSource, IDisposab
 	{
 		try
 		{
-			while (await changeSubscription .WaitToReadAsync(cancellationToken) .ConfigureAwait(false))
+			while (await changeSubscription.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
 			{
 				while (changeSubscription.TryRead(out var change))
 				{

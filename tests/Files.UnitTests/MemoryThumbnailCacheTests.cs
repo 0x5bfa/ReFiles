@@ -96,7 +96,7 @@ public sealed class MemoryThumbnailCacheTests
 				entered.TrySetResult(true);
 				await release.Task;
 
-				return new ThumbnailResult(new byte[] {1}, "image/png", isFallback: false);
+				return new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: false);
 			},
 		};
 		var cache = new MemoryThumbnailCache();
@@ -131,7 +131,7 @@ public sealed class MemoryThumbnailCacheTests
 				entered.TrySetResult(true);
 				await release.Task;
 
-				return new ThumbnailResult(new byte[] {1}, "image/png", isFallback: false);
+				return new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: false);
 			},
 		};
 		var decorated = new ThumbnailCacheWrapper(new MemoryThumbnailCache()).Wrap(new ItemContext(factory.Source, coreModel, reference), source);

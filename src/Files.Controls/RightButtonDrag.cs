@@ -15,10 +15,11 @@ namespace Files.Controls;
 /// </summary>
 public static class RightButtonDrag
 {
-	private static readonly ConditionalWeakTable<UIElement, Registration> _registrations = new();
 
 	/// <summary>Identifies the attached enabled property.</summary>
 	public static readonly DependencyProperty IsEnabledProperty = DependencyProperty.RegisterAttached("IsEnabled", typeof(bool), typeof(RightButtonDrag), new PropertyMetadata(false, IsEnabledChanged));
+
+	private static readonly ConditionalWeakTable<UIElement, Registration> _registrations = new();
 
 	/// <summary>Gets whether right-button drag initiation is enabled for an element.</summary>
 	/// <param name="element">The element to inspect.</param>

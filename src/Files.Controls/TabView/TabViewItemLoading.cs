@@ -15,11 +15,11 @@ public static class TabViewItemLoading
 {
 	private const int LoadingIndicatorDelayMilliseconds = 150;
 
-	private static readonly ConditionalWeakTable<TabViewItem, LoadingIndicatorState> _loadingIndicatorStates = [];
-
 	/// <summary>Identifies the attached loading state property.</summary>
 	public static readonly DependencyProperty IsLoadingProperty =
 		DependencyProperty.RegisterAttached("IsLoading", typeof(bool), typeof(TabViewItemLoading), new PropertyMetadata(false, IsLoadingChanged));
+
+	private static readonly ConditionalWeakTable<TabViewItem, LoadingIndicatorState> _loadingIndicatorStates = [];
 
 	/// <summary>Gets whether the tab's content is loading.</summary>
 	/// <param name="element">The tab item.</param>

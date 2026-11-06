@@ -6,6 +6,20 @@ using System.Collections.ObjectModel;
 
 namespace Files.Core.Browsing;
 
+/// <summary>Identifies the presentation fields changed for a browse item.</summary>
+[Flags]
+public enum BrowseItemPresentationChangeFlags
+{
+	/// <summary>No presentation field changed.</summary>
+	None = 0,
+
+	/// <summary>The property values changed.</summary>
+	Properties = 1 << 0,
+
+	/// <summary>The thumbnail changed.</summary>
+	Thumbnail = 1 << 1,
+}
+
 /// <summary>
 /// Contains prefetched, UI-agnostic presentation data for one browse item snapshot.
 /// </summary>
@@ -37,20 +51,6 @@ public sealed record BrowseItemPresentation
 			? null
 			: new ThumbnailResult(thumbnail.Content.ToArray(), thumbnail.ContentType, thumbnail.IsFallback, thumbnail.Format, thumbnail.PixelWidth, thumbnail.PixelHeight);
 	}
-}
-
-/// <summary>Identifies the presentation fields changed for a browse item.</summary>
-[Flags]
-public enum BrowseItemPresentationChangeFlags
-{
-	/// <summary>No presentation field changed.</summary>
-	None = 0,
-
-	/// <summary>The property values changed.</summary>
-	Properties = 1 << 0,
-
-	/// <summary>The thumbnail changed.</summary>
-	Thumbnail = 1 << 1,
 }
 
 /// <summary>Describes a presentation update for one browse item.</summary>

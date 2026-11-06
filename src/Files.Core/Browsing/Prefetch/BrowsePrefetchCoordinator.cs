@@ -22,7 +22,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 	private const int MaxConcurrentPrefetchPerLane = 2;
 	private const int MaximumPropertyBatchSize = 32;
 	private const string ItemNamePropertyId = "System.ItemNameDisplay";
-	private static readonly TimeSpan ItemsChangedRestartDelay = TimeSpan.FromMilliseconds(100);
+	private static readonly TimeSpan _itemsChangedRestartDelay = TimeSpan.FromMilliseconds(100);
 
 	private readonly IBrowseSession _session;
 	private readonly ILogger<BrowsePrefetchCoordinator> _logger;
@@ -660,7 +660,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 			_lastObservedItemsVersion = args.Version;
 			if (_lastViewport is not null && _session.Generation is not 0)
 			{
-				_restartTimer.Change(ItemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
+				_restartTimer.Change(_itemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
 			}
 		}
 	}
@@ -681,7 +681,7 @@ public sealed class BrowsePrefetchCoordinator : IBrowsePrefetchCoordinator
 				&& _latestRequest is { } latestRequest
 				&& ViewportItemsMatch(latestRequest, _session.Items))
 			{
-				_restartTimer.Change(ItemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
+				_restartTimer.Change(_itemsChangedRestartDelay, Timeout.InfiniteTimeSpan);
 
 				return;
 			}

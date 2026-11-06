@@ -9,6 +9,16 @@ namespace Files.Core.Storage;
 public sealed class SimpleStorableItem : IStorable
 {
 	/// <summary>
+	/// Gets the stable item identifier.
+	/// </summary>
+	public string Id { get; }
+
+	/// <summary>
+	/// Gets the item name.
+	/// </summary>
+	public string Name { get; }
+
+	/// <summary>
 	/// Initializes a simple storage item.
 	/// </summary>
 	/// <param name="id">The stable item identifier.</param>
@@ -18,14 +28,4 @@ public sealed class SimpleStorableItem : IStorable
 		Id = id;
 		Name = name;
 	}
-
-	/// <summary>
-	/// Gets the stable item identifier.
-	/// </summary>
-	public string Id { get; }
-
-	/// <summary>
-	/// Gets the item name.
-	/// </summary>
-	public string Name { get; }
 }

@@ -32,8 +32,6 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 	private Exception? _connectionError;
 	private bool _disposed;
 
-	public event EventHandler? Changed;
-
 	public IStorageOperationMonitor Monitor => this;
 
 	public IStorageJobService Jobs => this;
@@ -46,6 +44,8 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		_logger = logger ?? NullLogger<WinRTStorageOperationService>.Instance;
 		_observer = Task.Run(ObserveAsync);
 	}
+
+	public event EventHandler? Changed;
 
 	public bool CanHandle(StorageOperationRequest request)
 	{
@@ -60,44 +60,10 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		};
 	}
 
-	internal async Task RegisterFtpConnectionAsync(FtpConnectionProfile profile, FtpCredential? credential = null, CancellationToken cancellationToken = default)
-	{
-		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
-		var data = new BackgroundServer.FtpConnectionData { ConnectionId = profile.ConnectionId, DisplayName = profile.DisplayName, Host = profile.Host, Port = profile.Port,
-			SecurityMode = (int)profile.SecurityMode, RootPath = profile.RootPath.Value, UserNameHint = profile.UserNameHint ?? string.Empty, PathComparison = (int)profile.PathComparison };
-		var sourceId = server.RegisterFtpConnection(data, credential?.UserName ?? "anonymous", credential?.Password ?? "anonymous@");
-		lock (_syncRoot)
-		{
-			_ftpSources.Add(sourceId);
-		}
-	}
-
 	public ValueTask<StorageOperationResult> ExecuteAsync(StorageOperationRequest request, IProgress<StorageOperationProgress>? progress = null, CancellationToken cancellationToken = default,
 		IStorageOperationControl? operationControl = null)
 	{
 		throw new NotSupportedException("Use Jobs.SubmitBatchAsync and Jobs.WaitForCompletionAsync for independent server operations.");
-	}
-
-	internal Task<BackgroundServer.AppService> ConnectAsync()
-	{
-		return GetConnection();
-	}
-
-	internal async Task RegisterWindowAsync(nint windowHandle, CancellationToken cancellationToken = default)
-	{
-		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
-		server.RegisterWindow(windowHandle.ToInt64());
-	}
-
-	internal void SetActiveWindow(nint windowHandle)
-	{
-		_ = SetActiveWindowAsync(windowHandle);
-	}
-
-	internal async Task UnregisterWindowAsync(nint windowHandle, CancellationToken cancellationToken = default)
-	{
-		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
-		server.UnregisterWindow(windowHandle.ToInt64());
 	}
 
 	public async Task<IReadOnlyList<WindowsShellNewItem>> GetShellNewItemsAsync(string folderPath, CancellationToken cancellationToken = default)
@@ -263,8 +229,14 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		var items = paths.Select(path => new BackgroundServer.StorageOperationData
 		{
 			Kind = move ? BackgroundServer.StorageOperationKind.Move : BackgroundServer.StorageOperationKind.Copy,
-			Item = new BackgroundServer.StorageReferenceData { SourceId = WindowsStorageIdentity.DefaultSourceType, ItemId = string.Empty, HasAddress = true,
-				AddressScheme = WindowsStorageIdentity.FileAddressScheme, AddressValue = path },
+			Item = new BackgroundServer.StorageReferenceData
+			{
+				SourceId = WindowsStorageIdentity.DefaultSourceType,
+				ItemId = string.Empty,
+				HasAddress = true,
+				AddressScheme = WindowsStorageIdentity.FileAddressScheme,
+				AddressValue = path
+			},
 			Destination = ToData(destination),
 			Name = string.Empty,
 			DisplayName = Path.GetFileName(path.TrimEnd('\\', '/')),
@@ -317,6 +289,66 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		}
 	}
 
+	public void Dispose()
+	{
+		lock (_syncRoot)
+		{
+			if (_disposed)
+			{
+				return;
+			}
+
+			_disposed = true;
+			_changed.TrySetCanceled();
+			Changed = null;
+		}
+
+		_shutdown.Cancel();
+	}
+
+	internal async Task RegisterFtpConnectionAsync(FtpConnectionProfile profile, FtpCredential? credential = null, CancellationToken cancellationToken = default)
+	{
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		var data = new BackgroundServer.FtpConnectionData
+		{
+			ConnectionId = profile.ConnectionId,
+			DisplayName = profile.DisplayName,
+			Host = profile.Host,
+			Port = profile.Port,
+			SecurityMode = (int)profile.SecurityMode,
+			RootPath = profile.RootPath.Value,
+			UserNameHint = profile.UserNameHint ?? string.Empty,
+			PathComparison = (int)profile.PathComparison
+		};
+		var sourceId = server.RegisterFtpConnection(data, credential?.UserName ?? "anonymous", credential?.Password ?? "anonymous@");
+		lock (_syncRoot)
+		{
+			_ftpSources.Add(sourceId);
+		}
+	}
+
+	internal Task<BackgroundServer.AppService> ConnectAsync()
+	{
+		return GetConnection();
+	}
+
+	internal async Task RegisterWindowAsync(nint windowHandle, CancellationToken cancellationToken = default)
+	{
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		server.RegisterWindow(windowHandle.ToInt64());
+	}
+
+	internal void SetActiveWindow(nint windowHandle)
+	{
+		_ = SetActiveWindowAsync(windowHandle);
+	}
+
+	internal async Task UnregisterWindowAsync(nint windowHandle, CancellationToken cancellationToken = default)
+	{
+		var server = await GetConnection().WaitAsync(cancellationToken).ConfigureAwait(false);
+		server.UnregisterWindow(windowHandle.ToInt64());
+	}
+
 	internal async Task<StorageOperationResult> ApplyPropertiesAsync(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes,
 		RenameOperationRequest? rename, CancellationToken cancellationToken)
 	{
@@ -338,23 +370,6 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 			: server.SubmitPropertyChanges(id, selectedPaths, data, ToData(rename.Item), rename.NewName), cancellationToken).ConfigureAwait(false);
 
 		return ToResult(summary);
-	}
-
-	public void Dispose()
-	{
-		lock (_syncRoot)
-		{
-			if (_disposed)
-			{
-				return;
-			}
-
-			_disposed = true;
-			_changed.TrySetCanceled();
-			Changed = null;
-		}
-
-		_shutdown.Cancel();
 	}
 
 	private Task<BackgroundServer.AppService> GetConnection()
@@ -437,6 +452,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 				{
 					_logger.LogDebug("{Component}: {Message}", "Operations", $"Server connection failed: {error}");
 				}
+
 				lock (_syncRoot)
 				{
 					_connectionError = error;
@@ -691,12 +707,21 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 	{
 		var data = request switch
 		{
-			DeleteOperationRequest delete => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Delete, Item = ToData(delete.Item),
-				Permanently = delete.Permanently },
+			DeleteOperationRequest delete => new BackgroundServer.StorageOperationData
+			{
+				Kind = BackgroundServer.StorageOperationKind.Delete,
+				Item = ToData(delete.Item),
+				Permanently = delete.Permanently
+			},
 			RenameOperationRequest rename => new BackgroundServer.StorageOperationData { Kind = BackgroundServer.StorageOperationKind.Rename, Item = ToData(rename.Item), Name = rename.NewName },
-			CreateItemOperationRequest create => new BackgroundServer.StorageOperationData { Kind = create.Kind == StorageItemKind.File
+			CreateItemOperationRequest create => new BackgroundServer.StorageOperationData
+			{
+				Kind = create.Kind == StorageItemKind.File
 				? BackgroundServer.StorageOperationKind.CreateFile : BackgroundServer.StorageOperationKind.CreateFolder,
-				Item = ToData(create.Parent), Name = create.Name, ConflictBehavior = (int)create.ConflictBehavior },
+				Item = ToData(create.Parent),
+				Name = create.Name,
+				ConflictBehavior = (int)create.ConflictBehavior
+			},
 			_ => throw new NotSupportedException("The operation request has no server contract."),
 		};
 		data.DisplayName = Path.GetFileName(data.Item.AddressValue.TrimEnd('\\', '/'));
@@ -706,7 +731,13 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 
 	private static BackgroundServer.StorageReferenceData ToData(StorableReference reference)
 	{
-		return new BackgroundServer.StorageReferenceData { SourceId = reference.SourceId.Value, ItemId = reference.ItemId, HasAddress = reference.LastKnownAddress is not null,
-			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty, AddressValue = reference.LastKnownAddress?.Value ?? string.Empty };
+		return new BackgroundServer.StorageReferenceData
+		{
+			SourceId = reference.SourceId.Value,
+			ItemId = reference.ItemId,
+			HasAddress = reference.LastKnownAddress is not null,
+			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty,
+			AddressValue = reference.LastKnownAddress?.Value ?? string.Empty
+		};
 	}
 }

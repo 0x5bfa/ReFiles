@@ -8,9 +8,9 @@ namespace Files.UnitTests;
 internal sealed class InMemoryFtpSessionFactory :
 	IFtpSessionFactory
 {
-	private readonly Dictionary<string, FtpTestEntry> entries;
+	private readonly Dictionary<string, FtpTestEntry> _entries;
 
-	private readonly StringComparer pathComparer;
+	private readonly StringComparer _pathComparer;
 
 	public IList<InMemoryFtpSession> Sessions { get; } = [];
 
@@ -18,36 +18,36 @@ internal sealed class InMemoryFtpSessionFactory :
 
 	public Exception? CompleteTransferError { get; set; }
 
-	public IReadOnlyCollection<string> Paths => entries.Keys.ToArray();
+	public IReadOnlyCollection<string> Paths => _entries.Keys.ToArray();
 
 	public InMemoryFtpSessionFactory(bool caseSensitive = true)
 	{
-		pathComparer = caseSensitive
+		_pathComparer = caseSensitive
 			? StringComparer.Ordinal
 			: StringComparer.OrdinalIgnoreCase;
-		entries = new Dictionary<string, FtpTestEntry>(pathComparer);
+		_entries = new Dictionary<string, FtpTestEntry>(_pathComparer);
 	}
 
 	public void AddFolder(string path)
 	{
 		var ftpPath = FtpPath.Parse(path);
-		entries[ftpPath.Value] = new FtpTestEntry(new FtpEntryInfo(ftpPath, ftpPath.Name, FtpEntryKind.Folder), []);
+		_entries[ftpPath.Value] = new FtpTestEntry(new FtpEntryInfo(ftpPath, ftpPath.Name, FtpEntryKind.Folder), []);
 	}
 
 	public void AddFile(string path, byte[] content, DateTimeOffset? dateModified = null)
 	{
 		var ftpPath = FtpPath.Parse(path);
-		entries[ftpPath.Value] = new FtpTestEntry(new FtpEntryInfo(ftpPath, ftpPath.Name, FtpEntryKind.File, content.LongLength, dateModified), [.. content]);
+		_entries[ftpPath.Value] = new FtpTestEntry(new FtpEntryInfo(ftpPath, ftpPath.Name, FtpEntryKind.File, content.LongLength, dateModified), [.. content]);
 	}
 
 	public bool Contains(string path)
 	{
-		return entries.ContainsKey(FtpPath.Parse(path).Value);
+		return _entries.ContainsKey(FtpPath.Parse(path).Value);
 	}
 
 	public byte[] ReadContent(string path)
 	{
-		return [.. entries[FtpPath.Parse(path).Value]
+		return [.. _entries[FtpPath.Parse(path).Value]
 			.Content];
 	}
 
@@ -58,7 +58,7 @@ internal sealed class InMemoryFtpSessionFactory :
 		cancellationToken.ThrowIfCancellationRequested();
 
 		LastCredential = credential;
-		var session = new InMemoryFtpSession(entries, pathComparer)
+		var session = new InMemoryFtpSession(_entries, _pathComparer)
 		{
 			CompleteTransferError = CompleteTransferError,
 		};
@@ -70,13 +70,13 @@ internal sealed class InMemoryFtpSessionFactory :
 
 internal sealed class InMemoryFtpSession : IFtpSession
 {
-	private readonly Dictionary<string, FtpTestEntry> entries;
+	private readonly Dictionary<string, FtpTestEntry> _entries;
 
-	private readonly StringComparer pathComparer;
+	private readonly StringComparer _pathComparer;
 
-	private FtpPath? pendingWritePath;
+	private FtpPath? _pendingWritePath;
 
-	private MemoryStream? pendingWriteStream;
+	private MemoryStream? _pendingWriteStream;
 
 	public bool IsDisposed { get; private set; }
 
@@ -86,8 +86,8 @@ internal sealed class InMemoryFtpSession : IFtpSession
 
 	public InMemoryFtpSession(Dictionary<string, FtpTestEntry> entries, StringComparer pathComparer)
 	{
-		this.entries = entries;
-		this.pathComparer = pathComparer;
+		this._entries = entries;
+		this._pathComparer = pathComparer;
 	}
 
 	public ValueTask<FtpEntryInfo?> GetEntryAsync(FtpPath path, CancellationToken cancellationToken = default)
@@ -95,7 +95,7 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		ThrowIfDisposed();
 		cancellationToken.ThrowIfCancellationRequested();
 
-		entries.TryGetValue(path.Value, out var entry);
+		_entries.TryGetValue(path.Value, out var entry);
 
 		return ValueTask.FromResult(entry?.Info);
 	}
@@ -105,8 +105,8 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		ThrowIfDisposed();
 		cancellationToken.ThrowIfCancellationRequested();
 
-		var items = entries.Values
-			.Where(entry => entry.Info.Path.Parent is { } parent && pathComparer.Equals(parent.Value, path.Value))
+		var items = _entries.Values
+			.Where(entry => entry.Info.Path.Parent is { } parent && _pathComparer.Equals(parent.Value, path.Value))
 			.Select(static entry => entry.Info)
 			.OrderBy(static entry => entry.Name, StringComparer.Ordinal)
 			.ToArray();
@@ -119,7 +119,7 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		ThrowIfDisposed();
 		cancellationToken.ThrowIfCancellationRequested();
 
-		if (!entries.TryGetValue(path.Value, out var entry) || entry.Info.Kind is FtpEntryKind.Folder)
+		if (!_entries.TryGetValue(path.Value, out var entry) || entry.Info.Kind is FtpEntryKind.Folder)
 		{
 			throw new FileNotFoundException("FTP test file was not found.", path.Value);
 		}
@@ -132,10 +132,10 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		ThrowIfDisposed();
 		cancellationToken.ThrowIfCancellationRequested();
 
-		pendingWritePath = path;
-		pendingWriteStream = new MemoryStream();
+		_pendingWritePath = path;
+		_pendingWriteStream = new MemoryStream();
 
-		return ValueTask.FromResult<Stream>(pendingWriteStream);
+		return ValueTask.FromResult<Stream>(_pendingWriteStream);
 	}
 
 	public ValueTask CompleteTransferAsync(CancellationToken cancellationToken = default)
@@ -149,12 +149,12 @@ internal sealed class InMemoryFtpSession : IFtpSession
 			throw CompleteTransferError;
 		}
 
-		if (pendingWritePath is { } path && pendingWriteStream is { } stream)
+		if (_pendingWritePath is { } path && _pendingWriteStream is { } stream)
 		{
 			var content = stream.ToArray();
-			entries[path.Value] = new FtpTestEntry(new FtpEntryInfo(path, path.Name, FtpEntryKind.File, content.LongLength), content);
-			pendingWritePath = null;
-			pendingWriteStream = null;
+			_entries[path.Value] = new FtpTestEntry(new FtpEntryInfo(path, path.Name, FtpEntryKind.File, content.LongLength), content);
+			_pendingWritePath = null;
+			_pendingWriteStream = null;
 		}
 
 		return ValueTask.CompletedTask;
@@ -166,7 +166,7 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		cancellationToken.ThrowIfCancellationRequested();
 
 		EnsureMissing(path);
-		entries[path.Value] = new FtpTestEntry(new FtpEntryInfo(path, path.Name, FtpEntryKind.File, 0), []);
+		_entries[path.Value] = new FtpTestEntry(new FtpEntryInfo(path, path.Name, FtpEntryKind.File, 0), []);
 
 		return ValueTask.CompletedTask;
 	}
@@ -177,7 +177,7 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		cancellationToken.ThrowIfCancellationRequested();
 
 		EnsureMissing(path);
-		entries[path.Value] = new FtpTestEntry(new FtpEntryInfo(path, path.Name, FtpEntryKind.Folder), []);
+		_entries[path.Value] = new FtpTestEntry(new FtpEntryInfo(path, path.Name, FtpEntryKind.Folder), []);
 
 		return ValueTask.CompletedTask;
 	}
@@ -188,13 +188,13 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		cancellationToken.ThrowIfCancellationRequested();
 
 		var keys = kind is FtpEntryKind.Folder
-			? entries.Keys
-				.Where(candidate => pathComparer.Equals(candidate, path.Value) || IsDescendant(candidate, path.Value))
+			? _entries.Keys
+				.Where(candidate => _pathComparer.Equals(candidate, path.Value) || IsDescendant(candidate, path.Value))
 				.ToArray()
 			: [path.Value];
 		foreach (var key in keys)
 		{
-			entries.Remove(key);
+			_entries.Remove(key);
 		}
 
 		return ValueTask.CompletedTask;
@@ -206,18 +206,18 @@ internal sealed class InMemoryFtpSession : IFtpSession
 		cancellationToken.ThrowIfCancellationRequested();
 
 		EnsureMissing(destinationPath);
-		if (!entries.TryGetValue(sourcePath.Value, out _))
+		if (!_entries.TryGetValue(sourcePath.Value, out _))
 		{
 			throw new FileNotFoundException("FTP test item was not found.", sourcePath.Value);
 		}
 
-		var moving = entries
-			.Where(pair => pathComparer.Equals(pair.Key, sourcePath.Value) || kind is FtpEntryKind.Folder && IsDescendant(pair.Key, sourcePath.Value))
+		var moving = _entries
+			.Where(pair => _pathComparer.Equals(pair.Key, sourcePath.Value) || kind is FtpEntryKind.Folder && IsDescendant(pair.Key, sourcePath.Value))
 			.OrderBy(pair => pair.Key.Length)
 			.ToArray();
 		foreach (var pair in moving)
 		{
-			entries.Remove(pair.Key);
+			_entries.Remove(pair.Key);
 		}
 
 		foreach (var pair in moving)
@@ -226,7 +226,7 @@ internal sealed class InMemoryFtpSession : IFtpSession
 			var newPath = FtpPath.Parse($"{destinationPath.Value}{suffix}");
 			var oldInfo = pair.Value.Info;
 			var newInfo = new FtpEntryInfo(newPath, suffix.Length is 0 ? destinationPath.Name : oldInfo.Name, oldInfo.Kind, oldInfo.Size, oldInfo.DateModified, oldInfo.DateCreated, oldInfo.LinkTarget);
-			entries[newPath.Value] = new FtpTestEntry(newInfo, pair.Value.Content);
+			_entries[newPath.Value] = new FtpTestEntry(newInfo, pair.Value.Content);
 		}
 
 		return ValueTask.CompletedTask;
@@ -243,12 +243,12 @@ internal sealed class InMemoryFtpSession : IFtpSession
 	{
 		return candidate.Length > parent.Length
 			&& candidate[parent.Length] is '/'
-			&& pathComparer.Equals(candidate[..parent.Length], parent);
+			&& _pathComparer.Equals(candidate[..parent.Length], parent);
 	}
 
 	private void EnsureMissing(FtpPath path)
 	{
-		if (entries.ContainsKey(path.Value))
+		if (_entries.ContainsKey(path.Value))
 		{
 			throw new IOException($"FTP test item '{path.Value}' already exists.");
 		}

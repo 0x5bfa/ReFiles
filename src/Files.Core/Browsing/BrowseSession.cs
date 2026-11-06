@@ -20,7 +20,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	private const int SearchInitialEnumerationBatchSize = 1;
 	private const int EnumerationBatchSize = 256;
 	private const int MaximumEnumerationBatchSize = 1024;
-	private static readonly TimeSpan PropertySortDebounce = TimeSpan.FromMilliseconds(150);
+	private static readonly TimeSpan _propertySortDebounce = TimeSpan.FromMilliseconds(150);
 
 	private readonly IBrowseLocationResolver _locationResolver;
 	private readonly IViewSettingsStore? _viewSettingsStore;
@@ -67,18 +67,6 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	public int ItemCount => Volatile.Read(ref _itemProjection).Count;
 
 	/// <inheritdoc />
-	public bool Contains(StorableKey key)
-	{
-		return Volatile.Read(ref _itemProjection).Contains(key);
-	}
-
-	/// <inheritdoc />
-	public bool TryGet(StorableKey key, out IStorableModel item)
-	{
-		return Volatile.Read(ref _itemProjection).TryGet(key, out item!);
-	}
-
-	/// <inheritdoc />
 	public long ItemsVersion => Volatile.Read(ref _itemsVersion);
 
 	/// <inheritdoc />
@@ -98,18 +86,6 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 
 	/// <inheritdoc />
 	public Exception? Error { get; private set; }
-
-	/// <inheritdoc />
-	public event EventHandler? StateChanged;
-
-	/// <inheritdoc />
-	public event EventHandler<BrowseItemsChangedEventArgs>? ItemsChanged;
-
-	/// <inheritdoc />
-	public event EventHandler<BrowseItemPresentationChangedEventArgs>? ItemPresentationChanged;
-
-	/// <inheritdoc />
-	public event EventHandler? SelectionChanged;
 
 	/// <summary>Initializes a browse session.</summary>
 	/// <param name="locationResolver">The resolver used to open browse locations.</param>
@@ -139,6 +115,30 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	}
 
 	/// <inheritdoc />
+	public event EventHandler? StateChanged;
+
+	/// <inheritdoc />
+	public event EventHandler<BrowseItemsChangedEventArgs>? ItemsChanged;
+
+	/// <inheritdoc />
+	public event EventHandler<BrowseItemPresentationChangedEventArgs>? ItemPresentationChanged;
+
+	/// <inheritdoc />
+	public event EventHandler? SelectionChanged;
+
+	/// <inheritdoc />
+	public bool Contains(StorableKey key)
+	{
+		return Volatile.Read(ref _itemProjection).Contains(key);
+	}
+
+	/// <inheritdoc />
+	public bool TryGet(StorableKey key, out IStorableModel item)
+	{
+		return Volatile.Read(ref _itemProjection).TryGet(key, out item!);
+	}
+
+	/// <inheritdoc />
 	public IBrowsePrefetchCoordinator CreatePrefetchCoordinator()
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, this);
@@ -155,325 +155,6 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	ValueTask IInteractiveBrowseSession.NavigateAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
 	{
 		return NavigateAsync(location, ownerWindowHandle, cancellationToken);
-	}
-
-	private async ValueTask NavigateAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
-	{
-		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
-
-		ArgumentNullException.ThrowIfNull(location);
-
-		using var navigation = BeginNavigation(cancellationToken);
-		var persistedSettingsTask = _viewSettingsStore?.GetAsync(location, navigation.Token).AsTask();
-		if (persistedSettingsTask is not null)
-		{
-			await persistedSettingsTask.ConfigureAwait(false);
-		}
-
-		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
-
-		try
-		{
-			await NavigateCoreAsync(location, ownerWindowHandle, persistedSettingsTask, navigation.Token).ConfigureAwait(false);
-		}
-		finally
-		{
-			_navigationLock.Release();
-		}
-	}
-
-	private async ValueTask NavigateCoreAsync(BrowseLocation location, nint ownerWindowHandle, Task<BrowseViewSettings?>? persistedSettingsTask, CancellationToken cancellationToken)
-	{
-		var propertySortTask = CancelPendingPropertySort();
-		if (propertySortTask is not null)
-		{
-			await propertySortTask.ConfigureAwait(false);
-		}
-
-		var navigationStartTimestamp = Stopwatch.GetTimestamp();
-		Volatile.Write(ref _diagnosticNavigationStartTimestamp, navigationStartTimestamp);
-		if (_logger.IsEnabled(LogLevel.Debug))
-		{
-			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
-		}
-		IsLoading = true;
-		Error = null;
-		OnStateChanged();
-
-		var nextItems = new List<IStorableModel>();
-		IBrowseLocationContext? nextLocationContext = null;
-		BrowseContextState? nextContext = null;
-		BrowseNavigationRollbackState? previousState = null;
-		var nextProjection = (BrowseItemProjection?)null;
-		var enumerationActivated = false;
-		var committed = false;
-
-		try
-		{
-			nextLocationContext = await _locationResolver.OpenAsync(location, cancellationToken).ConfigureAwait(false);
-			ArgumentNullException.ThrowIfNull(nextLocationContext);
-
-			if (_logger.IsEnabled(LogLevel.Debug))
-			{
-				_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
-			}
-
-			var changes = nextLocationContext.ChangeSource ?? nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
-			var generation = Interlocked.Increment(ref _generationCounter);
-			nextContext = new BrowseContextState(this, nextLocationContext, changes, generation);
-			Volatile.Write(ref _preparingContext, nextContext);
-
-			var nextPersistedViewSettings = persistedSettingsTask is null
-				? _sessionViewSettings.GetValueOrDefault(location, BrowseViewSettings.Default)
-				: await persistedSettingsTask.ConfigureAwait(false) ?? BrowseViewSettings.Default;
-			var nextViewSettings = nextLocationContext is IViewSettingsCapabilityProvider
-				? BrowseViewSettingsResolver.DeferCapabilityDependentSettings(nextPersistedViewSettings)
-				: nextPersistedViewSettings;
-
-			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
-			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
-			var targetBatchSize = location is SearchLocation or HomeLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
-			var pendingBatch = new List<IStorableModel>(targetBatchSize);
-			var firstItemReturned = false;
-			if (_logger.IsEnabled(LogLevel.Debug))
-			{
-				_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
-			}
-			var nextItemSequence = ownerWindowHandle is not 0 && nextLocationContext is IInteractiveBrowseLocationContext interactiveContext
-				? interactiveContext.GetItemsAsync(ownerWindowHandle, cancellationToken)
-				: nextLocationContext.GetItemsAsync(cancellationToken);
-			await foreach (var item in nextItemSequence.ConfigureAwait(false))
-			{
-				if (ShouldHideItem(DisplaySettings, item))
-				{
-					await item.DisposeAsync().ConfigureAwait(false);
-
-					continue;
-				}
-
-				nextItems.Add(item);
-				pendingBatch.Add(item);
-				if (!firstItemReturned)
-				{
-					firstItemReturned = true;
-					var firstItemElapsedMilliseconds = Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds;
-					if (_logger.IsEnabled(LogLevel.Debug))
-					{
-						_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
-					}
-					if (_logger.IsEnabled(LogLevel.Debug))
-					{
-						_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
-					}
-				}
-
-				if (pendingBatch.Count < targetBatchSize)
-				{
-					continue;
-				}
-
-				var batchToPublish = enumerationActivated
-					? pendingBatch
-					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
-				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState, ref enumerationActivated);
-				pendingBatch.Clear();
-				targetBatchSize = location is HomeLocation ? 1 : targetBatchSize switch
-				{
-					SearchInitialEnumerationBatchSize => InitialEnumerationBatchSize,
-					InitialEnumerationBatchSize => EnumerationBatchSize,
-					_ => Math.Min(MaximumEnumerationBatchSize, checked(targetBatchSize * 2)),
-				};
-				await Task.Yield();
-			}
-			if (_logger.IsEnabled(LogLevel.Debug))
-			{
-				_logger.LogDebug(
-					"{Component}: {Message}",
-					"BrowseSession",
-					$"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
-				);
-			}
-
-			if (pendingBatch.Count is not 0)
-			{
-				IReadOnlyList<IStorableModel> finalBatch = enumerationActivated
-					? pendingBatch
-					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
-				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, finalBatch, ref previousState, ref enumerationActivated);
-			}
-			else if (!enumerationActivated)
-			{
-				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
-			}
-
-			var sortStartTimestamp = Stopwatch.GetTimestamp();
-			var finalSortChanges = await SortProjectionAsync(nextLocationContext, nextProjection, nextViewSettings, cancellationToken).ConfigureAwait(false);
-			PublishItemsChanged(finalSortChanges);
-			if (_logger.IsEnabled(LogLevel.Debug))
-			{
-				_logger.LogDebug(
-					"{Component}: {Message}",
-					"BrowseSession",
-					$"Initial sort completed generation={generation} changed={!finalSortChanges.IsEmpty} " +
-					$"elapsedMs={Stopwatch.GetElapsedTime(sortStartTimestamp).TotalMilliseconds:F1}"
-				);
-			}
-
-			var nextSelection = Equals(previousState!.Location, location)
-				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection)
-				: BrowseSelectionState.Empty;
-			Volatile.Write(ref _preparingContext, null);
-			Error = null;
-			SetSelectionState(nextSelection);
-			_changeCoordinator.Signal();
-			committed = true;
-
-			var previousContext = previousState.ActiveContext;
-			var previousItems = previousState.Items;
-			nextLocationContext = null;
-			nextContext = null;
-			try
-			{
-				await DisposeItemsAsync(previousItems).ConfigureAwait(false);
-			}
-			finally
-			{
-				if (previousContext is not null)
-				{
-					await previousContext.DisposeAsync().ConfigureAwait(false);
-				}
-			}
-		}
-		catch (Exception exception) when (exception is not OperationCanceledException)
-		{
-			Error = exception;
-			throw;
-		}
-		finally
-		{
-			if (!committed)
-			{
-				if (enumerationActivated && previousState is not null)
-				{
-					RestoreNavigationState(previousState);
-				}
-				if (nextContext is not null)
-				{
-					Volatile.Write(ref _preparingContext, null);
-					_changeCoordinator.TryClearFullRefresh(nextContext.Generation);
-				}
-
-				try
-				{
-					await DisposeItemsAsync(nextItems).ConfigureAwait(false);
-				}
-				finally
-				{
-					if (nextContext is not null)
-					{
-						await nextContext.DisposeAsync().ConfigureAwait(false);
-					}
-					else if (nextLocationContext is not null)
-					{
-						await nextLocationContext.DisposeAsync().ConfigureAwait(false);
-					}
-				}
-			}
-
-			IsLoading = false;
-			OnStateChanged();
-			if (_logger.IsEnabled(LogLevel.Debug))
-			{
-				_logger.LogDebug(
-					"{Component}: {Message}",
-					"BrowseSession",
-					$"Navigate END location={location.GetType().Name} items={ItemCount} loading={IsLoading} error={Error is not null} " +
-					$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
-				);
-			}
-		}
-	}
-
-	private void PublishEnumerationBatch(
-		BrowseLocation location,
-		BrowseViewSettings persistedSettings,
-		BrowseViewSettings settings,
-		BrowseContextState context,
-		BrowseItemProjection projection,
-		IReadOnlyList<IStorableModel> batch,
-		ref BrowseNavigationRollbackState? previousState,
-		ref bool activated)
-	{
-		var changes = projection.AddRange(batch, preserveInputOrder: true);
-		var navigationStartTimestamp = Volatile.Read(ref _diagnosticNavigationStartTimestamp);
-		if (_logger.IsEnabled(LogLevel.Debug))
-		{
-			_logger.LogDebug(
-				"{Component}: {Message}",
-				"BrowseSession",
-				$"PublishEnumerationBatch activated={activated} batchItems={batch.Count} changes={changes.Changes.Count} projectedItems={projection.Count} " +
-				$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
-			);
-		}
-		if (!activated)
-		{
-			previousState ??= CaptureNavigationState();
-			var provisionalSelection = Equals(previousState.Location, location)
-				? BrowseSelectionModel.Normalize(previousState.Selection, projection)
-				: BrowseSelectionState.Empty;
-			var currentProjection = Volatile.Read(ref _itemProjection);
-			currentProjection.InvokeLocked(() =>
-			{
-				Location = location;
-				Volatile.Write(ref _activeContext, context);
-				PersistedViewSettings = persistedSettings;
-				ViewSettings = settings;
-				_viewCapabilities = null;
-				Error = null;
-				_presentationStore.Clear();
-				Volatile.Write(ref _itemProjection, projection);
-			});
-			SetSelectionState(provisionalSelection);
-			PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(projection.Items)]));
-			OnStateChanged();
-			activated = true;
-
-			return;
-		}
-
-		if (Equals(previousState!.Location, location))
-		{
-			SetSelectionState(BrowseSelectionModel.Normalize(previousState.Selection, projection));
-		}
-
-		PublishItemsChanged(changes);
-	}
-
-	private BrowseNavigationRollbackState CaptureNavigationState()
-	{
-		return new BrowseNavigationRollbackState(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), PersistedViewSettings, ViewSettings, _viewCapabilities, Selection, Items,
-			_presentationStore.CaptureState());
-	}
-
-	private void RestoreNavigationState(BrowseNavigationRollbackState previousState)
-	{
-		ArgumentNullException.ThrowIfNull(previousState);
-
-		var currentProjection = Volatile.Read(ref _itemProjection);
-		currentProjection.InvokeLocked(() =>
-		{
-			Location = previousState.Location;
-			Volatile.Write(ref _activeContext, previousState.ActiveContext);
-			Volatile.Write(ref _preparingContext, null);
-			Volatile.Write(ref _itemProjection, previousState.ItemProjection);
-			PersistedViewSettings = previousState.PersistedViewSettings;
-			ViewSettings = previousState.ViewSettings;
-			_viewCapabilities = previousState.ViewCapabilities;
-			_presentationStore.RestoreState(previousState.Presentations);
-		});
-		SetSelectionState(previousState.Selection);
-		PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(previousState.Items)]));
-		OnStateChanged();
 	}
 
 	/// <inheritdoc />
@@ -589,26 +270,6 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		{
 			RaiseEvent(ItemPresentationChanged, thumbnail);
 		}
-	}
-
-	private async ValueTask<BrowseItemPresentationChangedEventArgs[]> ApplyEffectiveViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken, bool forceExternalSort)
-	{
-		var previousLayoutMode = ViewSettings.LayoutMode;
-		var context = Volatile.Read(ref _activeContext)?.Context ?? throw new InvalidOperationException("View settings require an active browse location.");
-		var projection = Volatile.Read(ref _itemProjection);
-		var sortChanged = ViewSettings.SortPropertyId != settings.SortPropertyId || ViewSettings.SortDirection != settings.SortDirection;
-		var changes = projection.UpdateSort(settings, deferSort: context is IBrowseLocationItemSorter);
-		ViewSettings = settings;
-		if (context is IBrowseLocationItemSorter && (forceExternalSort || sortChanged))
-		{
-			changes = await SortProjectionAsync(context, projection, settings, cancellationToken).ConfigureAwait(false);
-		}
-
-		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = previousLayoutMode != settings.LayoutMode ? _presentationStore.ClearThumbnails() : [];
-		PublishItemsChanged(changes);
-		OnStateChanged();
-
-		return clearedThumbnails;
 	}
 
 	/// <inheritdoc />
@@ -770,6 +431,351 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		}
 	}
 
+	private async ValueTask NavigateAsync(BrowseLocation location, nint ownerWindowHandle, CancellationToken cancellationToken)
+	{
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed), this);
+
+		ArgumentNullException.ThrowIfNull(location);
+
+		using var navigation = BeginNavigation(cancellationToken);
+		var persistedSettingsTask = _viewSettingsStore?.GetAsync(location, navigation.Token).AsTask();
+		if (persistedSettingsTask is not null)
+		{
+			await persistedSettingsTask.ConfigureAwait(false);
+		}
+
+		await _navigationLock.WaitAsync(navigation.Token).ConfigureAwait(false);
+
+		try
+		{
+			await NavigateCoreAsync(location, ownerWindowHandle, persistedSettingsTask, navigation.Token).ConfigureAwait(false);
+		}
+		finally
+		{
+			_navigationLock.Release();
+		}
+	}
+
+	private async ValueTask NavigateCoreAsync(BrowseLocation location, nint ownerWindowHandle, Task<BrowseViewSettings?>? persistedSettingsTask, CancellationToken cancellationToken)
+	{
+		var propertySortTask = CancelPendingPropertySort();
+		if (propertySortTask is not null)
+		{
+			await propertySortTask.ConfigureAwait(false);
+		}
+
+		var navigationStartTimestamp = Stopwatch.GetTimestamp();
+		Volatile.Write(ref _diagnosticNavigationStartTimestamp, navigationStartTimestamp);
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Navigate START location={location.GetType().Name} thread={Environment.CurrentManagedThreadId}");
+		}
+
+		IsLoading = true;
+		Error = null;
+		OnStateChanged();
+
+		var nextItems = new List<IStorableModel>();
+		IBrowseLocationContext? nextLocationContext = null;
+		BrowseContextState? nextContext = null;
+		BrowseNavigationRollbackState? previousState = null;
+		var nextProjection = (BrowseItemProjection?)null;
+		var enumerationActivated = false;
+		var committed = false;
+
+		try
+		{
+			nextLocationContext = await _locationResolver.OpenAsync(location, cancellationToken).ConfigureAwait(false);
+			ArgumentNullException.ThrowIfNull(nextLocationContext);
+
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Folder resolved elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			}
+
+			var changes = nextLocationContext.ChangeSource ?? nextLocationContext.LocationModel?.Get<IFolderChangeSource>();
+			var generation = Interlocked.Increment(ref _generationCounter);
+			nextContext = new BrowseContextState(this, nextLocationContext, changes, generation);
+			Volatile.Write(ref _preparingContext, nextContext);
+
+			var nextPersistedViewSettings = persistedSettingsTask is null
+				? _sessionViewSettings.GetValueOrDefault(location, BrowseViewSettings.Default)
+				: await persistedSettingsTask.ConfigureAwait(false) ?? BrowseViewSettings.Default;
+			var nextViewSettings = nextLocationContext is IViewSettingsCapabilityProvider
+				? BrowseViewSettingsResolver.DeferCapabilityDependentSettings(nextPersistedViewSettings)
+				: nextPersistedViewSettings;
+
+			await nextContext.StartAsync(cancellationToken).ConfigureAwait(false);
+			nextProjection = new BrowseItemProjection(nextViewSettings, _presentationStore.GetSortPropertyValue);
+			var targetBatchSize = location is SearchLocation or HomeLocation ? SearchInitialEnumerationBatchSize : InitialEnumerationBatchSize;
+			var pendingBatch = new List<IStorableModel>(targetBatchSize);
+			var firstItemReturned = false;
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"Enumeration START generation={generation} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}");
+			}
+
+			var nextItemSequence = ownerWindowHandle is not 0 && nextLocationContext is IInteractiveBrowseLocationContext interactiveContext
+				? interactiveContext.GetItemsAsync(ownerWindowHandle, cancellationToken)
+				: nextLocationContext.GetItemsAsync(cancellationToken);
+			await foreach (var item in nextItemSequence.ConfigureAwait(false))
+			{
+				if (ShouldHideItem(DisplaySettings, item))
+				{
+					await item.DisposeAsync().ConfigureAwait(false);
+
+					continue;
+				}
+
+				nextItems.Add(item);
+				pendingBatch.Add(item);
+				if (!firstItemReturned)
+				{
+					firstItemReturned = true;
+					var firstItemElapsedMilliseconds = Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds;
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"First storage item returned generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					}
+
+					if (_logger.IsEnabled(LogLevel.Debug))
+					{
+						_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"First item AppModel available generation={generation} elapsedMs={firstItemElapsedMilliseconds:F1}");
+					}
+				}
+
+				if (pendingBatch.Count < targetBatchSize)
+				{
+					continue;
+				}
+
+				var batchToPublish = enumerationActivated
+					? pendingBatch
+					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
+				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, batchToPublish, ref previousState, ref enumerationActivated);
+				pendingBatch.Clear();
+				targetBatchSize = location is HomeLocation ? 1 : targetBatchSize switch
+				{
+					SearchInitialEnumerationBatchSize => InitialEnumerationBatchSize,
+					InitialEnumerationBatchSize => EnumerationBatchSize,
+					_ => Math.Min(MaximumEnumerationBatchSize, checked(targetBatchSize * 2)),
+				};
+				await Task.Yield();
+			}
+
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowseSession",
+					$"Enumeration END generation={generation} items={nextItems.Count} elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
+
+			if (pendingBatch.Count is not 0)
+			{
+				IReadOnlyList<IStorableModel> finalBatch = enumerationActivated
+					? pendingBatch
+					: await SortInitialEnumerationBatchAsync(nextLocationContext, nextProjection, pendingBatch, nextViewSettings, cancellationToken).ConfigureAwait(false);
+				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, finalBatch, ref previousState, ref enumerationActivated);
+			}
+			else if (!enumerationActivated)
+			{
+				PublishEnumerationBatch(location, nextPersistedViewSettings, nextViewSettings, nextContext, nextProjection, [], ref previousState, ref enumerationActivated);
+			}
+
+			var sortStartTimestamp = Stopwatch.GetTimestamp();
+			var finalSortChanges = await SortProjectionAsync(nextLocationContext, nextProjection, nextViewSettings, cancellationToken).ConfigureAwait(false);
+			PublishItemsChanged(finalSortChanges);
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowseSession",
+					$"Initial sort completed generation={generation} changed={!finalSortChanges.IsEmpty} " +
+					$"elapsedMs={Stopwatch.GetElapsedTime(sortStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
+
+			var nextSelection = Equals(previousState!.Location, location)
+				? BrowseSelectionModel.Normalize(previousState.Selection, nextProjection)
+				: BrowseSelectionState.Empty;
+			Volatile.Write(ref _preparingContext, null);
+			Error = null;
+			SetSelectionState(nextSelection);
+			_changeCoordinator.Signal();
+			committed = true;
+
+			var previousContext = previousState.ActiveContext;
+			var previousItems = previousState.Items;
+			nextLocationContext = null;
+			nextContext = null;
+			try
+			{
+				await DisposeItemsAsync(previousItems).ConfigureAwait(false);
+			}
+			finally
+			{
+				if (previousContext is not null)
+				{
+					await previousContext.DisposeAsync().ConfigureAwait(false);
+				}
+			}
+		}
+		catch (Exception exception) when (exception is not OperationCanceledException)
+		{
+			Error = exception;
+			throw;
+		}
+		finally
+		{
+			if (!committed)
+			{
+				if (enumerationActivated && previousState is not null)
+				{
+					RestoreNavigationState(previousState);
+				}
+
+				if (nextContext is not null)
+				{
+					Volatile.Write(ref _preparingContext, null);
+					_changeCoordinator.TryClearFullRefresh(nextContext.Generation);
+				}
+
+				try
+				{
+					await DisposeItemsAsync(nextItems).ConfigureAwait(false);
+				}
+				finally
+				{
+					if (nextContext is not null)
+					{
+						await nextContext.DisposeAsync().ConfigureAwait(false);
+					}
+					else if (nextLocationContext is not null)
+					{
+						await nextLocationContext.DisposeAsync().ConfigureAwait(false);
+					}
+				}
+			}
+
+			IsLoading = false;
+			OnStateChanged();
+			if (_logger.IsEnabled(LogLevel.Debug))
+			{
+				_logger.LogDebug(
+					"{Component}: {Message}",
+					"BrowseSession",
+					$"Navigate END location={location.GetType().Name} items={ItemCount} loading={IsLoading} error={Error is not null} " +
+					$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
+				);
+			}
+		}
+	}
+
+	private void PublishEnumerationBatch(
+		BrowseLocation location,
+		BrowseViewSettings persistedSettings,
+		BrowseViewSettings settings,
+		BrowseContextState context,
+		BrowseItemProjection projection,
+		IReadOnlyList<IStorableModel> batch,
+		ref BrowseNavigationRollbackState? previousState,
+		ref bool activated)
+	{
+		var changes = projection.AddRange(batch, preserveInputOrder: true);
+		var navigationStartTimestamp = Volatile.Read(ref _diagnosticNavigationStartTimestamp);
+		if (_logger.IsEnabled(LogLevel.Debug))
+		{
+			_logger.LogDebug(
+				"{Component}: {Message}",
+				"BrowseSession",
+				$"PublishEnumerationBatch activated={activated} batchItems={batch.Count} changes={changes.Changes.Count} projectedItems={projection.Count} " +
+				$"elapsedMs={Stopwatch.GetElapsedTime(navigationStartTimestamp).TotalMilliseconds:F1}"
+			);
+		}
+
+		if (!activated)
+		{
+			previousState ??= CaptureNavigationState();
+			var provisionalSelection = Equals(previousState.Location, location)
+				? BrowseSelectionModel.Normalize(previousState.Selection, projection)
+				: BrowseSelectionState.Empty;
+			var currentProjection = Volatile.Read(ref _itemProjection);
+			currentProjection.InvokeLocked(() =>
+			{
+				Location = location;
+				Volatile.Write(ref _activeContext, context);
+				PersistedViewSettings = persistedSettings;
+				ViewSettings = settings;
+				_viewCapabilities = null;
+				Error = null;
+				_presentationStore.Clear();
+				Volatile.Write(ref _itemProjection, projection);
+			});
+			SetSelectionState(provisionalSelection);
+			PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(projection.Items)]));
+			OnStateChanged();
+			activated = true;
+
+			return;
+		}
+
+		if (Equals(previousState!.Location, location))
+		{
+			SetSelectionState(BrowseSelectionModel.Normalize(previousState.Selection, projection));
+		}
+
+		PublishItemsChanged(changes);
+	}
+
+	private BrowseNavigationRollbackState CaptureNavigationState()
+	{
+		return new BrowseNavigationRollbackState(Location, Volatile.Read(ref _activeContext), Volatile.Read(ref _itemProjection), PersistedViewSettings, ViewSettings, _viewCapabilities, Selection, Items,
+			_presentationStore.CaptureState());
+	}
+
+	private void RestoreNavigationState(BrowseNavigationRollbackState previousState)
+	{
+		ArgumentNullException.ThrowIfNull(previousState);
+
+		var currentProjection = Volatile.Read(ref _itemProjection);
+		currentProjection.InvokeLocked(() =>
+		{
+			Location = previousState.Location;
+			Volatile.Write(ref _activeContext, previousState.ActiveContext);
+			Volatile.Write(ref _preparingContext, null);
+			Volatile.Write(ref _itemProjection, previousState.ItemProjection);
+			PersistedViewSettings = previousState.PersistedViewSettings;
+			ViewSettings = previousState.ViewSettings;
+			_viewCapabilities = previousState.ViewCapabilities;
+			_presentationStore.RestoreState(previousState.Presentations);
+		});
+		SetSelectionState(previousState.Selection);
+		PublishItemsChanged(new BrowseItemChangeSet([new BrowseItemsReset(previousState.Items)]));
+		OnStateChanged();
+	}
+
+	private async ValueTask<BrowseItemPresentationChangedEventArgs[]> ApplyEffectiveViewSettingsAsync(BrowseViewSettings settings, CancellationToken cancellationToken, bool forceExternalSort)
+	{
+		var previousLayoutMode = ViewSettings.LayoutMode;
+		var context = Volatile.Read(ref _activeContext)?.Context ?? throw new InvalidOperationException("View settings require an active browse location.");
+		var projection = Volatile.Read(ref _itemProjection);
+		var sortChanged = ViewSettings.SortPropertyId != settings.SortPropertyId || ViewSettings.SortDirection != settings.SortDirection;
+		var changes = projection.UpdateSort(settings, deferSort: context is IBrowseLocationItemSorter);
+		ViewSettings = settings;
+		if (context is IBrowseLocationItemSorter && (forceExternalSort || sortChanged))
+		{
+			changes = await SortProjectionAsync(context, projection, settings, cancellationToken).ConfigureAwait(false);
+		}
+
+		BrowseItemPresentationChangedEventArgs[] clearedThumbnails = previousLayoutMode != settings.LayoutMode ? _presentationStore.ClearThumbnails() : [];
+		PublishItemsChanged(changes);
+		OnStateChanged();
+
+		return clearedThumbnails;
+	}
+
 	private async Task DisposeCoreAsync()
 	{
 		await _changeCoordinator.DisposeAsync().ConfigureAwait(false);
@@ -853,7 +859,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	{
 		try
 		{
-			await Task.Delay(PropertySortDebounce, cancellation.Token).ConfigureAwait(false);
+			await Task.Delay(_propertySortDebounce, cancellation.Token).ConfigureAwait(false);
 			await _navigationLock.WaitAsync(cancellation.Token).ConfigureAwait(false);
 			try
 			{
@@ -967,6 +973,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowseSession", $"ItemsChanged START version={version} previous={previousVersion} changes={changeSet.Changes.Count} items={Items.Count}");
 		}
+
 		RaiseEvent(ItemsChanged, new BrowseItemsChangedEventArgs(previousVersion, version, changeSet.Changes));
 		if (_logger.IsEnabled(LogLevel.Debug))
 		{
@@ -999,139 +1006,6 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		if (_selectionModel.Migrate(previousKey, currentKey))
 		{
 			RaiseEvent(SelectionChanged);
-		}
-	}
-
-	private sealed record BrowseNavigationRollbackState(
-		BrowseLocation? Location,
-		BrowseContextState? ActiveContext,
-		BrowseItemProjection ItemProjection,
-		BrowseViewSettings PersistedViewSettings,
-		BrowseViewSettings ViewSettings,
-		BrowseViewCapabilities? ViewCapabilities,
-		BrowseSelectionState Selection,
-		IReadOnlyList<IStorableModel> Items,
-		BrowsePresentationStore.State Presentations);
-
-	private sealed class NavigationOperation : IDisposable
-	{
-		private readonly BrowseSession _owner;
-		private readonly CancellationTokenSource _cancellation;
-		private int _isDisposed;
-
-		public CancellationToken Token => _cancellation.Token;
-
-		public NavigationOperation(BrowseSession owner, CancellationTokenSource cancellation)
-		{
-			_owner = owner;
-			_cancellation = cancellation;
-		}
-
-		public void Dispose()
-		{
-			if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
-			{
-				return;
-			}
-
-			_owner.EndNavigation(_cancellation);
-		}
-	}
-
-	private enum IncrementalApplyResult
-	{
-		Applied,
-		Stale,
-		RequiresFullRefresh,
-	}
-
-	private enum ItemLookupResult
-	{
-		Missing,
-		Found,
-		Ambiguous,
-	}
-
-	private sealed class BrowseContextState : IAsyncDisposable
-	{
-		private readonly BrowseSession _owner;
-
-		private readonly IFolderChangeSource? _changes;
-
-		private int _handlersAttached;
-
-		public IBrowseLocationContext Context { get; }
-
-		public long Generation { get; }
-
-		public BrowseContextState(BrowseSession owner, IBrowseLocationContext context, IFolderChangeSource? changes, long generation)
-		{
-			_owner = owner;
-			Context = context;
-			_changes = changes;
-			Generation = generation;
-		}
-
-		public async ValueTask StartAsync(CancellationToken cancellationToken)
-		{
-			if (_changes is null)
-			{
-				return;
-			}
-
-			_changes.Changed += OnChanged;
-			_changes.Faulted += OnFaulted;
-			if (Context is HomeBrowseLocationContext home)
-			{
-				home.SourceStatesChanged += OnSourceStatesChanged;
-			}
-			Volatile.Write(ref _handlersAttached, 1);
-
-			try
-			{
-				await _changes.StartAsync(cancellationToken).ConfigureAwait(false);
-			}
-			catch
-			{
-				Detach();
-				throw;
-			}
-		}
-
-		public async ValueTask DisposeAsync()
-		{
-			Detach();
-			await Context.DisposeAsync().ConfigureAwait(false);
-		}
-
-		private void Detach()
-		{
-			if (_changes is null || Interlocked.Exchange(ref _handlersAttached, 0) is 0)
-			{
-				return;
-			}
-
-			_changes.Changed -= OnChanged;
-			_changes.Faulted -= OnFaulted;
-			if (Context is HomeBrowseLocationContext home)
-			{
-				home.SourceStatesChanged -= OnSourceStatesChanged;
-			}
-		}
-
-		private void OnSourceStatesChanged(object? sender, EventArgs args)
-		{
-			_owner.OnStateChanged();
-		}
-
-		private void OnChanged(object? sender, FolderChangeEventArgs args)
-		{
-			_owner.OnFolderChanged(this, args.Change);
-		}
-
-		private void OnFaulted(object? sender, FolderChangeErrorEventArgs args)
-		{
-			_owner.OnFolderChangeFaulted(this, args);
 		}
 	}
 
@@ -1245,6 +1119,140 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		if (errors is { Count: > 1 })
 		{
 			throw new AggregateException("One or more browse items could not be disposed.", errors);
+		}
+	}
+
+	private enum IncrementalApplyResult
+	{
+		Applied,
+		Stale,
+		RequiresFullRefresh,
+	}
+
+	private enum ItemLookupResult
+	{
+		Missing,
+		Found,
+		Ambiguous,
+	}
+
+	private sealed record BrowseNavigationRollbackState(
+		BrowseLocation? Location,
+		BrowseContextState? ActiveContext,
+		BrowseItemProjection ItemProjection,
+		BrowseViewSettings PersistedViewSettings,
+		BrowseViewSettings ViewSettings,
+		BrowseViewCapabilities? ViewCapabilities,
+		BrowseSelectionState Selection,
+		IReadOnlyList<IStorableModel> Items,
+		BrowsePresentationStore.State Presentations);
+
+	private sealed class NavigationOperation : IDisposable
+	{
+		private readonly BrowseSession _owner;
+		private readonly CancellationTokenSource _cancellation;
+		private int _isDisposed;
+
+		public CancellationToken Token => _cancellation.Token;
+
+		public NavigationOperation(BrowseSession owner, CancellationTokenSource cancellation)
+		{
+			_owner = owner;
+			_cancellation = cancellation;
+		}
+
+		public void Dispose()
+		{
+			if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+			{
+				return;
+			}
+
+			_owner.EndNavigation(_cancellation);
+		}
+	}
+
+	private sealed class BrowseContextState : IAsyncDisposable
+	{
+		private readonly BrowseSession _owner;
+
+		private readonly IFolderChangeSource? _changes;
+
+		private int _handlersAttached;
+
+		public IBrowseLocationContext Context { get; }
+
+		public long Generation { get; }
+
+		public BrowseContextState(BrowseSession owner, IBrowseLocationContext context, IFolderChangeSource? changes, long generation)
+		{
+			_owner = owner;
+			Context = context;
+			_changes = changes;
+			Generation = generation;
+		}
+
+		public async ValueTask StartAsync(CancellationToken cancellationToken)
+		{
+			if (_changes is null)
+			{
+				return;
+			}
+
+			_changes.Changed += OnChanged;
+			_changes.Faulted += OnFaulted;
+			if (Context is HomeBrowseLocationContext home)
+			{
+				home.SourceStatesChanged += OnSourceStatesChanged;
+			}
+
+			Volatile.Write(ref _handlersAttached, 1);
+
+			try
+			{
+				await _changes.StartAsync(cancellationToken).ConfigureAwait(false);
+			}
+			catch
+			{
+				Detach();
+				throw;
+			}
+		}
+
+		public async ValueTask DisposeAsync()
+		{
+			Detach();
+			await Context.DisposeAsync().ConfigureAwait(false);
+		}
+
+		private void Detach()
+		{
+			if (_changes is null || Interlocked.Exchange(ref _handlersAttached, 0) is 0)
+			{
+				return;
+			}
+
+			_changes.Changed -= OnChanged;
+			_changes.Faulted -= OnFaulted;
+			if (Context is HomeBrowseLocationContext home)
+			{
+				home.SourceStatesChanged -= OnSourceStatesChanged;
+			}
+		}
+
+		private void OnSourceStatesChanged(object? sender, EventArgs args)
+		{
+			_owner.OnStateChanged();
+		}
+
+		private void OnChanged(object? sender, FolderChangeEventArgs args)
+		{
+			_owner.OnFolderChanged(this, args.Change);
+		}
+
+		private void OnFaulted(object? sender, FolderChangeErrorEventArgs args)
+		{
+			_owner.OnFolderChangeFaulted(this, args);
 		}
 	}
 }

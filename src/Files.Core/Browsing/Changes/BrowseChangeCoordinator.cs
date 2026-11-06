@@ -6,6 +6,8 @@ using System.Threading.Channels;
 
 namespace Files.Core.Browsing;
 
+internal readonly record struct BrowseQueuedChange(long Generation, FolderChange Change);
+
 internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 {
 	private const int ChangeQueueCapacity = 256;
@@ -37,6 +39,16 @@ internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 
 		_processPendingAsync = processPendingAsync;
 		_pumpTask = PumpAsync(_lifetime.Token);
+	}
+
+	public ValueTask DisposeAsync()
+	{
+		lock (_disposalLock)
+		{
+			_disposeTask ??= DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
+		}
 	}
 
 	internal bool TryEnqueue(BrowseQueuedChange change)
@@ -110,16 +122,6 @@ internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 		}
 	}
 
-	public ValueTask DisposeAsync()
-	{
-		lock (_disposalLock)
-		{
-			_disposeTask ??= DisposeCoreAsync();
-
-			return new ValueTask(_disposeTask);
-		}
-	}
-
 	private async Task PumpAsync(CancellationToken cancellationToken)
 	{
 		try
@@ -166,5 +168,3 @@ internal sealed class BrowseChangeCoordinator : IAsyncDisposable
 		}
 	}
 }
-
-internal readonly record struct BrowseQueuedChange(long Generation, FolderChange Change);

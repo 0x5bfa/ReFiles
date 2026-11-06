@@ -53,6 +53,7 @@ public static partial class FilesProviderExtensions
 			{
 				builder.AddStorageOperationHandler(new WindowsStorageOperationHandler(windowsSource));
 			}
+
 			builder.AddBrowseLocationHandler(workspace => new WindowsSearchBrowseLocationHandler(workspace, windowsSource));
 		}
 		catch (Exception registrationError) when (source is null)

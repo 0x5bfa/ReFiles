@@ -147,8 +147,8 @@ public sealed class WindowsPreviewHandlerResolver : IWindowsPreviewHandlerResolv
 [SupportedOSPlatform("windows5.0")]
 public sealed class WindowsShellPreviewHandlerAssociation : IWindowsPreviewHandlerAssociation
 {
-	private const string PreviewHandlerCategory = "{8895B1C6-B41F-4C1C-A562-0D564250836F}";
 	internal const uint MaximumAssociationCharacterCount = 128;
+	private const string PreviewHandlerCategory = "{8895B1C6-B41F-4C1C-A562-0D564250836F}";
 
 	private readonly WindowsPreviewHandlerAssociationQuery _queryAssociation;
 
@@ -235,6 +235,11 @@ public sealed class WindowsPreviewHandlerRegistrationAllowlist : IWindowsPreview
 		return IsRegistered(RegistryHive.CurrentUser, valueName) || IsRegistered(RegistryHive.LocalMachine, valueName);
 	}
 
+	internal static bool IsRegistrationValueKind(RegistryValueKind valueKind)
+	{
+		return valueKind is RegistryValueKind.String;
+	}
+
 	private bool IsRegistered(RegistryHive hive, string valueName)
 	{
 		try
@@ -257,11 +262,6 @@ public sealed class WindowsPreviewHandlerRegistrationAllowlist : IWindowsPreview
 		}
 
 		return IsRegistrationValueKind(previewHandlersKey.GetValueKind(valueName));
-	}
-
-	internal static bool IsRegistrationValueKind(RegistryValueKind valueKind)
-	{
-		return valueKind is RegistryValueKind.String;
 	}
 }
 

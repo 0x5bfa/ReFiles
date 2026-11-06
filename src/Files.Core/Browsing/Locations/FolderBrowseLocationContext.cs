@@ -144,11 +144,6 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		}
 	}
 
-	private Task<BrowseColumnSet?> LoadColumnsAsync()
-	{
-		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata ? metadata.GetColumnsAsync(_lifetime.Token).AsTask() : Task.FromResult<BrowseColumnSet?>(null);
-	}
-
 	async IAsyncEnumerable<IStorableModel> IInteractiveBrowseLocationContext.GetItemsAsync(nint ownerWindowHandle, [EnumeratorCancellation] CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
@@ -169,5 +164,10 @@ public sealed class FolderBrowseLocationContext : IBrowseLocationContext, IBrows
 		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata
 			? metadata.SortItemsAsync(items, settings, cancellationToken)
 			: ValueTask.FromResult<IReadOnlyList<IStorableModel>?>(null);
+	}
+
+	private Task<BrowseColumnSet?> LoadColumnsAsync()
+	{
+		return _folderModel.Get<IFolderBrowseMetadata>() is { } metadata ? metadata.GetColumnsAsync(_lifetime.Token).AsTask() : Task.FromResult<BrowseColumnSet?>(null);
 	}
 }

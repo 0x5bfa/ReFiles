@@ -28,6 +28,35 @@ namespace Files.Controls
 			DefaultStyleKey = typeof(OmnibarMode);
 		}
 
+		public void SetOwner(Omnibar owner)
+		{
+			ArgumentNullException.ThrowIfNull(owner);
+
+			_ownerRef = new(owner);
+		}
+
+		public override string ToString()
+		{
+			return ModeName ?? Name ?? string.Empty;
+		}
+
+		internal void ClearOwner(Omnibar owner)
+		{
+			ArgumentNullException.ThrowIfNull(owner);
+
+			if (_ownerRef is null)
+			{
+				return;
+			}
+
+			if (_ownerRef.TryGetTarget(out var currentOwner) && !ReferenceEquals(currentOwner, owner))
+			{
+				return;
+			}
+
+			_ownerRef = null;
+		}
+
 		// Methods
 
 		protected override void OnApplyTemplate()
@@ -92,35 +121,6 @@ namespace Files.Controls
 			{
 				owner.TryToggleIsSuggestionsPopupOpen(true);
 			}
-		}
-
-		public void SetOwner(Omnibar owner)
-		{
-			ArgumentNullException.ThrowIfNull(owner);
-
-			_ownerRef = new(owner);
-		}
-
-		public override string ToString()
-		{
-			return ModeName ?? Name ?? string.Empty;
-		}
-
-		internal void ClearOwner(Omnibar owner)
-		{
-			ArgumentNullException.ThrowIfNull(owner);
-
-			if (_ownerRef is null)
-			{
-				return;
-			}
-
-			if (_ownerRef.TryGetTarget(out var currentOwner) && !ReferenceEquals(currentOwner, owner))
-			{
-				return;
-			}
-
-			_ownerRef = null;
 		}
 
 		private void OmnibarMode_Loaded(object sender, RoutedEventArgs e)

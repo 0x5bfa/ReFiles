@@ -14,29 +14,6 @@ internal sealed unsafe partial class ItemPropertiesIconResources
 	private const int StockShield = 77;
 	private const uint StockIconFlags = 0x00000100;
 
-	[StructLayout(LayoutKind.Sequential)]
-	private struct StockIconInfo
-	{
-		public uint Size;
-		public nint Icon;
-		public int SystemImageIndex;
-		public int IconIndex;
-		public fixed char Path[260];
-	}
-
-	[LibraryImport("shell32.dll", EntryPoint = "SHGetStockIconInfo")]
-	[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-	private static partial int SHGetStockIconInfo(int iconId, uint flags, ref StockIconInfo info);
-
-	[LibraryImport("shell32.dll", EntryPoint = "SHDefExtractIconW", StringMarshalling = StringMarshalling.Utf16)]
-	[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-	private static partial int SHDefExtractIcon(string path, int index, uint flags, out nint largeIcon, out nint smallIcon, uint iconSize);
-
-	[LibraryImport("user32.dll", EntryPoint = "DestroyIcon")]
-	[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-	[return: MarshalAs(UnmanagedType.Bool)]
-	private static partial bool DestroyIcon(nint icon);
-
 	public Task<ReadOnlyMemory<byte>> GetElevationShieldIconAsync(int size = 16, CancellationToken cancellationToken = default)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
@@ -59,6 +36,19 @@ internal sealed unsafe partial class ItemPropertiesIconResources
 
 		return Task.Run(() => ReadResourceIcon(path, index, size, cancellationToken), cancellationToken);
 	}
+
+	[LibraryImport("shell32.dll", EntryPoint = "SHGetStockIconInfo")]
+	[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+	private static partial int SHGetStockIconInfo(int iconId, uint flags, ref StockIconInfo info);
+
+	[LibraryImport("shell32.dll", EntryPoint = "SHDefExtractIconW", StringMarshalling = StringMarshalling.Utf16)]
+	[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+	private static partial int SHDefExtractIcon(string path, int index, uint flags, out nint largeIcon, out nint smallIcon, uint iconSize);
+
+	[LibraryImport("user32.dll", EntryPoint = "DestroyIcon")]
+	[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+	[return: MarshalAs(UnmanagedType.Bool)]
+	private static partial bool DestroyIcon(nint icon);
 
 	private static ReadOnlyMemory<byte> ReadStockIcon(int iconId, int size, CancellationToken cancellationToken)
 	{
@@ -117,5 +107,15 @@ internal sealed unsafe partial class ItemPropertiesIconResources
 		bitmap.Save(output, ImageFormat.Png);
 
 		return output.ToArray();
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	private struct StockIconInfo
+	{
+		public uint Size;
+		public nint Icon;
+		public int SystemImageIndex;
+		public int IconIndex;
+		public fixed char Path[260];
 	}
 }

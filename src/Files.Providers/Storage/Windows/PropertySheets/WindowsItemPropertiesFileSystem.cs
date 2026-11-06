@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-
 using System.IO;
 using System.Runtime.InteropServices;
 using Files.Core.Storage.Windows;

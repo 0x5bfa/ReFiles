@@ -10,8 +10,6 @@ namespace Files.Core.Storage.Windows;
 /// <summary>Describes a context-menu entry without exposing native handles or COM objects.</summary>
 public sealed class WindowsShellContextMenuEntry
 {
-	internal WindowsShellContextMenuIcon? Icon { get; }
-
 	/// <summary>Gets the command identity supplied by its application or Shell source.</summary>
 	public string Id { get; }
 
@@ -44,6 +42,8 @@ public sealed class WindowsShellContextMenuEntry
 
 	/// <summary>Gets the final child entries for a submenu.</summary>
 	public IReadOnlyList<WindowsShellContextMenuEntry> Children { get; }
+
+	internal WindowsShellContextMenuIcon? Icon { get; }
 
 	internal WindowsShellContextMenuEntry(string id, string title, bool isEnabled, bool isChecked = false, bool isRadio = false, bool isSeparator = false,
 		IReadOnlyList<WindowsShellContextMenuEntry>? children = null, WindowsShellContextMenuIcon? icon = null, bool hasNativeIcon = false, bool isApplicationCommand = false, string? shortcut = null)

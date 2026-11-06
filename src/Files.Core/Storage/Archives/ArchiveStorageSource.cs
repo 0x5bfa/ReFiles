@@ -234,8 +234,6 @@ internal sealed class ArchiveStorageSource : IStorageSource, IArchiveRootSource
 
 	private abstract class ArchiveItem(ArchiveStorageSource source, ArchiveNode node) : IStorableChild, IArchiveEntry, IStorageAddressSource
 	{
-		protected ArchiveStorageSource Source { get; } = source;
-		protected ArchiveNode Node { get; } = node;
 		public string Id => Node.Id;
 		public string Name => Node.Name;
 		public ArchiveLocator Locator => Source.Locator;
@@ -243,6 +241,8 @@ internal sealed class ArchiveStorageSource : IStorageSource, IArchiveRootSource
 		public string EntryId => Node.EntryId ?? Node.Id;
 		public string EntryPath => Node.Path;
 		public StorageAddress Address => new("archive-entry", Source.SourceId.Value + "/" + Uri.EscapeDataString(Id));
+		protected ArchiveStorageSource Source { get; } = source;
+		protected ArchiveNode Node { get; } = node;
 
 		public Task<IFolder?> GetParentAsync(CancellationToken cancellationToken = default)
 		{

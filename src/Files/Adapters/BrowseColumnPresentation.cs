@@ -110,6 +110,16 @@ internal sealed partial class BrowseColumnPresentation : IAsyncDisposable
 		}
 	}
 
+	internal static IReadOnlyList<DetailsColumnViewModel> CreateFallbackColumns()
+	{
+		return Array.AsReadOnly(new[]
+		{
+			new DetailsColumnViewModel("System.ItemNameDisplay", "System.ItemNameDisplay", 180, BrowseColumnAlignment.Left, isPrimary: true),
+			new DetailsColumnViewModel("System.ItemTypeText", "System.ItemTypeText", 100, BrowseColumnAlignment.Left),
+			new DetailsColumnViewModel("reference", "reference", 220, BrowseColumnAlignment.Left),
+		});
+	}
+
 	private async Task LoadColumnsAsync(ColumnLoad load, Task previousTask)
 	{
 		try
@@ -267,16 +277,6 @@ internal sealed partial class BrowseColumnPresentation : IAsyncDisposable
 	private static double GetDefaultColumnWidth(BrowseColumn column)
 	{
 		return column.DefaultWidth;
-	}
-
-	internal static IReadOnlyList<DetailsColumnViewModel> CreateFallbackColumns()
-	{
-		return Array.AsReadOnly(new[]
-		{
-			new DetailsColumnViewModel("System.ItemNameDisplay", "System.ItemNameDisplay", 180, BrowseColumnAlignment.Left, isPrimary: true),
-			new DetailsColumnViewModel("System.ItemTypeText", "System.ItemTypeText", 100, BrowseColumnAlignment.Left),
-			new DetailsColumnViewModel("reference", "reference", 220, BrowseColumnAlignment.Left),
-		});
 	}
 
 	private sealed record ColumnCache(IBrowseColumnProvider Context, long Generation, BrowseColumnSet? ColumnSet);

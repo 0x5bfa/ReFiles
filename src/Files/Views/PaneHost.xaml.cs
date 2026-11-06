@@ -16,11 +16,11 @@ public sealed partial class PaneHost : UserControl
 	private const double MinimumPaneSize = 100;
 	private const double SplitterSize = 4;
 
-	private readonly Dictionary<Guid, PaneView> _paneViews = [];
-	private TabViewModel? _subscribedViewModel;
-
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(TabViewModel), typeof(PaneHost), new PropertyMetadata(null, ViewModelChanged));
+
+	private readonly Dictionary<Guid, PaneView> _paneViews = [];
+	private TabViewModel? _subscribedViewModel;
 
 	public TabViewModel? ViewModel
 	{
@@ -123,7 +123,6 @@ public sealed partial class PaneHost : UserControl
 
 			return;
 		}
-
 
 		var currentPaneIds = viewModel.Panes.Select(static pane => pane.Id).ToHashSet();
 		foreach (var removedPaneId in _paneViews.Keys.Where(paneId => !currentPaneIds.Contains(paneId)).ToArray())

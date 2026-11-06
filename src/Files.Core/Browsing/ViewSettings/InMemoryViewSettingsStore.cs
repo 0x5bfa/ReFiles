@@ -35,6 +35,7 @@ public sealed class InMemoryViewSettingsStore : IViewSettingsStore
 	/// <param name="location">The browse location.</param>
 	/// <param name="settings">The settings to store.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>A completed task after the update has been applied.</returns>
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(location);

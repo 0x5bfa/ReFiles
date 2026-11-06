@@ -17,7 +17,7 @@ namespace Files.UnitTests;
 [DoNotParallelize]
 public sealed class WindowsThumbnailTests
 {
-	private static readonly byte[] OnePixelPng = [
+	private static readonly byte[] _onePixelPng = [
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
 		0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
 		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -38,7 +38,7 @@ public sealed class WindowsThumbnailTests
 		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ThumbnailTests-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(directoryPath);
 		var filePath = Path.Combine(directoryPath, "thumbnail.png");
-		File.WriteAllBytes(filePath, OnePixelPng);
+		File.WriteAllBytes(filePath, _onePixelPng);
 
 		try
 		{
@@ -63,7 +63,7 @@ public sealed class WindowsThumbnailTests
 			Assert.IsNotNull(first);
 			Assert.AreEqual(ThumbnailContentFormat.EncodedImage, first.Format);
 			Assert.AreEqual("image/png", first.ContentType);
-			CollectionAssert.AreEqual(OnePixelPng.AsSpan(0, 8).ToArray(), first.Content.Span[..8].ToArray());
+			CollectionAssert.AreEqual(_onePixelPng.AsSpan(0, 8).ToArray(), first.Content.Span[..8].ToArray());
 			var firstContent = first.Content.ToArray();
 
 			File.Delete(filePath);
@@ -89,7 +89,7 @@ public sealed class WindowsThumbnailTests
 		var directoryPath = Path.Combine(Path.GetTempPath(), $"Files.Core.ThumbnailTests-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(directoryPath);
 		var filePath = Path.Combine(directoryPath, "thumbnail.png");
-		File.WriteAllBytes(filePath, OnePixelPng);
+		File.WriteAllBytes(filePath, _onePixelPng);
 
 		try
 		{

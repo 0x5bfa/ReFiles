@@ -15,12 +15,6 @@ internal sealed class TableViewDiagnostics : IDisposable
 	/// <summary>Gets the number of row template roots currently tracked as realized.</summary>
 	public int RealizedRowCount => _realizedRows.Count;
 
-	/// <summary>Occurs after a row template root is observed as realized.</summary>
-	public event EventHandler<TableViewRowChangingEventArgs>? RowRealized;
-
-	/// <summary>Occurs whenever the tracked realized-row count changes.</summary>
-	public event EventHandler? RealizedRowCountChanged;
-
 	/// <summary>Creates diagnostics for the table's current rows host.</summary>
 	public TableViewDiagnostics(TableView table)
 	{
@@ -29,6 +23,12 @@ internal sealed class TableViewDiagnostics : IDisposable
 		_rowsHost = table.RowsHost ?? throw new InvalidOperationException("TableView does not have a rows host.");
 		_rowsHost.RowChanging += RowsHost_RowChanging;
 	}
+
+	/// <summary>Occurs after a row template root is observed as realized.</summary>
+	public event EventHandler<TableViewRowChangingEventArgs>? RowRealized;
+
+	/// <summary>Occurs whenever the tracked realized-row count changes.</summary>
+	public event EventHandler? RealizedRowCountChanged;
 
 	/// <inheritdoc />
 	public void Dispose()

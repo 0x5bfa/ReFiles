@@ -422,6 +422,7 @@ namespace Files.Controls
 					{
 						control.IsEnabled = item.IsEnabled;
 					}
+
 					break;
 				case nameof(ToolbarItem.IsChecked):
 					if (element is ToolbarToggleButton toggleButton)
@@ -432,12 +433,14 @@ namespace Files.Controls
 					{
 						radioButton.IsChecked = item.IsChecked;
 					}
+
 					break;
 				case nameof(ToolbarItem.GroupName):
 					if (element is ToolbarRadioButton groupRadioButton)
 					{
 						groupRadioButton.GroupName = item.GroupName;
 					}
+
 					break;
 				case nameof(ToolbarItem.Command):
 				case nameof(ToolbarItem.CommandParameter):

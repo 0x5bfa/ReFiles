@@ -14,10 +14,10 @@ namespace Files.Views;
 
 public sealed partial class ToolbarView : UserControl
 {
-	private bool _isLoadingNewMenu;
-
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(ToolbarViewModel), typeof(ToolbarView), new PropertyMetadata(null));
+
+	private bool _isLoadingNewMenu;
 
 	public ToolbarViewModel? ViewModel
 	{

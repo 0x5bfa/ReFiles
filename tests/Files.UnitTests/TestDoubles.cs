@@ -14,6 +14,10 @@ using Files.Core.ViewSettings;
 
 namespace Files.UnitTests;
 
+internal interface ITestCapability : ICapability
+{
+}
+
 internal sealed class TestStorageSource : IStorageSource
 {
 	public StorageSourceId SourceId { get; } = new("test");
@@ -89,10 +93,6 @@ internal sealed class DisposableStorable : TestStorable, IDisposable
 	}
 }
 
-internal interface ITestCapability : ICapability
-{
-}
-
 internal sealed class TestCapability : ITestCapability, IDisposable
 {
 	private readonly IList<string> _disposalOrder;
@@ -121,9 +121,9 @@ internal sealed class TestCapability : ITestCapability, IDisposable
 
 internal sealed class TestModelFactory
 {
-	private readonly TestStorageSource source = new();
+	private readonly TestStorageSource _source = new();
 
-	public TestStorageSource Source => source;
+	public TestStorageSource Source => _source;
 
 	public StorableModel CreateModel(
 		string id,
@@ -135,8 +135,8 @@ internal sealed class TestModelFactory
 		IPreviewSource? previewSource = null)
 	{
 		coreModel = new DisposableStorable(id, name);
-		var reference = new StorableReference(source.SourceId, coreModel.Id, new StorageAddress("test", coreModel.Id));
-		var context = new Files.Core.Capabilities.ItemContext(source, coreModel, reference);
+		var reference = new StorableReference(_source.SourceId, coreModel.Id, new StorageAddress("test", coreModel.Id));
+		var context = new Files.Core.Capabilities.ItemContext(_source, coreModel, reference);
 		var capabilityBuilder = new CapabilityBuilder();
 		if (changeSource is not null)
 		{
@@ -178,7 +178,8 @@ internal sealed class TestPropertySource : IPropertySource
 	public Func<
 		PropertyRequest,
 		CancellationToken,
-		ValueTask<IReadOnlyDictionary<string, object?>>>? Handler { get; set; }
+		ValueTask<IReadOnlyDictionary<string, object?>>>? Handler
+	{ get; set; }
 
 	public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
 	{
@@ -406,17 +407,17 @@ internal sealed class TestBrowseLocationContext :
 
 internal sealed class TestFolderChangeSource : IFolderChangeSource, IDisposable, IAsyncDisposable
 {
-	private int isDisposed;
+	private int _isDisposed;
+
+	public bool IsStarted { get; private set; }
+
+	public bool IsDisposed => Volatile.Read(ref _isDisposed) != 0;
+
+	public int StartCount { get; private set; }
 
 	public event EventHandler<FolderChangeEventArgs>? Changed;
 
 	public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
-
-	public bool IsStarted { get; private set; }
-
-	public bool IsDisposed => Volatile.Read(ref isDisposed) != 0;
-
-	public int StartCount { get; private set; }
 
 	public ValueTask StartAsync(CancellationToken cancellationToken = default)
 	{
@@ -448,7 +449,7 @@ internal sealed class TestFolderChangeSource : IFolderChangeSource, IDisposable,
 
 	public void Dispose()
 	{
-		Interlocked.Exchange(ref isDisposed, 1);
+		Interlocked.Exchange(ref _isDisposed, 1);
 		IsStarted = false;
 		Changed = null;
 		Faulted = null;
@@ -464,7 +465,7 @@ internal sealed class TestFolderChangeSource : IFolderChangeSource, IDisposable,
 
 internal sealed class TestThumbnailCache : IThumbnailCache
 {
-	private long invalidationVersion;
+	private long _invalidationVersion;
 
 	public IList<StorableReference> InvalidatedReferences { get; } = [];
 
@@ -480,18 +481,18 @@ internal sealed class TestThumbnailCache : IThumbnailCache
 
 	public ValueTask<long> GetInvalidationVersionAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
-		return ValueTask.FromResult(Volatile.Read(ref invalidationVersion));
+		return ValueTask.FromResult(Volatile.Read(ref _invalidationVersion));
 	}
 
 	public ValueTask<bool> TrySetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, long expectedInvalidationVersion, CancellationToken cancellationToken = default)
 	{
-		return ValueTask.FromResult(expectedInvalidationVersion == Volatile.Read(ref invalidationVersion));
+		return ValueTask.FromResult(expectedInvalidationVersion == Volatile.Read(ref _invalidationVersion));
 	}
 
 	public ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		InvalidatedReferences.Add(reference);
-		Interlocked.Increment(ref invalidationVersion);
+		Interlocked.Increment(ref _invalidationVersion);
 
 		return ValueTask.CompletedTask;
 	}
@@ -499,20 +500,20 @@ internal sealed class TestThumbnailCache : IThumbnailCache
 
 internal sealed class TestViewSettingsStore : IViewSettingsStore
 {
-	private readonly Dictionary<BrowseLocation, BrowseViewSettings> values = [];
+	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _values = [];
 
 	public ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		return ValueTask.FromResult(values.GetValueOrDefault(location));
+		return ValueTask.FromResult(_values.GetValueOrDefault(location));
 	}
 
 	public ValueTask SetAsync(BrowseLocation location, BrowseViewSettings settings, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
-		values[location] = settings;
+		_values[location] = settings;
 
 		return ValueTask.CompletedTask;
 	}

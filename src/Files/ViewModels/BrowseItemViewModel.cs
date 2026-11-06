@@ -59,6 +59,43 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 		LayoutMetrics = new BrowseItemLayoutMetrics();
 	}
 
+	/// <inheritdoc />
+	public string GetDisplayText(string propertyId)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
+
+		if (propertyId.Equals("name", StringComparison.OrdinalIgnoreCase) || propertyId.Equals(ItemNamePropertyId, StringComparison.Ordinal))
+		{
+			return DisplayName;
+		}
+
+		if (propertyId.Equals(ReferencePropertyId, StringComparison.OrdinalIgnoreCase))
+		{
+			return ReferenceText;
+		}
+
+		if (_properties.TryGetValue(propertyId, out var value))
+		{
+			if (value is FormattedPropertyValue formattedValue)
+			{
+				return formattedValue.DisplayText;
+			}
+
+			var text = FormatPropertyValue(value);
+			if (!string.IsNullOrWhiteSpace(text))
+			{
+				return text;
+			}
+		}
+
+		if (propertyId.Equals(ItemTypeTextPropertyId, StringComparison.Ordinal))
+		{
+			return Kind;
+		}
+
+		return string.Empty;
+	}
+
 	internal void SetThumbnail(ImageSource? value)
 	{
 		Thumbnail = value;
@@ -126,43 +163,6 @@ public sealed partial class BrowseItemViewModel : ObservableObject, ITableViewCe
 			OnPropertyChanged(nameof(Reference));
 			OnPropertyChanged(nameof(ReferenceText));
 		}
-	}
-
-	/// <inheritdoc />
-	public string GetDisplayText(string propertyId)
-	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(propertyId);
-
-		if (propertyId.Equals("name", StringComparison.OrdinalIgnoreCase) || propertyId.Equals(ItemNamePropertyId, StringComparison.Ordinal))
-		{
-			return DisplayName;
-		}
-
-		if (propertyId.Equals(ReferencePropertyId, StringComparison.OrdinalIgnoreCase))
-		{
-			return ReferenceText;
-		}
-
-		if (_properties.TryGetValue(propertyId, out var value))
-		{
-			if (value is FormattedPropertyValue formattedValue)
-			{
-				return formattedValue.DisplayText;
-			}
-
-			var text = FormatPropertyValue(value);
-			if (!string.IsNullOrWhiteSpace(text))
-			{
-				return text;
-			}
-		}
-
-		if (propertyId.Equals(ItemTypeTextPropertyId, StringComparison.Ordinal))
-		{
-			return Kind;
-		}
-
-		return string.Empty;
 	}
 
 	private static string? FormatPropertyValue(object? value)

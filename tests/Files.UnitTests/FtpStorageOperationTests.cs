@@ -94,7 +94,7 @@ public sealed class FtpStorageOperationTests
 
 		Assert.IsTrue(result.Succeeded, result.Error?.ToString());
 		Assert.IsTrue(sessions.Contains("/destination"));
-		CollectionAssert.AreEqual(new byte[] {1, 2, 3}, sessions.ReadContent("/destination/nested/item.bin"));
+		CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, sessions.ReadContent("/destination/nested/item.bin"));
 		Assert.IsFalse(sessions.Paths.Any(path => path.Contains(".files-copy-", StringComparison.Ordinal)));
 	}
 }

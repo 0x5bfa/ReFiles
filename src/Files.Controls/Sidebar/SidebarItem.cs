@@ -75,6 +75,43 @@ namespace Files.Controls
 			ReevaluateSelection();
 		}
 
+		internal void Select()
+		{
+			if (Owner is not null && Item is not null && SelectsOnInvoked)
+			{
+				Owner.SelectedItem = Item;
+			}
+		}
+
+		// Allows SidebarView to refresh every realized row after selection changes.
+		internal void ReevaluateSelectionFromOwner()
+		{
+			ReevaluateSelection();
+		}
+
+		internal void Clicked(PointerUpdateKind pointerUpdateKind)
+		{
+			// Group headers toggle on row clicks; navigable tree rows toggle only from the chevron.
+			if (IsGroupHeader && !SelectsOnInvoked)
+			{
+				if (CollapseEnabled)
+				{
+					IsExpanded = !IsExpanded;
+				}
+				else if (HasChildren)
+				{
+					SetFlyoutOpen(true);
+				}
+			}
+
+			RaiseItemInvoked(pointerUpdateKind);
+		}
+
+		internal void RaiseItemInvoked(PointerUpdateKind pointerUpdateKind)
+		{
+			Owner?.RaiseItemInvoked(this, pointerUpdateKind);
+		}
+
 		protected override AutomationPeer OnCreateAutomationPeer()
 		{
 			return new SidebarItemAutomationPeer(this);
@@ -103,6 +140,7 @@ namespace Files.Controls
 					border.AllowDrop = true;
 					border.IsTabStop = false;
 				}
+
 				if (GetTemplateChild("ChevronContainer") is Border chevronContainer)
 				{
 					chevronContainer.PointerPressed += ChevronContainer_PointerPressed;
@@ -132,42 +170,6 @@ namespace Files.Controls
 			UpdateExpansionState();
 		}
 
-		internal void Select()
-		{
-			if (Owner is not null && Item is not null && SelectsOnInvoked)
-			{
-				Owner.SelectedItem = Item;
-			}
-		}
-
-		// Allows SidebarView to refresh every realized row after selection changes.
-		internal void ReevaluateSelectionFromOwner()
-		{
-			ReevaluateSelection();
-		}
-
-		internal void Clicked(PointerUpdateKind pointerUpdateKind)
-		{
-			// Group headers toggle on row clicks; navigable tree rows toggle only from the chevron.
-			if (IsGroupHeader && !SelectsOnInvoked)
-			{
-				if (CollapseEnabled)
-				{
-					IsExpanded = !IsExpanded;
-				}
-				else if (HasChildren)
-				{
-					SetFlyoutOpen(true);
-				}
-			}
-			RaiseItemInvoked(pointerUpdateKind);
-		}
-
-		internal void RaiseItemInvoked(PointerUpdateKind pointerUpdateKind)
-		{
-			Owner?.RaiseItemInvoked(this, pointerUpdateKind);
-		}
-
 		private void SidebarItem_Loaded(object sender, RoutedEventArgs e)
 		{
 			// Loaded fires every time ItemsRepeater recycles the container; only the per-row HandleItemChange runs each time.
@@ -180,6 +182,7 @@ namespace Files.Controls
 					_isWiredUp = true;
 				}
 			}
+
 			HandleItemChange();
 		}
 
@@ -269,6 +272,7 @@ namespace Files.Controls
 					FlyoutBase.GetAttachedFlyout(flyoutOwner).Hide();
 				}
 			}
+
 			// The attached flyout is unavailable until the template is applied.
 			catch (ArgumentException) { }
 		}
@@ -300,6 +304,7 @@ namespace Files.Controls
 				// Clear selection state retained by a recycled leaf container.
 				IsSelected = false;
 			}
+
 			if (IsGroupHeader && MenuItemsSource is IList list && selected is not null && list.Contains(selected))
 			{
 				_selectedChildItem = selected;
@@ -309,6 +314,7 @@ namespace Files.Controls
 			{
 				_selectedChildItem = null;
 			}
+
 			UpdateSelectionState();
 		}
 
@@ -342,6 +348,7 @@ namespace Files.Controls
 
 				return;
 			}
+
 			e.Handled = TryToggleExpansion();
 		}
 
@@ -375,6 +382,7 @@ namespace Files.Controls
 					UpdateSelectionState();
 					break;
 			}
+
 			if (!IsInFlyout)
 			{
 				VisualStateManager.GoToState(this, DisplayMode == SidebarDisplayMode.Compact ? "Compact" : "NonCompact", false);
@@ -453,6 +461,7 @@ namespace Files.Controls
 				VisualStateManager.GoToState(this, SelectsOnInvoked ? "LeafWithChildren" : (IsExpanded ? "Expanded" : "Collapsed"), false);
 				VisualStateManager.GoToState(this, IsExpanded ? "ExpandedIconNormal" : "CollapsedIconNormal", false);
 			}
+
 			UpdateSelectionState();
 		}
 
@@ -538,6 +547,7 @@ namespace Files.Controls
 			{
 				_dragOverExpandTimer?.Stop();
 			}
+
 			if (canHoverOpen)
 			{
 				_dragOverTimer ??= DispatcherQueue.CreateTimer();
@@ -582,6 +592,7 @@ namespace Files.Controls
 					{
 						return SidebarItemDropPosition.Top;
 					}
+
 					if (position.Y > grid.ActualHeight * (1 - DropRepositionThreshold))
 					{
 						return SidebarItemDropPosition.Bottom;

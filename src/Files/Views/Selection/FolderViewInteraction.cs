@@ -27,11 +27,12 @@ namespace Files.Views.Selection;
 /// </summary>
 public static partial class FolderViewInteraction
 {
-	private static readonly ConditionalWeakTable<FrameworkElement, InteractionRegistration> _registrations = new();
 
 	/// <summary>Identifies the attached view model property.</summary>
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.RegisterAttached("ViewModel", typeof(FolderBrowserViewModel), typeof(FolderViewInteraction), new PropertyMetadata(null, ViewModelChanged));
+
+	private static readonly ConditionalWeakTable<FrameworkElement, InteractionRegistration> _registrations = new();
 
 	/// <summary>Gets the folder view model connected to an element.</summary>
 	/// <param name="element">The folder view target.</param>

@@ -50,6 +50,71 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 		_scheduler = scheduler;
 	}
 
+	public ValueTask DisposeAsync()
+	{
+		lock (_disposalLock)
+		{
+			_disposeTask ??= DisposeWatcherAsync();
+
+			return new ValueTask(_disposeTask);
+		}
+
+		async Task DisposeWatcherAsync()
+		{
+			Interlocked.Exchange(ref _isDisposed, 1);
+
+			try
+			{
+				await _scheduler.InvokeAsync(() =>
+				{
+					unsafe
+					{
+						foreach (var registration in _registrations)
+						{
+							if (registration.RegistrationId != 0)
+							{
+								PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
+							}
+
+							PInvoke.CoTaskMemFree(registration.NativePidl);
+							foreach (var subscription in registration.Subscriptions)
+							{
+								subscription.Changes.Writer.TryComplete();
+							}
+						}
+					}
+
+					_registrations.Clear();
+					DestroyNotificationWindow();
+
+					return true;
+				}).ConfigureAwait(false);
+			}
+			catch (Exception error)
+			{
+				foreach (var registration in _registrations)
+				{
+					foreach (var subscription in registration.Subscriptions)
+					{
+						subscription.Changes.Writer.TryComplete(error);
+					}
+				}
+
+				throw;
+			}
+			finally
+			{
+				foreach (var registration in _registrations)
+				{
+					foreach (var subscription in registration.Subscriptions)
+					{
+						subscription.Changes.Writer.TryComplete();
+					}
+				}
+			}
+		}
+	}
+
 	internal unsafe Task<WindowsShellChangeSubscription> SubscribeAsync(WindowsItemLocator folderLocator, bool recursive, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(folderLocator);
@@ -281,68 +346,58 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 		_notificationMessage = 0;
 	}
 
-	public ValueTask DisposeAsync()
+	internal sealed class WindowsShellChangeSubscription : IAsyncDisposable
 	{
-		lock (_disposalLock)
-		{
-			_disposeTask ??= DisposeWatcherAsync();
+		private readonly ReadOnlyMemory<byte> _folderPidl;
+		private readonly Func<WindowsShellChangeSubscription, Task> _unsubscribeAsync;
+		private int _isDisposed;
 
-			return new ValueTask(_disposeTask);
+		internal Channel<WindowsShellChange> Changes { get; } = Channel.CreateBounded<WindowsShellChange>(
+			new BoundedChannelOptions(SubscriptionCapacity)
+			{
+				FullMode = BoundedChannelFullMode.Wait,
+				SingleReader = false,
+				SingleWriter = true,
+				AllowSynchronousContinuations = false
+			});
+
+		internal WindowsShellChangeSubscription(ReadOnlyMemory<byte> folderPidl, Func<WindowsShellChangeSubscription, Task> unsubscribeAsync)
+		{
+			_folderPidl = folderPidl;
+			_unsubscribeAsync = unsubscribeAsync;
 		}
 
-		async Task DisposeWatcherAsync()
+		/// <inheritdoc/>
+		public async ValueTask DisposeAsync()
 		{
-			Interlocked.Exchange(ref _isDisposed, 1);
-
-			try
+			if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
 			{
-				await _scheduler.InvokeAsync(() =>
-				{
-					unsafe
-					{
-						foreach (var registration in _registrations)
-						{
-							if (registration.RegistrationId != 0)
-							{
-								PInvoke.SHChangeNotifyDeregister(registration.RegistrationId);
-							}
-
-							PInvoke.CoTaskMemFree(registration.NativePidl);
-							foreach (var subscription in registration.Subscriptions)
-							{
-								subscription.Changes.Writer.TryComplete();
-							}
-						}
-					}
-
-					_registrations.Clear();
-					DestroyNotificationWindow();
-
-					return true;
-				}).ConfigureAwait(false);
+				await _unsubscribeAsync(this).ConfigureAwait(false);
 			}
-			catch (Exception error)
+		}
+
+		internal void Publish(WindowsShellChange change)
+		{
+			if (Changes.Writer.TryWrite(change))
 			{
-				foreach (var registration in _registrations)
-				{
-					foreach (var subscription in registration.Subscriptions)
-					{
-						subscription.Changes.Writer.TryComplete(error);
-					}
-				}
+				return;
+			}
 
-				throw;
-			}
-			finally
+			while (Changes.Reader.TryRead(out _))
 			{
-				foreach (var registration in _registrations)
-				{
-					foreach (var subscription in registration.Subscriptions)
-					{
-						subscription.Changes.Writer.TryComplete();
-					}
-				}
 			}
+
+			Changes.Writer.TryWrite(new WindowsShellChange(SHCNE_ID.SHCNE_UPDATEDIR, _folderPidl, ReadOnlyMemory<byte>.Empty));
+		}
+
+		internal ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
+		{
+			return Changes.Reader.WaitToReadAsync(cancellationToken);
+		}
+
+		internal bool TryRead(out WindowsShellChange change)
+		{
+			return Changes.Reader.TryRead(out change!);
 		}
 	}
 
@@ -372,61 +427,6 @@ internal sealed class WindowsShellChangeWatcher : IAsyncDisposable
 			Subscriptions.Add(subscription);
 
 			return subscription;
-		}
-	}
-
-	internal sealed class WindowsShellChangeSubscription : IAsyncDisposable
-	{
-		private readonly ReadOnlyMemory<byte> _folderPidl;
-		private readonly Func<WindowsShellChangeSubscription, Task> _unsubscribeAsync;
-		private int _isDisposed;
-
-		internal Channel<WindowsShellChange> Changes { get; } = Channel.CreateBounded<WindowsShellChange>(
-			new BoundedChannelOptions(SubscriptionCapacity)
-			{
-				FullMode = BoundedChannelFullMode.Wait,
-				SingleReader = false,
-				SingleWriter = true,
-				AllowSynchronousContinuations = false
-			});
-
-		internal WindowsShellChangeSubscription(ReadOnlyMemory<byte> folderPidl, Func<WindowsShellChangeSubscription, Task> unsubscribeAsync)
-		{
-			_folderPidl = folderPidl;
-			_unsubscribeAsync = unsubscribeAsync;
-		}
-
-		internal void Publish(WindowsShellChange change)
-		{
-			if (Changes.Writer.TryWrite(change))
-			{
-				return;
-			}
-
-			while (Changes.Reader.TryRead(out _))
-			{
-			}
-
-			Changes.Writer.TryWrite(new WindowsShellChange(SHCNE_ID.SHCNE_UPDATEDIR, _folderPidl, ReadOnlyMemory<byte>.Empty));
-		}
-
-		internal ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken = default)
-		{
-			return Changes.Reader.WaitToReadAsync(cancellationToken);
-		}
-
-		internal bool TryRead(out WindowsShellChange change)
-		{
-			return Changes.Reader.TryRead(out change!);
-		}
-
-		/// <inheritdoc/>
-		public async ValueTask DisposeAsync()
-		{
-			if (Interlocked.Exchange(ref _isDisposed, 1) == 0)
-			{
-				await _unsubscribeAsync(this).ConfigureAwait(false);
-			}
 		}
 	}
 }

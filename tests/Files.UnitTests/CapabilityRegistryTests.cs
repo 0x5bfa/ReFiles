@@ -200,12 +200,6 @@ public sealed class CapabilityRegistryTests
 		Assert.Throws<InvalidOperationException>(() => capabilities.Get<ITestCapability>());
 	}
 
-	private sealed class TestView : ITestCapability { }
-
-	private sealed class AsyncView : IAsyncTestCapability { }
-
-	private sealed class ThrowingView : IThrowingDisposableCapability { }
-
 	private interface IAsyncTestCapability : ICapability
 	{
 	}
@@ -213,6 +207,12 @@ public sealed class CapabilityRegistryTests
 	private interface IThrowingDisposableCapability : ICapability
 	{
 	}
+
+	private sealed class TestView : ITestCapability { }
+
+	private sealed class AsyncView : IAsyncTestCapability { }
+
+	private sealed class ThrowingView : IThrowingDisposableCapability { }
 
 	private sealed class AsyncTestCapability : IAsyncTestCapability, IAsyncDisposable
 	{

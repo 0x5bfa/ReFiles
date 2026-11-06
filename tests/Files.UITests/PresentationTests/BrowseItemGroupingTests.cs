@@ -15,7 +15,7 @@ namespace Files.UITests;
 [TestClass]
 public sealed class BrowseItemGroupingTests
 {
-	private static readonly BrowseGroupingText Text = new("Folders", "files", "Unspecified", "Tiny", "Small", "Medium", "Large", "Very large", "Huge");
+	private static readonly BrowseGroupingText _text = new("Folders", "files", "Unspecified", "Tiny", "Small", "Medium", "Large", "Very large", "Huge");
 
 	/// <summary>
 	/// Verifies that name groups follow the requested sort direction.
@@ -30,11 +30,11 @@ public sealed class BrowseItemGroupingTests
 			CreateItem("apple", "Apple", isFolder: false),
 		};
 
-		var ascending = BrowseItemGrouping.Create(items, BrowseDisplayPropertyIds.Name, ViewSortDirection.Ascending, Text);
-		var descending = BrowseItemGrouping.Create(items, BrowseDisplayPropertyIds.Name, ViewSortDirection.Descending, Text);
+		var ascending = BrowseItemGrouping.Create(items, BrowseDisplayPropertyIds.Name, ViewSortDirection.Ascending, _text);
+		var descending = BrowseItemGrouping.Create(items, BrowseDisplayPropertyIds.Name, ViewSortDirection.Descending, _text);
 
-		CollectionAssert.AreEqual(new[] {"A", "B"}, ascending.Select(static group => group.Title).ToArray());
-		CollectionAssert.AreEqual(new[] {"B", "A"}, descending.Select(static group => group.Title).ToArray());
+		CollectionAssert.AreEqual(new[] { "A", "B" }, ascending.Select(static group => group.Title).ToArray());
+		CollectionAssert.AreEqual(new[] { "B", "A" }, descending.Select(static group => group.Title).ToArray());
 		Assert.AreEqual(2, ascending[0].Count);
 	}
 
@@ -48,9 +48,9 @@ public sealed class BrowseItemGroupingTests
 		var image = CreateItem("image", "Image.png", isFolder: false, (BrowseDisplayPropertyIds.Type, "Image"));
 		var text = CreateItem("text", "Text.txt", isFolder: false, (BrowseDisplayPropertyIds.Type, "Text"));
 
-		var groups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[image, folder, text], BrowseDisplayPropertyIds.Type, ViewSortDirection.Descending, Text);
+		var groups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[image, folder, text], BrowseDisplayPropertyIds.Type, ViewSortDirection.Descending, _text);
 
-		CollectionAssert.AreEqual(new[] {"Folders", "Text", "Image"}, groups.Select(static group => group.Title).ToArray());
+		CollectionAssert.AreEqual(new[] { "Folders", "Text", "Image" }, groups.Select(static group => group.Title).ToArray());
 	}
 
 	/// <summary>
@@ -64,9 +64,9 @@ public sealed class BrowseItemGroupingTests
 		var medium = CreateItem("medium", "Medium.bin", isFolder: false, (BrowseDisplayPropertyIds.Size, 2L * 1024 * 1024));
 		var huge = CreateItem("huge", "Huge.bin", isFolder: false, (BrowseDisplayPropertyIds.Size, 5L * 1024 * 1024 * 1024));
 
-		var groups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[huge, medium, small, tiny], BrowseDisplayPropertyIds.Size, ViewSortDirection.Ascending, Text);
+		var groups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[huge, medium, small, tiny], BrowseDisplayPropertyIds.Size, ViewSortDirection.Ascending, _text);
 
-		CollectionAssert.AreEqual(new[] {"Tiny", "Small", "Medium", "Huge"}, groups.Select(static group => group.Title).ToArray());
+		CollectionAssert.AreEqual(new[] { "Tiny", "Small", "Medium", "Huge" }, groups.Select(static group => group.Title).ToArray());
 	}
 
 	/// <summary>
@@ -78,8 +78,8 @@ public sealed class BrowseItemGroupingTests
 		var image = CreateItem("image", "Image.png", isFolder: false, (BrowseDisplayPropertyIds.Type, new FormattedPropertyValue(".png", "PNG File")));
 		var medium = CreateItem("medium", "Medium.bin", isFolder: false, (BrowseDisplayPropertyIds.Size, new FormattedPropertyValue(2L * 1024 * 1024, "2,048 KB")));
 
-		var typeGroups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[image], BrowseDisplayPropertyIds.Type, ViewSortDirection.Ascending, Text);
-		var sizeGroups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[medium], BrowseDisplayPropertyIds.Size, ViewSortDirection.Ascending, Text);
+		var typeGroups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[image], BrowseDisplayPropertyIds.Type, ViewSortDirection.Ascending, _text);
+		var sizeGroups = BrowseItemGrouping.Create((Files.ViewModels.BrowseItemViewModel[])[medium], BrowseDisplayPropertyIds.Size, ViewSortDirection.Ascending, _text);
 
 		Assert.AreEqual("PNG File", image.GetDisplayText(BrowseDisplayPropertyIds.Type));
 		Assert.AreEqual("2,048 KB", medium.GetDisplayText(BrowseDisplayPropertyIds.Size));

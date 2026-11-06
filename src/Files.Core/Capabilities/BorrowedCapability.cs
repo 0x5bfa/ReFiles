@@ -108,9 +108,6 @@ internal static class BorrowedCapability
 		private readonly IFolderChangeSource _inner;
 		private int _isDetached;
 
-		public event EventHandler<FolderChangeEventArgs>? Changed;
-		public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
-
 		public FolderChanges(IFolderChangeSource inner)
 		{
 			_inner = inner;
@@ -126,6 +123,9 @@ internal static class BorrowedCapability
 				throw;
 			}
 		}
+
+		public event EventHandler<FolderChangeEventArgs>? Changed;
+		public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
 		public ValueTask StartAsync(CancellationToken cancellationToken = default)
 		{

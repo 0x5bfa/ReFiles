@@ -17,7 +17,7 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 	private const uint WaitForStateRepository = 1;
 	private const string RuntimeClassName = "Windows.Internal.FileExplorerAppExtension";
 	// The Shell cache invalidates internally; expire this process-local snapshot when no public invalidation signal is available.
-	private static readonly long RegistrationCacheLifetimeTicks = Stopwatch.Frequency * RegistrationCacheLifetimeSeconds;
+	private static readonly long _registrationCacheLifetimeTicks = Stopwatch.Frequency * RegistrationCacheLifetimeSeconds;
 	private static readonly Lock _cacheLock = new();
 	private static readonly Dictionary<string, ExtensionCacheEntry> _extensionsByItemType = new(StringComparer.OrdinalIgnoreCase);
 
@@ -227,7 +227,7 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 			_extensionsByItemType.Remove(oldestItemType);
 		}
 
-		_extensionsByItemType[itemType] = new(extensions, timestamp + RegistrationCacheLifetimeTicks);
+		_extensionsByItemType[itemType] = new(extensions, timestamp + _registrationCacheLifetimeTicks);
 	}
 
 	private static void RemoveExpiredCacheEntries(long timestamp)
@@ -236,58 +236,6 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 		foreach (var itemType in expiredItemTypes)
 		{
 			_extensionsByItemType.Remove(itemType);
-		}
-	}
-
-	private sealed class MutableExtensionGroup
-	{
-		private readonly List<WindowsFileExplorerAppExtensionRegistration> _registrations = [];
-
-		public string PackageFullName { get; }
-		public string DisplayName { get; private set; }
-		public string? LogoPath { get; private set; }
-		public bool? IsL1Default { get; private set; }
-
-		public MutableExtensionGroup(WindowsFileExplorerAppExtensionGroup extension)
-		{
-			PackageFullName = extension.PackageFullName;
-			DisplayName = extension.DisplayName;
-			LogoPath = extension.LogoPath;
-			IsL1Default = extension.IsL1Default;
-		}
-
-		public void MergeMetadata(WindowsFileExplorerAppExtensionGroup extension)
-		{
-			if (string.IsNullOrWhiteSpace(DisplayName))
-			{
-				DisplayName = extension.DisplayName;
-			}
-
-			if (string.IsNullOrWhiteSpace(LogoPath))
-			{
-				LogoPath = extension.LogoPath;
-			}
-
-			if (IsL1Default is null)
-			{
-				IsL1Default = extension.IsL1Default;
-			}
-		}
-
-		public void AppendUniqueRegistrations(IEnumerable<WindowsFileExplorerAppExtensionRegistration> registrations, HashSet<(Guid ClassId, string VerbId)> identifiers)
-		{
-			foreach (var registration in registrations)
-			{
-				if (identifiers.Add((registration.ClassId, registration.VerbId)))
-				{
-					_registrations.Add(registration);
-				}
-			}
-		}
-
-		public WindowsFileExplorerAppExtensionGroup ToExtensionGroup()
-		{
-			return new(PackageFullName, DisplayName, LogoPath, IsL1Default, _registrations.ToArray());
 		}
 	}
 
@@ -546,6 +494,58 @@ internal static class WindowsFileExplorerAppExtensionCatalog
 			verbs = null;
 
 			return false;
+		}
+	}
+
+	private sealed class MutableExtensionGroup
+	{
+		private readonly List<WindowsFileExplorerAppExtensionRegistration> _registrations = [];
+
+		public string PackageFullName { get; }
+		public string DisplayName { get; private set; }
+		public string? LogoPath { get; private set; }
+		public bool? IsL1Default { get; private set; }
+
+		public MutableExtensionGroup(WindowsFileExplorerAppExtensionGroup extension)
+		{
+			PackageFullName = extension.PackageFullName;
+			DisplayName = extension.DisplayName;
+			LogoPath = extension.LogoPath;
+			IsL1Default = extension.IsL1Default;
+		}
+
+		public void MergeMetadata(WindowsFileExplorerAppExtensionGroup extension)
+		{
+			if (string.IsNullOrWhiteSpace(DisplayName))
+			{
+				DisplayName = extension.DisplayName;
+			}
+
+			if (string.IsNullOrWhiteSpace(LogoPath))
+			{
+				LogoPath = extension.LogoPath;
+			}
+
+			if (IsL1Default is null)
+			{
+				IsL1Default = extension.IsL1Default;
+			}
+		}
+
+		public void AppendUniqueRegistrations(IEnumerable<WindowsFileExplorerAppExtensionRegistration> registrations, HashSet<(Guid ClassId, string VerbId)> identifiers)
+		{
+			foreach (var registration in registrations)
+			{
+				if (identifiers.Add((registration.ClassId, registration.VerbId)))
+				{
+					_registrations.Add(registration);
+				}
+			}
+		}
+
+		public WindowsFileExplorerAppExtensionGroup ToExtensionGroup()
+		{
+			return new(PackageFullName, DisplayName, LogoPath, IsL1Default, _registrations.ToArray());
 		}
 	}
 

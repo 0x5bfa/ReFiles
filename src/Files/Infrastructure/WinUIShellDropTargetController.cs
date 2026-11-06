@@ -43,6 +43,18 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 		_logger = logger ?? NullLogger<WinUIShellDropTargetController>.Instance;
 	}
 
+	public void Dispose()
+	{
+		if (_isDisposed)
+		{
+			return;
+		}
+
+		_isDisposed = true;
+		_eventGeneration++;
+		ResetTransferState();
+	}
+
 	internal Task DragEnterAsync(DragEventArgs args, WinUIShellDropTargetLocation target, WinUIShellDropTargetLocation? fallback = null)
 	{
 		return UpdateAsync(args, target, fallback, false);
@@ -86,6 +98,7 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			{
 				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Drop allowed={dragState.AllowedEffects} effect={effect}");
 			}
+
 			if (generation == _eventGeneration)
 			{
 				args.AcceptedOperation = WinUIDataObjectBridge.ToDataPackageOperation(effect);
@@ -115,18 +128,6 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			return;
 		}
 
-		_eventGeneration++;
-		ResetTransferState();
-	}
-
-	public void Dispose()
-	{
-		if (_isDisposed)
-		{
-			return;
-		}
-
-		_isDisposed = true;
 		_eventGeneration++;
 		ResetTransferState();
 	}
@@ -192,6 +193,7 @@ internal sealed partial class WinUIShellDropTargetController : IDisposable
 			{
 				_logger.LogDebug("{Component}: {Message}", "ShellDropTarget", $"Drag feedback failed: {exception.Message}");
 			}
+
 			ResetTransferState();
 		}
 		finally

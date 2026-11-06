@@ -371,45 +371,6 @@ public sealed class WindowsStorageOperationTests
 		}
 	}
 
-	private sealed class InlineProgress<T> : IProgress<T>
-	{
-		private readonly Action<T> report;
-
-		public InlineProgress(Action<T> report)
-		{
-			ArgumentNullException.ThrowIfNull(report);
-
-			this.report = report;
-		}
-
-		public void Report(T value)
-		{
-			report(value);
-		}
-	}
-
-	private sealed class DecisionOperationControl(StorageOperationInterruptionResponse response) : IStorageOperationControl
-	{
-		public List<StorageOperationInterruption> Interruptions { get; } = [];
-
-		public bool IsPauseRequested => false;
-
-		public void AcknowledgePauseState(bool isPaused)
-		{
-		}
-
-		public void AcknowledgeCancellationRequest()
-		{
-		}
-
-		public ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
-		{
-			Interruptions.Add(interruption);
-
-			return ValueTask.FromResult(response);
-		}
-	}
-
 	private static async ValueTask<StorableReference> ResolveReferenceAsync(WindowsStorageSource source, string path)
 	{
 		var item = (IWindowsStorable)await source.ResolveAsync(new StorageAddress(WindowsStorageSource.FileAddressScheme, path));
@@ -437,6 +398,45 @@ public sealed class WindowsStorageOperationTests
 		if (process.ExitCode is not 0)
 		{
 			throw new IOException($"Could not create the test hard link: {error}");
+		}
+	}
+
+	private sealed class InlineProgress<T> : IProgress<T>
+	{
+		private readonly Action<T> _report;
+
+		public InlineProgress(Action<T> report)
+		{
+			ArgumentNullException.ThrowIfNull(report);
+
+			this._report = report;
+		}
+
+		public void Report(T value)
+		{
+			_report(value);
+		}
+	}
+
+	private sealed class DecisionOperationControl(StorageOperationInterruptionResponse response) : IStorageOperationControl
+	{
+		public List<StorageOperationInterruption> Interruptions { get; } = [];
+
+		public bool IsPauseRequested => false;
+
+		public void AcknowledgePauseState(bool isPaused)
+		{
+		}
+
+		public void AcknowledgeCancellationRequest()
+		{
+		}
+
+		public ValueTask<StorageOperationInterruptionResponse> RequestInterruptionAsync(StorageOperationInterruption interruption, CancellationToken cancellationToken)
+		{
+			Interruptions.Add(interruption);
+
+			return ValueTask.FromResult(response);
 		}
 	}
 }

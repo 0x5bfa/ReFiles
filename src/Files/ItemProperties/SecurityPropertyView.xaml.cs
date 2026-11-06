@@ -117,12 +117,12 @@ internal sealed partial class SecurityPrincipalViewModel : INotifyPropertyChange
 
 	internal WindowsShellSecurityPrincipal Principal { get; }
 
-	public event PropertyChangedEventHandler? PropertyChanged;
-
 	internal SecurityPrincipalViewModel(WindowsShellSecurityPrincipal principal)
 	{
 		Principal = principal;
 	}
+
+	public event PropertyChangedEventHandler? PropertyChanged;
 
 	internal async Task LoadIconAsync()
 	{

@@ -7,6 +7,11 @@ using Files.Core.Storage;
 
 namespace Files.Benchmarks;
 
+internal interface IBenchmarkCapability : ICapability
+{
+	string Value { get; }
+}
+
 /// <summary>
 /// Measures cold and cached item-capability resolution performance.
 /// </summary>
@@ -81,11 +86,6 @@ public class CapabilityResolutionBenchmarks
 	{
 		return _cachedCapabilities.Get<IBenchmarkCapability>()!.Value;
 	}
-}
-
-internal interface IBenchmarkCapability : ICapability
-{
-	string Value { get; }
 }
 
 internal sealed class BenchmarkCapability : IBenchmarkCapability

@@ -12,15 +12,15 @@ internal sealed class ServerFtpCredentialResolver(FtpCredential credential) : IF
 	private FtpCredential _credential = credential;
 	internal FtpCredential Credential => Volatile.Read(ref _credential);
 
-	internal void Update(FtpCredential credential)
-	{
-		Volatile.Write(ref _credential, credential);
-	}
-
 	public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 
 		return ValueTask.FromResult<FtpCredential?>(Credential);
+	}
+
+	internal void Update(FtpCredential credential)
+	{
+		Volatile.Write(ref _credential, credential);
 	}
 }

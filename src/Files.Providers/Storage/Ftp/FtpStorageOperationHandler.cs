@@ -376,7 +376,7 @@ public sealed class FtpStorageOperationHandler :
 	private async ValueTask<FtpPath> ResolveDestinationPathAsync(FtpPath parentPath, string desiredName, StorageConflictBehavior conflictBehavior, CancellationToken cancellationToken)
 	{
 		var desiredPath = parentPath.Combine(desiredName);
-		if (await _source.Resolver .TryResolveAsync(desiredPath, cancellationToken) .ConfigureAwait(false) is null)
+		if (await _source.Resolver.TryResolveAsync(desiredPath, cancellationToken).ConfigureAwait(false) is null)
 		{
 			return desiredPath;
 		}
@@ -392,7 +392,7 @@ public sealed class FtpStorageOperationHandler :
 			cancellationToken.ThrowIfCancellationRequested();
 
 			var candidate = parentPath.Combine($"{baseName} ({index}){extension}");
-			if (await _source.Resolver .TryResolveAsync(candidate, cancellationToken) .ConfigureAwait(false) is null)
+			if (await _source.Resolver.TryResolveAsync(candidate, cancellationToken).ConfigureAwait(false) is null)
 			{
 				return candidate;
 			}
@@ -403,7 +403,7 @@ public sealed class FtpStorageOperationHandler :
 
 	private async ValueTask EnsureDoesNotExistAsync(FtpPath path, CancellationToken cancellationToken)
 	{
-		if (await _source.Resolver .TryResolveAsync(path, cancellationToken) .ConfigureAwait(false) is not null)
+		if (await _source.Resolver.TryResolveAsync(path, cancellationToken).ConfigureAwait(false) is not null)
 		{
 			throw new IOException($"An item named '{path.Name}' already exists.");
 		}

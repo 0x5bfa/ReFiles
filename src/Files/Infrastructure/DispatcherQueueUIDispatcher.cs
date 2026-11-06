@@ -7,15 +7,15 @@ namespace Files.Infrastructure;
 
 public sealed class DispatcherQueueUIDispatcher : IUIDispatcher
 {
-	private readonly DispatcherQueue dispatcherQueue;
+	private readonly DispatcherQueue _dispatcherQueue;
 
-	public bool HasThreadAccess => dispatcherQueue.HasThreadAccess;
+	public bool HasThreadAccess => _dispatcherQueue.HasThreadAccess;
 
 	public DispatcherQueueUIDispatcher(DispatcherQueue dispatcherQueue)
 	{
 		ArgumentNullException.ThrowIfNull(dispatcherQueue);
 
-		this.dispatcherQueue = dispatcherQueue;
+		this._dispatcherQueue = dispatcherQueue;
 	}
 
 	public bool TryEnqueue(Action callback)
@@ -27,6 +27,6 @@ public sealed class DispatcherQueueUIDispatcher : IUIDispatcher
 	{
 		ArgumentNullException.ThrowIfNull(callback);
 
-		return dispatcherQueue.TryEnqueue(priority, () => callback());
+		return _dispatcherQueue.TryEnqueue(priority, () => callback());
 	}
 }

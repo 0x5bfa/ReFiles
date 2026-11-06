@@ -73,20 +73,6 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 
 	private FolderViewMode _viewMode = FolderViewMode.Details;
 
-	internal long Generation => _pane.BrowseSession.Generation;
-
-	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
-
-	internal WindowCommandManager CommandManager { get; }
-
-	internal IUIDispatcher Dispatcher => _dispatcher;
-
-	internal nint OwnerWindowHandle => _ownerWindowHandle;
-
-	internal ILoggerFactory LoggerFactory => _loggerFactory;
-
-	internal bool CanShowShellContextMenu => _interaction.CanShowShellContextMenu;
-
 	public BulkObservableCollection<BrowseItemViewModel> Items { get; } = [];
 
 	public BulkObservableCollection<BrowseItemGroupViewModel> ItemGroups { get; } = [];
@@ -144,14 +130,6 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 
 	public bool CanSearch => _pane.CanSearch;
 
-	internal bool SupportsItemSelection => Location is not null and not HomeLocation;
-
-	internal bool CanSelectAllItems => SupportsItemSelection && !IsBusy && Items.Count > SelectedKeys.Count;
-
-	internal bool CanInvertItemSelection => SupportsItemSelection && !IsBusy && Items.Count is not 0;
-
-	internal bool CanClearItemSelection => SupportsItemSelection && !IsBusy && SelectedKeys.Count is not 0;
-
 	public string LocationText => _browseAdapter.LocationText;
 
 	public string SearchText => Location is SearchLocation search ? search.Query : string.Empty;
@@ -180,7 +158,27 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 
 	public string StatusText => _browseAdapter.StatusText;
 
-	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
+	internal long Generation => _pane.BrowseSession.Generation;
+
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
+
+	internal WindowCommandManager CommandManager { get; }
+
+	internal IUIDispatcher Dispatcher => _dispatcher;
+
+	internal nint OwnerWindowHandle => _ownerWindowHandle;
+
+	internal ILoggerFactory LoggerFactory => _loggerFactory;
+
+	internal bool CanShowShellContextMenu => _interaction.CanShowShellContextMenu;
+
+	internal bool SupportsItemSelection => Location is not null and not HomeLocation;
+
+	internal bool CanSelectAllItems => SupportsItemSelection && !IsBusy && Items.Count > SelectedKeys.Count;
+
+	internal bool CanInvertItemSelection => SupportsItemSelection && !IsBusy && Items.Count is not 0;
+
+	internal bool CanClearItemSelection => SupportsItemSelection && !IsBusy && SelectedKeys.Count is not 0;
 
 	internal FolderBrowserViewModel(IBrowsePaneSession pane, BrowsePresentationAdapter adapter, IBrowseInteraction interaction,
 		AppSettingsService appSettings, IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
@@ -215,6 +213,8 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		RefreshLocationIcon();
 	}
 
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
+
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
 		await ApplyDisplaySettingsAsync(cancellationToken).ConfigureAwait(false);
@@ -242,11 +242,6 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _browseAdapter.NavigateToReferenceAsync(reference, cancellationToken);
 	}
 
-	internal ValueTask<BrowseLocation?> GetItemLocationAsync(StorableReference reference, CancellationToken cancellationToken)
-	{
-		return _pane.GetItemLocationAsync(reference, cancellationToken);
-	}
-
 	public Task SearchAsync(string query, CancellationToken cancellationToken = default)
 	{
 		return _pane.SearchAsync(query, cancellationToken, _ownerWindowHandle).AsTask();
@@ -272,34 +267,6 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _browseAdapter.RefreshAsync(cancellationToken);
 	}
 
-	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(location);
-
-		return _browseAdapter.NavigateToLocationAsync(location, cancellationToken);
-	}
-
-	internal async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbItemsAsync(CancellationToken cancellationToken = default)
-	{
-		var navigation = _pane.Navigation ?? throw new InvalidOperationException("Browse navigation services are not configured.");
-		var entries = (await navigation.GetBreadcrumbsAsync(cancellationToken).ConfigureAwait(false)).ToList();
-		if (entries.Count > 0 && entries[0].Location is FolderLocation first && await _interaction.IsShellDesktopAsync(first.Folder, cancellationToken).ConfigureAwait(false))
-		{
-			entries.RemoveAt(0);
-		}
-
-		return entries.Select(ToBreadcrumbItem).ToArray();
-	}
-
-	internal async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbChildrenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
-	{
-		var navigation = _pane.Navigation ?? throw new InvalidOperationException("Browse navigation services are not configured.");
-		var entries = await navigation.GetChildrenAsync(location, cancellationToken).ConfigureAwait(false);
-
-		return entries.Select(ToBreadcrumbItem).ToArray();
-	}
-
-
 	public void UpdateViewport(BrowseViewport viewport)
 	{
 		_browseAdapter.UpdateViewport(viewport);
@@ -317,34 +284,9 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		SetSelectionCore(selectedItems);
 	}
 
-	internal bool SupportsShellDragDrop(StorableReference reference)
-	{
-		return _interaction.SupportsShellDragDrop(reference);
-	}
-
-	internal Task<IWindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
-	{
-		return _interaction.PrepareShellDragSourceAsync(selection, cancellationToken);
-	}
-
-	internal IWindowsShellDataTransfer CaptureDataTransfer(global::Windows.ApplicationModel.DataTransfer.DataPackageView view)
-	{
-		return _interaction.CaptureDataTransfer(view);
-	}
-
-	internal Task<IWindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
-	{
-		return _interaction.PrepareShellDropTargetAsync(destination, background, cancellationToken);
-	}
-
 	public Task CopySelectionAsync(bool move, CancellationToken cancellationToken = default)
 	{
 		return _interaction.CopySelectionAsync(move, cancellationToken);
-	}
-
-	internal Task CopyItemsAsync(IReadOnlyList<StorableReference> selection, bool move, CancellationToken cancellationToken)
-	{
-		return _interaction.CopyItemsAsync(selection, move, cancellationToken);
 	}
 
 	public Task PasteFromClipboardAsync(CancellationToken cancellationToken = default)
@@ -362,84 +304,9 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		return _interaction.InvokeNewItemAsync(item, cancellationToken);
 	}
 
-	internal Task<IWindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<BrowseItemViewModel> selection,
-		IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries, WindowsShellContextMenuEntry? expandedMenuEntry, Point clientPoint,
-		double rasterizationScale, bool extendedVerbs, CancellationToken cancellationToken)
-	{
-		return _interaction.CreateShellContextMenuAsync(selection.Select(static item => item.Reference).ToArray(), applicationEntries, expandedMenuEntry, clientPoint,
-			rasterizationScale, extendedVerbs, cancellationToken);
-	}
-
-	internal CommandState GetContextualCommandState(string commandId, bool hideWhenShellDisabled)
-	{
-		return _interaction.GetContextualCommandState(commandId, hideWhenShellDisabled);
-	}
-
-	internal Task<bool> InvokeContextualCommandAsync(string commandId, CancellationToken cancellationToken = default)
-	{
-		return _interaction.InvokeContextualCommandAsync(commandId, cancellationToken);
-	}
-
-	internal Task<bool> ShowShellPropertiesAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
-	{
-		return _interaction.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
-	}
-
-	internal Task<IWindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
-	{
-		return _interaction.GetShellContextMenuTargetAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
-	}
-
-	internal bool ShowShellContextMenu(IWindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
-	{
-		return _interaction.ShowShellContextMenu(target, clientPoint, rasterizationScale);
-	}
-
-	internal void SelectAllItems()
-	{
-		if (!CanSelectAllItems)
-		{
-			return;
-		}
-
-		SetSelectionCore(Items);
-	}
-
-	internal void InvertItemSelection()
-	{
-		if (!CanInvertItemSelection)
-		{
-			return;
-		}
-
-		var selectedKeys = SelectedKeys.ToHashSet();
-		SetSelectionCore(Items.Where(item => !selectedKeys.Contains(item.Reference.GetKey())));
-	}
-
-	internal void ClearItemSelection()
-	{
-		if (!CanClearItemSelection)
-		{
-			return;
-		}
-
-		SetSelectionCore([]);
-	}
-
 	public Task DeleteSelectionAsync(CancellationToken cancellationToken = default)
 	{
 		return DeleteItemsAsync(SelectedItems.Select(static item => item.Reference).ToArray(), cancellationToken);
-	}
-
-	internal async Task DeleteItemsAsync(IReadOnlyList<StorableReference> references, CancellationToken cancellationToken)
-	{
-		var result = await _pane.DeleteItemsAsync(references, cancellationToken).ConfigureAwait(false);
-		if (!result.Succeeded)
-		{
-			throw result.Error!;
-		}
-
-		await RefreshAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task SetViewModeAsync(FolderViewMode mode, CancellationToken cancellationToken = default)
@@ -541,13 +408,144 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 		}
 	}
 
+	internal ValueTask<BrowseLocation?> GetItemLocationAsync(StorableReference reference, CancellationToken cancellationToken)
+	{
+		return _pane.GetItemLocationAsync(reference, cancellationToken);
+	}
+
+	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(location);
+
+		return _browseAdapter.NavigateToLocationAsync(location, cancellationToken);
+	}
+
+	internal async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbItemsAsync(CancellationToken cancellationToken = default)
+	{
+		var navigation = _pane.Navigation ?? throw new InvalidOperationException("Browse navigation services are not configured.");
+		var entries = (await navigation.GetBreadcrumbsAsync(cancellationToken).ConfigureAwait(false)).ToList();
+		if (entries.Count > 0 && entries[0].Location is FolderLocation first && await _interaction.IsShellDesktopAsync(first.Folder, cancellationToken).ConfigureAwait(false))
+		{
+			entries.RemoveAt(0);
+		}
+
+		return entries.Select(ToBreadcrumbItem).ToArray();
+	}
+
+	internal async Task<IReadOnlyList<NavigationToolbarBreadcrumbItem>> GetBreadcrumbChildrenAsync(BrowseLocation location, CancellationToken cancellationToken = default)
+	{
+		var navigation = _pane.Navigation ?? throw new InvalidOperationException("Browse navigation services are not configured.");
+		var entries = await navigation.GetChildrenAsync(location, cancellationToken).ConfigureAwait(false);
+
+		return entries.Select(ToBreadcrumbItem).ToArray();
+	}
+
+	internal bool SupportsShellDragDrop(StorableReference reference)
+	{
+		return _interaction.SupportsShellDragDrop(reference);
+	}
+
+	internal Task<IWindowsShellDragSource?> PrepareShellDragSourceAsync(IReadOnlyList<StorableReference> selection, CancellationToken cancellationToken)
+	{
+		return _interaction.PrepareShellDragSourceAsync(selection, cancellationToken);
+	}
+
+	internal IWindowsShellDataTransfer CaptureDataTransfer(global::Windows.ApplicationModel.DataTransfer.DataPackageView view)
+	{
+		return _interaction.CaptureDataTransfer(view);
+	}
+
+	internal Task<IWindowsShellDropTarget?> PrepareShellDropTargetAsync(StorableReference destination, bool background, CancellationToken cancellationToken)
+	{
+		return _interaction.PrepareShellDropTargetAsync(destination, background, cancellationToken);
+	}
+
+	internal Task CopyItemsAsync(IReadOnlyList<StorableReference> selection, bool move, CancellationToken cancellationToken)
+	{
+		return _interaction.CopyItemsAsync(selection, move, cancellationToken);
+	}
+
+	internal Task<IWindowsShellContextMenuSession?> CreateShellContextMenuAsync(IReadOnlyList<BrowseItemViewModel> selection,
+		IReadOnlyList<WindowsShellContextMenuEntry> applicationEntries, WindowsShellContextMenuEntry? expandedMenuEntry, Point clientPoint,
+		double rasterizationScale, bool extendedVerbs, CancellationToken cancellationToken)
+	{
+		return _interaction.CreateShellContextMenuAsync(selection.Select(static item => item.Reference).ToArray(), applicationEntries, expandedMenuEntry, clientPoint,
+			rasterizationScale, extendedVerbs, cancellationToken);
+	}
+
+	internal CommandState GetContextualCommandState(string commandId, bool hideWhenShellDisabled)
+	{
+		return _interaction.GetContextualCommandState(commandId, hideWhenShellDisabled);
+	}
+
+	internal Task<bool> InvokeContextualCommandAsync(string commandId, CancellationToken cancellationToken = default)
+	{
+		return _interaction.InvokeContextualCommandAsync(commandId, cancellationToken);
+	}
+
+	internal Task<bool> ShowShellPropertiesAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	{
+		return _interaction.ShowShellPropertiesAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+	}
+
+	internal Task<IWindowsShellContextMenuTarget?> GetShellContextMenuTargetAsync(IReadOnlyList<BrowseItemViewModel> selection, CancellationToken cancellationToken = default)
+	{
+		return _interaction.GetShellContextMenuTargetAsync(selection.Select(static item => item.Reference).ToArray(), cancellationToken);
+	}
+
+	internal bool ShowShellContextMenu(IWindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
+	{
+		return _interaction.ShowShellContextMenu(target, clientPoint, rasterizationScale);
+	}
+
+	internal void SelectAllItems()
+	{
+		if (!CanSelectAllItems)
+		{
+			return;
+		}
+
+		SetSelectionCore(Items);
+	}
+
+	internal void InvertItemSelection()
+	{
+		if (!CanInvertItemSelection)
+		{
+			return;
+		}
+
+		var selectedKeys = SelectedKeys.ToHashSet();
+		SetSelectionCore(Items.Where(item => !selectedKeys.Contains(item.Reference.GetKey())));
+	}
+
+	internal void ClearItemSelection()
+	{
+		if (!CanClearItemSelection)
+		{
+			return;
+		}
+
+		SetSelectionCore([]);
+	}
+
+	internal async Task DeleteItemsAsync(IReadOnlyList<StorableReference> references, CancellationToken cancellationToken)
+	{
+		var result = await _pane.DeleteItemsAsync(references, cancellationToken).ConfigureAwait(false);
+		if (!result.Succeeded)
+		{
+			throw result.Error!;
+		}
+
+		await RefreshAsync(cancellationToken).ConfigureAwait(false);
+	}
+
 	private NavigationToolbarBreadcrumbItem ToBreadcrumbItem(BrowseNavigationEntry entry)
 	{
 		var text = entry.Location is HomeLocation ? Strings.Home.GetLocalized() : string.IsNullOrEmpty(entry.Text) ? LocationDisplayName : entry.Text;
 
 		return new NavigationToolbarBreadcrumbItem(text, entry.Location, entry.HasChildren, entry.Thumbnail, entry.Location is FolderLocation folder && SupportsShellDragDrop(folder.Folder));
 	}
-
 
 	private async void AppSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 	{
@@ -641,6 +639,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 						$"Applying changes={args.ItemChanges.Count} replace={shouldReplaceItems} before={itemCountBefore} loadingBefore={wasLoading} loadingAfter={_browseAdapter.IsLoading}"
 					);
 				}
+
 				if (shouldReplaceItems)
 				{
 					var replaceStartTimestamp = Stopwatch.GetTimestamp();
@@ -943,6 +942,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 			{
 				ItemGroups.Clear();
 			}
+
 			if (ReferenceEquals(_itemsViewSource.Source, Items))
 			{
 				return;
@@ -1056,6 +1056,7 @@ public sealed partial class FolderBrowserViewModel : ObservableObject, IDisposab
 							$"Applied range index={firstAdded.Index} count={addedItems.Count} append={firstAdded.Index == Items.Count - addedItems.Count}"
 						);
 					}
+
 					changeIndex = nextChangeIndex;
 
 					continue;

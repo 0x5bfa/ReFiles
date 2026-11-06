@@ -10,24 +10,22 @@ using Files.Localization;
 
 namespace Files.ViewModels;
 
-internal static class BrowseDisplayPropertyIds
+internal enum BrowseItemGroupKind
 {
-	public const string Name = "System.ItemNameDisplay";
-	public const string DateModified = "System.DateModified";
-	public const string DateCreated = "System.DateCreated";
-	public const string Size = "System.Size";
-	public const string Type = "System.ItemTypeText";
+	Normal,
+	Folder,
+	Missing,
 }
 
 public sealed partial class BrowseItemGroupViewModel : ObservableCollection<BrowseItemViewModel>
 {
-	internal BrowseItemGroupKind Kind { get; }
-
-	internal object SortValue { get; }
-
 	public string Title { get; }
 
 	public string CountText { get; }
+
+	internal BrowseItemGroupKind Kind { get; }
+
+	internal object SortValue { get; }
 
 	internal BrowseItemGroupViewModel(string title, string countText, BrowseItemGroupKind kind, object sortValue, IEnumerable<BrowseItemViewModel> items)
 		: base(items)
@@ -39,11 +37,13 @@ public sealed partial class BrowseItemGroupViewModel : ObservableCollection<Brow
 	}
 }
 
-internal enum BrowseItemGroupKind
+internal static class BrowseDisplayPropertyIds
 {
-	Normal,
-	Folder,
-	Missing,
+	public const string Name = "System.ItemNameDisplay";
+	public const string DateModified = "System.DateModified";
+	public const string DateCreated = "System.DateCreated";
+	public const string Size = "System.Size";
+	public const string Type = "System.ItemTypeText";
 }
 
 internal sealed record BrowseGroupingText(

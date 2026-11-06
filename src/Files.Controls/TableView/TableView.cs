@@ -44,19 +44,6 @@ public sealed partial class TableView : Control
 		Unloaded += TableView_Unloaded;
 	}
 
-	protected override void OnApplyTemplate()
-	{
-		_columnHeadersPresenter?.Detach(this);
-
-		base.OnApplyTemplate();
-		_columnHeadersPresenter = GetTemplateChild(PartColumnHeadersPresenter) as TableViewColumnHeadersPresenter;
-		_headerScrollViewer = GetTemplateChild(PartHeaderScrollViewer) as ScrollViewer;
-		_rowsHostPresenter = GetTemplateChild(PartRowsHostPresenter) as ContentPresenter;
-		_columnHeadersPresenter?.Attach(this);
-		AttachRowsHost(RowsHost);
-		RefreshColumnLayout();
-	}
-
 	internal void RequestSort(ITableViewColumn column)
 	{
 		if (!CanUserSortColumns || !column.CanSort)
@@ -201,6 +188,19 @@ public sealed partial class TableView : Control
 		{
 			flyout.ShowAt(anchor);
 		}
+	}
+
+	protected override void OnApplyTemplate()
+	{
+		_columnHeadersPresenter?.Detach(this);
+
+		base.OnApplyTemplate();
+		_columnHeadersPresenter = GetTemplateChild(PartColumnHeadersPresenter) as TableViewColumnHeadersPresenter;
+		_headerScrollViewer = GetTemplateChild(PartHeaderScrollViewer) as ScrollViewer;
+		_rowsHostPresenter = GetTemplateChild(PartRowsHostPresenter) as ContentPresenter;
+		_columnHeadersPresenter?.Attach(this);
+		AttachRowsHost(RowsHost);
+		RefreshColumnLayout();
 	}
 
 	private void TableView_Loaded(object sender, RoutedEventArgs e)

@@ -18,6 +18,33 @@ public interface IBrowsePaneSession : IPaneContentSession, ISplittablePaneConten
 	/// <summary>Gets whether the current selection can be deleted.</summary>
 	bool CanDeleteSelection { get; }
 
+	/// <summary>Gets the browse state owned by this content session.</summary>
+	IBrowseSession BrowseSession { get; }
+
+	/// <summary>Gets the preview state owned by this content session.</summary>
+	IBrowsePreviewModel Preview { get; }
+
+	/// <summary>Gets the scoped navigation hierarchy, when application services are configured.</summary>
+	IBrowseNavigationModel? Navigation { get; }
+
+	/// <summary>Gets the navigation history.</summary>
+	IBrowseNavigationHistory History { get; }
+
+	/// <summary>Gets the current browse location.</summary>
+	BrowseLocation? Location { get; }
+
+	/// <summary>Gets a value indicating whether backward navigation is available.</summary>
+	bool CanGoBack { get; }
+
+	/// <summary>Gets a value indicating whether forward navigation is available.</summary>
+	bool CanGoForward { get; }
+
+	/// <summary>Gets a value indicating whether parent navigation is available.</summary>
+	bool CanGoUp { get; }
+
+	/// <summary>Occurs when navigation, history, or preview state changes.</summary>
+	event EventHandler? NavigationStateChanged;
+
 	/// <summary>Navigates to a folder resolved from an address.</summary>
 	/// <param name="address">The address to resolve.</param>
 	/// <param name="cancellationToken">The cancellation token.</param>
@@ -71,33 +98,6 @@ public interface IBrowsePaneSession : IPaneContentSession, ISplittablePaneConten
 	/// <param name="cancellationToken">Cancels acceptance or observation according to the job boundary.</param>
 	/// <returns>The transfer result, including acknowledged effects.</returns>
 	ValueTask<StorageOperationResult> TransferItemsAsync(IReadOnlyList<StorageItemLocator> sources, StorableReference destination, bool move = false, CancellationToken cancellationToken = default);
-
-	/// <summary>Gets the browse state owned by this content session.</summary>
-	IBrowseSession BrowseSession { get; }
-
-	/// <summary>Gets the preview state owned by this content session.</summary>
-	IBrowsePreviewModel Preview { get; }
-
-	/// <summary>Gets the scoped navigation hierarchy, when application services are configured.</summary>
-	IBrowseNavigationModel? Navigation { get; }
-
-	/// <summary>Gets the navigation history.</summary>
-	IBrowseNavigationHistory History { get; }
-
-	/// <summary>Gets the current browse location.</summary>
-	BrowseLocation? Location { get; }
-
-	/// <summary>Gets a value indicating whether backward navigation is available.</summary>
-	bool CanGoBack { get; }
-
-	/// <summary>Gets a value indicating whether forward navigation is available.</summary>
-	bool CanGoForward { get; }
-
-	/// <summary>Gets a value indicating whether parent navigation is available.</summary>
-	bool CanGoUp { get; }
-
-	/// <summary>Occurs when navigation, history, or preview state changes.</summary>
-	event EventHandler? NavigationStateChanged;
 
 	/// <summary>Navigates to a location and commits it to history.</summary>
 	/// <param name="location">The target location.</param>

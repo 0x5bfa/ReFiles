@@ -12,14 +12,6 @@ using Windows.Win32.UI.Shell.PropertiesSystem;
 
 namespace Windows.Win32.UI.Shell;
 
-[StructLayout(LayoutKind.Sequential)]
-internal struct ITEMKEY
-{
-	internal int Index;
-
-	internal uint Generation;
-}
-
 [Flags]
 internal enum ITEM_FLAGS : uint
 {
@@ -156,4 +148,12 @@ internal partial interface IItemStore
 	/// <returns>The HRESULT returned by the store.</returns>
 	[PreserveSig]
 	HRESULT GetUnrealizedItem(in ITEMKEY itemKey, in Guid interfaceId, [MarshalAs(UnmanagedType.Interface)] out object? item);
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct ITEMKEY
+{
+	internal int Index;
+
+	internal uint Generation;
 }

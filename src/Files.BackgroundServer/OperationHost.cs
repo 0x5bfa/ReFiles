@@ -246,9 +246,16 @@ internal sealed class OperationHost(ServerLifetime lifetime)
 			}
 
 			entry.Decision = new TaskCompletionSource<StorageOperationInterruptionResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-			entry.Summary.Interruption = new OperationInterruptionData { Id = Guid.NewGuid(), Kind = (int)interruption.Kind, AvailableResponses = (uint)interruption.AvailableResponses,
-				ErrorCode = interruption.ErrorCode, ItemName = interruption.ItemName ?? string.Empty, DestinationPath = interruption.DestinationPath ?? string.Empty,
-				CanApplyToAll = interruption.CanApplyToAll };
+			entry.Summary.Interruption = new OperationInterruptionData
+			{
+				Id = Guid.NewGuid(),
+				Kind = (int)interruption.Kind,
+				AvailableResponses = (uint)interruption.AvailableResponses,
+				ErrorCode = interruption.ErrorCode,
+				ItemName = interruption.ItemName ?? string.Empty,
+				DestinationPath = interruption.DestinationPath ?? string.Empty,
+				CanApplyToAll = interruption.CanApplyToAll
+			};
 			entry.Summary.HasInterruption = true;
 			entry.Summary.IsPauseRequested = false;
 			entry.Summary.State = OperationState.WaitingForUser;

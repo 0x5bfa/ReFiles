@@ -25,6 +25,30 @@ namespace Files.Controls
 		[GeneratedDependencyProperty(DefaultValue = 89.9d)]
 		public partial double PercentCritical { get; set; }
 
+		/// <inheritdoc/>
+		protected override void OnValueChanged(double oldValue, double newValue)
+		{
+			base.OnValueChanged(oldValue, newValue);
+
+			UpdateValue(Value, _oldValue, false, -1.0);
+		}
+
+		/// <inheritdoc/>
+		protected override void OnMaximumChanged(double oldValue, double newValue)
+		{
+			base.OnMaximumChanged(oldValue, newValue);
+
+			UpdateValue(oldValue, newValue, false, -1.0);
+		}
+
+		/// <inheritdoc/>
+		protected override void OnMinimumChanged(double oldValue, double newValue)
+		{
+			base.OnMinimumChanged(oldValue, newValue);
+
+			UpdateValue(oldValue, newValue, false, -1.0);
+		}
+
 		partial void OnValueBarHeightChanged(double newValue)
 		{
 			UpdateControl();
@@ -53,30 +77,6 @@ namespace Files.Controls
 		partial void OnPercentCriticalChanged(double newValue)
 		{
 			UpdateControl();
-		}
-
-		/// <inheritdoc/>
-		protected override void OnValueChanged(double oldValue, double newValue)
-		{
-			base.OnValueChanged(oldValue, newValue);
-
-			UpdateValue(Value, _oldValue, false, -1.0);
-		}
-
-		/// <inheritdoc/>
-		protected override void OnMaximumChanged(double oldValue, double newValue)
-		{
-			base.OnMaximumChanged(oldValue, newValue);
-
-			UpdateValue(oldValue, newValue, false, -1.0);
-		}
-
-		/// <inheritdoc/>
-		protected override void OnMinimumChanged(double oldValue, double newValue)
-		{
-			base.OnMinimumChanged(oldValue, newValue);
-
-			UpdateValue(oldValue, newValue, false, -1.0);
 		}
 	}
 }

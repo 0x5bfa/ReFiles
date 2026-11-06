@@ -12,7 +12,10 @@ namespace Files.Controls.Primitives
 	/// </summary>
 	public partial class RingShape : Path
 	{
-		#region Fields and Constructors
+
+		// Constants
+
+		private const double DegreesToRadians = Math.PI / 180;
 
 		// Fields
 
@@ -29,10 +32,6 @@ namespace Files.Controls.Primitives
 		private double _radiusHeight;           // The radius Height
 		private SweepDirection _sweepDirection;         // The SweepDirection
 
-		// Constants
-
-		private const double DegreesToRadians = Math.PI / 180;
-
 		// Constructor
 
 		/// <summary>
@@ -44,9 +43,45 @@ namespace Files.Controls.Primitives
 			RegisterPropertyChangedCallback(StrokeThicknessProperty, OnStrokeThicknessChanged);
 		}
 
-		#endregion
+		/// <summary>
+		/// Suspends path updates until EndUpdate is called
+		/// </summary>
+		public void BeginUpdate()
+		{
+			_isUpdating = true;
+		}
 
-		#region PropertyChanged Events
+		/// <summary>
+		/// Resumes immediate path updates every time a component property value changes. Updates the path
+		/// </summary>
+		public void EndUpdate()
+		{
+			_isUpdating = false;
+			UpdatePath();
+		}
+
+		/// <summary>
+		/// Updates sizes, center point and radii
+		/// </summary>
+		/// <param name="d">The DependencyObject calling the function</param>
+		public void UpdateSizeAndStroke(DependencyObject d)
+		{
+			RingShape ringShape = (RingShape)d;
+
+			AdjustRadiusWidth(ringShape, ringShape.RadiusWidth, ringShape.StrokeThickness);
+			AdjustRadiusHeight(ringShape, ringShape.RadiusHeight, ringShape.StrokeThickness);
+
+			_equalSize = CalculateEqualSize(new Size(ringShape.Width, ringShape.Height), ringShape.StrokeThickness);
+			_equalRadius = CalculateEqualRadius(ringShape, ringShape.RadiusWidth, ringShape.RadiusHeight, ringShape.StrokeThickness);
+
+			_centerPoint = new Point(ringShape.Width / 2, ringShape.Height / 2);
+			ringShape.Center = _centerPoint;
+
+			CalculateAndSetNormalizedAngles(ringShape, ringShape.MinAngle, ringShape.MaxAngle);
+
+			ValidateAngle(ringShape, ringShape.StartAngle, true);
+			ValidateAngle(ringShape, ringShape.EndAngle, false);
+		}
 
 		private void StartAngleChanged()
 		{
@@ -109,27 +144,6 @@ namespace Files.Controls.Primitives
 			EndUpdate();
 		}
 
-		#endregion
-
-		#region RingShape Path Updates
-
-		/// <summary>
-		/// Suspends path updates until EndUpdate is called
-		/// </summary>
-		public void BeginUpdate()
-		{
-			_isUpdating = true;
-		}
-
-		/// <summary>
-		/// Resumes immediate path updates every time a component property value changes. Updates the path
-		/// </summary>
-		public void EndUpdate()
-		{
-			_isUpdating = false;
-			UpdatePath();
-		}
-
 		private void UpdatePath()
 		{
 			if (_isUpdating || ActualWidth <= 0 || ActualHeight <= 0 || _radiusWidth <= 0 || _radiusHeight <= 0)
@@ -152,33 +166,6 @@ namespace Files.Controls.Primitives
 				this.InvalidateArrange();
 				this.Data = DrawArc(this, _sweepDirection, _isCircle, _centerPoint, startAngle, endAngle, _equalRadius, _radiusWidth, _radiusHeight);
 			}
-		}
-
-		#endregion
-
-		#region Drawing Updates
-
-		/// <summary>
-		/// Updates sizes, center point and radii
-		/// </summary>
-		/// <param name="d">The DependencyObject calling the function</param>
-		public void UpdateSizeAndStroke(DependencyObject d)
-		{
-			RingShape ringShape = (RingShape)d;
-
-			AdjustRadiusWidth(ringShape, ringShape.RadiusWidth, ringShape.StrokeThickness);
-			AdjustRadiusHeight(ringShape, ringShape.RadiusHeight, ringShape.StrokeThickness);
-
-			_equalSize = CalculateEqualSize(new Size(ringShape.Width, ringShape.Height), ringShape.StrokeThickness);
-			_equalRadius = CalculateEqualRadius(ringShape, ringShape.RadiusWidth, ringShape.RadiusHeight, ringShape.StrokeThickness);
-
-			_centerPoint = new Point(ringShape.Width / 2, ringShape.Height / 2);
-			ringShape.Center = _centerPoint;
-
-			CalculateAndSetNormalizedAngles(ringShape, ringShape.MinAngle, ringShape.MaxAngle);
-
-			ValidateAngle(ringShape, ringShape.StartAngle, true);
-			ValidateAngle(ringShape, ringShape.EndAngle, false);
 		}
 
 		private static EllipseGeometry DrawEllipse(bool IsCircle, Point Center, double EqualRadius, double RadiusWidth, double RadiusHeight)
@@ -228,7 +215,6 @@ namespace Files.Controls.Primitives
 				// Start Point
 				pathFigure.StartPoint = ArcStartPoint(SweepDirection, newCenter, StartAngle, radius, radius);
 
-
 				// Arc Segment and End Point
 				arcSegment = CreateArcSegment(SweepDirection, newCenter, StartAngle, EndAngle, radius, radius);
 			}
@@ -242,7 +228,6 @@ namespace Files.Controls.Primitives
 
 				// Start Point
 				pathFigure.StartPoint = ArcStartPoint(SweepDirection, newCenter, StartAngle, radiusWidth, radiusHeight);
-
 
 				// Arc Segment and End Point
 				arcSegment = CreateArcSegment(SweepDirection, newCenter, StartAngle, EndAngle, radiusWidth, radiusHeight);
@@ -264,6 +249,7 @@ namespace Files.Controls.Primitives
 				finalPoint =
 				new Point(Center.X - Math.Sin(StartAngle * DegreesToRadians) * RadiusWidth, Center.Y - Math.Cos(StartAngle * DegreesToRadians) * RadiusHeight);
 			}
+
 			// Clockwise
 			else
 			{
@@ -295,6 +281,7 @@ namespace Files.Controls.Primitives
 					finalArcSegment.SweepDirection = SweepDirection.Counterclockwise;
 				}
 			}
+
 			// Clockwise
 			else
 			{
@@ -312,14 +299,11 @@ namespace Files.Controls.Primitives
 					finalArcSegment.SweepDirection = SweepDirection.Clockwise;
 				}
 			}
+
 			finalArcSegment.Size = new Size(RadiusWidth, RadiusHeight);
 
 			return finalArcSegment;
 		}
-
-		#endregion
-
-		#region Value Calculations
 
 		private static Size CalculateEqualSize(Size size, double strokeThickness)
 		{
@@ -488,6 +472,5 @@ namespace Files.Controls.Primitives
 			}
 		}
 
-		#endregion
 	}
 }

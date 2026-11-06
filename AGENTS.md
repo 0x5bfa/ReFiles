@@ -54,6 +54,19 @@ These rules are mandatory for new and modified C# code:
 - Order members within each type: constants, fields, properties, constructors, public methods, then private methods. Keep related declarations together.
 - Before completing a C# change, inspect the diff and verify these rules; fix violations instead of suppressing or relaxing them.
 
+## Automated style checks
+
+- `.editorconfig` is the executable source for naming, formatting, and selected StyleCop rules. `EnforceCodeStyleInBuild` makes naming and brace violations fail normal builds; StyleCop is a private build dependency.
+- Before completing a C# change, run the same formatter used by CI from the repository root (set `Platform=x64` in the environment):
+
+```powershell
+$env:Platform = 'x64'
+dotnet format Files.slnx --severity error --diagnostics IDE1006 IDE0011 SA1201 SA1202 SA1203 SA1507 SA1513 SA1611 SA1615 SA1618
+```
+
+- Add `--verify-no-changes` to check without editing. The formatter cannot automatically repair every naming violation; rename symbols with their references and confirm a normal build passes.
+- Generated code is excluded. Rules not covered by the configured analyzers, including the exact 200-character wrapping and blank-before-return conventions, still require diff review. Do not suppress violations in handwritten code to make CI pass.
+
 ## Licensing
 
 - Prefer MPL-2.0 for new or modified code.

@@ -37,6 +37,31 @@ namespace Files.Controls
 		[GeneratedDependencyProperty(DefaultValue = 16.0d)]
 		public partial double AdjustedSize { get; set; }
 
+		/// <inheritdoc/>
+		protected override void OnValueChanged(double oldValue, double newValue)
+		{
+			base.OnValueChanged(oldValue, newValue);
+
+			UpdateValues(newValue, oldValue, false, -1.0);
+			UpdateRings();
+		}
+
+		/// <inheritdoc/>
+		protected override void OnMinimumChanged(double oldMinimum, double newMinimum)
+		{
+			base.OnMinimumChanged(oldMinimum, newMinimum);
+
+			UpdateRings();
+		}
+
+		/// <inheritdoc/>
+		protected override void OnMaximumChanged(double oldMaximum, double newMaximum)
+		{
+			base.OnMaximumChanged(oldMaximum, newMaximum);
+
+			UpdateRings();
+		}
+
 		partial void OnValueRingThicknessChanged(double newValue)
 		{
 			UpdateRingThickness(newValue, false);
@@ -102,31 +127,6 @@ namespace Files.Controls
 		{
 			UpdateValues(Value, _oldValue, false, -1.0);
 			UpdateVisualState();
-			UpdateRings();
-		}
-
-		/// <inheritdoc/>
-		protected override void OnValueChanged(double oldValue, double newValue)
-		{
-			base.OnValueChanged(oldValue, newValue);
-
-			UpdateValues(newValue, oldValue, false, -1.0);
-			UpdateRings();
-		}
-
-		/// <inheritdoc/>
-		protected override void OnMinimumChanged(double oldMinimum, double newMinimum)
-		{
-			base.OnMinimumChanged(oldMinimum, newMinimum);
-
-			UpdateRings();
-		}
-
-		/// <inheritdoc/>
-		protected override void OnMaximumChanged(double oldMaximum, double newMaximum)
-		{
-			base.OnMaximumChanged(oldMaximum, newMaximum);
-
 			UpdateRings();
 		}
 	}

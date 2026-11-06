@@ -298,6 +298,36 @@ internal sealed class WindowsPreviewUrlTrustResolver : IWindowsPreviewTrustResol
 		}
 	}
 
+	internal static WindowsPreviewTrustResult InterpretUrlPolicy(HRESULT hr, ReadOnlySpan<byte> policy)
+	{
+		if (hr != HRESULT.S_OK || policy.Length < sizeof(uint))
+		{
+			return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
+		}
+
+		return InterpretUrlPolicy(hr, BinaryPrimitives.ReadUInt32LittleEndian(policy));
+	}
+
+	internal static WindowsPreviewTrustResult InterpretZoneCheckPolicy(HRESULT hr, uint policy)
+	{
+		if (hr.Failed)
+		{
+			return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
+		}
+
+		return new WindowsPreviewTrustResult(policy == PInvoke.URLPOLICY_ALLOW ? WindowsPreviewTrustStatus.Allowed : WindowsPreviewTrustStatus.Blocked);
+	}
+
+	internal static WindowsPreviewTrustResult InterpretUrlPolicy(HRESULT hr, uint policy)
+	{
+		if (hr != HRESULT.S_OK)
+		{
+			return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
+		}
+
+		return InterpretPolicy(policy);
+	}
+
 	private static WindowsPreviewTrustResult EvaluateUrlPolicy(string url, string? fileSystemPath)
 	{
 		try
@@ -346,36 +376,6 @@ internal sealed class WindowsPreviewUrlTrustResolver : IWindowsPreviewTrustResol
 		var hr = securityManager.ProcessUrlAction(url, PInvoke.URLACTION_SHELL_PREVIEW, policy, in context, 0, (uint)PUAF.PUAF_NOUI, 0);
 
 		return InterpretUrlPolicy(hr, policy);
-	}
-
-	internal static WindowsPreviewTrustResult InterpretUrlPolicy(HRESULT hr, ReadOnlySpan<byte> policy)
-	{
-		if (hr != HRESULT.S_OK || policy.Length < sizeof(uint))
-		{
-			return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
-		}
-
-		return InterpretUrlPolicy(hr, BinaryPrimitives.ReadUInt32LittleEndian(policy));
-	}
-
-	internal static WindowsPreviewTrustResult InterpretZoneCheckPolicy(HRESULT hr, uint policy)
-	{
-		if (hr.Failed)
-		{
-			return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
-		}
-
-		return new WindowsPreviewTrustResult(policy == PInvoke.URLPOLICY_ALLOW ? WindowsPreviewTrustStatus.Allowed : WindowsPreviewTrustStatus.Blocked);
-	}
-
-	internal static WindowsPreviewTrustResult InterpretUrlPolicy(HRESULT hr, uint policy)
-	{
-		if (hr != HRESULT.S_OK)
-		{
-			return new WindowsPreviewTrustResult(WindowsPreviewTrustStatus.Indeterminate);
-		}
-
-		return InterpretPolicy(policy);
 	}
 
 	private static WindowsPreviewTrustResult InterpretPolicy(uint policy)

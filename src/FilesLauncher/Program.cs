@@ -14,6 +14,12 @@ namespace FilesLauncher;
 
 internal static class Program
 {
+	internal static void RunFileExplorer(string? openDirectory)
+	{
+		var arguments = openDirectory is null ? null : $"\"{openDirectory}\"";
+		ExecuteShellItem(null, "explorer.exe", arguments, null, SHOW_WINDOW_CMD.SW_SHOW, 0);
+	}
+
 	[STAThread]
 	private static void Main(string[] args)
 	{
@@ -61,12 +67,6 @@ internal static class Program
 			: $"\"{launchPath}\" -select \"{selectedItem}\"";
 		var protocolUri = $"files-dev:?cmd={EncodeUtf8AsPercentHex(commandLine)}";
 		ExecuteShellItem(null, protocolUri, null, openDirectory, SHOW_WINDOW_CMD.SW_SHOW, PInvoke.SEE_MASK_NOASYNC | PInvoke.SEE_MASK_FLAG_NO_UI);
-	}
-
-	internal static void RunFileExplorer(string? openDirectory)
-	{
-		var arguments = openDirectory is null ? null : $"\"{openDirectory}\"";
-		ExecuteShellItem(null, "explorer.exe", arguments, null, SHOW_WINDOW_CMD.SW_SHOW, 0);
 	}
 
 	private static void RestoreFileExplorerDefaults()

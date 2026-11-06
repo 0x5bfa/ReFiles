@@ -92,6 +92,13 @@ public class StorableModel : IStorableModel, IStorageModelAccess
 		}
 	}
 
+	IStorable IStorageModelAccess.GetCoreModel()
+	{
+		ThrowIfDisposed();
+
+		return _coreModel;
+	}
+
 	/// <summary>
 	/// Throws when the model has begun disposal.
 	/// </summary>
@@ -145,12 +152,5 @@ public class StorableModel : IStorableModel, IStorageModelAccess
 		{
 			throw new AggregateException("One or more storable model resources could not be disposed.", errors);
 		}
-	}
-
-	IStorable IStorageModelAccess.GetCoreModel()
-	{
-		ThrowIfDisposed();
-
-		return _coreModel;
 	}
 }

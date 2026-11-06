@@ -17,6 +17,7 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	{
 		SetSite();
 	}
+
 	/// <summary>Initializes the handler with a file stream path.</summary>
 	/// <param name="fileSystemPath">The path of the file to preview.</param>
 	/// <returns><see langword="true"/> when initialization succeeds.</returns>
@@ -44,6 +45,7 @@ public interface IWindowsPreviewHandlerController : IDisposable
 	void ApplySystemVisuals()
 	{
 	}
+
 	/// <summary>Starts preview rendering.</summary>
 	void DoPreview();
 	/// <summary>Gives keyboard focus to the preview handler.</summary>

@@ -46,6 +46,14 @@ public sealed partial class NavigationToolbar : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
+	public NavigationToolbar()
+	{
+		InitializeComponent();
+		_searchTextDebouncer = new(TimeSpan.FromMilliseconds(SearchDebounceMilliseconds));
+		NavigationButtons.AddHandler(PointerReleasedEvent, new PointerEventHandler(NavigationButtons_PointerReleased), true);
+		Unloaded += NavigationToolbar_Unloaded;
+	}
+
 	internal event EventHandler? FolderViewFocusRequested;
 	internal event EventHandler? FolderViewKeyboardFocusRequested;
 
@@ -55,14 +63,6 @@ public sealed partial class NavigationToolbar : UserControl
 
 		_loggerFactory = loggerFactory;
 		_logger = loggerFactory.CreateLogger<NavigationToolbar>();
-	}
-
-	public NavigationToolbar()
-	{
-		InitializeComponent();
-		_searchTextDebouncer = new(TimeSpan.FromMilliseconds(SearchDebounceMilliseconds));
-		NavigationButtons.AddHandler(PointerReleasedEvent, new PointerEventHandler(NavigationButtons_PointerReleased), true);
-		Unloaded += NavigationToolbar_Unloaded;
 	}
 
 	internal void PrepareForShutdown()
@@ -221,6 +221,7 @@ public sealed partial class NavigationToolbar : UserControl
 			{
 				_logger.LogDebug("{Component}: {Message}", "NavigationToolbar", $"Breadcrumb child enumeration failed: {error.Message}");
 			}
+
 			if (ReferenceEquals(_breadcrumbFlyoutCancellation, cancellation))
 			{
 				args.Flyout.Items.Clear();

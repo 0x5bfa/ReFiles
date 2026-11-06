@@ -71,15 +71,6 @@ public sealed partial class RectangleSelectionHost : ContentControl
 		Unloaded += Host_Unloaded;
 	}
 
-	/// <inheritdoc />
-	protected override void OnApplyTemplate()
-	{
-		CompleteSelection(releasePointer: true);
-		base.OnApplyTemplate();
-		_selectionLayer = GetTemplateChild(SelectionLayerPartName) as Canvas;
-		_selectionRectangle = GetTemplateChild(SelectionRectanglePartName) as Rectangle;
-	}
-
 	internal void RegisterTarget(FrameworkElement source)
 	{
 		ArgumentNullException.ThrowIfNull(source);
@@ -104,6 +95,15 @@ public sealed partial class RectangleSelectionHost : ContentControl
 
 		_registeredSources.Remove(source);
 		RemoveTarget(source);
+	}
+
+	/// <inheritdoc />
+	protected override void OnApplyTemplate()
+	{
+		CompleteSelection(releasePointer: true);
+		base.OnApplyTemplate();
+		_selectionLayer = GetTemplateChild(SelectionLayerPartName) as Canvas;
+		_selectionRectangle = GetTemplateChild(SelectionRectanglePartName) as Rectangle;
 	}
 
 	private static RectangleSelectionMode GetSelectionMode(VirtualKeyModifiers modifiers)

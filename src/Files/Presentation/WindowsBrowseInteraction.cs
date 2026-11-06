@@ -38,15 +38,15 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	private IReadOnlyList<StorableReference> _contextualCommandRefreshSelection = [];
 	private IReadOnlyDictionary<string, WindowsShellContextualCommand> _contextualCommands = new Dictionary<string, WindowsShellContextualCommand>(StringComparer.OrdinalIgnoreCase);
 	private int _isDisposed;
+	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedShellClipboardItems().Count is not 0;
+	public bool CanPaste => !IsLoading && !IsBusy && _windowsServices is not null && TryGetCurrentShellFolder(out _) && HasClipboardStorageItems();
+	public bool CanShowNew => !IsLoading && !IsBusy && _windowsServices is not null && TryGetCurrentFileSystemFolder(out _);
+	public bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsServices is not null;
 
 	private WindowCommandManager CommandManager { get; }
 	private BrowseLocation? Location => _pane.Location;
 	private bool IsLoading => _browseAdapter.IsLoading;
 	private bool IsBusy => _browseAdapter.IsBusy;
-	public bool CanCopy => !IsLoading && !IsBusy && GetSelectedShellClipboardItems().Count is not 0;
-	public bool CanPaste => !IsLoading && !IsBusy && _windowsServices is not null && TryGetCurrentShellFolder(out _) && HasClipboardStorageItems();
-	public bool CanShowNew => !IsLoading && !IsBusy && _windowsServices is not null && TryGetCurrentFileSystemFolder(out _);
-	public bool CanShowShellContextMenu => _ownerWindowHandle is not 0 && _windowsServices is not null;
 
 	internal WindowsBrowseInteraction(IBrowsePaneSession pane, BrowsePresentationAdapter adapter, IStorageOperationService operations,
 		IUIDispatcher dispatcher, WindowCommandManager commandManager, nint ownerWindowHandle, ILogger<WindowsBrowseInteraction>? logger = null, IWindowsShellUIServices? windowsServices = null)
@@ -175,6 +175,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 		{
 			_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", "Paste falling back to native Shell paste.");
 		}
+
 		if (!await _windowsServices.DragDrop.PasteAsync(destinationFolder, _ownerWindowHandle, cancellationToken).ConfigureAwait(false))
 		{
 			return;
@@ -227,7 +228,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 		var context = new WindowsShellInvocationContext(_ownerWindowHandle, GetContextualCommandWorkingDirectory(), new(point.X, point.Y));
 
-		return _windowsServices.CreateContextMenuAsync( selection.ToArray(), context, applicationEntries, expandedMenuEntry, extendedVerbs, cancellationToken);
+		return _windowsServices.CreateContextMenuAsync(selection.ToArray(), context, applicationEntries, expandedMenuEntry, extendedVerbs, cancellationToken);
 	}
 
 	public CommandState GetContextualCommandState(string commandId, bool hideWhenShellDisabled)
@@ -282,7 +283,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 
 		return _windowsServices is null
 			? Task.FromResult<IWindowsShellContextMenuTarget?>(null)
-			: _windowsServices.GetContextMenuTargetAsync( selection.ToArray(), cancellationToken);
+			: _windowsServices.GetContextMenuTargetAsync(selection.ToArray(), cancellationToken);
 	}
 
 	public bool ShowShellContextMenu(IWindowsShellContextMenuTarget target, Point clientPoint, double rasterizationScale)
@@ -404,6 +405,7 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 			{
 				_logger.LogDebug("{Component}: {Message}", "WindowsBrowseInteraction", $"Contextual commands ERROR type={exception.GetType().Name}");
 			}
+
 			await CompleteContextualCommandRefreshAsync(cancellation).ConfigureAwait(false);
 		}
 		finally
@@ -601,6 +603,5 @@ internal sealed class WindowsBrowseInteraction : IBrowseInteraction
 	{
 		return _shellOperations ?? throw new NotSupportedException("Windows Shell operations are not available.");
 	}
-
 
 }

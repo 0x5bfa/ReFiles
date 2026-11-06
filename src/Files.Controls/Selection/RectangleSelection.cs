@@ -11,11 +11,12 @@ namespace Files.Controls;
 /// </summary>
 public static class RectangleSelection
 {
-	private static readonly ConditionalWeakTable<FrameworkElement, RectangleSelectionHost> _registeredHosts = new();
-	private static readonly ConditionalWeakTable<ListViewBase, SelectionUpdateState> _selectionUpdateStates = new();
 
 	/// <summary>Identifies the attached target property.</summary>
 	public static readonly DependencyProperty IsTargetProperty = DependencyProperty.RegisterAttached("IsTarget", typeof(bool), typeof(RectangleSelection), new PropertyMetadata(false, IsTargetChanged));
+
+	private static readonly ConditionalWeakTable<FrameworkElement, RectangleSelectionHost> _registeredHosts = new();
+	private static readonly ConditionalWeakTable<ListViewBase, SelectionUpdateState> _selectionUpdateStates = new();
 
 	/// <summary>Gets whether an element participates in rectangle selection.</summary>
 	/// <param name="element">The potential selection target.</param>

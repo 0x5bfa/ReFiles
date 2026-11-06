@@ -113,10 +113,6 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 
 	public bool HasIcon => Icon is not null;
 
-	internal string? PrimaryPath => _fileSystemPaths.Count is 1 ? _fileSystemPaths[0] : null;
-
-	internal bool RequiresAttributeScopeSelection => HasFolders && (CanEditAttributes && HasPendingFileAttributeChanges || IsDrive && HasPendingDriveAttributeChanges);
-
 	public string Size
 	{
 		get => _size;
@@ -331,14 +327,6 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 
 	public bool HasChanges => HasGeneralChanges || _hasPropertyPageChanges;
 
-	private bool HasGeneralChanges => CanRename && !StringComparer.Ordinal.Equals(Name, _originalName)
-		|| CanEditAttributes && HasPendingFileAttributeChanges || IsDrive && HasPendingDriveAttributeChanges;
-
-	private bool HasPendingDriveAttributeChanges => IsDriveCompressed != _initialIsDriveCompressed || IsDriveIndexed != _initialIsDriveIndexed;
-
-	private bool HasPendingFileAttributeChanges => IsReadOnly != _initialIsReadOnly || IsHidden != _initialIsHidden || IsArchive != _initialIsArchive
-		|| IsIndexed != _initialIsIndexed || IsCompressed != _initialIsCompressed || IsEncrypted != _initialIsEncrypted;
-
 	public string TypeLabel { get; } = FormatPropertyLabel(Strings.TypeOfFile.GetLocalized());
 
 	public string DescriptionLabel { get; } = FormatPropertyLabel(Strings.Description.GetLocalized());
@@ -369,9 +357,21 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 
 	public string CapacityLabel { get; } = FormatPropertyLabel(Strings.Capacity.GetLocalized());
 
+	public ObservableCollection<ItemPropertyDetail> Details { get; }
+
+	internal string? PrimaryPath => _fileSystemPaths.Count is 1 ? _fileSystemPaths[0] : null;
+
+	internal bool RequiresAttributeScopeSelection => HasFolders && (CanEditAttributes && HasPendingFileAttributeChanges || IsDrive && HasPendingDriveAttributeChanges);
+
 	internal IWindowsShellPropertyActions PropertyActions => _propertyActions;
 
-	public ObservableCollection<ItemPropertyDetail> Details { get; }
+	private bool HasGeneralChanges => CanRename && !StringComparer.Ordinal.Equals(Name, _originalName)
+		|| CanEditAttributes && HasPendingFileAttributeChanges || IsDrive && HasPendingDriveAttributeChanges;
+
+	private bool HasPendingDriveAttributeChanges => IsDriveCompressed != _initialIsDriveCompressed || IsDriveIndexed != _initialIsDriveIndexed;
+
+	private bool HasPendingFileAttributeChanges => IsReadOnly != _initialIsReadOnly || IsHidden != _initialIsHidden || IsArchive != _initialIsArchive
+		|| IsIndexed != _initialIsIndexed || IsCompressed != _initialIsCompressed || IsEncrypted != _initialIsEncrypted;
 
 	internal ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items, IStorageOperationService? storageOperations, IItemPropertiesFileSystem fileSystem,
 		IWindowsShellPropertyActions propertyActions)

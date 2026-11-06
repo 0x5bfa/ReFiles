@@ -73,7 +73,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		foreach (var id in new[] { "a", "b", "c" })
 		{
 			Assert.AreEqual(1, propertySources[id].CallCount);
-			CollectionAssert.AreEqual(new[] {"System.Size", "System.DateModified", "System.ItemTypeText"}, propertySources[id].Requests.Single().ToArray());
+			CollectionAssert.AreEqual(new[] { "System.Size", "System.DateModified", "System.ItemTypeText" }, propertySources[id].Requests.Single().ToArray());
 			Assert.AreEqual(1, thumbnailSources[id].CallCount);
 			Assert.AreEqual(16, thumbnailSources[id].Requests.Single().RequestedSize);
 			Assert.AreEqual(24, thumbnailSources[id].Requests.Single().RequestedPixelSize);
@@ -167,7 +167,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		await session.UpdateViewSettingsAsync(new BrowseViewSettings(groupPropertyId: "System.ItemTypeText"));
 
 		await WaitUntilAsync(() => propertySource.CallCount is 1);
-		CollectionAssert.AreEqual(new[] {"System.ItemTypeText"}, propertySource.Requests.Single().ToArray());
+		CollectionAssert.AreEqual(new[] { "System.ItemTypeText" }, propertySource.Requests.Single().ToArray());
 	}
 
 	/// <summary>
@@ -181,19 +181,19 @@ public sealed class BrowsePrefetchCoordinatorTests
 		var locationModel = factory.CreateModel("folder", "Folder", out _);
 		var firstProperties = new TestPropertySource
 		{
-			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = new FormattedPropertyValue(20L, "1 KB"),}),
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = new FormattedPropertyValue(20L, "1 KB"), }),
 		};
 		var secondProperties = new TestPropertySource
 		{
-			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> {["System.Size"] = new FormattedPropertyValue(10L, "2 KB"),}),
+			Handler = (_, _) => ValueTask.FromResult<IReadOnlyDictionary<string, object?>>(new Dictionary<string, object?> { ["System.Size"] = new FormattedPropertyValue(10L, "2 KB"), }),
 		};
 		var firstThumbnail = new TestThumbnailSource
 		{
-			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] {1}, "image/png", false)),
+			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] { 1 }, "image/png", false)),
 		};
 		var secondThumbnail = new TestThumbnailSource
 		{
-			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] {2}, "image/png", false)),
+			Handler = (_, _) => ValueTask.FromResult<ThumbnailResult?>(new ThumbnailResult(new byte[] { 2 }, "image/png", false)),
 		};
 		var first = factory.CreateModel("first", "Alpha", out _, propertySource: firstProperties, thumbnailSource: firstThumbnail);
 		var second = factory.CreateModel("second", "Beta", out _, propertySource: secondProperties, thumbnailSource: secondThumbnail);
@@ -222,7 +222,7 @@ public sealed class BrowsePrefetchCoordinatorTests
 		var size = Assert.IsInstanceOfType<FormattedPropertyValue>(presentation.Properties["System.Size"]);
 		Assert.AreEqual(20L, size.RawValue);
 		Assert.AreEqual("1 KB", size.DisplayText);
-		CollectionAssert.AreEqual(new byte[] {1}, presentation.Thumbnail!.Content.ToArray());
+		CollectionAssert.AreEqual(new byte[] { 1 }, presentation.Thumbnail!.Content.ToArray());
 	}
 
 	/// <summary>
@@ -1055,6 +1055,21 @@ public sealed class BrowsePrefetchCoordinatorTests
 		return new StorableModel(coreModel, reference, registry.CreateCapabilities(context));
 	}
 
+	private static void UpdateMaximum(ref int target, int candidate)
+	{
+		var current = Volatile.Read(ref target);
+		while (candidate > current)
+		{
+			var previous = Interlocked.CompareExchange(ref target, candidate, current);
+			if (previous == current)
+			{
+				return;
+			}
+
+			current = previous;
+		}
+	}
+
 	private sealed class TestBatchedPropertyReader : IPropertyReader
 	{
 		private int _callCount;
@@ -1066,7 +1081,8 @@ public sealed class BrowsePrefetchCoordinatorTests
 		public Func<
 			IReadOnlyList<ItemContext>,
 			CancellationToken,
-			ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>>>? Handler { get; set; }
+			ValueTask<IReadOnlyDictionary<StorableReference, IReadOnlyDictionary<string, object?>>>>? Handler
+		{ get; set; }
 
 		public bool CanRead(ItemContext context)
 		{
@@ -1159,21 +1175,6 @@ public sealed class BrowsePrefetchCoordinatorTests
 			}
 
 			return new ThumbnailResult(new byte[] { 1 }, "image/png", isFallback: false);
-		}
-	}
-
-	private static void UpdateMaximum(ref int target, int candidate)
-	{
-		var current = Volatile.Read(ref target);
-		while (candidate > current)
-		{
-			var previous = Interlocked.CompareExchange(ref target, candidate, current);
-			if (previous == current)
-			{
-				return;
-			}
-
-			current = previous;
 		}
 	}
 }

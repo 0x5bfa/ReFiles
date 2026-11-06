@@ -36,6 +36,20 @@ namespace Files.Controls
 			DefaultStyleKey = typeof(BladeItem);
 		}
 
+		public void SetWidth()
+		{
+			var optimalWidth = CalculateOptimalWidth();
+			if (optimalWidth > 0)
+			{
+				Width = Math.Max(optimalWidth, MINIMUM_WIDTH);
+			}
+			else
+			{
+				// Fallback to default width if calculation fails
+				Width = DEFAULT_WIDTH;
+			}
+		}
+
 		/// <summary>
 		/// Override default OnApplyTemplate to capture child controls
 		/// </summary>
@@ -84,20 +98,6 @@ namespace Files.Controls
 		protected override AutomationPeer OnCreateAutomationPeer()
 		{
 			return new BladeItemAutomationPeer(this);
-		}
-
-		public void SetWidth()
-		{
-			var optimalWidth = CalculateOptimalWidth();
-			if (optimalWidth > 0)
-			{
-				Width = Math.Max(optimalWidth, MINIMUM_WIDTH);
-			}
-			else
-			{
-				// Fallback to default width if calculation fails
-				Width = DEFAULT_WIDTH;
-			}
 		}
 
 		private void CloseButton_Click(object sender, RoutedEventArgs e)

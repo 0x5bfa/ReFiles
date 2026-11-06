@@ -15,7 +15,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 {
 	private const string SettingsFileName = "view-state.json";
 	private const int DefaultSaveDelayMilliseconds = 250;
-	private static readonly TimeSpan SaveRetryDelay = TimeSpan.FromSeconds(5);
+	private static readonly TimeSpan _saveRetryDelay = TimeSpan.FromSeconds(5);
 
 	private readonly Files.Core.Settings.ISettingsStorage _storage;
 	private readonly Lock _syncRoot = new();
@@ -44,24 +44,6 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 
 		_storage = storage;
 		_saveDelay = saveDelay ?? TimeSpan.FromMilliseconds(DefaultSaveDelayMilliseconds);
-	}
-
-	internal async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
-	{
-		Task initializationTask;
-		lock (_initializationLock)
-		{
-			ThrowIfDisposed();
-			if (_isInitialized)
-			{
-				return;
-			}
-
-			_initializationTask ??= LoadAsync();
-			initializationTask = _initializationTask;
-		}
-
-		await initializationTask.WaitAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	public async ValueTask<BrowseViewSettings?> GetAsync(BrowseLocation location, CancellationToken cancellationToken = default)
@@ -105,13 +87,6 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 		}
 	}
 
-	internal void SaveNow()
-	{
-		ThrowIfDisposed();
-		InitializeAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
-		SavePendingAsync().GetAwaiter().GetResult();
-	}
-
 	public void Dispose()
 	{
 		lock (_syncRoot)
@@ -140,6 +115,31 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 
 		_saveGate.Dispose();
 		GC.SuppressFinalize(this);
+	}
+
+	internal async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
+	{
+		Task initializationTask;
+		lock (_initializationLock)
+		{
+			ThrowIfDisposed();
+			if (_isInitialized)
+			{
+				return;
+			}
+
+			_initializationTask ??= LoadAsync();
+			initializationTask = _initializationTask;
+		}
+
+		await initializationTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	internal void SaveNow()
+	{
+		ThrowIfDisposed();
+		InitializeAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+		SavePendingAsync().GetAwaiter().GetResult();
 	}
 
 	private async Task LoadAsync()
@@ -237,7 +237,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 			{
 				if (!_isDisposed && _isDirty)
 				{
-					QueueSave_NoLock(SaveRetryDelay);
+					QueueSave_NoLock(_saveRetryDelay);
 				}
 			}
 

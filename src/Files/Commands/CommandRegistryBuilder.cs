@@ -8,8 +8,8 @@ using Files.ViewModels;
 public sealed class CommandRegistryBuilder
 {
 	private readonly Dictionary<CommandId, CommandRegistry.CommandRegistration>
-		registrations = [];
-	private bool isBuilt;
+		_registrations = [];
+	private bool _isBuilt;
 
 	public CommandRegistryBuilder Register(CommandDescriptor descriptor, Func<RootViewModel, ICommandHandler> factory)
 	{
@@ -18,7 +18,7 @@ public sealed class CommandRegistryBuilder
 
 		EnsureNotBuilt();
 
-		if (!registrations.TryAdd(descriptor.Id, new CommandRegistry.CommandRegistration(descriptor, factory)))
+		if (!_registrations.TryAdd(descriptor.Id, new CommandRegistry.CommandRegistration(descriptor, factory)))
 		{
 			throw new InvalidOperationException($"The command ID '{descriptor.Id}' is already registered.");
 		}
@@ -29,14 +29,14 @@ public sealed class CommandRegistryBuilder
 	public CommandRegistry Build()
 	{
 		EnsureNotBuilt();
-		isBuilt = true;
+		_isBuilt = true;
 
-		return new CommandRegistry(new Dictionary<CommandId, CommandRegistry.CommandRegistration>(registrations));
+		return new CommandRegistry(new Dictionary<CommandId, CommandRegistry.CommandRegistration>(_registrations));
 	}
 
 	private void EnsureNotBuilt()
 	{
-		if (isBuilt)
+		if (_isBuilt)
 		{
 			throw new InvalidOperationException("The command registry has already been built.");
 		}

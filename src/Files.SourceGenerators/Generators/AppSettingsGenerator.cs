@@ -557,15 +557,25 @@ namespace Files.SourceGenerators.Generators
 
 		private sealed class SettingModel
 		{
-			private SettingModel(string name, Location location, string? errorMessage)
-			{
-				Name = name;
-				TypeName = string.Empty;
-				Kind = SettingKind.Unsupported;
-				DefaultValueExpression = string.Empty;
-				Location = location;
-				ErrorMessage = errorMessage;
-			}
+			internal string Name { get; }
+
+			internal string TypeName { get; }
+
+			internal SettingKind Kind { get; }
+
+			internal string DefaultValueExpression { get; }
+
+			internal string? MinValueExpression { get; }
+
+			internal string? MaxValueExpression { get; }
+
+			internal bool IsNullableReference { get; }
+
+			internal Location Location { get; }
+
+			internal string? ErrorMessage { get; }
+
+			internal bool RequiresNormalizer => Kind is SettingKind.Enum or SettingKind.FloatingPoint || MinValueExpression is not null || MaxValueExpression is not null;
 
 			internal SettingModel(
 				string name,
@@ -586,25 +596,15 @@ namespace Files.SourceGenerators.Generators
 				IsNullableReference = isNullableReference;
 			}
 
-			internal string Name { get; }
-
-			internal string TypeName { get; }
-
-			internal SettingKind Kind { get; }
-
-			internal string DefaultValueExpression { get; }
-
-			internal string? MinValueExpression { get; }
-
-			internal string? MaxValueExpression { get; }
-
-			internal bool IsNullableReference { get; }
-
-			internal Location Location { get; }
-
-			internal string? ErrorMessage { get; }
-
-			internal bool RequiresNormalizer => Kind is SettingKind.Enum or SettingKind.FloatingPoint || MinValueExpression is not null || MaxValueExpression is not null;
+			private SettingModel(string name, Location location, string? errorMessage)
+			{
+				Name = name;
+				TypeName = string.Empty;
+				Kind = SettingKind.Unsupported;
+				DefaultValueExpression = string.Empty;
+				Location = location;
+				ErrorMessage = errorMessage;
+			}
 
 			internal static SettingModel Invalid(string name, Location location, string errorMessage)
 			{

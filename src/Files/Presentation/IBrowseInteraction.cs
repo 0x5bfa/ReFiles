@@ -12,14 +12,16 @@ namespace Files.Presentation;
 /// <summary>Adapts native clipboard, menus, and drag/drop for one browse pane.</summary>
 internal interface IBrowseInteraction : IAsyncDisposable
 {
+	bool CanCopy { get; }
+
+	bool CanPaste { get; }
+	bool CanShowNew { get; }
+	bool CanShowShellContextMenu { get; }
 	IWindowsShellDataTransfer CaptureDataTransfer(global::Windows.ApplicationModel.DataTransfer.DataPackageView view)
 	{
 		throw new NotSupportedException("This surface does not support Windows data transfer.");
 	}
-	bool CanCopy { get; }
-	bool CanPaste { get; }
-	bool CanShowNew { get; }
-	bool CanShowShellContextMenu { get; }
+
 	void Initialize();
 	void Update(BrowseUpdateFlags flags, bool selectionChanged);
 	void UpdateSelection(IReadOnlyList<StorableReference> selection);

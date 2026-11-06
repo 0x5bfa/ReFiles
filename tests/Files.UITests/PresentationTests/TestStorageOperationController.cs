@@ -394,12 +394,6 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 		return new ValueTask<StorageOperationInterruptionResponse>(responseTask.WaitAsync(cancellationToken));
 	}
 
-	private static bool IsActiveState(TrackedStorageOperationState state)
-	{
-		return state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
-		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
-	}
-
 	internal static bool IsDecisionAvailable(StorageOperationInterruption interruption, StorageOperationInterruptionDecision decision)
 	{
 		var option = decision switch
@@ -416,6 +410,12 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 		};
 
 		return interruption.AvailableResponses.HasFlag(option);
+	}
+
+	private static bool IsActiveState(TrackedStorageOperationState state)
+	{
+		return state is TrackedStorageOperationState.Running or TrackedStorageOperationState.Pausing or TrackedStorageOperationState.Paused
+		or TrackedStorageOperationState.Resuming or TrackedStorageOperationState.WaitingForUser;
 	}
 
 	private void TransitionToTerminalState(Guid id, TrackedStorageOperationState state, Exception? error)
@@ -470,6 +470,5 @@ internal sealed class TestStorageOperationController : IOperationStatusSource, I
 			}
 		}
 	}
-
 
 }

@@ -6,6 +6,21 @@ using Microsoft.UI.Xaml.Input;
 namespace Files.Controls;
 
 /// <summary>
+/// Specifies the direction of a requested table operation.
+/// </summary>
+public enum TableViewSortDirection
+{
+	/// <summary>No direction is active.</summary>
+	None,
+
+	/// <summary>Values are ordered from low to high.</summary>
+	Ascending,
+
+	/// <summary>Values are ordered from high to low.</summary>
+	Descending,
+}
+
+/// <summary>
 /// Describes a read-only column displayed by <see cref="TableView"/>.
 /// </summary>
 public interface ITableViewColumn : INotifyPropertyChanged
@@ -133,18 +148,57 @@ public interface ITableViewRow
 }
 
 /// <summary>
-/// Specifies the direction of a requested table operation.
+/// Contains all state required to bind a realized table row.
 /// </summary>
-public enum TableViewSortDirection
+public readonly struct TableViewRowBinding
 {
-	/// <summary>No direction is active.</summary>
-	None,
+	/// <summary>Gets the source item.</summary>
+	public object Item { get; }
 
-	/// <summary>Values are ordered from low to high.</summary>
-	Ascending,
+	/// <summary>Gets the hierarchy depth.</summary>
+	public int Depth { get; }
 
-	/// <summary>Values are ordered from high to low.</summary>
-	Descending,
+	/// <summary>Gets the active columns.</summary>
+	public IReadOnlyList<ITableViewColumn> Columns { get; }
+
+	/// <summary>Gets the resolved column layout.</summary>
+	public TableViewColumnLayout Layout { get; }
+
+	/// <summary>Gets the minimum row height.</summary>
+	public double RowHeight { get; }
+
+	/// <summary>Gets the indentation applied per hierarchy level.</summary>
+	public double Indentation { get; }
+
+	/// <summary>Gets the padding applied inside cells.</summary>
+	public Thickness CellPadding { get; }
+
+	/// <summary>
+	/// Initializes a row binding.
+	/// </summary>
+	public TableViewRowBinding(
+		object item,
+		int depth,
+		IReadOnlyList<ITableViewColumn> columns,
+		TableViewColumnLayout layout,
+		double rowHeight,
+		double indentation,
+		Thickness cellPadding)
+	{
+		ArgumentNullException.ThrowIfNull(item);
+
+		ArgumentNullException.ThrowIfNull(columns);
+
+		ArgumentNullException.ThrowIfNull(layout);
+
+		Item = item;
+		Depth = depth;
+		Columns = columns;
+		Layout = layout;
+		RowHeight = rowHeight;
+		Indentation = indentation;
+		CellPadding = cellPadding;
+	}
 }
 
 /// <summary>
@@ -200,60 +254,6 @@ public sealed class TableViewItemInvokedEventArgs : EventArgs
 		ArgumentNullException.ThrowIfNull(item);
 
 		Item = item;
-	}
-}
-
-/// <summary>
-/// Contains all state required to bind a realized table row.
-/// </summary>
-public readonly struct TableViewRowBinding
-{
-	/// <summary>Gets the source item.</summary>
-	public object Item { get; }
-
-	/// <summary>Gets the hierarchy depth.</summary>
-	public int Depth { get; }
-
-	/// <summary>Gets the active columns.</summary>
-	public IReadOnlyList<ITableViewColumn> Columns { get; }
-
-	/// <summary>Gets the resolved column layout.</summary>
-	public TableViewColumnLayout Layout { get; }
-
-	/// <summary>Gets the minimum row height.</summary>
-	public double RowHeight { get; }
-
-	/// <summary>Gets the indentation applied per hierarchy level.</summary>
-	public double Indentation { get; }
-
-	/// <summary>Gets the padding applied inside cells.</summary>
-	public Thickness CellPadding { get; }
-
-	/// <summary>
-	/// Initializes a row binding.
-	/// </summary>
-	public TableViewRowBinding(
-		object item,
-		int depth,
-		IReadOnlyList<ITableViewColumn> columns,
-		TableViewColumnLayout layout,
-		double rowHeight,
-		double indentation,
-		Thickness cellPadding)
-	{
-		ArgumentNullException.ThrowIfNull(item);
-
-		ArgumentNullException.ThrowIfNull(columns);
-
-		ArgumentNullException.ThrowIfNull(layout);
-
-		Item = item;
-		Depth = depth;
-		Columns = columns;
-		Layout = layout;
-		RowHeight = rowHeight;
-		Indentation = indentation;
-		CellPadding = cellPadding;
 	}
 }
 

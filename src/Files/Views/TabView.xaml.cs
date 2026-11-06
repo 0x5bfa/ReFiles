@@ -18,6 +18,9 @@ namespace Files.Views;
 
 public sealed partial class TabView : UserControl, IDisposable
 {
+	public static readonly DependencyProperty ViewModelProperty =
+		DependencyProperty.Register(nameof(ViewModel), typeof(TabStripViewModel), typeof(TabView), new PropertyMetadata(null));
+
 	private Window? _window;
 	private AppWindow? _appWindow;
 	private ContentPresenter? _leftContentPresenter;
@@ -26,16 +29,11 @@ public sealed partial class TabView : UserControl, IDisposable
 	private XamlRoot? _xamlRoot;
 	private int _isDisposed;
 
-	public static readonly DependencyProperty ViewModelProperty =
-		DependencyProperty.Register(nameof(ViewModel), typeof(TabStripViewModel), typeof(TabView), new PropertyMetadata(null));
-
 	public TabStripViewModel? ViewModel
 	{
 		get => (TabStripViewModel?)GetValue(ViewModelProperty);
 		set => SetValue(ViewModelProperty, value);
 	}
-
-	public event EventHandler? NewWindowRequested;
 
 	public TabView()
 	{
@@ -43,6 +41,8 @@ public sealed partial class TabView : UserControl, IDisposable
 		Loaded += TabView_Loaded;
 		SizeChanged += TitleBarElement_SizeChanged;
 	}
+
+	public event EventHandler? NewWindowRequested;
 
 	public void AttachWindow(Window window)
 	{

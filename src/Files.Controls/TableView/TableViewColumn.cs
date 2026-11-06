@@ -71,9 +71,6 @@ public abstract partial class TableViewColumn : FrameworkElement, ITableViewColu
 
 	DataTemplate? ITableViewColumn.CellTemplate => GetCellTemplate();
 
-	/// <inheritdoc />
-	public event PropertyChangedEventHandler? PropertyChanged;
-
 	/// <summary>
 	/// Initializes a table column.
 	/// </summary>
@@ -84,6 +81,9 @@ public abstract partial class TableViewColumn : FrameworkElement, ITableViewColu
 		RegisterPropertyChangedCallback(MinWidthProperty, ColumnConstraintChanged);
 		RegisterPropertyChangedCallback(MaxWidthProperty, ColumnConstraintChanged);
 	}
+
+	/// <inheritdoc />
+	public event PropertyChangedEventHandler? PropertyChanged;
 
 	internal void AttachOwner(TableView owner)
 	{

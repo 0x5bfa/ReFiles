@@ -7,11 +7,13 @@ namespace Files.Commands;
 
 public sealed class CommandRegistry
 {
-	private readonly IReadOnlyDictionary<CommandId, CommandRegistration> registrations;
+	private readonly IReadOnlyDictionary<CommandId, CommandRegistration> _registrations;
+
+	public IReadOnlyList<CommandDescriptor> Descriptors { get; }
 
 	internal CommandRegistry(IReadOnlyDictionary<CommandId, CommandRegistration> registrations)
 	{
-		this.registrations = registrations;
+		this._registrations = registrations;
 		Descriptors = registrations.Values
 			.Select(static registration => registration.Descriptor)
 			.OrderBy(static descriptor => descriptor.GroupResourceKey)
@@ -20,13 +22,11 @@ public sealed class CommandRegistry
 			.AsReadOnly();
 	}
 
-	public IReadOnlyList<CommandDescriptor> Descriptors { get; }
-
 	internal IReadOnlyDictionary<CommandId, ICommandHandler> CreateHandlers(RootViewModel root)
 	{
 		ArgumentNullException.ThrowIfNull(root);
 
-		return registrations.ToDictionary(static entry => entry.Key, entry => entry.Value.Factory(root));
+		return _registrations.ToDictionary(static entry => entry.Key, entry => entry.Value.Factory(root));
 	}
 
 	internal sealed record CommandRegistration(CommandDescriptor Descriptor, Func<RootViewModel, ICommandHandler> Factory);

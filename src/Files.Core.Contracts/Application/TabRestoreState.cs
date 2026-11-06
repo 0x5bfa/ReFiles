@@ -6,8 +6,6 @@ namespace Files.Core.Sessions;
 /// <summary>Captures all pane content, layout, and active-pane state without retaining live models.</summary>
 public sealed class TabRestoreState
 {
-	internal IReadOnlyList<Func<IPaneContentSession>> ContentFactories { get; }
-
 	/// <summary>Gets the number of captured panes.</summary>
 	public int PaneCount => ContentFactories.Count;
 
@@ -16,6 +14,8 @@ public sealed class TabRestoreState
 
 	/// <summary>Gets the captured split orientation.</summary>
 	public PaneSplitOrientation SplitOrientation { get; }
+
+	internal IReadOnlyList<Func<IPaneContentSession>> ContentFactories { get; }
 
 	internal TabRestoreState(IEnumerable<Func<IPaneContentSession>> factories, int activePaneIndex, PaneSplitOrientation splitOrientation)
 	{

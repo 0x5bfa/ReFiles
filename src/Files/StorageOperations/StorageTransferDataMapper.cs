@@ -22,9 +22,13 @@ internal static class StorageTransferDataMapper
 				_ => throw new NotSupportedException("Only Copy and Move have a transfer contract."),
 			};
 			var container = source switch { ArchiveRecordLocator record => record.Container, ArchiveFolderLocator folder => folder.Container, _ => null };
-			var sourceKind = source switch { ConfiguredItemLocator => BackgroundServer.StorageTransferSourceKind.ConfiguredItem,
+			var sourceKind = source switch
+			{
+				ConfiguredItemLocator => BackgroundServer.StorageTransferSourceKind.ConfiguredItem,
 				ArchiveRecordLocator => BackgroundServer.StorageTransferSourceKind.ArchiveRecord,
-				ArchiveFolderLocator => BackgroundServer.StorageTransferSourceKind.ArchiveFolder, _ => throw new NotSupportedException("Unknown transfer source.") };
+				ArchiveFolderLocator => BackgroundServer.StorageTransferSourceKind.ArchiveFolder,
+				_ => throw new NotSupportedException("Unknown transfer source.")
+			};
 			var chain = new Stack<ArchiveLocator>();
 			for (var current = container; current?.Parent is not null; current = current.Parent)
 			{
@@ -40,9 +44,16 @@ internal static class StorageTransferDataMapper
 			var path = source switch { ArchiveRecordLocator record => record.EntryPath, ArchiveFolderLocator folder => folder.EntryPath, _ => string.Empty };
 			items.Add(new BackgroundServer.StorageTransferData
 			{
-				Kind = kind, SourceKind = sourceKind, Root = ToData(source.Root), EntryPath = path,
-				RecordId = (source as ArchiveRecordLocator)?.RecordId ?? string.Empty, ArchiveStepOffset = offset, ArchiveStepCount = steps.Count - offset,
-				Destination = ToData(destination), Name = name ?? string.Empty, ConflictBehavior = (int)conflict,
+				Kind = kind,
+				SourceKind = sourceKind,
+				Root = ToData(source.Root),
+				EntryPath = path,
+				RecordId = (source as ArchiveRecordLocator)?.RecordId ?? string.Empty,
+				ArchiveStepOffset = offset,
+				ArchiveStepCount = steps.Count - offset,
+				Destination = ToData(destination),
+				Name = name ?? string.Empty,
+				ConflictBehavior = (int)conflict,
 				DisplayName = Path.GetFileName((path.Length == 0 ? source.Root.LastKnownAddress?.Value ?? source.Root.ItemId : path).TrimEnd('/', '\\')),
 			});
 		}
@@ -52,7 +63,13 @@ internal static class StorageTransferDataMapper
 
 	private static BackgroundServer.StorageReferenceData ToData(StorableReference reference)
 	{
-		return new BackgroundServer.StorageReferenceData { SourceId = reference.SourceId.Value, ItemId = reference.ItemId, HasAddress = reference.LastKnownAddress is not null,
-			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty, AddressValue = reference.LastKnownAddress?.Value ?? string.Empty };
+		return new BackgroundServer.StorageReferenceData
+		{
+			SourceId = reference.SourceId.Value,
+			ItemId = reference.ItemId,
+			HasAddress = reference.LastKnownAddress is not null,
+			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty,
+			AddressValue = reference.LastKnownAddress?.Value ?? string.Empty
+		};
 	}
 }

@@ -351,6 +351,7 @@ public sealed class BrowseSessionTests
 			partialModels.Add(factory.CreateModel($"partial-{index}", $"Partial {index}", out var partialCore));
 			partialCores.Add(partialCore);
 		}
+
 		resolver.Items.Clear();
 		foreach (var partialModel in partialModels)
 		{
@@ -483,6 +484,7 @@ public sealed class BrowseSessionTests
 			nextModels.Add(factory.CreateModel($"next-{index}", $"Next {index}", out var nextCore));
 			nextCores.Add(nextCore);
 		}
+
 		resolver.Items.Clear();
 		foreach (var nextModel in nextModels)
 		{
@@ -1054,7 +1056,7 @@ public sealed class BrowseSessionTests
 		var failedLocationModel = factory.CreateModel("folder-refresh", "Folder", out _);
 		var current = factory.CreateModel("current", "Current", out var currentCore);
 		var partial = factory.CreateModel("partial", "Partial", out var partialCore);
-		var locationModels = new Queue<IStorableModel>([ locationModel, failedLocationModel]);
+		var locationModels = new Queue<IStorableModel>([locationModel, failedLocationModel]);
 		var resolver = CreateIncrementalResolver(locationModel, current, current.Reference, items: [current], itemResolver: (_, _) => throw new InvalidOperationException("resolve failed"));
 		resolver.LocationModelFactory = _ => locationModels.Dequeue();
 		using var session = new BrowseSession(resolver);
@@ -1238,7 +1240,7 @@ public sealed class BrowseSessionTests
 
 		Assert.AreEqual(1, changes.Count);
 		Assert.IsInstanceOfType<BrowseItemsReset>(changes[0]);
-		CollectionAssert.AreEqual(new[] {third, second, first}, session.Items.ToArray());
+		CollectionAssert.AreEqual(new[] { third, second, first }, session.Items.ToArray());
 	}
 
 	/// <summary>

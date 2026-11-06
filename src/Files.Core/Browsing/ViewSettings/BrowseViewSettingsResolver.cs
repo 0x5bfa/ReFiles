@@ -66,6 +66,7 @@ public static class BrowseViewSettingsResolver
 
 			hasChanges = true;
 		}
+
 		var nextOrder = settings.Columns.Count is 0 ? 0 : settings.Columns.Max(static column => column.Order) + 1;
 		foreach (var defaultColumn in capabilities.DefaultSettings.Columns.OrderBy(static column => column.Order))
 		{

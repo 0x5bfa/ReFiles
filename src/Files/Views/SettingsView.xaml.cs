@@ -8,6 +8,13 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Files.Views;
 
+internal enum SettingsPageKind
+{
+	General,
+	Appearance,
+	About,
+}
+
 public sealed partial class SettingsView : UserControl
 {
 	private readonly SettingsNavigationItem _generalItem;
@@ -56,13 +63,6 @@ public sealed partial class SettingsView : UserControl
 			_ => _generalView,
 		};
 	}
-}
-
-internal enum SettingsPageKind
-{
-	General,
-	Appearance,
-	About,
 }
 
 internal sealed record SettingsNavigationItem(SettingsPageKind PageKind, string Text, string Glyph);

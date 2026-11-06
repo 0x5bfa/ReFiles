@@ -32,8 +32,6 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 	private bool _isRefreshing;
 
-	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
-
 	public Guid Id => _tab.Id;
 
 	public ObservableCollection<PaneViewModel> Panes { get; }
@@ -86,7 +84,7 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 	public BrowseLocation? Location => ActivePane?.FolderBrowser?.Location;
 
-	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
 
 	internal TabViewModel(ITabSession tab, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
@@ -107,6 +105,8 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 		tab.SplitOrientationChanged += Tab_StateChanged;
 		RefreshFromCore();
 	}
+
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	public async Task OpenPaneAsync(PaneSplitOrientation orientation, CancellationToken cancellationToken = default)
 	{
@@ -152,7 +152,6 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 
 		return _tab.SetActivePane(paneId);
 	}
-
 
 	public void ReportOperationError(Exception exception)
 	{
@@ -223,7 +222,7 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 			var corePanes = _tab.Panes;
 			var corePaneIds = corePanes.Select(static pane => pane.Id).ToHashSet();
 
-			foreach (var removedId in _paneViewModels.Keys .Where(id => !corePaneIds.Contains(id)) .ToArray())
+			foreach (var removedId in _paneViewModels.Keys.Where(id => !corePaneIds.Contains(id)).ToArray())
 			{
 				var removedPane = _paneViewModels[removedId];
 				removedPane.PropertyChanged -= PaneViewModel_PropertyChanged;
@@ -313,7 +312,6 @@ public sealed partial class TabViewModel : ObservableObject, IDisposable, IAsync
 	{
 		OperationErrorReported?.Invoke(this, e);
 	}
-
 
 	private void EnsureActive()
 	{

@@ -72,6 +72,7 @@ public sealed class SearchTextDebouncerTests
 			delayStarted.SetResult();
 			await release.Task.WaitAsync(cancellationToken);
 		}
+
 		using var debouncer = new SearchTextDebouncer(TimeSpan.FromMilliseconds(200), Delay);
 
 		var pending = debouncer.ScheduleAsync("query", (_, _) =>

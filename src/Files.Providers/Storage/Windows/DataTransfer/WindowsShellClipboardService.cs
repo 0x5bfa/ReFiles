@@ -240,7 +240,6 @@ public sealed class WindowsShellClipboardService : IWindowsShellClipboardService
 		}
 	}
 
-
 	private bool SetItemsOnCurrentSta(IReadOnlyList<WindowsItemLocator> locators, bool move, HWND ownerWindow, long generation)
 	{
 		ObjectDisposedException.ThrowIf(_isDisposed, _source);

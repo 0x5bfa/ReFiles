@@ -17,11 +17,6 @@ internal enum SET_PROPERTY_STORE_TYPE
 	Default = 0,
 }
 
-[StructLayout(LayoutKind.Sequential, Size = 8)]
-internal struct ITEMGROUP
-{
-}
-
 /// <summary>Adds the recovered DefView operations to Explorer's item-store contract.</summary>
 [GeneratedComInterface, Guid("35C22FEA-79F6-4D3D-AE15-1699CBF54721"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal unsafe partial interface IDefViewItemStore : IItemStore
@@ -107,4 +102,9 @@ internal unsafe partial interface IDefViewItemStore : IItemStore
 	/// <returns><see langword="true"/> when the key is valid; otherwise, <see langword="false"/>.</returns>
 	[PreserveSig]
 	BOOL IsItemKeyValid(in ITEMKEY itemKey);
+}
+
+[StructLayout(LayoutKind.Sequential, Size = 8)]
+internal struct ITEMGROUP
+{
 }

@@ -66,12 +66,6 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 
 	internal WindowsShellChangeWatcher ChangeWatcher => _changeWatcher;
 
-	/// <inheritdoc />
-	public bool CanRecycle(StorableReference reference)
-	{
-		return reference.SourceId == SourceId;
-	}
-
 	/// <summary>Initializes a Windows Shell storage source.</summary>
 	/// <param name="sourceId">The optional source identifier.</param>
 	/// <param name="displayName">The source display name.</param>
@@ -97,32 +91,10 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 		DragDrop = new WindowsShellDragDropService(this);
 	}
 
-	internal async Task<WindowsFolder> CreateSearchFolderAsync(string query, StorableReference? scope, CancellationToken cancellationToken = default)
+	/// <inheritdoc />
+	public bool CanRecycle(StorableReference reference)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(query);
-
-		if (scope is null)
-		{
-			return await _storableFactory.CreateSearchFolderAsync(query, null, cancellationToken).ConfigureAwait(false);
-		}
-
-		if (scope.SourceId != SourceId)
-		{
-			throw new ArgumentException($"Search scope belongs to storage source '{scope.SourceId}'.", nameof(scope));
-		}
-
-		var scopeItem = await ResolveAsync(scope, cancellationToken).ConfigureAwait(false);
-		if (scopeItem is not WindowsFolder folder)
-		{
-			throw new InvalidOperationException($"Search scope '{scope.ItemId}' is not a Windows Shell folder.");
-		}
-
-		return await _storableFactory.CreateSearchFolderAsync(query, [folder.Locator], cancellationToken).ConfigureAwait(false);
-	}
-
-	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(ReadOnlyMemory<byte> absolutePidl, CancellationToken cancellationToken = default)
-	{
-		return _storableFactory.TryCreateFromAbsolutePidlAsync(absolutePidl, cancellationToken);
+		return reference.SourceId == SourceId;
 	}
 
 	/// <summary>Enumerates the configured Windows Shell roots.</summary>
@@ -247,6 +219,34 @@ public sealed class WindowsStorageSource : IStorageSource, IStorageDeletionPolic
 
 			return new ValueTask(_disposeTask);
 		}
+	}
+
+	internal async Task<WindowsFolder> CreateSearchFolderAsync(string query, StorableReference? scope, CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+		if (scope is null)
+		{
+			return await _storableFactory.CreateSearchFolderAsync(query, null, cancellationToken).ConfigureAwait(false);
+		}
+
+		if (scope.SourceId != SourceId)
+		{
+			throw new ArgumentException($"Search scope belongs to storage source '{scope.SourceId}'.", nameof(scope));
+		}
+
+		var scopeItem = await ResolveAsync(scope, cancellationToken).ConfigureAwait(false);
+		if (scopeItem is not WindowsFolder folder)
+		{
+			throw new InvalidOperationException($"Search scope '{scope.ItemId}' is not a Windows Shell folder.");
+		}
+
+		return await _storableFactory.CreateSearchFolderAsync(query, [folder.Locator], cancellationToken).ConfigureAwait(false);
+	}
+
+	internal Task<WindowsStorable?> TryCreateFromAbsolutePidlAsync(ReadOnlyMemory<byte> absolutePidl, CancellationToken cancellationToken = default)
+	{
+		return _storableFactory.TryCreateFromAbsolutePidlAsync(absolutePidl, cancellationToken);
 	}
 
 	private async Task DisposeCoreAsync()

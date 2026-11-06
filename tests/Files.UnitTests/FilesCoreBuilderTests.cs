@@ -177,6 +177,7 @@ public sealed class FilesCoreBuilderTests
 		Assert.IsTrue(source.IsDisposed);
 		Assert.AreEqual(1, source.DisposeCount);
 	}
+
 	private sealed class LocalHandler : IStorageOperationHandler
 	{
 		public bool CanHandle(StorageOperationRequest request)

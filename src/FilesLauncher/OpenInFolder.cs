@@ -35,24 +35,6 @@ internal sealed unsafe class OpenInFolder : IDisposable
 		PInvoke.CoCreateInstance(typeof(ShellWindowNavigation.ShellWindowsCoclass).GUID, null, CLSCTX.CLSCTX_ALL, out _shellWindows);
 	}
 
-	internal static string? Run(string openDirectory)
-	{
-		var instance = new OpenInFolder(openDirectory);
-		_activeInstance = instance;
-
-		try
-		{
-			instance.RunCore();
-
-			return null;
-		}
-		finally
-		{
-			_activeInstance = null;
-			instance.Dispose();
-		}
-	}
-
 	public void Dispose()
 	{
 		if (!_window.IsNull)
@@ -78,6 +60,24 @@ internal sealed unsafe class OpenInFolder : IDisposable
 		}
 
 		_shellWindows = null;
+	}
+
+	internal static string? Run(string openDirectory)
+	{
+		var instance = new OpenInFolder(openDirectory);
+		_activeInstance = instance;
+
+		try
+		{
+			instance.RunCore();
+
+			return null;
+		}
+		finally
+		{
+			_activeInstance = null;
+			instance.Dispose();
+		}
 	}
 
 	private void RunCore()

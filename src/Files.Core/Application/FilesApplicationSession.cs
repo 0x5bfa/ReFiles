@@ -45,12 +45,6 @@ public sealed partial class FilesApplicationSession : IFilesApplicationSession
 		}
 	}
 
-	/// <summary>Occurs when the window collection changes.</summary>
-	public event EventHandler? WindowsChanged;
-
-	/// <summary>Occurs when the active window changes.</summary>
-	public event EventHandler? ActiveWindowChanged;
-
 	/// <summary>Initializes an empty application shell session.</summary>
 	/// <param name="paneFactory">The factory used for browse panes.</param>
 	public FilesApplicationSession(IBrowsePaneSessionFactory paneFactory)
@@ -59,6 +53,12 @@ public sealed partial class FilesApplicationSession : IFilesApplicationSession
 
 		_paneFactory = paneFactory;
 	}
+
+	/// <summary>Occurs when the window collection changes.</summary>
+	public event EventHandler? WindowsChanged;
+
+	/// <summary>Occurs when the active window changes.</summary>
+	public event EventHandler? ActiveWindowChanged;
 
 	/// <summary>Creates and owns a window session.</summary>
 	/// <param name="initialLocation">The optional initial browse location.</param>

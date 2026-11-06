@@ -399,8 +399,6 @@ public sealed class BrowsePreviewModelTests
 
 	private sealed class MutableBrowseSession : IBrowseSession
 	{
-		public IBrowsePrefetchCoordinator CreatePrefetchCoordinator() => new BrowsePrefetchCoordinator(this);
-
 		private IReadOnlyList<IStorableModel> _items;
 
 		public BrowseLocation? Location => null;
@@ -423,6 +421,11 @@ public sealed class BrowsePreviewModelTests
 
 		public Exception? Error => null;
 
+		public MutableBrowseSession(IStorableModel item)
+		{
+			_items = [item];
+		}
+
 		public event EventHandler? StateChanged
 		{
 			add { }
@@ -443,10 +446,7 @@ public sealed class BrowsePreviewModelTests
 
 		public event EventHandler? SelectionChanged;
 
-		public MutableBrowseSession(IStorableModel item)
-		{
-			_items = [item];
-		}
+		public IBrowsePrefetchCoordinator CreatePrefetchCoordinator() => new BrowsePrefetchCoordinator(this);
 
 		public bool Contains(StorableKey key)
 		{

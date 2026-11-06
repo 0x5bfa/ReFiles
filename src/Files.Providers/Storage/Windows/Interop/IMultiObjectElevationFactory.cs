@@ -9,12 +9,6 @@ using Windows.Win32.Foundation;
 
 namespace Windows.Win32.UI.Shell;
 
-/// <summary>Identifies the Shell multi-object elevation factory coclass.</summary>
-[Guid("36F0BD14-D84D-468C-B79C-9990F3FA897F")]
-internal sealed class CMultiObjectElevationFactory
-{
-}
-
 /// <summary>Creates an elevated sharing object after associating it with an owner window.</summary>
 [GeneratedComInterface(Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("6FABDA16-031E-47E3-B2A2-2339C05CCB9E")]
@@ -42,4 +36,10 @@ internal partial interface IMultiObjectElevationFactory
 	/// <returns>The HRESULT returned by the factory.</returns>
 	[PreserveSig]
 	HRESULT CreateElevatedObject(in Guid classId, in Guid interfaceId, [MarshalAs(UnmanagedType.Interface)] out object? instance);
+}
+
+/// <summary>Identifies the Shell multi-object elevation factory coclass.</summary>
+[Guid("36F0BD14-D84D-468C-B79C-9990F3FA897F")]
+internal sealed class CMultiObjectElevationFactory
+{
 }

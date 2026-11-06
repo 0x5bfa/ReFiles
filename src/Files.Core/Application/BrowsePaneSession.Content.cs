@@ -42,7 +42,6 @@ public sealed partial class BrowsePaneSession
 			history = _initialHistory ?? new BrowseNavigationHistoryState([HomeLocation.Instance], 0);
 		}
 
-
 		return () =>
 		{
 			var content = factory();

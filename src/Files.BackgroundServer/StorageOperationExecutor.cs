@@ -25,6 +25,16 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 
 	internal Files.Core.Data.IStorageReader Workspace => _runtime.Workspace;
 
+	internal StorageOperationExecutor(IOperationHostRuntime? runtime = null)
+	{
+		_runtime = runtime ?? FilesHost.CreateOperationRuntime();
+	}
+
+	public ValueTask DisposeAsync()
+	{
+		return _runtime.DisposeAsync();
+	}
+
 	internal Task<IReadOnlyList<WindowsShellNewItem>> GetNewItemsAsync(string folderPath, CancellationToken cancellationToken = default)
 	{
 		return _runtime.GetNewItemsAsync(folderPath, cancellationToken);
@@ -39,16 +49,6 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 		CancellationToken cancellationToken)
 	{
 		_runtime.ApplyFileAttributes(paths, readOnly, hidden, archive, indexed, compressed, encrypted, applyToContents, cancellationToken);
-	}
-
-	internal StorageOperationExecutor(IOperationHostRuntime? runtime = null)
-	{
-		_runtime = runtime ?? FilesHost.CreateOperationRuntime();
-	}
-
-	public ValueTask DisposeAsync()
-	{
-		return _runtime.DisposeAsync();
 	}
 
 	internal bool CanHandle(StorageOperationRequest request)
@@ -147,21 +147,14 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 
 	internal static StorageReferenceData ToData(StorableReference reference)
 	{
-		return new StorageReferenceData { SourceId = reference.SourceId.Value, ItemId = reference.ItemId, HasAddress = reference.LastKnownAddress is not null,
-			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty, AddressValue = reference.LastKnownAddress?.Value ?? string.Empty };
-	}
-
-	private async Task<StorableReference> ResolveReferenceAsync(StorageReferenceData data, CancellationToken cancellationToken)
-	{
-		var address = data.HasAddress ? new StorageAddress(data.AddressScheme, data.AddressValue) : null;
-		if (!string.IsNullOrEmpty(data.ItemId))
+		return new StorageReferenceData
 		{
-			return new StorableReference(new StorageSourceId(data.SourceId), data.ItemId, address);
-		}
-
-		await using var item = await _runtime.Workspace.ResolveAsync(new StorageSourceId(data.SourceId), address!, cancellationToken).ConfigureAwait(false);
-
-		return item.Reference;
+			SourceId = reference.SourceId.Value,
+			ItemId = reference.ItemId,
+			HasAddress = reference.LastKnownAddress is not null,
+			AddressScheme = reference.LastKnownAddress?.Scheme ?? string.Empty,
+			AddressValue = reference.LastKnownAddress?.Value ?? string.Empty
+		};
 	}
 
 	internal static void ValidateReference(StorageReferenceData data)
@@ -176,6 +169,19 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 			throw new ArgumentException("The storage address is incomplete.");
 		}
 
+	}
+
+	private async Task<StorableReference> ResolveReferenceAsync(StorageReferenceData data, CancellationToken cancellationToken)
+	{
+		var address = data.HasAddress ? new StorageAddress(data.AddressScheme, data.AddressValue) : null;
+		if (!string.IsNullOrEmpty(data.ItemId))
+		{
+			return new StorableReference(new StorageSourceId(data.SourceId), data.ItemId, address);
+		}
+
+		await using var item = await _runtime.Workspace.ResolveAsync(new StorageSourceId(data.SourceId), address!, cancellationToken).ConfigureAwait(false);
+
+		return item.Reference;
 	}
 
 	private static string? EmptyToNull(string? value)

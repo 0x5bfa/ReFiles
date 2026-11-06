@@ -221,6 +221,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 					{
 						_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"dispose lane={_threadName}");
 					}
+
 					stopException = new ObjectDisposedException(nameof(WindowsShellScheduler));
 					pendingWork = StopLocked(stopException);
 					_disposeTask = CompleteDisposalAsync();
@@ -265,6 +266,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 						$"invoke inline CANCELLED lane={_threadName} action={action.Method.Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
 					);
 				}
+
 				return Task.FromCanceled<T>(exception.CancellationToken);
 			}
 			catch (Exception exception)
@@ -277,6 +279,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 						$"invoke inline ERROR lane={_threadName} action={action.Method.Name} type={exception.GetType().Name} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
 					);
 				}
+
 				return Task.FromException<T>(exception);
 			}
 		}
@@ -501,6 +504,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 			{
 				_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"FAULT lane={_threadName} type={exception.GetType().Name} message={exception.Message}");
 			}
+
 			List<WorkItem> pendingWork;
 
 			lock (_stateLock)
@@ -627,6 +631,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 						$"cancelled before start lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}"
 					);
 				}
+
 				CancelIfPending();
 				DisposeCancellationRegistration();
 
@@ -689,6 +694,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 				{
 					_logger.LogDebug("{Component}: {Message}", "WindowsShellScheduler", $"work STOPPED lane={_laneName} id={_id} action={_actionName} type={exception.GetType().Name}");
 				}
+
 				_completion.TrySetException(exception);
 			}
 
@@ -712,6 +718,7 @@ public sealed class WindowsShellScheduler : IWindowsShellScheduler
 						$"work CANCELLED lane={_laneName} id={_id} action={_actionName} waitMs={Stopwatch.GetElapsedTime(_queuedTimestamp).TotalMilliseconds:F1}"
 					);
 				}
+
 				_completion.TrySetCanceled(_cancellationToken);
 			}
 		}

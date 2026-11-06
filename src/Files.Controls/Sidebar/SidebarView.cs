@@ -47,6 +47,14 @@ namespace Files.Controls
 
 		private double _preManipulationSidebarWidth;
 
+		public double VerticalScrollOffset => _menuItemHostScrollViewer?.VerticalOffset ?? 0;
+
+		public SidebarView()
+		{
+			DefaultStyleKey = typeof(SidebarView);
+			Loaded += SidebarView_Loaded;
+		}
+
 		public event EventHandler<ItemInvokedEventArgs>? ItemInvoked;
 
 		public event EventHandler<ItemContextInvokedArgs>? ItemContextInvoked;
@@ -61,54 +69,9 @@ namespace Files.Controls
 
 		public event EventHandler<ItemDroppedEventArgs>? ItemDropped;
 
-		public double VerticalScrollOffset => _menuItemHostScrollViewer?.VerticalOffset ?? 0;
-
-		public SidebarView()
-		{
-			DefaultStyleKey = typeof(SidebarView);
-			Loaded += SidebarView_Loaded;
-		}
-
 		public void ScrollToVerticalOffset(double offset)
 		{
 			_menuItemHostScrollViewer?.ChangeView(null, offset, null, true);
-		}
-
-		protected override void OnApplyTemplate()
-		{
-			UnhookTemplateParts();
-			base.OnApplyTemplate();
-
-			_paneColumnDefinition = GetRequiredTemplatePart<ColumnDefinition>(TemplatePartName_PaneColumnDefinition);
-			_paneLightDismissLayer = GetRequiredTemplatePart<Grid>(TemplatePartName_PaneLightDismissLayer);
-			_paneColumnGrid = GetRequiredTemplatePart<Grid>(TemplatePartName_PaneColumnGrid);
-			_menuItemHostScrollViewer = GetRequiredTemplatePart<ScrollViewer>(TemplatePartName_MenuItemHostScrollViewer);
-			_menuItemsHost = GetRequiredTemplatePart<ItemsRepeater>(TemplatePartName_MenuItemsHost);
-			_footerMenuItemsHost = GetRequiredTemplatePart<ItemsRepeater>(TemplatePartName_FooterMenuItemsHost);
-			_sidebarResizer = GetRequiredTemplatePart<Border>(TemplatePartName_SidebarResizer);
-			_sidebarResizerControl = GetRequiredTemplatePart<Control>(TemplatePartName_SidebarResizerControl);
-			_defaultSidebarItemTemplate = _menuItemsHost.ItemTemplate as DataTemplate;
-
-			_paneLightDismissLayer.PointerPressed += PaneLightDismissLayer_PointerPressed;
-			_paneLightDismissLayer.Tapped += PaneLightDismissLayer_Tapped;
-			_menuItemHostScrollViewer.ContextRequested += MenuItemHostScrollViewer_ContextRequested;
-			_menuItemsHost.ElementPrepared += MenuItemsHost_ElementPrepared;
-			_footerMenuItemsHost.ElementPrepared += FooterMenuItemsHost_ElementPrepared;
-			_sidebarResizer.DoubleTapped += SidebarResizer_DoubleTapped;
-			_sidebarResizer.ManipulationCompleted += SidebarResizer_ManipulationCompleted;
-			_sidebarResizer.ManipulationDelta += SidebarResizer_ManipulationDelta;
-			_sidebarResizer.ManipulationStarted += SidebarResizer_ManipulationStarted;
-			_sidebarResizer.PointerCanceled += SidebarResizer_PointerExited;
-			_sidebarResizer.PointerEntered += SidebarResizer_PointerEntered;
-			_sidebarResizer.PointerExited += SidebarResizer_PointerExited;
-			_sidebarResizerControl.KeyDown += SidebarResizerControl_KeyDown;
-
-			UpdateItemsSources();
-			UpdateItemTemplates();
-			GoToState(DisplayMode == SidebarDisplayMode.Expanded ? "Compact" : "Expanded", false);
-			UpdateDisplayMode(false);
-			UpdateResizerAvailability();
-			_paneColumnGrid.Translation = new System.Numerics.Vector3(0, 0, 32);
 		}
 
 		internal void UpdateSelectedItemContainer(SidebarItem container)
@@ -182,6 +145,43 @@ namespace Files.Controls
 			ItemDragLeave?.Invoke(this, new(sideBarItem.Item, rawEvent));
 		}
 
+		protected override void OnApplyTemplate()
+		{
+			UnhookTemplateParts();
+			base.OnApplyTemplate();
+
+			_paneColumnDefinition = GetRequiredTemplatePart<ColumnDefinition>(TemplatePartName_PaneColumnDefinition);
+			_paneLightDismissLayer = GetRequiredTemplatePart<Grid>(TemplatePartName_PaneLightDismissLayer);
+			_paneColumnGrid = GetRequiredTemplatePart<Grid>(TemplatePartName_PaneColumnGrid);
+			_menuItemHostScrollViewer = GetRequiredTemplatePart<ScrollViewer>(TemplatePartName_MenuItemHostScrollViewer);
+			_menuItemsHost = GetRequiredTemplatePart<ItemsRepeater>(TemplatePartName_MenuItemsHost);
+			_footerMenuItemsHost = GetRequiredTemplatePart<ItemsRepeater>(TemplatePartName_FooterMenuItemsHost);
+			_sidebarResizer = GetRequiredTemplatePart<Border>(TemplatePartName_SidebarResizer);
+			_sidebarResizerControl = GetRequiredTemplatePart<Control>(TemplatePartName_SidebarResizerControl);
+			_defaultSidebarItemTemplate = _menuItemsHost.ItemTemplate as DataTemplate;
+
+			_paneLightDismissLayer.PointerPressed += PaneLightDismissLayer_PointerPressed;
+			_paneLightDismissLayer.Tapped += PaneLightDismissLayer_Tapped;
+			_menuItemHostScrollViewer.ContextRequested += MenuItemHostScrollViewer_ContextRequested;
+			_menuItemsHost.ElementPrepared += MenuItemsHost_ElementPrepared;
+			_footerMenuItemsHost.ElementPrepared += FooterMenuItemsHost_ElementPrepared;
+			_sidebarResizer.DoubleTapped += SidebarResizer_DoubleTapped;
+			_sidebarResizer.ManipulationCompleted += SidebarResizer_ManipulationCompleted;
+			_sidebarResizer.ManipulationDelta += SidebarResizer_ManipulationDelta;
+			_sidebarResizer.ManipulationStarted += SidebarResizer_ManipulationStarted;
+			_sidebarResizer.PointerCanceled += SidebarResizer_PointerExited;
+			_sidebarResizer.PointerEntered += SidebarResizer_PointerEntered;
+			_sidebarResizer.PointerExited += SidebarResizer_PointerExited;
+			_sidebarResizerControl.KeyDown += SidebarResizerControl_KeyDown;
+
+			UpdateItemsSources();
+			UpdateItemTemplates();
+			GoToState(DisplayMode == SidebarDisplayMode.Expanded ? "Compact" : "Expanded", false);
+			UpdateDisplayMode(false);
+			UpdateResizerAvailability();
+			_paneColumnGrid.Translation = new System.Numerics.Vector3(0, 0, 32);
+		}
+
 		private void UpdateMinimalMode(bool useTransitions = true)
 		{
 			if (DisplayMode != SidebarDisplayMode.Minimal)
@@ -197,6 +197,7 @@ namespace Files.Controls
 			{
 				GoToState("MinimalCollapsed", useTransitions);
 			}
+
 			UpdateOpenPaneLengthColumn();
 		}
 
@@ -486,6 +487,7 @@ namespace Files.Controls
 				_paneLightDismissLayer.PointerPressed -= PaneLightDismissLayer_PointerPressed;
 				_paneLightDismissLayer.Tapped -= PaneLightDismissLayer_Tapped;
 			}
+
 			_menuItemHostScrollViewer?.ContextRequested -= MenuItemHostScrollViewer_ContextRequested;
 			_menuItemsHost?.ElementPrepared -= MenuItemsHost_ElementPrepared;
 			_footerMenuItemsHost?.ElementPrepared -= FooterMenuItemsHost_ElementPrepared;
@@ -499,6 +501,7 @@ namespace Files.Controls
 				_sidebarResizer.PointerEntered -= SidebarResizer_PointerEntered;
 				_sidebarResizer.PointerExited -= SidebarResizer_PointerExited;
 			}
+
 			_sidebarResizerControl?.KeyDown -= SidebarResizerControl_KeyDown;
 		}
 

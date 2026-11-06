@@ -9,10 +9,10 @@ namespace Files.Views;
 
 public sealed partial class PaneContentView : UserControl
 {
-	private PaneViewModel? _presentedViewModel;
-
 	public static readonly DependencyProperty ViewModelProperty =
 		DependencyProperty.Register(nameof(ViewModel), typeof(PaneViewModel), typeof(PaneContentView), new PropertyMetadata(null, ViewModelChanged));
+
+	private PaneViewModel? _presentedViewModel;
 
 	public PaneViewModel? ViewModel
 	{

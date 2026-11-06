@@ -18,12 +18,12 @@ public sealed partial class PaneView : UserControl
 		set => SetValue(ViewModelProperty, value);
 	}
 
-	public event EventHandler? Activated;
-
 	public PaneView()
 	{
 		InitializeComponent();
 	}
+
+	public event EventHandler? Activated;
 
 	internal void SetShadow(bool isActive, bool isMultiPane)
 	{

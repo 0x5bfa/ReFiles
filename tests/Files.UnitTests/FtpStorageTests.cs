@@ -75,7 +75,7 @@ public sealed class FtpStorageTests
 		var content = new byte[4];
 		var bytesRead = await stream.ReadAsync(content);
 		Assert.AreEqual(4, bytesRead);
-		CollectionAssert.AreEqual(new byte[] {1, 2, 3, 4}, content);
+		CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, content);
 
 		await stream.DisposeAsync();
 		Assert.IsTrue(session.IsDisposed);
@@ -125,7 +125,7 @@ public sealed class FtpStorageTests
 
 		Assert.IsTrue(result.Succeeded, result.Error?.ToString());
 		Assert.AreEqual("/new.txt", result.ResultItem!.ItemId);
-		await Assert.ThrowsAsync<FileNotFoundException>(() => source .ResolveAsync(original) .AsTask());
+		await Assert.ThrowsAsync<FileNotFoundException>(() => source.ResolveAsync(original).AsTask());
 	}
 
 	/// <summary>
@@ -154,13 +154,13 @@ public sealed class FtpStorageTests
 	private sealed class SequenceCredentialResolver :
 		IFtpCredentialResolver
 	{
-		private readonly Queue<FtpCredential> credentials;
+		private readonly Queue<FtpCredential> _credentials;
 
 		public IList<FtpCredentialRequest> Requests { get; } = [];
 
 		public SequenceCredentialResolver(params FtpCredential[] credentials)
 		{
-			this.credentials = new Queue<FtpCredential>(credentials);
+			this._credentials = new Queue<FtpCredential>(credentials);
 		}
 
 		public ValueTask<FtpCredential?> ResolveAsync(FtpCredentialRequest request, CancellationToken cancellationToken = default)
@@ -169,18 +169,18 @@ public sealed class FtpStorageTests
 
 			Requests.Add(request);
 
-			return ValueTask.FromResult<FtpCredential?>(credentials.Dequeue());
+			return ValueTask.FromResult<FtpCredential?>(_credentials.Dequeue());
 		}
 	}
 
 	private sealed class CredentialCheckingSessionFactory :
 		IFtpSessionFactory
 	{
-		private readonly IFtpSessionFactory innerFactory;
+		private readonly IFtpSessionFactory _innerFactory;
 
 		public CredentialCheckingSessionFactory(IFtpSessionFactory innerFactory)
 		{
-			this.innerFactory = innerFactory;
+			this._innerFactory = innerFactory;
 		}
 
 		public ValueTask<IFtpSession> ConnectAsync(FtpConnectionProfile profile, FtpCredential credential, CancellationToken cancellationToken = default)
@@ -190,7 +190,7 @@ public sealed class FtpStorageTests
 				throw new FtpAuthenticationRequiredException(profile.ConnectionId, "Rejected test credential.");
 			}
 
-			return innerFactory.ConnectAsync(profile, credential, cancellationToken);
+			return _innerFactory.ConnectAsync(profile, credential, cancellationToken);
 		}
 	}
 }

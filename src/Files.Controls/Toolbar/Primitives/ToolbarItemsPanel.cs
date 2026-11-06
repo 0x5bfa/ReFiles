@@ -10,12 +10,12 @@ namespace Files.Controls.Primitives
 	/// </summary>
 	public sealed partial class ToolbarItemsPanel : Panel
 	{
-		private readonly HashSet<UIElement> _visibleChildren = [];
-
 		/// <summary>
 		/// Identifies the <see cref="Spacing"/> dependency property.
 		/// </summary>
 		public static readonly DependencyProperty SpacingProperty = DependencyProperty.Register(nameof(Spacing), typeof(double), typeof(ToolbarItemsPanel), new PropertyMetadata(0d, OnSpacingChanged));
+
+		private readonly HashSet<UIElement> _visibleChildren = [];
 
 		/// <summary>
 		/// Gets or sets the horizontal spacing between arranged controls.
@@ -24,6 +24,19 @@ namespace Files.Controls.Primitives
 		{
 			get => (double)GetValue(SpacingProperty);
 			set => SetValue(SpacingProperty, value);
+		}
+
+		internal void SetVisibleChildren(IEnumerable<UIElement> visibleChildren)
+		{
+			var updatedChildren = visibleChildren.ToHashSet();
+			if (_visibleChildren.SetEquals(updatedChildren))
+			{
+				return;
+			}
+
+			_visibleChildren.Clear();
+			_visibleChildren.UnionWith(updatedChildren);
+			InvalidateMeasure();
 		}
 
 		/// <inheritdoc/>
@@ -77,19 +90,6 @@ namespace Files.Controls.Primitives
 			}
 
 			return finalSize;
-		}
-
-		internal void SetVisibleChildren(IEnumerable<UIElement> visibleChildren)
-		{
-			var updatedChildren = visibleChildren.ToHashSet();
-			if (_visibleChildren.SetEquals(updatedChildren))
-			{
-				return;
-			}
-
-			_visibleChildren.Clear();
-			_visibleChildren.UnionWith(updatedChildren);
-			InvalidateMeasure();
 		}
 
 		private static void OnSpacingChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

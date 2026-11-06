@@ -148,7 +148,7 @@ public sealed class WindowsShellPreviewTests
 
 		Assert.IsNull(result);
 		Assert.AreEqual(0, file.OpenCount);
-}
+	}
 
 	/// <summary>
 	/// Test case: preview host validates bounds and window handle.
@@ -209,7 +209,7 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreEqual(host.WindowHandle, controller.SiteHostWindow);
 		Assert.AreEqual(acceleratorForwarder, controller.AcceleratorForwarder);
 
-		CollectionAssert.AreEqual(new[] {"stream", "site", "window", "visuals", "preview"}, order.ToArray());
+		CollectionAssert.AreEqual(new[] { "stream", "site", "window", "visuals", "preview" }, order.ToArray());
 
 		await session.SetBoundsAsync(new WindowsPreviewBounds(1, 2, 3, 4));
 		await session.SetThemeAsync(new WindowsPreviewColor(1, 2, 3), new WindowsPreviewColor(4, 5, 6));
@@ -220,7 +220,7 @@ public sealed class WindowsShellPreviewTests
 		Assert.AreEqual(WindowsShellPreviewSessionState.Disposed, concreteSession.State);
 		Assert.AreEqual(1, controller.DisposeCount);
 		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
-}
+	}
 
 	/// <summary>Verifies the Explorer-compatible accelerator table exposed to normal-integrity preview handlers.</summary>
 	[TestMethod]
@@ -321,8 +321,8 @@ public sealed class WindowsShellPreviewTests
 		var session = await factory.CreateAsync(CreateResult(target.Reference), CreateHost());
 		await session.DisposeAsync();
 
-		CollectionAssert.AreEqual(new[] {"stream", "item", "file", "site", "window", "visuals", "preview", "dispose"}, order.ToArray());
-}
+		CollectionAssert.AreEqual(new[] { "stream", "item", "file", "site", "window", "visuals", "preview", "dispose" }, order.ToArray());
+	}
 
 	/// <summary>
 	/// Test case: session does not site a handler when every initializer fails.
@@ -339,7 +339,7 @@ public sealed class WindowsShellPreviewTests
 
 		await Assert.ThrowsAsync<NotSupportedException>(async () => await factory.CreateAsync(CreateResult(target.Reference), CreateHost()));
 
-		CollectionAssert.AreEqual(new[] {"stream", "item", "file", "dispose"}, order.ToArray());
+		CollectionAssert.AreEqual(new[] { "stream", "item", "file", "dispose" }, order.ToArray());
 		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
 	}
 
@@ -456,7 +456,7 @@ public sealed class WindowsShellPreviewTests
 
 		Assert.AreEqual(1, controller.DisposeCount);
 		Assert.IsTrue(((FakeWindowsFile)target.Item).IsDisposed);
-}
+	}
 
 	/// <summary>
 	/// Test case: composition prefers stream and falls back to shell descriptor.
@@ -467,7 +467,7 @@ public sealed class WindowsShellPreviewTests
 	{
 		var source = new TestStorageSource();
 		var handlerResolver = new FakeHandlerResolver { HandlerClsid = Guid.NewGuid() };
-		var streamLoader = new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([ new KeyValuePair<string, string>(".txt", "text/plain"), ]), new AllowPreviewPolicy());
+		var streamLoader = new StreamPreviewLoader(new ExtensionPreviewContentTypeResolver([new KeyValuePair<string, string>(".txt", "text/plain"),]), new AllowPreviewPolicy());
 		var shellLoader = new WindowsShellPreviewLoader(handlerResolver, new FakeShellPolicy());
 		var capabilityRegistry = new CapabilityBuilder()
 			.Add<IReadableContent>(new DelegateCapabilityFactory<IReadableContent>(context => context.CoreModel as IReadableContent), lifetime: CapabilityLifetime.Shared)
@@ -496,7 +496,7 @@ public sealed class WindowsShellPreviewTests
 			.GetPreviewAsync(new PreviewRequest());
 		Assert.IsInstanceOfType<WindowsShellPreviewResult>(shellResult);
 		shellModel.Dispose();
-}
+	}
 
 	private static ItemContext CreateContext(TestStorageSource source, IStorable model)
 	{

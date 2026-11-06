@@ -20,6 +20,12 @@ public interface ITabSession : IAsyncDisposable
 	/// <summary>Gets the current split orientation.</summary>
 	PaneSplitOrientation SplitOrientation { get; }
 
+	/// <summary>Gets whether the active content can create a split pane.</summary>
+	bool CanSplit { get; }
+
+	/// <summary>Gets whether every pane can capture independently restorable content.</summary>
+	bool CanRestore { get; }
+
 	/// <summary>Occurs when the pane collection changes.</summary>
 	event EventHandler? PanesChanged;
 
@@ -28,9 +34,6 @@ public interface ITabSession : IAsyncDisposable
 
 	/// <summary>Occurs when the split orientation changes.</summary>
 	event EventHandler? SplitOrientationChanged;
-
-	/// <summary>Gets whether the active content can create a split pane.</summary>
-	bool CanSplit { get; }
 
 	/// <summary>Opens and activates a second pane using the content's split policy.</summary>
 	/// <param name="orientation">The split orientation.</param>
@@ -60,9 +63,6 @@ public interface ITabSession : IAsyncDisposable
 	/// <param name="orientation">The new split orientation.</param>
 	/// <returns><see langword="true"/> when the tab is split.</returns>
 	bool SetSplitOrientation(PaneSplitOrientation orientation);
-
-	/// <summary>Gets whether every pane can capture independently restorable content.</summary>
-	bool CanRestore { get; }
 
 	/// <summary>Captures every pane and the layout as one tab restoration state.</summary>
 	/// <returns>The captured state, or null if any content cannot be restored.</returns>

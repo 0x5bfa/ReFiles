@@ -14,7 +14,7 @@
 		<IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</IsAotCompatible>
 		<DisableRuntimeMarshalling>true</DisableRuntimeMarshalling>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-		<NoWarn>$(NoWarn);CS8305</NoWarn>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
 		<!--  Use strict Roslyn compilation mode  -->
 		<Features>strict</Features>
@@ -29,6 +29,10 @@
 	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Providers' Or '$(MSBuildProjectName)' == 'Files.BackgroundServer'">
 		<EnforceWinRTStorageBoundaries>true</EnforceWinRTStorageBoundaries>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+	</ItemGroup>
 
 	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true' Or '$(EnforceWinRTStorageBoundaries)' == 'true'">
 		<PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />

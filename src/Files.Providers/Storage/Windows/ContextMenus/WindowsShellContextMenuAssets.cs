@@ -44,6 +44,24 @@ internal static class WindowsShellContextMenuAssets
 		}
 	}
 
+	internal static unsafe string? GetPackagePathByFullName(string packageFullName)
+	{
+		uint pathLength = 0;
+		if (PInvoke.GetPackagePathByFullName(packageFullName, ref pathLength, null) != (int)WIN32_ERROR.ERROR_INSUFFICIENT_BUFFER || pathLength is 0)
+		{
+			return null;
+		}
+
+		var pathBuffer = new char[checked((int)pathLength)];
+		int result;
+		fixed (char* path = pathBuffer)
+		{
+			result = PInvoke.GetPackagePathByFullName(packageFullName, ref pathLength, path);
+		}
+
+		return result is 0 ? new string(pathBuffer).TrimEnd('\0') : null;
+	}
+
 	private static unsafe string? GetPackagePath()
 	{
 		uint count = 0;
@@ -62,23 +80,5 @@ internal static class WindowsShellContextMenuAssets
 
 			return result == WIN32_ERROR.ERROR_SUCCESS && count is not 0 ? GetPackagePathByFullName(names[0].ToString()) : null;
 		}
-	}
-
-	internal static unsafe string? GetPackagePathByFullName(string packageFullName)
-	{
-		uint pathLength = 0;
-		if (PInvoke.GetPackagePathByFullName(packageFullName, ref pathLength, null) != (int)WIN32_ERROR.ERROR_INSUFFICIENT_BUFFER || pathLength is 0)
-		{
-			return null;
-		}
-
-		var pathBuffer = new char[checked((int)pathLength)];
-		int result;
-		fixed (char* path = pathBuffer)
-		{
-			result = PInvoke.GetPackagePathByFullName(packageFullName, ref pathLength, path);
-		}
-
-		return result is 0 ? new string(pathBuffer).TrimEnd('\0') : null;
 	}
 }

@@ -32,7 +32,7 @@ public sealed class StorableModelLifetimeTests
 		Assert.IsNotNull(model.Get<IAsyncOrderCapability>());
 		await model.DisposeAsync();
 
-		CollectionAssert.AreEqual(new[] {"capability", "core"}, order);
+		CollectionAssert.AreEqual(new[] { "capability", "core" }, order);
 	}
 
 	/// <summary>
@@ -85,31 +85,31 @@ public sealed class StorableModelLifetimeTests
 		Assert.IsTrue(coreModel.IsDisposed);
 	}
 
-	private sealed class OrderView : IAsyncOrderCapability { }
-
 	private interface IAsyncOrderCapability : ICapability
 	{
 	}
 
+	private sealed class OrderView : IAsyncOrderCapability { }
+
 	private sealed class AsyncOrderCapability : IAsyncOrderCapability, IAsyncDisposable
 	{
-		private readonly IList<string> order;
+		private readonly IList<string> _order;
 
 		public AsyncOrderCapability(IList<string> order)
 		{
-			this.order = order;
+			this._order = order;
 		}
 
 		public async ValueTask DisposeAsync()
 		{
 			await Task.Yield();
-			order.Add("capability");
+			_order.Add("capability");
 		}
 	}
 
 	private sealed class AsyncOrderStorable : IStorable, IAsyncDisposable
 	{
-		private readonly IList<string> order;
+		private readonly IList<string> _order;
 
 		public string Id { get; }
 
@@ -121,14 +121,14 @@ public sealed class StorableModelLifetimeTests
 		{
 			Id = id;
 			Name = name;
-			this.order = order;
+			this._order = order;
 		}
 
 		public async ValueTask DisposeAsync()
 		{
 			await Task.Yield();
 			IsDisposed = true;
-			order.Add("core");
+			_order.Add("core");
 		}
 	}
 }

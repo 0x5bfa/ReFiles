@@ -18,7 +18,7 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 	private const int CanceledHResultValue = unchecked((int)0x800704C7);
 	private const int PointerHResultValue = unchecked((int)0x80004003);
 
-	private static readonly TimeSpan ReportInterval = TimeSpan.FromMilliseconds(100);
+	private static readonly TimeSpan _reportInterval = TimeSpan.FromMilliseconds(100);
 
 	private readonly IProgress<StorageOperationProgress>? _progress;
 	private readonly StorableReference _currentItem;
@@ -325,7 +325,7 @@ internal sealed partial class WindowsFileOperationProgressSink : IFileOperationP
 		}
 
 		var now = Stopwatch.GetTimestamp();
-		if (!force && Stopwatch.GetElapsedTime(_lastReportTimestamp, now) < ReportInterval)
+		if (!force && Stopwatch.GetElapsedTime(_lastReportTimestamp, now) < _reportInterval)
 		{
 			return;
 		}

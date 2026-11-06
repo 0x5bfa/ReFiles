@@ -21,16 +21,6 @@ namespace Files.Controls
 			Owner = owner;
 		}
 
-		protected override object GetPatternCore(PatternInterface patternInterface)
-		{
-			if (patternInterface is PatternInterface.Selection)
-			{
-				return this;
-			}
-
-			return base.GetPatternCore(patternInterface);
-		}
-
 		public IRawElementProviderSimple[] GetSelection()
 		{
 			if (Owner.SelectedItemContainer != null)
@@ -39,6 +29,16 @@ namespace Files.Controls
 			}
 
 			return [];
+		}
+
+		protected override object GetPatternCore(PatternInterface patternInterface)
+		{
+			if (patternInterface is PatternInterface.Selection)
+			{
+				return this;
+			}
+
+			return base.GetPatternCore(patternInterface);
 		}
 	}
 }

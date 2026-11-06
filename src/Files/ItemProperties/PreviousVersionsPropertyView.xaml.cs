@@ -82,12 +82,12 @@ internal sealed partial class PreviousVersionViewModel : INotifyPropertyChanged
 
 	internal WindowsShellPreviousVersion Version { get; }
 
-	public event PropertyChangedEventHandler? PropertyChanged;
-
 	internal PreviousVersionViewModel(WindowsShellPreviousVersion version)
 	{
 		Version = version;
 	}
+
+	public event PropertyChangedEventHandler? PropertyChanged;
 
 	private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
 	{

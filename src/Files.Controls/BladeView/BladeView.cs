@@ -31,6 +31,11 @@ namespace Files.Controls
 			SizeChanged += (sender, e) => AdjustBladeItemSize();
 		}
 
+		public void ScrollToEnd()
+		{
+			LayoutUpdated += OnLayoutUpdatedScrollToEnd;
+		}
+
 		/// <inheritdoc/>
 		protected override void OnApplyTemplate()
 		{
@@ -81,11 +86,6 @@ namespace Files.Controls
 		protected override AutomationPeer OnCreateAutomationPeer()
 		{
 			return new BladeViewAutomationPeer(this);
-		}
-
-		public void ScrollToEnd()
-		{
-			LayoutUpdated += OnLayoutUpdatedScrollToEnd;
 		}
 
 		private void CycleBlades()

@@ -9,12 +9,6 @@ using Windows.Win32.Foundation;
 
 namespace Windows.Win32.UI.Shell;
 
-/// <summary>Identifies the Shell disk-quota UI helper coclass.</summary>
-[Guid("1FB2A002-4C6C-4DE7-85C2-CB8DB9A4F728")]
-internal sealed class CQuotaUIHelper
-{
-}
-
 /// <summary>Opens the elevated disk quota user interface.</summary>
 [GeneratedComInterface(StringMarshalling = StringMarshalling.Utf16, Options = ComInterfaceOptions.ComObjectWrapper)]
 [Guid("9A50588E-FA80-4509-B345-664110225322")]
@@ -29,4 +23,10 @@ internal partial interface IElevatedDiskQuotaUI
 	/// <returns>The HRESULT returned by the quota user interface.</returns>
 	[PreserveSig]
 	HRESULT ShowVolumeQuotaUI(HWND owner, string rootPath, string displayName, string volumePath);
+}
+
+/// <summary>Identifies the Shell disk-quota UI helper coclass.</summary>
+[Guid("1FB2A002-4C6C-4DE7-85C2-CB8DB9A4F728")]
+internal sealed class CQuotaUIHelper
+{
 }

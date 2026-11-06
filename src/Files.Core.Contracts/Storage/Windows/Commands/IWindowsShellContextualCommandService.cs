@@ -28,6 +28,6 @@ public interface IWindowsShellContextualCommandService
 	/// <param name="context">The owner window and working-directory context.</param>
 	/// <param name="cancellationToken">The token used to cancel command preparation.</param>
 	/// <returns><see langword="true"/> when the Shell command was invoked.</returns>
-	Task<bool> InvokeAsync( StorableReference? location, IReadOnlyList<StorableReference> selection, WindowsShellContextualCommand command, WindowsShellInvocationContext context,
+	Task<bool> InvokeAsync(StorableReference? location, IReadOnlyList<StorableReference> selection, WindowsShellContextualCommand command, WindowsShellInvocationContext context,
 		CancellationToken cancellationToken = default);
 }

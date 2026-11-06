@@ -31,7 +31,7 @@ namespace Files.Controls
 		private const string TemplateVisualStateName_Disabled = "Disabled";
 
 		private const double DegreesToRadians = Math.PI / 180;
-		private const double minSize = 8;
+		private const double MinSize = 8;
 
 		// Fields
 
@@ -125,7 +125,7 @@ namespace Files.Controls
 			double correctedWidth = Width - (borderWidth * 2) - (Padding.Left + Padding.Right);
 			double correctedHeight = Height - (borderHeight * 2) - (Padding.Top + Padding.Bottom);
 			double check = Math.Min(correctedWidth, correctedHeight);
-			_containerSize = check < minSize ? minSize : check;
+			_containerSize = check < MinSize ? MinSize : check;
 			AdjustedSize = _containerSize;
 
 			// Set Container Center
@@ -310,6 +310,7 @@ namespace Files.Controls
 				trackStartAngle = _normalizedMaxAngle - 0.01;
 				trackEndAngle = _normalizedMinAngle;
 			}
+
 			//
 			// Percent is between it's Minimum and its Minimum + 2 (between 0% and 2%)
 			else if (percent > minPercent && percent < minPercent + 2.0)
@@ -335,6 +336,7 @@ namespace Files.Controls
 				trackStartAngle = interpolatedEndTo;
 				trackEndAngle = interpolatedStartTo;
 			}
+
 			//
 			// Percent is at or above its Maximum value
 			else if (percent >= maxPercent)
@@ -344,6 +346,7 @@ namespace Files.Controls
 				trackStartAngle = _normalizedMaxAngle;
 				trackEndAngle = _normalizedMinAngle;
 			}
+
 			//
 			// Any value between the Minimum and the Maximum value
 			else
@@ -412,6 +415,7 @@ namespace Files.Controls
 				valueRingShape.StrokeThickness = 0;
 				trackRingShape.StrokeThickness = _trackRingThickness;
 			}
+
 			// Percent is between it's Minimum and its Minimum + 2.0 (between 0% and 2%)
 			else if (percent > minPercent && percent < minPercent + 2.0)
 			{
@@ -419,6 +423,7 @@ namespace Files.Controls
 
 				trackRingShape.StrokeThickness = _trackRingThickness;
 			}
+
 			//
 			// Percent is at or above its Maximum value
 			else if (percent >= maxPercent)
@@ -426,6 +431,7 @@ namespace Files.Controls
 				valueRingShape.StrokeThickness = _valueRingThickness;
 				trackRingShape.StrokeThickness = 0;
 			}
+
 			//
 			// Any percent value between the Minimum + 2 and the Maximum value
 			else
@@ -460,6 +466,7 @@ namespace Files.Controls
 					}
 				}
 			}
+
 			;
 		}
 

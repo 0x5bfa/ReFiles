@@ -56,9 +56,6 @@ public sealed partial class BrowsePaneSession : IBrowsePaneSession
 			: BrowseSession.Context?.LocationModel
 				is IFolderModel;
 
-	/// <summary>Occurs when navigation, history, or preview state changes.</summary>
-	public event EventHandler? NavigationStateChanged;
-
 	/// <summary>Initializes browse pane content and takes ownership of its collaborators.</summary>
 	/// <param name="browseSession">The browse session to own.</param>
 	/// <param name="preview">The preview model to own.</param>
@@ -84,6 +81,9 @@ public sealed partial class BrowsePaneSession : IBrowsePaneSession
 		Preview.Changed += OnChildStateChanged;
 		History.Changed += OnChildStateChanged;
 	}
+
+	/// <summary>Occurs when navigation, history, or preview state changes.</summary>
+	public event EventHandler? NavigationStateChanged;
 
 	/// <summary>Navigates to a location and commits it to history.</summary>
 	/// <param name="location">The target location.</param>
@@ -352,6 +352,7 @@ public sealed partial class BrowsePaneSession : IBrowsePaneSession
 			{
 				await BrowseSession.NavigateAsync(target, cancellationToken).ConfigureAwait(false);
 			}
+
 			completed = true;
 		}
 		finally

@@ -54,6 +54,7 @@ internal sealed class NavigationItemLoader
 		{
 			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", "LoadSections START");
 		}
+
 		var windowsSource = _workspace.Sources.FirstOrDefault(static source => source.SourceType == WindowsStorageIdentity.DefaultSourceType);
 		if (windowsSource is null)
 		{
@@ -88,6 +89,7 @@ internal sealed class NavigationItemLoader
 						$"LoadSections yielded order={section.Order} name={section.Name} items={section.Items.Count} elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}"
 					);
 				}
+
 				yield return section;
 			}
 		}
@@ -105,6 +107,7 @@ internal sealed class NavigationItemLoader
 		{
 			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"LoadThumbnail START id={reference.ItemId}");
 		}
+
 		var model = await _workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
 		try
 		{
@@ -158,6 +161,7 @@ internal sealed class NavigationItemLoader
 		{
 			_logger.LogDebug("{Component}: {Message}", "NavigationItemLoader", $"Section START order={order} name={name} parsingName={parsingName}");
 		}
+
 		try
 		{
 			var model = await _workspace.ResolveAsync(source.SourceId, new StorageAddress(WindowsStorageIdentity.ShellAddressScheme, parsingName), cancellationToken).ConfigureAwait(false);

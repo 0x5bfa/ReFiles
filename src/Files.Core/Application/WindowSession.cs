@@ -62,12 +62,6 @@ public sealed partial class WindowSession : IWindowSession
 		}
 	}
 
-	/// <summary>Occurs when the tab collection or ordering changes.</summary>
-	public event EventHandler? TabsChanged;
-
-	/// <summary>Occurs when the active tab changes.</summary>
-	public event EventHandler? ActiveTabChanged;
-
 	/// <summary>Initializes an empty window session.</summary>
 	/// <param name="paneFactory">The factory used for browse panes.</param>
 	/// <param name="id">An optional stable window identifier.</param>
@@ -83,6 +77,12 @@ public sealed partial class WindowSession : IWindowSession
 
 		_paneFactory = paneFactory;
 	}
+
+	/// <summary>Occurs when the tab collection or ordering changes.</summary>
+	public event EventHandler? TabsChanged;
+
+	/// <summary>Occurs when the active tab changes.</summary>
+	public event EventHandler? ActiveTabChanged;
 
 	/// <summary>Opens and activates a tab.</summary>
 	/// <param name="initialLocation">The optional initial browse location.</param>

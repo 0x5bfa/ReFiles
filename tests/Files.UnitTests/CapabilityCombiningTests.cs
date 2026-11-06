@@ -28,7 +28,7 @@ public sealed class CapabilityCombiningTests
 		var lower = new TestThumbnailSource(null);
 		var higher = new TestThumbnailSource("higher");
 		var combiner = new ThumbnailSourceCombiner();
-		var source = combiner.Combine(context, [ new CapabilityOption<IThumbnailSource>(lower, 10, "lower", CapabilityLifetime.Shared), new CapabilityOption<IThumbnailSource>(higher, 20, "higher", CapabilityLifetime.Shared), ])!;
+		var source = combiner.Combine(context, [new CapabilityOption<IThumbnailSource>(lower, 10, "lower", CapabilityLifetime.Shared), new CapabilityOption<IThumbnailSource>(higher, 20, "higher", CapabilityLifetime.Shared),])!;
 
 		var result = await source.GetThumbnailAsync(new ThumbnailRequest(64));
 		Assert.IsNotNull(result);
@@ -47,7 +47,7 @@ public sealed class CapabilityCombiningTests
 		var context = CreateContext();
 		var first = new TestThumbnailSource(null);
 		var second = new TestThumbnailSource("fallback");
-		var source = new ThumbnailSourceCombiner().Combine(context, [ new CapabilityOption<IThumbnailSource>(first, 20, "first", CapabilityLifetime.Shared), new CapabilityOption<IThumbnailSource>(second, 10, "second", CapabilityLifetime.Shared), ])!;
+		var source = new ThumbnailSourceCombiner().Combine(context, [new CapabilityOption<IThumbnailSource>(first, 20, "first", CapabilityLifetime.Shared), new CapabilityOption<IThumbnailSource>(second, 10, "second", CapabilityLifetime.Shared),])!;
 
 		var result = await source.GetThumbnailAsync(new ThumbnailRequest(64));
 		Assert.IsNotNull(result);
@@ -66,7 +66,7 @@ public sealed class CapabilityCombiningTests
 		var context = CreateContext();
 		var first = new TestPreviewSource(null);
 		var second = new TestPreviewSource("preview");
-		var source = new PreviewSourceCombiner().Combine(context, [ new CapabilityOption<IPreviewSource>(first, 5, "first", CapabilityLifetime.Shared), new CapabilityOption<IPreviewSource>(second, 1, "second", CapabilityLifetime.Shared), ])!;
+		var source = new PreviewSourceCombiner().Combine(context, [new CapabilityOption<IPreviewSource>(first, 5, "first", CapabilityLifetime.Shared), new CapabilityOption<IPreviewSource>(second, 1, "second", CapabilityLifetime.Shared),])!;
 
 		await using var result = await source.GetPreviewAsync(new PreviewRequest());
 		Assert.IsNotNull(result);
@@ -85,7 +85,7 @@ public sealed class CapabilityCombiningTests
 		var context = CreateContext();
 		var blocked = new BlockedPreviewSource();
 		var fallback = new TestPreviewSource("fallback");
-		var source = new PreviewSourceCombiner().Combine(context, [ new CapabilityOption<IPreviewSource>(blocked, 20, "blocked", CapabilityLifetime.Shared), new CapabilityOption<IPreviewSource>(fallback, 10, "fallback", CapabilityLifetime.Shared), ])!;
+		var source = new PreviewSourceCombiner().Combine(context, [new CapabilityOption<IPreviewSource>(blocked, 20, "blocked", CapabilityLifetime.Shared), new CapabilityOption<IPreviewSource>(fallback, 10, "fallback", CapabilityLifetime.Shared),])!;
 
 		await using var result = await source.GetPreviewAsync(new PreviewRequest());
 
@@ -103,13 +103,13 @@ public sealed class CapabilityCombiningTests
 		var context = CreateContext();
 		var low = new TestPropertySource(new Dictionary<string, object?> { ["name"] = "low", ["lowOnly"] = true, });
 		var high = new TestPropertySource(new Dictionary<string, object?> { ["name"] = "high", ["Name"] = "case-sensitive", });
-		var source = new PropertySourceCombiner().Combine(context, [ new CapabilityOption<IPropertySource>(low, 10, "low", CapabilityLifetime.Shared), new CapabilityOption<IPropertySource>(high, 20, "high", CapabilityLifetime.Shared), ])!;
+		var source = new PropertySourceCombiner().Combine(context, [new CapabilityOption<IPropertySource>(low, 10, "low", CapabilityLifetime.Shared), new CapabilityOption<IPropertySource>(high, 20, "high", CapabilityLifetime.Shared),])!;
 
 		var values = await source.GetPropertiesAsync(new PropertyRequest(["name", "Name", "lowOnly"]));
 		Assert.AreEqual("high", values["name"]);
 		Assert.AreEqual("case-sensitive", values["Name"]);
 		Assert.AreEqual(true, values["lowOnly"]);
-}
+	}
 
 	private static ItemContext CreateContext()
 	{
@@ -128,33 +128,33 @@ public sealed class CapabilityCombiningTests
 
 	private sealed class TestThumbnailSource : IThumbnailSource
 	{
-		private readonly string? value;
+		private readonly string? _value;
 
 		public int CallCount { get; private set; }
 
-		public TestThumbnailSource(string? value) => this.value = value;
+		public TestThumbnailSource(string? value) => this._value = value;
 
 		public ValueTask<ThumbnailResult?> GetThumbnailAsync(ThumbnailRequest request, CancellationToken cancellationToken = default)
 		{
 			CallCount++;
 
-			return ValueTask.FromResult<ThumbnailResult?>(value is null ? null : new ThumbnailResult(Encoding.UTF8.GetBytes(value), "text/plain", false));
+			return ValueTask.FromResult<ThumbnailResult?>(_value is null ? null : new ThumbnailResult(Encoding.UTF8.GetBytes(_value), "text/plain", false));
 		}
 	}
 
-		private sealed class TestPreviewSource : IPreviewSource
+	private sealed class TestPreviewSource : IPreviewSource
 	{
-		private readonly string? value;
+		private readonly string? _value;
 
 		public int CallCount { get; private set; }
 
-		public TestPreviewSource(string? value) => this.value = value;
+		public TestPreviewSource(string? value) => this._value = value;
 
 		public ValueTask<PreviewResult?> GetPreviewAsync(PreviewRequest request, CancellationToken cancellationToken = default)
 		{
 			CallCount++;
 
-			return ValueTask.FromResult<PreviewResult?>(value is null ? null : new StreamPreviewResult(new MemoryStream(Encoding.UTF8.GetBytes(value), writable: false), "text/plain"));
+			return ValueTask.FromResult<PreviewResult?>(_value is null ? null : new StreamPreviewResult(new MemoryStream(Encoding.UTF8.GetBytes(_value), writable: false), "text/plain"));
 		}
 	}
 
@@ -168,13 +168,13 @@ public sealed class CapabilityCombiningTests
 
 	private sealed class TestPropertySource : IPropertySource
 	{
-		private readonly IReadOnlyDictionary<string, object?> values;
+		private readonly IReadOnlyDictionary<string, object?> _values;
 
-		public TestPropertySource(IReadOnlyDictionary<string, object?> values) => this.values = values;
+		public TestPropertySource(IReadOnlyDictionary<string, object?> values) => this._values = values;
 
 		public ValueTask<IReadOnlyDictionary<string, object?>> GetPropertiesAsync(PropertyRequest request, CancellationToken cancellationToken = default)
 		{
-			return ValueTask.FromResult(values);
+			return ValueTask.FromResult(_values);
 		}
 	}
 }

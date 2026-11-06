@@ -34,8 +34,6 @@ public sealed partial class StatusCenterItemViewModel : ObservableObject
 
 	public Guid Id { get; }
 
-	internal Guid InterruptionId { get; private set; }
-
 	public string Title
 	{
 		get => _title;
@@ -252,6 +250,8 @@ public sealed partial class StatusCenterItemViewModel : ObservableObject
 
 	/// <summary>Gets a value indicating whether transfer-rate history is available.</summary>
 	public bool HasSpeedGraphPoints => SpeedGraphPoints.Count is not 0;
+
+	internal Guid InterruptionId { get; private set; }
 
 	internal StatusCenterItemViewModel(StorageOperationStatus operation)
 	{

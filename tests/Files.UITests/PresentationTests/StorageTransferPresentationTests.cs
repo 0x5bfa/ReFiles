@@ -36,9 +36,19 @@ public sealed class StorageTransferPresentationTests
 	{
 		var summary = new BackgroundServer.OperationSummary
 		{
-			Id = Guid.NewGuid(), Kind = "Copy", State = BackgroundServer.OperationState.Failed, HasItemProgress = true, CompletedItems = 1, TotalItems = 2,
-			AcceptedAt = DateTimeOffset.UtcNow, ErrorMessage = "The next source failed.", HasTransferOutcome = true, TransferPublication = (int)StorageTransferPublication.Partial,
-			TransferPhase = (int)StorageTransferPhase.Reading, TransferCommittedItems = 1, TransferCompletedBytes = 10,
+			Id = Guid.NewGuid(),
+			Kind = "Copy",
+			State = BackgroundServer.OperationState.Failed,
+			HasItemProgress = true,
+			CompletedItems = 1,
+			TotalItems = 2,
+			AcceptedAt = DateTimeOffset.UtcNow,
+			ErrorMessage = "The next source failed.",
+			HasTransferOutcome = true,
+			TransferPublication = (int)StorageTransferPublication.Partial,
+			TransferPhase = (int)StorageTransferPhase.Reading,
+			TransferCommittedItems = 1,
+			TransferCompletedBytes = 10,
 			TransferDestination = new BackgroundServer.StorageReferenceData { SourceId = "windows", ItemId = "committed", HasAddress = true, AddressScheme = "file", AddressValue = @"C:\output\file.txt" },
 		};
 		var state = StorageOperationStatusMapper.ToState(StorageOperationStatusMapper.Convert(summary));

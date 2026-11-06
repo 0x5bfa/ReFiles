@@ -10,6 +10,31 @@ using Windows.Win32.NetworkManagement.WindowsFirewall;
 
 namespace Windows.Win32.UI.Shell;
 
+/// <summary>Identifies a network discovery or file-sharing feature.</summary>
+internal enum DTSH_TYPE
+{
+	/// <summary>Network discovery.</summary>
+	DTSH_NETWORK_DISCOVERY = 0,
+	/// <summary>File sharing.</summary>
+	DTSH_FILE_SHARING = 1,
+}
+
+/// <summary>Describes whether a sharing feature is enabled.</summary>
+internal enum DTSH_STATE
+{
+	/// <summary>The feature is disabled.</summary>
+	DTSH_OFF = 0,
+	/// <summary>The feature is enabled.</summary>
+	DTSH_ON = 1,
+}
+
+/// <summary>Identifies an action suggested by the sharing service.</summary>
+internal enum DTSH_ACTION
+{
+	/// <summary>No action is required.</summary>
+	DTSH_NONE = 0,
+}
+
 /// <summary>Controls Windows network discovery and file-sharing settings.</summary>
 [GeneratedComInterface, Guid("1FDA955C-61FF-11DA-978C-0008744FAAB7"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal partial interface IDetectionAndSharing
@@ -53,29 +78,4 @@ internal partial interface IDetectionAndSharing
 	/// <returns>The HRESULT returned by the Shell.</returns>
 	[PreserveSig]
 	HRESULT TurnOnForProfile(HWND hwnd, NET_FW_PROFILE_TYPE2 profile, DTSH_TYPE type, int value);
-}
-
-/// <summary>Identifies a network discovery or file-sharing feature.</summary>
-internal enum DTSH_TYPE
-{
-	/// <summary>Network discovery.</summary>
-	DTSH_NETWORK_DISCOVERY = 0,
-	/// <summary>File sharing.</summary>
-	DTSH_FILE_SHARING = 1,
-}
-
-/// <summary>Describes whether a sharing feature is enabled.</summary>
-internal enum DTSH_STATE
-{
-	/// <summary>The feature is disabled.</summary>
-	DTSH_OFF = 0,
-	/// <summary>The feature is enabled.</summary>
-	DTSH_ON = 1,
-}
-
-/// <summary>Identifies an action suggested by the sharing service.</summary>
-internal enum DTSH_ACTION
-{
-	/// <summary>No action is required.</summary>
-	DTSH_NONE = 0,
 }

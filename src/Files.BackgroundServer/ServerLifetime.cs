@@ -34,6 +34,16 @@ internal sealed partial class ServerLifetime : IDisposable
 		_idleTimer.Change(_idleTimeout, Timeout.InfiniteTimeSpan);
 	}
 
+	public void Dispose()
+	{
+		lock (_syncRoot)
+		{
+			_stopping = true;
+			_idleTimer.Dispose();
+			_exit.TrySetResult();
+		}
+	}
+
 	internal IDisposable Acquire(bool isClient = false)
 	{
 		lock (_syncRoot)
@@ -47,19 +57,10 @@ internal sealed partial class ServerLifetime : IDisposable
 				Interlocked.Increment(ref _clientCount);
 				Interlocked.Increment(ref _clientGeneration);
 			}
+
 			_idleTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
 
 			return lease;
-		}
-	}
-
-	public void Dispose()
-	{
-		lock (_syncRoot)
-		{
-			_stopping = true;
-			_idleTimer.Dispose();
-			_exit.TrySetResult();
 		}
 	}
 
@@ -72,6 +73,7 @@ internal sealed partial class ServerLifetime : IDisposable
 			{
 				Interlocked.Decrement(ref _clientCount);
 			}
+
 			if (_activityCount == 0 && !_stopping)
 			{
 				_idleStarted = Stopwatch.GetTimestamp();

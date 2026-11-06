@@ -15,10 +15,6 @@ public abstract class FtpStorable :
 {
 	private readonly FtpStorageSource _source;
 
-	internal FtpStorableFactory Factory { get; }
-
-	internal FtpEntryMetadata Metadata { get; }
-
 	/// <summary>Gets the source-specific item identifier.</summary>
 	public string Id { get; }
 
@@ -33,6 +29,10 @@ public abstract class FtpStorable :
 
 	/// <summary>Gets the entry kind.</summary>
 	public FtpEntryKind Kind => Metadata.Kind;
+
+	internal FtpStorableFactory Factory { get; }
+
+	internal FtpEntryMetadata Metadata { get; }
 
 	internal FtpStorable(FtpStorageSource source, FtpEntryMetadata metadata, FtpStorableFactory factory)
 	{

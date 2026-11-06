@@ -39,6 +39,7 @@ internal sealed partial class SystemTrayIcon : IDisposable
 		{
 			iconHandle = PInvoke.LoadImage(default, path, GDI_IMAGE_TYPE.IMAGE_ICON, 0, 0, IMAGE_FLAGS.LR_LOADFROMFILE);
 		}
+
 		if (iconHandle.IsNull)
 		{
 			throw new Win32Exception(Marshal.GetLastPInvokeError());
@@ -56,6 +57,13 @@ internal sealed partial class SystemTrayIcon : IDisposable
 			PInvoke.DestroyIcon(_icon);
 			throw;
 		}
+	}
+
+	public void Dispose()
+	{
+		Hide();
+		_iconWindow.Dispose();
+		PInvoke.DestroyIcon(_icon);
 	}
 
 	internal void Show()
@@ -124,13 +132,6 @@ internal sealed partial class SystemTrayIcon : IDisposable
 		}
 
 		return PInvoke.DefWindowProc(window, message, wParam, lParam);
-	}
-
-	public void Dispose()
-	{
-		Hide();
-		_iconWindow.Dispose();
-		PInvoke.DestroyIcon(_icon);
 	}
 
 	private void CreateNotifyIcon()

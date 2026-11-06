@@ -58,6 +58,8 @@ public sealed partial class AppService : IDisposable
 		}
 	}
 
+	~AppService() => Dispose();
+
 	/// <summary>Captures current operation state for this server instance.</summary>
 	/// <returns>A bounded snapshot whose items are returned by value.</returns>
 	public OperationList GetOperations()
@@ -295,8 +297,6 @@ public sealed partial class AppService : IDisposable
 		_operations.ScheduleUnattendedCancellation();
 		GC.SuppressFinalize(this);
 	}
-
-	~AppService() => Dispose();
 
 	private IDisposable AcquireRequest()
 	{

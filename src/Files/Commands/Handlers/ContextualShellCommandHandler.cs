@@ -7,11 +7,11 @@ internal sealed class ContextualShellCommandHandler(CommandId id, string shellCo
 {
 	public CommandId Id => id;
 
-	internal string ShellCommandId => shellCommandId;
-
 	public CommandConcurrencyPolicy ConcurrencyPolicy => CommandConcurrencyPolicy.RejectWhileRunning;
 
 	public CommandStateInvalidation StateDependencies => CommandStateInvalidation.ContextualCommands;
+
+	internal string ShellCommandId => shellCommandId;
 
 	public CommandState GetState(CommandContext context)
 	{

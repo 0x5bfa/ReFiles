@@ -10,8 +10,6 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal sealed class WindowsShellExplorerCommand
 {
-	internal WindowsShellExplorerCommandToken Token { get; }
-
 	/// <summary>Gets the stable manifest verb identifier.</summary>
 	public string Id { get; }
 
@@ -50,6 +48,8 @@ internal sealed class WindowsShellExplorerCommand
 
 	/// <summary>Gets the child commands supplied by Shell or Cloud Files metadata.</summary>
 	public IReadOnlyList<WindowsShellExplorerCommand> Children { get; }
+
+	internal WindowsShellExplorerCommandToken Token { get; }
 
 	internal WindowsShellExplorerCommand(WindowsShellExplorerCommandToken token, string id, string title, string? iconPath, int iconIndex, bool isEnabled, bool isChecked, bool isRadio, bool isSeparator,
 		IReadOnlyList<WindowsShellExplorerCommand>? children = null, string? iconPackageFullName = null, string? fallbackIconPath = null, int fallbackIconIndex = 0,

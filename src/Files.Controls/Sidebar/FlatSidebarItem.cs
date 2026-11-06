@@ -39,13 +39,13 @@ namespace Files.Controls
 			? new Thickness(0, 12, 0, 0)
 			: new Thickness(0);
 
-		public event PropertyChangedEventHandler? PropertyChanged;
-
 		public FlatSidebarItem(object item, int depth, double rowOpacity = 1.0)
 		{
 			Item = item;
 			Depth = depth;
 			RowOpacity = rowOpacity;
 		}
+
+		public event PropertyChangedEventHandler? PropertyChanged;
 	}
 }

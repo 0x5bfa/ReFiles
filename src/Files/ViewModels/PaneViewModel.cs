@@ -19,8 +19,6 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	private int _isDisposed;
 
-	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
-
 	public Guid Id => _pane.Id;
 
 	public FolderBrowserViewModel? FolderBrowser => _presentation.FolderBrowser;
@@ -54,7 +52,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	public bool CanRefresh => FolderBrowser?.CanRefresh ?? false;
 
-	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
+	internal bool IsDisposed => Volatile.Read(ref _isDisposed) is not 0;
 
 	internal PaneViewModel(IPaneSession pane, WindowPresentationFactory presentationFactory, WindowCommandManager commandManager)
 	{
@@ -74,10 +72,7 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 
 	}
 
-	internal UIElement CreateContentView()
-	{
-		return _presentation.CreateView();
-	}
+	internal event EventHandler<OperationErrorEventArgs>? OperationErrorReported;
 
 	public void SetActive(bool value)
 	{
@@ -107,6 +102,11 @@ public sealed partial class PaneViewModel : ObservableObject, IDisposable, IAsyn
 		}
 
 		await _presentation.DisposeAsync().ConfigureAwait(false);
+	}
+
+	internal UIElement CreateContentView()
+	{
+		return _presentation.CreateView();
 	}
 
 	private void FolderBrowser_OperationErrorReported(object? sender, OperationErrorEventArgs e)

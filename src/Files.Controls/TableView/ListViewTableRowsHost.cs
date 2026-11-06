@@ -75,18 +75,6 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 	/// <inheritdoc />
 	public IList<object> SelectedItems => View.SelectedItems;
 
-	/// <inheritdoc />
-	public event EventHandler<TableViewRowChangingEventArgs>? RowChanging;
-
-	/// <inheritdoc />
-	public event EventHandler? ViewportChanged;
-
-	/// <inheritdoc />
-	public event EventHandler? SelectionChanged;
-
-	/// <inheritdoc />
-	public event EventHandler<TableViewItemInvokedEventArgs>? ItemInvoked;
-
 	/// <summary>
 	/// Initializes a host with a new <see cref="ListView"/>.
 	/// </summary>
@@ -116,6 +104,18 @@ public class ListViewTableRowsHost : ITableViewRowsHost, ITableViewSelectionHost
 		View.SelectionChanged += View_SelectionChanged;
 		View.SizeChanged += View_SizeChanged;
 	}
+
+	/// <inheritdoc />
+	public event EventHandler<TableViewRowChangingEventArgs>? RowChanging;
+
+	/// <inheritdoc />
+	public event EventHandler? ViewportChanged;
+
+	/// <inheritdoc />
+	public event EventHandler? SelectionChanged;
+
+	/// <inheritdoc />
+	public event EventHandler<TableViewItemInvokedEventArgs>? ItemInvoked;
 
 	/// <inheritdoc />
 	public void ScrollIntoView(object item)

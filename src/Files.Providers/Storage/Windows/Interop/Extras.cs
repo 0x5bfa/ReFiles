@@ -25,6 +25,22 @@ namespace Windows.Win32
 		/// <summary>Specifies the 32-bit ARGB pixel format used by Windows imaging APIs.</summary>
 		public const int PixelFormat32bppARGB = 2498570;
 
+		/// <summary>Refreshes the Recycle Bin icon.</summary>
+		[LibraryImport("shell32.dll", EntryPoint = "SHUpdateRecycleBinIcon", SetLastError = true)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		public static partial void SHUpdateRecycleBinIcon();
+
+		/// <summary>Opens the system device-properties UI for a device instance.</summary>
+		/// <param name="parent">The owner window.</param>
+		/// <param name="machineName">The optional remote machine name.</param>
+		/// <param name="deviceInstanceId">The device instance identifier.</param>
+		/// <param name="flags">Reserved flags.</param>
+		/// <param name="showDeviceTree">Whether to show the Device Manager tree.</param>
+		/// <returns>The native result code.</returns>
+		[LibraryImport("devmgr.dll", EntryPoint = "DevicePropertiesExW", StringMarshalling = StringMarshalling.Utf16)]
+		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+		public static partial int DevicePropertiesEx(HWND parent, string? machineName, string deviceInstanceId, uint flags, BOOL showDeviceTree);
+
 		[LibraryImport("kernel32.dll", EntryPoint = "GetPackagePathByFullName", StringMarshalling = StringMarshalling.Utf16)]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static unsafe partial int GetPackagePathByFullName(string packageFullName, ref uint pathLength, char* path);
@@ -83,22 +99,6 @@ namespace Windows.Win32
 		[LibraryImport("ext-ms-win-storage-sense-l1-1-0.dll", EntryPoint = "GetStorageDeviceInfo")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
 		internal static partial HRESULT GetStorageDeviceInfo(uint category, uint index, Span<byte> information);
-
-		/// <summary>Refreshes the Recycle Bin icon.</summary>
-		[LibraryImport("shell32.dll", EntryPoint = "SHUpdateRecycleBinIcon", SetLastError = true)]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		public static partial void SHUpdateRecycleBinIcon();
-
-		/// <summary>Opens the system device-properties UI for a device instance.</summary>
-		/// <param name="parent">The owner window.</param>
-		/// <param name="machineName">The optional remote machine name.</param>
-		/// <param name="deviceInstanceId">The device instance identifier.</param>
-		/// <param name="flags">Reserved flags.</param>
-		/// <param name="showDeviceTree">Whether to show the Device Manager tree.</param>
-		/// <returns>The native result code.</returns>
-		[LibraryImport("devmgr.dll", EntryPoint = "DevicePropertiesExW", StringMarshalling = StringMarshalling.Utf16)]
-		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-		public static partial int DevicePropertiesEx(HWND parent, string? machineName, string deviceInstanceId, uint flags, BOOL showDeviceTree);
 
 		[LibraryImport("ntdll.dll", EntryPoint = "NtFsControlFile")]
 		[DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

@@ -57,6 +57,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 	/// <param name="key">The cache key.</param>
 	/// <param name="entry">The entry to store.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A completed task after the update has been applied.</returns>
 	public ValueTask SetAsync(ThumbnailCacheKey key, ThumbnailCacheEntry entry, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(key);
@@ -119,6 +120,7 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 	/// <summary>Invalidates cached entries for a storage reference.</summary>
 	/// <param name="reference">The storage reference.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>
+	/// <returns>A completed task after the update has been applied.</returns>
 	public ValueTask InvalidateAsync(StorableReference reference, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(reference);
@@ -164,6 +166,12 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 		}
 	}
 
+	private static int GetInvalidationStripe(StorageSourceId sourceId, string itemId)
+	{
+		return (HashCode.Combine(sourceId, itemId) & int.MaxValue)
+			% InvalidationStripeCount;
+	}
+
 	private sealed class CacheItem
 	{
 		public ThumbnailCacheEntry Entry { get; set; }
@@ -175,11 +183,5 @@ public sealed class MemoryThumbnailCache : IThumbnailCache
 			Entry = entry;
 			UsageNode = usageNode;
 		}
-	}
-
-	private static int GetInvalidationStripe(StorageSourceId sourceId, string itemId)
-	{
-		return (HashCode.Combine(sourceId, itemId) & int.MaxValue)
-			% InvalidationStripeCount;
 	}
 }

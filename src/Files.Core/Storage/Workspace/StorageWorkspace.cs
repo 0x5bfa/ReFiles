@@ -27,9 +27,6 @@ public sealed class StorageWorkspace : IStorageWorkspace, IStorageSourceRegistry
 	/// <inheritdoc />
 	public IReadOnlyList<IStorageSource> Sources => Volatile.Read(ref _sourceSnapshot);
 
-	/// <inheritdoc />
-	public event EventHandler? SourcesChanged;
-
 	/// <summary>Gets the runtime adapter for raw source items.</summary>
 	public IStorableModelFactory ModelFactory { get; }
 
@@ -59,6 +56,9 @@ public sealed class StorageWorkspace : IStorageWorkspace, IStorageSourceRegistry
 		_ownedSourcesById = new Dictionary<StorageSourceId, IStorageSource>(sourceMap);
 		ModelFactory = modelFactory;
 	}
+
+	/// <inheritdoc />
+	public event EventHandler? SourcesChanged;
 
 	/// <inheritdoc />
 	public void AddSource(IStorageSource source)

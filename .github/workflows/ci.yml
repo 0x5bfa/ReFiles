@@ -94,6 +94,16 @@ jobs:
           }
         }
 
+    - name: Verify C# formatting and style
+      if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
+      shell: pwsh
+      env:
+        Platform: x64
+      run: |
+        dotnet format Files.slnx --verify-no-changes --severity error `
+          --diagnostics IDE1006 IDE0011 SA1201 SA1202 SA1203 SA1507 SA1513 SA1611 SA1615 SA1618 `
+          --verbosity minimal
+
     - name: Run unit tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh

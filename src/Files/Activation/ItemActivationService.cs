@@ -13,8 +13,6 @@ internal enum ItemActivationOutcome
 	Unsupported,
 }
 
-internal sealed record ItemActivationRequest(StorableReference Reference, bool IsFolder, string? WorkingDirectory, WindowsShellInvocationPoint? InvocationPoint);
-
 internal interface IItemActivationService
 {
 	Task<ItemActivationOutcome> ActivateAsync(ItemActivationRequest request, CancellationToken cancellationToken = default);
@@ -26,6 +24,8 @@ internal interface IWindowsShellDefaultCommandService
 
 	Task<bool> InvokeDefaultCommandAsync(StorableReference reference, WindowsShellInvocationContext context, CancellationToken cancellationToken = default);
 }
+
+internal sealed record ItemActivationRequest(StorableReference Reference, bool IsFolder, string? WorkingDirectory, WindowsShellInvocationPoint? InvocationPoint);
 
 internal sealed record ShellDefaultCommand(string? CanonicalVerb);
 

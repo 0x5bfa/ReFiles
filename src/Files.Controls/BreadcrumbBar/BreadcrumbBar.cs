@@ -31,12 +31,6 @@ namespace Files.Controls
 		public int IndexAfterEllipsis
 			=> _itemsRepeaterLayout.IndexAfterEllipsis;
 
-		// Events
-
-		public event TypedEventHandler<BreadcrumbBar, BreadcrumbBarItemClickedEventArgs>? ItemClicked;
-		public event EventHandler<BreadcrumbBarItemDropDownFlyoutEventArgs>? ItemDropDownFlyoutOpening;
-		public event EventHandler<BreadcrumbBarItemDropDownFlyoutEventArgs>? ItemDropDownFlyoutClosed;
-
 		// Constructor
 
 		public BreadcrumbBar()
@@ -46,26 +40,24 @@ namespace Files.Controls
 			_itemsRepeaterLayout = new(this);
 		}
 
-		// Methods
+		// Events
 
-		protected override void OnApplyTemplate()
+		public event TypedEventHandler<BreadcrumbBar, BreadcrumbBarItemClickedEventArgs>? ItemClicked;
+		public event EventHandler<BreadcrumbBarItemDropDownFlyoutEventArgs>? ItemDropDownFlyoutOpening;
+		public event EventHandler<BreadcrumbBarItemDropDownFlyoutEventArgs>? ItemDropDownFlyoutClosed;
+
+		internal bool TryGetElement(int index, out BreadcrumbBarItem? item)
 		{
-			base.OnApplyTemplate();
+			item = null;
 
-			_rootBreadcrumbBarItem = GetTemplateChild(TemplatePartName_RootBreadcrumbBarItem) as BreadcrumbBarItem
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_RootBreadcrumbBarItem} in the given {nameof(BreadcrumbBar)}'s style.");
-			_ellipsisBreadcrumbBarItem = GetTemplateChild(TemplatePartName_EllipsisBreadcrumbBarItem) as BreadcrumbBarItem
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_EllipsisBreadcrumbBarItem} in the given {nameof(BreadcrumbBar)}'s style.");
-			_itemsRepeater = GetTemplateChild(TemplatePartName_MainItemsRepeater) as ItemsRepeater
-				?? throw new MissingFieldException($"Could not find {TemplatePartName_MainItemsRepeater} in the given {nameof(BreadcrumbBar)}'s style.");
+			if (_itemsRepeater is null)
+			{
+				return false;
+			}
 
-			_rootBreadcrumbBarItem.SetOwner(this);
-			_ellipsisBreadcrumbBarItem.SetOwner(this);
-			_itemsRepeater.Layout = _itemsRepeaterLayout;
+			item = _itemsRepeater.TryGetElement(index) as BreadcrumbBarItem;
 
-			_itemsRepeater.ElementPrepared += ItemsRepeater_ElementPrepared;
-			_itemsRepeater.ElementClearing += ItemsRepeater_ElementClearing;
-			_itemsRepeater.ItemsSourceView.CollectionChanged += ItemsSourceView_CollectionChanged;
+			return item is not null;
 		}
 
 		internal protected virtual void RaiseItemClickedEvent(BreadcrumbBarItem item, PointerRoutedEventArgs? pointerRoutedEventArgs = null)
@@ -111,18 +103,26 @@ namespace Files.Controls
 			}
 		}
 
-		internal bool TryGetElement(int index, out BreadcrumbBarItem? item)
+		// Methods
+
+		protected override void OnApplyTemplate()
 		{
-			item = null;
+			base.OnApplyTemplate();
 
-			if (_itemsRepeater is null)
-			{
-				return false;
-			}
+			_rootBreadcrumbBarItem = GetTemplateChild(TemplatePartName_RootBreadcrumbBarItem) as BreadcrumbBarItem
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_RootBreadcrumbBarItem} in the given {nameof(BreadcrumbBar)}'s style.");
+			_ellipsisBreadcrumbBarItem = GetTemplateChild(TemplatePartName_EllipsisBreadcrumbBarItem) as BreadcrumbBarItem
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_EllipsisBreadcrumbBarItem} in the given {nameof(BreadcrumbBar)}'s style.");
+			_itemsRepeater = GetTemplateChild(TemplatePartName_MainItemsRepeater) as ItemsRepeater
+				?? throw new MissingFieldException($"Could not find {TemplatePartName_MainItemsRepeater} in the given {nameof(BreadcrumbBar)}'s style.");
 
-			item = _itemsRepeater.TryGetElement(index) as BreadcrumbBarItem;
+			_rootBreadcrumbBarItem.SetOwner(this);
+			_ellipsisBreadcrumbBarItem.SetOwner(this);
+			_itemsRepeater.Layout = _itemsRepeaterLayout;
 
-			return item is not null;
+			_itemsRepeater.ElementPrepared += ItemsRepeater_ElementPrepared;
+			_itemsRepeater.ElementClearing += ItemsRepeater_ElementClearing;
+			_itemsRepeater.ItemsSourceView.CollectionChanged += ItemsSourceView_CollectionChanged;
 		}
 
 		// Event methods

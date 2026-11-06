@@ -140,38 +140,6 @@ public sealed class CapabilityRegistry
 		}
 	}
 
-	private sealed class BorrowedViewLifetime(Action release) : IDisposable
-	{
-		private Action? _release = release;
-
-		public void Dispose()
-		{
-			Interlocked.Exchange(ref _release, null)?.Invoke();
-		}
-	}
-
-	private static class BorrowedViewContract<TCapability> where TCapability : class, ICapability
-	{
-		private static readonly ConcurrentDictionary<Type, bool> _validTypes = [];
-
-		public static void Validate(TCapability view)
-		{
-			var type = view.GetType();
-			if (!_validTypes.TryGetValue(type, out var valid))
-			{
-				valid = GetBorrowedViewInterfaces(view).All(static role => role.IsAssignableFrom(typeof(TCapability))
-					|| typeof(TCapability) == typeof(Files.Core.Capabilities.Content.IReadableContent) && role == typeof(Files.Core.Storage.Archives.IArchiveInput)
-					|| typeof(TCapability) == typeof(Files.Core.Capabilities.Properties.IPropertySource) && role == typeof(Files.Core.Capabilities.Properties.IBatchedPropertySource));
-				_validTypes.TryAdd(type, valid);
-			}
-
-			if (!valid)
-			{
-				throw new InvalidOperationException($"A borrowed view for '{typeof(TCapability).FullName}' exposes unrelated interfaces. Return a contract-specific adapter.");
-			}
-		}
-	}
-
 	// Use the annotated marker as the static receiver type so trimming preserves the interface metadata.
 	private static Type[] GetBorrowedViewInterfaces(ICapability view)
 	{
@@ -247,6 +215,38 @@ public sealed class CapabilityRegistry
 		var instances = ownedInstances.ToArray();
 		ownedInstances.Clear();
 		Capabilities.DisposeInstancesAsync(instances).GetAwaiter().GetResult();
+	}
+
+	private sealed class BorrowedViewLifetime(Action release) : IDisposable
+	{
+		private Action? _release = release;
+
+		public void Dispose()
+		{
+			Interlocked.Exchange(ref _release, null)?.Invoke();
+		}
+	}
+
+	private static class BorrowedViewContract<TCapability> where TCapability : class, ICapability
+	{
+		private static readonly ConcurrentDictionary<Type, bool> _validTypes = [];
+
+		public static void Validate(TCapability view)
+		{
+			var type = view.GetType();
+			if (!_validTypes.TryGetValue(type, out var valid))
+			{
+				valid = GetBorrowedViewInterfaces(view).All(static role => role.IsAssignableFrom(typeof(TCapability))
+					|| typeof(TCapability) == typeof(Files.Core.Capabilities.Content.IReadableContent) && role == typeof(Files.Core.Storage.Archives.IArchiveInput)
+					|| typeof(TCapability) == typeof(Files.Core.Capabilities.Properties.IPropertySource) && role == typeof(Files.Core.Capabilities.Properties.IBatchedPropertySource));
+				_validTypes.TryAdd(type, valid);
+			}
+
+			if (!valid)
+			{
+				throw new InvalidOperationException($"A borrowed view for '{typeof(TCapability).FullName}' exposes unrelated interfaces. Return a contract-specific adapter.");
+			}
+		}
 	}
 }
 

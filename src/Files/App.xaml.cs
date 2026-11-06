@@ -83,6 +83,7 @@ public partial class App : Application
 		{
 			_logger.LogDebug("{Component}: {Message}", "App", "Launch START");
 		}
+
 		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
 		var currentRuntime = Files.Hosting.FilesHost.CreateUIRuntime(_viewSettingsStore, _storageOperations, _storageOperations, _loggerFactory);
 		_runtime = currentRuntime;
@@ -96,6 +97,7 @@ public partial class App : Application
 		{
 			_logger.LogDebug("{Component}: {Message}", "App", $"Main window activated elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		}
+
 		try
 		{
 			await _storageOperations.ConnectAsync().ConfigureAwait(true);
@@ -118,6 +120,7 @@ public partial class App : Application
 		{
 			_logger.LogDebug("{Component}: {Message}", "App", "Core window created");
 		}
+
 		if (coreWindow.ActiveTab?.ActivePane is null)
 		{
 			await runtime.ShellSession.CloseWindowAsync(coreWindow.Id).ConfigureAwait(true);

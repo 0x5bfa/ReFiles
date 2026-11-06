@@ -29,6 +29,6 @@ public static class BrowseSessionExtensions
 
 		var selectedKeys = session.Selection.SelectedKeys.ToHashSet();
 
-		return Array.AsReadOnly(session.Items .Where(item => selectedKeys.Contains(item.Reference.GetKey())) .ToArray());
+		return Array.AsReadOnly(session.Items.Where(item => selectedKeys.Contains(item.Reference.GetKey())).ToArray());
 	}
 }

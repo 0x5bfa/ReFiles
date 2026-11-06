@@ -41,8 +41,14 @@ public sealed class StorageTransferJobTests
 		await client.DisposeAsync();
 		var configuration = new FtpConnectionData
 		{
-			ConnectionId = profile.ConnectionId, DisplayName = profile.DisplayName, Host = profile.Host, Port = profile.Port, SecurityMode = (int)profile.SecurityMode,
-			RootPath = profile.RootPath.Value, UserNameHint = string.Empty, PathComparison = (int)profile.PathComparison,
+			ConnectionId = profile.ConnectionId,
+			DisplayName = profile.DisplayName,
+			Host = profile.Host,
+			Port = profile.Port,
+			SecurityMode = (int)profile.SecurityMode,
+			RootPath = profile.RootPath.Value,
+			UserNameHint = string.Empty,
+			PathComparison = (int)profile.PathComparison,
 		};
 		executor.RegisterFtpConnection(configuration, credential.UserName, "outdated-password");
 		var registered = executor.RegisterFtpConnection(configuration, credential.UserName, credential.Password);
@@ -53,9 +59,15 @@ public sealed class StorageTransferJobTests
 		{
 			await using var windows = new WindowsStorageSource();
 			var destination = await ToDataAsync(windows, directory);
-			var item = new StorageTransferData { Kind = StorageOperationKind.Copy, SourceKind = StorageTransferSourceKind.ConfiguredItem, Destination = destination,
-				Name = string.Empty, DisplayName = "remote.txt",
-				Root = new StorageReferenceData { SourceId = registered, ItemId = reference.ItemId, HasAddress = true, AddressScheme = address.Scheme, AddressValue = address.Value } };
+			var item = new StorageTransferData
+			{
+				Kind = StorageOperationKind.Copy,
+				SourceKind = StorageTransferSourceKind.ConfiguredItem,
+				Destination = destination,
+				Name = string.Empty,
+				DisplayName = "remote.txt",
+				Root = new StorageReferenceData { SourceId = registered, ItemId = reference.ItemId, HasAddress = true, AddressScheme = address.Scheme, AddressValue = address.Value }
+			};
 			var lifetime = services.GetRequiredService<ServerLifetime>();
 			var host = services.GetRequiredService<OperationHost>();
 			using var connection = new AppService(Environment.ProcessId, lifetime, host, executor, services.GetRequiredService<IThumbnailCache>(), services.GetRequiredService<ShellNewMenuCache>());
@@ -100,9 +112,17 @@ public sealed class StorageTransferJobTests
 			await using var windows = new WindowsStorageSource();
 			var root = await ToDataAsync(windows, input);
 			var destination = await ToDataAsync(windows, output);
-			var selected = new StorageTransferData { Kind = StorageOperationKind.Copy, SourceKind = StorageTransferSourceKind.ArchiveRecord, Root = root, RecordId = "1", EntryPath = "same.txt",
+			var selected = new StorageTransferData
+			{
+				Kind = StorageOperationKind.Copy,
+				SourceKind = StorageTransferSourceKind.ArchiveRecord,
+				Root = root,
+				RecordId = "1",
+				EntryPath = "same.txt",
 				Destination = destination,
-				Name = string.Empty, DisplayName = "same.txt" };
+				Name = string.Empty,
+				DisplayName = "same.txt"
+			};
 			var missing = selected;
 			missing.RecordId = "99";
 			missing.Name = "missing.txt";
@@ -127,8 +147,15 @@ public sealed class StorageTransferJobTests
 	public void RejectsMalformedTransferValuesBeforeExecution()
 	{
 		var reference = new StorageReferenceData { SourceId = "windows", ItemId = "item" };
-		var data = new StorageTransferData { Kind = StorageOperationKind.Copy, SourceKind = StorageTransferSourceKind.ArchiveRecord, Root = reference, Destination = reference,
-			RecordId = "0", EntryPath = "../escape.txt" };
+		var data = new StorageTransferData
+		{
+			Kind = StorageOperationKind.Copy,
+			SourceKind = StorageTransferSourceKind.ArchiveRecord,
+			Root = reference,
+			Destination = reference,
+			RecordId = "0",
+			EntryPath = "../escape.txt"
+		};
 		Assert.Throws<ArgumentException>(() => StorageTransferBatch.CreateRequest(data, []));
 		data.EntryPath = "file.txt";
 		data.ArchiveStepOffset = int.MaxValue;

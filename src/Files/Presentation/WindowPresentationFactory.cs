@@ -144,7 +144,6 @@ internal sealed class WindowPresentationFactory
 		return factory(content, commands);
 	}
 
-
 	internal FolderBrowserViewModel CreateFolderBrowser(IBrowsePaneSession pane, WindowCommandManager commandManager)
 	{
 		var adapter = new BrowsePresentationAdapter(pane, _dispatcher, ownerWindowHandle: _ownerWindowHandle, loggerFactory: _loggerFactory);
@@ -158,6 +157,7 @@ internal sealed class WindowPresentationFactory
 	{
 		return new PreviewPaneViewModel(pane, _dispatcher);
 	}
+
 	private static IconSource CreateSettingsIcon()
 	{
 		return Application.Current?.Resources.TryGetValue("App.ThemedIcons.Settings", out var value) is true && value is ThemedIconData icon

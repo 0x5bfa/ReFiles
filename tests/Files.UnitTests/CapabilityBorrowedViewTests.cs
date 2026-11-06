@@ -230,6 +230,16 @@ public sealed class CapabilityBorrowedViewTests
 		Assert.AreEqual(0, source.DisposeCount);
 	}
 
+	private static IStorableModel CreateModel(CapabilityRegistry registry)
+	{
+		return new StorableModelFactory(registry).Create(new TestStorageSource(), new TestStorable("item", "Item"));
+	}
+
+	private interface IChecksumSource : ICapability
+	{
+		string Compute();
+	}
+
 	private sealed class LeakingView(IChecksumSource inner) : IChecksumSource, IStorable
 	{
 		public string Id => "leaked";
@@ -243,11 +253,11 @@ public sealed class CapabilityBorrowedViewTests
 
 	private sealed class SharedWatcher : IFolderChangeSource, IDisposable
 	{
-		public event EventHandler<FolderChangeEventArgs>? Changed;
-		public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 		public int ChangeSubscribers => Changed?.GetInvocationList().Length ?? 0;
 		public int ErrorSubscribers => Faulted?.GetInvocationList().Length ?? 0;
 		public int DisposeCount { get; private set; }
+		public event EventHandler<FolderChangeEventArgs>? Changed;
+		public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
 
 		public ValueTask StartAsync(CancellationToken cancellationToken = default)
 		{
@@ -264,16 +274,6 @@ public sealed class CapabilityBorrowedViewTests
 		{
 			DisposeCount++;
 		}
-	}
-
-	private static IStorableModel CreateModel(CapabilityRegistry registry)
-	{
-		return new StorableModelFactory(registry).Create(new TestStorageSource(), new TestStorable("item", "Item"));
-	}
-
-	private interface IChecksumSource : ICapability
-	{
-		string Compute();
 	}
 
 	private sealed class Checksum(string value) : IChecksumSource, IWritableContent, IStorable, IDisposable

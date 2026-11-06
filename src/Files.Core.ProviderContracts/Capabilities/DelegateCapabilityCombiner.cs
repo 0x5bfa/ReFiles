@@ -17,7 +17,7 @@ public sealed class DelegateCapabilityCombiner<TCapability> : ICapabilityCombine
 
 	/// <summary>Initializes a delegate-backed capability combiner.</summary>
 	/// <param name="combine">The delegate that combines capability options.</param>
-	public DelegateCapabilityCombiner(Func< ItemContext, IReadOnlyList<CapabilityOption<TCapability>>, TCapability?> combine)
+	public DelegateCapabilityCombiner(Func<ItemContext, IReadOnlyList<CapabilityOption<TCapability>>, TCapability?> combine)
 	{
 		ArgumentNullException.ThrowIfNull(combine);
 

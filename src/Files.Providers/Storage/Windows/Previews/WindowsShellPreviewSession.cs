@@ -57,7 +57,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	{
 		EnsurePreviewing();
 
-		return new ValueTask(_scheduler.InvokeOperationAsync(() => {_controller.SetBounds(bounds); return true;}, cancellationToken));
+		return new ValueTask(_scheduler.InvokeOperationAsync(() => { _controller.SetBounds(bounds); return true; }, cancellationToken));
 	}
 
 	/// <summary>Updates the preview colors.</summary>
@@ -68,7 +68,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	{
 		EnsurePreviewing();
 
-		return new ValueTask(_scheduler.InvokeOperationAsync(() => {_controller.SetTheme(background, foreground); return true;}, cancellationToken));
+		return new ValueTask(_scheduler.InvokeOperationAsync(() => { _controller.SetTheme(background, foreground); return true; }, cancellationToken));
 	}
 
 	/// <summary>Gives keyboard focus to the preview handler.</summary>
@@ -77,7 +77,7 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 	{
 		EnsurePreviewing();
 
-		return new ValueTask(_scheduler.InvokeOperationAsync(() => {_controller.SetFocus(); return true;}, cancellationToken));
+		return new ValueTask(_scheduler.InvokeOperationAsync(() => { _controller.SetFocus(); return true; }, cancellationToken));
 	}
 
 	/// <summary>Gets the window that currently has preview focus.</summary>
@@ -88,6 +88,24 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		EnsurePreviewing();
 
 		return await _scheduler.InvokeOperationAsync(() => _controller.QueryFocus(), cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Asynchronously disposes the preview session and its target.</summary>
+	/// <returns>A value task that represents the disposal operation.</returns>
+	public ValueTask DisposeAsync()
+	{
+		lock (_syncRoot)
+		{
+			if (_disposeTask is not null)
+			{
+				return new ValueTask(_disposeTask);
+			}
+
+			_state = WindowsShellPreviewSessionState.Disposed;
+			_disposeTask = DisposeCoreAsync();
+
+			return new ValueTask(_disposeTask);
+		}
 	}
 
 	internal void TransitionTo(WindowsShellPreviewSessionState nextState)
@@ -112,31 +130,13 @@ public sealed class WindowsShellPreviewSession : IWindowsShellPreviewSession
 		}
 	}
 
-	/// <summary>Asynchronously disposes the preview session and its target.</summary>
-	/// <returns>A value task that represents the disposal operation.</returns>
-	public ValueTask DisposeAsync()
-	{
-		lock (_syncRoot)
-		{
-			if (_disposeTask is not null)
-			{
-				return new ValueTask(_disposeTask);
-			}
-
-			_state = WindowsShellPreviewSessionState.Disposed;
-			_disposeTask = DisposeCoreAsync();
-
-			return new ValueTask(_disposeTask);
-		}
-	}
-
 	private async Task DisposeCoreAsync()
 	{
 		var errors = new List<Exception>();
 
 		try
 		{
-			await _scheduler.InvokeOperationAsync(() => {_controller.Dispose(); return true;}).ConfigureAwait(false);
+			await _scheduler.InvokeOperationAsync(() => { _controller.Dispose(); return true; }).ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{
@@ -209,6 +209,22 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 	{
 	}
 
+	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
+	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler) : this(workspace, dedicatedScheduler, new WindowsPreviewAccessPolicy())
+	{
+	}
+
+	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
+	/// <param name="workspace">The storage workspace.</param>
+	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
+	/// <param name="policy">The policy to revalidate immediately before handler activation.</param>
+	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler, IWindowsShellPreviewPolicy policy)
+		: this(new WindowsPreviewTargetResolver(workspace), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory(), policy)
+	{
+	}
+
 	internal WindowsShellPreviewSessionFactory(
 		IWindowsPreviewTargetResolver targetResolver,
 		IWindowsShellScheduler dedicatedScheduler,
@@ -227,22 +243,6 @@ public sealed class WindowsShellPreviewSessionFactory : IWindowsShellPreviewSess
 		_controllerFactory = controllerFactory;
 		_policy = policy;
 		_registrationValidator = registrationValidator;
-	}
-
-	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
-	/// <param name="workspace">The storage workspace.</param>
-	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
-	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler) : this(workspace, dedicatedScheduler, new WindowsPreviewAccessPolicy())
-	{
-	}
-
-	/// <summary>Initializes a Windows Shell preview session factory from a workspace.</summary>
-	/// <param name="workspace">The storage workspace.</param>
-	/// <param name="dedicatedScheduler">The dedicated Shell scheduler.</param>
-	/// <param name="policy">The policy to revalidate immediately before handler activation.</param>
-	public WindowsShellPreviewSessionFactory(IStorageWorkspace workspace, IWindowsShellScheduler dedicatedScheduler, IWindowsShellPreviewPolicy policy)
-		: this(new WindowsPreviewTargetResolver(workspace), dedicatedScheduler, new WindowsShellPreviewHandlerControllerFactory(), policy)
-	{
 	}
 
 	/// <inheritdoc />

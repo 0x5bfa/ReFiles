@@ -77,11 +77,6 @@ public sealed class FtpStorageSource : IStorageSource
 		_canonicalHost = GetCanonicalHost(profile.Host);
 	}
 
-	internal FtpStorable CreateStorable(FtpEntryInfo entry)
-	{
-		return _storableFactory.Create(entry);
-	}
-
 	/// <summary>Enumerates the configured FTP root folder.</summary>
 	/// <param name="cancellationToken">The token used to cancel enumeration.</param>
 	/// <returns>An asynchronous sequence containing the root folder.</returns>
@@ -185,6 +180,11 @@ public sealed class FtpStorageSource : IStorageSource
 
 		await _connection.DisposeAsync().ConfigureAwait(false);
 		GC.SuppressFinalize(this);
+	}
+
+	internal FtpStorable CreateStorable(FtpEntryInfo entry)
+	{
+		return _storableFactory.Create(entry);
 	}
 
 	private bool TryGetPath(StorageAddress address, out FtpPath path)

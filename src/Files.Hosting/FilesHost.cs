@@ -84,14 +84,14 @@ public static class FilesHost
 
 	private class RuntimeView(FilesCoreRuntime runtime) : IFilesCoreRuntime
 	{
-		protected FilesCoreRuntime Runtime { get; } = runtime;
-
 		public Files.Core.Data.IStorageReader Workspace => ((IFilesCoreRuntime)Runtime).Workspace;
+
 		public Files.Core.Sessions.IFilesApplicationSession ShellSession => Runtime.ShellSession;
 		public Files.Core.Browsing.IBrowseLocationResolver LocationResolver => Runtime.LocationResolver;
 		public Files.Core.Storage.IStorageOperationService StorageOperations => Runtime.StorageOperations;
 		public IViewSettingsStore ViewSettingsStore => Runtime.ViewSettingsStore;
 		public IThumbnailCache ThumbnailCache => Runtime.ThumbnailCache;
+		protected FilesCoreRuntime Runtime { get; } = runtime;
 
 		public Files.Core.Sessions.IPaneSession CreateBrowsePane()
 		{

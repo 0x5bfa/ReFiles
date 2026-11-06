@@ -31,6 +31,44 @@ namespace Files.Controls
 			DefaultStyleKey = typeof(BreadcrumbBarItem);
 		}
 
+		public void OnItemClicked(PointerRoutedEventArgs? pointerRoutedEventArgs = null)
+		{
+			if (_ownerRef is null || !_ownerRef.TryGetTarget(out var breadcrumbBar))
+			{
+				return;
+			}
+
+			if (IsEllipsis)
+			{
+				// Clear items in the ellipsis flyout
+				_itemEllipsisDropDownMenuFlyout.Items.Clear();
+
+				// Populate items in the ellipsis flyout
+				for (int index = 0; index < breadcrumbBar.IndexAfterEllipsis; index++)
+				{
+					if (breadcrumbBar.TryGetElement(index, out var item) && item?.Content is string text)
+					{
+						var menuFlyoutItem = new MenuFlyoutItem() { Text = text };
+						_itemEllipsisDropDownMenuFlyout.Items.Add(menuFlyoutItem);
+						menuFlyoutItem.Click += (sender, e) => breadcrumbBar.RaiseItemClickedEvent(item, pointerRoutedEventArgs);
+					}
+				}
+
+				// Open the ellipsis flyout
+				FlyoutBase.ShowAttachedFlyout(_itemContentButton);
+			}
+			else
+			{
+				// Fire a click event
+				breadcrumbBar.RaiseItemClickedEvent(this, pointerRoutedEventArgs);
+			}
+		}
+
+		public void SetOwner(BreadcrumbBar breadcrumbBar)
+		{
+			_ownerRef = new(breadcrumbBar);
+		}
+
 		// Methods
 
 		protected override void OnApplyTemplate()
@@ -74,44 +112,6 @@ namespace Files.Controls
 			_itemChevronDropDownMenuFlyout.Opening += ChevronDropDownMenuFlyout_Opening;
 			_itemChevronDropDownMenuFlyout.Opened += ChevronDropDownMenuFlyout_Opened;
 			_itemChevronDropDownMenuFlyout.Closed += ChevronDropDownMenuFlyout_Closed;
-		}
-
-		public void OnItemClicked(PointerRoutedEventArgs? pointerRoutedEventArgs = null)
-		{
-			if (_ownerRef is null || !_ownerRef.TryGetTarget(out var breadcrumbBar))
-			{
-				return;
-			}
-
-			if (IsEllipsis)
-			{
-				// Clear items in the ellipsis flyout
-				_itemEllipsisDropDownMenuFlyout.Items.Clear();
-
-				// Populate items in the ellipsis flyout
-				for (int index = 0; index < breadcrumbBar.IndexAfterEllipsis; index++)
-				{
-					if (breadcrumbBar.TryGetElement(index, out var item) && item?.Content is string text)
-					{
-						var menuFlyoutItem = new MenuFlyoutItem() { Text = text };
-						_itemEllipsisDropDownMenuFlyout.Items.Add(menuFlyoutItem);
-						menuFlyoutItem.Click += (sender, e) => breadcrumbBar.RaiseItemClickedEvent(item, pointerRoutedEventArgs);
-					}
-				}
-
-				// Open the ellipsis flyout
-				FlyoutBase.ShowAttachedFlyout(_itemContentButton);
-			}
-			else
-			{
-				// Fire a click event
-				breadcrumbBar.RaiseItemClickedEvent(this, pointerRoutedEventArgs);
-			}
-		}
-
-		public void SetOwner(BreadcrumbBar breadcrumbBar)
-		{
-			_ownerRef = new(breadcrumbBar);
 		}
 	}
 }

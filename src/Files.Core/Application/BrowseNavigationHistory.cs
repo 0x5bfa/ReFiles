@@ -73,9 +73,6 @@ public sealed partial class BrowseNavigationHistory : IBrowseNavigationHistory
 		}
 	}
 
-	/// <summary>Occurs when the committed history changes.</summary>
-	public event EventHandler? Changed;
-
 	/// <summary>Initializes an empty bounded navigation history.</summary>
 	/// <param name="capacity">The maximum number of retained locations.</param>
 	public BrowseNavigationHistory(int capacity = DefaultCapacity)
@@ -84,6 +81,9 @@ public sealed partial class BrowseNavigationHistory : IBrowseNavigationHistory
 
 		_capacity = capacity;
 	}
+
+	/// <summary>Occurs when the committed history changes.</summary>
+	public event EventHandler? Changed;
 
 	/// <summary>Captures the immutable state of the navigation history.</summary>
 	/// <returns>The captured state.</returns>

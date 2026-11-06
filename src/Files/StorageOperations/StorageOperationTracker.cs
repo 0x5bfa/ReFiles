@@ -18,8 +18,6 @@ internal sealed partial class StorageOperationTracker : IDisposable
 	private StorageOperationStatus[] _operations = [];
 	private bool _disposed;
 
-	public event EventHandler? Changed;
-
 	internal StorageOperationTracker(IOperationStatusSource? server = null, ILogger<StorageOperationTracker>? logger = null)
 	{
 		_logger = logger ?? NullLogger<StorageOperationTracker>.Instance;
@@ -30,14 +28,7 @@ internal sealed partial class StorageOperationTracker : IDisposable
 		}
 	}
 
-	internal void Attach(IOperationStatusSource server)
-	{
-		_server?.Changed -= Server_Changed;
-		_server = server;
-		_server.Changed += Server_Changed;
-
-		Update();
-	}
+	public event EventHandler? Changed;
 
 	public IReadOnlyList<StorageOperationStatus> GetOperations()
 	{
@@ -90,6 +81,15 @@ internal sealed partial class StorageOperationTracker : IDisposable
 			_operations = [];
 			Changed = null;
 		}
+	}
+
+	internal void Attach(IOperationStatusSource server)
+	{
+		_server?.Changed -= Server_Changed;
+		_server = server;
+		_server.Changed += Server_Changed;
+
+		Update();
 	}
 
 	private void Server_Changed(object? sender, EventArgs args)

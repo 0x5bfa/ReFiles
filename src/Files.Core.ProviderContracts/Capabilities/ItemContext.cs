@@ -11,9 +11,9 @@ namespace Files.Core.Capabilities;
 /// </summary>
 public sealed record ItemContext(IStorageSource Source, IStorable CoreModel, StorableReference Reference)
 {
-	internal ICapabilities? Capabilities { get; init; }
 	/// <summary>Gets the model adapter supplied by the runtime, when bound.</summary>
 	public IStorableModelFactory? ModelFactory { get; init; }
+	internal ICapabilities? Capabilities { get; init; }
 
 	/// <summary>Gets a borrowed capability from this item's composition, or null when the context is unbound.</summary>
 	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>

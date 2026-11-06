@@ -27,8 +27,8 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private const int MaxThumbnailsPerDrain = 8;
 	private const int MaxDecodedFallbackThumbnails = 128;
 	private const string SizePropertyId = "System.Size";
-	private static readonly PropertyRequest StatusBarSizePropertyRequest = new((string[])[SizePropertyId]);
-	private static readonly TimeSpan UIDrainBudget = TimeSpan.FromMilliseconds(4);
+	private static readonly PropertyRequest _statusBarSizePropertyRequest = new((string[])[SizePropertyId]);
+	private static readonly TimeSpan _uIDrainBudget = TimeSpan.FromMilliseconds(4);
 
 	private readonly IBrowsePaneSession _pane;
 	private readonly ILoggerFactory _loggerFactory;
@@ -81,41 +81,6 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private int _isApplyingItemBatch;
 	private int _isDisposed;
 
-	public BrowsePresentationAdapter(IBrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
-		nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
-	{
-		ArgumentNullException.ThrowIfNull(pane);
-
-		ArgumentNullException.ThrowIfNull(dispatcher);
-
-		_pane = pane;
-		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
-		_logger = _loggerFactory.CreateLogger<BrowsePresentationAdapter>();
-		_columns = new BrowseColumnPresentation(pane, QueueColumns);
-		_dispatcher = dispatcher;
-		_prefetch = prefetch ?? _pane.BrowseSession.CreatePrefetchCoordinator();
-		_text = text ?? BrowsePresentationText.CreateLocalized();
-		_ownerWindowHandle = ownerWindowHandle;
-		_viewSettings = _pane.BrowseSession.ViewSettings;
-		_prefetchViewSettings = _viewSettings;
-		_prefetchGeneration = _pane.BrowseSession.Generation;
-		_statusBarGeneration = _pane.BrowseSession.Generation;
-		_itemLayoutMetrics = new BrowseItemLayoutMetrics(_viewSettings.ItemSize);
-
-		SelectedKeys = [];
-		LocationText = _text.Home;
-		_pane.NavigationStateChanged += Pane_StateChanged;
-		_pane.BrowseSession.ItemsChanged += BrowseSession_ItemsChanged;
-		_pane.BrowseSession.ItemPresentationChanged +=
-			BrowseSession_ItemPresentationChanged;
-		_pane.BrowseSession.SelectionChanged += BrowseSession_SelectionChanged;
-		QueueInitialSnapshot();
-		if (_logger.IsEnabled(LogLevel.Debug))
-		{
-			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"created items={_items.Count} loading={IsLoading}");
-		}
-	}
-
 	public IReadOnlyList<StorableKey> SelectedKeys { get; private set; }
 
 	public string LocationText { get; private set; }
@@ -151,32 +116,48 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		}
 	}
 
-	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
-
 	public IReadOnlyList<BrowseItemViewModel> Items => _items;
 
 	public IReadOnlyList<DetailsColumnViewModel> DetailsColumns => _detailsColumns;
 
 	internal int CreatedItemViewModelCount => Volatile.Read(ref _diagnosticItemViewModelCount);
 
-	internal IReadOnlyList<BrowseItemViewModel> GetItems(IReadOnlyList<StorableKey> keys)
+	public BrowsePresentationAdapter(IBrowsePaneSession pane, IUIDispatcher dispatcher, IBrowsePrefetchCoordinator? prefetch = null, BrowsePresentationText? text = null,
+		nint ownerWindowHandle = 0, ILoggerFactory? loggerFactory = null)
 	{
-		ArgumentNullException.ThrowIfNull(keys);
+		ArgumentNullException.ThrowIfNull(pane);
 
-		lock (_itemsLock)
+		ArgumentNullException.ThrowIfNull(dispatcher);
+
+		_pane = pane;
+		_loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
+		_logger = _loggerFactory.CreateLogger<BrowsePresentationAdapter>();
+		_columns = new BrowseColumnPresentation(pane, QueueColumns);
+		_dispatcher = dispatcher;
+		_prefetch = prefetch ?? _pane.BrowseSession.CreatePrefetchCoordinator();
+		_text = text ?? BrowsePresentationText.CreateLocalized();
+		_ownerWindowHandle = ownerWindowHandle;
+		_viewSettings = _pane.BrowseSession.ViewSettings;
+		_prefetchViewSettings = _viewSettings;
+		_prefetchGeneration = _pane.BrowseSession.Generation;
+		_statusBarGeneration = _pane.BrowseSession.Generation;
+		_itemLayoutMetrics = new BrowseItemLayoutMetrics(_viewSettings.ItemSize);
+
+		SelectedKeys = [];
+		LocationText = _text.Home;
+		_pane.NavigationStateChanged += Pane_StateChanged;
+		_pane.BrowseSession.ItemsChanged += BrowseSession_ItemsChanged;
+		_pane.BrowseSession.ItemPresentationChanged +=
+			BrowseSession_ItemPresentationChanged;
+		_pane.BrowseSession.SelectionChanged += BrowseSession_SelectionChanged;
+		QueueInitialSnapshot();
+		if (_logger.IsEnabled(LogLevel.Debug))
 		{
-			var items = new List<BrowseItemViewModel>(keys.Count);
-			foreach (var key in keys)
-			{
-				if (_itemsByKey.TryGetValue(key, out var item))
-				{
-					items.Add(item);
-				}
-			}
-
-			return items.ToArray();
+			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"created items={_items.Count} loading={IsLoading}");
 		}
 	}
+
+	public event EventHandler<CoreBrowseUpdatedEventArgs>? Updated;
 
 	public async Task InitializeAsync(CancellationToken cancellationToken = default)
 	{
@@ -187,6 +168,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "Initialize START");
 		}
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -285,6 +267,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "GoBack START");
 		}
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -308,6 +291,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "GoForward START");
 		}
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -331,6 +315,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "GoUp START");
 		}
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -354,6 +339,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", "Refresh START");
 		}
+
 		using var linkedCancellation = CreateLinkedCancellation(cancellationToken);
 		try
 		{
@@ -390,6 +376,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"UpdateViewport first={viewport.FirstVisibleIndex} visible={viewport.VisibleCount} lookAhead={viewport.LookAheadCount}");
 		}
+
 		_prefetch.UpdateViewport(viewport, settings, generation);
 	}
 
@@ -559,13 +546,6 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		await _pane.BrowseSession.UpdateViewSettingsAsync(settings, linkedCancellation.Token).ConfigureAwait(false);
 	}
 
-	private BrowseViewSettings GetEditableViewSettings()
-	{
-		return _pane.BrowseSession is IViewSettingsSession viewSettingsSession
-			? viewSettingsSession.PersistedViewSettings
-			: _pane.BrowseSession.ViewSettings;
-	}
-
 	public void SetSelection(IEnumerable<BrowseItemViewModel> selectedItems)
 	{
 		EnsureActive();
@@ -674,10 +654,75 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				$"longestUIMs={TimeSpan.FromTicks(Volatile.Read(ref _diagnosticLongestDrainTicks)).TotalMilliseconds:F1}"
 			);
 		}
+
 		if (prefetchError is not null)
 		{
 			throw prefetchError;
 		}
+	}
+
+	internal IReadOnlyList<BrowseItemViewModel> GetItems(IReadOnlyList<StorableKey> keys)
+	{
+		ArgumentNullException.ThrowIfNull(keys);
+
+		lock (_itemsLock)
+		{
+			var items = new List<BrowseItemViewModel>(keys.Count);
+			foreach (var key in keys)
+			{
+				if (_itemsByKey.TryGetValue(key, out var item))
+				{
+					items.Add(item);
+				}
+			}
+
+			return items.ToArray();
+		}
+	}
+
+	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken, PaneNavigationMode mode = PaneNavigationMode.Push)
+	{
+		EnsureActive();
+
+		cancellationToken.ThrowIfCancellationRequested();
+
+		LocationNavigation navigation;
+		lock (_locationNavigationLock)
+		{
+			if (_locationNavigation is { } activeNavigation && Equals(activeNavigation.Location, location) && activeNavigation.Mode == mode)
+			{
+				return WaitForLocationNavigationAsync(activeNavigation, cancellationToken);
+			}
+
+			if (_locationNavigation is null && _pane.BrowseSession.Error is null && Equals(_pane.BrowseSession.Location, location))
+			{
+				return Task.CompletedTask;
+			}
+
+			var task = _pane.NavigateAsync(location, mode, _lifetime.Token, _ownerWindowHandle).AsTask();
+			navigation = new LocationNavigation(location, mode, task);
+			_locationNavigation = navigation;
+		}
+
+		_ = TrackLocationNavigationAsync(navigation);
+
+		return WaitForLocationNavigationAsync(navigation, cancellationToken);
+	}
+
+	internal Task NavigateToSearchOriginAsync(BrowseLocation location, CancellationToken cancellationToken)
+	{
+		EnsureActive();
+
+		ArgumentNullException.ThrowIfNull(location);
+
+		return NavigateToLocationAsync(location, cancellationToken, PaneNavigationMode.ExitSearch);
+	}
+
+	private BrowseViewSettings GetEditableViewSettings()
+	{
+		return _pane.BrowseSession is IViewSettingsSession viewSettingsSession
+			? viewSettingsSession.PersistedViewSettings
+			: _pane.BrowseSession.ViewSettings;
 	}
 
 	private void Pane_StateChanged(object? sender, EventArgs args)
@@ -710,6 +755,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				$"projectionMs={Stopwatch.GetElapsedTime(projectionStartTimestamp).TotalMilliseconds:F1} coreItems={_pane.BrowseSession.ItemCount}"
 			);
 		}
+
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.AddLast(new PendingItemBatch(generation, args.PreviousVersion, args.Version, changes));
@@ -740,6 +786,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				$"hasThumbnail={args.Presentation.Thumbnail is not null}"
 			);
 		}
+
 		lock (_pendingLock)
 		{
 			if (args.Presentation.Properties.Count is not 0 && (!_pendingProperties.TryGetValue(args.Key, out var pendingProperties) || pendingProperties.Version <= args.Presentation.Version))
@@ -765,6 +812,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"QueueInitialSnapshot items={session.Items.Count} version={session.ItemsVersion}");
 		}
+
 		lock (_pendingLock)
 		{
 			_pendingItemBatches.AddLast(new PendingItemBatch(session.Generation, -1, session.ItemsVersion, resetChanges));
@@ -833,7 +881,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	{
 		var drainStartTimestamp = Stopwatch.GetTimestamp();
 		var drainSequence = Interlocked.Increment(ref _diagnosticDrainSequence);
-		var drainDeadline = drainStartTimestamp + Math.Max(1L, (long)(Stopwatch.Frequency * UIDrainBudget.TotalSeconds));
+		var drainDeadline = drainStartTimestamp + Math.Max(1L, (long)(Stopwatch.Frequency * _uIDrainBudget.TotalSeconds));
 		var wasBusy = IsBusy;
 		PendingState? state;
 		PendingColumns? columns;
@@ -1323,7 +1371,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			return null;
 		}
 
-		var properties = await propertySource.GetPropertiesAsync(StatusBarSizePropertyRequest, cancellationToken).ConfigureAwait(false);
+		var properties = await propertySource.GetPropertiesAsync(_statusBarSizePropertyRequest, cancellationToken).ConfigureAwait(false);
 		cancellationToken.ThrowIfCancellationRequested();
 
 		return properties.TryGetValue(SizePropertyId, out var value) && TryGetSize(value, out var size) ? size : null;
@@ -1767,6 +1815,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 						{
 							_itemsByKey.Add(addedItem.Reference.GetKey(), addedItem);
 						}
+
 						break;
 					case BrowseItemViewModelAdded added
 						when added.Index >= 0 && added.Index <= _items.Count:
@@ -1805,6 +1854,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 							UpdateMaterializedItem(resetItem);
 							_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
 						}
+
 						break;
 					default:
 
@@ -1855,6 +1905,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				_itemsByKey.Add(resetItem.Reference.GetKey(), resetItem);
 			}
 		}
+
 		_appliedItemsVersion = -1;
 		appliedChanges.Clear();
 		appliedChanges.Add(reset);
@@ -1982,6 +2033,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 				_logger.LogDebug("{Component}: {Message}", "BrowsePresentationAdapter", $"First item view model created key={item.Reference.GetKey()}");
 			}
 		}
+
 		ApplyPresentation(viewModel, item.Reference.GetKey());
 
 		return viewModel;
@@ -2043,44 +2095,6 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
 	}
 
-	internal Task NavigateToLocationAsync(BrowseLocation location, CancellationToken cancellationToken, PaneNavigationMode mode = PaneNavigationMode.Push)
-	{
-		EnsureActive();
-
-		cancellationToken.ThrowIfCancellationRequested();
-
-		LocationNavigation navigation;
-		lock (_locationNavigationLock)
-		{
-			if (_locationNavigation is { } activeNavigation && Equals(activeNavigation.Location, location) && activeNavigation.Mode == mode)
-			{
-				return WaitForLocationNavigationAsync(activeNavigation, cancellationToken);
-			}
-
-			if (_locationNavigation is null && _pane.BrowseSession.Error is null && Equals(_pane.BrowseSession.Location, location))
-			{
-				return Task.CompletedTask;
-			}
-
-			var task = _pane.NavigateAsync(location, mode, _lifetime.Token, _ownerWindowHandle).AsTask();
-			navigation = new LocationNavigation(location, mode, task);
-			_locationNavigation = navigation;
-		}
-
-		_ = TrackLocationNavigationAsync(navigation);
-
-		return WaitForLocationNavigationAsync(navigation, cancellationToken);
-	}
-
-	internal Task NavigateToSearchOriginAsync(BrowseLocation location, CancellationToken cancellationToken)
-	{
-		EnsureActive();
-
-		ArgumentNullException.ThrowIfNull(location);
-
-		return NavigateToLocationAsync(location, cancellationToken, PaneNavigationMode.ExitSearch);
-	}
-
 	private static Task WaitForLocationNavigationAsync(LocationNavigation navigation, CancellationToken cancellationToken)
 	{
 		return cancellationToken.CanBeCanceled ? navigation.Task.WaitAsync(cancellationToken) : navigation.Task;
@@ -2131,7 +2145,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		{
 			HomeLocation => _text.Home,
 			FolderLocation folder when folder.Folder.LastKnownAddress is
-				{ Scheme: var scheme, Value: var value }
+			{ Scheme: var scheme, Value: var value }
 				&& string.Equals(scheme, "file", StringComparison.OrdinalIgnoreCase)
 				=> value,
 			FolderLocation folder => folder.Folder.LastKnownAddress?.ToString()
@@ -2171,7 +2185,6 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 	private sealed record PendingStatusBarSize(long Generation, long Version, ulong? Size);
 
 	private sealed record LocationNavigation(BrowseLocation Location, PaneNavigationMode Mode, Task Task);
-
 
 	private sealed record ThumbnailApplyState(long Version, BrowseItemViewModel Target, BrowseItemPresentation? Presentation);
 
@@ -2278,6 +2291,5 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 			}
 		}
 	}
-
 
 }

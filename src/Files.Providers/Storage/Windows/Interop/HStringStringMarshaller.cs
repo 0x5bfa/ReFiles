@@ -17,30 +17,44 @@ namespace Windows.Win32;
 [CustomMarshaller(typeof(string), MarshalMode.Default, typeof(HStringStringMarshaller.Stateless))]
 internal static unsafe class HStringStringMarshaller
 {
-	/// <summary>Provides stateless HSTRING conversion for collection elements.</summary>
-	internal static class Stateless
+	private static HSTRING CreateHString(string? managed)
 	{
-		/// <summary>Converts a managed string to an owned HSTRING.</summary>
-		/// <param name="managed">The managed string.</param>
-		/// <returns>The HSTRING.</returns>
-		public static HSTRING ConvertToUnmanaged(string? managed)
+		if (managed is null)
 		{
-			return CreateHString(managed);
+			return default;
 		}
 
-		/// <summary>Converts an HSTRING to a managed string.</summary>
-		/// <param name="unmanaged">The HSTRING.</param>
-		/// <returns>The managed string.</returns>
-		public static string? ConvertToManaged(HSTRING unmanaged)
+		var hr = PInvoke.WindowsCreateString(managed, checked((uint)managed.Length), out var hstring);
+		if (hr.Failed)
 		{
-			return ToManagedString(unmanaged);
+			hstring.Dispose();
+			Marshal.ThrowExceptionForHR(hr.Value);
 		}
 
-		/// <summary>Releases an owned HSTRING.</summary>
-		/// <param name="unmanaged">The HSTRING.</param>
-		public static void Free(HSTRING unmanaged)
+		using (hstring)
 		{
-			DeleteHString(unmanaged);
+			return hstring.Detach();
+		}
+	}
+
+	private static string? ToManagedString(HSTRING hstring)
+	{
+		if (hstring.IsNull)
+		{
+			return null;
+		}
+
+		using var stringHandle = new WindowsDeleteStringSafeHandle(hstring, false);
+		PCWSTR buffer = PInvoke.WindowsGetStringRawBuffer(stringHandle, out var length);
+
+		return new string(buffer.Value, 0, checked((int)length));
+	}
+
+	private static void DeleteHString(HSTRING hstring)
+	{
+		if (!hstring.IsNull)
+		{
+			PInvoke.WindowsDeleteString(hstring);
 		}
 	}
 
@@ -146,44 +160,30 @@ internal static unsafe class HStringStringMarshaller
 		}
 	}
 
-	private static HSTRING CreateHString(string? managed)
+	/// <summary>Provides stateless HSTRING conversion for collection elements.</summary>
+	internal static class Stateless
 	{
-		if (managed is null)
+		/// <summary>Converts a managed string to an owned HSTRING.</summary>
+		/// <param name="managed">The managed string.</param>
+		/// <returns>The HSTRING.</returns>
+		public static HSTRING ConvertToUnmanaged(string? managed)
 		{
-			return default;
+			return CreateHString(managed);
 		}
 
-		var hr = PInvoke.WindowsCreateString(managed, checked((uint)managed.Length), out var hstring);
-		if (hr.Failed)
+		/// <summary>Converts an HSTRING to a managed string.</summary>
+		/// <param name="unmanaged">The HSTRING.</param>
+		/// <returns>The managed string.</returns>
+		public static string? ConvertToManaged(HSTRING unmanaged)
 		{
-			hstring.Dispose();
-			Marshal.ThrowExceptionForHR(hr.Value);
+			return ToManagedString(unmanaged);
 		}
 
-		using (hstring)
+		/// <summary>Releases an owned HSTRING.</summary>
+		/// <param name="unmanaged">The HSTRING.</param>
+		public static void Free(HSTRING unmanaged)
 		{
-			return hstring.Detach();
-		}
-	}
-
-	private static string? ToManagedString(HSTRING hstring)
-	{
-		if (hstring.IsNull)
-		{
-			return null;
-		}
-
-		using var stringHandle = new WindowsDeleteStringSafeHandle(hstring, false);
-		PCWSTR buffer = PInvoke.WindowsGetStringRawBuffer(stringHandle, out var length);
-
-		return new string(buffer.Value, 0, checked((int)length));
-	}
-
-	private static void DeleteHString(HSTRING hstring)
-	{
-		if (!hstring.IsNull)
-		{
-			PInvoke.WindowsDeleteString(hstring);
+			DeleteHString(unmanaged);
 		}
 	}
 }

@@ -21,6 +21,16 @@ internal sealed partial class SearchTextDebouncer : IDisposable
 		_delayAsync = delayAsync ?? Task.Delay;
 	}
 
+	public void Dispose()
+	{
+		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
+		{
+			return;
+		}
+
+		Cancel();
+	}
+
 	internal Task ScheduleAsync(string text, Func<string, CancellationToken, Task> action)
 	{
 		ArgumentNullException.ThrowIfNull(text);
@@ -51,16 +61,6 @@ internal sealed partial class SearchTextDebouncer : IDisposable
 	{
 		var cancellation = Interlocked.Exchange(ref _pendingCancellation, null);
 		CancelCancellation(cancellation);
-	}
-
-	public void Dispose()
-	{
-		if (Interlocked.Exchange(ref _isDisposed, 1) is not 0)
-		{
-			return;
-		}
-
-		Cancel();
 	}
 
 	private async Task RunAsync(string text, Func<string, CancellationToken, Task> action, CancellationTokenSource cancellation)

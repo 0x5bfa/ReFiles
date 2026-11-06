@@ -16,6 +16,17 @@ namespace Files.Controls
 		{
 		}
 
+		/// <inheritdoc/>
+		public void Invoke()
+		{
+			if (Owner is not BreadcrumbBarItem item)
+			{
+				return;
+			}
+
+			item.OnItemClicked();
+		}
+
 		// IAutomationPeerOverrides
 		protected override string GetLocalizedControlTypeCore()
 		{
@@ -45,17 +56,6 @@ namespace Files.Controls
 		protected override bool IsControlElementCore()
 		{
 			return true;
-		}
-
-		/// <inheritdoc/>
-		public void Invoke()
-		{
-			if (Owner is not BreadcrumbBarItem item)
-			{
-				return;
-			}
-
-			item.OnItemClicked();
 		}
 	}
 }

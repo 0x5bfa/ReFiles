@@ -71,6 +71,25 @@ public enum StorageOperationInterruptionDecision
 	Ok,
 }
 
+/// <summary>Contains the response selected for a storage operation interruption.</summary>
+public readonly record struct StorageOperationInterruptionResponse
+{
+	/// <summary>Gets the selected decision.</summary>
+	public StorageOperationInterruptionDecision Decision { get; }
+
+	/// <summary>Gets a value indicating whether the decision applies to remaining matching interruptions.</summary>
+	public bool ApplyToAll { get; }
+
+	/// <summary>Initializes a storage operation interruption response.</summary>
+	/// <param name="decision">The selected decision.</param>
+	/// <param name="applyToAll">Whether the decision applies to remaining matching interruptions.</param>
+	public StorageOperationInterruptionResponse(StorageOperationInterruptionDecision decision, bool applyToAll = false)
+	{
+		Decision = decision;
+		ApplyToAll = applyToAll;
+	}
+}
+
 /// <summary>Describes a storage operation interruption that requires a user decision.</summary>
 public sealed record StorageOperationInterruption
 {
@@ -113,25 +132,6 @@ public sealed record StorageOperationInterruption
 		ItemName = itemName;
 		DestinationPath = destinationPath;
 		CanApplyToAll = canApplyToAll;
-	}
-}
-
-/// <summary>Contains the response selected for a storage operation interruption.</summary>
-public readonly record struct StorageOperationInterruptionResponse
-{
-	/// <summary>Gets the selected decision.</summary>
-	public StorageOperationInterruptionDecision Decision { get; }
-
-	/// <summary>Gets a value indicating whether the decision applies to remaining matching interruptions.</summary>
-	public bool ApplyToAll { get; }
-
-	/// <summary>Initializes a storage operation interruption response.</summary>
-	/// <param name="decision">The selected decision.</param>
-	/// <param name="applyToAll">Whether the decision applies to remaining matching interruptions.</param>
-	public StorageOperationInterruptionResponse(StorageOperationInterruptionDecision decision, bool applyToAll = false)
-	{
-		Decision = decision;
-		ApplyToAll = applyToAll;
 	}
 }
 

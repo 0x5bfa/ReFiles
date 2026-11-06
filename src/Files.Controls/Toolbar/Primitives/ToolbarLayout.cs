@@ -7,7 +7,7 @@ namespace Files.Controls.Primitives
 {
 	public partial class ToolbarLayout : NonVirtualizingLayout
 	{
-		private Size m_availableSize;
+		private Size _availableSize;
 
 		public ToolbarLayout()
 		{
@@ -18,7 +18,7 @@ namespace Files.Controls.Primitives
 		// item, but the total amount of space needed is only composed of the Toolbar Items
 		protected override Size MeasureOverride(NonVirtualizingLayoutContext context, Size availableSize)
 		{
-			m_availableSize = availableSize;
+			_availableSize = availableSize;
 
 			Size accumulatedItemsSize = new(0, 0);
 

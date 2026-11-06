@@ -1,7 +1,6 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-
 namespace Files.Core.Capabilities.Previews;
 
 /// <summary>Specifies the limits and hydration policy for a preview request.</summary>
@@ -13,18 +12,24 @@ public enum PreviewHydrationPolicy
 	AllowHydration,
 }
 
+internal enum PreviewTrustPolicy
+{
+	Default,
+	AllowUntrusted,
+}
+
 /// <summary>Describes the limits applied to a preview request.</summary>
 public sealed record PreviewRequest
 {
-	internal PreviewAuthorization? TrustAuthorization { get; }
-
-	internal PreviewTrustPolicy TrustPolicy => TrustAuthorization is null ? PreviewTrustPolicy.Default : PreviewTrustPolicy.AllowUntrusted;
-
 	/// <summary>Gets the maximum number of bytes that may be read.</summary>
 	public long? MaximumBytes { get; }
 
 	/// <summary>Gets the policy controlling content hydration.</summary>
 	public PreviewHydrationPolicy HydrationPolicy { get; }
+
+	internal PreviewAuthorization? TrustAuthorization { get; }
+
+	internal PreviewTrustPolicy TrustPolicy => TrustAuthorization is null ? PreviewTrustPolicy.Default : PreviewTrustPolicy.AllowUntrusted;
 
 	/// <summary>Initializes a preview request.</summary>
 	/// <param name="maximumBytes">The maximum number of bytes to read.</param>
@@ -55,10 +60,4 @@ public sealed record PreviewRequest
 internal abstract class PreviewAuthorization
 {
 	internal abstract bool AppliesTo(Files.Core.Storage.StorableReference reference, object storageItem);
-}
-
-internal enum PreviewTrustPolicy
-{
-	Default,
-	AllowUntrusted,
 }

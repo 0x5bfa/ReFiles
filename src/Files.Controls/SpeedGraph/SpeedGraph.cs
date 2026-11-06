@@ -26,6 +26,19 @@ public sealed partial class SpeedGraph : Control
 	private const float TargetRateHeightRatio = 0.7f;
 	private const string AccentBrushResourceKey = "AccentFillColorDefaultBrush";
 	private const string BackgroundBrushResourceKey = "ControlFillColorTransparentBrush";
+
+	/// <summary>
+	/// Identifies the <see cref="Points"/> dependency property.
+	/// </summary>
+	public static readonly DependencyProperty PointsProperty =
+		DependencyProperty.Register(nameof(Points), typeof(ObservableCollection<Vector2>), typeof(SpeedGraph), new PropertyMetadata(null, OnPointsPropertyChanged));
+
+	/// <summary>
+	/// Identifies the <see cref="ProgressPercentage"/> dependency property.
+	/// </summary>
+	public static readonly DependencyProperty ProgressPercentageProperty =
+		DependencyProperty.Register(nameof(ProgressPercentage), typeof(double), typeof(SpeedGraph), new PropertyMetadata(0d, OnProgressPercentagePropertyChanged));
+
 	private static readonly Color _defaultAccentColor = Color.FromArgb(255, 0, 120, 212);
 	private static readonly TimeSpan _graphUpdateInterval = TimeSpan.FromMilliseconds(100);
 
@@ -56,16 +69,22 @@ public sealed partial class SpeedGraph : Control
 	private float _maximumSpeed = MinimumAxisMaximum;
 
 	/// <summary>
-	/// Identifies the <see cref="Points"/> dependency property.
+	/// Gets or sets the progress and rate points rendered by the graph. Each point stores progress from 0 to 100 in X and bytes or items per second in Y.
 	/// </summary>
-	public static readonly DependencyProperty PointsProperty =
-		DependencyProperty.Register(nameof(Points), typeof(ObservableCollection<Vector2>), typeof(SpeedGraph), new PropertyMetadata(null, OnPointsPropertyChanged));
+	public ObservableCollection<Vector2> Points
+	{
+		get => (ObservableCollection<Vector2>?)GetValue(PointsProperty) ?? _emptyPoints;
+		set => SetValue(PointsProperty, value ?? []);
+	}
 
 	/// <summary>
-	/// Identifies the <see cref="ProgressPercentage"/> dependency property.
+	/// Gets or sets the current operation progress, expressed as a percentage from 0 to 100.
 	/// </summary>
-	public static readonly DependencyProperty ProgressPercentageProperty =
-		DependencyProperty.Register(nameof(ProgressPercentage), typeof(double), typeof(SpeedGraph), new PropertyMetadata(0d, OnProgressPercentagePropertyChanged));
+	public double ProgressPercentage
+	{
+		get => (double)GetValue(ProgressPercentageProperty);
+		set => SetValue(ProgressPercentageProperty, value);
+	}
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="SpeedGraph"/> class.
@@ -83,24 +102,6 @@ public sealed partial class SpeedGraph : Control
 		SizeChanged += OnSizeChanged;
 		ActualThemeChanged += OnActualThemeChanged;
 		RegisterForegroundCallback();
-	}
-
-	/// <summary>
-	/// Gets or sets the progress and rate points rendered by the graph. Each point stores progress from 0 to 100 in X and bytes or items per second in Y.
-	/// </summary>
-	public ObservableCollection<Vector2> Points
-	{
-		get => (ObservableCollection<Vector2>?)GetValue(PointsProperty) ?? _emptyPoints;
-		set => SetValue(PointsProperty, value ?? []);
-	}
-
-	/// <summary>
-	/// Gets or sets the current operation progress, expressed as a percentage from 0 to 100.
-	/// </summary>
-	public double ProgressPercentage
-	{
-		get => (double)GetValue(ProgressPercentageProperty);
-		set => SetValue(ProgressPercentageProperty, value);
 	}
 
 	private static void OnPointsPropertyChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)

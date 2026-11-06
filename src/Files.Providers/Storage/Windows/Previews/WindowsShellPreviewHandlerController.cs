@@ -18,6 +18,48 @@ using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace Files.Core.Storage.Windows;
 
+/// <summary>Creates controllers for Windows Shell preview handlers.</summary>
+[SupportedOSPlatform("windows6.0.6000")]
+public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPreviewHandlerControllerFactory
+{
+	private readonly IWindowsPreviewHandlerActivationPolicy _activationPolicy;
+
+	/// <summary>Initializes a controller factory with the local-server policy.</summary>
+	public WindowsShellPreviewHandlerControllerFactory() : this(new LocalServerWindowsPreviewHandlerActivationPolicy())
+	{
+	}
+
+	/// <summary>Initializes a controller factory.</summary>
+	/// <param name="activationPolicy">The activation policy.</param>
+	public WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy)
+	{
+		ArgumentNullException.ThrowIfNull(activationPolicy);
+
+		_activationPolicy = activationPolicy;
+	}
+
+	/// <summary>Creates a controller for a preview handler CLSID.</summary>
+	/// <param name="handlerClsid">The preview handler CLSID.</param>
+	/// <returns>The created controller.</returns>
+	public IWindowsPreviewHandlerController Create(Guid handlerClsid)
+	{
+		if (handlerClsid == Guid.Empty)
+		{
+			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
+		}
+
+		var activationContext = _activationPolicy.GetContext(handlerClsid);
+		const WindowsPreviewHandlerActivationContext serverKinds = WindowsPreviewHandlerActivationContext.InProcessServer | WindowsPreviewHandlerActivationContext.LocalServer;
+		const WindowsPreviewHandlerActivationContext supportedFlags = serverKinds | WindowsPreviewHandlerActivationContext.EnableCloaking;
+		if ((activationContext & serverKinds) == 0 || (activationContext & ~supportedFlags) != 0)
+		{
+			throw new InvalidOperationException("Preview handlers must be activated through an in-process or local server COM class.");
+		}
+
+		return WindowsShellPreviewHandlerController.Create(handlerClsid, (uint)activationContext);
+	}
+}
+
 [SupportedOSPlatform("windows6.0.6000")]
 internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHandlerController
 {
@@ -361,48 +403,6 @@ internal sealed class WindowsShellPreviewHandlerController : IWindowsPreviewHand
 		}
 	}
 
-}
-
-/// <summary>Creates controllers for Windows Shell preview handlers.</summary>
-[SupportedOSPlatform("windows6.0.6000")]
-public sealed class WindowsShellPreviewHandlerControllerFactory : IWindowsPreviewHandlerControllerFactory
-{
-	private readonly IWindowsPreviewHandlerActivationPolicy _activationPolicy;
-
-	/// <summary>Initializes a controller factory with the local-server policy.</summary>
-	public WindowsShellPreviewHandlerControllerFactory() : this(new LocalServerWindowsPreviewHandlerActivationPolicy())
-	{
-	}
-
-	/// <summary>Initializes a controller factory.</summary>
-	/// <param name="activationPolicy">The activation policy.</param>
-	public WindowsShellPreviewHandlerControllerFactory(IWindowsPreviewHandlerActivationPolicy activationPolicy)
-	{
-		ArgumentNullException.ThrowIfNull(activationPolicy);
-
-		_activationPolicy = activationPolicy;
-	}
-
-	/// <summary>Creates a controller for a preview handler CLSID.</summary>
-	/// <param name="handlerClsid">The preview handler CLSID.</param>
-	/// <returns>The created controller.</returns>
-	public IWindowsPreviewHandlerController Create(Guid handlerClsid)
-	{
-		if (handlerClsid == Guid.Empty)
-		{
-			throw new ArgumentException("A preview handler CLSID is required.", nameof(handlerClsid));
-		}
-
-		var activationContext = _activationPolicy.GetContext(handlerClsid);
-		const WindowsPreviewHandlerActivationContext serverKinds = WindowsPreviewHandlerActivationContext.InProcessServer | WindowsPreviewHandlerActivationContext.LocalServer;
-		const WindowsPreviewHandlerActivationContext supportedFlags = serverKinds | WindowsPreviewHandlerActivationContext.EnableCloaking;
-		if ((activationContext & serverKinds) == 0 || (activationContext & ~supportedFlags) != 0)
-		{
-			throw new InvalidOperationException("Preview handlers must be activated through an in-process or local server COM class.");
-		}
-
-		return WindowsShellPreviewHandlerController.Create(handlerClsid, (uint)activationContext);
-	}
 }
 
 /// <summary>Minimal in-process COM site exposed to a preview handler.</summary>

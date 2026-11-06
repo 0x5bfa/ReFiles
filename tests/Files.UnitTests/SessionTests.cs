@@ -41,7 +41,7 @@ public sealed class SessionTests
 
 		await pane.NavigateAsync(branch);
 
-		CollectionAssert.AreEqual(new BrowseLocation[] {home, search, branch}, pane.History.Entries.ToArray());
+		CollectionAssert.AreEqual(new BrowseLocation[] { home, search, branch }, pane.History.Entries.ToArray());
 		Assert.AreEqual(branch, pane.History.Current);
 		Assert.IsFalse(pane.CanGoForward);
 	}
@@ -71,7 +71,7 @@ public sealed class SessionTests
 		await secondNavigation.WaitAsync(TimeSpan.FromSeconds(5));
 		await Assert.ThrowsAsync<OperationCanceledException>(async () => await firstNavigation);
 
-		CollectionAssert.AreEqual(new BrowseLocation[] {home, secondSearch}, pane.History.Entries.ToArray());
+		CollectionAssert.AreEqual(new BrowseLocation[] { home, secondSearch }, pane.History.Entries.ToArray());
 		Assert.AreEqual(secondSearch, pane.Location);
 
 		resolver.BlockEnumeration = true;
@@ -84,7 +84,7 @@ public sealed class SessionTests
 		await exitNavigation.WaitAsync(TimeSpan.FromSeconds(5));
 		await Assert.ThrowsAsync<OperationCanceledException>(async () => await thirdNavigation);
 
-		CollectionAssert.AreEqual(new BrowseLocation[] {home, secondSearch}, pane.History.Entries.ToArray());
+		CollectionAssert.AreEqual(new BrowseLocation[] { home, secondSearch }, pane.History.Entries.ToArray());
 		Assert.AreEqual(home, pane.Location);
 		Assert.IsTrue(pane.CanGoForward);
 		Assert.IsTrue(await pane.GoForwardAsync());

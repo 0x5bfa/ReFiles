@@ -102,15 +102,15 @@ public sealed partial class StorageOperationStatusItem : UserControl
 	[GeneratedDependencyProperty(DefaultValue = "")]
 	public partial string ApplyToAllText { get; set; }
 
-	/// <summary>Occurs when the user invokes an operation or interruption action.</summary>
-	public event EventHandler<StorageOperationStatusActionEventArgs>? ActionInvoked;
-
 	/// <summary>Initializes a storage operation status item.</summary>
 	public StorageOperationStatusItem()
 	{
 		InitializeComponent();
 		UpdatePresentation();
 	}
+
+	/// <summary>Occurs when the user invokes an operation or interruption action.</summary>
+	public event EventHandler<StorageOperationStatusActionEventArgs>? ActionInvoked;
 
 	partial void OnOperationKindChanged(StorageOperationStatusKind newValue)
 	{

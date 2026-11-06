@@ -3,7 +3,6 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
-
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Identifies the native window that hosts a preview handler.</summary>

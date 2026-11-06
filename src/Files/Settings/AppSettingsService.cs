@@ -47,8 +47,6 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 	[GeneratedSettingsProperty(SidebarDisplayMode.Expanded)]
 	public partial SidebarDisplayMode SidebarDisplayMode { get; set; }
 
-	public event PropertyChangedEventHandler? PropertyChanged;
-
 	public AppSettingsService() : this(GetDefaultLocalFolderPath())
 	{
 	}
@@ -79,6 +77,8 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		_settings = settings;
 		_saveDelay = _defaultSaveDelay;
 	}
+
+	public event PropertyChangedEventHandler? PropertyChanged;
 
 	public void ApplyLanguage()
 	{
@@ -118,6 +118,19 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		}
 
 		GC.SuppressFinalize(this);
+	}
+
+	internal static string GetDefaultLocalFolderPath()
+	{
+		var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+		if (string.IsNullOrWhiteSpace(localApplicationData))
+		{
+			throw new InvalidOperationException("The local application data path is unavailable.");
+		}
+
+		var packageFamilyName = Package.Current.Id.FamilyName;
+
+		return Path.Combine(localApplicationData, "Packages", packageFamilyName, "LocalState");
 	}
 
 	private void Load()
@@ -208,19 +221,6 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 		var json = JsonSerializer.Serialize(_settings, AppSettingsJsonContext.Default.AppSettingsData);
 		_storage.WriteTextAsync(SettingsFileName, json).GetAwaiter().GetResult();
 		_isDirty = false;
-	}
-
-	internal static string GetDefaultLocalFolderPath()
-	{
-		var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-		if (string.IsNullOrWhiteSpace(localApplicationData))
-		{
-			throw new InvalidOperationException("The local application data path is unavailable.");
-		}
-
-		var packageFamilyName = Package.Current.Id.FamilyName;
-
-		return Path.Combine(localApplicationData, "Packages", packageFamilyName, "LocalState");
 	}
 
 	private void ThrowIfDisposed()

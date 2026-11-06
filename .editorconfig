@@ -1,5 +1,10 @@
 root = true
 
+[*]
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
 [**/*.cs]
 indent_style = tab
 indent_size = 4
@@ -7,6 +12,38 @@ tab_width = 4
 dotnet_diagnostic.CS1591.severity = error
 
 csharp_prefer_braces = true:error
+dotnet_diagnostic.IDE0011.severity = error
+dotnet_diagnostic.IDE1006.severity = error
+
+# Enable only the StyleCop rules that match this repository's guidelines.
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpacingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.ReadabilityRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.OrderingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.NamingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.MaintainabilityRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.LayoutRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.DocumentationRules.severity = none
+
+dotnet_diagnostic.SA1201.severity = error
+dotnet_diagnostic.SA1202.severity = error
+dotnet_diagnostic.SA1203.severity = error
+dotnet_diagnostic.SA1507.severity = error
+dotnet_diagnostic.SA1513.severity = error
+stylecop.ordering.elementOrder = kind, constant, accessibility
+stylecop.ordering.memberKindOrder = field, property, indexer, constructor, event, destructor, method, operator, conversionOperator, delegate, enum, interface, struct, class, extension
+
+# Types use PascalCase; interfaces additionally start with I.
+dotnet_naming_rule.types_use_pascal_case.symbols = types
+dotnet_naming_rule.types_use_pascal_case.style = pascal_case_style
+dotnet_naming_rule.types_use_pascal_case.severity = error
+dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum, delegate
+
+dotnet_naming_rule.interfaces_start_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_start_with_i.style = interface_style
+dotnet_naming_rule.interfaces_start_with_i.severity = error
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.interface_style.required_prefix = I
+dotnet_naming_style.interface_style.capitalization = pascal_case
 
 # Constants: PascalCase
 dotnet_naming_rule.constants_should_be_pascal_case.symbols = constants
@@ -38,3 +75,25 @@ tab_width = 4
 # Forwarded compiler-synthesized record members carry oblivious metadata from referenced assemblies.
 [src/{Files.Core,Files.Providers}/*TypeForwarders.cs]
 dotnet_diagnostic.RS0041.severity = none
+
+# XML documentation completeness for handwritten Core APIs.
+[src/Files.Core/**/*.cs]
+dotnet_diagnostic.SA1611.severity = error
+dotnet_diagnostic.SA1615.severity = error
+dotnet_diagnostic.SA1618.severity = error
+
+[**/*.{g,g.i,generated,designer}.cs]
+generated_code = true
+
+# Experimental WinUI APIs are intentionally used only by these UI integrations.
+# Window placement uses PlacementRestorationBehavior.
+[src/Files/MainWindow.xaml.cs]
+dotnet_diagnostic.CS8305.severity = none
+
+# Preview composition uses ContentExternalOutputLink.
+[src/Files/Views/PreviewPane.xaml.cs]
+dotnet_diagnostic.CS8305.severity = none
+
+# The experimental WinUI package also exposes experimental types in generated XAML metadata.
+[**/XamlTypeInfo.g.cs]
+dotnet_diagnostic.CS8305.severity = none

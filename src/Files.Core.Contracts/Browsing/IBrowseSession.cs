@@ -11,10 +11,6 @@ namespace Files.Core.Browsing;
 /// </summary>
 public interface IBrowseSession : IDisposable, IAsyncDisposable
 {
-	/// <summary>Creates a presenter-owned prefetch coordinator for this session.</summary>
-	/// <returns>The coordinator, which must be disposed before this session.</returns>
-	IBrowsePrefetchCoordinator CreatePrefetchCoordinator();
-
 	/// <summary>Gets the current browse location.</summary>
 	BrowseLocation? Location { get; }
 
@@ -29,17 +25,6 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 
 	/// <summary>Gets the item count without requiring a collection snapshot.</summary>
 	int ItemCount => Items.Count;
-
-	/// <summary>Determines whether an item key exists in the current projection.</summary>
-	/// <param name="key">The item key to find.</param>
-	/// <returns><see langword="true"/> when the key exists.</returns>
-	bool Contains(StorableKey key);
-
-	/// <summary>Gets an item from the current projection by key.</summary>
-	/// <param name="key">The item key to find.</param>
-	/// <param name="item">The current item when the key exists.</param>
-	/// <returns><see langword="true"/> when the item exists.</returns>
-	bool TryGet(StorableKey key, out IStorableModel item);
 
 	/// <summary>Gets the version of the projected item collection.</summary>
 	long ItemsVersion { get; }
@@ -70,6 +55,21 @@ public interface IBrowseSession : IDisposable, IAsyncDisposable
 
 	/// <summary>Occurs when the selection changes.</summary>
 	event EventHandler? SelectionChanged;
+
+	/// <summary>Creates a presenter-owned prefetch coordinator for this session.</summary>
+	/// <returns>The coordinator, which must be disposed before this session.</returns>
+	IBrowsePrefetchCoordinator CreatePrefetchCoordinator();
+
+	/// <summary>Determines whether an item key exists in the current projection.</summary>
+	/// <param name="key">The item key to find.</param>
+	/// <returns><see langword="true"/> when the key exists.</returns>
+	bool Contains(StorableKey key);
+
+	/// <summary>Gets an item from the current projection by key.</summary>
+	/// <param name="key">The item key to find.</param>
+	/// <param name="item">The current item when the key exists.</param>
+	/// <returns><see langword="true"/> when the item exists.</returns>
+	bool TryGet(StorableKey key, out IStorableModel item);
 
 	/// <summary>Navigates to a location.</summary>
 	/// <param name="location">The target location.</param>

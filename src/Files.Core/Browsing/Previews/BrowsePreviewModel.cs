@@ -49,9 +49,6 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		}
 	}
 
-	/// <inheritdoc />
-	public event EventHandler? Changed;
-
 	/// <summary>Initializes a preview model for a browse session.</summary>
 	/// <param name="browseSession">The browse session to observe.</param>
 	/// <param name="refreshDelay">The optional selection debounce delay.</param>
@@ -69,6 +66,9 @@ public sealed class BrowsePreviewModel : IBrowsePreviewModel
 		browseSession.SelectionChanged += OnSelectionChanged;
 		browseSession.ItemsChanged += OnItemsChanged;
 	}
+
+	/// <inheritdoc />
+	public event EventHandler? Changed;
 
 	/// <inheritdoc />
 	public ValueTask RefreshAsync(PreviewHydrationPolicy hydrationPolicy = PreviewHydrationPolicy.LocalOnly, CancellationToken cancellationToken = default)

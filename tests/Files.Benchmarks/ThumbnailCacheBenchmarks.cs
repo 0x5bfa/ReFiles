@@ -13,10 +13,10 @@ namespace Files.Benchmarks;
 [MemoryDiagnoser]
 public class ThumbnailCacheBenchmarks
 {
-	private MemoryThumbnailCache cache = null!;
-	private ThumbnailCacheKey hitKey = null!;
-	private ThumbnailCacheKey missKey = null!;
-	private ThumbnailCacheEntry entry = null!;
+	private MemoryThumbnailCache _cache = null!;
+	private ThumbnailCacheKey _hitKey = null!;
+	private ThumbnailCacheKey _missKey = null!;
+	private ThumbnailCacheEntry _entry = null!;
 
 	/// <summary>
 	/// Creates and seeds the in-memory thumbnail cache.
@@ -24,12 +24,12 @@ public class ThumbnailCacheBenchmarks
 	[GlobalSetup]
 	public async Task Setup()
 	{
-		cache = new MemoryThumbnailCache(capacity: 512);
+		_cache = new MemoryThumbnailCache(capacity: 512);
 		var sourceId = new StorageSourceId("benchmark");
-		hitKey = new ThumbnailCacheKey(sourceId, "hit", 128, ThumbnailMode.Content);
-		missKey = new ThumbnailCacheKey(sourceId, "miss", 128, ThumbnailMode.Content);
-		entry = new ThumbnailCacheEntry(new byte[4096], "image/test");
-		await cache.SetAsync(hitKey, entry);
+		_hitKey = new ThumbnailCacheKey(sourceId, "hit", 128, ThumbnailMode.Content);
+		_missKey = new ThumbnailCacheKey(sourceId, "miss", 128, ThumbnailMode.Content);
+		_entry = new ThumbnailCacheEntry(new byte[4096], "image/test");
+		await _cache.SetAsync(_hitKey, _entry);
 	}
 
 	/// <summary>
@@ -39,7 +39,7 @@ public class ThumbnailCacheBenchmarks
 	[Benchmark(Baseline = true)]
 	public ValueTask<ThumbnailCacheEntry?> CacheHit()
 	{
-		return cache.GetAsync(hitKey);
+		return _cache.GetAsync(_hitKey);
 	}
 
 	/// <summary>
@@ -49,7 +49,7 @@ public class ThumbnailCacheBenchmarks
 	[Benchmark]
 	public ValueTask<ThumbnailCacheEntry?> CacheMiss()
 	{
-		return cache.GetAsync(missKey);
+		return _cache.GetAsync(_missKey);
 	}
 
 	/// <summary>
@@ -61,6 +61,6 @@ public class ThumbnailCacheBenchmarks
 	{
 		var key = new ThumbnailCacheKey(new StorageSourceId("benchmark"), Guid.NewGuid().ToString("N"), 128, ThumbnailMode.Content);
 
-		return cache.SetAsync(key, entry);
+		return _cache.SetAsync(key, _entry);
 	}
 }

@@ -58,58 +58,6 @@ internal sealed class WindowsShellExplorerCommandSource
 		return await _source.Scheduler.InvokeOperationAsync(() => InvokeOnCurrentSta(resolved, command.Token, null), cancellationToken).ConfigureAwait(false);
 	}
 
-	private static IReadOnlyList<WindowsShellExplorerCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection,
-		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
-	{
-		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
-		var commands = new List<WindowsShellExplorerCommand>(registrations.Count);
-		foreach (var registration in registrations)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-
-			if (TryCreateExplorerCommand(registration) is not { } explorerCommand)
-			{
-				continue;
-			}
-
-			var token = new WindowsShellExplorerCommandToken(registration.ClassId, registration.VerbId, []);
-			if (TryCreateDescription(explorerCommand, shellItemArray, token, registration.DisplayName, depth: 0, cancellationToken,
-				registration.StaticDisplayName, registration.StaticIconPath, registration.PackageFullName) is { } description)
-			{
-				commands.Add(description);
-			}
-		}
-
-		return commands;
-	}
-
-	private static bool InvokeOnCurrentSta(WindowsShellResolvedSelection selection, WindowsShellExplorerCommandToken token, WindowsShellInvocationContext? invocationContext)
-	{
-		var registration = new WindowsFileExplorerAppExtensionRegistration(token.ClassId, token.VerbId, string.Empty, string.Empty);
-		if (TryCreateExplorerCommand(registration) is not { } command)
-		{
-			return false;
-		}
-
-		foreach (var subCommandIndex in token.SubCommandPath)
-		{
-			if (!TryGetSubCommand(command, subCommandIndex, out command))
-			{
-				return false;
-			}
-		}
-
-		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
-		var invokeResult = command.Invoke(shellItemArray, null!);
-		if (invokeResult != HRESULT.E_NOTIMPL)
-		{
-			return invokeResult.Succeeded;
-		}
-
-		return command is IObjectWithSelection objectWithSelection && command is IExecuteCommand executeCommand
-			&& objectWithSelection.SetSelection(shellItemArray).Succeeded && executeCommand.Execute().Succeeded;
-	}
-
 	internal static unsafe WindowsShellExplorerCommand? TryCreateDescription(IExplorerCommand command, IShellItemArray selection, WindowsShellExplorerCommandToken token, string fallbackTitle, int depth,
 		CancellationToken cancellationToken, string? staticDisplayName = null, string? staticIconPath = null, string? iconPackageFullName = null, string? fallbackIconPath = null, int fallbackIconIndex = 0,
 		string? fallbackIconPackageFullName = null, Action<WindowsShellExplorerCommand, IExplorerCommand>? retain = null)
@@ -181,6 +129,108 @@ internal sealed class WindowsShellExplorerCommandSource
 		return description;
 	}
 
+	internal static unsafe IExplorerCommand? TryCreateExplorerCommand(WindowsFileExplorerAppExtensionRegistration registration, object? site = null)
+	{
+		var classId = registration.ClassId;
+		var hr = PInvoke.CoCreateInstance(classId, null, CLSCTX.CLSCTX_INPROC_SERVER | CLSCTX.CLSCTX_LOCAL_SERVER, out IExplorerCommand? command);
+		if (hr.Failed || command is null)
+		{
+			return null;
+		}
+
+		if (site is not null && command is IObjectWithSite objectWithSite && objectWithSite.SetSite(site).Failed)
+		{
+			return null;
+		}
+
+		if (command is IInitializeCommand initializer && !string.IsNullOrEmpty(registration.VerbId))
+		{
+			var propertyBag = WindowsShellCommandStorePropertyBag.TryCreate(registration.VerbId);
+			fixed (char* verbId = registration.VerbId)
+			{
+				if (initializer.Initialize(new PCWSTR(verbId), propertyBag!).Failed)
+				{
+					return null;
+				}
+			}
+		}
+
+		return command;
+	}
+
+	internal static (string? Path, int Index) ParseCommandIcon(string? iconLocation)
+	{
+		if (string.IsNullOrWhiteSpace(iconLocation))
+		{
+			return (null, 0);
+		}
+
+		var path = iconLocation.Trim();
+		var iconIndex = 0;
+		var separatorIndex = path.LastIndexOf(',');
+		if (separatorIndex >= 0 && int.TryParse(path.AsSpan(separatorIndex + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedIndex))
+		{
+			iconIndex = parsedIndex;
+			path = path[..separatorIndex];
+		}
+
+		path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
+
+		return string.IsNullOrWhiteSpace(path) ? (null, 0) : (path, iconIndex);
+	}
+
+	private static IReadOnlyList<WindowsShellExplorerCommand> GetCommandsOnCurrentSta(WindowsShellResolvedSelection selection,
+		IReadOnlyList<WindowsFileExplorerAppExtensionRegistration> registrations, CancellationToken cancellationToken)
+	{
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
+		var commands = new List<WindowsShellExplorerCommand>(registrations.Count);
+		foreach (var registration in registrations)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+
+			if (TryCreateExplorerCommand(registration) is not { } explorerCommand)
+			{
+				continue;
+			}
+
+			var token = new WindowsShellExplorerCommandToken(registration.ClassId, registration.VerbId, []);
+			if (TryCreateDescription(explorerCommand, shellItemArray, token, registration.DisplayName, depth: 0, cancellationToken,
+				registration.StaticDisplayName, registration.StaticIconPath, registration.PackageFullName) is { } description)
+			{
+				commands.Add(description);
+			}
+		}
+
+		return commands;
+	}
+
+	private static bool InvokeOnCurrentSta(WindowsShellResolvedSelection selection, WindowsShellExplorerCommandToken token, WindowsShellInvocationContext? invocationContext)
+	{
+		var registration = new WindowsFileExplorerAppExtensionRegistration(token.ClassId, token.VerbId, string.Empty, string.Empty);
+		if (TryCreateExplorerCommand(registration) is not { } command)
+		{
+			return false;
+		}
+
+		foreach (var subCommandIndex in token.SubCommandPath)
+		{
+			if (!TryGetSubCommand(command, subCommandIndex, out command))
+			{
+				return false;
+			}
+		}
+
+		var shellItemArray = WindowShellHelpers.CreateShellItemArray(selection.Locators);
+		var invokeResult = command.Invoke(shellItemArray, null!);
+		if (invokeResult != HRESULT.E_NOTIMPL)
+		{
+			return invokeResult.Succeeded;
+		}
+
+		return command is IObjectWithSelection objectWithSelection && command is IExecuteCommand executeCommand
+			&& objectWithSelection.SetSelection(shellItemArray).Succeeded && executeCommand.Execute().Succeeded;
+	}
+
 	private static IReadOnlyList<WindowsShellExplorerCommand> GetSubCommandDescriptions(IExplorerCommand parent, IShellItemArray selection, WindowsShellExplorerCommandToken parentToken, int depth,
 		CancellationToken cancellationToken, string? iconPackageFullName, string? fallbackIconPath, int fallbackIconIndex,
 		string? fallbackIconPackageFullName, Action<WindowsShellExplorerCommand, IExplorerCommand>? retain)
@@ -240,35 +290,6 @@ internal sealed class WindowsShellExplorerCommandSource
 		return result.Succeeded && fetched is 1 && command is not null;
 	}
 
-	internal static unsafe IExplorerCommand? TryCreateExplorerCommand(WindowsFileExplorerAppExtensionRegistration registration, object? site = null)
-	{
-		var classId = registration.ClassId;
-		var hr = PInvoke.CoCreateInstance(classId, null, CLSCTX.CLSCTX_INPROC_SERVER | CLSCTX.CLSCTX_LOCAL_SERVER, out IExplorerCommand? command);
-		if (hr.Failed || command is null)
-		{
-			return null;
-		}
-
-		if (site is not null && command is IObjectWithSite objectWithSite && objectWithSite.SetSite(site).Failed)
-		{
-			return null;
-		}
-
-		if (command is IInitializeCommand initializer && !string.IsNullOrEmpty(registration.VerbId))
-		{
-			var propertyBag = WindowsShellCommandStorePropertyBag.TryCreate(registration.VerbId);
-			fixed (char* verbId = registration.VerbId)
-			{
-				if (initializer.Initialize(new PCWSTR(verbId), propertyBag!).Failed)
-				{
-					return null;
-				}
-			}
-		}
-
-		return command;
-	}
-
 	private static unsafe string? ReadCommandString(CommandStringGetter getter, IShellItemArray selection)
 	{
 		PWSTR value = default;
@@ -282,27 +303,6 @@ internal sealed class WindowsShellExplorerCommandSource
 		{
 			PInvoke.CoTaskMemFree(value.Value);
 		}
-	}
-
-	internal static (string? Path, int Index) ParseCommandIcon(string? iconLocation)
-	{
-		if (string.IsNullOrWhiteSpace(iconLocation))
-		{
-			return (null, 0);
-		}
-
-		var path = iconLocation.Trim();
-		var iconIndex = 0;
-		var separatorIndex = path.LastIndexOf(',');
-		if (separatorIndex >= 0 && int.TryParse(path.AsSpan(separatorIndex + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedIndex))
-		{
-			iconIndex = parsedIndex;
-			path = path[..separatorIndex];
-		}
-
-		path = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
-
-		return string.IsNullOrWhiteSpace(path) ? (null, 0) : (path, iconIndex);
 	}
 
 	private unsafe delegate HRESULT CommandStringGetter(IShellItemArray selection, PWSTR* value);

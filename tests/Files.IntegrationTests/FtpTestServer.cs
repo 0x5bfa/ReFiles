@@ -10,7 +10,7 @@ namespace Files.IntegrationTests;
 
 internal sealed class FtpTestServer : IAsyncDisposable
 {
-	private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(15);
+	private static readonly TimeSpan _startupTimeout = TimeSpan.FromSeconds(15);
 	private readonly Process _process;
 	private readonly Task<string> _standardOutput;
 	private readonly Task<string> _standardError;
@@ -133,7 +133,7 @@ internal sealed class FtpTestServer : IAsyncDisposable
 
 	private async Task WaitForReadyAsync()
 	{
-		using var timeout = new CancellationTokenSource(StartupTimeout);
+		using var timeout = new CancellationTokenSource(_startupTimeout);
 		while (true)
 		{
 			if (_process.HasExited)

@@ -7,12 +7,12 @@ namespace Files.Controls
 {
 	internal partial class AdaptiveHeightValueConverter : IValueConverter
 	{
-		private Thickness thickness = new Thickness(0, 0, 4, 4);
+		private Thickness _thickness = new Thickness(0, 0, 4, 4);
 
 		public Thickness DefaultItemMargin
 		{
-			get { return thickness; }
-			set { thickness = value; }
+			get { return _thickness; }
+			set { _thickness = value; }
 		}
 
 		public object Convert(object value, Type targetType, object parameter, string language)
