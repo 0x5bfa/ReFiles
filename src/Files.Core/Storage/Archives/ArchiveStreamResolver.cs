@@ -34,13 +34,23 @@ internal static class ArchiveStreamResolver
 		}
 	}
 
-	public static Task<Stream> MaterializeAsync(IReadableContent content, CancellationToken cancellationToken)
+	public static async Task<Stream> MaterializeAsync(IReadableContent content, CancellationToken cancellationToken)
 	{
-		return ArchiveInputStreams.MaterializeAsync(content, cancellationToken);
-	}
+		var output = new MemoryStream();
+		try
+		{
+			await using var input = await content.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+			cancellationToken.ThrowIfCancellationRequested();
+			await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+			cancellationToken.ThrowIfCancellationRequested();
+			output.Position = 0;
 
-	public static FileStream CreateTemporaryStream()
-	{
-		return ArchiveInputStreams.CreateTemporaryStream();
+			return output;
+		}
+		catch
+		{
+			await output.DisposeAsync().ConfigureAwait(false);
+			throw;
+		}
 	}
 }

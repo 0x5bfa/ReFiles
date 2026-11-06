@@ -4,11 +4,12 @@
 using System.IO;
 using Files.Core.Capabilities.Content;
 using Files.Core.Storage;
+using Files.Core.Storage.Archives;
 
 namespace Files.Core.Storage.Ftp;
 
 /// <summary>Represents a file exposed by an FTP source.</summary>
-public sealed class FtpFile : FtpStorable, IFile, IReadableContent, IWritableContent
+public sealed class FtpFile : FtpStorable, IFile, IReadableContent, IWritableContent, IArchiveInput
 {
 	internal FtpFile(FtpStorageSource source, FtpEntryMetadata metadata, FtpStorableFactory factory)
 		: base(source, metadata, factory)
@@ -23,6 +24,11 @@ public sealed class FtpFile : FtpStorable, IFile, IReadableContent, IWritableCon
 		cancellationToken.ThrowIfCancellationRequested();
 
 		return await Factory.OpenReadAsync(Path, cancellationToken).ConfigureAwait(false);
+	}
+
+	async Task<Stream> IArchiveInput.OpenReadAsync(CancellationToken cancellationToken)
+	{
+		return await ArchiveInputStreams.MaterializeAsync(this, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Opens an owned write stream using the FTP session's overwrite behavior.</summary>

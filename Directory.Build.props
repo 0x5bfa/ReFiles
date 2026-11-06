@@ -21,20 +21,26 @@
 
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.BackgroundServer'">
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or
+		'$(MSBuildProjectName)' == 'Files.BackgroundServer' Or '$(MSBuildProjectName)' == 'Files.Core.Contracts' Or
+		'$(MSBuildProjectName)' == 'Files.Core.ProviderContracts' Or '$(MSBuildProjectName)' == 'Files.Core' Or
+		'$(MSBuildProjectName)' == 'Files.Hosting' Or '$(MSBuildProjectName)' == 'Files.SourceGenerators' Or
+		'$(MSBuildProjectName)' == 'FilesLauncher'">
 		<EnforceStorageBoundaries>true</EnforceStorageBoundaries>
 		<WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files' Or '$(MSBuildProjectName)' == 'Files.Controls' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Providers' Or '$(MSBuildProjectName)' == 'Files.BackgroundServer'">
-		<EnforceWinRTStorageBoundaries>true</EnforceWinRTStorageBoundaries>
+	<!-- Providers owns physical Windows I/O; its scoped list still bans Windows.Storage. -->
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files.Providers'">
+		<EnforceProviderStorageBoundary>true</EnforceProviderStorageBoundary>
+		<WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true' Or '$(EnforceWinRTStorageBoundaries)' == 'true'">
+	<ItemGroup Condition="'$(EnforceStorageBoundaries)' == 'true' Or '$(EnforceProviderStorageBoundary)' == 'true'">
 		<PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
 	</ItemGroup>
 
@@ -42,8 +48,8 @@
 		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(EnforceWinRTStorageBoundaries)' == 'true'">
-		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedWinRTStorageSymbols.txt" />
+	<ItemGroup Condition="'$(EnforceProviderStorageBoundary)' == 'true'">
+		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.Providers.txt" />
 	</ItemGroup>
 	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files.Core.Contracts' Or '$(MSBuildProjectName)' == 'Files.Core.ProviderContracts' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Providers' Or '$(MSBuildProjectName)' == 'Files.Hosting'">
 		<TrackPublicApi>true</TrackPublicApi>

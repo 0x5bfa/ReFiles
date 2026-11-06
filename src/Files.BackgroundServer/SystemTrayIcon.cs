@@ -33,7 +33,7 @@ internal sealed partial class SystemTrayIcon : IDisposable
 
 	internal unsafe SystemTrayIcon()
 	{
-		var iconPath = Path.Combine(Package.Current.InstalledLocation.Path, "Assets", "AppTiles", "Dev", "Logo.ico");
+		var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppTiles", "Dev", "Logo.ico");
 		HANDLE iconHandle;
 		fixed (char* path = iconPath)
 		{

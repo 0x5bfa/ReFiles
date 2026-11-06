@@ -7,7 +7,7 @@
     <File Path=".editorconfig" />
     <File Path=".gitattributes" />
     <File Path="BannedSymbols.txt" />
-    <File Path="BannedWinRTStorageSymbols.txt" />
+    <File Path="BannedSymbols.Providers.txt" />
     <File Path="crowdin.yml" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Build.targets" />

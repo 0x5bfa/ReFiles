@@ -30,3 +30,4 @@ M:System.IO.StreamWriter.#ctor(System.String,System.Boolean,System.Text.Encoding
 M:System.IO.StreamWriter.#ctor(System.String,System.Boolean,System.Text.Encoding,System.Int32);Use an injected stream instead of opening a physical path from this layer.
 M:System.IO.StreamWriter.#ctor(System.String,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
 M:System.IO.StreamWriter.#ctor(System.String,System.Text.Encoding,System.IO.FileStreamOptions);Use an injected stream instead of opening a physical path from this layer.
+N:Windows.Storage;Use Files storage abstractions instead of the Windows.Storage WinRT API in this layer.

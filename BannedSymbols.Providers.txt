@@ -1,0 +1,5 @@
+// Copyright (c) Files Community
+// SPDX-License-Identifier: MPL-2.0
+
+// The provider assembly owns Windows filesystem I/O; keep the WinRT storage ban active here.
+N:Windows.Storage;Use Files storage abstractions instead of the Windows.Storage WinRT API in this layer.

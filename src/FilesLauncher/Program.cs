@@ -3,10 +3,10 @@
 
 using System;
 using System.Globalization;
-using System.IO;
 using System.Text;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.UI.Shell;
 using Windows.Win32.UI.WindowsAndMessaging;
 
@@ -40,7 +40,8 @@ internal static class Program
 		var launchPath = Environment.ExpandEnvironmentVariables(@"%LOCALAPPDATA%\Microsoft\WindowsApps\files-dev.exe");
 		var openDirectory = args.Length > 0 && !string.IsNullOrEmpty(args[0]) ? args[0] : null;
 
-		if (!File.Exists(launchPath))
+		var launchAttributes = PInvoke.GetFileAttributes(launchPath);
+		if (launchAttributes == uint.MaxValue || (launchAttributes & (uint)FILE_FLAGS_AND_ATTRIBUTES.FILE_ATTRIBUTE_DIRECTORY) != 0)
 		{
 			PInvoke.MessageBox(HWND.Null, "Files has been uninstalled. Restoring File Explorer.", "Files", MESSAGEBOX_STYLE.MB_OK);
 			RestoreFileExplorerDefaults();

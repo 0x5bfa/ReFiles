@@ -5,6 +5,8 @@ DefWindowProc
 DestroyWindow
 DispatchMessage
 GetCurrentThreadId
+GetFileAttributes
+FILE_FLAGS_AND_ATTRIBUTES
 GetMessage
 GetModuleHandle
 ILIsEqual
