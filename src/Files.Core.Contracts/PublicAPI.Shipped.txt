@@ -458,7 +458,7 @@ Files.Core.IFilesCoreRuntime.ThumbnailCache.get -> Files.Core.Capabilities.Thumb
 Files.Core.IFilesCoreRuntime.ViewSettingsStore.get -> Files.Core.ViewSettings.IViewSettingsStore!
 Files.Core.IFilesCoreRuntime.Workspace.get -> Files.Core.Data.IStorageReader!
 Files.Core.IOperationHostRuntime
-Files.Core.IOperationHostRuntime.ApplyFileAttributes(System.Collections.Generic.IReadOnlyList<string!>! paths, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
+Files.Core.IOperationHostRuntime.ApplyFileAttributesAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! references, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Files.Core.IOperationHostRuntime.GetNewItemsAsync(string! folderPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellNewItem!>!>!
 Files.Core.IOperationHostRuntime.InvokeNewItemAsync(string! folderPath, uint commandOffset, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
 Files.Core.IOperationHostRuntime.RegisterFtpConnection(Files.Core.Storage.Ftp.FtpConnectionProfile! profile, Files.Core.Storage.Ftp.IFtpCredentialResolver! credentialResolver) -> Files.Core.Storage.StorageSourceId!
@@ -929,9 +929,9 @@ Files.Core.Storage.StorageTransferPublication.None = 0 -> Files.Core.Storage.Sto
 Files.Core.Storage.StorageTransferPublication.Partial = 3 -> Files.Core.Storage.StorageTransferPublication
 Files.Core.Storage.StorageTransferPublication.Unknown = 2 -> Files.Core.Storage.StorageTransferPublication
 Files.Core.Storage.Windows.IFileAttributeOperationService
-Files.Core.Storage.Windows.IFileAttributeOperationService.ApplyAttributesAsync(System.Collections.Generic.IReadOnlyList<string!>! paths, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Files.Core.Storage.Windows.IFileAttributeOperationService.ApplyAttributesAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! references, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
 Files.Core.Storage.Windows.IItemPropertiesFileSystem
-Files.Core.Storage.Windows.IItemPropertiesFileSystem.Apply(System.Collections.Generic.IReadOnlyList<string!>! paths, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> void
+Files.Core.Storage.Windows.IItemPropertiesFileSystem.Apply(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! references, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> void
 Files.Core.Storage.Windows.IItemPropertiesFileSystem.Inspect(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate!>! candidates) -> Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection!
 Files.Core.Storage.Windows.IItemPropertiesFileSystem.ReadMetadata(System.Collections.Generic.IReadOnlyList<string!>! paths, System.Threading.CancellationToken cancellationToken) -> Files.Core.Storage.Windows.ItemPropertiesFileSystemMetadata!
 Files.Core.Storage.Windows.ItemPropertiesDriveMetadata
@@ -963,13 +963,15 @@ Files.Core.Storage.Windows.ItemPropertiesDriveMetadata.VolumeLabel.get -> string
 Files.Core.Storage.Windows.ItemPropertiesDriveMetadata.VolumeLabel.init -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.<Clone>$() -> Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate!
-Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Deconstruct(out string! Path, out bool IsFolder) -> void
+Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Deconstruct(out Files.Core.Storage.StorableReference! Reference, out string! Path, out bool IsFolder) -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Equals(Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate? other) -> bool
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.IsFolder.get -> bool
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.IsFolder.init -> void
-Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.ItemPropertiesFileSystemCandidate(string! Path, bool IsFolder) -> void
+Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.ItemPropertiesFileSystemCandidate(Files.Core.Storage.StorableReference! Reference, string! Path, bool IsFolder) -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Path.get -> string!
 Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Path.init -> void
+Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Reference.get -> Files.Core.Storage.StorableReference!
+Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate.Reference.init -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges
 Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges.<Clone>$() -> Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges!
 Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges.ApplyToContents.get -> bool
@@ -1030,7 +1032,7 @@ Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.<Clone>$() -> Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection!
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Capabilities.get -> Files.Core.Storage.Windows.WindowsFileAttributeCapabilities
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Capabilities.init -> void
-Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Deconstruct(out System.Collections.Generic.IReadOnlyList<string!>! Paths, out bool HasFolders, out bool IsSingleFile, out bool IsSingleFolder, out bool IsDrive, out bool? IsReadOnly, out bool? IsHidden, out bool? IsArchive, out bool? IsIndexed, out bool? IsCompressed, out bool? IsEncrypted, out Files.Core.Storage.Windows.WindowsFileAttributeCapabilities Capabilities) -> void
+Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Deconstruct(out System.Collections.Generic.IReadOnlyList<string!>! Paths, out System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! References, out bool HasFolders, out bool IsSingleFile, out bool IsSingleFolder, out bool IsDrive, out bool? IsReadOnly, out bool? IsHidden, out bool? IsArchive, out bool? IsIndexed, out bool? IsCompressed, out bool? IsEncrypted, out Files.Core.Storage.Windows.WindowsFileAttributeCapabilities Capabilities) -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Equals(Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection? other) -> bool
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.HasFolders.get -> bool
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.HasFolders.init -> void
@@ -1052,9 +1054,11 @@ Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.IsSingleFile.get ->
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.IsSingleFile.init -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.IsSingleFolder.get -> bool
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.IsSingleFolder.init -> void
-Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.ItemPropertiesFileSystemSelection(System.Collections.Generic.IReadOnlyList<string!>! Paths, bool HasFolders, bool IsSingleFile, bool IsSingleFolder, bool IsDrive, bool? IsReadOnly, bool? IsHidden, bool? IsArchive, bool? IsIndexed, bool? IsCompressed, bool? IsEncrypted, Files.Core.Storage.Windows.WindowsFileAttributeCapabilities Capabilities) -> void
+Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.ItemPropertiesFileSystemSelection(System.Collections.Generic.IReadOnlyList<string!>! Paths, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! References, bool HasFolders, bool IsSingleFile, bool IsSingleFolder, bool IsDrive, bool? IsReadOnly, bool? IsHidden, bool? IsArchive, bool? IsIndexed, bool? IsCompressed, bool? IsEncrypted, Files.Core.Storage.Windows.WindowsFileAttributeCapabilities Capabilities) -> void
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Paths.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.Paths.init -> void
+Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.References.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>!
+Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection.References.init -> void
 Files.Core.Storage.Windows.IWindowsShellClipboardService
 Files.Core.Storage.Windows.IWindowsShellClipboardService.HasStorageItems() -> bool
 Files.Core.Storage.Windows.IWindowsShellClipboardService.ReadFileSystemItemsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellClipboardSnapshot?>!

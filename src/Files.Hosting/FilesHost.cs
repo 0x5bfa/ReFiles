@@ -3,6 +3,8 @@
 
 using Files.Core;
 using Files.Core.Capabilities.Thumbnails;
+using Files.Core.Models;
+using Files.Core.Storage;
 using Files.Core.Storage.Ftp;
 using Files.Core.Storage.Windows;
 using Files.Core.ViewSettings;
@@ -158,10 +160,22 @@ public static class FilesHost
 			return _newMenu.InvokeAsync(folderPath, commandOffset, cancellationToken);
 		}
 
-		public void ApplyFileAttributes(IReadOnlyList<string> paths, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents,
-			CancellationToken cancellationToken = default)
+		public async Task ApplyFileAttributesAsync(IReadOnlyList<StorableReference> references, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed,
+			bool? encrypted, bool applyToContents, CancellationToken cancellationToken = default)
 		{
-			WindowsFileAttributeService.ApplyChanges(paths, readOnly, hidden, archive, indexed, compressed, encrypted, applyToContents, cancellationToken);
+			ArgumentNullException.ThrowIfNull(references);
+
+			foreach (var reference in references)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				await using var model = await Runtime.Workspace.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
+				if (!model.Reference.Equals(reference) || model.GetCoreModel() is not IWindowsStorable { FileSystemPath: { } path })
+				{
+					throw new FileNotFoundException("The Windows filesystem item could not be resolved.", reference.ItemId);
+				}
+
+				WindowsFileAttributeService.ApplyChanges([path], readOnly, hidden, archive, indexed, compressed, encrypted, applyToContents, cancellationToken);
+			}
 		}
 	}
 }

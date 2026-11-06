@@ -45,10 +45,17 @@ internal sealed class StorageOperationExecutor : IAsyncDisposable
 		return _runtime.InvokeNewItemAsync(folderPath, commandOffset, cancellationToken);
 	}
 
-	internal void ApplyFileAttributes(IReadOnlyList<string> paths, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents,
-		CancellationToken cancellationToken)
+	internal Task ApplyFileAttributesAsync(IReadOnlyList<StorableReference> references, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted,
+		bool applyToContents, CancellationToken cancellationToken)
 	{
-		_runtime.ApplyFileAttributes(paths, readOnly, hidden, archive, indexed, compressed, encrypted, applyToContents, cancellationToken);
+		return _runtime.ApplyFileAttributesAsync(references, readOnly, hidden, archive, indexed, compressed, encrypted, applyToContents, cancellationToken);
+	}
+
+	internal static StorableReference ToReference(StorageReferenceData data)
+	{
+		var address = data.HasAddress ? new StorageAddress(data.AddressScheme, data.AddressValue) : null;
+
+		return new StorableReference(new StorageSourceId(data.SourceId), data.ItemId, address);
 	}
 
 	internal bool CanHandle(StorageOperationRequest request)

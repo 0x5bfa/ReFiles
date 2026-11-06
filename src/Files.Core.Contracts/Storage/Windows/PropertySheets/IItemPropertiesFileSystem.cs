@@ -1,6 +1,8 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
+using Files.Core.Storage;
+
 namespace Files.Core.Storage.Windows;
 
 /// <summary>Inspects filesystem metadata and submits explicit attribute updates.</summary>
@@ -16,19 +18,19 @@ public interface IItemPropertiesFileSystem
 	/// <returns>The aggregate metadata.</returns>
 	ItemPropertiesFileSystemMetadata ReadMetadata(IReadOnlyList<string> paths, CancellationToken cancellationToken);
 	/// <summary>Submits attribute changes through the operation executor.</summary>
-	/// <param name="paths">The affected paths.</param>
+	/// <param name="references">The affected storage items.</param>
 	/// <param name="changes">The requested changes.</param>
 	/// <param name="cancellationToken">Cancels before acceptance.</param>
-	void Apply(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken);
+	void Apply(IReadOnlyList<StorableReference> references, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken);
 }
 
 /// <summary>Submits filesystem attribute edits to the owning operation host.</summary>
 public interface IFileAttributeOperationService
 {
 	/// <summary>Submits the requested attribute changes.</summary>
-	/// <param name="paths">The affected paths.</param>
+	/// <param name="references">The affected storage items.</param>
 	/// <param name="changes">The requested changes.</param>
 	/// <param name="cancellationToken">Cancels admission or observation.</param>
 	/// <returns>The operation completion.</returns>
-	Task ApplyAttributesAsync(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken);
+	Task ApplyAttributesAsync(IReadOnlyList<StorableReference> references, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken);
 }

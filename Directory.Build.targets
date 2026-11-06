@@ -1,16 +1,19 @@
 <!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
 <Project>
+
 	<!-- StyleCop needs compiler XML comment processing to analyze documentation. Suppress only its configuration notice
 	     when XML output is disabled; naming and layout checks continue to run. Core generates XML documentation. -->
 	<PropertyGroup Condition="'$(GenerateDocumentationFile)' != 'true'">
 		<NoWarn>$(NoWarn);SA0001</NoWarn>
 	</PropertyGroup>
+
 	<Target Name="ValidateConsumerAssemblyReferences" BeforeTargets="CoreCompile" Condition="'$(EnforceConsumerReferenceBoundary)' == 'true'">
 		<ItemGroup>
 			<_ForbiddenConsumerReference Include="@(ReferencePath)" Condition="'%(Filename)' == 'Files.Core' Or '%(Filename)' == 'Files.Providers' Or '%(Filename)' == 'Files.Core.ProviderContracts' Or '%(Filename)' == 'FluentFTP' Or '%(Filename)' == 'SevenZipSharp' Or '%(Filename)' == 'System.Management'" />
 		</ItemGroup>
 		<Error Condition="'@(_ForbiddenConsumerReference)' != ''" Text="Consumer compiler references must not include implementation assemblies: @(_ForbiddenConsumerReference->'%(Filename)', ', ')." />
 	</Target>
+
 	<Target Name="ValidateProviderAssemblyReferences" BeforeTargets="CoreCompile"
 		Condition="'$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Providers' Or '$(MSBuildProjectName)' == 'Files.Core.ProviderContracts'">
 		<ItemGroup>
@@ -19,4 +22,5 @@
 		</ItemGroup>
 		<Error Condition="'@(_InvalidProviderReference)' != ''" Text="Provider/runtime isolation forbids these compiler references in $(MSBuildProjectName): @(_InvalidProviderReference->'%(Filename)', ', ')." />
 	</Target>
+
 </Project>

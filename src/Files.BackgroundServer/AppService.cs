@@ -121,20 +121,20 @@ public sealed partial class AppService : IDisposable
 	}
 
 	/// <summary>Accepts attribute changes for execution independently of the UI.</summary>
-	public Guid SubmitAttributeChanges(Guid operationId, [ReadOnlyArray] string[] paths, FileAttributeChangesData changes)
+	public Guid SubmitAttributeChanges(Guid operationId, [ReadOnlyArray] StorageReferenceData[] references, FileAttributeChangesData changes)
 	{
 		using var request = AcquireRequest();
 
-		return _operations.Submit(new FileAttributeOperation(operationId, paths, changes, _storage));
+		return _operations.Submit(new FileAttributeOperation(operationId, references, changes, _storage));
 	}
 
 	/// <summary>Accepts attribute changes and a following rename as one server-owned operation.</summary>
-	public Guid SubmitPropertyChanges(Guid operationId, [ReadOnlyArray] string[] paths, FileAttributeChangesData changes, StorageReferenceData item, string newName)
+	public Guid SubmitPropertyChanges(Guid operationId, [ReadOnlyArray] StorageReferenceData[] references, FileAttributeChangesData changes, StorageReferenceData item, string newName)
 	{
 		using var request = AcquireRequest();
 		var rename = new StorageOperationData { Kind = StorageOperationKind.Rename, Item = item, Name = newName, DisplayName = newName };
 
-		return _operations.Submit(new FileAttributeOperation(operationId, paths, changes, _storage, rename));
+		return _operations.Submit(new FileAttributeOperation(operationId, references, changes, _storage, rename));
 	}
 
 	/// <summary>Invokes a Shell New menu item in the server's own Shell apartment.</summary>

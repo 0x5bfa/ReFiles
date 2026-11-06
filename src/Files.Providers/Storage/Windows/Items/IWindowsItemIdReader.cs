@@ -3,6 +3,8 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
+using Microsoft.Win32.SafeHandles;
+
 namespace Files.Core.Storage.Windows;
 
 /// <summary>
@@ -10,7 +12,9 @@ namespace Files.Core.Storage.Windows;
 /// </summary>
 internal interface IWindowsItemIdReader
 {
-	string GetItemId(string parsingName, string? fileSystemPath);
+	string GetItemId(string parsingName, string? fileSystemPath, out string? fileSystemIdentity);
+
+	string? GetFileSystemIdentity(SafeFileHandle handle);
 
 	bool TryGetParsingName(string itemId, out string parsingName);
 

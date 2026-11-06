@@ -3,6 +3,7 @@
 
 using System.IO;
 using System.Runtime.InteropServices;
+using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 using Windows.Win32;
 
@@ -28,6 +29,7 @@ public sealed class WindowsItemPropertiesFileSystem : IItemPropertiesFileSystem
 		ArgumentNullException.ThrowIfNull(candidates);
 
 		var paths = new List<string>(candidates.Count);
+		var references = new List<StorableReference>(candidates.Count);
 		var hasFolders = false;
 		foreach (var candidate in candidates)
 		{
@@ -38,6 +40,7 @@ public sealed class WindowsItemPropertiesFileSystem : IItemPropertiesFileSystem
 			}
 
 			paths.Add(candidate.Path);
+			references.Add(candidate.Reference);
 			hasFolders |= candidate.IsFolder;
 		}
 
@@ -52,7 +55,7 @@ public sealed class WindowsItemPropertiesFileSystem : IItemPropertiesFileSystem
 		var isEncrypted = GetCommonAttributeState(paths, FileAttributes.Encrypted);
 		var capabilities = GetCommonAttributeCapabilities(paths);
 
-		return new(paths, hasFolders, isSingleFile, isSingleFolder, isDrive, isReadOnly, isHidden, isArchive, isIndexed, isCompressed, isEncrypted, capabilities);
+		return new(paths, references, hasFolders, isSingleFile, isSingleFolder, isDrive, isReadOnly, isHidden, isArchive, isIndexed, isCompressed, isEncrypted, capabilities);
 	}
 
 	/// <inheritdoc />
@@ -104,19 +107,19 @@ public sealed class WindowsItemPropertiesFileSystem : IItemPropertiesFileSystem
 	}
 
 	/// <inheritdoc />
-	public void Apply(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
+	public void Apply(IReadOnlyList<StorableReference> references, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
 	{
-		ArgumentNullException.ThrowIfNull(paths);
+		ArgumentNullException.ThrowIfNull(references);
 
 		ArgumentNullException.ThrowIfNull(changes);
 
-		if (paths.Count == 0)
+		if (references.Count == 0)
 		{
 			return;
 		}
 
 		var operations = _operations ?? throw new InvalidOperationException("Attribute changes must use the operation server.");
-		operations.ApplyAttributesAsync(paths, changes, cancellationToken).GetAwaiter().GetResult();
+		operations.ApplyAttributesAsync(references, changes, cancellationToken).GetAwaiter().GetResult();
 	}
 
 	private static bool? GetCommonAttributeState(IReadOnlyList<string> paths, FileAttributes attribute)

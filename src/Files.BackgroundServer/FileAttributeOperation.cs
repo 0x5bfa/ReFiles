@@ -4,6 +4,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Files.Core.Storage;
 using Files.Core.Storage.Windows;
 
 namespace Files.BackgroundServer;
@@ -11,26 +12,29 @@ namespace Files.BackgroundServer;
 internal sealed class FileAttributeOperation : IServerOperation
 {
 	private readonly StorageOperationExecutor _executor;
-	private readonly string[] _paths;
+	private readonly StorageReferenceData[] _references;
 	private readonly FileAttributeChangesData _changes;
 	private readonly StorageOperationData? _rename;
 
 	public Guid Id { get; }
 	public string Kind => "Attributes";
-	public int ItemCount => _paths.Length + (_rename.HasValue ? 1 : 0);
+	public int ItemCount => _references.Length + (_rename.HasValue ? 1 : 0);
 	public string? DestinationPath => null;
 	public bool CanPause => false;
 
-	internal FileAttributeOperation(Guid id, string[] paths, FileAttributeChangesData changes, StorageOperationExecutor executor, StorageOperationData? rename = null)
+	internal FileAttributeOperation(Guid id, StorageReferenceData[] references, FileAttributeChangesData changes, StorageOperationExecutor executor, StorageOperationData? rename = null)
 	{
-		if (paths.Length is 0 or > 10000)
+		ArgumentNullException.ThrowIfNull(references);
+
+		if (references.Length is 0 or > 10000)
 		{
-			throw new ArgumentException("The operation requires between 1 and 10000 paths.", nameof(paths));
+			throw new ArgumentException("The operation requires between 1 and 10000 storage references.", nameof(references));
 		}
 
-		foreach (var path in paths)
+		foreach (var reference in references)
 		{
-			ArgumentException.ThrowIfNullOrWhiteSpace(path);
+			StorageOperationExecutor.ValidateReference(reference);
+			ArgumentException.ThrowIfNullOrWhiteSpace(reference.ItemId);
 		}
 
 		foreach (var value in new[] { changes.ReadOnly, changes.Hidden, changes.Archive, changes.Indexed, changes.Compressed, changes.Encrypted })
@@ -43,7 +47,7 @@ internal sealed class FileAttributeOperation : IServerOperation
 
 		_executor = executor;
 		Id = id;
-		_paths = (string[])paths.Clone();
+		_references = (StorageReferenceData[])references.Clone();
 		_changes = changes;
 		_rename = rename;
 		if (rename is { } request)
@@ -54,18 +58,20 @@ internal sealed class FileAttributeOperation : IServerOperation
 
 	public async Task ExecuteAsync(OperationExecutionContext context, CancellationToken cancellationToken)
 	{
-		for (var index = 0; index < _paths.Length; index++)
+		for (var index = 0; index < _references.Length; index++)
 		{
-			context.Report(new OperationProgress(index, ItemCount, CurrentItemName: _paths[index]));
-			_executor.ApplyFileAttributes(new[] { _paths[index] }, ToNullable(_changes.ReadOnly), ToNullable(_changes.Hidden), ToNullable(_changes.Archive), ToNullable(_changes.Indexed),
-				ToNullable(_changes.Compressed), ToNullable(_changes.Encrypted), _changes.ApplyToContents, cancellationToken);
-			context.Report(new OperationProgress(index + 1, ItemCount, CurrentItemName: _paths[index]));
+			var reference = StorageOperationExecutor.ToReference(_references[index]);
+			var currentItemName = reference.LastKnownAddress?.Value ?? reference.ItemId;
+			context.Report(new OperationProgress(index, ItemCount, CurrentItemName: currentItemName));
+			await _executor.ApplyFileAttributesAsync(new[] { reference }, ToNullable(_changes.ReadOnly), ToNullable(_changes.Hidden), ToNullable(_changes.Archive), ToNullable(_changes.Indexed),
+				ToNullable(_changes.Compressed), ToNullable(_changes.Encrypted), _changes.ApplyToContents, cancellationToken).ConfigureAwait(false);
+			context.Report(new OperationProgress(index + 1, ItemCount, CurrentItemName: currentItemName));
 		}
 
 		if (_rename is { } rename)
 		{
 			var request = await _executor.CreateRequestAsync(rename, cancellationToken).ConfigureAwait(false);
-			var progress = new StorageOperationProgressReporter(context, _paths.Length, ItemCount, rename.DisplayName);
+			var progress = new StorageOperationProgressReporter(context, _references.Length, ItemCount, rename.DisplayName);
 			var result = await _executor.ExecuteAsync(request, progress, context, cancellationToken).ConfigureAwait(false);
 			if (!result.Succeeded)
 			{

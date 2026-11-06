@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using Windows.Win32;
 using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.SystemServices;
@@ -27,15 +28,17 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 
 	private readonly ConcurrentDictionary<string, uint> _volumeSerialNumbers = new(StringComparer.OrdinalIgnoreCase);
 
-	public string GetItemId(string parsingName, string? fileSystemPath)
+	public string GetItemId(string parsingName, string? fileSystemPath, out string? fileSystemIdentity)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(parsingName);
 
+		fileSystemIdentity = null;
 		if (fileSystemPath is not null && !IsOpticalDrive(fileSystemPath) && TryGetFileId(fileSystemPath, out var fileId))
 		{
+			fileSystemIdentity = FormatFileIdentity(fileId);
 			if (fileId.NumberOfLinks <= 1)
 			{
-				return $"{FileIdentityPrefix}{fileId.VolumeSerialNumber:X8}:{fileId.FileIndex:X16}";
+				return $"{FileIdentityPrefix}{fileSystemIdentity}";
 			}
 
 			// A file ID identifies the shared file object, while the parsing name
@@ -45,6 +48,13 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		}
 
 		return CreateAddressIdentity(parsingName);
+	}
+
+	public string? GetFileSystemIdentity(SafeFileHandle handle)
+	{
+		ArgumentNullException.ThrowIfNull(handle);
+
+		return TryGetFileIdByHandle(handle, out var fileId) ? FormatFileIdentity(fileId) : null;
 	}
 
 	public bool TryGetParsingName(string itemId, out string parsingName)
@@ -141,14 +151,7 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		{
 			using var handle = File.OpenHandle(fileSystemPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, BackupSemantics);
 
-			if (handle.IsInvalid || !PInvoke.GetFileInformationByHandle(handle, out var information))
-			{
-				return false;
-			}
-
-			fileId = new WindowsFileId(information.dwVolumeSerialNumber, ((ulong)information.nFileIndexHigh << 32) | information.nFileIndexLow, information.nNumberOfLinks);
-
-			return true;
+			return TryGetFileIdByHandle(handle, out fileId);
 		}
 		catch (IOException)
 		{
@@ -158,6 +161,24 @@ internal sealed class WindowsItemIdReader : IWindowsItemIdReader
 		{
 			return false;
 		}
+	}
+
+	private static bool TryGetFileIdByHandle(SafeFileHandle handle, out WindowsFileId fileId)
+	{
+		fileId = default;
+		if (handle.IsInvalid || !PInvoke.GetFileInformationByHandle(handle, out var information))
+		{
+			return false;
+		}
+
+		fileId = new WindowsFileId(information.dwVolumeSerialNumber, ((ulong)information.nFileIndexHigh << 32) | information.nFileIndexLow, information.nNumberOfLinks);
+
+		return true;
+	}
+
+	private static string FormatFileIdentity(WindowsFileId fileId)
+	{
+		return $"{fileId.VolumeSerialNumber:X8}:{fileId.FileIndex:X16}";
 	}
 
 	private static string CreateAddressIdentity(string parsingName)

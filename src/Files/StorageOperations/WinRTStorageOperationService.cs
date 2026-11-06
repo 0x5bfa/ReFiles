@@ -280,9 +280,9 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		}
 	}
 
-	public async Task ApplyAttributesAsync(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
+	public async Task ApplyAttributesAsync(IReadOnlyList<StorableReference> references, ItemPropertiesFileSystemChanges changes, CancellationToken cancellationToken)
 	{
-		var result = await ApplyPropertiesAsync(paths, changes, null, cancellationToken).ConfigureAwait(false);
+		var result = await ApplyPropertiesAsync(references, changes, null, cancellationToken).ConfigureAwait(false);
 		if (!result.Succeeded)
 		{
 			throw result.Error!;
@@ -349,7 +349,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 		server.UnregisterWindow(windowHandle.ToInt64());
 	}
 
-	internal async Task<StorageOperationResult> ApplyPropertiesAsync(IReadOnlyList<string> paths, ItemPropertiesFileSystemChanges changes,
+	internal async Task<StorageOperationResult> ApplyPropertiesAsync(IReadOnlyList<StorableReference> references, ItemPropertiesFileSystemChanges changes,
 		RenameOperationRequest? rename, CancellationToken cancellationToken)
 	{
 		var indexed = changes.IsDrive ? changes.IsDriveIndexed != changes.InitialIsDriveIndexed ? changes.IsDriveIndexed : (bool?)null : changes.IsIndexed;
@@ -365,9 +365,9 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 			Encrypted = ToOptionalBoolean(!changes.IsDrive && changes.UpdateEncryption ? changes.IsEncrypted : null),
 			ApplyToContents = changes.ApplyToContents,
 		};
-		var selectedPaths = paths.ToArray();
-		var summary = await RunOperationAsync((server, id) => rename is null ? server.SubmitAttributeChanges(id, selectedPaths, data)
-			: server.SubmitPropertyChanges(id, selectedPaths, data, ToData(rename.Item), rename.NewName), cancellationToken).ConfigureAwait(false);
+		var selectedReferences = references.Select(ToData).ToArray();
+		var summary = await RunOperationAsync((server, id) => rename is null ? server.SubmitAttributeChanges(id, selectedReferences, data)
+			: server.SubmitPropertyChanges(id, selectedReferences, data, ToData(rename.Item), rename.NewName), cancellationToken).ConfigureAwait(false);
 
 		return ToResult(summary);
 	}

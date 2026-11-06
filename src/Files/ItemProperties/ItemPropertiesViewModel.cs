@@ -22,6 +22,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 	private readonly IItemPropertiesFileSystem _itemPropertiesFileSystem;
 	private readonly IReadOnlyList<BrowseItemViewModel> _items;
 	private readonly List<string> _fileSystemPaths;
+	private readonly List<StorableReference> _fileSystemReferences;
 	private readonly string _hiddenFileExtension;
 	private readonly IStorageOperationService? _storageOperations;
 	private readonly bool _hasFolders;
@@ -307,7 +308,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 
 	public bool CanRename => _items.Count is 1 && _fileSystemPaths.Count is 1 && (!_isDrive || _canRenameDrive);
 
-	public bool CanEditAttributes => _fileSystemPaths.Count == _items.Count && !_isDrive;
+	public bool CanEditAttributes => _fileSystemReferences.Count == _items.Count && !_isDrive;
 
 	public bool ShowDriveCompression => _isDrive && SupportsCompression;
 
@@ -393,6 +394,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		_storageOperations = storageOperations;
 		var selection = _itemPropertiesFileSystem.Inspect(GetFileSystemCandidates(items));
 		_fileSystemPaths = [.. selection.Paths];
+		_fileSystemReferences = [.. selection.References];
 		_hasFolders = selection.HasFolders;
 		_isSingleFile = selection.IsSingleFile;
 		_isSingleFolder = selection.IsSingleFolder;
@@ -529,7 +531,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		var newName = requestedName + _hiddenFileExtension;
 		if (HasPendingFileAttributeChanges && shouldRename && _renameReference is not null && _storageOperations is WinRTStorageOperationService server)
 		{
-			var result = await server.ApplyPropertiesAsync(_fileSystemPaths, changes, new RenameOperationRequest(_renameReference, newName), cancellationToken);
+			var result = await server.ApplyPropertiesAsync(_fileSystemReferences, changes, new RenameOperationRequest(_renameReference, newName), cancellationToken);
 			if (!result.Succeeded)
 			{
 				throw result.Error!;
@@ -541,7 +543,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		{
 			if (IsDrive ? HasPendingDriveAttributeChanges : HasPendingFileAttributeChanges)
 			{
-				await Task.Run(() => _itemPropertiesFileSystem.Apply(_fileSystemPaths, changes, cancellationToken), cancellationToken);
+				await Task.Run(() => _itemPropertiesFileSystem.Apply(_fileSystemReferences, changes, cancellationToken), cancellationToken);
 			}
 
 			if (shouldRename)
@@ -747,7 +749,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 				continue;
 			}
 
-			candidates.Add(new(address.Value, item.IsFolder));
+			candidates.Add(new(item.Reference, address.Value, item.IsFolder));
 		}
 
 		return candidates;

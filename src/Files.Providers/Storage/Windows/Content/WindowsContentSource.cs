@@ -3,10 +3,13 @@
 
 #pragma warning disable IDE0130 // Windows APIs share a namespace across responsibility folders.
 
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
 using Windows.Win32;
+using Windows.Win32.Storage.FileSystem;
 using Windows.Win32.System.Com;
 
 namespace Files.Core.Storage.Windows;
@@ -57,7 +60,7 @@ internal sealed class WindowsContentSource : IReadableContent, IWritableContent,
 
 		if (_descriptor.Metadata.FileSystemPath is { } fileSystemPath)
 		{
-			return Task.FromResult<Stream>(OpenFileSystemStream(fileSystemPath, accessMode));
+			return Task.FromResult<Stream>(OpenFileSystemStream(fileSystemPath, accessMode, FileShare.ReadWrite | FileShare.Delete, FileOptions.Asynchronous | FileOptions.SequentialScan));
 		}
 
 		return _scheduler.InvokeAsync<Stream>(() =>
@@ -100,39 +103,72 @@ internal sealed class WindowsContentSource : IReadableContent, IWritableContent,
 		cancellationToken.ThrowIfCancellationRequested();
 
 		var path = _descriptor.Metadata.FileSystemPath ?? throw new NotSupportedException("Pinned archive input requires a file-system item.");
-		var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.Asynchronous | FileOptions.RandomAccess);
-
-		try
-		{
-			if (_itemIdReader.GetItemId(_descriptor.Locator.ParsingName, path) != _descriptor.ItemId)
-			{
-				throw new FileNotFoundException("The archive item was replaced before its input could be opened.", path);
-			}
-
-			return Task.FromResult<Stream>(input);
-		}
-		catch
-		{
-			input.Dispose();
-			throw;
-		}
+		return Task.FromResult<Stream>(OpenFileSystemStream(path, FileAccess.Read, FileShare.Read, FileOptions.Asynchronous | FileOptions.RandomAccess));
 	}
 
-	private static Stream OpenFileSystemStream(string fileSystemPath, FileAccess accessMode)
+	private Stream OpenFileSystemStream(string fileSystemPath, FileAccess accessMode, FileShare share, FileOptions options)
 	{
 		if (accessMode is not (FileAccess.Read or FileAccess.Write or FileAccess.ReadWrite))
 		{
 			throw new ArgumentOutOfRangeException(nameof(accessMode));
 		}
 
-		return new FileStream(
-			fileSystemPath,
-			new FileStreamOptions
+		var accessRights = accessMode switch
+		{
+			FileAccess.Read => (uint)FILE_ACCESS_RIGHTS.FILE_GENERIC_READ,
+			FileAccess.Write => (uint)(FILE_ACCESS_RIGHTS.FILE_GENERIC_WRITE | FILE_ACCESS_RIGHTS.FILE_READ_ATTRIBUTES),
+			FileAccess.ReadWrite => (uint)(FILE_ACCESS_RIGHTS.FILE_GENERIC_READ | FILE_ACCESS_RIGHTS.FILE_GENERIC_WRITE),
+			_ => throw new ArgumentOutOfRangeException(nameof(accessMode)),
+		};
+		var flags = FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_OVERLAPPED;
+		if (options.HasFlag(FileOptions.SequentialScan))
+		{
+			flags |= FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_SEQUENTIAL_SCAN;
+		}
+
+		if (options.HasFlag(FileOptions.RandomAccess))
+		{
+			flags |= FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_RANDOM_ACCESS;
+		}
+
+		var handle = PInvoke.CreateFile(fileSystemPath, accessRights, (FILE_SHARE_MODE)share, null, FILE_CREATION_DISPOSITION.OPEN_EXISTING, flags, null);
+		if (handle.IsInvalid)
+		{
+			throw new Win32Exception(Marshal.GetLastPInvokeError());
+		}
+
+		FileStream stream;
+		try
+		{
+			stream = new FileStream(handle, accessMode, bufferSize: 4096, isAsync: true);
+		}
+		catch
+		{
+			handle.Dispose();
+			throw;
+		}
+
+		try
+		{
+			var actualIdentity = _itemIdReader.GetFileSystemIdentity(stream.SafeFileHandle);
+			if (_descriptor.FileSystemIdentity is { } expectedIdentity)
 			{
-				Access = accessMode,
-				Mode = FileMode.Open,
-				Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
-				Share = FileShare.ReadWrite | FileShare.Delete,
-			});
+				if (actualIdentity is null || !StringComparer.Ordinal.Equals(expectedIdentity, actualIdentity))
+				{
+					throw new FileNotFoundException("The filesystem item was replaced before its stream could be opened.", fileSystemPath);
+				}
+			}
+			else if (_itemIdReader.GetItemId(_descriptor.Locator.ParsingName, fileSystemPath, out _) != _descriptor.ItemId)
+			{
+				throw new FileNotFoundException("The filesystem item was replaced before its stream could be opened.", fileSystemPath);
+			}
+
+			return stream;
+		}
+		catch
+		{
+			stream.Dispose();
+			throw;
+		}
 	}
 }

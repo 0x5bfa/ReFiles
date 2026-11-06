@@ -170,7 +170,7 @@ Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.WindowsFileAttribute
 Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.WindowsFileAttributeCapabilities(bool supportsCompression, bool supportsEncryption) -> void (forwarded, contained in Files.Core.Contracts)
 Files.Core.Storage.Windows.WindowsFileAttributeService
 Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem
-Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.Apply(System.Collections.Generic.IReadOnlyList<string!>! paths, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> void
+Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.Apply(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! references, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> void
 Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.Inspect(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate!>! candidates) -> Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection!
 Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.ReadMetadata(System.Collections.Generic.IReadOnlyList<string!>! paths, System.Threading.CancellationToken cancellationToken) -> Files.Core.Storage.Windows.ItemPropertiesFileSystemMetadata!
 Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.WindowsItemPropertiesFileSystem(Files.Core.Storage.Windows.IFileAttributeOperationService? operations = null) -> void
