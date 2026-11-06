@@ -1,0 +1,671 @@
+#nullable enable
+const Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.DefaultBackendId = "sevenzip" -> string!
+const Files.Core.Storage.Ftp.FtpStorageSource.DefaultSourceType = "ftp" -> string!
+const Files.Core.Storage.Ftp.FtpStorageSource.ExplicitTlsAddressScheme = "ftpes" -> string!
+const Files.Core.Storage.Ftp.FtpStorageSource.FtpAddressScheme = "ftp" -> string!
+const Files.Core.Storage.Ftp.FtpStorageSource.ImplicitTlsAddressScheme = "ftps" -> string!
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.AddToFavorites = "windows.pintohomefile" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.BurnDiscImage = "windows.discimage.burn" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.CompressToZip = "windows.zip.action" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.CopyAsPath = "windows.copyaspath" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.EmptyRecycleBin = "windows.recyclebin.empty" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.Mount = "windows.mount" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.PinToQuickAccess = "windows.pintohome" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.RestoreAllRecycleBinItems = "windows.recyclebin.restoreall" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.RestoreRecycleBinItems = "windows.recyclebin.restoreitems" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsShellContextualCommandIds.SetDesktopBackground = "windows.setdesktopwallpaper" -> string! (forwarded, contained in Files.Core.Contracts)
+const Files.Core.Storage.Windows.WindowsStorageSource.DefaultSourceType = "windows-shell" -> string!
+const Files.Core.Storage.Windows.WindowsStorageSource.FileAddressScheme = "file" -> string!
+const Files.Core.Storage.Windows.WindowsStorageSource.ShellAddressScheme = "shell" -> string!
+Files.Core.Capabilities.Archives.ArchiveSourceFactory
+Files.Core.Capabilities.Archives.ArchiveSourceFactory.ArchiveSourceFactory(System.Collections.Generic.IEnumerable<string!>? extensions = null, Files.Core.Storage.Archives.ArchiveBackendSelector? readers = null, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentials = null) -> void
+Files.Core.Capabilities.Archives.ArchiveSourceFactory.Create(Files.Core.Capabilities.ItemContext! context) -> Files.Core.Capabilities.Archives.IArchiveSource?
+Files.Core.FilesProviderExtensions
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.Id.get -> string!
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.Priority.get -> int
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.SevenZipArchiveBackend() -> void
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.TryOpenAsync(Files.Core.Storage.Archives.ArchiveOpenRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Archives.ArchiveOpenResult!>
+Files.Core.Storage.Ftp.AnonymousFtpCredentialResolver
+Files.Core.Storage.Ftp.AnonymousFtpCredentialResolver.ResolveAsync(Files.Core.Storage.Ftp.FtpCredentialRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Ftp.FtpCredential?>
+Files.Core.Storage.Ftp.FluentFtpSessionFactory
+Files.Core.Storage.Ftp.FluentFtpSessionFactory.ConnectAsync(Files.Core.Storage.Ftp.FtpConnectionProfile! profile, Files.Core.Storage.Ftp.FtpCredential! credential, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Ftp.IFtpSession!>
+Files.Core.Storage.Ftp.FluentFtpSessionFactory.FluentFtpSessionFactory() -> void
+Files.Core.Storage.Ftp.FtpAuthenticationRequiredException
+Files.Core.Storage.Ftp.FtpAuthenticationRequiredException.ConnectionId.get -> string!
+Files.Core.Storage.Ftp.FtpAuthenticationRequiredException.FtpAuthenticationRequiredException(string! connectionId, string! message, System.Exception? innerException = null) -> void
+Files.Core.Storage.Ftp.FtpEntryInfo
+Files.Core.Storage.Ftp.FtpEntryInfo.<Clone>$() -> Files.Core.Storage.Ftp.FtpEntryInfo!
+Files.Core.Storage.Ftp.FtpEntryInfo.DateCreated.get -> System.DateTimeOffset?
+Files.Core.Storage.Ftp.FtpEntryInfo.DateModified.get -> System.DateTimeOffset?
+Files.Core.Storage.Ftp.FtpEntryInfo.Equals(Files.Core.Storage.Ftp.FtpEntryInfo? other) -> bool
+Files.Core.Storage.Ftp.FtpEntryInfo.FtpEntryInfo(Files.Core.Storage.Ftp.FtpPath! path, string! name, Files.Core.Storage.Ftp.FtpEntryKind kind, long? size = null, System.DateTimeOffset? dateModified = null, System.DateTimeOffset? dateCreated = null, string? linkTarget = null) -> void
+Files.Core.Storage.Ftp.FtpEntryInfo.Kind.get -> Files.Core.Storage.Ftp.FtpEntryKind
+Files.Core.Storage.Ftp.FtpEntryInfo.LinkTarget.get -> string?
+Files.Core.Storage.Ftp.FtpEntryInfo.Name.get -> string!
+Files.Core.Storage.Ftp.FtpEntryInfo.Path.get -> Files.Core.Storage.Ftp.FtpPath!
+Files.Core.Storage.Ftp.FtpEntryInfo.Size.get -> long?
+Files.Core.Storage.Ftp.FtpEntryKind
+Files.Core.Storage.Ftp.FtpEntryKind.File = 0 -> Files.Core.Storage.Ftp.FtpEntryKind
+Files.Core.Storage.Ftp.FtpEntryKind.Folder = 1 -> Files.Core.Storage.Ftp.FtpEntryKind
+Files.Core.Storage.Ftp.FtpEntryKind.SymbolicLink = 2 -> Files.Core.Storage.Ftp.FtpEntryKind
+Files.Core.Storage.Ftp.FtpFile
+Files.Core.Storage.Ftp.FtpFile.OpenReadAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Files.Core.Storage.Ftp.FtpFile.OpenWriteAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Files.Core.Storage.Ftp.FtpFolder
+Files.Core.Storage.Ftp.FtpFolder.GetItemsAsync(Files.Core.Storage.StorableType type = Files.Core.Storage.StorableType.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Storage.IStorableChild!>!
+Files.Core.Storage.Ftp.FtpPropertyReader
+Files.Core.Storage.Ftp.FtpPropertyReader.CanRead(Files.Core.Capabilities.ItemContext! context) -> bool
+Files.Core.Storage.Ftp.FtpPropertyReader.FtpPropertyReader(Files.Core.Storage.Ftp.FtpStorageSource! source) -> void
+Files.Core.Storage.Ftp.FtpPropertyReader.GetPropertiesAsync(Files.Core.Capabilities.Properties.PropertyRequest! request, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.ItemContext!>! contexts, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<Files.Core.Storage.StorableReference!, System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>
+Files.Core.Storage.Ftp.FtpStorable
+Files.Core.Storage.Ftp.FtpStorable.Address.get -> Files.Core.Storage.StorageAddress!
+Files.Core.Storage.Ftp.FtpStorable.Equals(Files.Core.Storage.Ftp.FtpStorable? other) -> bool
+Files.Core.Storage.Ftp.FtpStorable.GetParentAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.IFolder?>!
+Files.Core.Storage.Ftp.FtpStorable.Id.get -> string!
+Files.Core.Storage.Ftp.FtpStorable.Kind.get -> Files.Core.Storage.Ftp.FtpEntryKind
+Files.Core.Storage.Ftp.FtpStorable.Name.get -> string!
+Files.Core.Storage.Ftp.FtpStorable.Path.get -> Files.Core.Storage.Ftp.FtpPath!
+Files.Core.Storage.Ftp.FtpStorageOperationHandler
+Files.Core.Storage.Ftp.FtpStorageOperationHandler.CanHandle(Files.Core.Storage.StorageOperationRequest! request) -> bool
+Files.Core.Storage.Ftp.FtpStorageOperationHandler.ExecuteAsync(Files.Core.Storage.StorageOperationRequest! request, System.IProgress<Files.Core.Storage.StorageOperationProgress!>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken), Files.Core.Storage.IStorageOperationControl? operationControl = null) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.StorageOperationResult!>
+Files.Core.Storage.Ftp.FtpStorageOperationHandler.FtpStorageOperationHandler(Files.Core.Storage.Ftp.FtpStorageSource! source) -> void
+Files.Core.Storage.Ftp.FtpStorageSource
+Files.Core.Storage.Ftp.FtpStorageSource.AddressScheme.get -> string!
+Files.Core.Storage.Ftp.FtpStorageSource.CanResolve(Files.Core.Storage.StorageAddress! address) -> bool
+Files.Core.Storage.Ftp.FtpStorageSource.CreateAddress(Files.Core.Storage.Ftp.FtpPath! path) -> Files.Core.Storage.StorageAddress!
+Files.Core.Storage.Ftp.FtpStorageSource.CreateReference(Files.Core.Storage.Ftp.FtpPath! path) -> Files.Core.Storage.StorableReference!
+Files.Core.Storage.Ftp.FtpStorageSource.DisplayName.get -> string!
+Files.Core.Storage.Ftp.FtpStorageSource.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Ftp.FtpStorageSource.FtpStorageSource(Files.Core.Storage.Ftp.FtpConnectionProfile! profile, Files.Core.Storage.Ftp.IFtpCredentialResolver? credentialResolver = null, Files.Core.Storage.Ftp.IFtpSessionFactory? sessionFactory = null, Files.Core.Storage.StorageSourceId? sourceId = null) -> void
+Files.Core.Storage.Ftp.FtpStorageSource.GetRootsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Storage.IFolder!>!
+Files.Core.Storage.Ftp.FtpStorageSource.Profile.get -> Files.Core.Storage.Ftp.FtpConnectionProfile!
+Files.Core.Storage.Ftp.FtpStorageSource.ResolveAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.IStorable!>
+Files.Core.Storage.Ftp.FtpStorageSource.ResolveAsync(Files.Core.Storage.StorageAddress! address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.IStorable!>
+Files.Core.Storage.Ftp.FtpStorageSource.SourceId.get -> Files.Core.Storage.StorageSourceId!
+Files.Core.Storage.Ftp.FtpStorageSource.SourceType.get -> string!
+Files.Core.Storage.Ftp.IFtpSession
+Files.Core.Storage.Ftp.IFtpSession.CompleteTransferAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Ftp.IFtpSession.CreateFileAsync(Files.Core.Storage.Ftp.FtpPath! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Ftp.IFtpSession.CreateFolderAsync(Files.Core.Storage.Ftp.FtpPath! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Ftp.IFtpSession.DeleteAsync(Files.Core.Storage.Ftp.FtpPath! path, Files.Core.Storage.Ftp.FtpEntryKind kind, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Ftp.IFtpSession.GetEntryAsync(Files.Core.Storage.Ftp.FtpPath! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Ftp.FtpEntryInfo?>
+Files.Core.Storage.Ftp.IFtpSession.GetListingAsync(Files.Core.Storage.Ftp.FtpPath! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Ftp.FtpEntryInfo!>!>
+Files.Core.Storage.Ftp.IFtpSession.MoveAsync(Files.Core.Storage.Ftp.FtpPath! sourcePath, Files.Core.Storage.Ftp.FtpPath! destinationPath, Files.Core.Storage.Ftp.FtpEntryKind kind, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Ftp.IFtpSession.OpenReadAsync(Files.Core.Storage.Ftp.FtpPath! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream!>
+Files.Core.Storage.Ftp.IFtpSession.OpenWriteAsync(Files.Core.Storage.Ftp.FtpPath! path, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.IO.Stream!>
+Files.Core.Storage.Ftp.IFtpSessionFactory
+Files.Core.Storage.Ftp.IFtpSessionFactory.ConnectAsync(Files.Core.Storage.Ftp.FtpConnectionProfile! profile, Files.Core.Storage.Ftp.FtpCredential! credential, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Ftp.IFtpSession!>
+Files.Core.Storage.Ftp.StaticFtpCredentialResolver
+Files.Core.Storage.Ftp.StaticFtpCredentialResolver.ResolveAsync(Files.Core.Storage.Ftp.FtpCredentialRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Ftp.FtpCredential?>
+Files.Core.Storage.Ftp.StaticFtpCredentialResolver.StaticFtpCredentialResolver(Files.Core.Storage.Ftp.FtpCredential! credential) -> void
+Files.Core.Storage.Windows.AllowWindowsShellPreviewPolicy
+Files.Core.Storage.Windows.AllowWindowsShellPreviewPolicy.GetBlockReason(Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid) -> Files.Core.Capabilities.Previews.PreviewBlockReason?
+Files.Core.Storage.Windows.AllowWindowsShellPreviewPolicy.GetBlockReasonAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewBlockReason?>
+Files.Core.Storage.Windows.FolderChangeSourceFactory
+Files.Core.Storage.Windows.FolderChangeSourceFactory.Create(Files.Core.Capabilities.ItemContext! context) -> Files.Core.Capabilities.Changes.IFolderChangeSource?
+Files.Core.Storage.Windows.FolderChangeSourceFactory.FolderChangeSourceFactory() -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerActivationPolicy
+Files.Core.Storage.Windows.IWindowsPreviewHandlerActivationPolicy.GetContext(System.Guid handlerClsid) -> Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.IWindowsPreviewHandlerAssociation
+Files.Core.Storage.Windows.IWindowsPreviewHandlerAssociation.QueryPreviewHandler(string! normalizedExtension) -> string?
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.ApplySystemVisuals() -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.DoPreview() -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.QueryFocus() -> nint
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.SetBounds(Files.Core.Storage.Windows.WindowsPreviewBounds bounds) -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.SetFocus() -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.SetSite() -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.SetSite(nint hostWindow, Files.Core.Storage.Windows.WindowsPreviewAcceleratorForwarder? acceleratorForwarder) -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.SetTheme(Files.Core.Storage.Windows.WindowsPreviewColor background, Files.Core.Storage.Windows.WindowsPreviewColor foreground) -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.SetWindow(nint windowHandle, Files.Core.Storage.Windows.WindowsPreviewBounds bounds) -> void
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.TryInitializeWithFile(string! fileSystemPath) -> bool
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.TryInitializeWithItem(string! parsingName) -> bool
+Files.Core.Storage.Windows.IWindowsPreviewHandlerController.TryInitializeWithStream(string! fileSystemPath) -> bool
+Files.Core.Storage.Windows.IWindowsPreviewHandlerControllerFactory
+Files.Core.Storage.Windows.IWindowsPreviewHandlerControllerFactory.Create(System.Guid handlerClsid) -> Files.Core.Storage.Windows.IWindowsPreviewHandlerController!
+Files.Core.Storage.Windows.IWindowsPreviewHandlerRegistrationAllowlist
+Files.Core.Storage.Windows.IWindowsPreviewHandlerRegistrationAllowlist.IsRegistered(System.Guid handlerClsid) -> bool
+Files.Core.Storage.Windows.IWindowsPreviewHandlerResolver
+Files.Core.Storage.Windows.IWindowsPreviewHandlerResolver.ResolveAsync(Files.Core.Capabilities.ItemContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Guid?>
+Files.Core.Storage.Windows.IWindowsPreviewTargetResolver
+Files.Core.Storage.Windows.IWindowsPreviewTargetResolver.ResolveAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Windows.WindowsPreviewTarget!>
+Files.Core.Storage.Windows.IWindowsShellOperationService (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellOperationService.GetShellNewItemsAsync(string! folderPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellNewItem!>!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellOperationService.InvokeNewItemAsync(string! folderPath, uint commandOffset, string! name, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellOperationService.TransferPathsAsync(System.Collections.Generic.IReadOnlyList<string!>! paths, Files.Core.Storage.StorableReference! destination, bool move, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewPolicy
+Files.Core.Storage.Windows.IWindowsShellPreviewPolicy.GetBlockReason(Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid) -> Files.Core.Capabilities.Previews.PreviewBlockReason?
+Files.Core.Storage.Windows.IWindowsShellPreviewPolicy.GetBlockReason(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid) -> Files.Core.Capabilities.Previews.PreviewBlockReason?
+Files.Core.Storage.Windows.IWindowsShellPreviewPolicy.GetBlockReasonAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewBlockReason?>
+Files.Core.Storage.Windows.IWindowsShellPreviewSession (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewSession.QueryFocusAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<nint> (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewSession.SetBoundsAsync(Files.Core.Storage.Windows.WindowsPreviewBounds bounds, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewSession.SetFocusAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewSession.SetThemeAsync(Files.Core.Storage.Windows.WindowsPreviewColor background, Files.Core.Storage.Windows.WindowsPreviewColor foreground, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewSessionFactory (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellPreviewSessionFactory.CreateAsync(Files.Core.Storage.Windows.WindowsShellPreviewResult! result, Files.Core.Storage.Windows.WindowsPreviewHost! host, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Windows.IWindowsShellPreviewSession!> (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.IWindowsShellScheduler
+Files.Core.Storage.Windows.IWindowsShellScheduler.InvokeAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.IWindowsShellScheduler.InvokeConcurrentAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.IWindowsShellScheduler.InvokeOperationAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.IWindowsShellScheduler.InvokeSearchAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.IWindowsStorable
+Files.Core.Storage.Windows.IWindowsStorable.FileSystemPath.get -> string?
+Files.Core.Storage.Windows.IWindowsStorable.IsFileSystem.get -> bool
+Files.Core.Storage.Windows.IWindowsStorable.IsHidden.get -> bool
+Files.Core.Storage.Windows.IWindowsStorable.IsStream.get -> bool
+Files.Core.Storage.Windows.IWindowsStorable.ParsingName.get -> string!
+Files.Core.Storage.Windows.LocalServerWindowsPreviewHandlerActivationPolicy
+Files.Core.Storage.Windows.LocalServerWindowsPreviewHandlerActivationPolicy.GetContext(System.Guid handlerClsid) -> Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.LocalServerWindowsPreviewHandlerActivationPolicy.LocalServerWindowsPreviewHandlerActivationPolicy() -> void
+Files.Core.Storage.Windows.WindowsContentSourceFactory
+Files.Core.Storage.Windows.WindowsContentSourceFactory.Create(Files.Core.Capabilities.ItemContext! context) -> Files.Core.Capabilities.Content.IReadableContent?
+Files.Core.Storage.Windows.WindowsContentSourceFactory.WindowsContentSourceFactory() -> void
+Files.Core.Storage.Windows.WindowsFileAttributeCapabilities (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.Equals(Files.Core.Storage.Windows.WindowsFileAttributeCapabilities other) -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.SupportsCompression.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.SupportsEncryption.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.WindowsFileAttributeCapabilities() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.WindowsFileAttributeCapabilities(bool supportsCompression, bool supportsEncryption) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsFileAttributeService
+Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem
+Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.Apply(System.Collections.Generic.IReadOnlyList<string!>! paths, Files.Core.Storage.Windows.ItemPropertiesFileSystemChanges! changes, System.Threading.CancellationToken cancellationToken) -> void
+Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.Inspect(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.ItemPropertiesFileSystemCandidate!>! candidates) -> Files.Core.Storage.Windows.ItemPropertiesFileSystemSelection!
+Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.ReadMetadata(System.Collections.Generic.IReadOnlyList<string!>! paths, System.Threading.CancellationToken cancellationToken) -> Files.Core.Storage.Windows.ItemPropertiesFileSystemMetadata!
+Files.Core.Storage.Windows.WindowsItemPropertiesFileSystem.WindowsItemPropertiesFileSystem(Files.Core.Storage.Windows.IFileAttributeOperationService? operations = null) -> void
+Files.Core.Storage.Windows.WindowsPreviewAccessPolicy
+Files.Core.Storage.Windows.WindowsPreviewAccessPolicy.GetBlockReason(Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid) -> Files.Core.Capabilities.Previews.PreviewBlockReason?
+Files.Core.Storage.Windows.WindowsPreviewAccessPolicy.GetBlockReason(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid) -> Files.Core.Capabilities.Previews.PreviewBlockReason?
+Files.Core.Storage.Windows.WindowsPreviewAccessPolicy.GetBlockReasonAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Guid handlerClsid, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewBlockReason?>
+Files.Core.Storage.Windows.WindowsPreviewAccessPolicy.GetBlockReasonAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewBlockReason?>
+Files.Core.Storage.Windows.WindowsPreviewAccessPolicy.WindowsPreviewAccessPolicy() -> void
+Files.Core.Storage.Windows.WindowsPreviewBounds (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.Equals(Files.Core.Storage.Windows.WindowsPreviewBounds other) -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.Height.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.Width.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.WindowsPreviewBounds() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.WindowsPreviewBounds(int x, int y, int width, int height) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.X.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewBounds.Y.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Blue.get -> byte (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Blue.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Deconstruct(out byte Red, out byte Green, out byte Blue) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Equals(Files.Core.Storage.Windows.WindowsPreviewColor other) -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Green.get -> byte (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Green.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Red.get -> byte (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.Red.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.WindowsPreviewColor() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewColor.WindowsPreviewColor(byte Red, byte Green, byte Blue) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext.EnableCloaking = 1048576 -> Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext.InProcessServer = 1 -> Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext.LocalServer = 4 -> Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext.ShellDefault = Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext.InProcessServer | Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext.LocalServer -> Files.Core.Storage.Windows.WindowsPreviewHandlerActivationContext
+Files.Core.Storage.Windows.WindowsPreviewHandlerRegistrationAllowlist
+Files.Core.Storage.Windows.WindowsPreviewHandlerRegistrationAllowlist.IsRegistered(System.Guid handlerClsid) -> bool
+Files.Core.Storage.Windows.WindowsPreviewHandlerRegistrationAllowlist.WindowsPreviewHandlerRegistrationAllowlist() -> void
+Files.Core.Storage.Windows.WindowsPreviewHandlerResolver
+Files.Core.Storage.Windows.WindowsPreviewHandlerResolver.ClearCache() -> void
+Files.Core.Storage.Windows.WindowsPreviewHandlerResolver.ResolveAsync(Files.Core.Capabilities.ItemContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Guid?>
+Files.Core.Storage.Windows.WindowsPreviewHandlerResolver.WindowsPreviewHandlerResolver() -> void
+Files.Core.Storage.Windows.WindowsPreviewHandlerResolver.WindowsPreviewHandlerResolver(Files.Core.Storage.Windows.IWindowsPreviewHandlerAssociation! association) -> void
+Files.Core.Storage.Windows.WindowsPreviewHandlerResolver.WindowsPreviewHandlerResolver(Files.Core.Storage.Windows.IWindowsPreviewHandlerAssociation! association, Files.Core.Storage.Windows.IWindowsPreviewHandlerRegistrationAllowlist! registrationAllowlist) -> void
+Files.Core.Storage.Windows.WindowsPreviewHost (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.<Clone>$() -> Files.Core.Storage.Windows.WindowsPreviewHost! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.AcceleratorForwarder.get -> Files.Core.Storage.Windows.WindowsPreviewAcceleratorForwarder? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.Bounds.get -> Files.Core.Storage.Windows.WindowsPreviewBounds (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.Equals(Files.Core.Storage.Windows.WindowsPreviewHost? other) -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.WindowHandle.get -> nint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.WindowsPreviewHost(nint windowHandle, Files.Core.Storage.Windows.WindowsPreviewBounds bounds) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewHost.WindowsPreviewHost(nint windowHandle, Files.Core.Storage.Windows.WindowsPreviewBounds bounds, Files.Core.Storage.Windows.WindowsPreviewAcceleratorForwarder? acceleratorForwarder) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.Deconstruct(out nint WindowHandle, out uint MessageId, out nuint WParam, out nint LParam, out uint Timestamp, out int ScreenX, out int ScreenY) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.Equals(Files.Core.Storage.Windows.WindowsPreviewMessage other) -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.LParam.get -> nint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.LParam.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.MessageId.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.MessageId.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.ScreenX.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.ScreenX.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.ScreenY.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.ScreenY.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.Timestamp.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.Timestamp.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.WindowHandle.get -> nint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.WindowHandle.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.WindowsPreviewMessage() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.WindowsPreviewMessage(nint WindowHandle, uint MessageId, nuint WParam, nint LParam, uint Timestamp, int ScreenX, int ScreenY) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.WParam.get -> nuint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewMessage.WParam.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsPreviewTarget
+Files.Core.Storage.Windows.WindowsPreviewTarget.Dispose() -> void
+Files.Core.Storage.Windows.WindowsPreviewTarget.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsPreviewTarget.Item.get -> Files.Core.Storage.Windows.IWindowsStorable!
+Files.Core.Storage.Windows.WindowsPreviewTarget.Model.get -> Files.Core.Models.IStorableModel!
+Files.Core.Storage.Windows.WindowsPreviewTarget.Reference.get -> Files.Core.Storage.StorableReference!
+Files.Core.Storage.Windows.WindowsPreviewTarget.WindowsPreviewTarget(Files.Core.Models.IStorableModel! model, Files.Core.Storage.Windows.IWindowsStorable! item) -> void
+Files.Core.Storage.Windows.WindowsPreviewTarget.WindowsPreviewTarget(Files.Core.Models.IStorableModel! model, Files.Core.Storage.Windows.IWindowsStorable! item, Files.Core.Capabilities.ItemContext? context) -> void
+Files.Core.Storage.Windows.WindowsPreviewTargetResolver
+Files.Core.Storage.Windows.WindowsPreviewTargetResolver.ResolveAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Windows.WindowsPreviewTarget!>
+Files.Core.Storage.Windows.WindowsPreviewTargetResolver.WindowsPreviewTargetResolver(Files.Core.Data.IStorageWorkspace! workspace) -> void
+Files.Core.Storage.Windows.WindowsPropertyReader
+Files.Core.Storage.Windows.WindowsPropertyReader.CanRead(Files.Core.Capabilities.ItemContext! context) -> bool
+Files.Core.Storage.Windows.WindowsPropertyReader.GetPropertiesAsync(Files.Core.Capabilities.Properties.PropertyRequest! request, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.ItemContext!>! contexts, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<Files.Core.Storage.StorableReference!, System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>
+Files.Core.Storage.Windows.WindowsPropertyReader.WindowsPropertyReader(Microsoft.Extensions.Logging.ILogger<Files.Core.Storage.Windows.WindowsPropertyReader!>? logger = null) -> void
+Files.Core.Storage.Windows.WindowsSettingsStorage
+Files.Core.Storage.Windows.WindowsSettingsStorage.ReadTextAsync(string! fileName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
+Files.Core.Storage.Windows.WindowsSettingsStorage.WindowsSettingsStorage(string! localFolderPath) -> void
+Files.Core.Storage.Windows.WindowsSettingsStorage.WriteTextAsync(string! fileName, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Files.Core.Storage.Windows.WindowsShellClassicContextMenuSession
+Files.Core.Storage.Windows.WindowsShellClassicContextMenuSession.Show(nint ownerWindowHandle, Files.Core.Storage.Windows.WindowsShellContextMenuTarget! target, System.Drawing.Point invocationPoint) -> bool
+Files.Core.Storage.Windows.WindowsShellClassicContextMenuSession.WindowsShellClassicContextMenuSession() -> void
+Files.Core.Storage.Windows.WindowsShellClipboardService
+Files.Core.Storage.Windows.WindowsShellClipboardService.HasStorageItems() -> bool
+Files.Core.Storage.Windows.WindowsShellClipboardService.ReadFileSystemItemsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellClipboardSnapshot?>!
+Files.Core.Storage.Windows.WindowsShellClipboardService.SetItemsAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, bool move, nint ownerWindowHandle = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Files.Core.Storage.Windows.WindowsShellCompatibilityProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellCompatibilityProperties.ExecutablePath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuBuilder (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.AccessKey.get -> string? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.Children.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextMenuEntry!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.HasIcon.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.Id.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.IsApplicationCommand.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.IsChecked.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.IsEnabled.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.IsRadio.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.IsSeparator.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.Shortcut.get -> string? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuEntry.Title.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme.Dark = 1 -> Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme.HighContrastBlack = 3 -> Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme.HighContrastWhite = 2 -> Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme.Light = 0 -> Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextMenuSession
+Files.Core.Storage.Windows.WindowsShellContextMenuSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsShellContextMenuSession.Entries.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextMenuEntry!>!
+Files.Core.Storage.Windows.WindowsShellContextMenuSession.GetIconAsync(Files.Core.Storage.Windows.WindowsShellContextMenuEntry! entry, int pixelSize, Files.Core.Storage.Windows.WindowsShellContextMenuIconTheme theme, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.ReadOnlyMemory<byte>>!
+Files.Core.Storage.Windows.WindowsShellContextMenuSession.GetIconAsync(Files.Core.Storage.Windows.WindowsShellContextMenuEntry! entry, int pixelSize, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.ReadOnlyMemory<byte>>!
+Files.Core.Storage.Windows.WindowsShellContextMenuSession.InvokeAsync(Files.Core.Storage.Windows.WindowsShellContextMenuEntry! entry, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Files.Core.Storage.Windows.WindowsShellContextMenuTarget
+Files.Core.Storage.Windows.WindowsShellContextMenuTarget.AbsolutePidls.get -> System.Collections.Generic.IReadOnlyList<System.ReadOnlyMemory<byte>>!
+Files.Core.Storage.Windows.WindowsShellContextualCommand (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommand.Id.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommand.IsEnabled.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommand.Scope.get -> Files.Core.Storage.Windows.WindowsShellContextualCommandScope (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandIds (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandScope (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandScope.All = Files.Core.Storage.Windows.WindowsShellContextualCommandScope.Selection | Files.Core.Storage.Windows.WindowsShellContextualCommandScope.Location -> Files.Core.Storage.Windows.WindowsShellContextualCommandScope (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandScope.Location = 2 -> Files.Core.Storage.Windows.WindowsShellContextualCommandScope (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandScope.None = 0 -> Files.Core.Storage.Windows.WindowsShellContextualCommandScope (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandScope.Selection = 1 -> Files.Core.Storage.Windows.WindowsShellContextualCommandScope (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellContextualCommandService
+Files.Core.Storage.Windows.WindowsShellContextualCommandService.GetCommandsAsync(Files.Core.Storage.StorableReference? location, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, nint ownerWindowHandle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextualCommand!>!>!
+Files.Core.Storage.Windows.WindowsShellContextualCommandService.InvokeAsync(Files.Core.Storage.StorableReference? location, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, Files.Core.Storage.Windows.WindowsShellContextualCommand! command, Files.Core.Storage.Windows.WindowsShellInvocationContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Files.Core.Storage.Windows.WindowsShellContextualCommandService.WindowsShellContextualCommandService(Files.Core.Storage.Windows.WindowsStorageSource! source) -> void
+Files.Core.Storage.Windows.WindowsShellDataTransfer
+Files.Core.Storage.Windows.WindowsShellDefaultCommand (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDefaultCommand.CanonicalVerb.get -> string? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDefaultCommandInvoker
+Files.Core.Storage.Windows.WindowsShellDefaultCommandInvoker.GetDefaultCommandAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellDefaultCommand?>!
+Files.Core.Storage.Windows.WindowsShellDefaultCommandInvoker.InvokeDefaultCommandAsync(Files.Core.Storage.StorableReference! reference, Files.Core.Storage.Windows.WindowsShellInvocationContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Files.Core.Storage.Windows.WindowsShellDefaultCommandInvoker.WindowsShellDefaultCommandInvoker(Files.Core.Storage.Windows.WindowsStorageSource! source) -> void
+Files.Core.Storage.Windows.WindowsShellDigitalSignature (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDigitalSignature.CatalogPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDigitalSignature.DigestAlgorithm.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDigitalSignature.Signer.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDigitalSignature.Timestamp.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.Alt = 32 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.Control = 8 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.LeftButton = 1 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.MiddleButton = 16 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.None = 0 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.RightButton = 2 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropModifiers.Shift = 4 -> Files.Core.Storage.Windows.WindowsShellDragDropModifiers (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDragDropService
+Files.Core.Storage.Windows.WindowsShellDragDropService.CaptureDataTransfer(Windows.ApplicationModel.DataTransfer.DataPackageView! view) -> Files.Core.Storage.Windows.IWindowsShellDataTransfer!
+Files.Core.Storage.Windows.WindowsShellDragDropService.PasteAsync(Files.Core.Storage.StorableReference! destinationFolder, nint ownerWindowHandle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Files.Core.Storage.Windows.WindowsShellDragDropService.PrepareDragSourceAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellDragSource!>!
+Files.Core.Storage.Windows.WindowsShellDragDropService.PrepareDropTargetAsync(Files.Core.Storage.StorableReference! destination, bool background, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellDropTarget!>!
+Files.Core.Storage.Windows.WindowsShellDragSource
+Files.Core.Storage.Windows.WindowsShellDragSource.Attach(Windows.ApplicationModel.DataTransfer.DataPackage! dataPackage, nint ownerWindowHandle, Files.Core.Storage.Windows.WindowsShellDropEffects preferredEffect = Files.Core.Storage.Windows.WindowsShellDropEffects.None, bool deriveMoveFromDelete = true) -> Files.Core.Storage.Windows.WindowsShellDropEffects
+Files.Core.Storage.Windows.WindowsShellDriveProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDriveProperties.DriveType.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDriveProperties.FileSystemFlags.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDriveProperties.RootPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDriveProperties.SupportsErrorChecking.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDriveProperties.SupportsOptimization.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDriveToolsService
+Files.Core.Storage.Windows.WindowsShellDropEffects (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDropEffects.Copy = 1 -> Files.Core.Storage.Windows.WindowsShellDropEffects (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDropEffects.Link = 4 -> Files.Core.Storage.Windows.WindowsShellDropEffects (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDropEffects.Move = 2 -> Files.Core.Storage.Windows.WindowsShellDropEffects (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDropEffects.None = 0 -> Files.Core.Storage.Windows.WindowsShellDropEffects (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellDropSession
+Files.Core.Storage.Windows.WindowsShellDropSession.Dispose() -> void
+Files.Core.Storage.Windows.WindowsShellDropSession.DragLeave() -> void
+Files.Core.Storage.Windows.WindowsShellDropSession.DragOver(Files.Core.Storage.Windows.WindowsShellDragDropModifiers modifiers, System.Drawing.Point screenPoint, Files.Core.Storage.Windows.WindowsShellDropEffects allowedEffects) -> Files.Core.Storage.Windows.WindowsShellDropEffects
+Files.Core.Storage.Windows.WindowsShellDropSession.Drop(Files.Core.Storage.Windows.WindowsShellDragDropModifiers modifiers, System.Drawing.Point screenPoint, Files.Core.Storage.Windows.WindowsShellDropEffects allowedEffects) -> Files.Core.Storage.Windows.WindowsShellDropEffects
+Files.Core.Storage.Windows.WindowsShellDropSession.TryDragEnter(Files.Core.Storage.Windows.WindowsShellDragDropModifiers modifiers, System.Drawing.Point screenPoint, Files.Core.Storage.Windows.WindowsShellDropEffects allowedEffects, out Files.Core.Storage.Windows.WindowsShellDropEffects acceptedEffect) -> bool
+Files.Core.Storage.Windows.WindowsShellDropTarget
+Files.Core.Storage.Windows.WindowsShellDropTarget.TryCreateSession(Files.Core.Storage.Windows.WindowsShellDataTransfer! dataTransfer, nint ownerWindowHandle, out Files.Core.Storage.Windows.WindowsShellDropSession? session) -> bool
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.ApplyToSubfolders.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.CanChangeIcon.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.CanChangePicture.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.FolderKind.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.IconIndex.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.IconPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.ObjectPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties.PicturePath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellFolderCustomizationService
+Files.Core.Storage.Windows.WindowsShellHardwareDevice (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.IconData.get -> System.ReadOnlyMemory<byte> (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.InstanceId.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.Location.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.LocationNumber.get -> uint? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.LocationNumberFormat.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.Manufacturer.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.Name.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.ProblemCode.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.Status.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareDevice.Type.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellHardwareService
+Files.Core.Storage.Windows.WindowsShellInvocationContext (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationContext.InvocationPoint.get -> Files.Core.Storage.Windows.WindowsShellInvocationPoint? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationContext.OwnerWindowHandle.get -> nint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationContext.WindowsShellInvocationContext(nint ownerWindowHandle, string? workingDirectory = null, Files.Core.Storage.Windows.WindowsShellInvocationPoint? invocationPoint = null) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationContext.WorkingDirectory.get -> string? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationPoint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationPoint.WindowsShellInvocationPoint() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationPoint.WindowsShellInvocationPoint(int x, int y) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationPoint.X.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellInvocationPoint.Y.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellNewMenu
+Files.Core.Storage.Windows.WindowsShellNewMenu.GetItemsAsync(string! folderPath, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellNewItem!>!>!
+Files.Core.Storage.Windows.WindowsShellNewMenu.InvokeAsync(string! folderPath, uint commandOffset, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Files.Core.Storage.Windows.WindowsShellNewMenu.WindowsShellNewMenu(Files.Core.Storage.Windows.IWindowsShellScheduler! scheduler) -> void
+Files.Core.Storage.Windows.WindowsShellOperationResult (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.Deconstruct(out int HResult) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.Equals(Files.Core.Storage.Windows.WindowsShellOperationResult other) -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.Failed.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.HResult.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.HResult.init -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.Succeeded.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.ThrowOnFailure() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.WindowsShellOperationResult() -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellOperationResult.WindowsShellOperationResult(int HResult) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewBlockedException (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewBlockedException.Reason.get -> Files.Core.Capabilities.Previews.PreviewBlockReason (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewBlockedException.WindowsShellPreviewBlockedException(Files.Core.Capabilities.Previews.PreviewBlockReason reason) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerAssociation
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerAssociation.QueryPreviewHandler(string! normalizedExtension) -> string?
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerAssociation.WindowsShellPreviewHandlerAssociation() -> void
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerControllerFactory
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerControllerFactory.Create(System.Guid handlerClsid) -> Files.Core.Storage.Windows.IWindowsPreviewHandlerController!
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerControllerFactory.WindowsShellPreviewHandlerControllerFactory() -> void
+Files.Core.Storage.Windows.WindowsShellPreviewHandlerControllerFactory.WindowsShellPreviewHandlerControllerFactory(Files.Core.Storage.Windows.IWindowsPreviewHandlerActivationPolicy! activationPolicy) -> void
+Files.Core.Storage.Windows.WindowsShellPreviewLoader
+Files.Core.Storage.Windows.WindowsShellPreviewLoader.CanLoad(Files.Core.Capabilities.ItemContext! context) -> bool
+Files.Core.Storage.Windows.WindowsShellPreviewLoader.GetPreviewAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewResult?>
+Files.Core.Storage.Windows.WindowsShellPreviewLoader.WindowsShellPreviewLoader(Files.Core.Storage.Windows.IWindowsPreviewHandlerResolver! handlerResolver, Files.Core.Storage.Windows.IWindowsShellPreviewPolicy! policy) -> void
+Files.Core.Storage.Windows.WindowsShellPreviewResult (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewResult.HandlerClsid.get -> System.Guid (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewResult.Reference.get -> Files.Core.Storage.StorableReference! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewResult.WindowsShellPreviewResult(Files.Core.Storage.StorableReference! reference, System.Guid handlerClsid) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviewSession
+Files.Core.Storage.Windows.WindowsShellPreviewSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsShellPreviewSession.QueryFocusAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<nint>
+Files.Core.Storage.Windows.WindowsShellPreviewSession.SetBoundsAsync(Files.Core.Storage.Windows.WindowsPreviewBounds bounds, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsShellPreviewSession.SetFocusAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsShellPreviewSession.SetThemeAsync(Files.Core.Storage.Windows.WindowsPreviewColor background, Files.Core.Storage.Windows.WindowsPreviewColor foreground, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsShellPreviewSession.State.get -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionFactory
+Files.Core.Storage.Windows.WindowsShellPreviewSessionFactory.CreateAsync(Files.Core.Storage.Windows.WindowsShellPreviewResult! result, Files.Core.Storage.Windows.WindowsPreviewHost! host, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Windows.IWindowsShellPreviewSession!>
+Files.Core.Storage.Windows.WindowsShellPreviewSessionFactory.WindowsShellPreviewSessionFactory(Files.Core.Data.IStorageWorkspace! workspace, Files.Core.Storage.Windows.IWindowsShellScheduler! dedicatedScheduler) -> void
+Files.Core.Storage.Windows.WindowsShellPreviewSessionFactory.WindowsShellPreviewSessionFactory(Files.Core.Data.IStorageWorkspace! workspace, Files.Core.Storage.Windows.IWindowsShellScheduler! dedicatedScheduler, Files.Core.Storage.Windows.IWindowsShellPreviewPolicy! policy) -> void
+Files.Core.Storage.Windows.WindowsShellPreviewSessionFactory.WindowsShellPreviewSessionFactory(Files.Core.Storage.Windows.IWindowsPreviewTargetResolver! targetResolver, Files.Core.Storage.Windows.IWindowsShellScheduler! dedicatedScheduler, Files.Core.Storage.Windows.IWindowsPreviewHandlerControllerFactory! controllerFactory) -> void
+Files.Core.Storage.Windows.WindowsShellPreviewSessionFactory.WindowsShellPreviewSessionFactory(Files.Core.Storage.Windows.IWindowsPreviewTargetResolver! targetResolver, Files.Core.Storage.Windows.IWindowsShellScheduler! dedicatedScheduler, Files.Core.Storage.Windows.IWindowsPreviewHandlerControllerFactory! controllerFactory, Files.Core.Storage.Windows.IWindowsShellPreviewPolicy! policy) -> void
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState.Activating = 1 -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState.Created = 0 -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState.Disposed = 5 -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState.Faulted = 4 -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState.Initialized = 2 -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviewSessionState.Previewing = 3 -> Files.Core.Storage.Windows.WindowsShellPreviewSessionState
+Files.Core.Storage.Windows.WindowsShellPreviousVersion (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviousVersion.DateModified.get -> System.DateTimeOffset (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviousVersion.Name.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPreviousVersion.SourcePath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertiesService
+Files.Core.Storage.Windows.WindowsShellPropertiesService.GetGeneralPropertiesAsync(Files.Core.Models.IStorableModel! item, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<(string? Description, Files.Core.Capabilities.Thumbnails.ThumbnailResult? Icon)>!
+Files.Core.Storage.Windows.WindowsShellPropertiesService.GetPropertyPageDataAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, Files.Core.Storage.Windows.WindowsShellPropertyPageKind kind, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellPropertySheetData?>!
+Files.Core.Storage.Windows.WindowsShellPropertiesService.GetPropertyPagesAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellPropertyPage!>!>!
+Files.Core.Storage.Windows.WindowsShellPropertiesService.GetPropertySheetDataAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellPropertySheetData?>!
+Files.Core.Storage.Windows.WindowsShellPropertiesService.ShowShellPropertiesAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<bool>!
+Files.Core.Storage.Windows.WindowsShellPropertiesService.WindowsShellPropertiesService(Files.Core.Storage.Windows.WindowsStorageSource! source) -> void
+Files.Core.Storage.Windows.WindowsShellPropertyActions
+Files.Core.Storage.Windows.WindowsShellPropertyActions.Apply(string! folderPath, string! folderKind, bool folderKindChanged, bool applyToSubfolders, string! picturePath, bool pictureChanged, string! iconPath, int iconIndex, bool iconChanged) -> void
+Files.Core.Storage.Windows.WindowsShellPropertyActions.GetDisplayName(string! rootPath) -> string!
+Files.Core.Storage.Windows.WindowsShellPropertyActions.OpenDriveUsage(string! rootPath) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.OpenNetworkAndSharingCenter() -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.RequiresElevation(string! path) -> bool
+Files.Core.Storage.Windows.WindowsShellPropertyActions.SetLabel(nint ownerWindowHandle, string! rootPath, string! label) -> void
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowAdvancedEditor(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowAdvancedSharing(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowErrorChecking(nint owner, string! rootPath) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowOptimization(nint owner, string! rootPath) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowPermissionsEditor(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowProperties(nint ownerWindowHandle, string! deviceInstanceId) -> int
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowSettings(nint owner, string! rootPath, string! displayName) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.ShowSharingWizard(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+Files.Core.Storage.Windows.WindowsShellPropertyActions.SupportsDriveUsage(string! rootPath) -> bool
+Files.Core.Storage.Windows.WindowsShellPropertyActions.TryPickIcon(nint owner, string! initialPath, int initialIndex, out string! iconPath, out int iconIndex) -> bool
+Files.Core.Storage.Windows.WindowsShellPropertyActions.WindowsShellPropertyActions() -> void
+Files.Core.Storage.Windows.WindowsShellPropertyPage (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPage.IsDefault.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPage.Kind.get -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPage.Title.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPage.WindowsShellPropertyPage(Files.Core.Storage.Windows.WindowsShellPropertyPageKind kind, string! title, bool isDefault) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Compatibility = 4 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Customize = 9 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Details = 11 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.DigitalSignatures = 10 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.General = 0 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Hardware = 2 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.PreviousVersions = 7 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Quota = 8 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Security = 6 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Sharing = 5 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Shortcut = 3 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyPageKind.Tools = 1 -> Files.Core.Storage.Windows.WindowsShellPropertyPageKind (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.CatalogSignatures.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellDigitalSignature!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Compatibility.get -> Files.Core.Storage.Windows.WindowsShellCompatibilityProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Customization.get -> Files.Core.Storage.Windows.WindowsShellFolderCustomizationProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Details.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellPropertyValue!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Drive.get -> Files.Core.Storage.Windows.WindowsShellDriveProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.EmbeddedSignatures.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellDigitalSignature!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.HardwareDevices.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellHardwareDevice!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Pages.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellPropertyPage!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.PreviousVersions.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellPreviousVersion!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Quota.get -> Files.Core.Storage.Windows.WindowsShellQuotaProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Security.get -> Files.Core.Storage.Windows.WindowsShellSecurityProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Sharing.get -> Files.Core.Storage.Windows.WindowsShellSharingProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertySheetData.Shortcut.get -> Files.Core.Storage.Windows.WindowsShellShortcutProperties? (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyValue (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyValue.IsGroup.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyValue.Name.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellPropertyValue.Value.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.DefaultLimit.get -> long (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.DefaultThreshold.get -> long (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.DisplayName.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.IsLimitEnforced.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.IsTrackingEnabled.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.LogsLimitEvents.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.LogsWarningEvents.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.RequiresElevation.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaProperties.RootPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellQuotaService
+Files.Core.Storage.Windows.WindowsShellScheduler
+Files.Core.Storage.Windows.WindowsShellScheduler.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsShellScheduler.InvokeAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.WindowsShellScheduler.InvokeConcurrentAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.WindowsShellScheduler.InvokeOperationAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.WindowsShellScheduler.InvokeSearchAsync<T>(System.Func<T>! action, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T>!
+Files.Core.Storage.Windows.WindowsShellScheduler.WindowsShellScheduler(int? concurrentWorkerCount = null, Microsoft.Extensions.Logging.ILogger<Files.Core.Storage.Windows.WindowsShellScheduler!>? logger = null) -> void
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal.AllowedAccessMask.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal.DeniedAccessMask.get -> uint (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal.IconData.get -> System.ReadOnlyMemory<byte> (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal.IconIndex.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal.Name.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityPrincipal.Sid.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityProperties.ObjectPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityProperties.Principals.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellSecurityPrincipal!>! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSecurityService
+Files.Core.Storage.Windows.WindowsShellSharingProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.DisplayName.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.IsPasswordProtectionEnabled.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.IsShared.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.NetworkPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.ObjectPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.ShareName.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingProperties.ShowPasswordProtection.get -> bool (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellSharingService
+Files.Core.Storage.Windows.WindowsShellShortcutProperties (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.Arguments.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.Comment.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.Hotkey.get -> ushort (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.IconIndex.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.IconPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.ShowCommand.get -> int (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.TargetLocation.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.TargetPath.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.TargetType.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellShortcutProperties.WorkingDirectory.get -> string! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Windows.WindowsShellStorageSettingsService
+Files.Core.Storage.Windows.WindowsShellUIServices
+Files.Core.Storage.Windows.WindowsShellUIServices.Clipboard.get -> Files.Core.Storage.Windows.IWindowsShellClipboardService!
+Files.Core.Storage.Windows.WindowsShellUIServices.ContextualCommands.get -> Files.Core.Storage.Windows.IWindowsShellContextualCommandService!
+Files.Core.Storage.Windows.WindowsShellUIServices.CreateContextMenuAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, Files.Core.Storage.Windows.WindowsShellInvocationContext! context, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextMenuEntry!>! applicationEntries, Files.Core.Storage.Windows.WindowsShellContextMenuEntry? expandedMenuEntry, bool extendedVerbs, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.IWindowsShellContextMenuSession?>!
+Files.Core.Storage.Windows.WindowsShellUIServices.DefaultCommands.get -> Files.Core.Storage.Windows.IWindowsShellDefaultCommandInvoker!
+Files.Core.Storage.Windows.WindowsShellUIServices.DragDrop.get -> Files.Core.Storage.Windows.IWindowsShellDragDropService!
+Files.Core.Storage.Windows.WindowsShellUIServices.GetContextMenuTargetAsync(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.IWindowsShellContextMenuTarget?>!
+Files.Core.Storage.Windows.WindowsShellUIServices.GetSyncRootPaths() -> System.Collections.Generic.IReadOnlyList<string!>!
+Files.Core.Storage.Windows.WindowsShellUIServices.IsShellDesktopAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Files.Core.Storage.Windows.WindowsShellUIServices.ItemPropertiesFileSystem.get -> Files.Core.Storage.Windows.IItemPropertiesFileSystem!
+Files.Core.Storage.Windows.WindowsShellUIServices.Previews.get -> Files.Core.Storage.Windows.IWindowsShellPreviewSessionFactory?
+Files.Core.Storage.Windows.WindowsShellUIServices.Properties.get -> Files.Core.Storage.Windows.IWindowsShellPropertiesService!
+Files.Core.Storage.Windows.WindowsShellUIServices.PropertyActions.get -> Files.Core.Storage.Windows.IWindowsShellPropertyActions!
+Files.Core.Storage.Windows.WindowsShellUIServices.ShowContextMenu(nint owner, Files.Core.Storage.Windows.IWindowsShellContextMenuTarget! target, System.Drawing.Point point) -> bool
+Files.Core.Storage.Windows.WindowsShellUIServices.SourceId.get -> Files.Core.Storage.StorageSourceId!
+Files.Core.Storage.Windows.WindowsShellUIServices.WindowsShellUIServices(Files.Core.Storage.Windows.WindowsStorageSource! source, Files.Core.Storage.Windows.IWindowsShellPreviewSessionFactory? previews, Files.Core.Storage.Windows.IFileAttributeOperationService? operations = null) -> void
+Files.Core.Storage.Windows.WindowsStorageOperationHandler
+Files.Core.Storage.Windows.WindowsStorageOperationHandler.CanHandle(Files.Core.Storage.StorageOperationRequest! request) -> bool
+Files.Core.Storage.Windows.WindowsStorageOperationHandler.ExecuteAsync(Files.Core.Storage.StorageOperationRequest! request, System.IProgress<Files.Core.Storage.StorageOperationProgress!>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken), Files.Core.Storage.IStorageOperationControl? operationControl = null) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.StorageOperationResult!>
+Files.Core.Storage.Windows.WindowsStorageOperationHandler.WindowsStorageOperationHandler(Files.Core.Storage.Windows.WindowsStorageSource! source) -> void
+Files.Core.Storage.Windows.WindowsStorageSource
+Files.Core.Storage.Windows.WindowsStorageSource.CanRecycle(Files.Core.Storage.StorableReference! reference) -> bool
+Files.Core.Storage.Windows.WindowsStorageSource.CanResolve(Files.Core.Storage.StorageAddress! address) -> bool
+Files.Core.Storage.Windows.WindowsStorageSource.Clipboard.get -> Files.Core.Storage.Windows.WindowsShellClipboardService!
+Files.Core.Storage.Windows.WindowsStorageSource.DisplayName.get -> string!
+Files.Core.Storage.Windows.WindowsStorageSource.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Files.Core.Storage.Windows.WindowsStorageSource.DragDrop.get -> Files.Core.Storage.Windows.WindowsShellDragDropService!
+Files.Core.Storage.Windows.WindowsStorageSource.GetRootsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Storage.IFolder!>!
+Files.Core.Storage.Windows.WindowsStorageSource.IsShellDesktopAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Files.Core.Storage.Windows.WindowsStorageSource.ResolveAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.IStorable!>
+Files.Core.Storage.Windows.WindowsStorageSource.ResolveAsync(Files.Core.Storage.StorageAddress! address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.IStorable!>
+Files.Core.Storage.Windows.WindowsStorageSource.Scheduler.get -> Files.Core.Storage.Windows.IWindowsShellScheduler!
+Files.Core.Storage.Windows.WindowsStorageSource.SourceId.get -> Files.Core.Storage.StorageSourceId!
+Files.Core.Storage.Windows.WindowsStorageSource.SourceType.get -> string!
+Files.Core.Storage.Windows.WindowsStorageSource.WindowsStorageSource(Files.Core.Storage.StorageSourceId? sourceId = null, string! displayName = "Windows", System.Collections.Generic.IEnumerable<System.Guid>? rootFolderIds = null, Files.Core.Storage.Windows.IWindowsShellScheduler? scheduler = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> void
+Files.Core.Storage.Windows.WindowsThumbnailSourceFactory
+Files.Core.Storage.Windows.WindowsThumbnailSourceFactory.Create(Files.Core.Capabilities.ItemContext! context) -> Files.Core.Capabilities.Thumbnails.IThumbnailSource?
+Files.Core.Storage.Windows.WindowsThumbnailSourceFactory.WindowsThumbnailSourceFactory(Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> void
+Files.Core.Storage.Windows.WindowsVolumeLabelService
+override Files.Core.Storage.Ftp.FtpEntryInfo.Equals(object? obj) -> bool
+override Files.Core.Storage.Ftp.FtpEntryInfo.GetHashCode() -> int
+override Files.Core.Storage.Ftp.FtpEntryInfo.ToString() -> string!
+override Files.Core.Storage.Ftp.FtpStorable.Equals(object? obj) -> bool
+override Files.Core.Storage.Ftp.FtpStorable.GetHashCode() -> int
+override Files.Core.Storage.Ftp.FtpStorable.ToString() -> string!
+override Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.GetHashCode() -> int (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsPreviewBounds.GetHashCode() -> int (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsPreviewColor.GetHashCode() -> int (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsPreviewHost.Equals(object? obj) -> bool (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsPreviewHost.GetHashCode() -> int (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsPreviewHost.ToString() -> string! (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsPreviewMessage.GetHashCode() -> int (forwarded, contained in Files.Core.Contracts)
+override Files.Core.Storage.Windows.WindowsShellOperationResult.GetHashCode() -> int (forwarded, contained in Files.Core.Contracts)
+static Files.Core.FilesProviderExtensions.AddArchiveBrowsing<TBuilder>(this TBuilder! builder, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentialResolver = null) -> TBuilder!
+static Files.Core.FilesProviderExtensions.AddArchiveBrowsing<TBuilder>(this TBuilder! builder, System.Collections.Generic.IEnumerable<Files.Core.Storage.Archives.IArchiveBackend!>! backends, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentialResolver = null) -> TBuilder!
+static Files.Core.FilesProviderExtensions.AddFtpStorage<TBuilder>(this TBuilder! builder, Files.Core.Storage.Ftp.FtpConnectionProfile! profile, Files.Core.Storage.Ftp.IFtpCredentialResolver? credentialResolver = null, Files.Core.Storage.Ftp.IFtpSessionFactory? sessionFactory = null, bool enableArchives = true, Files.Core.Storage.Archives.IArchiveCredentialResolver? archiveCredentialResolver = null, bool enableOperations = true) -> TBuilder!
+static Files.Core.FilesProviderExtensions.AddFtpStorage<TBuilder>(this TBuilder! builder, Files.Core.Storage.Ftp.FtpStorageSource! source, bool enableArchives = true, Files.Core.Storage.Archives.IArchiveCredentialResolver? archiveCredentialResolver = null, bool enableOperations = true) -> TBuilder!
+static Files.Core.FilesProviderExtensions.AddStorageTransfers<TBuilder>(this TBuilder! builder, Files.Core.Storage.Archives.ArchiveBackendSelector? readers = null, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentials = null) -> TBuilder!
+static Files.Core.FilesProviderExtensions.AddWindowsStorage<TBuilder>(this TBuilder! builder, Files.Core.Storage.Windows.WindowsStorageSource? source = null, Files.Core.Storage.Windows.IWindowsShellPreviewPolicy? shellPreviewPolicy = null, bool enablePreviews = true, bool enableArchives = true, Files.Core.Storage.Archives.IArchiveCredentialResolver? archiveCredentialResolver = null, bool enableOperations = true) -> TBuilder!
+static Files.Core.FilesProviderExtensions.GetWindowsShellPreviewSessions(this Files.Core.IFilesCoreRuntime! runtime) -> Files.Core.Storage.Windows.IWindowsShellPreviewSessionFactory?
+static Files.Core.Storage.Ftp.AnonymousFtpCredentialResolver.Instance.get -> Files.Core.Storage.Ftp.AnonymousFtpCredentialResolver!
+static Files.Core.Storage.Ftp.FluentFtpSessionFactory.Instance.get -> Files.Core.Storage.Ftp.FluentFtpSessionFactory!
+static Files.Core.Storage.Ftp.FtpEntryInfo.operator !=(Files.Core.Storage.Ftp.FtpEntryInfo? left, Files.Core.Storage.Ftp.FtpEntryInfo? right) -> bool
+static Files.Core.Storage.Ftp.FtpEntryInfo.operator ==(Files.Core.Storage.Ftp.FtpEntryInfo? left, Files.Core.Storage.Ftp.FtpEntryInfo? right) -> bool
+static Files.Core.Storage.Windows.AllowWindowsShellPreviewPolicy.Instance.get -> Files.Core.Storage.Windows.AllowWindowsShellPreviewPolicy!
+static Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.operator !=(Files.Core.Storage.Windows.WindowsFileAttributeCapabilities left, Files.Core.Storage.Windows.WindowsFileAttributeCapabilities right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.operator ==(Files.Core.Storage.Windows.WindowsFileAttributeCapabilities left, Files.Core.Storage.Windows.WindowsFileAttributeCapabilities right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsFileAttributeService.ApplyChanges(System.Collections.Generic.IReadOnlyList<string!>! paths, bool? readOnly, bool? hidden, bool? archive, bool? indexed, bool? compressed, bool? encrypted, bool applyToContents, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> void
+static Files.Core.Storage.Windows.WindowsFileAttributeService.GetCapabilities(string! path) -> Files.Core.Storage.Windows.WindowsFileAttributeCapabilities
+static Files.Core.Storage.Windows.WindowsFileAttributeService.SetCompression(string! path, bool compress) -> void
+static Files.Core.Storage.Windows.WindowsFileAttributeService.SetEncryption(string! path, bool encrypt) -> void
+static Files.Core.Storage.Windows.WindowsPreviewBounds.operator !=(Files.Core.Storage.Windows.WindowsPreviewBounds left, Files.Core.Storage.Windows.WindowsPreviewBounds right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewBounds.operator ==(Files.Core.Storage.Windows.WindowsPreviewBounds left, Files.Core.Storage.Windows.WindowsPreviewBounds right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewColor.operator !=(Files.Core.Storage.Windows.WindowsPreviewColor left, Files.Core.Storage.Windows.WindowsPreviewColor right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewColor.operator ==(Files.Core.Storage.Windows.WindowsPreviewColor left, Files.Core.Storage.Windows.WindowsPreviewColor right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewHandlerRegistrationAllowlist.Instance.get -> Files.Core.Storage.Windows.WindowsPreviewHandlerRegistrationAllowlist!
+static Files.Core.Storage.Windows.WindowsPreviewHost.operator !=(Files.Core.Storage.Windows.WindowsPreviewHost? left, Files.Core.Storage.Windows.WindowsPreviewHost? right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewHost.operator ==(Files.Core.Storage.Windows.WindowsPreviewHost? left, Files.Core.Storage.Windows.WindowsPreviewHost? right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewMessage.operator !=(Files.Core.Storage.Windows.WindowsPreviewMessage left, Files.Core.Storage.Windows.WindowsPreviewMessage right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsPreviewMessage.operator ==(Files.Core.Storage.Windows.WindowsPreviewMessage left, Files.Core.Storage.Windows.WindowsPreviewMessage right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsShellContextMenuBuilder.BuildApplicationMenu(System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextMenuEntry!>! applicationEntries, Files.Core.Storage.Windows.WindowsShellContextMenuEntry? expandedMenuEntry = null) -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextMenuEntry!>! (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsShellContextMenuEntry.CreateApplicationCommand(string! id, string! title, bool isEnabled, string? shortcut = null) -> Files.Core.Storage.Windows.WindowsShellContextMenuEntry! (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsShellContextMenuEntry.CreateSeparator() -> Files.Core.Storage.Windows.WindowsShellContextMenuEntry! (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsShellContextMenuSession.CreateAsync(Files.Core.Storage.Windows.WindowsStorageSource! source, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, Files.Core.Storage.Windows.WindowsShellInvocationContext? invocationContext = null, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Windows.WindowsShellContextMenuEntry!>? applicationEntries = null, Files.Core.Storage.Windows.WindowsShellContextMenuEntry? expandedMenuEntry = null, bool extendedVerbs = false, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellContextMenuSession?>!
+static Files.Core.Storage.Windows.WindowsShellContextMenuTarget.CreateAsync(Files.Core.Storage.Windows.WindowsStorageSource! source, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.StorableReference!>! selection, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.Windows.WindowsShellContextMenuTarget?>!
+static Files.Core.Storage.Windows.WindowsShellDataTransfer.FromDataPackageView(Windows.ApplicationModel.DataTransfer.DataPackageView! dataPackageView) -> Files.Core.Storage.Windows.WindowsShellDataTransfer!
+static Files.Core.Storage.Windows.WindowsShellDriveToolsService.ShowErrorChecking(nint owner, string! rootPath) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellDriveToolsService.ShowOptimization(nint owner, string! rootPath) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellFolderCustomizationService.Apply(string! folderPath, string! folderKind, bool folderKindChanged, bool applyToSubfolders, string! picturePath, bool pictureChanged, string! iconPath, int iconIndex, bool iconChanged) -> void
+static Files.Core.Storage.Windows.WindowsShellFolderCustomizationService.TryPickIcon(nint owner, string! initialPath, int initialIndex, out string! iconPath, out int iconIndex) -> bool
+static Files.Core.Storage.Windows.WindowsShellHardwareService.ShowProperties(nint ownerWindowHandle, string! deviceInstanceId) -> int
+static Files.Core.Storage.Windows.WindowsShellOperationResult.operator !=(Files.Core.Storage.Windows.WindowsShellOperationResult left, Files.Core.Storage.Windows.WindowsShellOperationResult right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsShellOperationResult.operator ==(Files.Core.Storage.Windows.WindowsShellOperationResult left, Files.Core.Storage.Windows.WindowsShellOperationResult right) -> bool (forwarded, contained in Files.Core.Contracts)
+static Files.Core.Storage.Windows.WindowsShellQuotaService.ShowSettings(nint owner, string! rootPath, string! displayName) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellSecurityService.RequiresElevation(string! path) -> bool
+static Files.Core.Storage.Windows.WindowsShellSecurityService.ShowAdvancedEditor(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellSecurityService.ShowPermissionsEditor(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellSharingService.OpenNetworkAndSharingCenter() -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellSharingService.ShowAdvancedSharing(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellSharingService.ShowSharingWizard(nint owner, string! path) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellStorageSettingsService.OpenDriveUsage(string! rootPath) -> Files.Core.Storage.Windows.WindowsShellOperationResult
+static Files.Core.Storage.Windows.WindowsShellStorageSettingsService.SupportsDriveUsage(string! rootPath) -> bool
+static Files.Core.Storage.Windows.WindowsStorageSource.ComputerParsingName.get -> string!
+static Files.Core.Storage.Windows.WindowsVolumeLabelService.GetDisplayName(string! rootPath) -> string!
+static Files.Core.Storage.Windows.WindowsVolumeLabelService.SetLabel(nint ownerWindowHandle, string! rootPath, string! label) -> void
+~override Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.Equals(object obj) -> bool (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsFileAttributeCapabilities.ToString() -> string (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsPreviewBounds.Equals(object obj) -> bool (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsPreviewBounds.ToString() -> string (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsPreviewColor.Equals(object obj) -> bool (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsPreviewColor.ToString() -> string (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsPreviewMessage.Equals(object obj) -> bool (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsPreviewMessage.ToString() -> string (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsShellOperationResult.Equals(object obj) -> bool (forwarded, contained in Files.Core.Contracts)
+~override Files.Core.Storage.Windows.WindowsShellOperationResult.ToString() -> string (forwarded, contained in Files.Core.Contracts)

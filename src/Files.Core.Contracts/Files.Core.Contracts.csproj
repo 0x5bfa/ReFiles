@@ -16,6 +16,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<None Include="Packaging/ReFiles.Core.Contracts.targets" Pack="true" PackagePath="buildTransitive/ReFiles.Core.Contracts.targets" />
 		<None Include="../../LICENSE-MPL" Pack="true" PackagePath="" Visible="false" />
 		<InternalsVisibleTo Include="Files.Core" />
 		<InternalsVisibleTo Include="Files.Core.ProviderContracts" />
@@ -23,4 +24,15 @@
 		<InternalsVisibleTo Include="Files.UnitTests" />
 	</ItemGroup>
 
+	<!-- NuGet restore cannot take SDK version defaults from package imports; validate the consumer setting instead. -->
+	<Target Name="PackWindowsSdkProjectionDefaults" BeforeTargets="_GetPackageFiles">
+		<PropertyGroup>
+			<_ProjectionDefaults>$(IntermediateOutputPath)ReFiles.Core.Contracts.props</_ProjectionDefaults>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(_ProjectionDefaults)" Overwrite="true" Encoding="UTF-8"
+			Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;ReFilesRequiredWindowsSdkPackageVersion&gt;$(WindowsSdkPackageVersion)&lt;/ReFilesRequiredWindowsSdkPackageVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;" />
+		<ItemGroup>
+			<None Include="$(_ProjectionDefaults)" Pack="true" PackagePath="buildTransitive/ReFiles.Core.Contracts.props" />
+		</ItemGroup>
+	</Target>
 </Project>

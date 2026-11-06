@@ -88,6 +88,22 @@ public sealed class CapabilityBuilder : ICapabilityBuilder
 		ArgumentNullException.ThrowIfNull(createView);
 
 		CapabilityContract<TCapability>.Validate();
+		_borrowedViews[typeof(TCapability)] = new Func<TCapability, BorrowedCapabilityView<TCapability>>(
+			inner => new(createView(inner) ?? throw new InvalidOperationException("A borrowed view factory returned null.")));
+
+		return this;
+	}
+
+	/// <summary>Sets a borrowed view with cleanup retained by the item owner.</summary>
+	/// <typeparam name="TCapability">The capability interface derived from <see cref="ICapability"/>.</typeparam>
+	/// <param name="createView">Creates the view and its optional cleanup callback after composition.</param>
+	/// <returns>This builder.</returns>
+	/// <remarks>Factories must undo partially created subscriptions if they throw before returning a registration.</remarks>
+	public CapabilityBuilder SetBorrowedView<TCapability>(Func<TCapability, BorrowedCapabilityView<TCapability>> createView) where TCapability : class, ICapability
+	{
+		ArgumentNullException.ThrowIfNull(createView);
+
+		CapabilityContract<TCapability>.Validate();
 		_borrowedViews[typeof(TCapability)] = createView;
 
 		return this;
@@ -95,8 +111,15 @@ public sealed class CapabilityBuilder : ICapabilityBuilder
 
 	/// <summary>Builds an immutable capability registry from the registrations.</summary>
 	/// <returns>The capability registry.</returns>
+	/// <exception cref="InvalidOperationException">A registered capability has no borrowed view factory.</exception>
 	public CapabilityRegistry Build()
 	{
+		var missingViews = _factories.Keys.Concat(_combiners.Keys).Concat(_wrappers.Keys).Distinct().Where(type => !_borrowedViews.ContainsKey(type)).ToArray();
+		if (missingViews.Length is not 0)
+		{
+			throw new InvalidOperationException($"Borrowed views must be registered for capabilities: {string.Join(", ", missingViews.Select(static type => type.FullName))}.");
+		}
+
 		return new CapabilityRegistry(CloneLists(_factories), new Dictionary<Type, object>(_combiners), CloneLists(_wrappers), new Dictionary<Type, object>(_borrowedViews));
 	}
 
@@ -116,6 +139,11 @@ public sealed class CapabilityBuilder : ICapabilityBuilder
 	}
 
 	ICapabilityBuilder ICapabilityBuilder.SetBorrowedView<TCapability>(Func<TCapability, TCapability> createView)
+	{
+		return SetBorrowedView(createView);
+	}
+
+	ICapabilityBuilder ICapabilityBuilder.SetBorrowedView<TCapability>(Func<TCapability, BorrowedCapabilityView<TCapability>> createView)
 	{
 		return SetBorrowedView(createView);
 	}

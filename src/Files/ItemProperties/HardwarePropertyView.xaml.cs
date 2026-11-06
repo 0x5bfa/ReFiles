@@ -17,18 +17,19 @@ namespace Files.ItemProperties;
 
 public sealed partial class HardwarePropertyView : UserControl
 {
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 	private WindowsShellHardwareDevice? _selectedDevice;
 
 	internal ObservableCollection<HardwareDeviceViewModel> Devices { get; }
 
-	internal HardwarePropertyView(IReadOnlyList<WindowsShellHardwareDevice> devices, HWND owner, Action<string> showError)
+	internal HardwarePropertyView(IWindowsShellPropertyActions propertyActions, IReadOnlyList<WindowsShellHardwareDevice> devices, HWND owner, Action<string> showError)
 	{
 		Devices = new(devices.Select(static device => new HardwareDeviceViewModel(device)));
 		_owner = owner;
 		_showError = showError;
+		_propertyActions = propertyActions;
 		InitializeComponent();
 		if (Devices.Count is not 0)
 		{

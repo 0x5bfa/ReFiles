@@ -1,0 +1,6 @@
+#nullable enable
+Files.Hosting.FilesHost
+static Files.Hosting.FilesHost.CreateOperationRuntime(Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> Files.Core.IOperationHostRuntime!
+static Files.Hosting.FilesHost.CreateThumbnailCache() -> Files.Core.Capabilities.Thumbnails.IThumbnailCache!
+static Files.Hosting.FilesHost.CreateUIRuntime(Files.Core.ViewSettings.IViewSettingsStore? viewSettingsStore = null, Files.Core.Capabilities.Thumbnails.IThumbnailCache? thumbnailCache = null, Files.Core.Storage.IStorageOperationService? operations = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> Files.Core.IUIFilesRuntime!
+static Files.Hosting.FilesHost.OpenSettingsStorage(string! localFolderPath) -> Files.Core.Settings.ISettingsStorage!

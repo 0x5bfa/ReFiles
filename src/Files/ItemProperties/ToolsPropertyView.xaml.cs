@@ -11,17 +11,18 @@ namespace Files.ItemProperties;
 
 public sealed partial class ToolsPropertyView : UserControl
 {
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
 	internal WindowsShellDriveProperties Drive { get; }
 
-	internal ToolsPropertyView(WindowsShellDriveProperties drive, HWND owner, Action<string> showError, ImageSource? elevationShield)
+	internal ToolsPropertyView(IWindowsShellPropertyActions propertyActions, WindowsShellDriveProperties drive, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
 		Drive = drive;
 		_owner = owner;
 		_showError = showError;
+		_propertyActions = propertyActions;
 		InitializeComponent();
 		ElevationShield.Source = elevationShield;
 	}

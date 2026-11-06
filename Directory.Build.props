@@ -41,4 +41,10 @@
 	<ItemGroup Condition="'$(EnforceWinRTStorageBoundaries)' == 'true'">
 		<AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedWinRTStorageSymbols.txt" />
 	</ItemGroup>
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Files.Core.Contracts' Or '$(MSBuildProjectName)' == 'Files.Core.ProviderContracts' Or '$(MSBuildProjectName)' == 'Files.Core' Or '$(MSBuildProjectName)' == 'Files.Providers' Or '$(MSBuildProjectName)' == 'Files.Hosting'">
+		<TrackPublicApi>true</TrackPublicApi>
+	</PropertyGroup>
+	<ItemGroup Condition="'$(TrackPublicApi)' == 'true'">
+		<PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+	</ItemGroup>
 </Project>

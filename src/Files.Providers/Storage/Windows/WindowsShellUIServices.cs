@@ -18,6 +18,10 @@ public sealed class WindowsShellUIServices : IWindowsShellUIServices
 	/// <inheritdoc />
 	public IWindowsShellPropertiesService Properties { get; }
 	/// <inheritdoc />
+	public IWindowsShellPropertyActions PropertyActions { get; } = new WindowsShellPropertyActions();
+	/// <inheritdoc />
+	public IItemPropertiesFileSystem ItemPropertiesFileSystem { get; }
+	/// <inheritdoc />
 	public IWindowsShellContextualCommandService ContextualCommands { get; }
 	/// <inheritdoc />
 	public IWindowsShellDefaultCommandInvoker DefaultCommands { get; }
@@ -26,12 +30,14 @@ public sealed class WindowsShellUIServices : IWindowsShellUIServices
 
 	/// <summary>Creates the borrowed services for an existing source.</summary>
 	/// <param name="source">The runtime-owned source.</param>
+	/// <param name="operations">The borrowed attribute operation executor.</param>
 	/// <param name="previews">The runtime-owned preview factory.</param>
-	public WindowsShellUIServices(WindowsStorageSource source, IWindowsShellPreviewSessionFactory? previews)
+	public WindowsShellUIServices(WindowsStorageSource source, IWindowsShellPreviewSessionFactory? previews, IFileAttributeOperationService? operations = null)
 	{
 		ArgumentNullException.ThrowIfNull(source);
 
 		_source = source;
+		ItemPropertiesFileSystem = new WindowsItemPropertiesFileSystem(operations);
 		Properties = new WindowsShellPropertiesService(source);
 		ContextualCommands = new WindowsShellContextualCommandService(source);
 		DefaultCommands = new WindowsShellDefaultCommandInvoker(source);

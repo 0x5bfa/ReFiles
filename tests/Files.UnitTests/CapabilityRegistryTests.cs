@@ -25,6 +25,9 @@ public sealed class CapabilityRegistryTests
 		var createCount = 0;
 		var capability = new TestCapability("capability", []);
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ =>
 			{
 				createCount++;
@@ -36,8 +39,9 @@ public sealed class CapabilityRegistryTests
 		using var capabilities = capabilityRegistry.CreateCapabilities(context);
 		Assert.AreEqual(0, createCount);
 
-		Assert.AreSame(capability, capabilities.Get<ITestCapability>());
-		Assert.AreSame(capability, capabilities.Get<ITestCapability>());
+		var borrowed = capabilities.Get<ITestCapability>();
+		Assert.IsInstanceOfType<TestView>(borrowed);
+		Assert.AreSame(borrowed, capabilities.Get<ITestCapability>());
 		Assert.AreEqual(1, createCount);
 	}
 
@@ -55,13 +59,16 @@ public sealed class CapabilityRegistryTests
 		var innerCapability = new TestCapability("inner", disposalOrder);
 		var wrapper = new TestCapability("wrapper", disposalOrder);
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => innerCapability))
 			.AddWrapper<ITestCapability>(new DelegateCapabilityWrapper<ITestCapability>((_, _) => wrapper))
 			.Build();
 
 		using (var capabilities = capabilityRegistry.CreateCapabilities(context))
 		{
-			Assert.AreSame(wrapper, capabilities.Get<ITestCapability>());
+			Assert.IsInstanceOfType<TestView>(capabilities.Get<ITestCapability>());
 		}
 
 		CollectionAssert.AreEqual(new[] { "wrapper", "inner" }, disposalOrder);
@@ -79,12 +86,15 @@ public sealed class CapabilityRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capability = new TestCapability("shared", []);
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => capability), lifetime: CapabilityLifetime.Shared)
 			.Build();
 
 		using (var capabilities = capabilityRegistry.CreateCapabilities(context))
 		{
-			Assert.AreSame(capability, capabilities.Get<ITestCapability>());
+			Assert.IsInstanceOfType<TestView>(capabilities.Get<ITestCapability>());
 		}
 
 		Assert.IsFalse(capability.IsDisposed);
@@ -103,11 +113,14 @@ public sealed class CapabilityRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capability = new AsyncTestCapability();
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<IAsyncTestCapability>(new DelegateCapabilityFactory<IAsyncTestCapability>(_ => capability))
 			.Build();
 		var capabilities = capabilityRegistry.CreateCapabilities(context);
 
-		Assert.AreSame(capability, capabilities.Get<IAsyncTestCapability>());
+		Assert.IsInstanceOfType<AsyncView>(capabilities.Get<IAsyncTestCapability>());
 		await capabilities.DisposeAsync();
 
 		Assert.IsTrue(capability.IsDisposed);
@@ -126,6 +139,9 @@ public sealed class CapabilityRegistryTests
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capability = new ThrowingDisposableCapability();
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<IThrowingDisposableCapability>(new DelegateCapabilityFactory<IThrowingDisposableCapability>(_ => capability))
 			.AddWrapper<IThrowingDisposableCapability>(new DelegateCapabilityWrapper<IThrowingDisposableCapability>((_, _) => throw new InvalidOperationException("resolution failed")))
 			.Build();
@@ -150,6 +166,9 @@ public sealed class CapabilityRegistryTests
 		var reference = new Files.Core.Storage.StorableReference(factory.Source.SourceId, coreModel.Id);
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("one", [])))
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("two", [])))
 			.Build();
@@ -169,6 +188,9 @@ public sealed class CapabilityRegistryTests
 		var reference = new Files.Core.Storage.StorableReference(factory.Source.SourceId, coreModel.Id);
 		var context = new ItemContext(factory.Source, coreModel, reference);
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<ITestCapability>(static inner => new TestView())
+			.SetBorrowedView<IAsyncTestCapability>(static _ => new AsyncView())
+			.SetBorrowedView<IThrowingDisposableCapability>(static _ => new ThrowingView())
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("one", [])), priority: 10)
 			.Add<ITestCapability>(new DelegateCapabilityFactory<ITestCapability>(_ => new TestCapability("two", [])), priority: 10)
 			.SetCombiner<ITestCapability>(new PriorityCapabilityCombiner<ITestCapability>())
@@ -177,6 +199,12 @@ public sealed class CapabilityRegistryTests
 		using var capabilities = capabilityRegistry.CreateCapabilities(context);
 		Assert.Throws<InvalidOperationException>(() => capabilities.Get<ITestCapability>());
 	}
+
+	private sealed class TestView : ITestCapability { }
+
+	private sealed class AsyncView : IAsyncTestCapability { }
+
+	private sealed class ThrowingView : IThrowingDisposableCapability { }
 
 	private interface IAsyncTestCapability : ICapability
 	{

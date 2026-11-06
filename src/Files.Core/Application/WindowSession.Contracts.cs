@@ -16,6 +16,11 @@ public sealed partial class WindowSession
 		return await OpenTabAsync(initialLocation, cancellationToken).ConfigureAwait(false);
 	}
 
+	async ValueTask<ITabSession> IWindowSession.OpenSettingsTabAsync(CancellationToken cancellationToken)
+	{
+		return await OpenContentTabAsync(static () => new SettingsPaneSession(), cancellationToken).ConfigureAwait(false);
+	}
+
 	async ValueTask<ITabSession> IWindowSession.OpenContentTabAsync(Func<IPaneContentSession> contentFactory, CancellationToken cancellationToken)
 	{
 		return await OpenContentTabAsync(contentFactory, cancellationToken).ConfigureAwait(false);

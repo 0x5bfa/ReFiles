@@ -18,7 +18,7 @@ namespace Files.ItemProperties;
 internal sealed partial class ItemPropertiesViewModel : ObservableObject
 {
 	private const string FileDescriptionPropertyId = "System.FileDescription";
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly IItemPropertiesFileSystem _itemPropertiesFileSystem;
 	private readonly IReadOnlyList<BrowseItemViewModel> _items;
 	private readonly List<string> _fileSystemPaths;
@@ -369,17 +369,18 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 
 	public string CapacityLabel { get; } = FormatPropertyLabel(Strings.Capacity.GetLocalized());
 
+	internal IWindowsShellPropertyActions PropertyActions => _propertyActions;
+
 	public ObservableCollection<ItemPropertyDetail> Details { get; }
 
-	public ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items) : this(items, null, Files.Hosting.FilesHost.CreateItemPropertiesFileSystem())
-	{
-	}
-
-	internal ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items, IStorageOperationService? storageOperations, IItemPropertiesFileSystem fileSystem)
+	internal ItemPropertiesViewModel(IReadOnlyList<BrowseItemViewModel> items, IStorageOperationService? storageOperations, IItemPropertiesFileSystem fileSystem,
+		IWindowsShellPropertyActions propertyActions)
 	{
 		ArgumentNullException.ThrowIfNull(items);
 
 		ArgumentNullException.ThrowIfNull(fileSystem);
+
+		ArgumentNullException.ThrowIfNull(propertyActions);
 
 		if (items.Count is 0)
 		{
@@ -387,6 +388,7 @@ internal sealed partial class ItemPropertiesViewModel : ObservableObject
 		}
 
 		_itemPropertiesFileSystem = fileSystem;
+		_propertyActions = propertyActions;
 		_items = items;
 		_storageOperations = storageOperations;
 		var selection = _itemPropertiesFileSystem.Inspect(GetFileSystemCandidates(items));

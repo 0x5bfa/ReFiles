@@ -1,13 +1,13 @@
 # Copyright (c) Files Community
 # SPDX-License-Identifier: MPL-2.0
 
-name: ReFiles.Core CD
+name: ReFiles packages CD
 
 on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish the package to NuGet.org
+        description: Publish all five packages to NuGet.org
         required: true
         default: false
         type: boolean
@@ -16,12 +16,11 @@ permissions:
   contents: read
 
 env:
-  CORE_PROJECT_PATH: '${{ github.workspace }}\src\Files.Core\Files.Core.csproj'
   OUTPUT_DIR: '${{ github.workspace }}\artifacts\packages'
 
 jobs:
   pack:
-    name: Pack ReFiles.Core
+    name: Pack and validate ReFiles packages
     runs-on: windows-2025-vs2026
     env:
       CONFIGURATION: Release
@@ -44,24 +43,22 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet --info
 
-      - name: Pack the project
+      - name: Pack and validate all five packages
         shell: pwsh
         run: |
-          msbuild $env:CORE_PROJECT_PATH `
-            -restore -p:Configuration=$env:CONFIGURATION -p:Platform=$env:PLATFORM `
-            -p:PackageOutputPath=$env:OUTPUT_DIR -v:quiet -clp:ErrorsOnly
+          ./scripts/Validate-Packages.ps1 -Configuration $env:CONFIGURATION -Platform $env:PLATFORM -OutputDirectory $env:OUTPUT_DIR
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: ReFiles.Core-packages
+          name: ReFiles-packages
           path: |
             ${{ env.OUTPUT_DIR }}\*.nupkg
             ${{ env.OUTPUT_DIR }}\*.snupkg
           if-no-files-found: error
 
   publish:
-    name: Publish ReFiles.Core
+    name: Publish ReFiles packages
     if: inputs.publish && github.ref == 'refs/heads/main'
     needs: pack
     runs-on: windows-2025-vs2026
@@ -74,7 +71,7 @@ jobs:
       - name: Download package artifacts
         uses: actions/download-artifact@v7
         with:
-          name: ReFiles.Core-packages
+          name: ReFiles-packages
           path: artifacts\packages
 
       - name: NuGet login

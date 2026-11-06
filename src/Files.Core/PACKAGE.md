@@ -9,6 +9,16 @@ The package is currently prerelease. Pin an exact version while its public API e
 <PackageReference Include="ReFiles.Providers" Version="0.1.0" />
 ```
 
+The packages require the Windows SDK projection they were compiled against. Set this before restoring (an older default can compile but fail when loading Windows types):
+
+```xml
+<PropertyGroup>
+  <WindowsSdkPackageVersion>10.0.26100.67-preview</WindowsSdkPackageVersion>
+</PropertyGroup>
+```
+
+The Contracts package validates this setting transitively. A compatible newer projection can also be selected explicitly.
+
 ## Platform requirements
 
 - .NET 10

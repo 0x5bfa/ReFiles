@@ -1,6 +1,6 @@
 # Capability boundaries: issues and proposed dependencies
 
-Status: the application consumer boundary is implemented. Files and BackgroundServer reference consumer Contracts and Hosting, use session/service interfaces, and reject Core, Providers, ProviderContracts and backend compiler references. Windows UI contracts and settings persistence have migrated; window ownership and composition remain in Files. Core and Providers remain independently extensible through ProviderContracts, and each executable/provider owns internal native declarations. See [project split status](project-split.md) for the current implementation and remaining deployment/CI validation.
+Status: the application consumer boundary is implemented. Files and BackgroundServer reference consumer Contracts and Hosting, use session/service interfaces, and reject Core, Providers, ProviderContracts and backend compiler references. Windows UI contracts and settings persistence have migrated; window ownership and composition remain in Files. Core and Providers remain independently extensible through ProviderContracts, and each executable/provider owns internal native declarations. See [project split status](project-split.md) for the current implementation, public API baselines, package/Native AOT CI checks, and remaining installed-app validation.
 
 The review below records the original architecture and its proposed remedies; its present-tense descriptions are historical unless explicitly marked with an implementation update.
 

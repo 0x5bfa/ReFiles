@@ -16,7 +16,7 @@ public sealed partial class SharingPropertyView : UserControl
 {
 	private const int OperationCancelled = unchecked((int)0x800704C7);
 	private const int OperationTimedOut = unchecked((int)0x800705B4);
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -32,11 +32,13 @@ public sealed partial class SharingPropertyView : UserControl
 
 	internal string SharingState => Sharing.IsShared ? Strings.Shared.GetLocalized() : Strings.NotShared.GetLocalized();
 
-	internal SharingPropertyView(WindowsShellSharingProperties sharing, HWND owner, Action<string> showError, ImageSource? itemIcon, ImageSource? elevationShield)
+	internal SharingPropertyView(IWindowsShellPropertyActions propertyActions, WindowsShellSharingProperties sharing, HWND owner, Action<string> showError,
+		ImageSource? itemIcon, ImageSource? elevationShield)
 	{
 		Sharing = sharing;
 		_owner = owner;
 		_showError = showError;
+		_propertyActions = propertyActions;
 		InitializeComponent();
 		FolderIconImage.Source = itemIcon;
 		ElevationShield.Source = elevationShield;

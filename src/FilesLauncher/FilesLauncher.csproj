@@ -11,6 +11,7 @@
 		<RuntimeIdentifier>win-$(Platform)</RuntimeIdentifier>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<SelfContained>true</SelfContained>
+		<PublishAot>true</PublishAot>
 		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
 	</PropertyGroup>
 

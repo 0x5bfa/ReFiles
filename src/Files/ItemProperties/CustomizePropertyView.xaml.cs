@@ -16,7 +16,7 @@ namespace Files.ItemProperties;
 public sealed partial class CustomizePropertyView : UserControl
 {
 	private const string GenericFolderKind = "Generic";
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly ItemPropertiesViewModel _ownerViewModel;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
@@ -64,6 +64,7 @@ public sealed partial class CustomizePropertyView : UserControl
 		_applyToSubfolders = customization.ApplyToSubfolders;
 		FolderKinds = CreateFolderKinds(_appliedFolderKind);
 		_isInitializing = true;
+		_propertyActions = ownerViewModel.PropertyActions;
 		InitializeComponent();
 		FolderKindComboBox.SelectedItem = FolderKinds.First(static option => option.IsSelected);
 		ApplyToSubfoldersCheckBox.IsChecked = _applyToSubfolders;

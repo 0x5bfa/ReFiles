@@ -22,6 +22,7 @@ public sealed class StorableModelLifetimeTests
 	{
 		var order = new List<string>();
 		var capabilityRegistry = new CapabilityBuilder()
+			.SetBorrowedView<IAsyncOrderCapability>(static _ => new OrderView())
 			.Add<IAsyncOrderCapability>(new DelegateCapabilityFactory<IAsyncOrderCapability>(_ => new AsyncOrderCapability(order)))
 			.Build();
 		var factory = new StorableModelFactory(capabilityRegistry);
@@ -83,6 +84,8 @@ public sealed class StorableModelLifetimeTests
 
 		Assert.IsTrue(coreModel.IsDisposed);
 	}
+
+	private sealed class OrderView : IAsyncOrderCapability { }
 
 	private interface IAsyncOrderCapability : ICapability
 	{

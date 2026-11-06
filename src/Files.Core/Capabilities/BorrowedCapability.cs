@@ -27,7 +27,12 @@ internal static class BorrowedCapability
 		builder.SetBorrowedView<IPreviewSource>(static preview => new Preview(preview));
 		builder.SetBorrowedView<IThumbnailSource>(static thumbnail => new Thumbnail(thumbnail));
 		builder.SetBorrowedView<IArchiveSource>(static archive => new ArchiveSource(archive));
-		builder.SetBorrowedView<IFolderChangeSource>(static changes => new FolderChanges(changes));
+		builder.SetBorrowedView<IFolderChangeSource>(static changes =>
+		{
+			var view = new FolderChanges(changes);
+
+			return new BorrowedCapabilityView<IFolderChangeSource>(view, view.Detach);
+		});
 		builder.SetBorrowedView<IFolderBrowseMetadata>(static metadata => new FolderMetadata(metadata));
 	}
 
@@ -101,6 +106,7 @@ internal static class BorrowedCapability
 	private sealed class FolderChanges : IFolderChangeSource
 	{
 		private readonly IFolderChangeSource _inner;
+		private int _isDetached;
 
 		public event EventHandler<FolderChangeEventArgs>? Changed;
 		public event EventHandler<FolderChangeErrorEventArgs>? Faulted;
@@ -108,18 +114,58 @@ internal static class BorrowedCapability
 		public FolderChanges(IFolderChangeSource inner)
 		{
 			_inner = inner;
-			inner.Changed += (_, args) => Publish(Changed, args);
-			inner.Faulted += (_, args) => Publish(Faulted, args);
+			inner.Changed += OnChanged;
+			try
+			{
+				inner.Faulted += OnFaulted;
+			}
+			catch
+			{
+				inner.Changed -= OnChanged;
+
+				throw;
+			}
 		}
 
 		public ValueTask StartAsync(CancellationToken cancellationToken = default)
 		{
+			ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDetached) is not 0, this);
+
 			return _inner.StartAsync(cancellationToken);
+		}
+
+		public void Detach()
+		{
+			if (Interlocked.Exchange(ref _isDetached, 1) is not 0)
+			{
+				return;
+			}
+
+			Changed = null;
+			Faulted = null;
+			try
+			{
+				_inner.Changed -= OnChanged;
+			}
+			finally
+			{
+				_inner.Faulted -= OnFaulted;
+			}
+		}
+
+		private void OnChanged(object? sender, FolderChangeEventArgs args)
+		{
+			Publish(Changed, args);
+		}
+
+		private void OnFaulted(object? sender, FolderChangeErrorEventArgs args)
+		{
+			Publish(Faulted, args);
 		}
 
 		private void Publish<TArgs>(EventHandler<TArgs>? handlers, TArgs args)
 		{
-			if (handlers is null)
+			if (handlers is null || Volatile.Read(ref _isDetached) is not 0)
 			{
 				return;
 			}

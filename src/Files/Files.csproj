@@ -21,11 +21,19 @@
 		<SelfContained>true</SelfContained>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
 		<BackgroundServerProject>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\Files.BackgroundServer.csproj</BackgroundServerProject>
-		<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\publish\</BackgroundServerPublishDir>
+		<BackgroundServerPublishDir>$(MSBuildProjectDirectory)\obj\Files.BackgroundServer\$(Platform)\$(Configuration)\$(TargetFramework)\publish-aot\</BackgroundServerPublishDir>
 		<BackgroundServerWinmd>$(MSBuildProjectDirectory)\..\Files.BackgroundServer\bin\$(Platform)\$(Configuration)\$(TargetFramework)\Files.BackgroundServer.winmd</BackgroundServerWinmd>
 		<LauncherProject>$(MSBuildProjectDirectory)\..\FilesLauncher\FilesLauncher.csproj</LauncherProject>
-		<LauncherPublishDir>$(MSBuildProjectDirectory)\obj\FilesLauncher\$(Platform)\$(Configuration)\$(TargetFramework)\publish\</LauncherPublishDir>
+		<LauncherPublishDir>$(MSBuildProjectDirectory)\obj\FilesLauncher\$(Platform)\$(Configuration)\$(TargetFramework)\publish-aot\</LauncherPublishDir>
 		<CsWinRTIncludes>Files.BackgroundServer;$(CsWinRTIncludes)</CsWinRTIncludes>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(BuildUnsignedAppPackage)' == 'true'">
+		<GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
+		<AppxPackage>true</AppxPackage>
+		<AppxBundle>Never</AppxBundle>
+		<AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+		<UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -84,6 +92,7 @@
 
 	<Target Name="PublishLauncher" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
 		<MSBuild Projects="$(LauncherProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=true;PublishDir=$(LauncherPublishDir)" />
+		<Error Condition="Exists('$(LauncherPublishDir)FilesLauncher.dll')" Text="Launcher publish produced a managed entry assembly instead of Native AOT output." />
 		<Error Condition="!Exists('$(LauncherPublishDir)FilesLauncher.exe')" Text="FilesLauncher publish output was not found." />
 		<ItemGroup>
 			<AppxPackagePayload Include="$(LauncherPublishDir)FilesLauncher.exe" TargetPath="FilesLauncher.exe" />
@@ -92,6 +101,7 @@
 
 	<Target Name="PublishBackgroundServer" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(AppxPackage)' == 'true'">
 		<MSBuild Projects="$(BackgroundServerProject)" Targets="Restore;Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=win-$(Platform);SelfContained=true;PublishAot=true;PublishDir=$(BackgroundServerPublishDir)" />
+		<Error Condition="Exists('$(BackgroundServerPublishDir)Files.BackgroundServer.dll')" Text="BackgroundServer publish produced a managed entry assembly instead of Native AOT output." />
 		<Error Condition="!Exists('$(BackgroundServerPublishDir)Files.BackgroundServer.exe')" Text="Files.BackgroundServer publish output was not found." />
 		<ItemGroup>
 			<_FilesBackgroundServerPackageFile Include="$(BackgroundServerPublishDir)**\*" Exclude="$(BackgroundServerPublishDir)**\*.winmd;$(BackgroundServerPublishDir)**\*.pdb" />

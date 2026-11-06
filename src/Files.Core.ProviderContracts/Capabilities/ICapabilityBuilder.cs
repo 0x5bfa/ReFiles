@@ -4,6 +4,7 @@
 namespace Files.Core.Capabilities;
 
 /// <summary>Registers provider contributions and borrowed views without depending on the runtime implementation.</summary>
+/// <remarks>Every contributed capability requires a borrowed view before the runtime is built.</remarks>
 public interface ICapabilityBuilder
 {
 	/// <summary>Registers a capability factory.</summary>
@@ -33,4 +34,10 @@ public interface ICapabilityBuilder
 	/// <param name="createView">The borrowed view factory.</param>
 	/// <returns>This registration surface.</returns>
 	ICapabilityBuilder SetBorrowedView<TCapability>(Func<TCapability, TCapability> createView) where TCapability : class, ICapability;
+
+	/// <summary>Sets a borrowed view and an owner-only cleanup callback.</summary>
+	/// <typeparam name="TCapability">The capability interface.</typeparam>
+	/// <param name="createView">The view registration factory, responsible for undoing partial creation if it throws.</param>
+	/// <returns>This registration surface.</returns>
+	ICapabilityBuilder SetBorrowedView<TCapability>(Func<TCapability, BorrowedCapabilityView<TCapability>> createView) where TCapability : class, ICapability;
 }

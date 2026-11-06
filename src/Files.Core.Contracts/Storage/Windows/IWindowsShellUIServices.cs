@@ -18,6 +18,10 @@ public interface IWindowsShellUIServices
 	IWindowsShellDragDropService DragDrop { get; }
 	/// <summary>Gets property-sheet operations.</summary>
 	IWindowsShellPropertiesService Properties { get; }
+	/// <summary>Gets stateless property editing actions.</summary>
+	IWindowsShellPropertyActions PropertyActions { get; }
+	/// <summary>Gets filesystem inspection using the runtime's attribute executor.</summary>
+	IItemPropertiesFileSystem ItemPropertiesFileSystem { get; }
 	/// <summary>Gets contextual command operations.</summary>
 	IWindowsShellContextualCommandService ContextualCommands { get; }
 	/// <summary>Gets default item activation operations.</summary>

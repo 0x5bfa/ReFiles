@@ -364,7 +364,7 @@ public sealed partial class RootViewModel : ObservableObject, IDisposable, IAsyn
 	{
 		EnsureActive();
 
-		await _window.OpenContentTabAsync(static () => Files.Hosting.FilesHost.CreateSettingsContent(), cancellationToken).ConfigureAwait(false);
+		await _window.OpenSettingsTabAsync(cancellationToken).ConfigureAwait(false);
 	}
 
 	public async Task CloseTabAsync(Guid tabId, CancellationToken cancellationToken = default)

@@ -1,0 +1,276 @@
+#nullable enable
+abstract Files.Core.Storage.Archives.ArchiveOpenResult.<Clone>$() -> Files.Core.Storage.Archives.ArchiveOpenResult!
+Files.Core.Browsing.IBrowseLocationHandler
+Files.Core.Browsing.IBrowseLocationHandler.CanHandle(Files.Core.Browsing.BrowseLocation! location) -> bool
+Files.Core.Browsing.IBrowseLocationHandler.OpenAsync(Files.Core.Browsing.BrowseLocation! location, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Browsing.IBrowseLocationContext!>
+Files.Core.Capabilities.BorrowedCapabilityView<TCapability>
+Files.Core.Capabilities.BorrowedCapabilityView<TCapability>.BorrowedCapabilityView() -> void
+Files.Core.Capabilities.BorrowedCapabilityView<TCapability>.BorrowedCapabilityView(TCapability! view, System.Action? release = null) -> void
+Files.Core.Capabilities.BorrowedCapabilityView<TCapability>.Release.get -> System.Action?
+Files.Core.Capabilities.BorrowedCapabilityView<TCapability>.View.get -> TCapability!
+Files.Core.Capabilities.CapabilityLifetime
+Files.Core.Capabilities.CapabilityLifetime.Item = 0 -> Files.Core.Capabilities.CapabilityLifetime
+Files.Core.Capabilities.CapabilityLifetime.Shared = 1 -> Files.Core.Capabilities.CapabilityLifetime
+Files.Core.Capabilities.CapabilityOption<TCapability>
+Files.Core.Capabilities.CapabilityOption<TCapability>.Capability.get -> TCapability!
+Files.Core.Capabilities.CapabilityOption<TCapability>.Capability.init -> void
+Files.Core.Capabilities.CapabilityOption<TCapability>.CapabilityOption(TCapability! Capability, int Priority, string! Origin, Files.Core.Capabilities.CapabilityLifetime Lifetime) -> void
+Files.Core.Capabilities.CapabilityOption<TCapability>.Deconstruct(out TCapability! Capability, out int Priority, out string! Origin, out Files.Core.Capabilities.CapabilityLifetime Lifetime) -> void
+Files.Core.Capabilities.CapabilityOption<TCapability>.Lifetime.get -> Files.Core.Capabilities.CapabilityLifetime
+Files.Core.Capabilities.CapabilityOption<TCapability>.Lifetime.init -> void
+Files.Core.Capabilities.CapabilityOption<TCapability>.Origin.get -> string!
+Files.Core.Capabilities.CapabilityOption<TCapability>.Origin.init -> void
+Files.Core.Capabilities.CapabilityOption<TCapability>.Priority.get -> int
+Files.Core.Capabilities.CapabilityOption<TCapability>.Priority.init -> void
+Files.Core.Capabilities.DelegateCapabilityCombiner<TCapability>
+Files.Core.Capabilities.DelegateCapabilityCombiner<TCapability>.Combine(Files.Core.Capabilities.ItemContext! context, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.CapabilityOption<TCapability!>!>! options) -> TCapability?
+Files.Core.Capabilities.DelegateCapabilityCombiner<TCapability>.DelegateCapabilityCombiner(System.Func<Files.Core.Capabilities.ItemContext!, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.CapabilityOption<TCapability!>!>!, TCapability?>! combine) -> void
+Files.Core.Capabilities.DelegateCapabilityFactory<TCapability>
+Files.Core.Capabilities.DelegateCapabilityFactory<TCapability>.Create(Files.Core.Capabilities.ItemContext! context) -> TCapability?
+Files.Core.Capabilities.DelegateCapabilityFactory<TCapability>.DelegateCapabilityFactory(System.Func<Files.Core.Capabilities.ItemContext!, TCapability?>! factory) -> void
+Files.Core.Capabilities.DelegateCapabilityWrapper<TCapability>
+Files.Core.Capabilities.DelegateCapabilityWrapper<TCapability>.DelegateCapabilityWrapper(System.Func<Files.Core.Capabilities.ItemContext!, TCapability!, TCapability!>! wrap) -> void
+Files.Core.Capabilities.DelegateCapabilityWrapper<TCapability>.Wrap(Files.Core.Capabilities.ItemContext! context, TCapability! capability) -> TCapability!
+Files.Core.Capabilities.ICapabilityBuilder
+Files.Core.Capabilities.ICapabilityBuilder.Add<TCapability>(Files.Core.Capabilities.ICapabilityFactory<TCapability!>! factory, int priority = 0, Files.Core.Capabilities.CapabilityLifetime lifetime = Files.Core.Capabilities.CapabilityLifetime.Item, string? origin = null) -> Files.Core.Capabilities.ICapabilityBuilder!
+Files.Core.Capabilities.ICapabilityBuilder.AddWrapper<TCapability>(Files.Core.Capabilities.ICapabilityWrapper<TCapability!>! wrapper) -> Files.Core.Capabilities.ICapabilityBuilder!
+Files.Core.Capabilities.ICapabilityBuilder.SetBorrowedView<TCapability>(System.Func<TCapability!, Files.Core.Capabilities.BorrowedCapabilityView<TCapability!>>! createView) -> Files.Core.Capabilities.ICapabilityBuilder!
+Files.Core.Capabilities.ICapabilityBuilder.SetBorrowedView<TCapability>(System.Func<TCapability!, TCapability!>! createView) -> Files.Core.Capabilities.ICapabilityBuilder!
+Files.Core.Capabilities.ICapabilityBuilder.SetCombiner<TCapability>(Files.Core.Capabilities.ICapabilityCombiner<TCapability!>! combiner) -> Files.Core.Capabilities.ICapabilityBuilder!
+Files.Core.Capabilities.ICapabilityCombiner<TCapability>
+Files.Core.Capabilities.ICapabilityCombiner<TCapability>.Combine(Files.Core.Capabilities.ItemContext! context, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.CapabilityOption<TCapability!>!>! options) -> TCapability?
+Files.Core.Capabilities.ICapabilityFactory<TCapability>
+Files.Core.Capabilities.ICapabilityFactory<TCapability>.Create(Files.Core.Capabilities.ItemContext! context) -> TCapability?
+Files.Core.Capabilities.ICapabilityWrapper<TCapability>
+Files.Core.Capabilities.ICapabilityWrapper<TCapability>.Wrap(Files.Core.Capabilities.ItemContext! context, TCapability! capability) -> TCapability!
+Files.Core.Capabilities.ItemContext
+Files.Core.Capabilities.ItemContext.<Clone>$() -> Files.Core.Capabilities.ItemContext!
+Files.Core.Capabilities.ItemContext.CoreModel.get -> Files.Core.Storage.IStorable!
+Files.Core.Capabilities.ItemContext.CoreModel.init -> void
+Files.Core.Capabilities.ItemContext.Deconstruct(out Files.Core.Storage.IStorageSource! Source, out Files.Core.Storage.IStorable! CoreModel, out Files.Core.Storage.StorableReference! Reference) -> void
+Files.Core.Capabilities.ItemContext.Equals(Files.Core.Capabilities.ItemContext? other) -> bool
+Files.Core.Capabilities.ItemContext.GetCapability<TCapability>() -> TCapability?
+Files.Core.Capabilities.ItemContext.ItemContext(Files.Core.Storage.IStorageSource! Source, Files.Core.Storage.IStorable! CoreModel, Files.Core.Storage.StorableReference! Reference) -> void
+Files.Core.Capabilities.ItemContext.ModelFactory.get -> Files.Core.Models.IStorableModelFactory?
+Files.Core.Capabilities.ItemContext.ModelFactory.init -> void
+Files.Core.Capabilities.ItemContext.Reference.get -> Files.Core.Storage.StorableReference!
+Files.Core.Capabilities.ItemContext.Reference.init -> void
+Files.Core.Capabilities.ItemContext.Source.get -> Files.Core.Storage.IStorageSource!
+Files.Core.Capabilities.ItemContext.Source.init -> void
+Files.Core.Capabilities.Previews.IPreviewLoader
+Files.Core.Capabilities.Previews.IPreviewLoader.CanLoad(Files.Core.Capabilities.ItemContext! context) -> bool
+Files.Core.Capabilities.Previews.IPreviewLoader.GetPreviewAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewResult?>
+Files.Core.Capabilities.Previews.IPreviewStreamAccessPolicy
+Files.Core.Capabilities.Previews.IPreviewStreamAccessPolicy.GetBlockReasonAsync(Files.Core.Capabilities.Previews.PreviewRequest! request, Files.Core.Capabilities.ItemContext! context, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Capabilities.Previews.PreviewBlockReason?>
+Files.Core.Capabilities.Previews.IPreviewTrustIdentity
+Files.Core.Capabilities.Previews.IPreviewTrustIdentity.Matches(Files.Core.Storage.IStorable! item) -> bool
+Files.Core.Capabilities.Previews.IPreviewTrustTarget
+Files.Core.Capabilities.Previews.IPreviewTrustTarget.CaptureTrustIdentity() -> Files.Core.Capabilities.Previews.IPreviewTrustIdentity?
+Files.Core.Capabilities.PriorityCapabilityCombiner<TCapability>
+Files.Core.Capabilities.PriorityCapabilityCombiner<TCapability>.Combine(Files.Core.Capabilities.ItemContext! context, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.CapabilityOption<TCapability!>!>! options) -> TCapability?
+Files.Core.Capabilities.PriorityCapabilityCombiner<TCapability>.PriorityCapabilityCombiner() -> void
+Files.Core.Capabilities.Properties.IPropertyReader
+Files.Core.Capabilities.Properties.IPropertyReader.CanRead(Files.Core.Capabilities.ItemContext! context) -> bool
+Files.Core.Capabilities.Properties.IPropertyReader.GetPropertiesAsync(Files.Core.Capabilities.Properties.PropertyRequest! request, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.ItemContext!>! contexts, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<Files.Core.Storage.StorableReference!, System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>
+Files.Core.Data.IStorageSourceRegistry
+Files.Core.Data.IStorageSourceRegistry.AddSource(Files.Core.Storage.IStorageSource! source) -> void
+Files.Core.Data.IStorageSourceRegistry.RemoveSource(Files.Core.Storage.StorageSourceId! sourceId) -> bool
+Files.Core.Data.IStorageSourceRegistry.SourcesChanged -> System.EventHandler?
+Files.Core.Data.IStorageWorkspace
+Files.Core.Data.IStorageWorkspace.GetRootsAsync(Files.Core.Storage.StorageSourceId! sourceId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Models.IFolderModel!>!
+Files.Core.Data.IStorageWorkspace.ModelFactory.get -> Files.Core.Models.IStorableModelFactory!
+Files.Core.Data.IStorageWorkspace.ResolveAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Models.IStorableModel!>
+Files.Core.Data.IStorageWorkspace.ResolveAsync(Files.Core.Storage.StorageAddress! address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Models.IStorableModel!>
+Files.Core.Data.IStorageWorkspace.ResolveAsync(Files.Core.Storage.StorageSourceId! sourceId, Files.Core.Storage.StorageAddress! address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Models.IStorableModel!>
+Files.Core.Data.IStorageWorkspace.SourceRegistry.get -> Files.Core.Data.IStorageSourceRegistry?
+Files.Core.Data.IStorageWorkspace.Sources.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.IStorageSource!>!
+Files.Core.IProviderRuntimeBuilder
+Files.Core.IProviderRuntimeBuilder.AddBrowseLocationHandler(System.Func<Files.Core.Data.IStorageWorkspace!, Files.Core.Browsing.IBrowseLocationHandler!>! factory) -> void
+Files.Core.IProviderRuntimeBuilder.AddPreviewLoader(Files.Core.Capabilities.Previews.IPreviewLoader! loader, int priority, string! origin) -> void
+Files.Core.IProviderRuntimeBuilder.AddPropertyReader(Files.Core.Capabilities.Properties.IPropertyReader! reader, int priority, string! origin) -> void
+Files.Core.IProviderRuntimeBuilder.AddStorageOperationHandler(Files.Core.Storage.IStorageOperationHandler! handler) -> void
+Files.Core.IProviderRuntimeBuilder.AddStorageSource(Files.Core.Storage.IStorageSource! source) -> void
+Files.Core.IProviderRuntimeBuilder.Capabilities.get -> Files.Core.Capabilities.ICapabilityBuilder!
+Files.Core.IProviderRuntimeBuilder.ConfigureArchiveBrowsing(Files.Core.Storage.Archives.ArchiveBackendSelector! readers, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentials) -> void
+Files.Core.IProviderRuntimeBuilder.ConfigureStorageTransfers(Files.Core.Storage.Archives.ArchiveBackendSelector! readers, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentials, System.Func<Files.Core.Data.IStorageWorkspace!, System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Transfers.IStorageImportProvider!>!>! imports) -> void
+Files.Core.IProviderRuntimeBuilder.EnsureLocalStorageOperations() -> void
+Files.Core.IProviderRuntimeBuilder.LoggerFactory.get -> Microsoft.Extensions.Logging.ILoggerFactory!
+Files.Core.IProviderRuntimeBuilder.Own(System.IAsyncDisposable! service) -> void
+Files.Core.IProviderRuntimeBuilder.SetProviderServiceFactory<TService>(System.Func<Files.Core.Data.IStorageWorkspace!, TService!>! factory) -> void
+Files.Core.IProviderRuntimeBuilder.TryAddModule(string! moduleId) -> bool
+Files.Core.IProviderRuntimeServices
+Files.Core.IProviderRuntimeServices.GetProviderService<TService>() -> TService?
+Files.Core.Models.IStorableModelFactory
+Files.Core.Models.IStorableModelFactory.Create(Files.Core.Storage.IStorageSource! source, Files.Core.Storage.IStorable! coreModel) -> Files.Core.Models.IStorableModel!
+Files.Core.Models.IStorableModelFactory.OpenArchiveAsync(Files.Core.Storage.IStorageSource! source, Files.Core.Storage.Archives.ArchiveLocator! locator, Files.Core.Storage.Archives.ArchiveBackendSelector! readers, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentials = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Models.IArchiveModel!>
+Files.Core.Models.IStorageModelAccess
+Files.Core.Models.IStorageModelAccess.GetCoreModel() -> Files.Core.Storage.IStorable!
+Files.Core.Models.StorableModelAccess
+Files.Core.Storage.Archives.ArchiveBackendSelector
+Files.Core.Storage.Archives.ArchiveBackendSelector.ArchiveBackendSelector(System.Collections.Generic.IEnumerable<Files.Core.Storage.Archives.IArchiveBackend!>! backends) -> void
+Files.Core.Storage.Archives.ArchiveBackendSelector.Backends.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Archives.IArchiveBackend!>!
+Files.Core.Storage.Archives.ArchiveBackendSelector.TryOpenAsync(Files.Core.Storage.Archives.ArchiveOpenRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Archives.ArchiveOpenResult!>
+Files.Core.Storage.Archives.ArchiveCredential
+Files.Core.Storage.Archives.ArchiveCredential.ArchiveCredential(string! password) -> void
+Files.Core.Storage.Archives.ArchiveCredential.Password.get -> string!
+Files.Core.Storage.Archives.ArchiveCredentialChallenge
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.<Clone>$() -> Files.Core.Storage.Archives.ArchiveCredentialChallenge!
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.Archive.get -> Files.Core.Storage.StorableReference!
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.ArchiveCredentialChallenge(Files.Core.Storage.StorableReference! archive, string! displayName, int attempt, bool previousCredentialRejected) -> void
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.Attempt.get -> int
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.DisplayName.get -> string!
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.Equals(Files.Core.Storage.Archives.ArchiveCredentialChallenge? other) -> bool
+Files.Core.Storage.Archives.ArchiveCredentialChallenge.PreviousCredentialRejected.get -> bool
+Files.Core.Storage.Archives.ArchiveCredentialRequiredException
+Files.Core.Storage.Archives.ArchiveCredentialRequiredException.ArchiveCredentialRequiredException(Files.Core.Storage.Archives.ArchiveCredentialChallenge! challenge, System.Exception? innerException = null) -> void
+Files.Core.Storage.Archives.ArchiveCredentialRequiredException.Challenge.get -> Files.Core.Storage.Archives.ArchiveCredentialChallenge!
+Files.Core.Storage.Archives.ArchiveOpenException
+Files.Core.Storage.Archives.ArchiveOpenException.ArchiveOpenException(string! message, System.Exception? innerException = null) -> void
+Files.Core.Storage.Archives.ArchiveOpenRequest
+Files.Core.Storage.Archives.ArchiveOpenRequest.<Clone>$() -> Files.Core.Storage.Archives.ArchiveOpenRequest!
+Files.Core.Storage.Archives.ArchiveOpenRequest.Archive.get -> Files.Core.Storage.StorableReference!
+Files.Core.Storage.Archives.ArchiveOpenRequest.ArchiveOpenRequest(Files.Core.Storage.StorableReference! archive, string! name, System.IO.Stream! input, Files.Core.Storage.Archives.ArchiveCredential? credential = null, int credentialAttempt = 0) -> void
+Files.Core.Storage.Archives.ArchiveOpenRequest.Credential.get -> Files.Core.Storage.Archives.ArchiveCredential?
+Files.Core.Storage.Archives.ArchiveOpenRequest.CredentialAttempt.get -> int
+Files.Core.Storage.Archives.ArchiveOpenRequest.Equals(Files.Core.Storage.Archives.ArchiveOpenRequest? other) -> bool
+Files.Core.Storage.Archives.ArchiveOpenRequest.Input.get -> System.IO.Stream!
+Files.Core.Storage.Archives.ArchiveOpenRequest.Name.get -> string!
+Files.Core.Storage.Archives.ArchiveOpenResult
+Files.Core.Storage.Archives.ArchiveOpenResult.ArchiveOpenResult(Files.Core.Storage.Archives.ArchiveOpenResult! original) -> void
+Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired
+Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.Challenge.get -> Files.Core.Storage.Archives.ArchiveCredentialChallenge!
+Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.CredentialRequired(Files.Core.Storage.Archives.ArchiveCredentialChallenge! challenge) -> void
+Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.Equals(Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired? other) -> bool
+Files.Core.Storage.Archives.ArchiveOpenResult.Failed
+Files.Core.Storage.Archives.ArchiveOpenResult.Failed.Equals(Files.Core.Storage.Archives.ArchiveOpenResult.Failed? other) -> bool
+Files.Core.Storage.Archives.ArchiveOpenResult.Failed.Error.get -> System.Exception!
+Files.Core.Storage.Archives.ArchiveOpenResult.Failed.Failed(System.Exception! error) -> void
+Files.Core.Storage.Archives.ArchiveOpenResult.Success
+Files.Core.Storage.Archives.ArchiveOpenResult.Success.Equals(Files.Core.Storage.Archives.ArchiveOpenResult.Success? other) -> bool
+Files.Core.Storage.Archives.ArchiveOpenResult.Success.Session.get -> Files.Core.Storage.Archives.IArchiveReadSession!
+Files.Core.Storage.Archives.ArchiveOpenResult.Success.Success(Files.Core.Storage.Archives.IArchiveReadSession! session) -> void
+Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported
+Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.Equals(Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported? other) -> bool
+Files.Core.Storage.Archives.IArchiveBackend
+Files.Core.Storage.Archives.IArchiveBackend.Id.get -> string!
+Files.Core.Storage.Archives.IArchiveBackend.Priority.get -> int
+Files.Core.Storage.Archives.IArchiveBackend.TryOpenAsync(Files.Core.Storage.Archives.ArchiveOpenRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Archives.ArchiveOpenResult!>
+Files.Core.Storage.Archives.IArchiveCredentialResolver
+Files.Core.Storage.Archives.IArchiveCredentialResolver.ResolveAsync(Files.Core.Storage.Archives.ArchiveCredentialChallenge! challenge, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Archives.ArchiveCredential?>
+Files.Core.Storage.Archives.IArchiveInput
+Files.Core.Storage.Archives.IArchiveInput.OpenReadAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Files.Core.Storage.Archives.IArchiveReadSession
+Files.Core.Storage.Archives.IArchiveReadSession.BackendId.get -> string!
+Files.Core.Storage.Archives.IArchiveReadSession.Entries.get -> System.Collections.Generic.IReadOnlyList<Files.Core.Storage.Archives.ArchiveEntryInfo!>!
+Files.Core.Storage.Archives.IArchiveReadSession.OpenReadAsync(string! entryId, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.IO.Stream!>!
+Files.Core.Storage.Archives.IArchiveRootSource
+Files.Core.Storage.Archives.IArchiveRootSource.RootSource.get -> Files.Core.Storage.IStorageSource!
+Files.Core.Storage.Archives.UnsupportedArchiveException
+Files.Core.Storage.Archives.UnsupportedArchiveException.DisplayName.get -> string!
+Files.Core.Storage.Archives.UnsupportedArchiveException.UnsupportedArchiveException(string! displayName) -> void
+Files.Core.Storage.IFile
+Files.Core.Storage.IFolder
+Files.Core.Storage.IFolder.GetItemsAsync(Files.Core.Storage.StorableType type = Files.Core.Storage.StorableType.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Storage.IStorableChild!>!
+Files.Core.Storage.IInteractiveFolder
+Files.Core.Storage.IInteractiveFolder.GetItemsAsync(Files.Core.Storage.StorableType type, nint ownerWindowHandle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Storage.IStorableChild!>!
+Files.Core.Storage.IStorable
+Files.Core.Storage.IStorable.Id.get -> string!
+Files.Core.Storage.IStorable.Name.get -> string!
+Files.Core.Storage.IStorableChild
+Files.Core.Storage.IStorableChild.GetParentAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Files.Core.Storage.IFolder?>!
+Files.Core.Storage.IStorageAddressSource
+Files.Core.Storage.IStorageAddressSource.Address.get -> Files.Core.Storage.StorageAddress!
+Files.Core.Storage.IStorageDeletionPolicy
+Files.Core.Storage.IStorageDeletionPolicy.CanRecycle(Files.Core.Storage.StorableReference! reference) -> bool
+Files.Core.Storage.IStorageItemAttributes
+Files.Core.Storage.IStorageItemAttributes.IsHidden.get -> bool
+Files.Core.Storage.IStorageOperationHandler
+Files.Core.Storage.IStorageOperationHandler.CanHandle(Files.Core.Storage.StorageOperationRequest! request) -> bool
+Files.Core.Storage.IStorageOperationHandler.ExecuteAsync(Files.Core.Storage.StorageOperationRequest! request, System.IProgress<Files.Core.Storage.StorageOperationProgress!>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken), Files.Core.Storage.IStorageOperationControl? operationControl = null) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.StorageOperationResult!>
+Files.Core.Storage.IStorageProperty<T>
+Files.Core.Storage.IStorageProperty<T>.Value.get -> T
+Files.Core.Storage.IStorageProperty<T>.ValueUpdated -> System.EventHandler<T>?
+Files.Core.Storage.IStorageSource
+Files.Core.Storage.IStorageSource.CanResolve(Files.Core.Storage.StorageAddress! address) -> bool
+Files.Core.Storage.IStorageSource.DisplayName.get -> string!
+Files.Core.Storage.IStorageSource.GetRootsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Files.Core.Storage.IFolder!>!
+Files.Core.Storage.IStorageSource.ResolveAsync(Files.Core.Storage.StorableReference! reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.IStorable!>
+Files.Core.Storage.IStorageSource.ResolveAsync(Files.Core.Storage.StorageAddress! address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.IStorable!>
+Files.Core.Storage.IStorageSource.SourceId.get -> Files.Core.Storage.StorageSourceId!
+Files.Core.Storage.IStorageSource.SourceType.get -> string!
+Files.Core.Storage.SimpleStorableItem
+Files.Core.Storage.SimpleStorableItem.Id.get -> string!
+Files.Core.Storage.SimpleStorableItem.Name.get -> string!
+Files.Core.Storage.SimpleStorableItem.SimpleStorableItem(string! id, string! name) -> void
+Files.Core.Storage.StorageItemNotFolderException (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.StorageItemNotFolderException.Address.get -> Files.Core.Storage.StorageAddress! (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.StorageItemNotFolderException.StorageItemNotFolderException(Files.Core.Storage.StorageAddress! address) -> void (forwarded, contained in Files.Core.Contracts)
+Files.Core.Storage.Transfers.IStorageImportFile
+Files.Core.Storage.Transfers.IStorageImportFile.CommitAsync(Files.Core.Storage.IStorageOperationControl? control, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.StorageOperationResult!>
+Files.Core.Storage.Transfers.IStorageImportFile.CommittedItem.get -> Files.Core.Storage.StorableReference?
+Files.Core.Storage.Transfers.IStorageImportFile.Output.get -> System.IO.Stream!
+Files.Core.Storage.Transfers.IStorageImportFile.PublicationAttempted.get -> bool
+Files.Core.Storage.Transfers.IStorageImportProvider
+Files.Core.Storage.Transfers.IStorageImportProvider.CanImport(Files.Core.Storage.StorableReference! destination) -> bool
+Files.Core.Storage.Transfers.IStorageImportProvider.StageAsync(Files.Core.Storage.StorableReference! destination, string! name, Files.Core.Storage.StorageConflictBehavior conflict, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Transfers.IStorageImportFile!>
+override Files.Core.Capabilities.CapabilityOption<TCapability>.Equals(object? obj) -> bool
+override Files.Core.Capabilities.CapabilityOption<TCapability>.GetHashCode() -> int
+override Files.Core.Capabilities.CapabilityOption<TCapability>.ToString() -> string!
+override Files.Core.Capabilities.ItemContext.Equals(object? obj) -> bool
+override Files.Core.Capabilities.ItemContext.GetHashCode() -> int
+override Files.Core.Capabilities.ItemContext.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveCredential.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveCredentialChallenge.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveCredentialChallenge.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveCredentialChallenge.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveOpenRequest.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveOpenRequest.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveOpenRequest.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.<Clone>$() -> Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired!
+override Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveOpenResult.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveOpenResult.Failed.<Clone>$() -> Files.Core.Storage.Archives.ArchiveOpenResult.Failed!
+override Files.Core.Storage.Archives.ArchiveOpenResult.Failed.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveOpenResult.Failed.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveOpenResult.Failed.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveOpenResult.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveOpenResult.Success.<Clone>$() -> Files.Core.Storage.Archives.ArchiveOpenResult.Success!
+override Files.Core.Storage.Archives.ArchiveOpenResult.Success.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveOpenResult.Success.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveOpenResult.Success.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveOpenResult.ToString() -> string!
+override Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.<Clone>$() -> Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported!
+override Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.Equals(object? obj) -> bool
+override Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.GetHashCode() -> int
+override Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.ToString() -> string!
+override sealed Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.Equals(Files.Core.Storage.Archives.ArchiveOpenResult? other) -> bool
+override sealed Files.Core.Storage.Archives.ArchiveOpenResult.Failed.Equals(Files.Core.Storage.Archives.ArchiveOpenResult? other) -> bool
+override sealed Files.Core.Storage.Archives.ArchiveOpenResult.Success.Equals(Files.Core.Storage.Archives.ArchiveOpenResult? other) -> bool
+override sealed Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.Equals(Files.Core.Storage.Archives.ArchiveOpenResult? other) -> bool
+static Files.Core.Capabilities.ItemContext.operator !=(Files.Core.Capabilities.ItemContext? left, Files.Core.Capabilities.ItemContext? right) -> bool
+static Files.Core.Capabilities.ItemContext.operator ==(Files.Core.Capabilities.ItemContext? left, Files.Core.Capabilities.ItemContext? right) -> bool
+static Files.Core.Models.StorableModelAccess.GetCoreModel(this Files.Core.Models.IStorableModel! model) -> Files.Core.Storage.IStorable!
+static Files.Core.Storage.Archives.ArchiveCredentialChallenge.operator !=(Files.Core.Storage.Archives.ArchiveCredentialChallenge? left, Files.Core.Storage.Archives.ArchiveCredentialChallenge? right) -> bool
+static Files.Core.Storage.Archives.ArchiveCredentialChallenge.operator ==(Files.Core.Storage.Archives.ArchiveCredentialChallenge? left, Files.Core.Storage.Archives.ArchiveCredentialChallenge? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenRequest.operator !=(Files.Core.Storage.Archives.ArchiveOpenRequest? left, Files.Core.Storage.Archives.ArchiveOpenRequest? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenRequest.operator ==(Files.Core.Storage.Archives.ArchiveOpenRequest? left, Files.Core.Storage.Archives.ArchiveOpenRequest? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.operator !=(Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired? left, Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired.operator ==(Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired? left, Files.Core.Storage.Archives.ArchiveOpenResult.CredentialRequired? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.Failed.operator !=(Files.Core.Storage.Archives.ArchiveOpenResult.Failed? left, Files.Core.Storage.Archives.ArchiveOpenResult.Failed? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.Failed.operator ==(Files.Core.Storage.Archives.ArchiveOpenResult.Failed? left, Files.Core.Storage.Archives.ArchiveOpenResult.Failed? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.operator !=(Files.Core.Storage.Archives.ArchiveOpenResult? left, Files.Core.Storage.Archives.ArchiveOpenResult? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.operator ==(Files.Core.Storage.Archives.ArchiveOpenResult? left, Files.Core.Storage.Archives.ArchiveOpenResult? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.Success.operator !=(Files.Core.Storage.Archives.ArchiveOpenResult.Success? left, Files.Core.Storage.Archives.ArchiveOpenResult.Success? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.Success.operator ==(Files.Core.Storage.Archives.ArchiveOpenResult.Success? left, Files.Core.Storage.Archives.ArchiveOpenResult.Success? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.Instance.get -> Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported!
+static Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.operator !=(Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported? left, Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported? right) -> bool
+static Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported.operator ==(Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported? left, Files.Core.Storage.Archives.ArchiveOpenResult.Unsupported? right) -> bool
+virtual Files.Core.Storage.Archives.ArchiveOpenResult.EqualityContract.get -> System.Type!
+virtual Files.Core.Storage.Archives.ArchiveOpenResult.Equals(Files.Core.Storage.Archives.ArchiveOpenResult? other) -> bool
+virtual Files.Core.Storage.Archives.ArchiveOpenResult.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~Files.Core.Capabilities.CapabilityOption<TCapability>.<Clone>$() -> Files.Core.Capabilities.CapabilityOption<TCapability>!
+~Files.Core.Capabilities.CapabilityOption<TCapability>.Equals(Files.Core.Capabilities.CapabilityOption<TCapability>? other) -> bool
+~static Files.Core.Capabilities.CapabilityOption<TCapability>.operator !=(Files.Core.Capabilities.CapabilityOption<TCapability>? left, Files.Core.Capabilities.CapabilityOption<TCapability>? right) -> bool
+~static Files.Core.Capabilities.CapabilityOption<TCapability>.operator ==(Files.Core.Capabilities.CapabilityOption<TCapability>? left, Files.Core.Capabilities.CapabilityOption<TCapability>? right) -> bool

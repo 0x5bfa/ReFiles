@@ -93,7 +93,7 @@ internal sealed partial class BrowsePresentationAdapter : IDisposable, IAsyncDis
 		_logger = _loggerFactory.CreateLogger<BrowsePresentationAdapter>();
 		_columns = new BrowseColumnPresentation(pane, QueueColumns);
 		_dispatcher = dispatcher;
-		_prefetch = prefetch ?? Files.Hosting.FilesHost.CreateBrowsePrefetch(_pane.BrowseSession, _loggerFactory);
+		_prefetch = prefetch ?? _pane.BrowseSession.CreatePrefetchCoordinator();
 		_text = text ?? BrowsePresentationText.CreateLocalized();
 		_ownerWindowHandle = ownerWindowHandle;
 		_viewSettings = _pane.BrowseSession.ViewSettings;

@@ -32,6 +32,11 @@ public interface IWindowSession : IAsyncDisposable
 	/// <returns>The created tab session.</returns>
 	ValueTask<ITabSession> OpenTabAsync(BrowseLocation? initialLocation = null, CancellationToken cancellationToken = default);
 
+	/// <summary>Opens and activates a settings tab.</summary>
+	/// <param name="cancellationToken">Cancels opening the tab.</param>
+	/// <returns>The created settings tab.</returns>
+	ValueTask<ITabSession> OpenSettingsTabAsync(CancellationToken cancellationToken = default);
+
 	/// <summary>Opens and activates a tab containing custom pane content.</summary>
 	/// <param name="contentFactory">The factory used to create the owned pane content.</param>
 	/// <param name="cancellationToken">The token used to cancel the operation.</param>

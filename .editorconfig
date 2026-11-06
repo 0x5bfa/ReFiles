@@ -34,3 +34,7 @@ dotnet_naming_style.private_field_style.capitalization = camel_case
 indent_style = tab
 indent_size = 4
 tab_width = 4
+
+# Forwarded compiler-synthesized record members carry oblivious metadata from referenced assemblies.
+[src/{Files.Core,Files.Providers}/*TypeForwarders.cs]
+dotnet_diagnostic.RS0041.severity = none

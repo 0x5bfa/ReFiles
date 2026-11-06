@@ -10,7 +10,7 @@ namespace Files.ItemProperties;
 
 public sealed partial class GeneralPropertyView : UserControl
 {
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly Action<string> _showError;
 
 	internal ItemPropertiesViewModel ViewModel { get; }
@@ -19,6 +19,7 @@ public sealed partial class GeneralPropertyView : UserControl
 	{
 		ViewModel = viewModel;
 		_showError = showError;
+		_propertyActions = viewModel.PropertyActions;
 		InitializeComponent();
 	}
 

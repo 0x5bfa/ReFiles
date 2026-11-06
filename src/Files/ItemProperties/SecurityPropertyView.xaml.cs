@@ -19,7 +19,7 @@ namespace Files.ItemProperties;
 public sealed partial class SecurityPropertyView : UserControl
 {
 	private const string CheckGlyph = "\uE73E";
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -29,12 +29,13 @@ public sealed partial class SecurityPropertyView : UserControl
 
 	internal Visibility EditShieldVisibility => _propertyActions.RequiresElevation(Security.ObjectPath) ? Visibility.Visible : Visibility.Collapsed;
 
-	internal SecurityPropertyView(WindowsShellSecurityProperties security, HWND owner, Action<string> showError, ImageSource? elevationShield)
+	internal SecurityPropertyView(IWindowsShellPropertyActions propertyActions, WindowsShellSecurityProperties security, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
 		Security = security;
 		_owner = owner;
 		_showError = showError;
 		Principals = new(security.Principals.Select(static principal => new SecurityPrincipalViewModel(principal)));
+		_propertyActions = propertyActions;
 		InitializeComponent();
 		ElevationShield.Source = elevationShield;
 		if (Principals.Count is not 0)

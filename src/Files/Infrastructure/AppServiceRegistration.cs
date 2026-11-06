@@ -21,7 +21,7 @@ internal static class AppServiceRegistration
 		services.AddSingleton<ILoggerFactory>(_ => CreateLoggerFactory());
 		services.AddLogging();
 		services.AddSingleton<ItemPropertiesIconResources>();
-		services.AddSingleton(provider => new WinRTStorageOperationService(provider.GetRequiredService<ILogger<WinRTStorageOperationService>>()));
+		services.AddSingleton(provider => new WinRTStorageOperationService(Files.Hosting.FilesHost.CreateThumbnailCache(), provider.GetRequiredService<ILogger<WinRTStorageOperationService>>()));
 		services.AddSingleton(provider => new StorageOperationTracker(provider.GetRequiredService<WinRTStorageOperationService>(), provider.GetRequiredService<ILogger<StorageOperationTracker>>()));
 		services.AddSingleton(_ => AppCommandRegistration.Build());
 

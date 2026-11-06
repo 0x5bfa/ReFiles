@@ -13,7 +13,7 @@ namespace Files.ItemProperties;
 
 public sealed partial class QuotaPropertyView : UserControl
 {
-	private readonly IWindowsShellPropertyActions _propertyActions = Files.Hosting.FilesHost.CreateWindowsPropertyActions();
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly HWND _owner;
 	private readonly Action<string> _showError;
 
@@ -27,11 +27,12 @@ public sealed partial class QuotaPropertyView : UserControl
 
 	internal Visibility SettingsVisibility => Quota.RequiresElevation ? Visibility.Collapsed : Visibility.Visible;
 
-	internal QuotaPropertyView(WindowsShellQuotaProperties quota, HWND owner, Action<string> showError, ImageSource? elevationShield)
+	internal QuotaPropertyView(IWindowsShellPropertyActions propertyActions, WindowsShellQuotaProperties quota, HWND owner, Action<string> showError, ImageSource? elevationShield)
 	{
 		Quota = quota;
 		_owner = owner;
 		_showError = showError;
+		_propertyActions = propertyActions;
 		InitializeComponent();
 		ElevationShield.Source = elevationShield;
 	}

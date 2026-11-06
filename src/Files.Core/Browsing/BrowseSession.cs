@@ -26,6 +26,7 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	private readonly IViewSettingsStore? _viewSettingsStore;
 	private readonly IThumbnailCache? _thumbnailCache;
 	private readonly ILogger<BrowseSession> _logger;
+	private readonly ILogger<BrowsePrefetchCoordinator>? _prefetchLogger;
 	private readonly Dictionary<BrowseLocation, BrowseViewSettings> _sessionViewSettings = [];
 	private BrowseItemProjection _itemProjection;
 	private readonly SemaphoreSlim _navigationLock = new(1, 1);
@@ -116,6 +117,12 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 	/// <param name="thumbnailCache">The optional thumbnail cache.</param>
 	/// <param name="logger">The optional logger.</param>
 	public BrowseSession(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, ILogger<BrowseSession>? logger = null)
+		: this(locationResolver, viewSettingsStore, thumbnailCache, logger, null)
+	{
+	}
+
+	internal BrowseSession(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore, IThumbnailCache? thumbnailCache, ILogger<BrowseSession>? logger,
+		ILogger<BrowsePrefetchCoordinator>? prefetchLogger)
 	{
 		ArgumentNullException.ThrowIfNull(locationResolver);
 
@@ -123,11 +130,20 @@ public sealed partial class BrowseSession : IBrowseSession, IBrowsePrefetchTarge
 		_viewSettingsStore = viewSettingsStore;
 		_thumbnailCache = thumbnailCache;
 		_logger = logger ?? NullLogger<BrowseSession>.Instance;
+		_prefetchLogger = prefetchLogger;
 		_changeCoordinator = new BrowseChangeCoordinator(ProcessPendingChangesAsync);
 		_itemProjection = new BrowseItemProjection(BrowseViewSettings.Default, _presentationStore.GetSortPropertyValue);
 		ViewSettings = BrowseViewSettings.Default;
 		PersistedViewSettings = BrowseViewSettings.Default;
 		DisplaySettings = BrowseDisplaySettings.Default;
+	}
+
+	/// <inheritdoc />
+	public IBrowsePrefetchCoordinator CreatePrefetchCoordinator()
+	{
+		ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+		return new BrowsePrefetchCoordinator(this, logger: _prefetchLogger);
 	}
 
 	/// <inheritdoc />

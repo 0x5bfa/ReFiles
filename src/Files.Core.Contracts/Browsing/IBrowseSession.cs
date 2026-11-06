@@ -11,6 +11,10 @@ namespace Files.Core.Browsing;
 /// </summary>
 public interface IBrowseSession : IDisposable, IAsyncDisposable
 {
+	/// <summary>Creates a presenter-owned prefetch coordinator for this session.</summary>
+	/// <returns>The coordinator, which must be disposed before this session.</returns>
+	IBrowsePrefetchCoordinator CreatePrefetchCoordinator();
+
 	/// <summary>Gets the current browse location.</summary>
 	BrowseLocation? Location { get; }
 

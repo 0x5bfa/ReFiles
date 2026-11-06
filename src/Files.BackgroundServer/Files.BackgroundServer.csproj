@@ -15,6 +15,7 @@
 		<CsWin32RunAsBuildTask>true</CsWin32RunAsBuildTask>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<SelfContained>true</SelfContained>
+		<PublishAot>true</PublishAot>
 		<CsWinRTComponent>true</CsWinRTComponent>
 		<CsWinRTWindowsMetadata>$(TargetWindowsVersion)</CsWinRTWindowsMetadata>
 		<CsWinRTEnableLogging>true</CsWinRTEnableLogging>

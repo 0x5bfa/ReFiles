@@ -42,6 +42,7 @@ public sealed partial class ItemPropertiesWindow : Window
 		IReadOnlyList<BrowseItemViewModel> items,
 		IStorageOperationService storageOperations,
 		IItemPropertiesFileSystem fileSystem,
+		IWindowsShellPropertyActions propertyActions,
 		ItemPropertiesIconResources iconResources,
 		Func<int, CancellationToken, Task<ThumbnailResult?>>? getIcon = null,
 		Func<CancellationToken, Task<IReadOnlyList<WindowsShellPropertyPage>>>? getPropertyPages = null,
@@ -50,7 +51,7 @@ public sealed partial class ItemPropertiesWindow : Window
 	{
 		ArgumentNullException.ThrowIfNull(iconResources);
 
-		ViewModel = new(items, storageOperations, fileSystem);
+		ViewModel = new(items, storageOperations, fileSystem, propertyActions);
 		_iconResources = iconResources;
 		_getIcon = getIcon;
 		_getPropertyPages = getPropertyPages;
@@ -323,14 +324,14 @@ public sealed partial class ItemPropertiesWindow : Window
 		return kind switch
 		{
 			WindowsShellPropertyPageKind.General => _generalView,
-			WindowsShellPropertyPageKind.Tools when data.Drive is not null => new ToolsPropertyView(data.Drive, owner, ShowError, _elevationShield),
-			WindowsShellPropertyPageKind.Hardware => new HardwarePropertyView(data.HardwareDevices, owner, ShowError),
+			WindowsShellPropertyPageKind.Tools when data.Drive is not null => new ToolsPropertyView(ViewModel.PropertyActions, data.Drive, owner, ShowError, _elevationShield),
+			WindowsShellPropertyPageKind.Hardware => new HardwarePropertyView(ViewModel.PropertyActions, data.HardwareDevices, owner, ShowError),
 			WindowsShellPropertyPageKind.Shortcut when data.Shortcut is not null => new ShortcutPropertyView(data.Shortcut),
 			WindowsShellPropertyPageKind.Compatibility when data.Compatibility is not null => new CompatibilityPropertyView(data.Compatibility, LaunchSystemTool),
-			WindowsShellPropertyPageKind.Sharing when data.Sharing is not null => new SharingPropertyView(data.Sharing, owner, ShowError, itemIcon, _elevationShield),
-			WindowsShellPropertyPageKind.Security when data.Security is not null => new SecurityPropertyView(data.Security, owner, ShowError, _elevationShield),
+			WindowsShellPropertyPageKind.Sharing when data.Sharing is not null => new SharingPropertyView(ViewModel.PropertyActions, data.Sharing, owner, ShowError, itemIcon, _elevationShield),
+			WindowsShellPropertyPageKind.Security when data.Security is not null => new SecurityPropertyView(ViewModel.PropertyActions, data.Security, owner, ShowError, _elevationShield),
 			WindowsShellPropertyPageKind.PreviousVersions => new PreviousVersionsPropertyView(data.PreviousVersions, LaunchSystemTool, _iconResources),
-			WindowsShellPropertyPageKind.Quota when data.Quota is not null => new QuotaPropertyView(data.Quota, owner, ShowError, _elevationShield),
+			WindowsShellPropertyPageKind.Quota when data.Quota is not null => new QuotaPropertyView(ViewModel.PropertyActions, data.Quota, owner, ShowError, _elevationShield),
 			WindowsShellPropertyPageKind.Customize when data.Customization is not null => new CustomizePropertyView(
 				data.Customization, ViewModel, owner, ShowError, _iconResources, itemIcon, _lifetime.Token),
 			WindowsShellPropertyPageKind.DigitalSignatures => new DigitalSignaturesPropertyView(data.EmbeddedSignatures, data.CatalogSignatures),

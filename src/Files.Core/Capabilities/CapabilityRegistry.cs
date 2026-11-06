@@ -99,22 +99,25 @@ public sealed class CapabilityRegistry
 				}
 			}
 
-			var borrowed = capabilityResult;
-			if (_borrowedViews.TryGetValue(capabilityType, out var createView))
+			var createView = (Func<TCapability, BorrowedCapabilityView<TCapability>>)_borrowedViews[capabilityType];
+			var viewRegistration = createView(capabilityResult);
+			if (viewRegistration.Release is { } release)
 			{
-				borrowed = ((Func<TCapability, TCapability>)createView)(capabilityResult)
-					?? throw new InvalidOperationException($"A borrowed view factory returned null for item capability '{capabilityType.FullName}'.");
-
-				if (borrowed is IDisposable or IAsyncDisposable)
-				{
-					if (!ReferenceEquals(borrowed, capabilityResult))
-					{
-						TrackOwned(context, borrowed, ownedInstances);
-					}
-
-					throw new InvalidOperationException($"A borrowed view must not expose disposal interfaces for item capability '{capabilityType.FullName}'.");
-				}
+				ownedInstances.Add(new BorrowedViewLifetime(release));
 			}
+
+			var borrowed = viewRegistration.View ?? throw new InvalidOperationException($"A borrowed view factory returned null for item capability '{capabilityType.FullName}'.");
+			if (borrowed is IDisposable or IAsyncDisposable)
+			{
+				if (!ReferenceEquals(borrowed, capabilityResult))
+				{
+					TrackOwned(context, borrowed, ownedInstances);
+				}
+
+				throw new InvalidOperationException($"A borrowed view must not expose disposal interfaces for item capability '{capabilityType.FullName}'.");
+			}
+
+			BorrowedViewContract<TCapability>.Validate(borrowed);
 
 			return new CapabilityResolution<TCapability>(borrowed, ownedInstances);
 		}
@@ -135,6 +138,44 @@ public sealed class CapabilityRegistry
 
 			throw;
 		}
+	}
+
+	private sealed class BorrowedViewLifetime(Action release) : IDisposable
+	{
+		private Action? _release = release;
+
+		public void Dispose()
+		{
+			Interlocked.Exchange(ref _release, null)?.Invoke();
+		}
+	}
+
+	private static class BorrowedViewContract<TCapability> where TCapability : class, ICapability
+	{
+		private static readonly ConcurrentDictionary<Type, bool> _validTypes = [];
+
+		public static void Validate(TCapability view)
+		{
+			var type = view.GetType();
+			if (!_validTypes.TryGetValue(type, out var valid))
+			{
+				valid = GetBorrowedViewInterfaces(view).All(static role => role.IsAssignableFrom(typeof(TCapability))
+					|| typeof(TCapability) == typeof(Files.Core.Capabilities.Content.IReadableContent) && role == typeof(Files.Core.Storage.Archives.IArchiveInput)
+					|| typeof(TCapability) == typeof(Files.Core.Capabilities.Properties.IPropertySource) && role == typeof(Files.Core.Capabilities.Properties.IBatchedPropertySource));
+				_validTypes.TryAdd(type, valid);
+			}
+
+			if (!valid)
+			{
+				throw new InvalidOperationException($"A borrowed view for '{typeof(TCapability).FullName}' exposes unrelated interfaces. Return a contract-specific adapter.");
+			}
+		}
+	}
+
+	// Use the annotated marker as the static receiver type so trimming preserves the interface metadata.
+	private static Type[] GetBorrowedViewInterfaces(ICapability view)
+	{
+		return view.GetType().GetInterfaces();
 	}
 
 	private TCapability? Combine<TCapability>(ItemContext context, IReadOnlyList<CapabilityOption<TCapability>> options) where TCapability : class, ICapability

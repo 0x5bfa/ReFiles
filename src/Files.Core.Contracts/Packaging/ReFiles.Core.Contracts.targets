@@ -1,0 +1,9 @@
+<!-- Copyright (c) Files Community. SPDX-License-Identifier: MPL-2.0 -->
+<Project>
+	<Target Name="ValidateReFilesWindowsSdkProjection" BeforeTargets="ResolveReferences" Condition="'$(TargetPlatformIdentifier)' == 'Windows'">
+		<Error Condition="'$(WindowsSdkPackageVersion)' == ''"
+			Text="ReFiles requires WindowsSdkPackageVersion $(ReFilesRequiredWindowsSdkPackageVersion) or a compatible newer projection. Set WindowsSdkPackageVersion in your project before restoring packages." />
+		<Error Condition="'$(WindowsSdkPackageVersion)' != '' And $([MSBuild]::VersionLessThan('$(WindowsSdkPackageVersion)', '$(ReFilesRequiredWindowsSdkPackageVersion)'))"
+			Text="WindowsSdkPackageVersion $(WindowsSdkPackageVersion) is older than the ReFiles projection $(ReFilesRequiredWindowsSdkPackageVersion). Update the property and restore packages." />
+	</Target>
+</Project>

@@ -38,7 +38,7 @@ public sealed class BrowsePaneSessionFactory : IBrowsePaneSessionFactory
 	public BrowsePaneSessionFactory(IBrowseLocationResolver locationResolver, IViewSettingsStore? viewSettingsStore = null, IThumbnailCache? thumbnailCache = null, int historyCapacity = 50,
 		BrowseApplicationServices? services = null, ILoggerFactory? loggerFactory = null)
 		: this(
-			() => new BrowseSession(locationResolver, viewSettingsStore, thumbnailCache, loggerFactory?.CreateLogger<BrowseSession>()),
+			() => new BrowseSession(locationResolver, viewSettingsStore, thumbnailCache, loggerFactory?.CreateLogger<BrowseSession>(), loggerFactory?.CreateLogger<BrowsePrefetchCoordinator>()),
 			static session => new BrowsePreviewModel(session),
 			historyCapacity,
 			services,

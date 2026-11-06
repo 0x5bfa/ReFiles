@@ -13,9 +13,9 @@ namespace Files.Benchmarks;
 [MemoryDiagnoser]
 public class CapabilityResolutionBenchmarks
 {
-	private CapabilityRegistry registry = null!;
+	private CapabilityRegistry _registry = null!;
 
-	private ItemContext context = null!;
+	private ItemContext _context = null!;
 
 	private IOwnedCapabilities _cachedCapabilities = null!;
 
@@ -34,7 +34,7 @@ public class CapabilityResolutionBenchmarks
 		var source = new BenchmarkStorageSource();
 		var coreModel = new BenchmarkStorable("item", "Item");
 		var reference = new StorableReference(source.SourceId, coreModel.Id);
-		context = new ItemContext(source, coreModel, reference);
+		_context = new ItemContext(source, coreModel, reference);
 
 		var builder = new CapabilityBuilder();
 		for (var index = 0; index < FactoryCount; index++)
@@ -43,10 +43,11 @@ public class CapabilityResolutionBenchmarks
 			builder.Add<IBenchmarkCapability>(new DelegateCapabilityFactory<IBenchmarkCapability>(_ => new BenchmarkCapability(value)), priority: index);
 		}
 
-		registry = builder
+		_registry = builder
+			.SetBorrowedView<IBenchmarkCapability>(static inner => new BenchmarkCapability(inner.Value))
 			.SetCombiner<IBenchmarkCapability>(new PriorityCapabilityCombiner<IBenchmarkCapability>())
 			.Build();
-		_cachedCapabilities = registry.CreateCapabilities(context);
+		_cachedCapabilities = _registry.CreateCapabilities(_context);
 		_ = _cachedCapabilities.Get<IBenchmarkCapability>();
 	}
 
@@ -66,7 +67,7 @@ public class CapabilityResolutionBenchmarks
 	[Benchmark(Baseline = true)]
 	public string ColdResolution()
 	{
-		using var capabilities = registry.CreateCapabilities(context);
+		using var capabilities = _registry.CreateCapabilities(_context);
 
 		return capabilities.Get<IBenchmarkCapability>()!.Value;
 	}

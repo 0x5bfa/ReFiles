@@ -66,6 +66,16 @@ jobs:
         msbuild $env:OPERATIONS_PROJECT_PATH `
           -restore -t:Build -p:Configuration=$env:CONFIGURATION -p:Platform=$env:ARCHITECTURE -v:quiet -clp:ErrorsOnly
 
+    - name: Validate packages and external consumers
+      if: matrix.configuration == 'Release' && matrix.platform == 'x64'
+      shell: pwsh
+      run: ./scripts/Validate-Packages.ps1 -Configuration Release -Platform x64
+
+    - name: Validate Native AOT MSIX payload
+      if: matrix.configuration == 'Release'
+      shell: pwsh
+      run: ./scripts/Validate-AppPackage.ps1 -Platform $env:ARCHITECTURE
+
     - name: Build tests
       if: matrix.configuration == 'Debug' && matrix.platform == 'x64'
       shell: pwsh

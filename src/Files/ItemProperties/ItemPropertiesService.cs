@@ -20,13 +20,14 @@ internal sealed partial class ItemPropertiesService : IItemPropertiesService, ID
 	private readonly IStorageReader _workspace;
 	private readonly ItemPropertiesIconResources _iconResources;
 	private readonly IItemPropertiesFileSystem _fileSystem;
+	private readonly IWindowsShellPropertyActions _propertyActions;
 	private readonly IWindowsShellPropertiesService? _shellProperties;
 	private readonly IStorageOperationService _storageOperations;
 	private readonly HashSet<ItemPropertiesWindow> _windows = [];
 	private bool _isDisposed;
 
 	internal ItemPropertiesService(nint owner, IStorageReader workspace, IStorageOperationService storageOperations, ItemPropertiesIconResources iconResources,
-		IWindowsShellPropertiesService? shellProperties = null, IItemPropertiesFileSystem? fileSystem = null)
+		IWindowsShellPropertyActions propertyActions, IItemPropertiesFileSystem fileSystem, IWindowsShellPropertiesService? shellProperties = null)
 	{
 		ArgumentNullException.ThrowIfNull(workspace);
 
@@ -34,10 +35,15 @@ internal sealed partial class ItemPropertiesService : IItemPropertiesService, ID
 
 		ArgumentNullException.ThrowIfNull(iconResources);
 
+		ArgumentNullException.ThrowIfNull(propertyActions);
+
+		ArgumentNullException.ThrowIfNull(fileSystem);
+
 		_owner = owner;
 		_workspace = workspace;
 		_iconResources = iconResources;
-		_fileSystem = fileSystem ?? Files.Hosting.FilesHost.CreateItemPropertiesFileSystem(storageOperations as IFileAttributeOperationService);
+		_fileSystem = fileSystem;
+		_propertyActions = propertyActions;
 		_shellProperties = shellProperties;
 		_storageOperations = storageOperations;
 	}
@@ -65,6 +71,7 @@ internal sealed partial class ItemPropertiesService : IItemPropertiesService, ID
 			items,
 			_storageOperations,
 			_fileSystem,
+			_propertyActions,
 			_iconResources,
 			getIcon,
 			_shellProperties is null ? null : cancellationToken => _shellProperties.GetPropertyPagesAsync(references, cancellationToken),

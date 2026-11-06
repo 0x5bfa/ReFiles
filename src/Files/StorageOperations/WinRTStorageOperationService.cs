@@ -22,7 +22,7 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 	private readonly ILogger<WinRTStorageOperationService> _logger;
 	private readonly HashSet<string> _ftpSources = [];
 	private readonly CancellationTokenSource _shutdown = new();
-	private readonly IThumbnailCache _fallbackThumbnailCache = Files.Hosting.FilesHost.CreateThumbnailCache();
+	private readonly IThumbnailCache _fallbackThumbnailCache;
 	private readonly Task _observer;
 	private Task<BackgroundServer.AppService>? _connection;
 	private BackgroundServer.OperationSummary[] _operations = [];
@@ -38,8 +38,11 @@ internal sealed partial class WinRTStorageOperationService : IStorageOperationSe
 
 	public IStorageJobService Jobs => this;
 
-	internal WinRTStorageOperationService(ILogger<WinRTStorageOperationService>? logger = null)
+	internal WinRTStorageOperationService(IThumbnailCache fallbackThumbnailCache, ILogger<WinRTStorageOperationService>? logger = null)
 	{
+		ArgumentNullException.ThrowIfNull(fallbackThumbnailCache);
+
+		_fallbackThumbnailCache = fallbackThumbnailCache;
 		_logger = logger ?? NullLogger<WinRTStorageOperationService>.Instance;
 		_observer = Task.Run(ObserveAsync);
 	}
