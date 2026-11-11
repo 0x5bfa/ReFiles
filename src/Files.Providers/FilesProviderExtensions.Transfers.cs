@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 using Files.Core.Storage.Archives;
-using Files.Core.Storage.Archives.SharpCompress;
+using Files.Core.Storage.Archives.SevenZip;
 using Files.Core.Storage.Transfers;
 using Files.Core.Storage.Windows;
 
@@ -27,7 +27,7 @@ public static partial class FilesProviderExtensions
 		if (builder.TryAddModule(StorageTransfersModule))
 		{
 			AddFtpContentCapabilities(builder);
-			readers ??= new ArchiveBackendSelector([new SharpCompressArchiveBackend()]);
+			readers ??= new ArchiveBackendSelector([new SevenZipArchiveBackend()]);
 			builder.AddArchiveBrowsing(readers.Backends, credentials);
 			builder.ConfigureStorageTransfers(readers, credentials,
 				workspace => workspace.Sources.OfType<WindowsStorageSource>().Select(source => (IStorageImportProvider)new WindowsStorageImportProvider(source)).ToArray());

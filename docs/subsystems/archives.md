@@ -1,6 +1,6 @@
 # Archives
 
-Archive browsing uses the same file and folder models as other sources. SharpCompress stays behind a managed reader boundary; application models and navigation do not depend on archive-library or native interfaces. No OwlCore dependency is used.
+Archive browsing uses the same file and folder models as other sources. Archive technology stays behind a managed reader boundary; application models and navigation do not depend on SevenZipSharp or native interfaces. No OwlCore dependency is used.
 
 ## Responsibilities
 
@@ -48,7 +48,7 @@ Local Windows input is pinned with `FileShare.Read`, and identity is checked aga
 
 ## Reader failures and credentials
 
-Only an explicit `Unsupported` result permits reader fallback. Corruption, access failures, and credential challenges are not interpreted as unsupported input. The standard configuration registers one SharpCompress reader behind the Windows Shell archive provider.
+Only an explicit `Unsupported` result permits reader fallback. Corruption, access failures, and credential challenges are not interpreted as unsupported input. The standard configuration registers one SevenZip reader.
 
 Credential handling belongs to the archive model/provider, including challenges discovered during extraction. Retry count is bounded. A published view retains its selected backend and catalog; reopening after a challenge must reproduce the catalog or fail. Passwords are not stored in locators or item identities.
 
@@ -56,11 +56,11 @@ An encrypted record can report CRC/data failure for either an incorrect password
 
 Never log passwords or place them in addresses, diagnostics, or persisted state. Archive paths remain untrusted: extraction code must not concatenate decoded record paths into filesystem destinations, even if browsing accepts them as logical names.
 
-The SharpCompress reader extracts a selected record to a temporary file and checks completion before returning it. Cancellation is checked before extraction, during stream copying, and before publishing the result. A solid archive can still spend time decoding preceding data when an entry is opened independently.
+The SevenZip reader extracts a selected record to a temporary file and checks completion before returning it. Cancellation is checked before extraction, on output writes, and before publishing the result. A solid archive can still spend time decoding preceding data between cancellation checks. There is no hard termination guarantee for native calls.
 
 ## Shipped dependencies
 
-`ReFiles.Providers` uses SharpCompress for archive reading. The dependency is restored from NuGet.org and is not exposed through provider contracts.
+The local feed contains `SevenZipSharp.1.0.4.nupkg`, which supplies the managed wrapper and native 7-Zip runtime assets. NuGet selects the matching native assets for build and publish; `Files.Core/Native` retains the dependency notices distributed with the application.
 
 ## Deliberate limits
 
@@ -68,4 +68,4 @@ This implementation is read-only. It does not introduce archive updates, a sessi
 
 ## Tests
 
-Unit tests cover exact record resolution, collisions, traversal rejection, nested navigation, session identity, fallback, credential replacement, late cancellation, disposal races, and input completion failures. Archive fixtures cover duplicate ZIP names, CRC rejection, 7z content and header encryption, pinned local input, and composed read wrappers. Package-consumer smoke checks verify that the reader dependency remains private to provider implementation assets.
+Unit tests cover exact record resolution, collisions, traversal rejection, nested navigation, session identity, fallback, credential replacement, late cancellation, disposal races, and input completion failures. Real native fixtures cover duplicate ZIP names, CRC rejection, 7z content and header encryption, pinned local input, and composed read wrappers. Package-consumer smoke checks must also verify native asset and notice placement independently of project references.

@@ -9,18 +9,19 @@ using Files.Core.Capabilities.Content;
 using Files.Core.Models;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Windows;
+using SevenZip;
 
 namespace Files.UnitTests;
 
-/// <summary>Exercises the shipped archive reader against real containers and independent input lifetimes.</summary>
+/// <summary>Exercises the shipped native reader against real containers and independent input lifetimes.</summary>
 [TestClass]
 [DoNotParallelize]
-public sealed class ArchiveReaderTests
+public sealed class ArchiveNativeReaderTests
 {
 	/// <summary>Real ZIP records with duplicate names and conflicting paths remain independently readable.</summary>
 	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
-	public async Task SharpCompressReaderPreservesDuplicateZipRecords()
+	public async Task NativeReaderPreservesDuplicateZipRecords()
 	{
 		var data = CreateZip(("same.txt", "first"), ("same.txt", "second"), ("Same.txt", "case"), ("node", "file"), ("node/child.txt", "child"));
 		await using var source = new ArchiveTestSource(content: data);
@@ -51,7 +52,7 @@ public sealed class ArchiveReaderTests
 	/// <summary>CRC failures do not publish an extracted stream.</summary>
 	/// <returns>The asynchronous test.</returns>
 	[TestMethod]
-	public async Task SharpCompressReaderRejectsCorruptContentBeforeReturningAStream()
+	public async Task NativeReaderRejectsCorruptContentBeforeReturningAStream()
 	{
 		const string payload = "unique archive payload";
 		var data = CreateZip(("file.txt", payload));
@@ -79,12 +80,14 @@ public sealed class ArchiveReaderTests
 	[TestMethod]
 	[DataRow(false)]
 	[DataRow(true)]
-	public async Task SharpCompressReaderOpensEncryptedSevenZipAfterARejectedCredential(bool encryptHeaders)
+	public async Task NativeReaderOpensEncryptedSevenZipAfterARejectedCredential(bool encryptHeaders)
 	{
-		var fixture = encryptHeaders ? "Encrypted7zHeaders.7z" : "Encrypted7zData.7z";
-		var data = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "ArchiveFixtures", fixture));
+		using var output = new MemoryStream();
+		using var content = new MemoryStream(Encoding.UTF8.GetBytes("encrypted content"));
+		var compressor = new SevenZipCompressor { ArchiveFormat = OutArchiveFormat.SevenZip, EncryptHeaders = encryptHeaders };
+		compressor.CompressStreamDictionary(new Dictionary<string, Stream> { ["secret.txt"] = content }, output, "password");
 		var credentials = new NativeCredentials();
-		await using var source = new ArchiveTestSource("encrypted.7z", data);
+		await using var source = new ArchiveTestSource("encrypted.7z", output.ToArray());
 		var models = CreateModels(credentials);
 		await using var container = models.Create(source, await source.ResolveAsync(source.Reference));
 		await using var archive = await container.Get<IArchiveSource>()!.OpenAsync();
@@ -151,14 +154,17 @@ public sealed class ArchiveReaderTests
 	}
 
 	/// <summary>Only encrypted records may retry an ambiguous integrity failure as a credential challenge.</summary>
+	/// <param name="result">The native extraction result.</param>
 	/// <param name="encrypted">Whether the selected record is encrypted.</param>
 	/// <param name="expected">Whether another credential can be requested.</param>
 	[TestMethod]
-	[DataRow(true, true)]
-	[DataRow(false, false)]
-	public void CredentialRetryDoesNotHideUnencryptedCorruption(bool encrypted, bool expected)
+	[DataRow(OperationResult.CrcError, true, true)]
+	[DataRow(OperationResult.CrcError, false, false)]
+	[DataRow(OperationResult.DataError, true, true)]
+	[DataRow(OperationResult.UnsupportedMethod, true, false)]
+	public void CredentialRetryDoesNotHideUnencryptedCorruption(OperationResult result, bool encrypted, bool expected)
 	{
-		Assert.AreEqual(expected, Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend.IsCredentialRetryCandidate(encrypted, new InvalidDataException()));
+		Assert.AreEqual(expected, Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.IsCredentialRetryCandidate(encrypted, new ExtractionFailedException(result)));
 	}
 
 	private static byte[] CreateZip(params (string Path, string Content)[] entries)

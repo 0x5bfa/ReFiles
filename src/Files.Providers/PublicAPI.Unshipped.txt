@@ -1,7 +1,1 @@
 #nullable enable
-const Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend.DefaultBackendId = "sharpcompress" -> string!
-Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend
-Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend.Id.get -> string!
-Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend.Priority.get -> int
-Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend.SharpCompressArchiveBackend() -> void
-Files.Core.Storage.Archives.SharpCompress.SharpCompressArchiveBackend.TryOpenAsync(Files.Core.Storage.Archives.ArchiveOpenRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Archives.ArchiveOpenResult!>

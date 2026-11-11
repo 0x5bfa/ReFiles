@@ -8,7 +8,7 @@
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>ReFiles.Providers</PackageId>
-		<Version>0.1.1</Version>
+		<Version>0.1.0</Version>
 		<Authors>0x5bfa</Authors>
 		<Description>Windows Shell, FTP and archive providers for ReFiles.</Description>
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
@@ -21,7 +21,7 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
 		<PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
 		<PackageReference Include="FluentFTP" PrivateAssets="compile" />
-		<PackageReference Include="SharpCompress" PrivateAssets="compile" />
+		<PackageReference Include="SevenZipSharp" PrivateAssets="compile" />
 		<PackageReference Include="System.Management" PrivateAssets="compile" />
 		<InternalsVisibleTo Include="Files.UnitTests" />
 		<InternalsVisibleTo Include="Files.Benchmarks" />

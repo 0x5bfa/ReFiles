@@ -1,4 +1,5 @@
 #nullable enable
+const Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.DefaultBackendId = "sevenzip" -> string!
 const Files.Core.Storage.Ftp.FtpStorageSource.DefaultSourceType = "ftp" -> string!
 const Files.Core.Storage.Ftp.FtpStorageSource.ExplicitTlsAddressScheme = "ftpes" -> string!
 const Files.Core.Storage.Ftp.FtpStorageSource.FtpAddressScheme = "ftp" -> string!
@@ -20,6 +21,11 @@ Files.Core.Capabilities.Archives.ArchiveSourceFactory
 Files.Core.Capabilities.Archives.ArchiveSourceFactory.ArchiveSourceFactory(System.Collections.Generic.IEnumerable<string!>? extensions = null, Files.Core.Storage.Archives.ArchiveBackendSelector? readers = null, Files.Core.Storage.Archives.IArchiveCredentialResolver? credentials = null) -> void
 Files.Core.Capabilities.Archives.ArchiveSourceFactory.Create(Files.Core.Capabilities.ItemContext! context) -> Files.Core.Capabilities.Archives.IArchiveSource?
 Files.Core.FilesProviderExtensions
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.Id.get -> string!
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.Priority.get -> int
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.SevenZipArchiveBackend() -> void
+Files.Core.Storage.Archives.SevenZip.SevenZipArchiveBackend.TryOpenAsync(Files.Core.Storage.Archives.ArchiveOpenRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Archives.ArchiveOpenResult!>
 Files.Core.Storage.Ftp.AnonymousFtpCredentialResolver
 Files.Core.Storage.Ftp.AnonymousFtpCredentialResolver.ResolveAsync(Files.Core.Storage.Ftp.FtpCredentialRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Files.Core.Storage.Ftp.FtpCredential?>
 Files.Core.Storage.Ftp.FluentFtpSessionFactory

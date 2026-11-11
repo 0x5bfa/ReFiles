@@ -89,16 +89,6 @@ internal sealed class WindowsContentSource : IReadableContent, IWritableContent,
 
 	private Task<Stream> OpenArchiveInputAsync(CancellationToken cancellationToken)
 	{
-		cancellationToken.ThrowIfCancellationRequested();
-
-		var path = _descriptor.Metadata.FileSystemPath ?? throw new InvalidOperationException("The Windows item does not have a file-system path.");
-
-		return Task.FromResult<Stream>(new FileStream(path, new FileStreamOptions
-		{
-			Mode = FileMode.Open,
-			Access = FileAccess.Read,
-			Share = FileShare.Read,
-			Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
-		}));
+		return OpenStreamAsync(FileAccess.Read, cancellationToken);
 	}
 }
