@@ -39,7 +39,7 @@ jobs:
         run: |
           $projects = @('Files.Core.Contracts', 'Files.Core.ProviderContracts', 'Files.Core', 'Files.Providers', 'Files.Hosting')
           foreach ($project in $projects) {
-            dotnet pack "src/$project/$project.csproj" --configuration Release --output $env:OUTPUT_DIR -p:Platform=x64
+            dotnet pack "src/$project/$project.csproj" --configuration Release --output $env:OUTPUT_DIR -p:Platform=x64 -p:GeneratePackageOnBuild=false
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
