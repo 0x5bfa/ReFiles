@@ -6,7 +6,7 @@ using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
 using Files.Core.Storage.Windows;
 using Files.Core.Models;
-using Files.Core.Storage.Archives.SevenZip;
+using Files.Core.Storage.Archives.SharpCompress;
 
 namespace Files.Core.Capabilities.Archives;
 
@@ -19,7 +19,6 @@ public sealed class ArchiveSourceFactory
 		".7z",
 		".gz",
 		".jar",
-		".lzh",
 		".mrpack",
 		".rar",
 		".tar",
@@ -43,7 +42,7 @@ public sealed class ArchiveSourceFactory
 		}
 
 		_extensions = Array.AsReadOnly(extensionArray);
-		_readers = readers ?? new ArchiveBackendSelector([new SevenZipArchiveBackend()]);
+		_readers = readers ?? new ArchiveBackendSelector([new SharpCompressArchiveBackend()]);
 		_credentials = credentials;
 	}
 

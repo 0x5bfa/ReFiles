@@ -20,7 +20,6 @@
 	<ItemGroup>
 		<PackageReference Include="MSTest.TestAdapter" />
 		<PackageReference Include="MSTest.TestFramework" />
-		<PackageReference Include="SevenZipSharp" />
 		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
 		<PackageReference Include="Microsoft.Windows.CsWin32" PrivateAssets="all" />
 	</ItemGroup>
@@ -38,6 +37,9 @@
 		<Compile Include="../../src/Files/Settings/StoredBrowseViewState.cs" Link="Settings/StoredBrowseViewState.cs" />
 		<Compile Include="../../src/Files/Settings/ViewSettingsJsonContext.cs" Link="Settings/ViewSettingsJsonContext.cs" />
 		<Compile Include="../Files.UITests/PresentationTests/JsonViewSettingsStoreTests.cs" Link="Settings/JsonViewSettingsStoreTests.cs" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Update="ArchiveFixtures\*.7z" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>

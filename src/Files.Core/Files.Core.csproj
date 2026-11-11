@@ -25,7 +25,7 @@
 		<PackageId>ReFiles.Core</PackageId>
 		<Title>ReFiles.Core</Title>
 		<Authors>0x5bfa</Authors>
-		<Version>0.1.0</Version>
+		<Version>0.1.1</Version>
 		<Description>UI-independent storage, browsing, capability, and Windows Shell foundation for ReFiles.</Description>
 		<PackageLicenseFile>LICENSE-MPL</PackageLicenseFile>
 		<PackageReadmeFile>PACKAGE.md</PackageReadmeFile>

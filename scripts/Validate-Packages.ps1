@@ -24,6 +24,8 @@ foreach ($project in $projects) {
         if ($spec.package.metadata.id -ne $id) { throw "Unexpected package ID in $($packages[0].Name)" }
         $versions += [string]$spec.package.metadata.version
         $dependencies = @($spec.package.metadata.dependencies.group.dependency)
+        if ($dependencies.id -contains 'SevenZipSharp') { throw "$id still depends on SevenZipSharp" }
+        if ($id -eq 'ReFiles.Providers' -and $dependencies.id -notcontains 'SharpCompress') { throw 'ReFiles.Providers must depend on SharpCompress for archive reading.' }
         foreach ($dependency in $dependencies | Where-Object id -Like 'ReFiles.*') {
             if ($dependency.version.Trim('[', ']') -ne $spec.package.metadata.version) { throw "Mismatched dependency in $id" }
         }
@@ -34,9 +36,8 @@ if (@($versions | Select-Object -Unique).Count -ne 1) { throw 'All package versi
 $consumerRoot = Join-Path ([IO.Path]::GetTempPath()) "ReFiles.PackageConsumers.$([Guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $consumerRoot | Out-Null
 $feed = [Security.SecurityElement]::Escape($OutputDirectory)
-$nativeFeed = [Security.SecurityElement]::Escape("$repo/src/Files/Assets/Libraries")
 @"
-<configuration><packageSources><clear/><add key="packages" value="$feed"/><add key="native" value="$nativeFeed"/><add key="nuget" value="https://api.nuget.org/v3/index.json"/></packageSources></configuration>
+<configuration><packageSources><clear/><add key="packages" value="$feed"/><add key="nuget" value="https://api.nuget.org/v3/index.json"/></packageSources></configuration>
 "@ | Set-Content -LiteralPath "$consumerRoot/NuGet.Config"
 foreach ($kind in @('Hosting', 'Provider', 'Sdk')) {
     $directory = Join-Path $consumerRoot $kind
@@ -73,7 +74,7 @@ foreach ($kind in @('Hosting', 'Provider', 'Sdk')) {
     foreach ($target in $assets.targets.Values) {
         foreach ($library in $target.GetEnumerator()) {
             $name = $library.Key.Split('/')[0]
-            $forbidden = if ($kind -eq 'Hosting') { @('ReFiles.Core', 'ReFiles.Providers', 'ReFiles.Core.ProviderContracts', 'FluentFTP', 'SevenZipSharp', 'System.Management') } elseif ($kind -eq 'Sdk') { @('ReFiles.Core', 'ReFiles.Providers') } else { @() }
+            $forbidden = if ($kind -eq 'Hosting') { @('ReFiles.Core', 'ReFiles.Providers', 'ReFiles.Core.ProviderContracts', 'FluentFTP', 'SharpCompress', 'SevenZipSharp', 'System.Management') } elseif ($kind -eq 'Provider') { @('SharpCompress', 'SevenZipSharp') } elseif ($kind -eq 'Sdk') { @('ReFiles.Core', 'ReFiles.Providers') } else { @() }
             if ($kind -eq 'Sdk' -and $name -in $forbidden) {
                 throw "ProviderContracts unexpectedly depends on $name"
             }

@@ -76,7 +76,7 @@ Implemented areas:
 - in-memory and pluggable view settings;
 - cached encoded thumbnails, typed properties, and folder changes;
 - stream previews and hosted Windows Shell preview sessions;
-- Shell-first archive browsing with SevenZip fallback and UI-independent
+- Shell-first archive browsing with SharpCompress fallback and UI-independent
   credential requests;
 - FTP/FTPS sources with credential-free identity, owned remote streams,
   listing properties, and same-source storage operations;
@@ -96,7 +96,7 @@ Implemented areas:
 - PNG thumbnails, typed Shell properties, and shared folder notifications;
 - stream and Shell preview loaders;
 - `IFileOperation` create/rename/copy/move/delete.
-- Windows Shell archive folders with SevenZipSharp fallback on Windows 10,
+- Windows Shell archive folders with SharpCompress fallback on Windows 10,
   encrypted archives, unsupported Shell formats, and remote streams.
 
 Files.Core targets Windows and owns its source-generated CsWin32 interop. It

@@ -6,7 +6,7 @@ using Files.Core.Capabilities;
 using Files.Core.Capabilities.Archives;
 using Files.Core.Capabilities.Content;
 using Files.Core.Storage.Archives;
-using Files.Core.Storage.Archives.SevenZip;
+using Files.Core.Storage.Archives.SharpCompress;
 
 namespace Files.Core;
 
@@ -23,7 +23,7 @@ public static partial class FilesProviderExtensions
 	{
 		ArgumentNullException.ThrowIfNull(builder);
 
-		return builder.AddArchiveBrowsing([new SevenZipArchiveBackend()], credentialResolver);
+		return builder.AddArchiveBrowsing([new SharpCompressArchiveBackend()], credentialResolver);
 	}
 
 	/// <summary>Registers archive capabilities and browsing with the specified readers.</summary>

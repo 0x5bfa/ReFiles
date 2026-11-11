@@ -73,7 +73,7 @@ Consumer declarations are in Contracts, raw module contracts in ProviderContract
 | `Storage/Models` | Item models that compose storage items with optional capabilities. The existing namespace is `Files.Core.Models`. |
 | `Storage/Workspace` | Source registration, item resolution, and source lifetime ownership. The existing namespace is `Files.Core.Data`. |
 | `Storage/Operations` | Operation routing and execution contracts, with `Requests`, `Jobs`, and `Transfers` subfolders. |
-| Providers: `Storage/Windows`, `Storage/Ftp`, `Storage/Archives/SevenZip` | Platform implementations and their implementation-specific contracts. Generic archive mounts remain in Core. |
+| Providers: `Storage/Windows`, `Storage/Ftp`, `Storage/Archives/SharpCompress` | Platform implementations and their implementation-specific contracts. Generic archive mounts remain in Core. |
 | `Capabilities` | Optional item behavior, grouped by feature. |
 | `FilesCoreBuilder*.cs`, `FilesCoreRuntime.cs` | Runtime construction and shared service composition at the Core root. |
 
