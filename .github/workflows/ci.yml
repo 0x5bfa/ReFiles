@@ -71,6 +71,53 @@ jobs:
       shell: pwsh
       run: ./scripts/Validate-Packages.ps1 -Configuration Release -Platform x64
 
+    - name: Verify deterministic NuGet packages
+      if: matrix.configuration == 'Release' && matrix.platform == 'x64'
+      shell: pwsh
+      run: |
+        $timestamp = git show -s --format=%ct HEAD
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        $projects = @('Files.Core.Contracts', 'Files.Core.ProviderContracts', 'Files.Core', 'Files.Providers', 'Files.Hosting')
+        $firstOutput = Join-Path $env:RUNNER_TEMP 'ReFiles-pack-a'
+        $secondOutput = Join-Path $env:RUNNER_TEMP 'ReFiles-pack-b'
+        $outputDirectories = @($firstOutput, $secondOutput)
+        foreach ($outputDirectory in $outputDirectories) {
+          New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
+          foreach ($project in $projects) {
+            $packArguments = @(
+              'pack',
+              "src/$project/$project.csproj",
+              '--configuration', 'Release',
+              '--no-build',
+              '--no-restore',
+              '-p:Platform=x64',
+              '-p:PackageVersion=0.0.0-ci',
+              '-p:ContinuousIntegrationBuild=true',
+              "-p:DeterministicTimestamp=$timestamp",
+              "-p:RepositoryCommit=$env:GITHUB_SHA",
+              '--output', $outputDirectory,
+              '--verbosity', 'quiet'
+            )
+            & dotnet @packArguments
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+        }
+
+        $firstPackages = @(Get-ChildItem -LiteralPath $firstOutput -File | Sort-Object Name)
+        $secondPackages = @(Get-ChildItem -LiteralPath $secondOutput -File | Sort-Object Name)
+        if ($firstPackages.Count -eq 0 -or ($firstPackages.Name -join "`n") -ne ($secondPackages.Name -join "`n")) {
+          throw 'The deterministic package runs produced different package files.'
+        }
+
+        foreach ($package in $firstPackages) {
+          $firstHash = (Get-FileHash -LiteralPath $package.FullName -Algorithm SHA256).Hash
+          $secondHash = (Get-FileHash -LiteralPath (Join-Path $secondOutput $package.Name) -Algorithm SHA256).Hash
+          if ($firstHash -ne $secondHash) {
+            throw "Deterministic package check failed for $($package.Name)."
+          }
+        }
+
     - name: Validate Native AOT MSIX payload
       if: matrix.configuration == 'Release'
       shell: pwsh

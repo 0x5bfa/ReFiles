@@ -1,0 +1,52 @@
+# Copyright (c) Files Community
+# SPDX-License-Identifier: MPL-2.0
+
+name: CD
+
+on:
+  workflow_dispatch:
+
+run-name: Publish ReFiles packages to NuGet.org
+
+env:
+  OUTPUT_DIR: '${{ github.workspace }}\artifacts'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    environment: nuget.org
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: NuGet login
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: '0x5BFA'
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          $projects = @('Files.Core.Contracts', 'Files.Core.ProviderContracts', 'Files.Core', 'Files.Providers', 'Files.Hosting')
+          foreach ($project in $projects) {
+            dotnet pack "src/$project/$project.csproj" --configuration Release --output $env:OUTPUT_DIR -p:Platform=x64
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Publish to NuGet.org
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push $env:OUTPUT_DIR\*.nupkg --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push $env:OUTPUT_DIR\*.snupkg --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
