@@ -586,9 +586,6 @@ Files.Core.Sessions.TabRestoreState
 Files.Core.Sessions.TabRestoreState.ActivePaneIndex.get -> int
 Files.Core.Sessions.TabRestoreState.PaneCount.get -> int
 Files.Core.Sessions.TabRestoreState.SplitOrientation.get -> Files.Core.Sessions.PaneSplitOrientation
-Files.Core.Settings.ISettingsStorage
-Files.Core.Settings.ISettingsStorage.ReadTextAsync(string! fileName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
-Files.Core.Settings.ISettingsStorage.WriteTextAsync(string! fileName, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Files.Core.Storage.ArchiveFolderLocator
 Files.Core.Storage.ArchiveFolderLocator.ArchiveFolderLocator(Files.Core.Storage.Archives.ArchiveLocator! container, string! entryPath) -> void
 Files.Core.Storage.ArchiveFolderLocator.Container.get -> Files.Core.Storage.Archives.ArchiveLocator!

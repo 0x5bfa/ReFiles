@@ -1,7 +1,7 @@
 // Copyright (c) Files Community
 // SPDX-License-Identifier: MPL-2.0
 
-using System.IO;
+using System.Collections.Concurrent;
 using Files.Core.Browsing;
 using Files.Core.ViewSettings;
 using Files.Settings;
@@ -21,32 +21,40 @@ public sealed class JsonViewSettingsStoreTests
 	[TestMethod]
 	public async Task StoresAndReloadsViewState()
 	{
-		var settingsRoot = Path.Combine(Path.GetTempPath(), $"JsonViewSettingsTests-{Guid.NewGuid():N}");
-		Directory.CreateDirectory(settingsRoot);
-		try
+		var storage = new InMemorySettingsStorage();
+		using (var store = new JsonViewSettingsStore(storage, TimeSpan.FromHours(1)))
 		{
-			using (var store = new JsonViewSettingsStore(settingsRoot, TimeSpan.FromHours(1)))
-			{
-				await store.InitializeAsync();
-				await store.SetAsync(HomeLocation.Instance, new BrowseViewSettings(ViewLayoutMode.List, itemSize: 2));
-				store.SaveNow();
-			}
-
-			Assert.IsTrue(File.Exists(Path.Combine(settingsRoot, "Settings", "view-state.json")));
-			using var reloaded = new JsonViewSettingsStore(settingsRoot, TimeSpan.FromHours(1));
-			await reloaded.InitializeAsync();
-			var settings = await reloaded.GetAsync(HomeLocation.Instance);
-
-			Assert.IsNotNull(settings);
-			Assert.AreEqual(ViewLayoutMode.List, settings.LayoutMode);
-			Assert.AreEqual(2, settings.ItemSize);
+			await store.InitializeAsync();
+			await store.SetAsync(HomeLocation.Instance, new BrowseViewSettings(ViewLayoutMode.List, itemSize: 2));
+			store.SaveNow();
 		}
-		finally
-		{
-			if (Directory.Exists(settingsRoot))
-			{
-				Directory.Delete(settingsRoot, recursive: true);
-			}
-		}
+
+		using var reloaded = new JsonViewSettingsStore(storage, TimeSpan.FromHours(1));
+		await reloaded.InitializeAsync();
+		var settings = await reloaded.GetAsync(HomeLocation.Instance);
+
+		Assert.IsNotNull(settings);
+		Assert.AreEqual(ViewLayoutMode.List, settings.LayoutMode);
+		Assert.AreEqual(2, settings.ItemSize);
+	}
+}
+
+internal sealed class InMemorySettingsStorage : ISettingsStorage
+{
+	private readonly ConcurrentDictionary<string, string> _documents = new(StringComparer.Ordinal);
+
+	public Task<string?> ReadTextAsync(string fileName, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+
+		return Task.FromResult(_documents.GetValueOrDefault(fileName));
+	}
+
+	public Task WriteTextAsync(string fileName, string text, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		_documents[fileName] = text;
+
+		return Task.CompletedTask;
 	}
 }

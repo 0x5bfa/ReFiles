@@ -24,8 +24,9 @@ public partial class App : Application
 	private readonly ServiceProvider _services;
 	private readonly List<MainWindow> _mainWindows = [];
 	private readonly CommandRegistry _commandRegistry;
-	private readonly JsonViewSettingsStore _viewSettingsStore;
-	private readonly AppSettingsService _settings;
+	private readonly DeferredViewSettingsStore _viewSettingsStore;
+	private JsonViewSettingsStore? _persistentViewSettingsStore;
+	private AppSettingsService _settings;
 	private readonly ILoggerFactory _loggerFactory;
 	private readonly ILogger<App> _logger;
 	private readonly WinRTStorageOperationService _storageOperations;
@@ -44,10 +45,8 @@ public partial class App : Application
 		_logger = _services.GetRequiredService<ILogger<App>>();
 		_storageOperations = _services.GetRequiredService<WinRTStorageOperationService>();
 		_storageOperationTracker = _services.GetRequiredService<StorageOperationTracker>();
-		_viewSettingsStore = new JsonViewSettingsStore(AppSettingsService.GetDefaultLocalFolderPath());
-		_settings = new AppSettingsService();
-		_settings.ApplyLanguage();
-		InitializeComponent();
+		_viewSettingsStore = new DeferredViewSettingsStore();
+		_settings = new AppSettingsService(new AppSettingsData());
 		_commandRegistry = _services.GetRequiredService<CommandRegistry>();
 		_settings.PropertyChanged += Settings_PropertyChanged;
 	}
@@ -84,13 +83,25 @@ public partial class App : Application
 			_logger.LogDebug("{Component}: {Message}", "App", "Launch START");
 		}
 
-		await _viewSettingsStore.InitializeAsync().ConfigureAwait(true);
 		var currentRuntime = Files.Hosting.FilesHost.CreateUIRuntime(_viewSettingsStore, _storageOperations, _storageOperations, _loggerFactory);
 		_runtime = currentRuntime;
 		if (_logger.IsEnabled(LogLevel.Debug))
 		{
 			_logger.LogDebug("{Component}: {Message}", "App", $"Runtime built elapsedMs={Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds:F1}");
 		}
+
+		var settingsStorage = AppSettingsStorageFactory.Create(currentRuntime.Workspace, currentRuntime.StorageOperations, AppSettingsService.GetDefaultLocalFolderPath());
+		_settings.PropertyChanged -= Settings_PropertyChanged;
+		_settings.Dispose();
+		_settings = new AppSettingsService(settingsStorage);
+		_settings.PropertyChanged += Settings_PropertyChanged;
+		_settings.ApplyLanguage();
+		InitializeComponent();
+
+		var viewSettingsStore = new JsonViewSettingsStore(settingsStorage);
+		_persistentViewSettingsStore = viewSettingsStore;
+		await viewSettingsStore.InitializeAsync().ConfigureAwait(true);
+		_viewSettingsStore.SetInner(viewSettingsStore);
 
 		await CreateWindowAsync(persistPlacement: true).ConfigureAwait(true);
 		if (_logger.IsEnabled(LogLevel.Debug))
@@ -246,7 +257,7 @@ public partial class App : Application
 		try
 		{
 			_settings.Dispose();
-			_viewSettingsStore.Dispose();
+			_persistentViewSettingsStore?.Dispose();
 
 			if (Interlocked.Exchange(ref _runtime, null) is { } currentRuntime)
 			{

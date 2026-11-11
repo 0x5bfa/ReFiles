@@ -46,13 +46,13 @@ Managed preview, menu, clipboard, drag/drop and property-sheet contracts live in
 
 `FilesHost.CreateUIRuntime` returns `IUIFilesRuntime`. Its borrowed Windows services provide previews, clipboard access, native data-transfer capture, menus, contextual/default commands, property data and registered synchronization roots. Files consumes session interfaces and `IStorageReader`; pane presenters select the registered interface while retaining exact custom-content registrations. Windows property editors and filesystem inspection are borrowed from `IWindowsShellUIServices` and passed through constructors. Browse sessions create presenter-owned prefetch coordinators; window sessions open settings tabs. Views do not call Hosting factories. Attribute edits continue through the configured operation server.
 
-Files generates only its own UI/window/composition interop. Native clipboard extraction, filesystem metadata and settings file operations reside in Providers. `DisableTransitiveProjectReferences` plus `EnforceConsumerReferenceBoundary` prevent direct and transitive Core, Providers, ProviderContracts and backend package compiler references. UI tests explicitly reference implementations only to construct fixtures, then pass consumer readers to the product.
+Files generates only its own UI/window/composition interop. Providers owns reusable native clipboard extraction and filesystem metadata implementation. `DisableTransitiveProjectReferences` plus `EnforceConsumerReferenceBoundary` prevent direct and transitive Core, Providers, ProviderContracts and backend package compiler references. UI tests explicitly reference implementations only to construct fixtures, then pass consumer readers to the product.
 
-## Settings before runtime startup
+## Application settings persistence
 
-`FilesHost.OpenSettingsStorage` configures an `ISettingsStorage` confined to the application's `Settings` directory. App settings can load before XAML initialization and runtime construction. JSON schemas, generated settings properties, save timers, retry policy and change notifications remain in Files. Providers owns UTF-8 I/O, temporary-file cleanup and atomic commit; failed or cancelled writes preserve the previous document. Native replacement retains destination metadata.
+Files owns the app-specific settings contract, `LocalState/Settings` path policy, document names, JSON schemas, generated settings properties, save timers, retry policy and change notifications. After creating the runtime, Files resolves settings files through its workspace and reads or writes them through content capabilities. It creates temporary documents through storage operations and commits them with a native replacement when a destination already exists. Failed or cancelled writes preserve the previous document. Settings storage is private to Files; Core and Hosting expose no settings-storage contract or factory.
 
-The browse-settings production source is also exercised by the headless unit runner. Tests cover reload, initial creation, replacement, a locked destination, retry after failure, cancellation and rejection of path components.
+Files loads settings before XAML initialization and before creating its windows. The runtime's browse settings store uses the same private persistence implementation.
 
 ## API and package validation
 

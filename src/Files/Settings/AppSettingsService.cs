@@ -18,7 +18,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 	private static readonly TimeSpan _defaultSaveDelay = TimeSpan.FromMilliseconds(250);
 	private static readonly TimeSpan _saveRetryDelay = TimeSpan.FromSeconds(5);
 
-	private readonly Files.Core.Settings.ISettingsStorage? _storage;
+	private readonly ISettingsStorage? _storage;
 	private readonly Lock _syncRoot = new();
 	private readonly TimeSpan _saveDelay;
 	private AppSettingsData _settings;
@@ -47,15 +47,7 @@ internal sealed partial class AppSettingsService : INotifyPropertyChanged, IDisp
 	[GeneratedSettingsProperty(SidebarDisplayMode.Expanded)]
 	public partial SidebarDisplayMode SidebarDisplayMode { get; set; }
 
-	public AppSettingsService() : this(GetDefaultLocalFolderPath())
-	{
-	}
-
-	internal AppSettingsService(string localFolderPath, TimeSpan? saveDelay = null) : this(Files.Hosting.FilesHost.OpenSettingsStorage(localFolderPath), saveDelay)
-	{
-	}
-
-	internal AppSettingsService(Files.Core.Settings.ISettingsStorage storage, TimeSpan? saveDelay = null)
+	internal AppSettingsService(ISettingsStorage storage, TimeSpan? saveDelay = null)
 	{
 		ArgumentNullException.ThrowIfNull(storage);
 		if (saveDelay is { } delay && delay < TimeSpan.Zero)

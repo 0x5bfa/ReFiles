@@ -42,14 +42,6 @@ public static class FilesHost
 		return new MemoryThumbnailCache();
 	}
 
-	/// <summary>Opens application settings persistence without constructing the storage runtime.</summary>
-	/// <param name="localFolderPath">The application's local-state directory.</param>
-	/// <returns>A settings-only service confined to that directory.</returns>
-	public static Files.Core.Settings.ISettingsStorage OpenSettingsStorage(string localFolderPath)
-	{
-		return new WindowsSettingsStorage(localFolderPath);
-	}
-
 	private static FilesCoreRuntime CreateRuntime(bool operationHost, IViewSettingsStore? settings, IThumbnailCache? cache,
 		Files.Core.Storage.IStorageOperationService? operations, ILoggerFactory? loggerFactory)
 	{

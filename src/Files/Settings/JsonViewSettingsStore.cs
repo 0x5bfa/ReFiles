@@ -17,7 +17,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 	private const int DefaultSaveDelayMilliseconds = 250;
 	private static readonly TimeSpan _saveRetryDelay = TimeSpan.FromSeconds(5);
 
-	private readonly Files.Core.Settings.ISettingsStorage _storage;
+	private readonly ISettingsStorage _storage;
 	private readonly Lock _syncRoot = new();
 	private readonly Lock _initializationLock = new();
 	private readonly TimeSpan _saveDelay;
@@ -30,11 +30,7 @@ internal sealed partial class JsonViewSettingsStore : IViewSettingsStore, IDispo
 	private bool _isInitialized;
 	private bool _isDisposed;
 
-	internal JsonViewSettingsStore(string localFolderPath, TimeSpan? saveDelay = null) : this(Files.Hosting.FilesHost.OpenSettingsStorage(localFolderPath), saveDelay)
-	{
-	}
-
-	internal JsonViewSettingsStore(Files.Core.Settings.ISettingsStorage storage, TimeSpan? saveDelay = null)
+	internal JsonViewSettingsStore(ISettingsStorage storage, TimeSpan? saveDelay = null)
 	{
 		ArgumentNullException.ThrowIfNull(storage);
 		if (saveDelay is { } delay && delay < TimeSpan.Zero)

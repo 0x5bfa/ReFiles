@@ -255,10 +255,6 @@ Files.Core.Storage.Windows.WindowsPropertyReader
 Files.Core.Storage.Windows.WindowsPropertyReader.CanRead(Files.Core.Capabilities.ItemContext! context) -> bool
 Files.Core.Storage.Windows.WindowsPropertyReader.GetPropertiesAsync(Files.Core.Capabilities.Properties.PropertyRequest! request, System.Collections.Generic.IReadOnlyList<Files.Core.Capabilities.ItemContext!>! contexts, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyDictionary<Files.Core.Storage.StorableReference!, System.Collections.Generic.IReadOnlyDictionary<string!, object?>!>!>
 Files.Core.Storage.Windows.WindowsPropertyReader.WindowsPropertyReader(Microsoft.Extensions.Logging.ILogger<Files.Core.Storage.Windows.WindowsPropertyReader!>? logger = null) -> void
-Files.Core.Storage.Windows.WindowsSettingsStorage
-Files.Core.Storage.Windows.WindowsSettingsStorage.ReadTextAsync(string! fileName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string?>!
-Files.Core.Storage.Windows.WindowsSettingsStorage.WindowsSettingsStorage(string! localFolderPath) -> void
-Files.Core.Storage.Windows.WindowsSettingsStorage.WriteTextAsync(string! fileName, string! text, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Files.Core.Storage.Windows.WindowsShellClassicContextMenuSession
 Files.Core.Storage.Windows.WindowsShellClassicContextMenuSession.Show(nint ownerWindowHandle, Files.Core.Storage.Windows.WindowsShellContextMenuTarget! target, System.Drawing.Point invocationPoint) -> bool
 Files.Core.Storage.Windows.WindowsShellClassicContextMenuSession.WindowsShellClassicContextMenuSession() -> void

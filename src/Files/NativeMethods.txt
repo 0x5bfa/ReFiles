@@ -9,6 +9,7 @@ DestroyWindow
 DwmSetWindowAttribute
 E_FAIL
 GetCursorPos
+GetFileAttributes
 GetKeyState
 GetMessagePos
 GetModuleHandle
@@ -18,6 +19,7 @@ ID3D11Device
 ID3D11DeviceContext
 IDCompositionDevice
 IDXGIDevice
+INVALID_FILE_ATTRIBUTES
 IsChild
 IsWindow
 LPARAM
@@ -26,6 +28,7 @@ MSG
 PostMessage
 RedrawWindow
 RegisterClassEx
+ReplaceFile
 SHDefExtractIconW
 SHGetStockIconInfo
 SetActiveWindow
@@ -33,5 +36,6 @@ SetWindowLongPtr
 SetWindowPos
 UnregisterClass
 WINDOW_LONG_PTR_INDEX
+WIN32_ERROR
 WNDCLASSEXW
 WPARAM
