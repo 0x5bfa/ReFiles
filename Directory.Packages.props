@@ -44,8 +44,8 @@
     <PackageVersion Include="System.Management" Version="10.0.14" />
     <!--  Test infrastructure  -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
-    <PackageVersion Include="MSTest.TestAdapter" Version="4.5.2" />
-    <PackageVersion Include="MSTest.TestFramework" Version="4.5.2" />
+    <PackageVersion Include="MSTest.TestAdapter" Version="4.5.3" />
+    <PackageVersion Include="MSTest.TestFramework" Version="4.5.3" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.5.2" />
     <PackageVersion Include="Microsoft.TestPlatform.TestHost" Version="18.11.0" />
     <PackageVersion Include="StyleCop.Analyzers" Version="1.3.171-beta" />
